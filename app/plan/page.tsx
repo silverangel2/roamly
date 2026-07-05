@@ -1,0 +1,48 @@
+import { TripPlanForm } from "@/components/plan/TripPlanForm";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
+import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+
+const promiseCards = [
+  ["1 free itinerary", "One full itinerary per account, lifetime"],
+  ["Full Itinerary Unlock", "Unlock one new itinerary for $4.99 CAD"],
+  ["Complete Trip Pack", "Itinerary plus Live Trip Companion for $7.99 CAD"],
+  ["Mobile first", "Built to follow while traveling"]
+];
+
+export default async function PlanPage() {
+  const current = await getCurrentUser();
+  const supabase = current.user ? await createSupabaseServerClient() : null;
+  const free = supabase && current.user ? await hasUsedFreeItinerary(supabase, current.user.id) : null;
+  const freeItineraryUsed = Boolean(free?.used);
+
+  return (
+    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <section className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+        <div className="space-y-5 lg:sticky lg:top-24">
+          <Badge>Plan trip</Badge>
+          <div>
+            <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
+              Tell Roamly what kind of trip you want.
+            </h1>
+            <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-600">
+              A few clean choices now. Roamly checks trip costs before building the locked itinerary.
+            </p>
+          </div>
+
+          <div className="grid gap-3">
+            {promiseCards.map(([title, detail]) => (
+              <Card key={title} className="p-4">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{title}</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{detail}</p>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        <TripPlanForm freeItineraryUsed={freeItineraryUsed} />
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Roamly">
+  <defs>
+    <linearGradient id="roamlyGradient" x1="18" y1="20" x2="110" y2="108" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#54D6C6"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="32" fill="url(#roamlyGradient)"/>
+  <path d="M32 76C45 43 76 34 96 52C111 66 101 93 75 93H35C30 93 28 88 30 84L32 76Z" fill="white" fill-opacity=".94"/>
+  <path d="M52 75L66 48L80 75H68L66 86L64 75H52Z" fill="#111827"/>
+  <circle cx="94" cy="35" r="8" fill="#F9D56E"/>
+</svg>

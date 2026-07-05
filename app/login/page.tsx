@@ -1,0 +1,49 @@
+import { redirect } from "next/navigation";
+import { AuthForm } from "@/components/auth/AuthForm";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { getCurrentUser } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/navigation";
+
+type LoginPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = searchParams ? await searchParams : {};
+  const nextPath = safeNextPath(params.next);
+  const current = await getCurrentUser();
+
+  if (current.configured && current.user) {
+    redirect(nextPath);
+  }
+
+  return (
+    <main className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
+      <section className="space-y-5">
+        <Badge>Welcome back</Badge>
+        <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
+          Log in and keep your trips together.
+        </h1>
+        <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
+          Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {["Saved trips", "1 free itinerary", "One-time trip packs"].map((item) => (
+            <div key={item} className="rounded-2xl bg-white/80 p-4 text-sm font-black text-ink shadow-soft">
+              {item}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <Card className="mx-auto w-full max-w-md">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Roamly account</p>
+        <h2 className="mt-2 text-2xl font-black text-ink">Log in</h2>
+        <div className="mt-5">
+          <AuthForm mode="login" nextPath={nextPath} />
+        </div>
+      </Card>
+    </main>
+  );
+}
