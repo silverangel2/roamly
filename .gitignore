@@ -18,3 +18,4 @@ dist
 .next
 .vercel
 node_modules
+tsconfig.tsbuildinfo
