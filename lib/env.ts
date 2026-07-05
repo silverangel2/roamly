@@ -36,5 +36,11 @@ export const roamlyConfig = {
     process.env.ROAMLY_STRIPE_TRIP_BUNDLE_PRICE_ID ||
     "",
   vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
-  notificationCronSecret: process.env.ROAMLY_NOTIFICATION_CRON_SECRET || ""
+  notificationCronSecret: process.env.ROAMLY_NOTIFICATION_CRON_SECRET || "",
+  affiliates: {
+    enabled: process.env.ROAMLY_AFFILIATES_ENABLED === "true",
+    hotelProvider: process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "",
+    flightProvider: process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER || "",
+    attractionsProvider: process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || ""
+  }
 };

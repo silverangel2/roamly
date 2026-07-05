@@ -3,6 +3,7 @@ import { calculateDistanceMeters, isWithinRadius, type LocationInput } from "@/l
 import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
+import { createInAppNotification } from "@/lib/roamly/pushServer";
 
 export type TrackingTrip = {
   id: string;
@@ -53,9 +54,10 @@ export type TrackingActivity = {
   scheduled_start: string | null;
   scheduled_end: string | null;
   sort_order: number;
-  status: "planned" | "nearby" | "checked_in" | "completed" | "skipped";
+  status: "planned" | "nearby" | "checked_in" | "completed" | "skipped" | "missed";
   checked_in_at: string | null;
   completed_at: string | null;
+  metadata?: Record<string, unknown> | null;
   distance_meters?: number;
 };
 
@@ -73,16 +75,18 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string) {
+export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string, tripId?: string) {
   const today = todayIso();
-  const { data, error } = await supabase
+  let query = supabase
     .from("roamly_trips")
     .select("*")
     .eq("user_id", userId)
     .eq("itinerary_locked", true)
     .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
     .in("status", ["locked", "active", "planned"])
-    .or(`end_date.gte.${today},end_date.is.null`)
+    .or(`end_date.gte.${today},end_date.is.null`);
+  if (tripId) query = query.eq("id", tripId);
+  const { data, error } = await query
     .order("start_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false })
     .limit(10);
@@ -161,10 +165,10 @@ export async function getUpNextActivity(supabase: SupabaseClient, tripId: string
     .from("roamly_activities")
     .select("*")
     .eq("trip_id", tripId)
-    .in("status", ["planned", "nearby"])
+    .not("status", "in", "(completed,skipped,missed)")
     .order("scheduled_start", { ascending: true, nullsFirst: false })
     .order("sort_order", { ascending: true })
-    .limit(10);
+    .limit(30);
 
   if (error) return { activity: null, error: error.message };
 
@@ -178,6 +182,17 @@ export async function getUpNextActivity(supabase: SupabaseClient, tripId: string
 
   return {
     activity: activities.sort((a, b) => {
+      const priority = (activity: TrackingActivity) => {
+        if (activity.scheduled_start) return 0;
+        if (activity.status === "nearby") return 1;
+        if (activity.status === "checked_in") return 2;
+        return 3;
+      };
+      const priorityDiff = priority(a) - priority(b);
+      if (priorityDiff) return priorityDiff;
+      if (a.scheduled_start && b.scheduled_start) {
+        return new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime();
+      }
       if (a.distance_meters != null && b.distance_meters != null) return a.distance_meters - b.distance_meters;
       return a.sort_order - b.sort_order;
     })[0] || null
@@ -209,8 +224,8 @@ export function buildTripNotificationPayload(params: {
   return null;
 }
 
-export async function activateTripIfNearby(supabase: SupabaseClient, userId: string, location: LocationInput) {
-  const tripResult = await getActiveOrUpcomingTrip(supabase, userId);
+export async function activateTripIfNearby(supabase: SupabaseClient, userId: string, location: LocationInput, tripId?: string) {
+  const tripResult = await getActiveOrUpcomingTrip(supabase, userId, tripId);
   const trip = tripResult.trip;
 
   if (!trip) {
@@ -233,12 +248,15 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
   const wasTripActivatedNow = trip.status !== "active" && nearby.activities.length > 0;
 
   if (nearby.activities.length) {
-    const nearbyIds = nearby.activities
-      .filter((activity) => activity.status === "planned")
-      .map((activity) => activity.id);
+    const newlyNearby = nearby.activities.filter((activity) => activity.status === "planned");
+    const nearbyIds = newlyNearby.map((activity) => activity.id);
+    const nearbyTitles = newlyNearby.map((activity) => activity.title).filter(Boolean);
 
     if (nearbyIds.length) {
       await supabase.from("roamly_activities").update({ status: "nearby" }).in("id", nearbyIds);
+    }
+    if (nearbyTitles.length) {
+      await supabase.from("roamly_trip_activities").update({ status: "nearby" }).eq("trip_id", trip.id).in("title", nearbyTitles);
     }
   }
 
@@ -279,6 +297,40 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
       longitude: location.longitude,
       distanceMeters: nearby.activities[0].distance_meters
     });
+
+    const now = new Date().toISOString();
+    const companion = await supabase
+      .from("roamly_trip_companion_events")
+      .insert({
+        user_id: userId,
+        trip_id: trip.id,
+        event_type: "nearby_activity",
+        title: `Nearby now: ${nearby.activities[0].title}`,
+        body: "You are near a planned activity. Check in when you arrive.",
+        scheduled_for: now,
+        completed_at: now,
+        status: "shown",
+        metadata: {
+          activityId: nearby.activities[0].id,
+          distanceMeters: nearby.activities[0].distance_meters ?? null
+        }
+      })
+      .select("id")
+      .maybeSingle();
+
+    await createInAppNotification(supabase, {
+      userId,
+      tripId: trip.id,
+      eventId: companion.data?.id || null,
+      type: "nearby_activity",
+      title: `Nearby now: ${nearby.activities[0].title}`,
+      body: "Check in, skip, or open directions from your Live Trip Companion.",
+      actionUrl: `/trip/${trip.id}/live`,
+      metadata: {
+        activityId: nearby.activities[0].id,
+        distanceMeters: nearby.activities[0].distance_meters ?? null
+      }
+    });
   }
 
   const notification = buildTripNotificationPayload({
@@ -310,6 +362,8 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
     nearbyActivities: nearby.activities,
     checkedActivities: checked.activities,
     upNextActivity: upNext.activity,
+    notificationCreated: Boolean(nearby.activities[0]),
+    companionEventId: null,
     notification,
     error: nearby.error || checked.error || upNext.error
   };

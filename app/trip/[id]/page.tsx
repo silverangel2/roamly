@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { buildPreviewFromItinerary, createMapLink, type RoamlyItinerary, type RoamlyPreview } from "@/lib/itinerary";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
+import { buildAttractionAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay, isMissingTableError } from "@/lib/trips";
@@ -46,7 +47,12 @@ function LockedCard({ title, text }: { title: string; text: string }) {
   );
 }
 
-function DayCard({ day }: { day: RoamlyItinerary["daily_itinerary"][number] }) {
+function DayCard({ day, destination }: { day: RoamlyItinerary["daily_itinerary"][number]; destination: string }) {
+  const activityLink = buildAttractionAffiliateUrl({
+    category: "tour",
+    destination,
+    query: `${destination} ${day.title} tours tickets activities`
+  });
   return (
     <article className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -82,6 +88,14 @@ function DayCard({ day }: { day: RoamlyItinerary["daily_itinerary"][number] }) {
               Map: {query}
             </a>
           ))}
+          <a
+            href={activityLink.href}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean ring-1 ring-ocean/15"
+          >
+            Find tours for this day
+          </a>
         </div>
       </div>
     </article>
@@ -267,7 +281,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
           <section className="mt-7 grid gap-4">
             {full.daily_itinerary.map((day) => (
-              <DayCard key={day.day_number} day={day} />
+              <DayCard key={day.day_number} day={day} destination={trip.destination} />
             ))}
           </section>
 

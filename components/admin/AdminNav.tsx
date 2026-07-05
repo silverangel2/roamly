@@ -8,6 +8,7 @@ const adminLinks = [
   ["/admin/traffic", "Traffic"],
   ["/admin/trips", "Trips"],
   ["/admin/activities", "Activities"],
+  ["/admin/live-test", "Live Test"],
   ["/admin/notifications", "Notifications"],
   ["/admin/users", "Users"],
   ["/admin/settings", "Settings"],

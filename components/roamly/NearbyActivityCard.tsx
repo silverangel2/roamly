@@ -20,12 +20,16 @@ export function NearbyActivityCard({
 
     if (!navigator.geolocation) {
       setError("Location is not available on this device.");
+      setBusy("");
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => void callback(position.coords),
-      () => setError("Roamly needs location permission to check in."),
+      () => {
+        setError("Roamly needs location permission to check in.");
+        setBusy("");
+      },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
     );
   }
@@ -65,6 +69,20 @@ export function NearbyActivityCard({
     setBusy("");
   }
 
+  async function skip() {
+    if (!activity) return;
+    setBusy("skip");
+    const response = await fetch("/api/roamly/activities/skip", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tripId, activityId: activity.id })
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) setError(data?.error || "Could not skip activity.");
+    else setNotice("Skipped.");
+    setBusy("");
+  }
+
   if (!activity) {
     return (
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
@@ -83,7 +101,7 @@ export function NearbyActivityCard({
       {activity.distance_meters != null ? (
         <p className="mt-2 text-sm font-black text-ocean">{activity.distance_meters}m away</p>
       ) : null}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <button
           type="button"
           onClick={checkIn}
@@ -98,7 +116,15 @@ export function NearbyActivityCard({
           disabled={Boolean(busy)}
           className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink shadow-soft ring-1 ring-cloud disabled:opacity-60"
         >
-          {busy === "complete" ? "Saving..." : "Mark complete"}
+          {busy === "complete" ? "Saving..." : "Mark done"}
+        </button>
+        <button
+          type="button"
+          onClick={skip}
+          disabled={Boolean(busy)}
+          className="rounded-2xl bg-cloud px-4 py-3 text-sm font-black text-slate-600 shadow-soft disabled:opacity-60"
+        >
+          {busy === "skip" ? "Saving..." : "Skip"}
         </button>
       </div>
       {notice ? <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}

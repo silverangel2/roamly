@@ -7,7 +7,9 @@ import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 function statusLabel(status: string) {
   if (status === "completed") return "Done";
   if (status === "skipped") return "Skipped";
-  if (status === "active") return "Now";
+  if (status === "checked_in" || status === "active") return "Checked in";
+  if (status === "nearby") return "Nearby";
+  if (status === "missed") return "Missed";
   return "Planned";
 }
 
@@ -25,27 +27,41 @@ export function LiveTripClient({
   const [error, setError] = useState("");
 
   const active = useMemo(
-    () => items.find((item) => item.status === "active") || items.find((item) => item.status === "planned") || items[0],
+    () =>
+      items.find((item) => item.status === "checked_in" || item.status === "active") ||
+      items.find((item) => item.status === "nearby") ||
+      items.find((item) => item.status === "planned") ||
+      items[0],
     [items]
   );
   const next = useMemo(
-    () => items.find((item) => item.status === "planned" && item.id !== active?.id) || items.find((item) => item.status !== "completed" && item.id !== active?.id),
+    () =>
+      items.find((item) => !["completed", "skipped", "missed"].includes(item.status) && item.id !== active?.id) ||
+      null,
     [active?.id, items]
   );
 
-  async function updateStatus(activityId: string, status: ActivityRecord["status"]) {
-    setBusy(activityId + status);
+  async function runAction(activityId: string, action: "check-in" | "skip" | "complete") {
+    setBusy(activityId + action);
     setError("");
 
+    const endpoint =
+      action === "check-in"
+        ? "/api/roamly/activities/check-in"
+        : action === "skip"
+          ? "/api/roamly/activities/skip"
+          : "/api/roamly/activities/complete";
+    const nextStatus = action === "check-in" ? "checked_in" : action === "skip" ? "skipped" : "completed";
+
     try {
-      const response = await fetch(`/api/trips/${tripId}/activity-status`, {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ activityId, status })
+        body: JSON.stringify({ tripId, activityId })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not update activity.");
-      setItems((current) => current.map((item) => (item.id === activityId ? { ...item, status } : item)));
+      setItems((current) => current.map((item) => (item.id === activityId ? { ...item, status: nextStatus } : item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update activity.");
     } finally {
@@ -88,24 +104,24 @@ export function LiveTripClient({
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => updateStatus(activity.id, "active")}
-                  disabled={Boolean(busy)}
+                  onClick={() => runAction(activity.id, "check-in")}
+                  disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(activity.status)}
                   className="rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean"
                 >
-                  I&apos;m here
+                  Check in
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateStatus(activity.id, "completed")}
-                  disabled={Boolean(busy)}
+                  onClick={() => runAction(activity.id, "complete")}
+                  disabled={Boolean(busy) || ["completed", "skipped"].includes(activity.status)}
                   className="rounded-full bg-ink px-3 py-2 text-xs font-black text-white"
                 >
-                  Done
+                  Mark done
                 </button>
                 <button
                   type="button"
-                  onClick={() => updateStatus(activity.id, "skipped")}
-                  disabled={Boolean(busy)}
+                  onClick={() => runAction(activity.id, "skip")}
+                  disabled={Boolean(busy) || ["completed", "skipped"].includes(activity.status)}
                   className="rounded-full bg-cloud px-3 py-2 text-xs font-black text-slate-600"
                 >
                   Skip

@@ -1,18 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { performActivityAction, type RoamlyActivityAction } from "@/lib/roamly/activityActions";
+import { performActivityAction } from "@/lib/roamly/activityActions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const actionByStatus: Record<string, RoamlyActivityAction | null> = {
-  active: "check_in",
-  nearby: "check_in",
-  checked_in: "check_in",
-  completed: "complete",
-  skipped: "skip",
-  planned: null
-};
-
-export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
 
@@ -21,23 +11,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const activityId = typeof body.activityId === "string" ? body.activityId : "";
-  const status = typeof body.status === "string" ? body.status : "";
+  const tripId = typeof body.tripId === "string" ? body.tripId : "";
 
-  if (!activityId || !(status in actionByStatus)) {
-    return NextResponse.json({ ok: false, error: "Activity and status are required." }, { status: 400 });
-  }
-
-  const action = actionByStatus[status];
-  if (!action) {
-    return NextResponse.json({ ok: false, error: "Live Trip Companion can only check in, skip, or mark done." }, { status: 400 });
+  if (!activityId || !tripId) {
+    return NextResponse.json({ ok: false, error: "Activity and trip are required." }, { status: 400 });
   }
 
   const result = await performActivityAction(supabase, {
     userId: data.user.id,
-    tripId: id,
+    tripId,
     activityId,
-    action,
-    source: "legacy_activity_status_route"
+    action: "skip",
+    source: "user_skip"
   });
 
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

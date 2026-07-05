@@ -95,7 +95,9 @@ export type ActivityRecord = {
   estimated_cost: number | null;
   category: string | null;
   map_query: string | null;
-  status: "planned" | "active" | "completed" | "skipped";
+  status: "planned" | "active" | "nearby" | "checked_in" | "completed" | "skipped" | "missed";
+  checked_in_at?: string | null;
+  completed_at?: string | null;
 };
 
 export type ChecklistRecord = {

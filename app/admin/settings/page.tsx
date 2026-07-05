@@ -2,10 +2,12 @@ import { AdminAccessCard } from "@/components/admin/AdminAccessCard";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
+import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
 
 export default async function AdminSettingsPage() {
   const state = await getRoamlyAdminPageState();
   if (!state.isAdmin || !state.admin) return <AdminAccessCard />;
+  const affiliates = getAffiliateReadiness();
 
   return (
     <main className="safe-bottom">
@@ -17,6 +19,8 @@ export default async function AdminSettingsPage() {
           ["Trip pricing", "$4.99 itinerary, $3.99 Live Trip Companion, $7.99 Complete Trip Pack"],
           ["Location permission", "User opt-in only, account setting can disable anytime"],
           ["Notifications", "Live Trip Companion ready, activity nearby, permission events"],
+          ["Affiliate readiness", affiliates.affiliatesEnabled ? "Enabled with launch-safe fallbacks" : "Disabled - direct search links are used"],
+          ["Affiliate providers", `Hotels: ${affiliates.hotelProviderConfigured ? "ready" : "not set"} · Flights: ${affiliates.flightProviderConfigured ? "ready" : "not set"} · Activities: ${affiliates.attractionsProviderConfigured ? "ready" : "not set"}`],
           ["AI generation", process.env.OPENAI_API_KEY ? "Configured" : "Missing OPENAI_API_KEY"],
           ["Admin emails", process.env.ROAMLY_ADMIN_EMAILS ? "Configured" : "Missing ROAMLY_ADMIN_EMAILS"]
         ].map(([label, value]) => (

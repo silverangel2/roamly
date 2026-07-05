@@ -34,18 +34,23 @@ export async function createInAppNotification(
     metadata?: Record<string, unknown>;
   }
 ) {
-  return supabase.from("roamly_notifications").insert({
-    user_id: params.userId,
-    trip_id: params.tripId || null,
-    event_id: params.eventId || null,
-    type: params.type,
-    title: params.title,
-    body: params.body || null,
-    action_url: params.actionUrl || null,
-    status: params.status || "unread",
-    scheduled_for: params.scheduledFor || null,
-    metadata: params.metadata || {}
-  });
+  const writer = createSupabaseAdminClient() || supabase;
+  return writer
+    .from("roamly_notifications")
+    .insert({
+      user_id: params.userId,
+      trip_id: params.tripId || null,
+      event_id: params.eventId || null,
+      type: params.type,
+      title: params.title,
+      body: params.body || null,
+      action_url: params.actionUrl || null,
+      status: params.status || "unread",
+      scheduled_for: params.scheduledFor || null,
+      metadata: params.metadata || {}
+    })
+    .select("id")
+    .maybeSingle();
 }
 
 export async function sendPushNotification(supabase: SupabaseClient, userId: string, payload: NotificationPayload) {
@@ -62,14 +67,37 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
     status: "unread",
     metadata: { pushConfigured: configured, pushStatus: configured ? "pending" : "not_configured" }
   });
-  if (!configured) return { ok: false, error: "Web push is not configured.", notification };
+  if (!configured) {
+    if (notification.data?.id) {
+      await writer
+        .from("roamly_notifications")
+        .update({ push_status: "not_configured", push_error: "Web push is not configured." })
+        .eq("id", notification.data.id);
+    }
+    return { ok: false, error: "Web push is not configured.", notification };
+  }
 
   const { data: subscriptions, error } = await writer
     .from("roamly_push_subscriptions")
     .select("*")
     .eq("user_id", userId)
     .eq("enabled", true);
-  if (error) return { ok: false, error: error.message, notification };
+  if (error) {
+    if (notification.data?.id) {
+      await writer.from("roamly_notifications").update({ push_status: "failed", push_error: error.message }).eq("id", notification.data.id);
+    }
+    return { ok: false, error: error.message, notification };
+  }
+
+  if (!subscriptions?.length) {
+    if (notification.data?.id) {
+      await writer
+        .from("roamly_notifications")
+        .update({ push_status: "no_subscription", push_error: "No push subscription found." })
+        .eq("id", notification.data.id);
+    }
+    return { ok: false, error: "No push subscription found.", sent: 0, failed: 0, notification };
+  }
 
   const body = JSON.stringify({
     title: payload.title,
@@ -93,6 +121,22 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
   );
 
   const failed = results.filter((result) => result.status === "rejected").length;
+  if (notification.data?.id) {
+    const firstFailure = results.find((result) => result.status === "rejected");
+    await writer
+      .from("roamly_notifications")
+      .update({
+        sent_at: failed < results.length ? new Date().toISOString() : null,
+        push_status: failed < results.length ? "sent" : "failed",
+        push_error:
+          firstFailure && firstFailure.status === "rejected"
+            ? firstFailure.reason instanceof Error
+              ? firstFailure.reason.message
+              : String(firstFailure.reason)
+            : null
+      })
+      .eq("id", notification.data.id);
+  }
   return { ok: failed < results.length, failed, sent: results.length - failed, notification };
 }
 

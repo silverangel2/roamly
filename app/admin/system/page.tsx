@@ -3,6 +3,7 @@ import { DemoSeedButton } from "@/components/admin/DemoSeedButton";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
+import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
 
 const tables = [
   "roamly_trips",
@@ -28,7 +29,8 @@ const environmentChecks = [
   "ROAMLY_STRIPE_ITINERARY_PRICE_ID",
   "ROAMLY_STRIPE_FEATURES_PRICE_ID",
   "ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID",
-  "ROAMLY_NOTIFICATION_CRON_SECRET"
+  "ROAMLY_NOTIFICATION_CRON_SECRET",
+  "ROAMLY_AFFILIATES_ENABLED"
 ];
 
 export default async function AdminSystemPage() {
@@ -41,6 +43,28 @@ export default async function AdminSystemPage() {
       return { table, ok: !error, error: error?.message };
     })
   );
+  const [pushSubscriptions, notifications, companionEvents, lastNotification, lastFailure, locationSettings, lastLocation] =
+    await Promise.all([
+      state.admin.from("roamly_push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
+      state.admin.from("roamly_notifications").select("id", { count: "exact", head: true }),
+      state.admin.from("roamly_trip_companion_events").select("id", { count: "exact", head: true }),
+      state.admin.from("roamly_notifications").select("id,title,created_at,sent_at,push_status").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      state.admin
+        .from("roamly_notifications")
+        .select("id,title,created_at,push_error,push_status")
+        .not("push_error", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      state.admin.from("roamly_location_settings").select("id", { count: "exact", head: true }),
+      state.admin
+        .from("roamly_location_settings")
+        .select("id,last_seen_at,last_permission_state")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ]);
+  const affiliateReadiness = getAffiliateReadiness();
 
   return (
     <main className="safe-bottom">
@@ -67,6 +91,27 @@ export default async function AdminSystemPage() {
             <p className={`mt-2 text-lg font-black ${process.env[key] ? "text-ocean" : "text-coral"}`}>
               {process.env[key] ? "Configured" : "Missing"}
             </p>
+          </Card>
+        ))}
+      </section>
+
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {[
+          ["Push subscriptions", `${pushSubscriptions.count || 0}`],
+          ["Notifications", `${notifications.count || 0}`],
+          ["Companion events", `${companionEvents.count || 0}`],
+          ["Last notification", lastNotification.data?.created_at || "None"],
+          ["Last notification failure", lastFailure.data?.push_error || "None"],
+          ["Location settings", `${locationSettings.count || 0}`],
+          ["Last location update", lastLocation.data?.last_seen_at || "None"],
+          ["Affiliates", affiliateReadiness.affiliatesEnabled ? "Enabled" : "Disabled"],
+          ["Hotel provider", affiliateReadiness.hotelProviderConfigured ? "Configured" : "Not configured"],
+          ["Flight provider", affiliateReadiness.flightProviderConfigured ? "Configured" : "Not configured"],
+          ["Attractions provider", affiliateReadiness.attractionsProviderConfigured ? "Configured" : "Not configured"]
+        ].map(([label, value]) => (
+          <Card key={label} className="p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
+            <p className="mt-2 text-sm font-black leading-6 text-ink">{value}</p>
           </Card>
         ))}
       </section>

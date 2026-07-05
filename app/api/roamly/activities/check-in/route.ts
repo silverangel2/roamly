@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeCoordinates } from "@/lib/roamly/location";
-import { checkInNearbyActivities } from "@/lib/roamly/tripActivation";
+import { performActivityAction } from "@/lib/roamly/activityActions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -18,11 +18,19 @@ export async function POST(request: NextRequest) {
     longitude: body.longitude as number
   });
 
-  if (!activityId || !tripId || !location) {
-    return NextResponse.json({ ok: false, error: "Activity, trip, and location are required." }, { status: 400 });
+  if (!activityId || !tripId) {
+    return NextResponse.json({ ok: false, error: "Activity and trip are required." }, { status: 400 });
   }
 
-  const result = await checkInNearbyActivities(supabase, data.user.id, tripId, activityId, location);
+  const result = await performActivityAction(supabase, {
+    userId: data.user.id,
+    tripId,
+    activityId,
+    action: "check_in",
+    location,
+    source: "user_check_in",
+    requireNearbyForCheckIn: Boolean(location)
+  });
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
-  return NextResponse.json({ ok: true, activity: result.activity });
+  return NextResponse.json({ ok: true, activity: result.activity, upNextActivity: result.upNextActivity });
 }
