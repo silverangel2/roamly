@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Trip = {
   id: string;
+  user_id?: string | null;
   title: string | null;
   destination: string | null;
   start_date: string | null;
@@ -36,6 +37,26 @@ type Booking = {
   longitude: number | null;
 };
 
+type PushSubscription = {
+  id: string;
+  user_id: string | null;
+  enabled: boolean | null;
+  user_agent: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type NotificationRow = {
+  id: string;
+  user_id: string | null;
+  trip_id: string | null;
+  title: string | null;
+  push_status: string | null;
+  push_error: string | null;
+  sent_at: string | null;
+  created_at: string | null;
+};
+
 const actions = [
   ["simulate_one_week_before", "Simulate 1 week before trip"],
   ["simulate_one_day_before", "Simulate 1 day before trip"],
@@ -49,7 +70,8 @@ const actions = [
   ["send_test_push_notification", "Send test push notification"],
   ["simulate_check_in", "Simulate check-in to nearby activity"],
   ["simulate_skip", "Simulate skip nearby activity"],
-  ["simulate_complete", "Simulate complete checked-in activity"]
+  ["simulate_complete", "Simulate complete checked-in activity"],
+  ["debug_report", "Refresh server debug report"]
 ];
 
 function ResultPill({ label, value }: { label: string; value: unknown }) {
@@ -65,20 +87,49 @@ function ResultPill({ label, value }: { label: string; value: unknown }) {
 export function AdminLiveTestConsole({
   trips,
   activities,
-  bookings
+  bookings,
+  pushSubscriptions,
+  notifications
 }: {
   trips: Trip[];
   activities: Activity[];
   bookings: Booking[];
+  pushSubscriptions: PushSubscription[];
+  notifications: NotificationRow[];
 }) {
   const [tripId, setTripId] = useState(trips[0]?.id || "");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [browserPermission, setBrowserPermission] = useState("unknown");
 
   const selectedTrip = trips.find((trip) => trip.id === tripId) || null;
   const tripActivities = useMemo(() => activities.filter((activity) => activity.trip_id === tripId), [activities, tripId]);
   const tripBookings = useMemo(() => bookings.filter((booking) => booking.trip_id === tripId), [bookings, tripId]);
+  const activePushSubscriptions = useMemo(
+    () =>
+      pushSubscriptions.filter(
+        (subscription) => subscription.user_id === selectedTrip?.user_id && subscription.enabled !== false
+      ),
+    [pushSubscriptions, selectedTrip?.user_id]
+  );
+  const latestPushResult = useMemo(
+    () =>
+      notifications.find(
+        (notification) =>
+          notification.trip_id === tripId && (Boolean(notification.push_status) || Boolean(notification.push_error))
+      ) || null,
+    [notifications, tripId]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setBrowserPermission("unsupported");
+      return;
+    }
+    setBrowserPermission(Notification.permission);
+  }, []);
 
   async function run(action: string) {
     setBusy(action);
@@ -124,7 +175,16 @@ export function AdminLiveTestConsole({
             <ResultPill label="Companion status" value={selectedTrip.trip_companion_status || "Not set"} />
             <ResultPill label="Itinerary status" value={selectedTrip.itinerary_status || "Not set"} />
             <ResultPill label="Start date" value={selectedTrip.start_date || "No date"} />
+            <ResultPill label="Push subscriptions" value={activePushSubscriptions.length} />
+            <ResultPill label="This browser permission" value={browserPermission} />
+            <ResultPill label="Last push status" value={latestPushResult?.push_status || "none"} />
+            <ResultPill label="Last push error" value={latestPushResult?.push_error || "none"} />
           </div>
+        ) : null}
+        {selectedTrip && !activePushSubscriptions.length ? (
+          <p className="mt-4 rounded-2xl bg-sun/15 px-4 py-3 text-sm font-black leading-6 text-amber-900">
+            No push subscription found. Open Roamly on your phone, enable reminders, then run this test again.
+          </p>
         ) : null}
       </section>
 

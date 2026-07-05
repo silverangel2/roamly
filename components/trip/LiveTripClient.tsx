@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { NavigationButtons } from "@/components/roamly/NavigationButtons";
+import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 
 function statusLabel(status: string) {
@@ -40,6 +41,16 @@ export function LiveTripClient({
       null,
     [active?.id, items]
   );
+  const activeDirections = useMemo(
+    () =>
+      active
+        ? buildNavigationLinks({
+            destinationLabel: active.title,
+            address: active.map_query || active.location_name
+          })[0] || null
+        : null,
+    [active]
+  );
 
   async function runAction(activityId: string, action: "check-in" | "skip" | "complete") {
     setBusy(activityId + action);
@@ -70,7 +81,7 @@ export function LiveTripClient({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-24 md:pb-0">
       <section className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-[1.75rem] bg-ink p-5 text-white shadow-soft">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Now</p>
@@ -148,6 +159,54 @@ export function LiveTripClient({
           ))}
         </div>
       </section>
+
+      {active ? (
+        <section className="fixed inset-x-3 bottom-24 z-30 rounded-[1.4rem] border border-white/80 bg-white/95 p-2 shadow-soft backdrop-blur md:hidden">
+          <p className="mb-2 px-2 text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-400">
+            Up next: {active.title}
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            <button
+              type="button"
+              onClick={() => runAction(active.id, "check-in")}
+              disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(active.status)}
+              className="min-h-12 rounded-2xl bg-ocean/10 px-2 text-[0.72rem] font-black text-ocean disabled:opacity-45"
+            >
+              Check in
+            </button>
+            <button
+              type="button"
+              onClick={() => runAction(active.id, "skip")}
+              disabled={Boolean(busy) || ["completed", "skipped"].includes(active.status)}
+              className="min-h-12 rounded-2xl bg-cloud px-2 text-[0.72rem] font-black text-slate-700 disabled:opacity-45"
+            >
+              Skip
+            </button>
+            <button
+              type="button"
+              onClick={() => runAction(active.id, "complete")}
+              disabled={Boolean(busy) || ["completed", "skipped"].includes(active.status)}
+              className="min-h-12 rounded-2xl bg-ink px-2 text-[0.72rem] font-black text-white disabled:opacity-45"
+            >
+              Done
+            </button>
+            {activeDirections ? (
+              <a
+                href={activeDirections.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-12 items-center justify-center rounded-2xl bg-sun/25 px-2 text-center text-[0.72rem] font-black text-amber-900"
+              >
+                Directions
+              </a>
+            ) : (
+              <span className="flex min-h-12 items-center justify-center rounded-2xl bg-mist px-2 text-center text-[0.72rem] font-black text-slate-400">
+                Directions
+              </span>
+            )}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

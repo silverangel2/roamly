@@ -10,12 +10,13 @@ export default async function AdminLiveTestPage() {
 
   const { data: trips } = await state.admin
     .from("roamly_trips")
-    .select("id,title,destination,start_date,itinerary_status,trip_companion_status,live_companion_unlocked")
+    .select("id,user_id,title,destination,start_date,itinerary_status,trip_companion_status,live_companion_unlocked")
     .order("created_at", { ascending: false })
     .limit(30);
 
   const tripIds = (trips || []).map((trip) => trip.id);
-  const [{ data: activities }, { data: bookings }] = await Promise.all([
+  const userIds = Array.from(new Set((trips || []).map((trip) => trip.user_id).filter(Boolean)));
+  const [{ data: activities }, { data: bookings }, { data: pushSubscriptions }, { data: recentNotifications }] = await Promise.all([
     tripIds.length
       ? state.admin
           .from("roamly_activities")
@@ -29,6 +30,21 @@ export default async function AdminLiveTestPage() {
           .select("id,trip_id,title,booking_type,address,start_date,start_time,latitude,longitude")
           .in("trip_id", tripIds)
           .order("start_date", { ascending: true, nullsFirst: false })
+      : Promise.resolve({ data: [] }),
+    userIds.length
+      ? state.admin
+          .from("roamly_push_subscriptions")
+          .select("id,user_id,enabled,user_agent,created_at,updated_at")
+          .in("user_id", userIds)
+          .order("updated_at", { ascending: false, nullsFirst: false })
+      : Promise.resolve({ data: [] }),
+    tripIds.length
+      ? state.admin
+          .from("roamly_notifications")
+          .select("id,user_id,trip_id,title,push_status,push_error,sent_at,created_at")
+          .in("trip_id", tripIds)
+          .order("created_at", { ascending: false })
+          .limit(80)
       : Promise.resolve({ data: [] })
   ]);
 
@@ -47,7 +63,13 @@ export default async function AdminLiveTestPage() {
         </Card>
       ) : (
         <section className="mt-6">
-          <AdminLiveTestConsole trips={trips || []} activities={activities || []} bookings={bookings || []} />
+          <AdminLiveTestConsole
+            trips={trips || []}
+            activities={activities || []}
+            bookings={bookings || []}
+            pushSubscriptions={pushSubscriptions || []}
+            notifications={recentNotifications || []}
+          />
         </section>
       )}
     </main>

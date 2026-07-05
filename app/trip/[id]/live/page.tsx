@@ -11,6 +11,32 @@ import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
 
+function formatMoney(cents: number | null, currency = "CAD") {
+  if (cents == null) return "Not set";
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency: (currency || "CAD").toUpperCase(),
+    maximumFractionDigits: 0
+  }).format(cents / 100);
+}
+
+function daysUntil(date: string | null) {
+  if (!date) return null;
+  const start = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.ceil((start.getTime() - today.getTime()) / 86400000);
+}
+
+function countdownCopy(value: number | null, currentDay: number) {
+  if (value == null) return "Trip date not set";
+  if (value > 1) return `${value} days until Day 1`;
+  if (value === 1) return "Tomorrow is Day 1";
+  if (value === 0) return "Trip activated today";
+  return `Current travel day ${currentDay}`;
+}
+
 export default async function LiveTripPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const current = await getCurrentUser();
@@ -41,6 +67,11 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   const currentDay = getTripDayFromDate(bundle.data.trip.start_date, bundle.data.trip.days_count);
   const activitiesByDay = groupActivitiesByDay(bundle.data.activities);
   const dayActivities = activitiesByDay[currentDay] || bundle.data.activities.slice(0, 4);
+  const nextActivity =
+    dayActivities.find((activity) => !["completed", "skipped", "missed"].includes(activity.status)) ||
+    dayActivities[0] ||
+    null;
+  const nearbyActivity = dayActivities.find((activity) => activity.status === "nearby") || null;
   const [companion, bookingsResult] = await Promise.all([
     buildLiveCompanionSummary(supabase, current.user.id, id),
     supabase
@@ -58,6 +89,13 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   };
   const packing = (companion.trip?.packing_checklist || bundle.data.checklist.map((item) => item.item)) as string[];
   const documents = (companion.trip?.document_checklist || []) as string[];
+  const committedBudgetCents = (bookingsResult.data || []).reduce(
+    (sum, booking) => sum + (booking.booking_status === "cancelled" ? 0 : Number(booking.amount_cents || 0)),
+    0
+  );
+  const totalBudgetCents = bundle.data.trip.budget_amount == null ? null : Math.round(Number(bundle.data.trip.budget_amount) * 100);
+  const remainingBudgetCents = totalBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
+  const tripCountdown = daysUntil(bundle.data.trip.start_date);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
@@ -70,6 +108,30 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
           </p>
         </div>
         <Button href={`/trip/${id}`} tone="secondary">Full itinerary</Button>
+      </section>
+
+      <section className="mb-5 grid gap-3 sm:grid-cols-3">
+        <Card>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip activated</p>
+          <h2 className="mt-2 text-2xl font-black text-ink">{countdownCopy(tripCountdown, currentDay)}</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Current day: Day {currentDay}</p>
+        </Card>
+        <Card>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Up next activity</p>
+          <h2 className="mt-2 text-2xl font-black text-ink">{nextActivity?.title || "Flexible time"}</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+            {nextActivity?.time_label || nearbyActivity?.title || "Roamly will surface the next useful stop."}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
+          <h2 className="mt-2 text-2xl font-black text-ink">
+            {formatMoney(remainingBudgetCents, bundle.data.trip.budget_currency)}
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+            Booked items: {formatMoney(committedBudgetCents, bundle.data.trip.budget_currency)}
+          </p>
+        </Card>
       </section>
 
       <section className="mb-5 grid gap-4 lg:grid-cols-[1fr_0.9fr]">
