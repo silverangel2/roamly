@@ -1,0 +1,72 @@
+{
+  "languageName": "한국어",
+  "ui": {
+    "language": "언어",
+    "nav": {
+      "home": "홈",
+      "plan": "계획",
+      "trips": "여행",
+      "live": "라이브",
+      "notifications": "알림",
+      "alerts": "알림",
+      "account": "계정",
+      "pricing": "요금",
+      "planTrip": "여행 계획"
+    },
+    "actions": {
+      "startPlanning": "계획 시작",
+      "viewPricing": "요금 보기",
+      "checkIn": "체크인",
+      "skip": "건너뛰기",
+      "markDone": "완료 표시",
+      "done": "완료",
+      "directions": "길찾기",
+      "enableReminders": "알림 켜기",
+      "openCompanion": "컴패니언 열기",
+      "openItinerary": "일정 열기",
+      "openTrip": "여행 열기"
+    },
+    "status": {
+      "working": "처리 중...",
+      "loading": "불러오는 중...",
+      "empty": "아직 항목이 없습니다."
+    }
+  },
+  "text": {
+    "Build trips that fit your budget, then travel with a live companion.": "예산에 맞는 여행을 만들고 라이브 컴패니언과 함께 이동하세요.",
+    "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.": "Roamly는 항공, 숙소, 활동, 음식, 현지 교통 예상 비용을 확인한 뒤 일정을 만듭니다. 예약 스크린샷을 올리고 여행을 잠금 해제하면 Roamly가 여행 당일을 안내합니다.",
+    "$4.99 full itinerary": "전체 일정 $4.99",
+    "$3.99 Live Trip Companion": "라이브 컴패니언 $3.99",
+    "1 free itinerary per account": "계정당 무료 일정 1개",
+    "Budget-aware itineraries": "예산 기반 일정",
+    "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.": "Roamly는 계획 전에 여행 비용을 확인해 실제 예산에 맞춘 일정을 만듭니다.",
+    "Booking screenshot import": "예약 스크린샷 가져오기",
+    "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.": "호텔, 항공권, 티켓, 예약 스크린샷을 올리면 Roamly가 여행 타임라인으로 바꿉니다.",
+    "Live Trip Companion": "라이브 여행 컴패니언",
+    "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.": "알림, 짐 목록, 서류 확인, 1일차 활성화, 근처 활동, 다음 안내를 잠금 해제하세요.",
+    "From countdown to check-in, Roamly stays with the traveler.": "카운트다운부터 체크인까지 Roamly가 여행자와 함께합니다.",
+    "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.": "1주 전 알림, 서류와 짐 체크리스트, 24시간 카운트다운, 예약 타임라인, 근처 활동 감지, 체크인, 건너뛰기, 다음 안내, Google Maps, Apple Maps, Citymapper 링크를 제공합니다.",
+    "One free itinerary. Then unlock only the trip you need.": "무료 일정 1개. 이후 필요한 여행만 잠금 해제하세요.",
+    "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.": "구독 없음. 계정마다 무료 일정 1개, 이후 여행별 1회 결제입니다.",
+    "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.": "계정당 전체 일정 1개를 생성합니다. 생성 후에는 잠기며 편집할 수 없습니다.",
+    "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.": "한 여행을 위한 잠긴 일별 일정을 생성합니다. 계획만 필요할 때 적합합니다.",
+    "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.": "잠긴 일정에 알림, 서류와 짐 목록, 예약 타임라인, 1일차 활성화, 근처 활동, 다음 안내를 추가합니다.",
+    "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.": "컴플리트 여행 팩: 한 여행에 전체 일정과 라이브 컴패니언을 함께 제공합니다. $0.99 절약.",
+    "Your travel command center.": "여행 지휘 센터.",
+    "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.": "초안을 계속하거나 잠긴 일정을 열거나 라이브 컴패니언으로 바로 이동하세요.",
+    "Create your trip space.": "여행 공간을 만드세요.",
+    "Start with one free itinerary per account. Unlock only the new trips you want to fully use.": "계정당 무료 일정 1개로 시작하세요. 완전히 사용할 새 여행만 잠금 해제하세요.",
+    "Log in and keep your trips together.": "로그인하고 여행을 한곳에 모으세요.",
+    "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.": "Roamly는 ReviewIntel과 별도 Supabase 인증을 사용합니다. 여행 데이터는 Roamly 테이블에만 저장됩니다.",
+    "Your Roamly profile.": "Roamly 프로필.",
+    "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.": "프로필은 간단하게 유지하세요. Roamly는 여행, 소유권, 지원에 필요한 정보만 필요합니다.",
+    "Enable phone reminders": "휴대폰 알림 켜기",
+    "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.": "Roamly가 여행 중 짐, 서류, 체크인 시간, 다음 일정을 알려드립니다.",
+    "Phone reminders are blocked. You can still use in-app notifications in Roamly.": "휴대폰 알림이 차단되었습니다. Roamly 앱 내 알림은 계속 사용할 수 있습니다.",
+    "Phone reminders are enabled.": "휴대폰 알림이 켜졌습니다.",
+    "In-app notifications work automatically. Phone reminders need browser permission on this device.": "앱 내 알림은 자동으로 작동합니다. 휴대폰 알림은 이 기기의 브라우저 권한이 필요합니다.",
+    "This itinerary is locked. To make major changes, create a new itinerary.": "이 일정은 잠겨 있습니다. 큰 변경은 새 일정을 만들어야 합니다.",
+    "Ad space": "광고 공간",
+    "Google AdSense-ready placement": "Google AdSense 준비 위치"
+  }
+}

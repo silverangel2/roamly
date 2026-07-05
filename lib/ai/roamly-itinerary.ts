@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { normalizeItinerary, type RoamlyItinerary } from "@/lib/itinerary";
+import { normalizeLocale } from "@/lib/i18n";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export type GeneratedItineraryResult = {
@@ -15,6 +16,16 @@ function getClient() {
 }
 
 function buildPrompt(payload: TripPlannerPayload) {
+  const languageNames: Record<string, string> = {
+    en: "English",
+    fr: "French",
+    es: "Spanish",
+    ja: "Japanese",
+    ko: "Korean",
+    zh: "Simplified Chinese"
+  };
+  const outputLanguage = languageNames[normalizeLocale(payload.language)] || "English";
+
   return `Create a practical travel itinerary for Roamly.
 
 Traveler input:
@@ -34,6 +45,7 @@ Traveler input:
 - Transportation: ${payload.transportationPreference}
 - Notes: ${payload.specialNotes || "none"}
 - Budget instruction: ${payload.budgetConstraint || "Use practical current-price caution. Prices are estimates and may change before booking."}
+- Output language: ${outputLanguage}
 
 Return ONLY valid JSON with this shape:
 {
@@ -82,6 +94,7 @@ Return ONLY valid JSON with this shape:
 }
 
 Rules:
+- Write every user-facing JSON value in ${outputLanguage}. Keep JSON keys exactly as shown in English.
 - Make the plan useful without overstuffing the day.
 - Keep each field short enough for mobile cards.
 - Give map queries, not URLs.

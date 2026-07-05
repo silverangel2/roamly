@@ -1,0 +1,72 @@
+{
+  "languageName": "Español",
+  "ui": {
+    "language": "Idioma",
+    "nav": {
+      "home": "Inicio",
+      "plan": "Plan",
+      "trips": "Viajes",
+      "live": "En vivo",
+      "notifications": "Notificaciones",
+      "alerts": "Alertas",
+      "account": "Cuenta",
+      "pricing": "Precios",
+      "planTrip": "Planear viaje"
+    },
+    "actions": {
+      "startPlanning": "Empezar",
+      "viewPricing": "Ver precios",
+      "checkIn": "Registrar llegada",
+      "skip": "Omitir",
+      "markDone": "Marcar hecho",
+      "done": "Hecho",
+      "directions": "Direcciones",
+      "enableReminders": "Activar recordatorios",
+      "openCompanion": "Abrir compañero",
+      "openItinerary": "Abrir itinerario",
+      "openTrip": "Abrir viaje"
+    },
+    "status": {
+      "working": "Procesando...",
+      "loading": "Cargando...",
+      "empty": "Nada por aquí todavía."
+    }
+  },
+  "text": {
+    "Build trips that fit your budget, then travel with a live companion.": "Crea viajes que encajen con tu presupuesto y viaja con un compañero en vivo.",
+    "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.": "Roamly revisa vuelos, alojamiento, actividades, comida y transporte local estimados antes de crear tu itinerario. Sube capturas de reservas, desbloquea tu viaje y deja que Roamly guíe tu día.",
+    "$4.99 full itinerary": "Itinerario completo $4.99",
+    "$3.99 Live Trip Companion": "Compañero en vivo $3.99",
+    "1 free itinerary per account": "1 itinerario gratis por cuenta",
+    "Budget-aware itineraries": "Itinerarios con presupuesto",
+    "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.": "Roamly revisa los costos antes de crear el plan, para que el itinerario se diseñe según tu presupuesto real.",
+    "Booking screenshot import": "Importar capturas de reservas",
+    "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.": "Sube capturas de hotel, vuelo, boleto o reserva y Roamly las convierte en tu línea de tiempo.",
+    "Live Trip Companion": "Compañero de viaje en vivo",
+    "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.": "Desbloquea recordatorios, listas de equipaje, revisión de documentos, activación del día 1, actividades cercanas y guía de lo siguiente.",
+    "From countdown to check-in, Roamly stays with the traveler.": "Desde la cuenta regresiva hasta el check-in, Roamly acompaña al viajero.",
+    "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.": "Recibe recordatorios de una semana, listas de documentos y equipaje, cuenta regresiva de 24 horas, línea de reservas, detección de actividades cercanas, check-ins, omisiones, guía siguiente y enlaces a Google Maps, Apple Maps y Citymapper.",
+    "One free itinerary. Then unlock only the trip you need.": "Un itinerario gratis. Luego desbloquea solo el viaje que necesitas.",
+    "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.": "Sin suscripciones. Cada cuenta tiene 1 itinerario gratis y luego compras únicas por viaje.",
+    "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.": "Genera un itinerario completo por cuenta. Una vez creado, queda bloqueado y no se puede editar.",
+    "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.": "Genera un itinerario diario bloqueado para un viaje. Ideal si solo necesitas el plan.",
+    "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.": "Agrega recordatorios, documentos, equipaje, reservas, activación del día 1, actividades cercanas y ayuda siguiente a un itinerario bloqueado.",
+    "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.": "Paquete completo: itinerario completo más Compañero en vivo para un viaje. Ahorra $0.99.",
+    "Your travel command center.": "Tu centro de control de viajes.",
+    "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.": "Continúa un borrador, abre un itinerario bloqueado o entra al Compañero en vivo.",
+    "Create your trip space.": "Crea tu espacio de viaje.",
+    "Start with one free itinerary per account. Unlock only the new trips you want to fully use.": "Empieza con un itinerario gratis por cuenta. Desbloquea solo los viajes nuevos que quieras usar.",
+    "Log in and keep your trips together.": "Inicia sesión y mantén tus viajes juntos.",
+    "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.": "Roamly usa una configuración Supabase separada de ReviewIntel. Tus datos quedan solo en tablas Roamly.",
+    "Your Roamly profile.": "Tu perfil de Roamly.",
+    "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.": "Mantén el perfil simple. Roamly solo necesita la identidad para viajes, propiedad y soporte.",
+    "Enable phone reminders": "Activar recordatorios del teléfono",
+    "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.": "Roamly puede recordarte equipaje, documentos, horarios de check-in y lo que sigue durante el viaje.",
+    "Phone reminders are blocked. You can still use in-app notifications in Roamly.": "Los recordatorios del teléfono están bloqueados. Aún puedes usar notificaciones internas.",
+    "Phone reminders are enabled.": "Los recordatorios del teléfono están activados.",
+    "In-app notifications work automatically. Phone reminders need browser permission on this device.": "Las notificaciones internas funcionan automáticamente. Los recordatorios requieren permiso del navegador.",
+    "This itinerary is locked. To make major changes, create a new itinerary.": "Este itinerario está bloqueado. Para cambios grandes, crea un itinerario nuevo.",
+    "Ad space": "Espacio publicitario",
+    "Google AdSense-ready placement": "Ubicación lista para Google AdSense"
+  }
+}

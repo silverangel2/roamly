@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type GenerateLockedItineraryButtonProps = {
   tripId: string;
@@ -15,6 +16,7 @@ export function GenerateLockedItineraryButton({
   subtext
 }: GenerateLockedItineraryButtonProps) {
   const router = useRouter();
+  const { locale } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +29,7 @@ export function GenerateLockedItineraryButton({
       const response = await fetch("/api/trips/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tripId })
+        body: JSON.stringify({ tripId, language: locale })
       });
       const data = await response.json().catch(() => null);
 

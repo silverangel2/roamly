@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateRoamlyItinerary } from "@/lib/ai/roamly-itinerary";
 import { buildPreviewFromItinerary } from "@/lib/itinerary";
+import { normalizeLocale } from "@/lib/i18n";
 import { getConfirmedBookingCostCents } from "@/lib/roamly/bookings";
 import {
   canGenerateFinalItinerary,
@@ -68,12 +69,13 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
     accommodationPreference: getString(body.accommodationPreference) || "Not sure",
     transportationPreference: getString(body.transportationPreference) || "Mixed",
     specialNotes: getString(body.specialNotes),
+    language: normalizeLocale(getString(body.language)),
     priceDiscoveryId: getString(body.priceDiscoveryId) || null,
     budgetConstraint: getString(body.budgetConstraint)
   };
 }
 
-function payloadFromTrip(trip: Record<string, unknown>): TripPlannerPayload {
+function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPlannerPayload {
   return {
     origin: getString(trip.origin),
     destination: getString(trip.destination),
@@ -91,6 +93,7 @@ function payloadFromTrip(trip: Record<string, unknown>): TripPlannerPayload {
     accommodationPreference: getString(trip.accommodation_preference) || "Not sure",
     transportationPreference: getString(trip.transportation_preference) || "Mixed",
     specialNotes: getString(trip.special_notes),
+    language: normalizeLocale(language),
     priceDiscoveryId: getString(trip.latest_price_discovery_id) || null
   };
 }
@@ -303,7 +306,7 @@ export async function POST(request: NextRequest) {
       if (tripError) return NextResponse.json({ ok: false, error: tripError.message }, { status: 500 });
       if (!trip) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
-      const payload = payloadFromTrip(trip as Record<string, unknown>);
+      const payload = payloadFromTrip(trip as Record<string, unknown>, getString(body.language));
       const validation = validatePayload(payload);
       if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 

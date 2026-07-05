@@ -1,0 +1,72 @@
+{
+  "languageName": "日本語",
+  "ui": {
+    "language": "言語",
+    "nav": {
+      "home": "ホーム",
+      "plan": "計画",
+      "trips": "旅行",
+      "live": "ライブ",
+      "notifications": "通知",
+      "alerts": "通知",
+      "account": "アカウント",
+      "pricing": "料金",
+      "planTrip": "旅行を計画"
+    },
+    "actions": {
+      "startPlanning": "計画を始める",
+      "viewPricing": "料金を見る",
+      "checkIn": "チェックイン",
+      "skip": "スキップ",
+      "markDone": "完了にする",
+      "done": "完了",
+      "directions": "経路",
+      "enableReminders": "リマインダーを有効化",
+      "openCompanion": "コンパニオンを開く",
+      "openItinerary": "旅程を開く",
+      "openTrip": "旅行を開く"
+    },
+    "status": {
+      "working": "処理中...",
+      "loading": "読み込み中...",
+      "empty": "まだ何もありません。"
+    }
+  },
+  "text": {
+    "Build trips that fit your budget, then travel with a live companion.": "予算に合う旅行を作り、ライブコンパニオンと一緒に旅しましょう。",
+    "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.": "Roamlyは旅程作成前に航空券、宿泊、アクティビティ、食事、現地交通の概算を確認します。予約スクリーンショットをアップロードし、旅行を解除して、当日の移動をRoamlyに任せましょう。",
+    "$4.99 full itinerary": "完全旅程 $4.99",
+    "$3.99 Live Trip Companion": "ライブコンパニオン $3.99",
+    "1 free itinerary per account": "1アカウントにつき無料旅程1件",
+    "Budget-aware itineraries": "予算に合わせた旅程",
+    "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.": "Roamlyは計画前に旅行費用を確認し、実際の予算に合わせて旅程を設計します。",
+    "Booking screenshot import": "予約スクリーンショット取り込み",
+    "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.": "ホテル、航空券、チケット、予約のスクリーンショットをアップロードすると、Roamlyが旅行タイムラインに変換します。",
+    "Live Trip Companion": "ライブ旅行コンパニオン",
+    "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.": "リマインダー、持ち物リスト、書類確認、1日目の起動、近くのアクティビティ、次の案内を解除できます。",
+    "From countdown to check-in, Roamly stays with the traveler.": "カウントダウンからチェックインまで、Roamlyは旅行者に寄り添います。",
+    "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.": "1週間前リマインダー、書類と持ち物リスト、24時間カウントダウン、予約タイムライン、近くの活動検知、チェックイン、スキップ、次の案内、Google Maps、Apple Maps、Citymapperへのリンクを利用できます。",
+    "One free itinerary. Then unlock only the trip you need.": "無料旅程1件。その後は必要な旅行だけ解除できます。",
+    "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.": "サブスクリプションなし。各アカウントに無料旅程1件、その後は旅行ごとの単発購入です。",
+    "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.": "1アカウントにつき完全旅程を1件生成できます。生成後はロックされ編集できません。",
+    "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.": "1旅行用のロック済み日別旅程を生成します。計画だけ必要な場合に最適です。",
+    "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.": "ロック済み旅程にリマインダー、書類と持ち物、予約タイムライン、1日目起動、近くの活動、次の案内を追加します。",
+    "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.": "完全旅行パック：完全旅程とライブコンパニオンを1旅行に。$0.99お得です。",
+    "Your travel command center.": "あなたの旅行コマンドセンター。",
+    "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.": "下書きを続ける、ロック済み旅程を開く、またはライブコンパニオンへ進めます。",
+    "Create your trip space.": "旅行スペースを作成。",
+    "Start with one free itinerary per account. Unlock only the new trips you want to fully use.": "1アカウントにつき無料旅程1件から開始。使いたい新しい旅行だけ解除できます。",
+    "Log in and keep your trips together.": "ログインして旅行をまとめましょう。",
+    "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.": "RoamlyはReviewIntelとは別のSupabase認証を使用します。旅行データはRoamlyテーブル内にのみ保存されます。",
+    "Your Roamly profile.": "Roamlyプロフィール。",
+    "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.": "プロフィールはシンプルで十分です。Roamlyに必要なのは旅行、所有権、サポートに必要な情報だけです。",
+    "Enable phone reminders": "電話リマインダーを有効化",
+    "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.": "Roamlyは持ち物、書類、チェックイン時刻、次の予定を旅行中に知らせます。",
+    "Phone reminders are blocked. You can still use in-app notifications in Roamly.": "電話リマインダーはブロックされています。Roamly内通知は引き続き使えます。",
+    "Phone reminders are enabled.": "電話リマインダーが有効です。",
+    "In-app notifications work automatically. Phone reminders need browser permission on this device.": "アプリ内通知は自動で動作します。電話リマインダーにはこのデバイスのブラウザ許可が必要です。",
+    "This itinerary is locked. To make major changes, create a new itinerary.": "この旅程はロックされています。大きな変更には新しい旅程を作成してください。",
+    "Ad space": "広告枠",
+    "Google AdSense-ready placement": "Google AdSense対応枠"
+  }
+}

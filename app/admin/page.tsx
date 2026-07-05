@@ -3,6 +3,7 @@ import { getMissingEnvironmentVariables } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
 function adminEmails() {
@@ -185,6 +186,13 @@ export default async function AdminPage() {
             ))}
           </div>
         </Card>
+      </section>
+
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Button href="/admin/live-test" tone="secondary">Live test</Button>
+        <Button href="/admin/email" tone="secondary">Email center</Button>
+        <Button href="/admin/system" tone="secondary">System diagnostics</Button>
+        <Button href="/admin/settings" tone="secondary">Launch settings</Button>
       </section>
 
       <section className="mt-5">

@@ -3,11 +3,13 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
+import { isEmailConfigured } from "@/lib/roamly/email";
 
 export default async function AdminSettingsPage() {
   const state = await getRoamlyAdminPageState();
   if (!state.isAdmin || !state.admin) return <AdminAccessCard />;
   const affiliates = getAffiliateReadiness();
+  const email = isEmailConfigured();
 
   return (
     <main className="safe-bottom">
@@ -21,6 +23,9 @@ export default async function AdminSettingsPage() {
           ["Notifications", "Live Trip Companion ready, activity nearby, permission events"],
           ["Affiliate readiness", affiliates.affiliatesEnabled ? "Enabled with launch-safe fallbacks" : "Disabled - direct search links are used"],
           ["Affiliate providers", `Hotels: ${affiliates.hotelProviderConfigured ? "ready" : "not set"} · Flights: ${affiliates.flightProviderConfigured ? "ready" : "not set"} · Activities: ${affiliates.attractionsProviderConfigured ? "ready" : "not set"}`],
+          ["Email provider", email.configured ? `${email.provider} ready` : email.reason],
+          ["Email reminders", email.remindersEnabled ? "Enabled for Live Trip Companion notifications" : "Disabled"],
+          ["Email sender", `${email.fromEmail} · reply-to ${email.replyToEmail}`],
           ["AI generation", process.env.OPENAI_API_KEY ? "Configured" : "Missing OPENAI_API_KEY"],
           ["Admin emails", process.env.ROAMLY_ADMIN_EMAILS ? "Configured" : "Missing ROAMLY_ADMIN_EMAILS"]
         ].map(([label, value]) => (

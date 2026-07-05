@@ -1,0 +1,72 @@
+{
+  "languageName": "简体中文",
+  "ui": {
+    "language": "语言",
+    "nav": {
+      "home": "首页",
+      "plan": "规划",
+      "trips": "行程",
+      "live": "实时",
+      "notifications": "通知",
+      "alerts": "提醒",
+      "account": "账户",
+      "pricing": "价格",
+      "planTrip": "规划行程"
+    },
+    "actions": {
+      "startPlanning": "开始规划",
+      "viewPricing": "查看价格",
+      "checkIn": "签到",
+      "skip": "跳过",
+      "markDone": "标记完成",
+      "done": "完成",
+      "directions": "导航",
+      "enableReminders": "开启提醒",
+      "openCompanion": "打开旅伴",
+      "openItinerary": "打开行程",
+      "openTrip": "打开旅行"
+    },
+    "status": {
+      "working": "处理中...",
+      "loading": "加载中...",
+      "empty": "这里还没有内容。"
+    }
+  },
+  "text": {
+    "Build trips that fit your budget, then travel with a live companion.": "创建符合预算的旅行，并由实时旅伴陪你出行。",
+    "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.": "Roamly 会在生成行程前估算机票、住宿、活动、餐饮和当地交通。上传预订截图，解锁行程，让 Roamly 指引你的旅行日。",
+    "$4.99 full itinerary": "完整行程 $4.99",
+    "$3.99 Live Trip Companion": "实时旅伴 $3.99",
+    "1 free itinerary per account": "每个账户 1 个免费行程",
+    "Budget-aware itineraries": "预算感知行程",
+    "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.": "Roamly 会先检查旅行成本，再根据真实预算设计行程。",
+    "Booking screenshot import": "导入预订截图",
+    "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.": "上传酒店、航班、门票或预订截图，Roamly 会把它们整理成旅行时间线。",
+    "Live Trip Companion": "实时旅行旅伴",
+    "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.": "解锁提醒、打包清单、证件检查、第 1 天激活、附近活动和下一步指引。",
+    "From countdown to check-in, Roamly stays with the traveler.": "从倒计时到签到，Roamly 一直陪伴旅行者。",
+    "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.": "获得一周前提醒、证件和打包清单、24 小时倒计时、预订时间线、附近活动感知、签到、跳过、下一步指引，以及 Google Maps、Apple Maps 和 Citymapper 导航链接。",
+    "One free itinerary. Then unlock only the trip you need.": "一个免费行程。之后只解锁你需要的旅行。",
+    "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.": "无订阅。每个账户有 1 个免费行程，之后按旅行一次性购买。",
+    "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.": "每个账户可生成一个完整行程。生成后会锁定，无法编辑。",
+    "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.": "为一次旅行生成锁定的每日行程。适合只需要计划时使用。",
+    "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.": "为锁定行程添加提醒、证件和打包清单、预订时间线、第 1 天激活、附近活动和下一步帮助。",
+    "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.": "完整旅行包：一次旅行的完整行程加实时旅伴，节省 $0.99。",
+    "Your travel command center.": "你的旅行指挥中心。",
+    "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.": "继续草稿，打开锁定行程，或直接进入实时旅伴。",
+    "Create your trip space.": "创建你的旅行空间。",
+    "Start with one free itinerary per account. Unlock only the new trips you want to fully use.": "每个账户从 1 个免费行程开始。只解锁你想完整使用的新旅行。",
+    "Log in and keep your trips together.": "登录并把旅行集中管理。",
+    "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.": "Roamly 使用独立于 ReviewIntel 的 Supabase 认证。你的旅行数据只保存在 Roamly 表中。",
+    "Your Roamly profile.": "你的 Roamly 资料。",
+    "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.": "资料保持简单即可。Roamly 只需要旅行、归属和支持所需的身份信息。",
+    "Enable phone reminders": "开启手机提醒",
+    "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.": "Roamly 可以提醒你打包、证件、签到时间和旅行中的下一步。",
+    "Phone reminders are blocked. You can still use in-app notifications in Roamly.": "手机提醒已被阻止。你仍可使用 Roamly 应用内通知。",
+    "Phone reminders are enabled.": "手机提醒已开启。",
+    "In-app notifications work automatically. Phone reminders need browser permission on this device.": "应用内通知会自动工作。手机提醒需要此设备的浏览器权限。",
+    "This itinerary is locked. To make major changes, create a new itinerary.": "此行程已锁定。如需重大更改，请创建新行程。",
+    "Ad space": "广告位",
+    "Google AdSense-ready placement": "Google AdSense 就绪广告位"
+  }
+}

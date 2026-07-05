@@ -11,6 +11,7 @@ import {
   tripInterests,
   type TripPlannerPayload
 } from "@/lib/trip-planner";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 const steps = [
   { title: "Destination", detail: "Where and how long" },
@@ -145,6 +146,7 @@ function Chip({
 
 export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?: boolean }) {
   const router = useRouter();
+  const { locale } = useI18n();
   const [step, setStep] = useState(0);
   const [destination, setDestination] = useState("");
   const [origin, setOrigin] = useState("");
@@ -193,6 +195,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       accommodationPreference,
       transportationPreference,
       specialNotes: specialNotes.trim(),
+      language: locale,
       priceDiscoveryId,
       budgetConstraint
     }),
@@ -207,6 +210,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       destination,
       endDate,
       interests,
+      locale,
       origin,
       pace,
       priceDiscoveryId,

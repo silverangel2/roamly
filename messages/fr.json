@@ -1,0 +1,72 @@
+{
+  "languageName": "Français",
+  "ui": {
+    "language": "Langue",
+    "nav": {
+      "home": "Accueil",
+      "plan": "Planifier",
+      "trips": "Voyages",
+      "live": "En direct",
+      "notifications": "Notifications",
+      "alerts": "Alertes",
+      "account": "Compte",
+      "pricing": "Tarifs",
+      "planTrip": "Planifier"
+    },
+    "actions": {
+      "startPlanning": "Commencer",
+      "viewPricing": "Voir les tarifs",
+      "checkIn": "Arriver",
+      "skip": "Ignorer",
+      "markDone": "Terminer",
+      "done": "Terminé",
+      "directions": "Itinéraire",
+      "enableReminders": "Activer les rappels",
+      "openCompanion": "Ouvrir le compagnon",
+      "openItinerary": "Ouvrir l'itinéraire",
+      "openTrip": "Ouvrir le voyage"
+    },
+    "status": {
+      "working": "Traitement...",
+      "loading": "Chargement...",
+      "empty": "Rien ici pour le moment."
+    }
+  },
+  "text": {
+    "Build trips that fit your budget, then travel with a live companion.": "Créez des voyages adaptés à votre budget, puis partez avec un compagnon en direct.",
+    "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.": "Roamly vérifie les coûts estimés des vols, séjours, activités, repas et transports locaux avant de créer votre itinéraire. Importez vos captures de réservation, déverrouillez votre voyage et laissez Roamly guider votre journée.",
+    "$4.99 full itinerary": "Itinéraire complet 4,99 $",
+    "$3.99 Live Trip Companion": "Compagnon de voyage 3,99 $",
+    "1 free itinerary per account": "1 itinéraire gratuit par compte",
+    "Budget-aware itineraries": "Itinéraires selon le budget",
+    "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.": "Roamly vérifie les coûts du voyage avant de construire votre plan, afin que l'itinéraire corresponde à votre vrai budget.",
+    "Booking screenshot import": "Import de captures de réservation",
+    "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.": "Importez des captures d'hôtel, vol, billet ou réservation et Roamly les transforme en chronologie de voyage.",
+    "Live Trip Companion": "Compagnon de voyage en direct",
+    "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.": "Déverrouillez les rappels, listes de bagages, vérifications de documents, activation du jour 1, activités proches et prochaines étapes.",
+    "From countdown to check-in, Roamly stays with the traveler.": "Du compte à rebours à l'arrivée, Roamly reste avec le voyageur.",
+    "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.": "Recevez des rappels une semaine avant, des listes de documents et bagages, un compte à rebours de 24 h, une chronologie des réservations, la détection des activités proches, les arrivées, les sauts, les prochaines étapes et des liens vers Google Maps, Apple Maps et Citymapper.",
+    "One free itinerary. Then unlock only the trip you need.": "Un itinéraire gratuit. Ensuite, déverrouillez seulement le voyage voulu.",
+    "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.": "Aucun abonnement. Chaque compte reçoit 1 itinéraire gratuit, puis des achats uniques simples par voyage.",
+    "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.": "Générez un itinéraire complet par compte. Une fois créé, il est verrouillé et ne peut plus être modifié.",
+    "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.": "Générez un itinéraire quotidien verrouillé pour un voyage. Idéal si vous avez seulement besoin du plan.",
+    "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.": "Ajoutez rappels, listes de documents et bagages, réservations, activation du jour 1, activités proches et aide suivante à un itinéraire verrouillé.",
+    "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.": "Pack voyage complet : itinéraire complet plus Compagnon en direct pour un voyage. Économisez 0,99 $.",
+    "Your travel command center.": "Votre centre de commande de voyage.",
+    "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.": "Continuez un brouillon, ouvrez un itinéraire verrouillé ou passez au Compagnon en direct.",
+    "Create your trip space.": "Créez votre espace voyage.",
+    "Start with one free itinerary per account. Unlock only the new trips you want to fully use.": "Commencez avec un itinéraire gratuit par compte. Déverrouillez seulement les nouveaux voyages à utiliser complètement.",
+    "Log in and keep your trips together.": "Connectez-vous et gardez vos voyages ensemble.",
+    "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.": "Roamly utilise une authentification Supabase séparée de ReviewIntel. Vos données de voyage restent uniquement dans les tables Roamly.",
+    "Your Roamly profile.": "Votre profil Roamly.",
+    "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.": "Gardez le profil simple. Roamly n'a besoin que de l'identité nécessaire aux voyages, à la propriété et au support.",
+    "Enable phone reminders": "Activer les rappels téléphone",
+    "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.": "Roamly peut vous rappeler les bagages, documents, heures d'arrivée et prochaines étapes pendant le voyage.",
+    "Phone reminders are blocked. You can still use in-app notifications in Roamly.": "Les rappels téléphone sont bloqués. Vous pouvez toujours utiliser les notifications dans Roamly.",
+    "Phone reminders are enabled.": "Les rappels téléphone sont activés.",
+    "In-app notifications work automatically. Phone reminders need browser permission on this device.": "Les notifications internes fonctionnent automatiquement. Les rappels téléphone nécessitent l'autorisation du navigateur.",
+    "This itinerary is locked. To make major changes, create a new itinerary.": "Cet itinéraire est verrouillé. Pour de grands changements, créez un nouvel itinéraire.",
+    "Ad space": "Espace publicitaire",
+    "Google AdSense-ready placement": "Emplacement prêt pour Google AdSense"
+  }
+}

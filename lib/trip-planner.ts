@@ -55,6 +55,7 @@ export type TripPlannerPayload = {
   accommodationPreference: string;
   transportationPreference: string;
   specialNotes: string;
+  language?: string;
   budgetConstraint?: string;
   priceDiscoveryId?: string | null;
 };

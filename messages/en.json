@@ -1,0 +1,72 @@
+{
+  "languageName": "English",
+  "ui": {
+    "language": "Language",
+    "nav": {
+      "home": "Home",
+      "plan": "Plan",
+      "trips": "Trips",
+      "live": "Live",
+      "notifications": "Notifications",
+      "alerts": "Alerts",
+      "account": "Account",
+      "pricing": "Pricing",
+      "planTrip": "Plan trip"
+    },
+    "actions": {
+      "startPlanning": "Start planning",
+      "viewPricing": "View pricing",
+      "checkIn": "Check in",
+      "skip": "Skip",
+      "markDone": "Mark done",
+      "done": "Done",
+      "directions": "Directions",
+      "enableReminders": "Enable reminders",
+      "openCompanion": "Open companion",
+      "openItinerary": "Open itinerary",
+      "openTrip": "Open trip"
+    },
+    "status": {
+      "working": "Working...",
+      "loading": "Loading...",
+      "empty": "Nothing here yet."
+    }
+  },
+  "text": {
+    "Build trips that fit your budget, then travel with a live companion.": "Build trips that fit your budget, then travel with a live companion.",
+    "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.": "Roamly checks estimated flights, stays, activities, food, and local transport before creating your itinerary. Upload booking screenshots, unlock your trip, and let Roamly guide your travel day.",
+    "$4.99 full itinerary": "$4.99 full itinerary",
+    "$3.99 Live Trip Companion": "$3.99 Live Trip Companion",
+    "1 free itinerary per account": "1 free itinerary per account",
+    "Budget-aware itineraries": "Budget-aware itineraries",
+    "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.": "Roamly checks trip costs before building your plan, so your itinerary is designed around your real budget.",
+    "Booking screenshot import": "Booking screenshot import",
+    "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.": "Upload hotel, flight, ticket, or reservation screenshots and Roamly turns them into your trip timeline.",
+    "Live Trip Companion": "Live Trip Companion",
+    "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.": "Unlock reminders, packing lists, document checks, Day 1 activation, nearby activities, and up-next guidance.",
+    "From countdown to check-in, Roamly stays with the traveler.": "From countdown to check-in, Roamly stays with the traveler.",
+    "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.": "Get one-week reminders, document and packing checklists, 24-hour countdowns, booking timelines, nearby activity sensing, check-ins, skips, up-next guidance, and navigation links to Google Maps, Apple Maps, and Citymapper.",
+    "One free itinerary. Then unlock only the trip you need.": "One free itinerary. Then unlock only the trip you need.",
+    "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.": "No subscriptions. Each account gets 1 free itinerary, then simple one-time purchases per trip.",
+    "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.": "Generate one full itinerary per account. Once generated, it is locked and cannot be edited.",
+    "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.": "Generate one locked day-by-day itinerary for one trip. Best when you only need the plan.",
+    "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.": "Add reminders, document and packing checklists, booked item timeline, Day 1 activation, nearby activities, and up-next help to one locked itinerary.",
+    "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.": "Complete Trip Pack: full itinerary plus Live Trip Companion for one trip. Saves $0.99.",
+    "Your travel command center.": "Your travel command center.",
+    "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.": "Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.",
+    "Create your trip space.": "Create your trip space.",
+    "Start with one free itinerary per account. Unlock only the new trips you want to fully use.": "Start with one free itinerary per account. Unlock only the new trips you want to fully use.",
+    "Log in and keep your trips together.": "Log in and keep your trips together.",
+    "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.": "Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.",
+    "Your Roamly profile.": "Your Roamly profile.",
+    "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.": "Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.",
+    "Enable phone reminders": "Enable phone reminders",
+    "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.": "Roamly can remind you about packing, documents, check-in times, and what's up next during your trip.",
+    "Phone reminders are blocked. You can still use in-app notifications in Roamly.": "Phone reminders are blocked. You can still use in-app notifications in Roamly.",
+    "Phone reminders are enabled.": "Phone reminders are enabled.",
+    "In-app notifications work automatically. Phone reminders need browser permission on this device.": "In-app notifications work automatically. Phone reminders need browser permission on this device.",
+    "This itinerary is locked. To make major changes, create a new itinerary.": "This itinerary is locked. To make major changes, create a new itinerary.",
+    "Ad space": "Ad space",
+    "Google AdSense-ready placement": "Google AdSense-ready placement"
+  }
+}

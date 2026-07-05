@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
+import { isEmailConfigured } from "@/lib/roamly/email";
 
 const tables = [
   "roamly_trips",
@@ -16,7 +17,8 @@ const tables = [
   "roamly_bookings",
   "roamly_trip_companion_events",
   "roamly_push_subscriptions",
-  "roamly_notifications"
+  "roamly_notifications",
+  "roamly_email_logs"
 ];
 
 const environmentChecks = [
@@ -30,7 +32,10 @@ const environmentChecks = [
   "ROAMLY_STRIPE_FEATURES_PRICE_ID",
   "ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID",
   "ROAMLY_NOTIFICATION_CRON_SECRET",
-  "ROAMLY_AFFILIATES_ENABLED"
+  "ROAMLY_AFFILIATES_ENABLED",
+  "ROAMLY_EMAIL_PROVIDER",
+  "ROAMLY_FROM_EMAIL",
+  "ROAMLY_REPLY_TO_EMAIL"
 ];
 
 export default async function AdminSystemPage() {
@@ -43,7 +48,17 @@ export default async function AdminSystemPage() {
       return { table, ok: !error, error: error?.message };
     })
   );
-  const [pushSubscriptions, notifications, companionEvents, lastNotification, lastFailure, locationSettings, lastLocation] =
+  const [
+    pushSubscriptions,
+    notifications,
+    companionEvents,
+    lastNotification,
+    lastFailure,
+    locationSettings,
+    lastLocation,
+    emailLogs,
+    lastEmail
+  ] =
     await Promise.all([
       state.admin.from("roamly_push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
       state.admin.from("roamly_notifications").select("id", { count: "exact", head: true }),
@@ -62,9 +77,17 @@ export default async function AdminSystemPage() {
         .select("id,last_seen_at,last_permission_state")
         .order("updated_at", { ascending: false })
         .limit(1)
+        .maybeSingle(),
+      state.admin.from("roamly_email_logs").select("id", { count: "exact", head: true }),
+      state.admin
+        .from("roamly_email_logs")
+        .select("id,status,error,created_at,sent_at")
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle()
     ]);
   const affiliateReadiness = getAffiliateReadiness();
+  const emailReadiness = isEmailConfigured();
 
   return (
     <main className="safe-bottom">
@@ -107,7 +130,12 @@ export default async function AdminSystemPage() {
           ["Affiliates", affiliateReadiness.affiliatesEnabled ? "Enabled" : "Disabled"],
           ["Hotel provider", affiliateReadiness.hotelProviderConfigured ? "Configured" : "Not configured"],
           ["Flight provider", affiliateReadiness.flightProviderConfigured ? "Configured" : "Not configured"],
-          ["Attractions provider", affiliateReadiness.attractionsProviderConfigured ? "Configured" : "Not configured"]
+          ["Attractions provider", affiliateReadiness.attractionsProviderConfigured ? "Configured" : "Not configured"],
+          ["Email provider", emailReadiness.configured ? `${emailReadiness.provider} configured` : emailReadiness.reason],
+          ["From email", emailReadiness.fromEmail ? "Configured" : "Missing"],
+          ["Email logs", `${emailLogs.count || 0}`],
+          ["Last email status", lastEmail.data?.status || "None"],
+          ["Last email error", lastEmail.data?.error || "None"]
         ].map(([label, value]) => (
           <Card key={label} className="p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>

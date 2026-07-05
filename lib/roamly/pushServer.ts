@@ -1,6 +1,7 @@
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { sendTripReminderEmail } from "@/lib/roamly/email";
 
 export type NotificationPayload = {
   title: string;
@@ -67,6 +68,18 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
     status: "unread",
     metadata: { pushConfigured: configured, pushStatus: configured ? "pending" : "not_configured" }
   });
+  const notificationId = notification.data?.id || null;
+  const emailResult = notificationId
+    ? await sendTripReminderEmail({
+        userId,
+        tripId: payload.tripId || null,
+        notificationId
+      }).catch((error) => ({
+        ok: false,
+        status: "failed" as const,
+        error: error instanceof Error ? error.message : "Email reminder failed."
+      }))
+    : null;
   if (!configured) {
     if (notification.data?.id) {
       await writer
@@ -74,7 +87,7 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
         .update({ push_status: "not_configured", push_error: "Web push is not configured." })
         .eq("id", notification.data.id);
     }
-    return { ok: false, error: "Web push is not configured.", notification };
+    return { ok: false, error: "Web push is not configured.", notification, emailResult };
   }
 
   const { data: subscriptions, error } = await writer
@@ -86,7 +99,7 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
     if (notification.data?.id) {
       await writer.from("roamly_notifications").update({ push_status: "failed", push_error: error.message }).eq("id", notification.data.id);
     }
-    return { ok: false, error: error.message, notification };
+    return { ok: false, error: error.message, notification, emailResult };
   }
 
   if (!subscriptions?.length) {
@@ -96,7 +109,7 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
         .update({ push_status: "no_subscription", push_error: "No push subscription found." })
         .eq("id", notification.data.id);
     }
-    return { ok: false, error: "No push subscription found.", sent: 0, failed: 0, notification };
+    return { ok: false, error: "No push subscription found.", sent: 0, failed: 0, notification, emailResult };
   }
 
   const body = JSON.stringify({
@@ -137,7 +150,7 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
       })
       .eq("id", notification.data.id);
   }
-  return { ok: failed < results.length, failed, sent: results.length - failed, notification };
+  return { ok: failed < results.length, failed, sent: results.length - failed, notification, emailResult };
 }
 
 export async function markNotificationRead(supabase: SupabaseClient, userId: string, notificationId: string) {
