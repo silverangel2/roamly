@@ -147,9 +147,9 @@ export default async function AdminSystemPage() {
       <section className="mt-5">
         <Card>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Demo seed</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">Toronto Weekend tester</h2>
+          <h2 className="mt-2 text-2xl font-black text-ink">Trip simulator</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Creates a dev/admin demo trip with CN Tower, Ripley&apos;s Aquarium, Harbourfront, ROM, and Kensington Market coordinates.
+            Creates an admin-only Toronto test trip with CN Tower, Ripley&apos;s Aquarium, Harbourfront, ROM, and Kensington Market coordinates for Live Companion testing.
           </p>
           <div className="mt-4">
             <DemoSeedButton />

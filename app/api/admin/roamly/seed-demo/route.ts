@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 
-const demoActivities = [
+const torontoTestActivities = [
   {
     day: 1,
     title: "CN Tower",
@@ -66,9 +66,9 @@ export async function POST() {
     .from("roamly_trips")
     .insert({
       user_id: guard.user.id,
-      title: "Toronto Weekend",
+      title: "Toronto Test Trip",
       destination: "Toronto",
-      destination_name: "Toronto Weekend",
+      destination_name: "Toronto",
       destination_country: "Canada",
       destination_region: "Ontario",
       destination_city: "Toronto",
@@ -76,7 +76,7 @@ export async function POST() {
       days_count: 2,
       status: "activated",
       is_activated: true,
-      metadata: { demo: true }
+      metadata: { admin_test: true }
     })
     .select("id")
     .single();
@@ -106,7 +106,7 @@ export async function POST() {
   const dayIdByNumber = new Map((days || []).map((day) => [day.day_number, day.id]));
 
   const activityResult = await guard.admin.from("roamly_activities").insert(
-    demoActivities.map((activity) => ({
+    torontoTestActivities.map((activity) => ({
       trip_id: trip.id,
       trip_day_id: dayIdByNumber.get(activity.day) || null,
       title: activity.title,
@@ -121,7 +121,7 @@ export async function POST() {
       radius_meters: 350,
       sort_order: activity.sort_order,
       status: "planned",
-      metadata: { demo: true }
+      metadata: { admin_test: true }
     }))
   );
 

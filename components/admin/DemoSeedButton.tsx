@@ -16,7 +16,7 @@ export function DemoSeedButton() {
       const response = await fetch("/api/admin/roamly/seed-demo", { method: "POST" });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Demo seed failed.");
-      setNotice(`Toronto Weekend demo trip created: ${data.tripId}`);
+      setNotice(`Toronto test trip created: ${data.tripId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Demo seed failed.");
     } finally {
@@ -32,7 +32,7 @@ export function DemoSeedButton() {
         disabled={busy}
         className="rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:opacity-60"
       >
-        {busy ? "Creating demo..." : "Create Toronto demo trip"}
+        {busy ? "Creating test trip..." : "Create Toronto test trip"}
       </button>
       {notice ? <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
       {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
