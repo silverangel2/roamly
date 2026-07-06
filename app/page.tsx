@@ -144,7 +144,7 @@ export default function Home() {
       </section>
 
       <footer className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-10 pt-4 text-sm font-bold text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>Roamly - budget-aware trips with a Live Trip Companion.</p>
+        <p>Roamly — budget-aware trips with a Live Trip Companion.</p>
         <div className="flex flex-wrap gap-4">
           <Link href="/terms" className="hover:text-ink">Terms</Link>
           <Link href="/privacy" className="hover:text-ink">Privacy</Link>

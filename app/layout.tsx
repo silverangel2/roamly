@@ -4,16 +4,19 @@ import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: {
-    default: "Roamly - Budget-aware AI travel companion",
+    default: "Roamly — Budget-aware AI travel companion",
     template: "%s | Roamly"
   },
-  description:
-    "Plan trips that fit your budget, import booking screenshots, and unlock a Live Trip Companion for reminders, check-ins, and up-next travel guidance.",
+  description: "Plan trips that fit your budget, import booking screenshots, and unlock a Live Trip Companion.",
   applicationName: "Roamly",
+  manifest: "/manifest.json",
   metadataBase: new URL("https://getroamly.com"),
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg"
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
   }
 };
 
@@ -21,7 +24,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#54D6C6"
+  themeColor: "#0f766e"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -68,10 +69,14 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 border-b border-white/50 bg-white/80 px-4 py-3 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
-              <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-ocean to-lagoon text-sm font-black text-white shadow-glow">
-                R
-              </span>
-              <span className="text-xl font-black tracking-tight">Roamly</span>
+              <Image
+                src="/roamly-wordmark@2x.png"
+                alt="Roamly"
+                width={150}
+                height={62}
+                priority
+                className="h-10 w-auto object-contain sm:h-12"
+              />
             </Link>
 
             <nav className="hidden items-center gap-2 md:flex">
