@@ -55,7 +55,7 @@ export function HomepageTravelShowcase() {
           <Image
             key={destination.name}
             src={destination.image}
-            alt={`${destination.name} rotating Roamly travel wallpaper`}
+            alt={`${destination.name} Roamly travel destination`}
             fill
             priority={index === 0}
             sizes="(min-width: 1024px) 48vw, 100vw"
@@ -67,7 +67,7 @@ export function HomepageTravelShowcase() {
         <div className="absolute inset-0 bg-gradient-to-t from-ink/82 via-ink/20 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-5 text-white sm:p-6">
           <p className="inline-flex rounded-full bg-white/18 px-3 py-2 text-xs font-black uppercase tracking-[0.18em] backdrop-blur">
-            Rotating destination wallpaper
+            Featured destination
           </p>
           <h2 className="mt-3 text-4xl font-black leading-none tracking-tight sm:text-5xl">{active.name}</h2>
           <p className="mt-2 max-w-md text-sm font-bold leading-6 text-white/82">{active.detail}</p>
@@ -109,7 +109,7 @@ export function HomepageTravelShowcase() {
           </article>
         ))}
         <div className="col-span-2 rounded-[1.75rem] border border-white/70 bg-white/88 p-5 shadow-soft backdrop-blur">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Two-image destination display</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">More places to explore</p>
           <p className="mt-2 text-2xl font-black text-ink">Pick a place, then Roamly fits the trip to the budget.</p>
         </div>
       </section>
