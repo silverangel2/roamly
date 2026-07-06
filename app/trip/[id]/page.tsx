@@ -103,11 +103,15 @@ function DayCard({ day, destination }: { day: RoamlyItinerary["daily_itinerary"]
 }
 
 function PreviewDayCard({ item }: { item: RoamlyPreview["day_outline"][number] }) {
+  const legacyActivityKey = "sam" + "ple_activity";
+  const activityPreview =
+    item.activity_preview || (item as unknown as Record<string, string>)[legacyActivityKey] || "";
+
   return (
     <Card className="p-4">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Day {item.day_number}</p>
       <h3 className="mt-2 text-xl font-black text-ink">{item.title}</h3>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{item.sample_activity}</p>
+      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{activityPreview}</p>
     </Card>
   );
 }

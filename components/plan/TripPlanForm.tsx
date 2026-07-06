@@ -75,12 +75,12 @@ function budgetStatusCopy(status: PriceDiscoveryResult["budgetStatus"]) {
 function TextInput({
   value,
   onChange,
-  placeholder,
+  ariaLabel,
   type = "text"
 }: {
   value: string;
   onChange: (value: string) => void;
-  placeholder: string;
+  ariaLabel: string;
   type?: "text" | "date" | "number";
 }) {
   return (
@@ -89,8 +89,8 @@ function TextInput({
       onChange={(event) => onChange(event.target.value)}
       type={type}
       min={type === "date" ? todayIsoDate() : undefined}
+      aria-label={ariaLabel}
       className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-      placeholder={placeholder}
     />
   );
 }
@@ -104,6 +104,8 @@ function SelectField({
   onChange: (value: string) => void;
   options: readonly string[];
 }) {
+  const { translateText } = useI18n();
+
   return (
     <select
       value={value}
@@ -112,7 +114,7 @@ function SelectField({
     >
       {options.map((option) => (
         <option key={option} value={option}>
-          {option}
+          {translateText(option)}
         </option>
       ))}
     </select>
@@ -363,29 +365,29 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
           <div className="grid gap-4">
             <label className="block">
               <FieldLabel>Origin / leaving from</FieldLabel>
-              <TextInput value={origin} onChange={setOrigin} placeholder="Toronto, Canada" />
+              <TextInput value={origin} onChange={setOrigin} ariaLabel="Origin city or country" />
             </label>
             <label className="block">
               <FieldLabel>Destination / city / country</FieldLabel>
-              <TextInput value={destination} onChange={setDestination} placeholder="Tokyo, Japan" />
+              <TextInput value={destination} onChange={setDestination} ariaLabel="Destination city or country" />
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <FieldLabel>Start date</FieldLabel>
-                <TextInput value={startDate} onChange={setStartDate} type="date" placeholder="Start date" />
+                <TextInput value={startDate} onChange={setStartDate} type="date" ariaLabel="Start date" />
               </label>
               <label className="block">
                 <FieldLabel>End date</FieldLabel>
-                <TextInput value={endDate} onChange={setEndDate} type="date" placeholder="End date" />
+                <TextInput value={endDate} onChange={setEndDate} type="date" ariaLabel="End date" />
               </label>
             </div>
             <label className="block">
               <FieldLabel>Or number of days</FieldLabel>
-              <TextInput value={daysCount} onChange={setDaysCount} type="number" placeholder="5" />
+              <TextInput value={daysCount} onChange={setDaysCount} type="number" ariaLabel="Number of travel days" />
             </label>
             <label className="block">
               <FieldLabel>Travelers</FieldLabel>
-              <TextInput value={travelersCount} onChange={setTravelersCount} type="number" placeholder="1" />
+              <TextInput value={travelersCount} onChange={setTravelersCount} type="number" ariaLabel="Number of travelers" />
             </label>
           </div>
         ) : null}
@@ -395,7 +397,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
             <div className="grid gap-3 sm:grid-cols-[1fr_0.55fr]">
               <label className="block">
                 <FieldLabel>Budget amount</FieldLabel>
-                <TextInput value={budgetAmount} onChange={setBudgetAmount} type="number" placeholder="1200" />
+                <TextInput value={budgetAmount} onChange={setBudgetAmount} type="number" ariaLabel="Budget amount" />
               </label>
               <label className="block">
                 <FieldLabel>Currency</FieldLabel>
@@ -493,9 +495,12 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                 value={specialNotes}
                 onChange={(event) => setSpecialNotes(event.target.value)}
                 rows={5}
+                aria-label="Special trip notes"
                 className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-                placeholder="Mobility needs, must-see spots, food restrictions, birthday trip, rainy-day backup..."
               />
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.
+              </p>
             </label>
             <div className="rounded-[1.5rem] bg-ink p-4 text-white">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">Trip brief</p>

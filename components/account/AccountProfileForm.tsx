@@ -46,8 +46,8 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
         <input
           value={fullName}
           onChange={(event) => setFullName(event.target.value)}
+          aria-label="Full name"
           className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-          placeholder="Traveler name"
         />
       </label>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdContainer } from "@/components/AdContainer";
 import { HomepageTravelShowcase } from "@/components/roamly/HomepageTravelShowcase";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -24,15 +25,6 @@ const pricing = [
   "$3.99 Live Trip Companion",
   "1 free itinerary per account"
 ];
-
-function AdSlot({ label = "Google AdSense-ready placement" }: { label?: string }) {
-  return (
-    <aside className="rounded-[1.5rem] border border-dashed border-slate-300 bg-white/70 px-5 py-6 text-center shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Ad space</p>
-      <p className="mt-2 text-sm font-black text-slate-600">{label}</p>
-    </aside>
-  );
-}
 
 export default function Home() {
   return (
@@ -69,13 +61,13 @@ export default function Home() {
 
           <div className="space-y-4">
             <HomepageTravelShowcase />
-            <AdSlot />
+            <AdContainer />
           </div>
         </div>
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-        <AdSlot label="Responsive travel ad placement placeholder" />
+        <AdContainer />
       </section>
 
       <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -147,7 +139,7 @@ export default function Home() {
               <Button href="/pricing" tone="secondary">See all pricing</Button>
             </div>
           </div>
-          <AdSlot label="Bottom homepage AdSense-ready placement" />
+          <AdContainer />
         </div>
       </section>
 

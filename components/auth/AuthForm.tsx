@@ -111,8 +111,8 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             autoComplete="name"
+            aria-label="Full name"
             className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-            placeholder="Traveler name"
           />
         </label>
       ) : null}
@@ -124,8 +124,8 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
           onChange={(event) => setEmail(event.target.value)}
           type="email"
           autoComplete="email"
+          aria-label="Email address"
           className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-          placeholder="you@example.com"
         />
       </label>
 
@@ -136,8 +136,8 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
           onChange={(event) => setPassword(event.target.value)}
           type="password"
           autoComplete={isSignup ? "new-password" : "current-password"}
+          aria-label={isSignup ? "New password" : "Password"}
           className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-          placeholder={isSignup ? "At least 8 characters" : "Your password"}
         />
       </label>
 

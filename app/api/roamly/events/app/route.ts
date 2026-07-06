@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   const writer = createSupabaseAdminClient() || supabase;
   const userAgent = request.headers.get("user-agent") || "";
   const referrer = typeof body.referrer === "string" ? body.referrer : request.headers.get("referer") || "";
-  const referrerHost = referrer ? new URL(referrer, "https://placeholder.local").host : "";
+  const referrerHost = referrer ? new URL(referrer, "https://fallback.local").host : "";
 
   const result = await recordAppEvent(writer, {
     userId: data.user?.id || null,

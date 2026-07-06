@@ -55,7 +55,7 @@ export type RoamlyPreview = {
   day_outline: Array<{
     day_number: number;
     title: string;
-    sample_activity: string;
+    activity_preview: string;
     estimated_cost: number;
   }>;
   locked_sections: string[];
@@ -128,7 +128,7 @@ export function buildPreviewFromItinerary(itinerary: RoamlyItinerary): RoamlyPre
     day_outline: itinerary.daily_itinerary.map((day) => ({
       day_number: day.day_number,
       title: day.title,
-      sample_activity: day.morning || day.afternoon || day.evening,
+      activity_preview: day.morning || day.afternoon || day.evening,
       estimated_cost: day.estimated_cost
     })),
     locked_sections: lockedPreviewSections
