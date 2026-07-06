@@ -1,43 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
+import { HomepageTravelShowcase } from "@/components/roamly/HomepageTravelShowcase";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-
-const destinations = [
-  {
-    name: "Paris",
-    image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "Tokyo",
-    image: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "Singapore",
-    image: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "London",
-    image: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "Rome",
-    image: "https://images.unsplash.com/photo-1529260830199-42c24126f198?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "New York",
-    image: "https://images.unsplash.com/photo-1485871981521-5b1fd3805eee?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "Banff",
-    image: "https://images.unsplash.com/photo-1500048993953-d23a436266cf?auto=format&fit=crop&w=1200&q=85"
-  },
-  {
-    name: "Bali",
-    image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=1200&q=85"
-  }
-];
 
 const features = [
   {
@@ -69,41 +34,14 @@ function AdSlot({ label = "Google AdSense-ready placement" }: { label?: string }
   );
 }
 
-function DestinationMosaic() {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4">
-      {destinations.map((destination, index) => (
-        <article
-          key={destination.name}
-          className={`group relative min-h-40 overflow-hidden rounded-[1.5rem] shadow-soft ring-1 ring-white/70 transition duration-300 hover:-translate-y-1 hover:shadow-glow ${
-            index === 0 || index === 7 ? "sm:min-h-64" : "sm:min-h-48"
-          }`}
-        >
-          <Image
-            src={destination.image}
-            alt={`${destination.name} tourist destination preview`}
-            fill
-            sizes="(min-width: 1024px) 24vw, 50vw"
-            className="object-cover transition duration-500 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/12 to-transparent" />
-          <p className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-2 text-xs font-black text-ink backdrop-blur">
-            {destination.name}
-          </p>
-        </article>
-      ))}
-    </div>
-  );
-}
-
 export default function Home() {
   return (
     <main className="safe-bottom overflow-hidden">
       <section className="relative px-4 py-10 sm:px-6 lg:px-8">
-        <div className="absolute inset-x-0 top-0 -z-10 h-[42rem] bg-[radial-gradient(circle_at_20%_20%,rgba(84,214,198,0.35),transparent_28rem),radial-gradient(circle_at_80%_10%,rgba(255,184,77,0.28),transparent_26rem)]" />
-        <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+        <div className="absolute inset-x-0 top-0 -z-10 h-[50rem] bg-[radial-gradient(circle_at_10%_15%,rgba(84,214,198,0.42),transparent_30rem),radial-gradient(circle_at_82%_18%,rgba(255,184,77,0.34),transparent_28rem),linear-gradient(135deg,#f6fdff,#fff9ec)]" />
+        <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
           <div>
-            <Badge tone="sun">Budget-aware AI travel</Badge>
+            <Badge tone="sun">Premium mobile travel AI</Badge>
             <h1 className="mt-5 max-w-3xl text-5xl font-black leading-[0.94] tracking-tight text-ink sm:text-6xl lg:text-7xl">
               Build trips that fit your budget, then travel with a live companion.
             </h1>
@@ -130,7 +68,7 @@ export default function Home() {
           </div>
 
           <div className="space-y-4">
-            <DestinationMosaic />
+            <HomepageTravelShowcase />
             <AdSlot />
           </div>
         </div>
