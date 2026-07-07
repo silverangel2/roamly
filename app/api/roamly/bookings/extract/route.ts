@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
 import { extractBookingFromScreenshot } from "@/lib/roamly/bookings";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");

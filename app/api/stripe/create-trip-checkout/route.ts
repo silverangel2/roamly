@@ -4,7 +4,7 @@ import {
   createItineraryCheckoutSession,
   createTrackingCheckoutSession
 } from "@/lib/roamly/billing";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 function normalizeKind(value: unknown) {
   if (value === "itinerary" || value === "itinerary_unlock") return "itinerary";
@@ -13,11 +13,8 @@ function normalizeKind(value: unknown) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const tripId = typeof body.tripId === "string" ? body.tripId : "";
@@ -27,10 +24,10 @@ export async function POST(request: NextRequest) {
 
   const checkout =
     kind === "itinerary"
-      ? await createItineraryCheckoutSession(supabase, data.user, tripId)
+      ? await createItineraryCheckoutSession(auth.supabase, auth.user, tripId)
       : kind === "tracking"
-        ? await createTrackingCheckoutSession(supabase, data.user, tripId)
-        : await createBundleCheckoutSession(supabase, data.user, tripId);
+        ? await createTrackingCheckoutSession(auth.supabase, auth.user, tripId)
+        : await createBundleCheckoutSession(auth.supabase, auth.user, tripId);
 
   if (!checkout.ok) {
     return NextResponse.json(

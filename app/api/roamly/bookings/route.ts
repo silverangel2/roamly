@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const tripId = request.nextUrl.searchParams.get("tripId") || "";
   if (!tripId) return NextResponse.json({ ok: false, error: "Trip is required." }, { status: 400 });
 
-  const { data: bookings, error } = await supabase
+  const { data: bookings, error } = await auth.supabase
     .from("roamly_bookings")
     .select("*")
-    .eq("user_id", data.user.id)
+    .eq("user_id", auth.user.id)
     .eq("trip_id", tripId)
     .order("start_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });

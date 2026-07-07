@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { performActivityAction } from "@/lib/roamly/activityActions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const activityId = typeof body.activityId === "string" ? body.activityId : "";
@@ -17,8 +14,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Activity and trip are required." }, { status: 400 });
   }
 
-  const result = await performActivityAction(supabase, {
-    userId: data.user.id,
+  const result = await performActivityAction(auth.supabase, {
+    userId: auth.user.id,
     tripId,
     activityId,
     action: "complete",

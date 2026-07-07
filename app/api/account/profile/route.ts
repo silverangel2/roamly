@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 import { getRoamlyProfile, upsertRoamlyProfile } from "@/lib/profiles";
 
 function cleanName(value: unknown) {
@@ -7,19 +7,10 @@ function cleanName(value: unknown) {
 }
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient();
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
-  if (!supabase) {
-    return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  const { data, error } = await supabase.auth.getUser();
-
-  if (error || !data.user) {
-    return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
-  }
-
-  const profile = await getRoamlyProfile(supabase, data.user);
+  const profile = await getRoamlyProfile(auth.supabase, auth.user);
 
   if (profile.error) {
     return NextResponse.json({ ok: false, error: profile.error }, { status: 500 });
@@ -29,21 +20,12 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-
-  if (!supabase) {
-    return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  const { data, error } = await supabase.auth.getUser();
-
-  if (error || !data.user) {
-    return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
-  }
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = await request.json().catch(() => ({}));
   const fullName = cleanName(body.fullName);
-  const profile = await upsertRoamlyProfile(supabase, data.user, {
+  const profile = await upsertRoamlyProfile(auth.supabase, auth.user, {
     full_name: fullName || null
   });
 

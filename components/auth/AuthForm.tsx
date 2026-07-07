@@ -19,6 +19,7 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
   const [busy, setBusy] = useState(false);
   const isSignup = mode === "signup";
   const configured = hasSupabaseConfig();
+  const alternateHref = `${isSignup ? "/login" : "/signup"}?next=${encodeURIComponent(nextPath)}`;
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -163,7 +164,7 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
 
       <p className="text-center text-sm font-bold text-slate-500">
         {isSignup ? "Already have an account?" : "New to Roamly?"}{" "}
-        <Link href={isSignup ? "/login" : "/signup"} className="text-ocean hover:text-ink">
+        <Link href={alternateHref} className="text-ocean hover:text-ink">
           {isSignup ? "Log in" : "Create account"}
         </Link>
       </p>

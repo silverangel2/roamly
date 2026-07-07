@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordTripEvent } from "@/lib/roamly/events";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const tripId = typeof body.tripId === "string" ? body.tripId : "";
@@ -17,8 +14,8 @@ export async function POST(request: NextRequest) {
 
   if (!tripId) return NextResponse.json({ ok: false, error: "Trip is required." }, { status: 400 });
 
-  await recordTripEvent(supabase, {
-    userId: data.user.id,
+  await recordTripEvent(auth.supabase, {
+    userId: auth.user.id,
     tripId,
     eventType: "navigation_opened",
     eventTitle: `Opened ${provider}`,

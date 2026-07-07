@@ -9,6 +9,7 @@ import {
   markFreeItineraryUsed,
   requireTripEditable
 } from "@/lib/roamly/billing";
+import { requireUser } from "@/lib/roamly/auth";
 import {
   buildBudgetConstraintForItinerary,
   discoverTripPrices,
@@ -267,24 +268,17 @@ async function finalizeItinerary(params: {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
-  if (!supabase) {
-    return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-  }
-
-  const { data, error: userError } = await supabase.auth.getUser();
-
-  if (userError || !data.user) {
-    return NextResponse.json({ ok: false, error: "Login required to generate an itinerary." }, { status: 401 });
-  }
+  const { supabase, user } = auth;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const existingTripId = getString(body.tripId);
 
   try {
     if (existingTripId) {
-      const editable = await requireTripEditable(supabase, data.user.id, existingTripId);
+      const editable = await requireTripEditable(supabase, user.id, existingTripId);
       if (!editable.ok) {
         return NextResponse.json(
           {
@@ -300,7 +294,7 @@ export async function POST(request: NextRequest) {
         .from("roamly_trips")
         .select("*")
         .eq("id", existingTripId)
-        .eq("user_id", data.user.id)
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (tripError) return NextResponse.json({ ok: false, error: tripError.message }, { status: 500 });
@@ -310,7 +304,7 @@ export async function POST(request: NextRequest) {
       const validation = validatePayload(payload);
       if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
-      return finalizeItinerary({ supabase, userId: data.user.id, tripId: existingTripId, payload });
+      return finalizeItinerary({ supabase, userId: user.id, tripId: existingTripId, payload });
     }
 
     const payload = cleanPayload(body);
@@ -321,7 +315,7 @@ export async function POST(request: NextRequest) {
     const { data: trip, error: insertError } = await supabase
       .from("roamly_trips")
       .insert({
-        user_id: data.user.id,
+        user_id: user.id,
         title,
         destination: payload.destination,
         origin: payload.origin || null,
@@ -359,7 +353,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return finalizeItinerary({ supabase, userId: data.user.id, tripId: trip.id, payload });
+    return finalizeItinerary({ supabase, userId: user.id, tripId: trip.id, payload });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";
     return NextResponse.json(

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { performActivityAction, type RoamlyActivityAction } from "@/lib/roamly/activityActions";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 const actionByStatus: Record<string, RoamlyActivityAction | null> = {
   active: "check_in",
@@ -13,11 +13,8 @@ const actionByStatus: Record<string, RoamlyActivityAction | null> = {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const activityId = typeof body.activityId === "string" ? body.activityId : "";
@@ -32,8 +29,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ ok: false, error: "Live Trip Companion can only check in, skip, or mark done." }, { status: 400 });
   }
 
-  const result = await performActivityAction(supabase, {
-    userId: data.user.id,
+  const result = await performActivityAction(auth.supabase, {
+    userId: auth.user.id,
     tripId: id,
     activityId,
     action,

@@ -2,16 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeCoordinates } from "@/lib/roamly/location";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { activateTripIfNearby } from "@/lib/roamly/tripActivation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 const permissionStates = new Set(["granted", "denied", "prompt"]);
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const permissionState =
@@ -24,23 +21,23 @@ export async function POST(request: NextRequest) {
     accuracy: body.accuracy as number | null
   });
 
-  const existing = await supabase
+  const existing = await auth.supabase
     .from("roamly_location_settings")
     .select("location_tracking_enabled,notification_enabled")
-    .eq("user_id", data.user.id)
+    .eq("user_id", auth.user.id)
     .maybeSingle();
 
   if (permissionState !== "granted") {
-    await supabase.from("roamly_location_settings").upsert(
+    await auth.supabase.from("roamly_location_settings").upsert(
       {
-        user_id: data.user.id,
+        user_id: auth.user.id,
         location_tracking_enabled: false,
         last_permission_state: permissionState
       },
       { onConflict: "user_id" }
     );
-    await recordTripEvent(supabase, {
-      userId: data.user.id,
+    await recordTripEvent(auth.supabase, {
+      userId: auth.user.id,
       eventType: permissionState === "denied" ? "location_permission_denied" : "location_permission_prompt",
       eventTitle: "Location permission updated",
       eventBody: `Permission state: ${permissionState}`
@@ -61,9 +58,9 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await supabase.from("roamly_location_settings").upsert(
+  await auth.supabase.from("roamly_location_settings").upsert(
     {
-      user_id: data.user.id,
+      user_id: auth.user.id,
       location_tracking_enabled: true,
       notification_enabled: existing.data.notification_enabled ?? true,
       last_permission_state: "granted",
@@ -74,8 +71,8 @@ export async function POST(request: NextRequest) {
     { onConflict: "user_id" }
   );
 
-  await recordTripEvent(supabase, {
-    userId: data.user.id,
+  await recordTripEvent(auth.supabase, {
+    userId: auth.user.id,
     eventType: "location_permission_granted",
     eventTitle: "Location permission granted",
     eventBody: "Roamly location permission is enabled for Live Trip Companion.",
@@ -84,7 +81,7 @@ export async function POST(request: NextRequest) {
     metadata: { accuracy: location.accuracy }
   });
 
-  const activation = await activateTripIfNearby(supabase, data.user.id, location);
+  const activation = await activateTripIfNearby(auth.supabase, auth.user.id, location);
 
   return NextResponse.json({
     ok: true,

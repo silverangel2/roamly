@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as {
     endpoint?: string;
@@ -14,9 +11,9 @@ export async function POST(request: NextRequest) {
   };
   if (!body.endpoint) return NextResponse.json({ ok: false, error: "Push endpoint is required." }, { status: 400 });
 
-  const { error } = await supabase.from("roamly_push_subscriptions").upsert(
+  const { error } = await auth.supabase.from("roamly_push_subscriptions").upsert(
     {
-      user_id: data.user.id,
+      user_id: auth.user.id,
       endpoint: body.endpoint,
       p256dh: body.keys?.p256dh || null,
       auth: body.keys?.auth || null,

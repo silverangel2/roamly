@@ -267,7 +267,11 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
         body: JSON.stringify(payload)
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || "Could not check trip costs.");
+      if (response.status === 401) {
+        router.push("/login?next=/plan");
+        return false;
+      }
+      if (!response.ok) throw new Error(data?.message || data?.error || "Could not check trip costs.");
       setPriceDiscovery(data.discovery);
       setPriceDiscoveryId(data.discoveryId || null);
       setBudgetConstraint(data.budgetConstraint || "");

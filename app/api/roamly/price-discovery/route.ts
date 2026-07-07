@@ -5,7 +5,7 @@ import {
   savePriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
 import { getConfirmedBookingCostCents } from "@/lib/roamly/bookings";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/roamly/auth";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -21,11 +21,8 @@ function getNumber(value: unknown) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
-
-  const { data, error: userError } = await supabase.auth.getUser();
-  if (userError || !data.user) return NextResponse.json({ ok: false, error: "Login required." }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const destination = getString(body.destination);
@@ -34,12 +31,12 @@ export async function POST(request: NextRequest) {
   const tripId = getString(body.tripId) || null;
   let committedBudgetCents = 0;
   if (tripId) {
-    const cost = await getConfirmedBookingCostCents(supabase, data.user.id, tripId);
+    const cost = await getConfirmedBookingCostCents(auth.supabase, auth.user.id, tripId);
     committedBudgetCents = cost.amountCents;
   }
 
   const input = {
-    userId: data.user.id,
+    userId: auth.user.id,
     tripId,
     origin: getString(body.origin),
     destination,
@@ -58,7 +55,7 @@ export async function POST(request: NextRequest) {
   };
 
   const discovery = await discoverTripPrices(input);
-  const saved = await savePriceDiscovery(supabase, input, discovery);
+  const saved = await savePriceDiscovery(auth.supabase, input, discovery);
 
   if (saved.error) {
     return NextResponse.json(
