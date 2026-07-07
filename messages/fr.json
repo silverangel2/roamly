@@ -343,6 +343,12 @@
     "Trip date not set": "Date de voyage non définie",
     "Tomorrow is Day 1": "Demain est le jour 1",
     "Trip activated today": "Voyage activé aujourd’hui",
-    "days until Day 1": "jours avant le jour 1"
+    "days until Day 1": "jours avant le jour 1",
+    "Choose a destination": "Choisissez une destination",
+    "Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.": "Sélectionnez une destination connue pour réduire les erreurs de planification. Vous pouvez toujours saisir une destination personnalisée si elle n’est pas listée.",
+    "Popular destinations": "Destinations populaires",
+    "Custom destination": "Destination personnalisée",
+    "Please choose or enter a destination before continuing.": "Veuillez choisir ou saisir une destination avant de continuer.",
+    "Custom destinations may use estimated travel data.": "Les destinations personnalisées peuvent utiliser des données de voyage estimées."
   }
 }

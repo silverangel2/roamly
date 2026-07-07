@@ -6,9 +6,11 @@ import {
   accommodationOptions,
   currencyOptions,
   paceOptions,
+  recommendedDestinations,
   transportationOptions,
   travelStyles,
   tripInterests,
+  type RecommendedDestination,
   type TripPlannerPayload
 } from "@/lib/trip-planner";
 import { useI18n } from "@/components/i18n/I18nProvider";
@@ -32,6 +34,28 @@ function toNumberOrNull(value: string) {
 
 function classNames(...items: Array<string | false | null | undefined>) {
   return items.filter(Boolean).join(" ");
+}
+
+function normalizeDestinationText(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function findRecommendedDestination(value: string): RecommendedDestination | undefined {
+  const normalized = normalizeDestinationText(value);
+  if (!normalized) return undefined;
+  return recommendedDestinations.find((destination) => {
+    const matches = [
+      destination.value,
+      destination.label,
+      destination.city,
+      `${destination.city}, ${destination.country}`
+    ];
+    return matches.some((match) => normalizeDestinationText(match) === normalized);
+  });
+}
+
+function isCurrencyOption(value: string | undefined): value is (typeof currencyOptions)[number] {
+  return Boolean(value && (currencyOptions as readonly string[]).includes(value));
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -148,7 +172,7 @@ function Chip({
 
 export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?: boolean }) {
   const router = useRouter();
-  const { locale } = useI18n();
+  const { locale, translateText } = useI18n();
   const [step, setStep] = useState(0);
   const [destination, setDestination] = useState("");
   const [origin, setOrigin] = useState("");
@@ -178,11 +202,18 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
   const [budgetConstraint, setBudgetConstraint] = useState("");
 
   const progress = Math.round(((step + 1) / steps.length) * 100);
+  const selectedDestination = useMemo(() => findRecommendedDestination(destination), [destination]);
+  const normalizedDestination = selectedDestination?.value || destination.trim().replace(/\s+/g, " ");
 
   const payload: TripPlannerPayload = useMemo(
     () => ({
       origin: origin.trim(),
-      destination: destination.trim(),
+      destination: normalizedDestination,
+      destinationCity: selectedDestination?.city,
+      destinationCountry: selectedDestination?.country,
+      destinationRegion: selectedDestination?.region,
+      destinationLatitude: selectedDestination?.latitude,
+      destinationLongitude: selectedDestination?.longitude,
       startDate,
       endDate,
       daysCount: toNumberOrNull(daysCount),
@@ -209,13 +240,14 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       budgetIncludesFlights,
       budgetIncludesHotel,
       daysCount,
-      destination,
       endDate,
       interests,
       locale,
+      normalizedDestination,
       origin,
       pace,
       priceDiscoveryId,
+      selectedDestination,
       specialNotes,
       startDate,
       transportationPreference,
@@ -232,8 +264,19 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
     );
   }
 
+  function setDestinationValue(value: string) {
+    const recommended = findRecommendedDestination(value);
+    setDestination(recommended?.value || value);
+    setPriceDiscovery(null);
+    setPriceDiscoveryId(null);
+    setBudgetConstraint("");
+    if (recommended?.currency && isCurrencyOption(recommended.currency)) {
+      setBudgetCurrency(recommended.currency);
+    }
+  }
+
   function validateCurrentStep() {
-    if (step === 0 && !destination.trim()) return "Add a destination first.";
+    if (step === 0 && normalizedDestination.length < 2) return "Please choose or enter a destination before continuing.";
     if (step === 0 && !daysCount && (!startDate || !endDate)) {
       return "Add dates or a number of days.";
     }
@@ -371,10 +414,63 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
               <FieldLabel>Origin / leaving from</FieldLabel>
               <TextInput value={origin} onChange={setOrigin} ariaLabel="Origin city or country" />
             </label>
-            <label className="block">
-              <FieldLabel>Destination / city / country</FieldLabel>
-              <TextInput value={destination} onChange={setDestination} ariaLabel="Destination city or country" />
-            </label>
+            <div className="rounded-[1.5rem] border border-cloud bg-mist/60 p-4">
+              <label className="block">
+                <FieldLabel>{translateText("Choose a destination")}</FieldLabel>
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+                  {translateText("Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.")}
+                </p>
+                <input
+                  value={destination}
+                  onChange={(event) => setDestinationValue(event.target.value)}
+                  onBlur={() => setDestinationValue(destination)}
+                  list="roamly-destinations"
+                  autoComplete="off"
+                  aria-label={translateText("Choose a destination")}
+                  placeholder={translateText("Choose a destination")}
+                  className="mt-3 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                />
+                <datalist id="roamly-destinations">
+                  {recommendedDestinations.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </datalist>
+              </label>
+
+              <div className="mt-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+                  {translateText("Popular destinations")}
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {["Toronto", "Vancouver", "New York City", "Paris", "Tokyo", "Singapore"].map((city) => {
+                    const item = recommendedDestinations.find((destinationItem) => destinationItem.city === city);
+                    return (
+                      <button
+                        key={city}
+                        type="button"
+                        onClick={() => item && setDestinationValue(item.value)}
+                        className={classNames(
+                          "rounded-2xl border px-4 py-3 text-left text-sm font-black transition",
+                          selectedDestination?.city === city
+                            ? "border-ink bg-ink text-white shadow-soft"
+                            : "border-cloud bg-white text-slate-600 hover:border-ocean/40 hover:text-ink"
+                        )}
+                      >
+                        {city}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {!selectedDestination && destination.trim().length >= 2 ? (
+                <p className="mt-3 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-xs font-black text-amber-800">
+                  {translateText("Custom destination")}: {translateText("Custom destinations may use estimated travel data.")}
+                </p>
+              ) : null}
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <FieldLabel>Start date</FieldLabel>

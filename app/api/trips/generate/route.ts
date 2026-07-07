@@ -28,6 +28,11 @@ function getPositiveNumber(value: unknown) {
   return null;
 }
 
+function getNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return null;
+}
+
 function cleanTextArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value
@@ -56,6 +61,11 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
   return {
     origin: getString(body.origin),
     destination: getString(body.destination),
+    destinationCity: getString(body.destinationCity),
+    destinationCountry: getString(body.destinationCountry),
+    destinationRegion: getString(body.destinationRegion),
+    destinationLatitude: getNumber(body.destinationLatitude) ?? undefined,
+    destinationLongitude: getNumber(body.destinationLongitude) ?? undefined,
     startDate,
     endDate,
     daysCount: explicitDays ?? daysBetween(startDate, endDate),
@@ -80,6 +90,9 @@ function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPl
   return {
     origin: getString(trip.origin),
     destination: getString(trip.destination),
+    destinationCity: getString(trip.destination_city),
+    destinationCountry: getString(trip.destination_country),
+    destinationRegion: getString(trip.destination_region),
     startDate: getString(trip.start_date),
     endDate: getString(trip.end_date),
     daysCount: getPositiveNumber(trip.days_count) || 1,
@@ -100,7 +113,7 @@ function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPl
 }
 
 function validatePayload(payload: TripPlannerPayload) {
-  if (!payload.destination) return "Destination is required.";
+  if (!payload.destination || payload.destination.trim().length < 2) return "Please choose or enter a destination before continuing.";
   if (!payload.daysCount) return "Dates or number of days are required.";
   if (!payload.budgetAmount) return "Budget amount is required.";
   return "";
@@ -318,6 +331,10 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         title,
         destination: payload.destination,
+        destination_name: payload.destination,
+        destination_city: payload.destinationCity || null,
+        destination_country: payload.destinationCountry || null,
+        destination_region: payload.destinationRegion || null,
         origin: payload.origin || null,
         start_date: payload.startDate || null,
         end_date: payload.endDate || null,

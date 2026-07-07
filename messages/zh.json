@@ -343,6 +343,12 @@
     "Trip date not set": "旅行日期未设置",
     "Tomorrow is Day 1": "明天是第 1 天",
     "Trip activated today": "旅行今天已激活",
-    "days until Day 1": "天到第 1 天"
+    "days until Day 1": "天到第 1 天",
+    "Choose a destination": "选择目的地",
+    "Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.": "选择已知目的地可减少规划错误。如果列表中没有，也可以输入自定义目的地。",
+    "Popular destinations": "热门目的地",
+    "Custom destination": "自定义目的地",
+    "Please choose or enter a destination before continuing.": "请先选择或输入目的地再继续。",
+    "Custom destinations may use estimated travel data.": "自定义目的地可能会使用估算的旅行数据。"
   }
 }

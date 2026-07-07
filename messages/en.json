@@ -343,6 +343,12 @@
     "Trip date not set": "Trip date not set",
     "Tomorrow is Day 1": "Tomorrow is Day 1",
     "Trip activated today": "Trip activated today",
-    "days until Day 1": "days until Day 1"
+    "days until Day 1": "days until Day 1",
+    "Choose a destination": "Choose a destination",
+    "Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.": "Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.",
+    "Popular destinations": "Popular destinations",
+    "Custom destination": "Custom destination",
+    "Please choose or enter a destination before continuing.": "Please choose or enter a destination before continuing.",
+    "Custom destinations may use estimated travel data.": "Custom destinations may use estimated travel data."
   }
 }

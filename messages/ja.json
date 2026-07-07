@@ -343,6 +343,12 @@
     "Trip date not set": "旅行日未設定",
     "Tomorrow is Day 1": "明日は1日目",
     "Trip activated today": "旅行は本日開始",
-    "days until Day 1": "日で1日目"
+    "days until Day 1": "日で1日目",
+    "Choose a destination": "目的地を選択",
+    "Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.": "計画ミスを減らすため、既知の目的地を選択してください。リストにない場合はカスタム目的地を入力できます。",
+    "Popular destinations": "人気の目的地",
+    "Custom destination": "カスタム目的地",
+    "Please choose or enter a destination before continuing.": "続行する前に目的地を選択または入力してください。",
+    "Custom destinations may use estimated travel data.": "カスタム目的地では推定旅行データを使用する場合があります。"
   }
 }
