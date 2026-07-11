@@ -9,6 +9,7 @@ import {
 } from "@/lib/supabase/server";
 import { getRoamlyAdminEmails, isRoamlyAdmin } from "@/lib/roamly/access";
 import { headers } from "next/headers";
+import { getUserFromRoamlySessionToken } from "@/lib/roamly/session-token";
 
 export const AUTH_REQUIRED_MESSAGE = "Please log in to continue.";
 
@@ -35,9 +36,10 @@ export function isAdminEmail(email: string | null | undefined) {
 
 export async function getCurrentUser(): Promise<CurrentUserResult> {
   const supabase = await createSupabaseServerClient();
+  const requestHeaders = await headers();
 
   if (supabase) {
-    const authorization = (await headers()).get("authorization");
+    const authorization = requestHeaders.get("authorization");
     const bearerToken = authorization?.startsWith("Bearer ")
       ? authorization.slice("Bearer ".length).trim()
       : null;
@@ -51,6 +53,11 @@ export async function getCurrentUser(): Promise<CurrentUserResult> {
     }
   }
 
+  const fallback = await getUserFromRoamlySessionToken(requestHeaders.get("x-roamly-session-token"));
+  if (fallback) {
+    return { configured: true, user: fallback.user };
+  }
+
   return getSupabaseCurrentUser();
 }
 
@@ -61,6 +68,7 @@ export async function requireUser(): Promise<
   | { ok: false; response: NextResponse }
 > {
   const supabase = await createSupabaseServerClient();
+  const requestHeaders = await headers();
 
   if (!supabase) {
     return {
@@ -69,7 +77,7 @@ export async function requireUser(): Promise<
     };
   }
 
-  const authorization = (await headers()).get("authorization");
+  const authorization = requestHeaders.get("authorization");
   const bearerToken = authorization?.startsWith("Bearer ")
     ? authorization.slice("Bearer ".length).trim()
     : null;
@@ -84,6 +92,11 @@ export async function requireUser(): Promise<
 
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
+    const fallback = await getUserFromRoamlySessionToken(requestHeaders.get("x-roamly-session-token"));
+    if (fallback) {
+      return { ok: true, user: fallback.user, supabase: fallback.supabase };
+    }
+
     return { ok: false, response: authRequiredResponse() };
   }
 

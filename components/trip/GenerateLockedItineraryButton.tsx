@@ -10,6 +10,7 @@ type GenerateLockedItineraryButtonProps = {
   tripId: string;
   label?: string;
   subtext?: string;
+  apiAuthToken?: string;
 };
 
 const GENERATION_ERROR_MESSAGE = "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
@@ -19,7 +20,8 @@ const GENERATION_TIMEOUT_MS = 120_000;
 export function GenerateLockedItineraryButton({
   tripId,
   label = "Generate itinerary",
-  subtext
+  subtext,
+  apiAuthToken = ""
 }: GenerateLockedItineraryButtonProps) {
   const router = useRouter();
   const { locale } = useI18n();
@@ -39,7 +41,10 @@ export function GenerateLockedItineraryButton({
     try {
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(apiAuthToken ? { "x-roamly-session-token": apiAuthToken } : {})
+        },
         body: JSON.stringify({ tripId, language: locale }),
         signal: controller.signal
       });

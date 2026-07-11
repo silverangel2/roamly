@@ -15,6 +15,7 @@ function exists(file) {
 [
   "supabase/migrations/20260706_roamly_budget_booking_companion_notifications.sql",
   "lib/roamly/priceDiscovery.ts",
+  "lib/roamly/session-token.ts",
   "lib/roamly/bookings.ts",
   "lib/roamly/tripCompanion.ts",
   "lib/roamly/activityActions.ts",
@@ -81,6 +82,14 @@ assert.ok(activateTripButton.includes("fetchWithSupabaseAuth"), "trip checkout b
 const planForm = read("components/plan/TripPlanForm.tsx");
 assert.ok(planForm.includes("checkout=failed"), "planner checkout failures after draft save must land on a retryable trip page");
 assert.ok(!planForm.includes("ensureActiveSessionBeforeGeneration"), "planner must not block generation on stale browser session state before server auth runs");
+assert.ok(planForm.includes("x-roamly-session-token"), "planner API calls must include the server-issued Roamly auth token");
+
+const sessionToken = read("lib/roamly/session-token.ts");
+assert.ok(sessionToken.includes("createRoamlySessionToken"), "server-issued Roamly auth token helper missing");
+assert.ok(sessionToken.includes("verifyRoamlySessionToken"), "server-issued Roamly auth token verifier missing");
+
+const auth = read("lib/roamly/auth.ts");
+assert.ok(auth.includes("getUserFromRoamlySessionToken"), "requireUser must fall back to the server-issued Roamly auth token");
 
 const middleware = read("middleware.ts");
 assert.ok(middleware.includes("createServerClient"), "middleware must refresh Supabase sessions");

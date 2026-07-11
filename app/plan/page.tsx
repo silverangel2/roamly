@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
+import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 const promiseCards = [
@@ -25,6 +26,7 @@ export default async function PlanPage() {
       : [null, null];
   const freeItineraryUsed = Boolean(free?.used);
   const access = getRoamlyAccessForUser(current.user?.email);
+  const apiAuthToken = createRoamlySessionToken(current.user);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -51,7 +53,7 @@ export default async function PlanPage() {
           </div>
         </div>
 
-        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} />
+        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} />
       </section>
     </main>
   );

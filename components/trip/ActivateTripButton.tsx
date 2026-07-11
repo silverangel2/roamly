@@ -11,6 +11,7 @@ type ActivateTripButtonProps = {
   trackingUnlocked?: boolean;
   showItineraryUnlock?: boolean;
   testerAccess?: boolean;
+  apiAuthToken?: string;
 };
 
 export function ActivateTripButton({
@@ -18,7 +19,8 @@ export function ActivateTripButton({
   itineraryLocked = false,
   trackingUnlocked = false,
   showItineraryUnlock = true,
-  testerAccess = false
+  testerAccess = false,
+  apiAuthToken = ""
 }: ActivateTripButtonProps) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<CheckoutKind | "">("");
@@ -30,7 +32,10 @@ export function ActivateTripButton({
     try {
       const response = await fetchWithSupabaseAuth("/api/stripe/create-trip-checkout", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(apiAuthToken ? { "x-roamly-session-token": apiAuthToken } : {})
+        },
         body: JSON.stringify({ tripId, checkoutKind })
       });
       const data = await response.json().catch(() => null);

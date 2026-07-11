@@ -14,6 +14,7 @@ import { buildAttractionAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
+import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay, isMissingTableError } from "@/lib/trips";
 
@@ -154,6 +155,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const sessionId = one(search.session_id);
   let checkoutSyncError = "";
   const access = getRoamlyAccessForUser(current.user.email);
+  const apiAuthToken = createRoamlySessionToken(current.user);
   if (sessionId && one(search.checkout) === "success") {
     const confirmation = await confirmCheckoutSessionForTrip({ sessionId, tripId: id, userId: current.user.id });
     if (!confirmation.ok) {
@@ -314,6 +316,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   trackingUnlocked={false}
                   showItineraryUnlock={false}
                   testerAccess={access.hasQaAccess}
+                  apiAuthToken={apiAuthToken}
                 />
               )
             ) : paidForItinerary ? (
@@ -321,15 +324,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 tripId={id}
                 label="Generate itinerary"
                 subtext="This will lock the final itinerary permanently."
+                apiAuthToken={apiAuthToken}
               />
             ) : freeAvailable ? (
               <GenerateLockedItineraryButton
                 tripId={id}
                 label="Generate my free itinerary"
                 subtext="You get 1 free itinerary per account."
+                apiAuthToken={apiAuthToken}
               />
             ) : (
-              <ActivateTripButton tripId={id} itineraryLocked={false} trackingUnlocked={false} testerAccess={access.hasQaAccess} />
+              <ActivateTripButton tripId={id} itineraryLocked={false} trackingUnlocked={false} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} />
             )}
           </div>
         </Card>
@@ -447,7 +452,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 {trackingUnlocked ? (
                   <Button href={`/trip/${id}/live`}>Start Live Trip Companion</Button>
                 ) : (
-                  <ActivateTripButton tripId={id} itineraryLocked trackingUnlocked={false} showItineraryUnlock={false} />
+                  <ActivateTripButton tripId={id} itineraryLocked trackingUnlocked={false} showItineraryUnlock={false} apiAuthToken={apiAuthToken} />
                 )}
               </div>
             </Card>
@@ -513,9 +518,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     tripId={id}
                     label={freeAvailable && !paidForItinerary ? "Generate my free itinerary" : "Generate itinerary"}
                     subtext={freeAvailable && !paidForItinerary ? "You get 1 free itinerary per account." : "This will lock the final itinerary permanently."}
+                    apiAuthToken={apiAuthToken}
                   />
                 ) : (
-                  <ActivateTripButton tripId={id} itineraryLocked={false} trackingUnlocked={false} />
+                  <ActivateTripButton tripId={id} itineraryLocked={false} trackingUnlocked={false} apiAuthToken={apiAuthToken} />
                 )}
               </div>
             </Card>

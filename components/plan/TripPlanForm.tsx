@@ -394,10 +394,12 @@ function ToggleButton({
 
 export function TripPlanForm({
   freeItineraryUsed = false,
-  testerAccess = false
+  testerAccess = false,
+  apiAuthToken = ""
 }: {
   freeItineraryUsed?: boolean;
   testerAccess?: boolean;
+  apiAuthToken?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -451,6 +453,12 @@ export function TripPlanForm({
   const draftHydrated = useRef(false);
   const skipNextDraftSave = useRef(false);
   const requiresPaidUnlock = freeItineraryUsed && !testerAccess;
+
+  const jsonHeaders = useCallback(() => {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (apiAuthToken) headers["x-roamly-session-token"] = apiAuthToken;
+    return headers;
+  }, [apiAuthToken]);
 
   const refreshSessionUser = useCallback(async () => {
     if (typeof window === "undefined") return null;
@@ -1012,7 +1020,7 @@ export function TripPlanForm({
     try {
       const response = await fetchWithSupabaseAuth("/api/roamly/price-discovery", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: jsonHeaders(),
         body: JSON.stringify(payload)
       });
       const data = await response.json().catch(() => null);
@@ -1063,7 +1071,7 @@ export function TripPlanForm({
     try {
       const draftResponse = await fetchWithSupabaseAuth("/api/trips/draft", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: jsonHeaders(),
         body: JSON.stringify(payload)
       });
       const draftData = await draftResponse.json().catch(() => null);
@@ -1085,7 +1093,7 @@ export function TripPlanForm({
       draftTripId = String(draftData.tripId);
       const checkoutResponse = await fetchWithSupabaseAuth("/api/stripe/create-trip-checkout", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: jsonHeaders(),
         body: JSON.stringify({ tripId: draftTripId, checkoutKind: "itinerary" })
       });
       const checkoutData = await checkoutResponse.json().catch(() => null);
@@ -1161,9 +1169,7 @@ export function TripPlanForm({
     try {
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: jsonHeaders(),
         body: JSON.stringify(payload),
         signal: controller.signal
       });
