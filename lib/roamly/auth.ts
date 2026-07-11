@@ -8,6 +8,7 @@ import {
   type CurrentUserResult
 } from "@/lib/supabase/server";
 import { getRoamlyAdminEmails, isRoamlyAdmin } from "@/lib/roamly/access";
+import { headers } from "next/headers";
 
 export const AUTH_REQUIRED_MESSAGE = "Please log in to continue.";
 
@@ -33,6 +34,23 @@ export function isAdminEmail(email: string | null | undefined) {
 }
 
 export async function getCurrentUser(): Promise<CurrentUserResult> {
+  const supabase = await createSupabaseServerClient();
+
+  if (supabase) {
+    const authorization = (await headers()).get("authorization");
+    const bearerToken = authorization?.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length).trim()
+      : null;
+
+    if (bearerToken) {
+      const { data, error } = await supabase.auth.getUser(bearerToken);
+
+      if (!error && data.user) {
+        return { user: data.user } as CurrentUserResult;
+      }
+    }
+  }
+
   return getSupabaseCurrentUser();
 }
 
@@ -49,6 +67,19 @@ export async function requireUser(): Promise<
       ok: false,
       response: NextResponse.json({ ok: false, error: "SUPABASE_NOT_CONFIGURED", message: "Supabase is not configured." }, { status: 503 })
     };
+  }
+
+  const authorization = (await headers()).get("authorization");
+  const bearerToken = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : null;
+
+  if (bearerToken) {
+    const { data: bearerData, error: bearerError } = await supabase.auth.getUser(bearerToken);
+
+    if (!bearerError && bearerData.user) {
+      return { ok: true, user: bearerData.user, supabase };
+    }
   }
 
   const { data, error } = await supabase.auth.getUser();

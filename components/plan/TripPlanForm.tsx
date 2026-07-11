@@ -1084,8 +1084,12 @@ export function TripPlanForm({
     const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
+      const generationSession = await createSupabaseBrowserClient().auth.getSession();
+      const generationAccessToken = generationSession.data.session?.access_token;
+
       const request = () => fetch("/api/trips/generate", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
         signal: controller.signal

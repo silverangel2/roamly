@@ -128,10 +128,8 @@ export async function POST(request: NextRequest) {
   };
 
   let discovery;
-  let saved;
   try {
     discovery = await discoverTripPrices(input);
-    saved = null;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Price discovery failed.";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
