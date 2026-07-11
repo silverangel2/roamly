@@ -111,7 +111,7 @@ function AppShellContent({
         : [
             { href: "/", label: t("ui.nav.home", "Home") },
             { href: "/#how-it-works", label: t("ui.nav.howItWorks", "How it works") },
-            { href: "/pricing", label: t("ui.nav.upgrades", "Upgrades") }
+            { href: "/plan", label: t("ui.nav.plan", "Plan") }
           ],
     [authenticated, t]
   );
@@ -127,10 +127,10 @@ function AppShellContent({
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
         : [
-            { href: "/plan", label: t("ui.nav.startPlanning", "Start planning") },
+            { href: "/", label: t("ui.nav.home", "Home") },
             { href: "/#how-it-works", label: t("ui.nav.howItWorks", "How it works") },
-            { href: "/login", label: t("ui.nav.login", "Log in") },
-            { href: "/pricing", label: t("ui.nav.upgrades", "Upgrades") }
+            { href: "/plan", label: t("ui.nav.plan", "Plan") },
+            { href: "/login", label: t("ui.nav.login", "Log in") }
           ],
     [activeTripId, authenticated, t, unreadCount]
   );
@@ -141,7 +141,7 @@ function AppShellContent({
   return (
     <TranslatedTextBoundary>
       <div className="min-h-dvh bg-[linear-gradient(135deg,#F7FCFF_0%,#FFFFFF_48%,#FFF7EA_100%)] text-ink">
-        <header className="sticky top-0 z-30 border-b border-white/70 bg-white/[0.78] px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
+        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
               <Image

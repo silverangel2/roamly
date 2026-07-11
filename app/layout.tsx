@@ -4,10 +4,10 @@ import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: {
-    default: "Roamly — Budget-aware AI travel companion",
+    default: "Roamly - AI travel planner for beautiful budget-aware trips",
     template: "%s | Roamly"
   },
-  description: "Plan trips that fit your budget, import booking screenshots, and unlock a Live Trip Companion.",
+  description: "Plan realistic single-city and multi-city trips, organize bookings, and travel with a live AI companion.",
   applicationName: "Roamly",
   manifest: "/manifest.json",
   metadataBase: new URL("https://getroamly.com"),

@@ -14,7 +14,7 @@
       "planTrip": "Planifier",
       "dashboard": "Dashboard",
       "howItWorks": "How it works",
-      "upgrades": "Upgrades",
+      "upgrades": "Features",
       "startPlanning": "Start planning",
       "login": "Log in",
       "logout": "Logout"
@@ -441,9 +441,7 @@
     "Your trip details stay connected to your account and are used to build your itinerary.": "Your trip details stay connected to your account and are used to build your itinerary.",
     "No surprise subscriptions": "No surprise subscriptions",
     "Start free, then unlock extra planning or companion features only when you need them.": "Start free, then unlock extra planning or companion features only when you need them.",
-    "How upgrades work": "How upgrades work",
     "Start free, then unlock only when the trip needs more.": "Start free, then unlock only when the trip needs more.",
-    "Upgrade prompts appear at the moment you need another itinerary or want live trip support. No subscription required.": "Upgrade prompts appear at the moment you need another itinerary or want live trip support. No subscription required.",
     "Free start": "Free start",
     "Create your first AI itinerary free.": "Create your first AI itinerary free.",
     "More itinerary planning": "More itinerary planning",

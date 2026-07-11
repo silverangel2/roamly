@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 
-const upgradeCards = [
+const featureCards = [
   {
     title: "Free start",
     body: "Create your first AI itinerary free."
@@ -37,25 +37,25 @@ const included = [
 export default function PricingPage() {
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <section className="overflow-hidden rounded-[2rem] bg-[linear-gradient(135deg,#08111f,#102033_48%,#153052)] p-6 text-white shadow-soft sm:p-10">
-        <Badge tone="sun">How upgrades work</Badge>
+      <section className="overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#effaff_52%,#fff0dc)] p-6 text-ink shadow-soft sm:p-10">
+        <Badge tone="sun">Features</Badge>
         <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight sm:text-6xl">
-          Start free, then unlock more only when the trip needs it.
+          Start free, then choose extra support only when the trip needs it.
         </h1>
-        <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-white/74">
-          Roamly shows paid unlocks at the moment they apply: after your free itinerary is used, when you need another
-          full itinerary, or when you add Live Trip Companion to a trip.
+        <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-700">
+          Roamly keeps planning first: build the route, check the budget, organize bookings, and decide on trip support
+          inside the authenticated flow.
         </p>
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-          <Button href="/plan" className="bg-white text-ink hover:bg-lagoon">Start planning</Button>
-          <Button href="/signup?next=/plan" tone="ghost" className="border border-white/18 bg-white/[0.08] text-white hover:bg-white/[0.14]">
+          <Button href="/plan">Start planning</Button>
+          <Button href="/signup?next=/plan" tone="secondary" className="border border-ocean/20 bg-white/84 text-ink hover:border-ocean/40 hover:bg-white">
             Create your free itinerary first
           </Button>
         </div>
       </section>
 
       <section className="mt-8 grid gap-4 lg:grid-cols-4">
-        {upgradeCards.map((card) => (
+        {featureCards.map((card) => (
           <Card key={card.title} className="p-5 transition hover:-translate-y-1 hover:border-ocean/30 hover:shadow-glow">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{card.title}</p>
             <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{card.body}</p>
