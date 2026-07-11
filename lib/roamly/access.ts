@@ -51,6 +51,11 @@ export function isRoamlyTester(userEmail: NullableEmail) {
   return isRoamlyAdmin(email) || getRoamlyTesterEmails().includes(email);
 }
 
+export function isRoamlyConfiguredTesterEmail(userEmail: NullableEmail) {
+  const email = normalizeEmail(userEmail);
+  return Boolean(email && getRoamlyTesterEmails().includes(email));
+}
+
 export function getRoamlyAccessForUser(userEmail: NullableEmail): RoamlyAccess {
   const email = normalizeEmail(userEmail);
   const isAdmin = isRoamlyAdmin(email);

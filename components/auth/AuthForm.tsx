@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -10,6 +10,44 @@ type AuthFormProps = {
   nextPath?: string;
 };
 
+const VERIFY_ACCOUNT_MESSAGE = "Account created. Please verify your email before logging in.";
+const RESEND_SUCCESS_MESSAGE = "Verification email sent. Check your inbox, spam, promotions, or updates.";
+const RESEND_ERROR_MESSAGE = "We could not resend the verification email. Try again or contact support.";
+const TESTER_UNVERIFIED_MESSAGE = "Tester access starts after this email is verified.";
+const SUPPORT_MESSAGE = "Still no email? Contact support or ask an admin to confirm your account in Supabase.";
+const LOGIN_UNVERIFIED_MESSAGE =
+  "This email is not verified yet. Please verify your email before logging in. You can resend the verification email below.";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isEmailNotConfirmedError(error: unknown) {
+  if (!isRecord(error)) return false;
+
+  const code = typeof error.code === "string" ? error.code.toLowerCase() : "";
+  const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+  return code === "email_not_confirmed" || message.includes("email not confirmed") || message.includes("email not verified");
+}
+
+async function getTesterEmailStatus(email: string) {
+  try {
+    const response = await fetch("/api/auth/tester-email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+
+    if (!response.ok) return false;
+
+    const payload: unknown = await response.json();
+    return isRecord(payload) && payload.isTesterEmail === true;
+  } catch {
+    return false;
+  }
+}
+
 export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -17,14 +55,80 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [resendNotice, setResendNotice] = useState("");
+  const [resendError, setResendError] = useState("");
+  const [resendBusy, setResendBusy] = useState(false);
+  const [testerVerificationNotice, setTesterVerificationNotice] = useState(false);
   const isSignup = mode === "signup";
   const configured = hasSupabaseConfig();
+  const loginHref = `/login?next=${encodeURIComponent(nextPath)}`;
   const alternateHref = `${isSignup ? "/login" : "/signup"}?next=${encodeURIComponent(nextPath)}`;
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function emailRedirectTo() {
+    return `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  }
+
+  async function showVerificationState(address: string) {
+    setVerificationEmail(address);
+    setTesterVerificationNotice(await getTesterEmailStatus(address));
+    setPassword("");
+    setResendNotice("");
+    setResendError("");
+  }
+
+  function changeEmail() {
+    setVerificationEmail("");
+    setTesterVerificationNotice(false);
+    setNotice("");
+    setError("");
+    setResendNotice("");
+    setResendError("");
+    setPassword("");
+  }
+
+  async function resendVerificationEmail() {
+    setResendNotice("");
+    setResendError("");
+
+    if (!configured || !verificationEmail) {
+      setResendError(RESEND_ERROR_MESSAGE);
+      return;
+    }
+
+    setResendBusy(true);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: resendAuthError } = await supabase.auth.resend({
+        type: "signup",
+        email: verificationEmail,
+        options: {
+          emailRedirectTo: emailRedirectTo()
+        }
+      });
+
+      if (resendAuthError) throw resendAuthError;
+
+      setResendNotice(RESEND_SUCCESS_MESSAGE);
+    } catch {
+      setResendError(RESEND_ERROR_MESSAGE);
+    } finally {
+      setResendBusy(false);
+    }
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setNotice("");
+    setResendNotice("");
+    setResendError("");
+    setTesterVerificationNotice(false);
+
+    if (!isSignup) {
+      setVerificationEmail("");
+    }
 
     if (!configured) {
       setError("Supabase is not configured yet.");
@@ -45,14 +149,14 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
+      const trimmedEmail = email.trim();
 
       if (isSignup) {
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
         const { data, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
           options: {
-            emailRedirectTo: redirectTo,
+            emailRedirectTo: emailRedirectTo(),
             data: {
               full_name: fullName.trim()
             }
@@ -71,12 +175,12 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
           return;
         }
 
-        setNotice("Check your email to verify your Roamly account, then log in.");
+        await showVerificationState(trimmedEmail);
         return;
       }
 
       const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: trimmedEmail,
         password
       });
 
@@ -85,7 +189,13 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
       await fetch("/api/account/profile", { method: "GET" });
       window.location.href = nextPath;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed.");
+      if (!isSignup && isEmailNotConfirmedError(err)) {
+        const trimmedEmail = email.trim();
+        setError(LOGIN_UNVERIFIED_MESSAGE);
+        await showVerificationState(trimmedEmail);
+      } else {
+        setError(err instanceof Error ? err.message : "Authentication failed.");
+      }
     } finally {
       setBusy(false);
     }
@@ -99,6 +209,61 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
         <p className="mt-2 text-sm font-bold leading-6">
           Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable signup and login.
         </p>
+      </div>
+    );
+  }
+
+  if (isSignup && verificationEmail) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-4 text-ocean">
+          <p className="text-sm font-black">{VERIFY_ACCOUNT_MESSAGE}</p>
+          <p className="mt-2 break-words text-sm font-bold leading-6">We sent the verification link to {verificationEmail}.</p>
+        </div>
+
+        {testerVerificationNotice ? (
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-900">
+            {TESTER_UNVERIFIED_MESSAGE}
+          </p>
+        ) : null}
+
+        {resendNotice ? (
+          <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
+            {resendNotice}
+          </p>
+        ) : null}
+
+        {resendError ? (
+          <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
+            {resendError}
+          </p>
+        ) : null}
+
+        <div className="grid gap-3">
+          <button
+            type="button"
+            disabled={resendBusy}
+            onClick={resendVerificationEmail}
+            className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
+          >
+            {resendBusy ? "Sending..." : "Resend verification email"}
+          </button>
+          <button
+            type="button"
+            onClick={changeEmail}
+            className="w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean"
+          >
+            Change email
+          </button>
+          <Link
+            href={loginHref}
+            className="w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink transition hover:border-ocean hover:text-ocean"
+          >
+            Back to login
+          </Link>
+        </div>
+
+        <p className="text-center text-xs font-bold leading-5 text-slate-500">{SUPPORT_MESSAGE}</p>
       </div>
     );
   }
@@ -152,6 +317,28 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
         <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
           {notice}
         </p>
+      ) : null}
+
+      {!isSignup && verificationEmail ? (
+        <div className="space-y-3 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-4">
+          {testerVerificationNotice ? (
+            <p className="text-sm font-black text-amber-900">{TESTER_UNVERIFIED_MESSAGE}</p>
+          ) : null}
+
+          {resendNotice ? <p className="text-sm font-black text-ocean">{resendNotice}</p> : null}
+          {resendError ? <p className="text-sm font-black text-coral">{resendError}</p> : null}
+
+          <button
+            type="button"
+            disabled={resendBusy}
+            onClick={resendVerificationEmail}
+            className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft transition hover:text-ink disabled:opacity-60"
+          >
+            {resendBusy ? "Sending..." : "Resend verification email"}
+          </button>
+
+          <p className="text-xs font-bold leading-5 text-slate-600">{SUPPORT_MESSAGE}</p>
+        </div>
       ) : null}
 
       <button
