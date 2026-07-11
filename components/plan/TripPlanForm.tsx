@@ -826,13 +826,6 @@ export function TripPlanForm({
     router.push(planLoginUrl());
   }
 
-  async function ensureActiveSessionBeforeGeneration() {
-    const user = await refreshSessionUser();
-    if (user) return user;
-    redirectToLoginForGeneration();
-    return null;
-  }
-
   const restorePlanDraft = useCallback((record: Record<string, unknown>) => {
     const travelers = getRecord(record.travelers);
     setStep(clampStep(record.currentStep ?? record.step));
@@ -1061,8 +1054,6 @@ export function TripPlanForm({
     if (validation) return;
 
     saveCurrentPlanDraft();
-    const activeUser = await ensureActiveSessionBeforeGeneration();
-    if (!activeUser) return;
 
     generationInFlight.current = true;
     setLoading(true);
@@ -1160,8 +1151,6 @@ export function TripPlanForm({
     if (validation) return;
 
     saveCurrentPlanDraft();
-    const activeUser = await ensureActiveSessionBeforeGeneration();
-    if (!activeUser) return;
 
     generationInFlight.current = true;
     setLoading(true);

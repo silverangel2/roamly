@@ -80,6 +80,7 @@ assert.ok(activateTripButton.includes("fetchWithSupabaseAuth"), "trip checkout b
 
 const planForm = read("components/plan/TripPlanForm.tsx");
 assert.ok(planForm.includes("checkout=failed"), "planner checkout failures after draft save must land on a retryable trip page");
+assert.ok(!planForm.includes("ensureActiveSessionBeforeGeneration"), "planner must not block generation on stale browser session state before server auth runs");
 
 const pushServer = read("lib/roamly/pushServer.ts");
 assert.ok(pushServer.includes("createInAppNotification"), "in-app notifications helper missing");
