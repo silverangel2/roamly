@@ -5,9 +5,10 @@ import { buildNavigationLinks, type NavigationDestination } from "@/lib/roamly/n
 type NavigationButtonsProps = NavigationDestination & {
   tripId?: string;
   className?: string;
+  showHeading?: boolean;
 };
 
-export function NavigationButtons({ tripId, className = "", ...destination }: NavigationButtonsProps) {
+export function NavigationButtons({ tripId, className = "", showHeading = false, ...destination }: NavigationButtonsProps) {
   const links = buildNavigationLinks(destination);
   if (!links.length) return null;
 
@@ -26,19 +27,22 @@ export function NavigationButtons({ tripId, className = "", ...destination }: Na
   }
 
   return (
-    <div className={`flex flex-wrap gap-2 ${className}`}>
-      {links.map((link) => (
-        <a
-          key={link.provider}
-          href={link.href}
-          target="_blank"
-          rel="noreferrer"
-          onClick={() => void record(link.provider)}
-          className="rounded-full bg-mist px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud transition hover:bg-ocean hover:text-white"
-        >
-          {link.label}
-        </a>
-      ))}
+    <div className={className}>
+      {showHeading ? <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Navigate</p> : null}
+      <div className="flex flex-wrap gap-2">
+        {links.map((link) => (
+          <a
+            key={link.provider}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => void record(link.provider)}
+            className="rounded-full bg-mist px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud transition hover:bg-ocean hover:text-white"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
     </div>
   );
 }

@@ -161,6 +161,7 @@ Rules:
 - Make the plan useful without overstuffing the day.
 - Keep each field short enough for mobile cards.
 - Give map queries, not URLs.
+- Include clean location names and addresses when possible in location_name and map_query so Google Maps, Apple Maps, and Citymapper link-outs work reliably.
 - Booking suggestions must include normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
 - Include a flight, hotel, activity or tour, and local transport booking suggestion when relevant.
 - Explain what still needs booking and what is already booked or committed based on the committed cost signal.

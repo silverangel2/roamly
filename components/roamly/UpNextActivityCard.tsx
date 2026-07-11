@@ -1,6 +1,7 @@
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
+import { NavigationButtons } from "@/components/roamly/NavigationButtons";
 
-export function UpNextActivityCard({ activity }: { activity: TrackingActivity | null }) {
+export function UpNextActivityCard({ activity, tripId }: { activity: TrackingActivity | null; tripId?: string }) {
   return (
     <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-sun">Up next nearby</p>
@@ -20,6 +21,15 @@ export function UpNextActivityCard({ activity }: { activity: TrackingActivity | 
               </span>
             ) : null}
           </div>
+          <NavigationButtons
+            tripId={tripId}
+            destinationLabel={activity.title || activity.address || activity.city}
+            address={activity.address || activity.city}
+            latitude={activity.latitude}
+            longitude={activity.longitude}
+            showHeading
+            className="mt-4"
+          />
         </>
       ) : (
         <p className="mt-2 text-sm font-bold leading-6 text-slate-500">No next activity is ready yet.</p>

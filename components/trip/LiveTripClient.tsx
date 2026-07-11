@@ -87,11 +87,29 @@ export function LiveTripClient({
           <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Now</p>
           <h2 className="mt-2 text-2xl font-black">{active?.title || "Start your day"}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-white/75">{active?.description || "Open your itinerary and choose the first stop."}</p>
+          {active ? (
+            <NavigationButtons
+              tripId={tripId}
+              destinationLabel={active.title}
+              address={active.map_query || active.location_name}
+              showHeading
+              className="mt-4 [&_p]:text-white/55 [&_a]:bg-white/10 [&_a]:text-white [&_a]:ring-white/15 [&_a:hover]:bg-lagoon [&_a:hover]:text-ink"
+            />
+          ) : null}
         </div>
         <div className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Next</p>
           <h2 className="mt-2 text-2xl font-black text-ink">{next?.title || "Flexible time"}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-500">{next?.description || "Use this space for food, rest, or transit."}</p>
+          {next ? (
+            <NavigationButtons
+              tripId={tripId}
+              destinationLabel={next.title}
+              address={next.map_query || next.location_name}
+              showHeading
+              className="mt-4"
+            />
+          ) : null}
         </div>
       </section>
 

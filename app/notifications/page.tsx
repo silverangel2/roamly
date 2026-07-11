@@ -120,7 +120,7 @@ export default async function NotificationsPage() {
           activities={nearbyActivities.length ? nearbyActivities : upNext.activity ? [upNext.activity] : []}
         />
         <div className="space-y-4">
-          <UpNextActivityCard activity={upNext.activity} />
+          <UpNextActivityCard tripId={trip.id} activity={upNext.activity} />
           <CheckedActivitiesList activities={checked.activities} />
         </div>
       </section>

@@ -2,11 +2,12 @@ import { redirect } from "next/navigation";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingCards } from "@/components/trip/BookingCards";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
+import { NavigationButtons } from "@/components/roamly/NavigationButtons";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { buildPreviewFromItinerary, createMapLink, type RoamlyItinerary, type RoamlyPreview } from "@/lib/itinerary";
+import { buildPreviewFromItinerary, type RoamlyItinerary, type RoamlyPreview } from "@/lib/itinerary";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { buildAttractionAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -49,7 +50,15 @@ function LockedCard({ title, text }: { title: string; text: string }) {
   );
 }
 
-function DayCard({ day, destination }: { day: RoamlyItinerary["daily_itinerary"][number]; destination: string }) {
+function DayCard({
+  day,
+  destination,
+  tripId
+}: {
+  day: RoamlyItinerary["daily_itinerary"][number];
+  destination: string;
+  tripId: string;
+}) {
   const activityLink = buildAttractionAffiliateUrl({
     category: "tour",
     destination,
@@ -80,17 +89,12 @@ function DayCard({ day, destination }: { day: RoamlyItinerary["daily_itinerary"]
             <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{value}</p>
           </div>
         ))}
-        <div className="flex flex-wrap gap-2">
+        <div className="grid gap-3">
           {day.map_queries.slice(0, 4).map((query) => (
-            <a
-              key={query}
-              href={createMapLink(query)}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
-            >
-              Map: {query}
-            </a>
+            <div key={query} className="rounded-2xl border border-cloud bg-white px-4 py-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{query}</p>
+              <NavigationButtons tripId={tripId} destinationLabel={query} address={query} showHeading className="mt-3" />
+            </div>
           ))}
           <a
             href={activityLink.href}
@@ -344,7 +348,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
           <section className="mt-7 grid gap-4">
             {full.daily_itinerary.map((day) => (
-              <DayCard key={day.day_number} day={day} destination={trip.destination} />
+              <DayCard key={day.day_number} day={day} destination={trip.destination} tripId={id} />
             ))}
           </section>
 
