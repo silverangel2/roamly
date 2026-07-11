@@ -1090,7 +1090,10 @@ export function TripPlanForm({
       const request = () => fetch("/api/trips/generate", {
         method: "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(generationAccessToken ? { Authorization: `Bearer ${generationAccessToken}` } : {}),
+        },
         body: JSON.stringify(payload),
         signal: controller.signal
       });
