@@ -78,6 +78,14 @@ function toNumberOrNull(value: string) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function daysBetweenInput(startDate: string, endDate: string) {
+  if (!startDate || !endDate) return null;
+  const start = new Date(`${startDate}T00:00:00Z`).getTime();
+  const end = new Date(`${endDate}T00:00:00Z`).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
+}
+
 function toInteger(value: string, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
@@ -628,7 +636,7 @@ export function TripPlanForm({
       flexibleDates,
       startDate,
       endDate,
-      daysCount: toNumberOrNull(daysCount),
+      daysCount: toNumberOrNull(daysCount) ?? daysBetweenInput(startDate, endDate) ?? 3,
       travelersCount,
       travelers: {
         adults: adultCount,
@@ -962,7 +970,6 @@ export function TripPlanForm({
       }
     }
     if (stepToValidate === 1) {
-      if (!daysCount && (!startDate || !endDate)) return "Add dates or a number of days.";
       if (adultCount < 1) return "Add at least one adult traveler.";
       if (roomCount < 1) return "Add at least one room.";
     }

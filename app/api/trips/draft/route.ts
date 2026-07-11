@@ -14,11 +14,19 @@ function getString(value: unknown) {
 
 function getPositiveNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
   return null;
 }
 
 function getNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
   return null;
 }
 
@@ -94,6 +102,7 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
   const startDate = getString(body.startDate || body.start_date);
   const endDate = getString(body.endDate || body.end_date);
   const explicitDays = getPositiveNumber(body.daysCount ?? body.days_count);
+  const resolvedDaysCount = explicitDays ?? daysBetween(startDate, endDate) ?? 3;
   const tripType = getTripType(body.tripType || body.trip_type);
   const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
   const destinationPlace = cleanPlace(body.destinationPlace || body.destination_place);
@@ -139,7 +148,7 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
     flexibleDates: getBoolean(body.flexibleDates ?? body.flexible_dates, false),
     startDate,
     endDate,
-    daysCount: explicitDays ?? daysBetween(startDate, endDate),
+    daysCount: resolvedDaysCount,
     travelersCount: travelers.adults + travelers.children + (travelers.infants || 0),
     travelers,
     rooms: getPositiveNumber(body.rooms) || 1,
@@ -170,7 +179,6 @@ function validatePayload(payload: TripPlannerPayload) {
   if (payload.tripType === "multi_city" && (!payload.destinationStops || payload.destinationStops.length < 2)) {
     return "Please add at least two cities for a multi-city trip.";
   }
-  if (!payload.daysCount) return "Dates or number of days are required.";
   if (!payload.budgetAmount) return "Budget amount is required.";
   return "";
 }
