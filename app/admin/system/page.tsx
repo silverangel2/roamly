@@ -21,22 +21,23 @@ const tables = [
   "roamly_email_logs"
 ];
 
-const environmentChecks = [
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "OPENAI_API_KEY",
-  "STRIPE_SECRET_KEY",
-  "STRIPE_WEBHOOK_SECRET",
-  "ROAMLY_STRIPE_ITINERARY_PRICE_ID",
-  "ROAMLY_STRIPE_FEATURES_PRICE_ID",
-  "ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID",
-  "ROAMLY_NOTIFICATION_CRON_SECRET",
-  "ROAMLY_AFFILIATES_ENABLED",
-  "ROAMLY_EMAIL_PROVIDER",
-  "ROAMLY_FROM_EMAIL",
-  "ROAMLY_REPLY_TO_EMAIL"
-];
+type ReadinessStatus = "Ready" | "Missing" | "Optional" | "Needs setup";
+
+function statusClass(status: ReadinessStatus) {
+  if (status === "Ready") return "bg-ocean/10 text-ocean";
+  if (status === "Optional") return "bg-slate-100 text-slate-500";
+  if (status === "Needs setup") return "bg-sun/20 text-amber-700";
+  return "bg-coral/10 text-coral";
+}
+
+function requiredStatus(configured: boolean): ReadinessStatus {
+  return configured ? "Ready" : "Missing";
+}
+
+function optionalStatus(configured: boolean, enabled = false): ReadinessStatus {
+  if (configured) return "Ready";
+  return enabled ? "Needs setup" : "Optional";
+}
 
 export default async function AdminSystemPage() {
   const state = await getRoamlyAdminPageState();
@@ -88,6 +89,111 @@ export default async function AdminSystemPage() {
     ]);
   const affiliateReadiness = getAffiliateReadiness();
   const emailReadiness = isEmailConfigured();
+  const affiliatesEnabled = process.env.ROAMLY_AFFILIATES_ENABLED === "true";
+  const systemChecks: Array<{ group: string; label: string; status: ReadinessStatus; detail: string }> = [
+    {
+      group: "Places",
+      label: "Google Places server key",
+      status: optionalStatus(Boolean(process.env.GOOGLE_MAPS_API_KEY), process.env.ROAMLY_PLACES_PROVIDER === "google"),
+      detail: "Enables provider-backed worldwide autocomplete."
+    },
+    {
+      group: "Places",
+      label: "Places provider",
+      status: process.env.ROAMLY_PLACES_PROVIDER ? "Ready" : "Optional",
+      detail: "Local recommended places work when no provider is set."
+    },
+    {
+      group: "Stripe",
+      label: "Itinerary price",
+      status: requiredStatus(Boolean(process.env.ROAMLY_STRIPE_ITINERARY_PRICE_ID)),
+      detail: "Required for the $4.99 CAD itinerary unlock."
+    },
+    {
+      group: "Stripe",
+      label: "Companion price",
+      status: requiredStatus(Boolean(process.env.ROAMLY_STRIPE_FEATURES_PRICE_ID)),
+      detail: "Required for the $3.99 CAD Live Companion add-on."
+    },
+    {
+      group: "Stripe",
+      label: "Complete pack price",
+      status: requiredStatus(Boolean(process.env.ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID)),
+      detail: "Required for the $7.99 CAD Complete Trip Pack."
+    },
+    {
+      group: "Stripe",
+      label: "Webhook secret",
+      status: requiredStatus(Boolean(process.env.STRIPE_WEBHOOK_SECRET)),
+      detail: "Required to save successful payment entitlements."
+    },
+    {
+      group: "Affiliate",
+      label: "Affiliates enabled",
+      status: affiliatesEnabled ? "Ready" : "Optional",
+      detail: "Normal booking links render when disabled."
+    },
+    {
+      group: "Affiliate",
+      label: "Stay22 partner",
+      status: optionalStatus(affiliateReadiness.stay22PartnerConfigured, affiliatesEnabled),
+      detail: "Hotel affiliate links use this only when configured."
+    },
+    {
+      group: "Affiliate",
+      label: "Travelpayouts marker",
+      status: optionalStatus(affiliateReadiness.travelpayoutsMarkerConfigured, affiliatesEnabled),
+      detail: "Flight affiliate links use this only when configured."
+    },
+    {
+      group: "Affiliate",
+      label: "GetYourGuide partner",
+      status: optionalStatus(affiliateReadiness.getYourGuidePartnerConfigured, affiliatesEnabled),
+      detail: "Attraction links can use this provider."
+    },
+    {
+      group: "Affiliate",
+      label: "Viator partner",
+      status: optionalStatus(affiliateReadiness.viatorPartnerConfigured, affiliatesEnabled),
+      detail: "Attraction links can use this provider."
+    },
+    {
+      group: "Affiliate",
+      label: "Klook partner",
+      status: optionalStatus(affiliateReadiness.klookPartnerConfigured, affiliatesEnabled),
+      detail: "Attraction links can use this provider."
+    },
+    {
+      group: "Notifications",
+      label: "VAPID public key",
+      status: requiredStatus(Boolean(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)),
+      detail: "Required for browser push subscriptions."
+    },
+    {
+      group: "Notifications",
+      label: "VAPID private key",
+      status: requiredStatus(Boolean(process.env.VAPID_PRIVATE_KEY)),
+      detail: "Required for sending push notifications."
+    },
+    {
+      group: "Notifications",
+      label: "Notification cron secret",
+      status: requiredStatus(Boolean(process.env.ROAMLY_NOTIFICATION_CRON_SECRET)),
+      detail: "Required for scheduled notification cron protection."
+    },
+    {
+      group: "AI",
+      label: "OpenAI API key",
+      status: requiredStatus(Boolean(process.env.OPENAI_API_KEY)),
+      detail: "Required for AI itinerary generation."
+    },
+    {
+      group: "AI",
+      label: "OpenAI model",
+      status: process.env.OPENAI_MODEL ? "Ready" : "Optional",
+      detail: "Falls back to the default itinerary model when unset."
+    }
+  ];
 
   return (
     <main className="safe-bottom">
@@ -107,13 +213,19 @@ export default async function AdminSystemPage() {
         ))}
       </section>
 
-      <section className="mt-5 grid gap-3 sm:grid-cols-2">
-        {environmentChecks.map((key) => (
-          <Card key={key} className="p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{key}</p>
-            <p className={`mt-2 text-lg font-black ${process.env[key] ? "text-ocean" : "text-coral"}`}>
-              {process.env[key] ? "Configured" : "Missing"}
-            </p>
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {systemChecks.map((check) => (
+          <Card key={`${check.group}-${check.label}`} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{check.group}</p>
+                <h2 className="mt-2 text-lg font-black text-ink">{check.label}</h2>
+              </div>
+              <span className={`rounded-full px-3 py-2 text-xs font-black ${statusClass(check.status)}`}>
+                {check.status}
+              </span>
+            </div>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-500">{check.detail}</p>
           </Card>
         ))}
       </section>

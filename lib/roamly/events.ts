@@ -31,8 +31,18 @@ export type TripEventInput = {
   metadata?: Record<string, unknown>;
 };
 
+function isMissingEventTableError(message?: string | null) {
+  return Boolean(
+    message &&
+      (message.includes("roamly_app_events") ||
+        message.includes("roamly_trip_events") ||
+        message.includes("schema cache") ||
+        message.toLowerCase().includes("does not exist"))
+  );
+}
+
 export async function recordAppEvent(supabase: SupabaseClient, input: AppEventInput) {
-  return supabase.from("roamly_app_events").insert({
+  const result = await supabase.from("roamly_app_events").insert({
     user_id: input.userId || null,
     visitor_key: input.visitorKey || null,
     event_type: input.eventType,
@@ -49,10 +59,12 @@ export async function recordAppEvent(supabase: SupabaseClient, input: AppEventIn
     city: input.city || null,
     metadata: input.metadata || {}
   });
+  if (isMissingEventTableError(result.error?.message)) return { ...result, error: null };
+  return result;
 }
 
 export async function recordTripEvent(supabase: SupabaseClient, input: TripEventInput) {
-  return supabase.from("roamly_trip_events").insert({
+  const result = await supabase.from("roamly_trip_events").insert({
     user_id: input.userId || null,
     trip_id: input.tripId || null,
     activity_id: input.activityId || null,
@@ -64,6 +76,8 @@ export async function recordTripEvent(supabase: SupabaseClient, input: TripEvent
     distance_meters: input.distanceMeters ?? null,
     metadata: input.metadata || {}
   });
+  if (isMissingEventTableError(result.error?.message)) return { ...result, error: null };
+  return result;
 }
 
 export const recordRoamlyEvent = recordAppEvent;

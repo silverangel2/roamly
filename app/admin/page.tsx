@@ -68,7 +68,13 @@ export default async function AdminPage() {
     bookingCount,
     priceDiscoveryCount,
     notificationCount,
-    pushSubscriptionCount
+    pushSubscriptionCount,
+    affiliateClicks,
+    affiliateProviderMissing,
+    failedAppGenerations,
+    failedTripGenerations,
+    checkoutCompleted,
+    recentAppEvents
   ] = admin
     ? await Promise.all([
         admin.from("roamly_profiles").select("id", { count: "exact", head: true }),
@@ -106,25 +112,50 @@ export default async function AdminPage() {
           .gte("created_at", todayIso),
         admin
           .from("roamly_trips")
-          .select("destination,destination_city,destination_country")
+          .select("destination,destination_city,destination_country,metadata")
           .order("created_at", { ascending: false })
           .limit(200),
         admin.from("roamly_bookings").select("id", { count: "exact", head: true }),
         admin.from("roamly_price_discoveries").select("id", { count: "exact", head: true }),
         admin.from("roamly_notifications").select("id", { count: "exact", head: true }),
-        admin.from("roamly_push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true)
+        admin.from("roamly_push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
+        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "booking_link_clicked"),
+        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "affiliate_provider_missing"),
+        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "itinerary_generation_failed"),
+        admin.from("roamly_trip_events").select("id", { count: "exact", head: true }).eq("event_type", "itinerary_generation_failed"),
+        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "checkout_completed"),
+        admin.from("roamly_app_events").select("event_type,metadata,created_at").order("created_at", { ascending: false }).limit(500)
       ])
-    : [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+    : [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
 
   const paidRows = (payments?.data || []) as Array<{ amount_cents: number }>;
   const revenue = paidRows.reduce((sum, row) => sum + (row.amount_cents || 0), 0) / 100;
   const topDestinations = new Map<string, number>();
-  ((topTrips?.data || []) as Array<{ destination?: string; destination_city?: string | null; destination_country?: string | null }>).forEach(
+  const topMultiCityRoutes = new Map<string, number>();
+  ((topTrips?.data || []) as Array<{
+    destination?: string;
+    destination_city?: string | null;
+    destination_country?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }>).forEach(
     (trip) => {
       const label = trip.destination_city || trip.destination || trip.destination_country || "Unknown";
       topDestinations.set(label, (topDestinations.get(label) || 0) + 1);
+      const planning = trip.metadata && typeof trip.metadata === "object" ? (trip.metadata.planning as Record<string, unknown> | undefined) : undefined;
+      const stops = Array.isArray(planning?.destinationStops) ? planning.destinationStops : [];
+      const route = stops
+        .map((stop) => (stop && typeof stop === "object" ? (stop as Record<string, unknown>).value || (stop as Record<string, unknown>).label : ""))
+        .filter((item): item is string => typeof item === "string" && item.length > 0)
+        .join(" → ");
+      if (route) topMultiCityRoutes.set(route, (topMultiCityRoutes.get(route) || 0) + 1);
     }
   );
+  const recentEventRows = (recentAppEvents?.data || []) as Array<{ event_type?: string; metadata?: Record<string, unknown> | null }>;
+  const eventCounts = recentEventRows.reduce<Record<string, number>>((acc, event) => {
+    if (event.event_type) acc[event.event_type] = (acc[event.event_type] || 0) + 1;
+    return acc;
+  }, {});
+  const failedGenerationCount = (failedAppGenerations?.count || 0) + (failedTripGenerations?.count || 0);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -141,6 +172,10 @@ export default async function AdminPage() {
         <Stat label="Trips generated" value={trips?.count ?? "Setup"} />
         <Stat label="Locked itineraries" value={lockedTrips?.count ?? "Setup"} />
         <Stat label="Revenue estimate" value={`$${revenue.toFixed(2)}`} />
+        <Stat label="Free itineraries used" value={freeUsed?.count ?? 0} />
+        <Stat label="Paid itineraries unlocked" value={paidItineraries?.count ?? 0} />
+        <Stat label="Affiliate clicks" value={affiliateClicks?.count ?? 0} />
+        <Stat label="Failed generations" value={failedGenerationCount} />
         <Stat label="Active trips today" value={activeToday?.count ?? 0} />
         <Stat label="Live starts today" value={tripActivations?.count ?? 0} />
         <Stat label="Check-ins today" value={checkIns?.count ?? 0} />
@@ -160,10 +195,14 @@ export default async function AdminPage() {
               ["Pricing", "$4.99 itinerary · $3.99 companion · $7.99 complete"],
               ["Booking imports", `${bookingCount?.count ?? 0}`],
               ["Budget checks", `${priceDiscoveryCount?.count ?? 0}`],
+              ["Checkout completions", `${checkoutCompleted?.count ?? 0}`],
+              ["Affiliate clicks", `${affiliateClicks?.count ?? 0}`],
+              ["Affiliate provider missing", `${affiliateProviderMissing?.count ?? 0}`],
               ["Notifications", `${notificationCount?.count ?? 0}`],
               ["Push opt-ins", `${pushSubscriptionCount?.count ?? 0}`],
               ["Location opt-in", `${locationOptIns?.count ?? 0} users enabled`],
-              ["AI generation", process.env.OPENAI_API_KEY ? "Configured" : "Missing key"]
+              ["AI generation", process.env.OPENAI_API_KEY ? "Configured" : "Missing key"],
+              ["OpenAI usage/cost estimate", eventCounts.openai_usage ? `${eventCounts.openai_usage} usage events` : "Not tracked yet"]
             ].map(([label, value]) => (
               <div key={label} className="rounded-2xl bg-mist p-4">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
@@ -210,6 +249,22 @@ export default async function AdminPage() {
               ))}
             {!topDestinations.size ? (
               <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">No destinations yet.</p>
+            ) : null}
+          </div>
+        </Card>
+        <Card>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Popular multi-city routes</p>
+          <div className="mt-4 grid gap-3">
+            {[...topMultiCityRoutes.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 8)
+              .map(([route, count]) => (
+                <p key={route} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
+                  {route} · {count}
+                </p>
+              ))}
+            {!topMultiCityRoutes.size ? (
+              <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">No multi-city routes yet.</p>
             ) : null}
           </div>
         </Card>

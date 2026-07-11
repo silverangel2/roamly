@@ -10,6 +10,7 @@ import { buildPreviewFromItinerary, createMapLink, type RoamlyItinerary, type Ro
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { buildAttractionAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
+import { recordAppEvent } from "@/lib/roamly/events";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay, isMissingTableError } from "@/lib/trips";
 
@@ -154,6 +155,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     return <SetupCard title="Supabase is unavailable." summary="Check Roamly environment variables." />;
   }
 
+  if (one(search.checkout) === "cancelled") {
+    await recordAppEvent(supabase, {
+      userId: current.user.id,
+      eventType: "checkout_cancelled",
+      metadata: { tripId: id }
+    });
+  }
+
   const [bundleResult, freeResult] = await Promise.all([
     getTripBundle(supabase, current.user.id, id),
     hasUsedFreeItinerary(supabase, current.user.id)
@@ -177,6 +186,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const trackingUnlocked = tripHasTrackingUnlock(trip);
   const paidForItinerary = isItineraryPaid(trip);
   const freeAvailable = !freeResult.used;
+  const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const preview = full ? buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
   const canShowFull = Boolean(itineraryLocked && full);
   const activitiesByDay = groupActivitiesByDay(activities);
@@ -216,6 +226,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               This itinerary is locked. To make major changes, create a new itinerary.
             </p>
           ) : null}
+          {generationRequiresPayment ? (
+            <p className="mt-4 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
+              You’ve used your free itinerary. Unlock this trip to generate a new full itinerary.
+            </p>
+          ) : null}
         </div>
 
         <Card className="p-4">
@@ -240,7 +255,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 ? "Generate once to lock the final itinerary for this trip."
                 : freeAvailable
                   ? "You get 1 free itinerary per account."
-                  : "One custom itinerary for one trip. No subscription."}
+                : "You’ve used your free itinerary. Unlock this trip to generate a new full itinerary."}
           </p>
           <div className="mt-4">
             {itineraryLocked ? (

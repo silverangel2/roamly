@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   accommodationOptions,
@@ -81,6 +81,36 @@ function toInteger(value: string, fallback: number) {
 
 function classNames(...items: Array<string | false | null | undefined>) {
   return items.filter(Boolean).join(" ");
+}
+
+function getVisitorKey() {
+  if (typeof window === "undefined") return "";
+  const key = "roamly_visitor_key";
+  const existing = window.localStorage.getItem(key);
+  if (existing) return existing;
+  const created = crypto.randomUUID();
+  window.localStorage.setItem(key, created);
+  return created;
+}
+
+function trackPlanEvent(eventType: string, metadata: Record<string, unknown> = {}) {
+  if (typeof window === "undefined") return;
+  void fetch("/api/roamly/events/app", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    keepalive: true,
+    body: JSON.stringify({
+      visitorKey: getVisitorKey(),
+      eventType,
+      path: window.location.pathname,
+      url: window.location.href,
+      title: document.title,
+      referrer: document.referrer,
+      platform: navigator.platform,
+      language: navigator.language,
+      metadata
+    })
+  }).catch(() => undefined);
 }
 
 function isCurrencyOption(value: string | undefined): value is (typeof currencyOptions)[number] {
@@ -267,6 +297,11 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
   const [priceDiscovery, setPriceDiscovery] = useState<PriceDiscoveryResult | null>(null);
   const [priceDiscoveryId, setPriceDiscoveryId] = useState<string | null>(null);
   const [budgetConstraint, setBudgetConstraint] = useState("");
+  const trackedSelections = useRef(new Set<string>());
+
+  useEffect(() => {
+    trackPlanEvent("plan_started");
+  }, []);
 
   const validStops = useMemo(() => stops.map((stop) => stop.place).filter((place): place is NormalizedPlace => isValidPlaceValue(place?.value)), [stops]);
   const normalizedDestination = useMemo(() => {
@@ -298,23 +333,36 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
 
   function setOrigin(place: NormalizedPlace | null) {
     setOriginPlace(place);
+    if (place && place.source !== "custom" && !trackedSelections.current.has(`origin:${place.value}`)) {
+      trackedSelections.current.add(`origin:${place.value}`);
+      trackPlanEvent("origin_selected", { origin: place.value, source: place.source, country: place.country || null });
+    }
     resetDiscovery();
   }
 
   function setDestination(place: NormalizedPlace | null) {
     setDestinationPlace(place);
+    if (place && place.source !== "custom" && !trackedSelections.current.has(`destination:${place.value}`)) {
+      trackedSelections.current.add(`destination:${place.value}`);
+      trackPlanEvent("destination_selected", { destination: place.value, source: place.source, country: place.country || null });
+    }
     applyCurrency(place);
     resetDiscovery();
   }
 
   function setStopPlace(id: string, place: NormalizedPlace | null) {
     setStops((current) => current.map((stop) => (stop.id === id ? { ...stop, place } : stop)));
+    if (place && place.source !== "custom" && !trackedSelections.current.has(`stop:${id}:${place.value}`)) {
+      trackedSelections.current.add(`stop:${id}:${place.value}`);
+      trackPlanEvent("destination_selected", { destination: place.value, source: place.source, stopId: id });
+    }
     applyCurrency(place);
     resetDiscovery();
   }
 
   function addCity() {
     setStops((current) => [...current, { id: `stop-${Date.now()}-${current.length}`, place: null }]);
+    trackPlanEvent("city_stop_added", { stopCount: stops.length + 1 });
     resetDiscovery();
   }
 
@@ -452,6 +500,24 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
     const validation = validateStep(step);
     setError(validation);
     if (validation) return;
+    if (step === 1) {
+      trackPlanEvent("dates_selected", {
+        startDate,
+        endDate,
+        daysCount: payload.daysCount,
+        travelersCount: payload.travelersCount,
+        rooms: payload.rooms
+      });
+    }
+    if (step === 2) {
+      trackPlanEvent("budget_submitted", {
+        budgetAmount: payload.budgetAmount,
+        budgetCurrency: payload.budgetCurrency,
+        budgetIncludesFlights,
+        budgetIncludesHotel,
+        budgetIncludesActivities
+      });
+    }
     setStep((current) => Math.min(current + 1, steps.length - 1));
   }
 
@@ -465,6 +531,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
     setPriceChecking(true);
     setNotice("Checking trip costs...");
     setError("");
+    trackPlanEvent("price_discovery_started", { tripType, destination: payload.destination });
 
     try {
       const response = await fetch("/api/roamly/price-discovery", {
@@ -481,11 +548,22 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       setPriceDiscovery(data.discovery);
       setPriceDiscoveryId(data.discoveryId || null);
       setBudgetConstraint(data.budgetConstraint || "");
+      trackPlanEvent("price_discovery_completed", {
+        tripType,
+        destination: payload.destination,
+        budgetStatus: data.discovery?.budgetStatus,
+        totalEstimateCents: data.discovery?.totalEstimateCents
+      });
       setNotice("");
       return true;
     } catch (err) {
       setNotice("");
       setError(err instanceof Error ? err.message : "Could not check trip costs.");
+      trackPlanEvent("price_discovery_failed", {
+        tripType,
+        destination: payload.destination,
+        error: err instanceof Error ? err.message : "Could not check trip costs."
+      });
       return false;
     } finally {
       setPriceChecking(false);
@@ -509,6 +587,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
     if (validation) return;
 
     setLoading(true);
+    trackPlanEvent("itinerary_generation_started", { tripType, destination: payload.destination });
 
     try {
       const response = await fetch("/api/trips/generate", {
@@ -525,11 +604,17 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       }
 
       if (response.ok && data?.tripId) {
+        trackPlanEvent("itinerary_generation_completed", { tripType, destination: payload.destination, tripId: data.tripId });
         router.push(data.previewUrl || `/trip/${data.tripId}`);
         return;
       }
 
       if (response.status === 402 && data?.previewUrl) {
+        trackPlanEvent("itinerary_generation_failed", {
+          tripType,
+          destination: payload.destination,
+          error: "PAYMENT_REQUIRED"
+        });
         router.push(data.previewUrl);
         return;
       }
@@ -543,6 +628,11 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
     } catch (err) {
       setNotice("");
       setError(err instanceof Error ? err.message : "Trip generation is not ready yet.");
+      trackPlanEvent("itinerary_generation_failed", {
+        tripType,
+        destination: payload.destination,
+        error: err instanceof Error ? err.message : "Trip generation is not ready yet."
+      });
     } finally {
       setLoading(false);
     }
@@ -602,6 +692,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                   type="button"
                   onClick={() => {
                     setTripType(value as TripType);
+                    if (value === "multi_city") trackPlanEvent("multi_city_selected");
                     resetDiscovery();
                   }}
                   className={classNames(
@@ -932,7 +1023,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
             {priceChecking
               ? translateText("Checking costs...")
               : freeItineraryUsed
-                ? translateText("Unlock full itinerary - $4.99 CAD")
+                ? translateText("Unlock itinerary — $4.99 CAD")
                 : translateText("Generate my free itinerary")}
           </button>
         )}
@@ -954,6 +1045,15 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
             <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
               {translateText("Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates, travelers, budget, and preferences are correct.")}
             </p>
+            {priceDiscovery ? (
+              <div className="mt-4 rounded-2xl bg-mist p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Budget status")}</p>
+                <p className="mt-1 text-sm font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  {translateText("Total estimate")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
+                </p>
+              </div>
+            ) : null}
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"

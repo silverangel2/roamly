@@ -89,6 +89,7 @@ Traveler input:
 - Budget instruction: ${payload.budgetConstraint || "Use practical current-price caution. Prices are estimates and may change before booking."}
 - Price discovery summary: ${JSON.stringify(priceSummary)}
 - Uploaded/confirmed booking costs: ${priceSummary.committed_bookings}. Treat these as already committed costs from bookings or screenshots when present; do not invent new bookings.
+- Fixed bookings and screenshots: ${JSON.stringify(payload.confirmedBookings || [])}
 - Output language: ${outputLanguage}
 
 Return ONLY valid JSON with this shape:
@@ -163,6 +164,7 @@ Rules:
 - Booking suggestions must include normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
 - Include a flight, hotel, activity or tour, and local transport booking suggestion when relevant.
 - Explain what still needs booking and what is already booked or committed based on the committed cost signal.
+- Respect fixed bookings, booked dates, addresses, and check-in/check-out times from the booking summary when present.
 - Separate free/cheap activities from paid anchors.
 - Respect walking tolerance, accessibility needs, dietary preference, travel pace, and Live Companion timeline needs.
 - Account for hotel check-in/check-out timing and inter-city travel time when useful.

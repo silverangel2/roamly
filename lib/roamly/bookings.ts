@@ -244,3 +244,17 @@ export async function getConfirmedBookingCostCents(supabase: SupabaseClient, use
     error: null
   };
 }
+
+export async function getConfirmedBookingsForItinerary(supabase: SupabaseClient, userId: string, tripId: string) {
+  const { data, error } = await supabase
+    .from("roamly_bookings")
+    .select("booking_type,title,provider_name,booking_status,amount_cents,currency,start_date,end_date,start_time,end_time,address,city,country")
+    .eq("user_id", userId)
+    .eq("trip_id", tripId)
+    .neq("booking_status", "cancelled")
+    .order("start_date", { ascending: true, nullsFirst: false })
+    .limit(20);
+
+  if (error) return { bookings: [], error: error.message };
+  return { bookings: data || [], error: null };
+}

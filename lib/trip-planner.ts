@@ -123,4 +123,19 @@ export type TripPlannerPayload = {
   budgetConstraint?: string;
   priceDiscoveryId?: string | null;
   priceDiscovery?: Record<string, unknown>;
+  confirmedBookings?: Array<{
+    booking_type?: string | null;
+    title?: string | null;
+    provider_name?: string | null;
+    booking_status?: string | null;
+    amount_cents?: number | null;
+    currency?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    start_time?: string | null;
+    end_time?: string | null;
+    address?: string | null;
+    city?: string | null;
+    country?: string | null;
+  }>;
 };

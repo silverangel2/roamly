@@ -65,6 +65,22 @@ export function RoamlyLocationTracker() {
         language: navigator.language
       })
     }).catch(() => undefined);
+    if (pathname === "/") {
+      void fetch("/api/roamly/events/app", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          visitorKey,
+          eventType: "homepage_view",
+          path: pathname,
+          url: window.location.href,
+          title: document.title,
+          referrer: document.referrer,
+          platform: navigator.platform,
+          language: navigator.language
+        })
+      }).catch(() => undefined);
+    }
   }, [pathname]);
 
   useEffect(() => {

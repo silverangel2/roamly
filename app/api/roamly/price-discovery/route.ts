@@ -6,6 +6,7 @@ import {
 } from "@/lib/roamly/priceDiscovery";
 import { getConfirmedBookingCostCents } from "@/lib/roamly/bookings";
 import { requireUser } from "@/lib/roamly/auth";
+import { recordAppEvent } from "@/lib/roamly/events";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import type { TripType } from "@/lib/trip-planner";
 
@@ -99,21 +100,25 @@ export async function POST(request: NextRequest) {
     returnToOrigin: body.returnToOrigin !== false && body.return_to_origin !== false,
     flexibleCityOrder: body.flexibleCityOrder === true || body.flexible_city_order === true,
     flexibleDates: body.flexibleDates === true || body.flexible_dates === true,
-    startDate: getString(body.startDate),
-    endDate: getString(body.endDate),
-    daysCount: getNumber(body.daysCount),
-    travelersCount: getNumber(body.travelersCount),
-    travelers: getRecord(body.travelers) || undefined,
+    startDate: getString(body.startDate || body.start_date),
+    endDate: getString(body.endDate || body.end_date),
+    daysCount: getNumber(body.daysCount ?? body.days_count),
+    travelersCount: getNumber(body.travelersCount ?? body.travelers_count),
+    travelers: getRecord(body.travelers) || {
+      adults: getNumber(body.adults) || 1,
+      children: getAnyNumber(body.children) || 0,
+      infants: getAnyNumber(body.infants) || 0
+    },
     rooms: getNumber(body.rooms),
     bedPreference: getString(body.bedPreference || body.bed_preference),
-    budgetAmount: getNumber(body.budgetAmount),
-    budgetCurrency: getString(body.budgetCurrency) || "CAD",
-    budgetIncludesFlights: body.budgetIncludesFlights !== false,
-    budgetIncludesHotel: body.budgetIncludesHotel !== false,
-    budgetIncludesActivities: body.budgetIncludesActivities !== false,
+    budgetAmount: getNumber(body.budgetAmount ?? body.budget_total),
+    budgetCurrency: getString(body.budgetCurrency || body.budget_currency) || "CAD",
+    budgetIncludesFlights: body.budgetIncludesFlights !== false && body.budget_includes_flights !== false,
+    budgetIncludesHotel: body.budgetIncludesHotel !== false && body.budget_includes_hotel !== false,
+    budgetIncludesActivities: body.budgetIncludesActivities !== false && body.budget_includes_activities !== false,
     committedBudgetCents,
     accommodationPreference: getString(body.accommodationPreference),
-    travelStyle: getString(body.travelStyle),
+    travelStyle: getString(body.travelStyle || body.travel_style),
     interests: Array.isArray(body.interests) ? body.interests.filter((item): item is string => typeof item === "string") : [],
     pace: getString(body.pace),
     walkingTolerance: getString(body.walkingTolerance || body.walking_tolerance),
@@ -122,15 +127,59 @@ export async function POST(request: NextRequest) {
     dietaryPreference: getString(body.dietaryPreference || body.dietary_preference)
   };
 
-  const discovery = await discoverTripPrices(input);
-  const saved = await savePriceDiscovery(auth.supabase, input, discovery);
+  await recordAppEvent(auth.supabase, {
+    userId: auth.user.id,
+    eventType: "price_discovery_started",
+    metadata: {
+      tripType,
+      destination,
+      budgetCurrency: input.budgetCurrency,
+      budgetAmount: input.budgetAmount
+    }
+  });
+
+  let discovery;
+  let saved;
+  try {
+    discovery = await discoverTripPrices(input);
+    saved = await savePriceDiscovery(auth.supabase, input, discovery);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Price discovery failed.";
+    await recordAppEvent(auth.supabase, {
+      userId: auth.user.id,
+      eventType: "price_discovery_failed",
+      metadata: {
+        tripType,
+        destination,
+        error: message
+      }
+    });
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
 
   if (saved.error) {
+    await recordAppEvent(auth.supabase, {
+      userId: auth.user.id,
+      eventType: "price_discovery_failed",
+      metadata: { tripType, destination, error: saved.error }
+    });
     return NextResponse.json(
       { ok: false, error: saved.error, setupHint: "Run the Roamly budget/booking/companion migration." },
       { status: 500 }
     );
   }
+
+  await recordAppEvent(auth.supabase, {
+    userId: auth.user.id,
+    eventType: "price_discovery_completed",
+    metadata: {
+      tripType,
+      destination,
+      discoveryId: saved.id,
+      budgetStatus: discovery.budgetStatus,
+      totalEstimateCents: discovery.totalEstimateCents
+    }
+  });
 
   return NextResponse.json({
     ok: true,

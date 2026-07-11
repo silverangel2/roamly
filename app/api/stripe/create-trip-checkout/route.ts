@@ -5,6 +5,7 @@ import {
   createTrackingCheckoutSession
 } from "@/lib/roamly/billing";
 import { requireUser } from "@/lib/roamly/auth";
+import { recordAppEvent } from "@/lib/roamly/events";
 
 function normalizeKind(value: unknown) {
   if (value === "itinerary" || value === "itinerary_unlock") return "itinerary";
@@ -35,6 +36,16 @@ export async function POST(request: NextRequest) {
       { status: checkout.status || 500 }
     );
   }
+
+  await recordAppEvent(auth.supabase, {
+    userId: auth.user.id,
+    eventType: "checkout_opened",
+    metadata: {
+      tripId,
+      checkoutKind: kind,
+      alreadyUnlocked: "alreadyUnlocked" in checkout ? checkout.alreadyUnlocked : false
+    }
+  });
 
   return NextResponse.json({
     ok: true,

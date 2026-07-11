@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  if (result.error) return NextResponse.json({ ok: false, error: result.error.message }, { status: 500 });
+  if (result.error) {
+    console.error("[Roamly analytics] app event failed", result.error.message);
+    return NextResponse.json({ ok: true, tracked: false });
+  }
   return NextResponse.json({ ok: true });
 }

@@ -121,7 +121,7 @@ export function buildHotelAffiliateUrl(input: RoamlyAffiliateInput) {
       "booking"
     );
   }
-  return linkResult(input, "hotel", `https://www.booking.com/searchresults.html?ss=${q(destination)}`, "direct");
+  return linkResult(input, "hotel", `https://www.google.com/maps/search/${q(`${destination} hotels`)}`, "direct");
 }
 
 export function buildFlightAffiliateUrl(input: RoamlyAffiliateInput) {
@@ -254,7 +254,6 @@ export function getRoamlyBookingLinks(input: {
   const hotel = buildHotelAffiliateUrl({ destination, category: "hotel" });
   const flight = buildFlightAffiliateUrl({ destination, origin: input.origin, category: "flight" });
   const activity = buildAttractionAffiliateUrl({ destination, query: `${destination} activities`, category: "attraction" });
-  const tickets = buildAttractionAffiliateUrl({ destination, query: `${destination} tickets`, category: "ticket" });
   const tours = buildAttractionAffiliateUrl({ destination, query: `${destination} tours`, category: "tour" });
   const transport = buildTransportAffiliateUrl({ destination, query: `${destination} transport`, category: "transport" });
 
@@ -273,15 +272,9 @@ export function getRoamlyBookingLinks(input: {
     },
     {
       title: "Activities that match the itinerary",
-      label: "Book activity",
+      label: "Book activities",
       description: "Find bookable things to do that fit your plan.",
       ...activity
-    },
-    {
-      title: "Tickets and attractions",
-      label: "View tickets",
-      description: "Check attraction and entrance ticket options.",
-      ...tickets
     },
     {
       title: "Tours and local experiences",
@@ -290,10 +283,16 @@ export function getRoamlyBookingLinks(input: {
       ...tours
     },
     {
-      title: "Transport and directions",
+      title: "Directions for your route",
       label: "Open directions",
-      description: "Open maps or local transport search.",
+      description: "Open maps or local directions search.",
       ...transport
+    },
+    {
+      title: "Transport options",
+      label: "Find transport",
+      description: "Search trains, buses, airport transfers, and local transport.",
+      ...buildTransportAffiliateUrl({ destination, query: `${destination} train bus airport transfer public transit`, category: "transport" })
     }
   ] satisfies RoamlyAffiliateLink[];
 }
@@ -329,6 +328,11 @@ export function getAffiliateReadiness() {
     affiliatesEnabled: enabled(),
     hotelProviderConfigured: Boolean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER),
     flightProviderConfigured: Boolean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER),
-    attractionsProviderConfigured: Boolean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER)
+    attractionsProviderConfigured: Boolean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER),
+    stay22PartnerConfigured: Boolean(process.env.ROAMLY_STAY22_PARTNER_ID),
+    travelpayoutsMarkerConfigured: Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
+    getYourGuidePartnerConfigured: Boolean(process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID),
+    viatorPartnerConfigured: Boolean(process.env.ROAMLY_VIATOR_PARTNER_ID),
+    klookPartnerConfigured: Boolean(process.env.ROAMLY_KLOOK_PARTNER_ID)
   };
 }

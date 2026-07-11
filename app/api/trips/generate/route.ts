@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateRoamlyItinerary } from "@/lib/ai/roamly-itinerary";
 import { buildPreviewFromItinerary } from "@/lib/itinerary";
 import { normalizeLocale } from "@/lib/i18n";
-import { getConfirmedBookingCostCents } from "@/lib/roamly/bookings";
+import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import {
   canGenerateFinalItinerary,
   lockGeneratedItinerary,
@@ -15,6 +15,7 @@ import {
   discoverTripPrices,
   savePriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
+import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError, syncGeneratedItinerary } from "@/lib/trips";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
@@ -103,9 +104,9 @@ function daysBetween(startDate: string, endDate: string) {
 }
 
 function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
-  const startDate = getString(body.startDate);
-  const endDate = getString(body.endDate);
-  const explicitDays = getPositiveNumber(body.daysCount);
+  const startDate = getString(body.startDate || body.start_date);
+  const endDate = getString(body.endDate || body.end_date);
+  const explicitDays = getPositiveNumber(body.daysCount ?? body.days_count);
   const tripType = getTripType(body.tripType || body.trip_type);
   const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
   const destinationPlace = cleanPlace(body.destinationPlace || body.destination_place);
@@ -114,8 +115,15 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
     tripType === "multi_city" && destinationStops.length
       ? destinationStops.map((place) => place.value).join(" \u2192 ")
       : getString(body.destination) || destinationPlace?.value || "";
-  const travelersCount = getPositiveNumber(body.travelersCount) || 1;
-  const travelers = cleanTravelers(body.travelers, travelersCount);
+  const travelersCount = getPositiveNumber(body.travelersCount ?? body.travelers_count) || 1;
+  const travelers = cleanTravelers(
+    getRecord(body.travelers) || {
+      adults: getPositiveNumber(body.adults) || travelersCount,
+      children: getNumber(body.children) || 0,
+      infants: getNumber(body.infants) || 0
+    },
+    travelersCount
+  );
 
   return {
     tripType,
@@ -149,12 +157,12 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
     travelers,
     rooms: getPositiveNumber(body.rooms) || 1,
     bedPreference: getString(body.bedPreference || body.bed_preference) || "No preference",
-    budgetAmount: getPositiveNumber(body.budgetAmount),
-    budgetCurrency: getString(body.budgetCurrency) || "CAD",
-    budgetIncludesFlights: body.budgetIncludesFlights !== false,
-    budgetIncludesHotel: body.budgetIncludesHotel !== false,
-    budgetIncludesActivities: body.budgetIncludesActivities !== false,
-    travelStyle: getString(body.travelStyle) || "Balanced",
+    budgetAmount: getPositiveNumber(body.budgetAmount ?? body.budget_total),
+    budgetCurrency: getString(body.budgetCurrency || body.budget_currency) || "CAD",
+    budgetIncludesFlights: body.budgetIncludesFlights !== false && body.budget_includes_flights !== false,
+    budgetIncludesHotel: body.budgetIncludesHotel !== false && body.budget_includes_hotel !== false,
+    budgetIncludesActivities: body.budgetIncludesActivities !== false && body.budget_includes_activities !== false,
+    travelStyle: getString(body.travelStyle || body.travel_style) || "Balanced",
     interests: cleanTextArray(body.interests),
     pace: getString(body.pace) || "Balanced",
     walkingTolerance: getString(body.walkingTolerance || body.walking_tolerance) || "Medium",
@@ -238,7 +246,7 @@ function paymentRequiredResponse(tripId: string, message?: string) {
     {
       ok: false,
       error: "PAYMENT_REQUIRED",
-      message: message || "Your free itinerary has been used. Unlock the full itinerary for this trip.",
+      message: message || "You’ve used your free itinerary. Unlock this trip to generate a new full itinerary.",
       tripId,
       previewUrl: `/trip/${tripId}?payment=required`,
       checkout: {
@@ -282,6 +290,15 @@ async function finalizeItinerary(params: {
   const canGenerate = await canGenerateFinalItinerary(params.supabase, params.userId, params.tripId);
 
   if (!canGenerate.ok) {
+    await recordAppEvent(params.supabase, {
+      userId: params.userId,
+      eventType: "itinerary_generation_failed",
+      metadata: {
+        tripId: params.tripId,
+        destination: params.payload.destination,
+        error: canGenerate.error
+      }
+    });
     if (canGenerate.error === "PAYMENT_REQUIRED" && canGenerate.trip?.id) {
       await params.supabase
         .from("roamly_trips")
@@ -306,8 +323,22 @@ async function finalizeItinerary(params: {
     .update({ status: "generating", itinerary_status: "generating" })
     .eq("id", params.tripId)
     .eq("user_id", params.userId);
+  await recordTripEvent(params.supabase, {
+    userId: params.userId,
+    tripId: params.tripId,
+    eventType: "itinerary_generation_started",
+    eventTitle: "Itinerary generation started",
+    metadata: {
+      tripType: params.payload.tripType || "single_destination",
+      destination: params.payload.destination,
+      stops: params.payload.destinationStops || []
+    }
+  });
 
-  const committed = await getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId);
+  const [committed, confirmedBookings] = await Promise.all([
+    getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId),
+    getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId)
+  ]);
   const discovery = await discoverTripPrices({
     userId: params.userId,
     tripId: params.tripId,
@@ -323,7 +354,8 @@ async function finalizeItinerary(params: {
     ...params.payload,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
     budgetConstraint: buildBudgetConstraintForItinerary(discovery),
-    priceDiscovery: discovery as unknown as Record<string, unknown>
+    priceDiscovery: discovery as unknown as Record<string, unknown>,
+    confirmedBookings: confirmedBookings.bookings
   });
   const sync = await syncGeneratedItinerary(params.supabase, {
     tripId: params.tripId,
@@ -338,6 +370,14 @@ async function finalizeItinerary(params: {
       .update({ status: "draft", itinerary_status: "draft" })
       .eq("id", params.tripId)
       .eq("user_id", params.userId);
+    await recordTripEvent(params.supabase, {
+      userId: params.userId,
+      tripId: params.tripId,
+      eventType: "itinerary_generation_failed",
+      eventTitle: "Itinerary generation failed",
+      eventBody: sync.error,
+      metadata: { destination: params.payload.destination }
+    });
     return NextResponse.json(
       {
         ok: false,
@@ -366,7 +406,30 @@ async function finalizeItinerary(params: {
   }
 
   const lock = await lockGeneratedItinerary(params.supabase, params.userId, params.tripId, canGenerate.source);
-  if (lock.error) return NextResponse.json({ ok: false, error: lock.error.message }, { status: 500 });
+  if (lock.error) {
+    await recordTripEvent(params.supabase, {
+      userId: params.userId,
+      tripId: params.tripId,
+      eventType: "itinerary_generation_failed",
+      eventTitle: "Itinerary lock failed",
+      eventBody: lock.error.message,
+      metadata: { destination: params.payload.destination }
+    });
+    return NextResponse.json({ ok: false, error: lock.error.message }, { status: 500 });
+  }
+  await recordTripEvent(params.supabase, {
+    userId: params.userId,
+    tripId: params.tripId,
+    eventType: "itinerary_generation_completed",
+    eventTitle: "Itinerary generated and locked",
+    metadata: {
+      source: canGenerate.source,
+      tripType: params.payload.tripType || "single_destination",
+      destination: params.payload.destination,
+      aiUsed: generated.aiUsed,
+      model: generated.model
+    }
+  });
 
   return NextResponse.json(
     {
@@ -503,6 +566,15 @@ export async function POST(request: NextRequest) {
     return finalizeItinerary({ supabase, userId: user.id, tripId: trip.id, payload });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";
+    await recordAppEvent(supabase, {
+      userId: user.id,
+      eventType: "itinerary_generation_failed",
+      metadata: {
+        tripId: existingTripId || null,
+        destination: getString(body.destination),
+        error: message
+      }
+    });
     return NextResponse.json(
       {
         ok: false,

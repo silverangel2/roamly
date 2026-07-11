@@ -4,6 +4,7 @@ import { roamlyConfig } from "@/lib/env";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createStripeClient } from "@/lib/stripe";
 import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
+import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
 
 export type RoamlyPurchaseType = "itinerary_unlock" | "tracking_addon" | "bundle";
 export type RoamlyItineraryUnlockSource = "free" | "paid" | "bundle" | "admin";
@@ -121,6 +122,11 @@ export async function markFreeItineraryUsed(supabase: SupabaseClient, userId: st
 
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "FREE_ITINERARY_ALREADY_USED" };
+  await recordAppEvent(writer, {
+    userId,
+    eventType: "free_itinerary_used",
+    metadata: { tripId }
+  });
   return { ok: true };
 }
 
@@ -173,7 +179,7 @@ export async function canGenerateFinalItinerary(supabase: SupabaseClient, userId
     ok: false as const,
     status: 402,
     error: "PAYMENT_REQUIRED",
-    message: "Your free itinerary has been used. Unlock the full itinerary for this trip.",
+    message: "You’ve used your free itinerary. Unlock this trip to generate a new full itinerary.",
     trip
   };
 }
@@ -455,6 +461,39 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
   } else if (purchaseType === "bundle") {
     await unlockLiveCompanion(supabase, tripId, "bundle");
   }
+
+  await recordAppEvent(supabase, {
+    userId,
+    eventType: "checkout_completed",
+    metadata: {
+      tripId,
+      purchaseType,
+      amountCents: session.amount_total || getPurchaseOption(purchaseType).amount,
+      currency: session.currency || roamlyConfig.currency,
+      checkoutSessionId: session.id
+    }
+  });
+  await recordTripEvent(supabase, {
+    userId,
+    tripId,
+    eventType:
+      purchaseType === "itinerary_unlock"
+        ? "paid_itinerary_unlocked"
+        : purchaseType === "tracking_addon"
+          ? "companion_unlocked"
+          : "complete_pack_unlocked",
+    eventTitle:
+      purchaseType === "itinerary_unlock"
+        ? "Paid itinerary unlocked"
+        : purchaseType === "tracking_addon"
+          ? "Live Companion unlocked"
+          : "Complete Trip Pack unlocked",
+    metadata: {
+      purchaseType,
+      checkoutSessionId: session.id,
+      paymentIntentId: paymentIntentId(session)
+    }
+  });
 
   return { ok: true, purchaseType };
 }
