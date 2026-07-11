@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   buildBudgetConstraintForItinerary,
-  discoverTripPrices,
-  savePriceDiscovery
+  discoverTripPrices
 } from "@/lib/roamly/priceDiscovery";
 import { getCurrentUser } from "@/lib/roamly/auth";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";

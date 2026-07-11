@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
+import { fetchWithSupabaseAuth, getSupabaseBrowserSessionUser } from "@/lib/roamly/authenticatedFetch";
 
 type GenerateLockedItineraryButtonProps = {
   tripId: string;
@@ -36,7 +37,7 @@ export function GenerateLockedItineraryButton({
     const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
-      const response = await fetch("/api/trips/generate", {
+      const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tripId, language: locale }),
@@ -46,6 +47,11 @@ export function GenerateLockedItineraryButton({
 
       if (response.status === 401) {
         setConfirming(false);
+        const user = await getSupabaseBrowserSessionUser();
+        if (user) {
+          setError("Your login session could not be confirmed. Refresh this page and try again.");
+          return;
+        }
         window.location.href = `/login?next=${encodeURIComponent(`/trip/${tripId}`)}`;
         return;
       }

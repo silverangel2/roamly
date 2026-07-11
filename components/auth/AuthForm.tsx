@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -101,6 +101,30 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
       console.warn("[Roamly auth] profile sync warning", profileError);
     });
   }
+
+  useEffect(() => {
+    if (!configured) return;
+
+    let alive = true;
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      void supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          if (!alive || !data.session?.user) return;
+          syncProfileBestEffort("GET");
+          window.location.replace(redirectPath);
+        })
+        .catch(() => undefined);
+    } catch {
+      // The visible form will handle missing auth configuration and sign-in errors.
+    }
+
+    return () => {
+      alive = false;
+    };
+  }, [configured, redirectPath]);
 
   async function continueWithGoogle() {
     setError("");
@@ -236,7 +260,7 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
 
         if (data.session) {
           syncProfileBestEffort("PATCH", { fullName: fullName.trim() });
-          window.location.assign(redirectPath);
+          window.location.replace(redirectPath);
           return;
         }
 
@@ -252,7 +276,7 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
       if (loginError) throw loginError;
 
       syncProfileBestEffort("GET");
-      window.location.assign(redirectPath);
+      window.location.replace(redirectPath);
     } catch (err) {
       if (!isSignup && isEmailNotConfirmedError(err)) {
         const trimmedEmail = email.trim();

@@ -23,6 +23,7 @@ import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -822,15 +823,6 @@ export function TripPlanForm({
     return null;
   }
 
-  async function retryAfterSessionRefresh(response: Response, request: () => Promise<Response>) {
-    if (response.status !== 401) return response;
-
-    const user = await refreshSessionUser();
-    if (!user) return response;
-
-    return request();
-  }
-
   const restorePlanDraft = useCallback((record: Record<string, unknown>) => {
     const travelers = getRecord(record.travelers);
     setStep(clampStep(record.currentStep ?? record.step));
@@ -1017,12 +1009,11 @@ export function TripPlanForm({
     trackPlanEvent("price_discovery_started", { tripType, destination: payload.destination });
 
     try {
-      const request = () => fetch("/api/roamly/price-discovery", {
+      const response = await fetchWithSupabaseAuth("/api/roamly/price-discovery", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload)
       });
-      const response = await retryAfterSessionRefresh(await request(), request);
       const data = await response.json().catch(() => null);
       if (response.status === 401) {
         setError("Roamly could not check the budget yet. Please try again.");
@@ -1084,20 +1075,14 @@ export function TripPlanForm({
     const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
-      const generationSession = await createSupabaseBrowserClient().auth.getSession();
-      const generationAccessToken = generationSession.data.session?.access_token;
-
-      const request = () => fetch("/api/trips/generate", {
+      const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
-        credentials: "include",
         headers: {
-          "Content-Type": "application/json",
-          ...(generationAccessToken ? { Authorization: `Bearer ${generationAccessToken}` } : {}),
+          "Content-Type": "application/json"
         },
         body: JSON.stringify(payload),
         signal: controller.signal
       });
-      const response = await retryAfterSessionRefresh(await request(), request);
 
       const data = await response.json().catch(() => null);
 
@@ -1105,7 +1090,7 @@ export function TripPlanForm({
         const user = await refreshSessionUser();
         if (user) {
           setConfirming(false);
-          setError("Your login session is still syncing. Please try again.");
+          setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
         }
         redirectToLoginForGeneration();
