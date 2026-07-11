@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
-import { ensureRoamlyProfile } from "@/lib/roamly/profile";
+import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 export default async function AccountPage() {
@@ -35,7 +35,7 @@ export default async function AccountPage() {
 
   const supabase = await createSupabaseServerClient();
   const [profileResult, free] = await Promise.all([
-    supabase ? ensureRoamlyProfile(current.user, {}, supabase) : Promise.resolve({ profile: null, error: "" }),
+    supabase ? ensureRoamlyProfileBestEffort(current.user, {}, supabase, "account_page") : Promise.resolve({ profile: null, error: "" }),
     supabase ? hasUsedFreeItinerary(supabase, current.user.id) : Promise.resolve({ used: false, entitlement: null, error: null })
   ]);
   const metadataName =

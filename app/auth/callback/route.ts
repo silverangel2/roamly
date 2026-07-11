@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { ensureRoamlyProfile } from "@/lib/roamly/profile";
-import { safeNextPath } from "@/lib/navigation";
+import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
+import { safeAuthNextPath } from "@/lib/navigation";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = safeNextPath(requestUrl.searchParams.get("next") || undefined);
+  const next = safeAuthNextPath(requestUrl.searchParams.get("next") || undefined);
   const redirectUrl = new URL(next, requestUrl.origin);
   const providerError = requestUrl.searchParams.get("error");
   const supabase = await createSupabaseServerClient();
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { data } = await supabase.auth.getUser();
 
   if (data.user) {
-    await ensureRoamlyProfile(data.user, {}, supabase);
+    await ensureRoamlyProfileBestEffort(data.user, {}, supabase, "oauth_callback");
     return NextResponse.redirect(redirectUrl);
   }
 

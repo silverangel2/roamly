@@ -3,7 +3,7 @@ import { AuthForm } from "@/components/auth/AuthForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { safeNextPath } from "@/lib/navigation";
+import { safeAuthNextPath } from "@/lib/navigation";
 
 type SignupPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -11,7 +11,7 @@ type SignupPageProps = {
 
 export default async function SignupPage({ searchParams }: SignupPageProps) {
   const params = searchParams ? await searchParams : {};
-  const nextPath = safeNextPath(params.next);
+  const nextPath = safeAuthNextPath(params.next);
   const current = await getCurrentUser();
 
   if (current.configured && current.user) {

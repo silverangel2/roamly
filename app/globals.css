@@ -58,3 +58,55 @@ select {
 .trip-line {
   background: linear-gradient(180deg, #54d6c6, #ffb84d);
 }
+
+@keyframes roamly-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes roamly-route-dash {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes roamly-dot-pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.68;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+@keyframes roamly-status-chip {
+  0%,
+  100% {
+    transform: translateY(0);
+    border-color: rgba(165, 243, 252, 0.78);
+  }
+  50% {
+    transform: translateY(-2px);
+    border-color: rgba(255, 184, 77, 0.55);
+  }
+}
+
+.roamly-plane-orbit {
+  animation: roamly-orbit 5.5s linear infinite;
+}
+
+.roamly-route-dash {
+  animation: roamly-route-dash 18s linear infinite;
+}
+
+.roamly-destination-dot {
+  animation: roamly-dot-pulse 1.8s ease-in-out infinite;
+}
+
+.roamly-status-chip {
+  animation: roamly-status-chip 2.4s ease-in-out infinite;
+}

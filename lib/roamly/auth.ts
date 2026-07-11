@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { safeNextPath } from "@/lib/navigation";
+import { safeAuthNextPath } from "@/lib/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   createSupabaseServerClient,
@@ -23,7 +23,7 @@ export function authRequiredResponse() {
 }
 
 export function getLoginRedirect(path: string) {
-  return `/login?next=${encodeURIComponent(safeNextPath(path, "/dashboard"))}`;
+  return `/login?next=${encodeURIComponent(safeAuthNextPath(path, "/dashboard"))}`;
 }
 
 export { getRoamlyAdminEmails };

@@ -3,7 +3,7 @@ import { AuthForm } from "@/components/auth/AuthForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getCurrentUser } from "@/lib/supabase/server";
-import { safeNextPath } from "@/lib/navigation";
+import { safeAuthNextPath } from "@/lib/navigation";
 
 type LoginPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -11,13 +11,13 @@ type LoginPageProps = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = searchParams ? await searchParams : {};
-  const nextPath = safeNextPath(params.next);
+  const nextPath = safeAuthNextPath(params.next);
   const authError = typeof params.error === "string" ? params.error : "";
   const current = await getCurrentUser();
   const authErrorMessage = authError
     ? authError === "supabase_not_configured"
       ? "Supabase is not configured yet."
-      : "We could not finish Google sign-in. Please try again."
+      : "We could not sign you in. Please try again."
     : "";
 
   if (current.configured && current.user) {

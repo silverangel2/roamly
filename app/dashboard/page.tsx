@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
-import { ensureRoamlyProfile } from "@/lib/roamly/profile";
+import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 type DashboardTrip = {
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
 
   const supabase = await createSupabaseServerClient();
   const [, { data: trips }, free] = await Promise.all([
-    supabase ? ensureRoamlyProfile(current.user, {}, supabase) : Promise.resolve(null),
+    supabase ? ensureRoamlyProfileBestEffort(current.user, {}, supabase, "dashboard_page") : Promise.resolve(null),
     supabase
       ? supabase
           .from("roamly_trips")

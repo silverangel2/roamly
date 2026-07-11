@@ -298,6 +298,41 @@ export async function ensureRoamlyProfile(user: User, updates: ProfileUpdates = 
   return upsertCurrentProfile(supabase, user, current.profile, updates);
 }
 
+function safeProfileWarning(source: string, error: unknown, details: Record<string, unknown> = {}) {
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "Profile sync failed.";
+  console.warn("[Roamly profile] profile sync warning", {
+    source,
+    message,
+    ...details
+  });
+}
+
+export async function ensureRoamlyProfileBestEffort(
+  user: User,
+  updates: ProfileUpdates = {},
+  client?: SupabaseClient,
+  source = "auth"
+): Promise<ProfileResult> {
+  try {
+    const profile = await ensureRoamlyProfile(user, updates, client);
+    if (profile.error) {
+      safeProfileWarning(source, profile.error, {
+        schema: profile.schema,
+        tableAvailable: profile.tableAvailable
+      });
+    }
+    return profile;
+  } catch (error) {
+    safeProfileWarning(source, error);
+    return {
+      profile: null,
+      tableAvailable: false,
+      schema: "missing",
+      error: "Profile sync failed."
+    };
+  }
+}
+
 export async function getRoamlyUserAppStatus(user: User, client?: SupabaseClient): Promise<RoamlyUserAppStatus> {
   const profile = await getRoamlyProfile(user.id, client);
   const access = getRoamlyAccessForUser(user.email);

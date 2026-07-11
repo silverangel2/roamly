@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { safeAuthNextPath } from "@/lib/navigation";
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -19,6 +20,7 @@ const SUPPORT_MESSAGE = "Still no email? Contact support or ask an admin to conf
 const SHARED_GOOGLE_MESSAGE = "Already used ReviewIntel? You can continue with the same email or Google account.";
 const EXISTING_ACCOUNT_MESSAGE =
   "This email may already have an account from ReviewIntel or Roamly. Try logging in or continue with Google.";
+const LOGIN_ERROR_MESSAGE = "We could not sign you in. Please try again.";
 const LOGIN_UNVERIFIED_MESSAGE =
   "This email is not verified yet. Please verify your email before logging in. You can resend the verification email below.";
 
@@ -67,7 +69,7 @@ async function getTesterEmailStatus(email: string) {
   }
 }
 
-export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: AuthFormProps) {
+export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -82,11 +84,22 @@ export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: A
   const [testerVerificationNotice, setTesterVerificationNotice] = useState(false);
   const isSignup = mode === "signup";
   const configured = hasSupabaseConfig();
-  const loginHref = `/login?next=${encodeURIComponent(nextPath)}`;
-  const alternateHref = `${isSignup ? "/login" : "/signup"}?next=${encodeURIComponent(nextPath)}`;
+  const redirectPath = safeAuthNextPath(nextPath);
+  const loginHref = `/login?next=${encodeURIComponent(redirectPath)}`;
+  const alternateHref = `${isSignup ? "/login" : "/signup"}?next=${encodeURIComponent(redirectPath)}`;
 
   function emailRedirectTo() {
-    return `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+    return `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`;
+  }
+
+  function syncProfileBestEffort(method: "GET" | "PATCH", body?: Record<string, unknown>) {
+    void fetch("/api/account/profile", {
+      method,
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).catch((profileError) => {
+      console.warn("[Roamly auth] profile sync warning", profileError);
+    });
   }
 
   async function continueWithGoogle() {
@@ -115,7 +128,8 @@ export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: A
       if (oauthError) throw oauthError;
     } catch (err) {
       setGoogleBusy(false);
-      setError(err instanceof Error ? err.message : "Google sign-in failed.");
+      console.warn("[Roamly auth] Google sign-in warning", err);
+      setError(LOGIN_ERROR_MESSAGE);
     }
   }
 
@@ -221,12 +235,8 @@ export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: A
         }
 
         if (data.session) {
-          await fetch("/api/account/profile", {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ fullName: fullName.trim() })
-          });
-          window.location.href = nextPath;
+          syncProfileBestEffort("PATCH", { fullName: fullName.trim() });
+          window.location.assign(redirectPath);
           return;
         }
 
@@ -241,8 +251,8 @@ export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: A
 
       if (loginError) throw loginError;
 
-      await fetch("/api/account/profile", { method: "GET" });
-      window.location.href = nextPath;
+      syncProfileBestEffort("GET");
+      window.location.assign(redirectPath);
     } catch (err) {
       if (!isSignup && isEmailNotConfirmedError(err)) {
         const trimmedEmail = email.trim();
@@ -251,7 +261,10 @@ export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: A
       } else if (isSignup && isUserAlreadyRegisteredError(err)) {
         setError(EXISTING_ACCOUNT_MESSAGE);
       } else {
-        setError(err instanceof Error ? err.message : "Authentication failed.");
+        if (!isSignup) {
+          console.warn("[Roamly auth] email sign-in warning", err);
+        }
+        setError(isSignup ? (err instanceof Error ? err.message : "Authentication failed.") : LOGIN_ERROR_MESSAGE);
       }
     } finally {
       setBusy(false);

@@ -1,9 +1,10 @@
+import { redirect } from "next/navigation";
 import { TripPlanForm } from "@/components/plan/TripPlanForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
-import { ensureRoamlyProfile } from "@/lib/roamly/profile";
+import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 const promiseCards = [
@@ -15,10 +16,18 @@ const promiseCards = [
 
 export default async function PlanPage() {
   const current = await getCurrentUser();
+
+  if (!current.user) {
+    redirect("/login?next=/plan");
+  }
+
   const supabase = current.user ? await createSupabaseServerClient() : null;
   const [, free] =
     supabase && current.user
-      ? await Promise.all([ensureRoamlyProfile(current.user, {}, supabase), hasUsedFreeItinerary(supabase, current.user.id)])
+      ? await Promise.all([
+          ensureRoamlyProfileBestEffort(current.user, {}, supabase, "plan_page"),
+          hasUsedFreeItinerary(supabase, current.user.id)
+        ])
       : [null, null];
   const freeItineraryUsed = Boolean(free?.used);
   const access = getRoamlyAccessForUser(current.user?.email);
