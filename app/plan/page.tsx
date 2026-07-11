@@ -7,8 +7,8 @@ import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/serve
 
 const promiseCards = [
   ["1 free itinerary", "One full itinerary per account, lifetime"],
-  ["Full Itinerary Unlock", "Unlock one new itinerary for $4.99 CAD"],
-  ["Complete Trip Pack", "Itinerary plus Live Trip Companion for $7.99 CAD"],
+  ["More itinerary planning", "Unlock another full itinerary only when you need it"],
+  ["Complete Trip Pack", "Itinerary plus Live Trip Companion when it makes sense"],
   ["Mobile first", "Built to follow while traveling"]
 ];
 

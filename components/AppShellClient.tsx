@@ -103,15 +103,15 @@ function AppShellContent({
       authenticated
         ? [
             { href: "/", label: t("ui.nav.home", "Home") },
-            { href: "/plan", label: t("ui.nav.plan", "Plan") },
-            { href: "/dashboard", label: t("ui.nav.trips", "Trips") },
+            { href: "/dashboard", label: t("ui.nav.dashboard", "Dashboard") },
+            { href: "/plan", label: t("ui.nav.planTrip", "Plan trip") },
             { href: "/notifications", label: t("ui.nav.notifications", "Notifications") },
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
         : [
             { href: "/", label: t("ui.nav.home", "Home") },
-            { href: "/plan", label: t("ui.nav.plan", "Plan") },
-            { href: "/pricing", label: t("ui.nav.pricing", "Pricing") }
+            { href: "/#how-it-works", label: t("ui.nav.howItWorks", "How it works") },
+            { href: "/pricing", label: t("ui.nav.upgrades", "Upgrades") }
           ],
     [authenticated, t]
   );
@@ -121,25 +121,27 @@ function AppShellContent({
       authenticated
         ? [
             { href: "/dashboard", label: t("ui.nav.dashboard", "Dashboard") },
+            { href: "/plan", label: t("ui.nav.planTrip", "Plan trip") },
             { href: activeTripId ? `/trip/${activeTripId}` : "/dashboard", label: t("ui.nav.trips", "Trips") },
             { href: "/notifications", label: t("ui.nav.notifications", "Notifications"), count: unreadCount },
-            { href: "/account", label: t("ui.nav.account", "Account") },
-            { href: "/auth/logout", label: t("ui.nav.logout", "Logout") }
+            { href: "/account", label: t("ui.nav.account", "Account") }
           ]
         : [
+            { href: "/plan", label: t("ui.nav.startPlanning", "Start planning") },
+            { href: "/#how-it-works", label: t("ui.nav.howItWorks", "How it works") },
             { href: "/login", label: t("ui.nav.login", "Log in") },
-            { href: "/signup?next=/plan", label: t("ui.nav.signup", "Sign up") },
-            { href: "/login?next=/plan", label: t("ui.nav.planTrip", "Plan trip") }
+            { href: "/pricing", label: t("ui.nav.upgrades", "Upgrades") }
           ],
     [activeTripId, authenticated, t, unreadCount]
   );
 
-  const planTripHref = authenticated ? "/plan" : "/login?next=/plan";
+  const planTripHref = "/plan";
+  const planTripLabel = authenticated ? t("ui.nav.planTrip", "Plan trip") : t("ui.nav.startPlanning", "Start planning");
 
   return (
     <TranslatedTextBoundary>
-      <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(84,214,198,0.24),transparent_34rem),linear-gradient(135deg,#F7FCFF_0%,#FFFFFF_46%,#FFF6E7_100%)] text-ink">
-        <header className="sticky top-0 z-30 border-b border-white/50 bg-white/80 px-4 py-3 backdrop-blur-xl">
+      <div className="min-h-dvh bg-[linear-gradient(135deg,#F7FCFF_0%,#FFFFFF_48%,#FFF7EA_100%)] text-ink">
+        <header className="sticky top-0 z-30 border-b border-white/70 bg-white/[0.78] px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
               <Image
@@ -159,8 +161,8 @@ function AppShellContent({
                   href={route.href}
                   className={`rounded-full px-4 py-2 text-sm font-black transition ${
                     isActive(pathname, route.href)
-                      ? "bg-ink text-white"
-                      : "text-slate-600 hover:bg-white hover:text-ink"
+                      ? "bg-ink text-white shadow-soft"
+                      : "text-slate-600 hover:bg-white/90 hover:text-ink"
                   }`}
                 >
                   {route.label}
@@ -176,15 +178,9 @@ function AppShellContent({
                 <>
                   <Link
                     href="/login"
-                    className="hidden rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean sm:inline-flex"
+                    className="hidden rounded-full border border-cloud bg-white/90 px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean sm:inline-flex"
                   >
                     {t("ui.nav.login", "Log in")}
-                  </Link>
-                  <Link
-                    href="/signup?next=/plan"
-                    className="hidden rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean lg:inline-flex"
-                  >
-                    {t("ui.nav.signup", "Sign up")}
                   </Link>
                 </>
               ) : (
@@ -195,8 +191,8 @@ function AppShellContent({
                   {t("ui.nav.logout", "Logout")}
                 </Link>
               )}
-              <Link href={planTripHref} className="rounded-full bg-ink px-4 py-2 text-sm font-black text-white shadow-soft transition hover:bg-ocean">
-                {t("ui.nav.planTrip", "Plan trip")}
+              <Link href={planTripHref} className="rounded-full bg-ink px-4 py-2 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean">
+                {planTripLabel}
               </Link>
             </div>
           </div>
@@ -211,7 +207,7 @@ function AppShellContent({
 
         <nav
           className={`fixed inset-x-2 bottom-3 z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
-            authenticated ? "grid-cols-5" : "grid-cols-3"
+            authenticated ? "grid-cols-5" : "grid-cols-4"
           }`}
         >
           {mobileRoutes.map((route) => (
