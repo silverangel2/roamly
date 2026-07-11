@@ -83,17 +83,17 @@ export function LiveTripClient({
   return (
     <div className="space-y-5 pb-24 md:pb-0">
       <section className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-[1.75rem] bg-ink p-5 text-white shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Now</p>
+        <div className="rounded-[1.75rem] bg-gradient-to-r from-cyan-500 to-sky-500 p-5 text-white shadow-lg shadow-cyan-500/20">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-white/75">Now</p>
           <h2 className="mt-2 text-2xl font-black">{active?.title || "Start your day"}</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-white/75">{active?.description || "Open your itinerary and choose the first stop."}</p>
+          <p className="mt-2 text-sm font-bold leading-6 text-white/88">{active?.description || "Open your itinerary and choose the first stop."}</p>
           {active ? (
             <NavigationButtons
               tripId={tripId}
               destinationLabel={active.title}
               address={active.map_query || active.location_name}
               showHeading
-              className="mt-4 [&_p]:text-white/55 [&_a]:bg-white/10 [&_a]:text-white [&_a]:ring-white/15 [&_a:hover]:bg-lagoon [&_a:hover]:text-ink"
+              className="mt-4 [&_p]:text-white/75 [&_a]:bg-white/15 [&_a]:text-white [&_a]:ring-white/25 [&_a:hover]:bg-white [&_a:hover]:text-cyan-700"
             />
           ) : null}
         </div>
@@ -135,7 +135,7 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => runAction(activity.id, "check-in")}
                   disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(activity.status)}
-                  className="rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean"
+                  className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20 disabled:opacity-45"
                 >
                   Check in
                 </button>
@@ -143,7 +143,7 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => runAction(activity.id, "complete")}
                   disabled={Boolean(busy) || ["completed", "skipped"].includes(activity.status)}
-                  className="rounded-full bg-ink px-3 py-2 text-xs font-black text-white"
+                  className="rounded-full bg-gradient-to-r from-orange-400 to-rose-400 px-3 py-2 text-xs font-black text-white shadow-lg shadow-orange-400/20 disabled:opacity-45"
                 >
                   Mark done
                 </button>
@@ -188,7 +188,7 @@ export function LiveTripClient({
               type="button"
               onClick={() => runAction(active.id, "check-in")}
               disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(active.status)}
-              className="min-h-12 rounded-2xl bg-ocean/10 px-2 text-[0.72rem] font-black text-ocean disabled:opacity-45"
+              className="min-h-12 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-2 text-[0.72rem] font-black text-white shadow-lg shadow-cyan-500/20 disabled:opacity-45"
             >
               Check in
             </button>
@@ -204,7 +204,7 @@ export function LiveTripClient({
               type="button"
               onClick={() => runAction(active.id, "complete")}
               disabled={Boolean(busy) || ["completed", "skipped"].includes(active.status)}
-              className="min-h-12 rounded-2xl bg-ink px-2 text-[0.72rem] font-black text-white disabled:opacity-45"
+              className="min-h-12 rounded-2xl bg-gradient-to-r from-orange-400 to-rose-400 px-2 text-[0.72rem] font-black text-white shadow-lg shadow-orange-400/20 disabled:opacity-45"
             >
               Done
             </button>

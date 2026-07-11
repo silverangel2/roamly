@@ -148,11 +148,13 @@ export function PlaceSelector({
                 }}
                 className={classNames(
                   "w-full rounded-2xl px-4 py-3 text-left transition",
-                  samePlace(value, place) ? "bg-ink text-white" : "hover:bg-mist"
+                  samePlace(value, place)
+                    ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
+                    : "hover:bg-cyan-50 hover:text-cyan-700"
                 )}
               >
                 <span className="block text-sm font-black">{place.label}</span>
-                <span className={classNames("mt-1 block text-xs font-bold", samePlace(value, place) ? "text-white/70" : "text-slate-500")}>
+                <span className={classNames("mt-1 block text-xs font-bold", samePlace(value, place) ? "text-white/85" : "text-slate-500")}>
                   {[place.city, place.region, place.country].filter(Boolean).join(", ") || translateText("Suggested place")}
                 </span>
               </button>

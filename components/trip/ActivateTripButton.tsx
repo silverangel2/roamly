@@ -69,7 +69,7 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("complete")}
             disabled={Boolean(busy)}
-            className="w-full rounded-2xl bg-ink px-5 py-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
+            className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-rose-400 px-5 py-4 text-sm font-black text-white shadow-lg shadow-orange-400/20 transition hover:-translate-y-0.5 hover:from-orange-300 hover:to-rose-300 disabled:translate-y-0 disabled:opacity-60"
           >
             {busy === "complete" ? "Opening secure checkout..." : "Complete Trip Pack — $7.99 CAD"}
           </button>
@@ -91,7 +91,7 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("tracking")}
             disabled={Boolean(busy)}
-            className="w-full rounded-2xl bg-ink px-5 py-4 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
+            className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
           >
             {busy === "tracking" ? "Opening secure checkout..." : "Add Live Companion — $3.99 CAD"}
           </button>

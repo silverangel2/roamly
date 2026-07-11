@@ -88,7 +88,7 @@ export function NotificationPermissionCard() {
           type="button"
           onClick={enable}
           disabled={busy || isGranted}
-          className="rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+          className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 disabled:opacity-60"
         >
           Enable reminders
         </button>

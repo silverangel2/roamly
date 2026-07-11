@@ -136,14 +136,14 @@ export default async function DashboardPage() {
 
       {activeNow ? (
         <section className="mt-5">
-          <Card className="overflow-hidden bg-ink text-white">
+          <Card className="overflow-hidden border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_56%,#fff7ed_100%)] text-ink">
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-white/55">Continue live</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Continue live</p>
                 <h2 className="mt-2 text-3xl font-black">{activeNow.title || activeNow.destination}</h2>
-                <p className="mt-2 text-sm font-bold text-white/70">Your Live Trip Companion is ready.</p>
+                <p className="mt-2 text-sm font-bold text-slate-600">Your Live Trip Companion is ready.</p>
               </div>
-              <Button href={`/trip/${activeNow.id}/live`} tone="secondary">Open companion</Button>
+              <Button href={`/trip/${activeNow.id}/live`}>Open companion</Button>
             </div>
           </Card>
         </section>

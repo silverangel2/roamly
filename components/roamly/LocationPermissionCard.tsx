@@ -21,7 +21,7 @@ export function LocationPermissionCard({ onEnable, busy, error, compact }: Locat
         type="button"
         onClick={onEnable}
         disabled={busy}
-        className="mt-4 w-full rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:opacity-60"
+        className="mt-4 w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
       >
         {busy ? "Checking location..." : "Enable trip sensing"}
       </button>

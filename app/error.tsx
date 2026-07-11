@@ -16,7 +16,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           <p className="mt-3 rounded-2xl bg-mist p-3 text-xs font-bold text-slate-500">{error.message}</p>
         ) : null}
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-          <button onClick={reset} className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean">
+          <button onClick={reset} className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400">
             Try again
           </button>
           <Button href="/" tone="secondary">Back home</Button>

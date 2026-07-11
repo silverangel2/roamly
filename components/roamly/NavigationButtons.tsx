@@ -37,7 +37,7 @@ export function NavigationButtons({ tripId, className = "", showHeading = false,
             target="_blank"
             rel="noreferrer"
             onClick={() => void record(link.provider)}
-            className="rounded-full bg-mist px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud transition hover:bg-ocean hover:text-white"
+            className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
           >
             {link.label}
           </a>

@@ -49,7 +49,7 @@ export function NotificationTimelineCard({ initialItems }: { initialItems: Notif
                     <button
                       type="button"
                       onClick={() => void markRead(item.id)}
-                      className="rounded-full bg-ink px-3 py-2 text-xs font-black text-white"
+                      className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20"
                     >
                       Mark read
                     </button>

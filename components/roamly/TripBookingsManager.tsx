@@ -214,7 +214,7 @@ export function ExtractedBookingReviewCard({
         type="button"
         onClick={onConfirm}
         disabled={busy}
-        className="mt-4 rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:opacity-60"
+        className="mt-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
       >
         {busy ? "Saving booking..." : "Confirm and add to trip"}
       </button>
