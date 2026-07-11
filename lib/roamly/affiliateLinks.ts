@@ -1,6 +1,8 @@
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import type { RoamlyItinerary } from "@/lib/itinerary";
+import type { TripPlannerPayload } from "@/lib/trip-planner";
 
-export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "insurance";
+export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "insurance";
 
 export type RoamlyAffiliateInput = {
   category?: RoamlyBookingCategory;
@@ -220,6 +222,9 @@ export function buildRoamlyAffiliateUrl(input: RoamlyAffiliateInput) {
   if (input.category === "attraction" || input.category === "ticket" || input.category === "tour") {
     return buildAttractionAffiliateUrl(input);
   }
+  if (input.category === "car_rental") {
+    return linkResult(input, "car_rental", `https://www.google.com/search?q=${q(`${place(input)} car rental`)}`, "direct");
+  }
   return linkResult(input, input.category || "insurance", `https://www.google.com/search?q=${q(place(input))}`, "direct");
 }
 
@@ -291,6 +296,32 @@ export function getRoamlyBookingLinks(input: {
       ...transport
     }
   ] satisfies RoamlyAffiliateLink[];
+}
+
+export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
+  return {
+    ...itinerary,
+    booking_suggestions: itinerary.booking_suggestions.map((suggestion) => {
+      const link = buildRoamlyAffiliateUrl({
+        category: suggestion.booking_category,
+        destination: payload.destination,
+        origin: payload.origin,
+        title: suggestion.booking_label,
+        query: suggestion.booking_label,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
+        url: suggestion.normal_search_url
+      });
+      return {
+        ...suggestion,
+        normal_search_url: suggestion.normal_search_url || link.href,
+        affiliate_url: link.affiliate_enabled ? link.affiliate_url : "",
+        affiliate_provider: link.affiliate_provider,
+        affiliate_disclosure: affiliateDisclosure,
+        price_confidence: link.affiliate_enabled ? "partner" : suggestion.price_confidence
+      };
+    })
+  };
 }
 
 export function getAffiliateReadiness() {

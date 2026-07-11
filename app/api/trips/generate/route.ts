@@ -17,7 +17,8 @@ import {
 } from "@/lib/roamly/priceDiscovery";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError, syncGeneratedItinerary } from "@/lib/trips";
-import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
+import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -33,6 +34,18 @@ function getNumber(value: unknown) {
   return null;
 }
 
+function getBoolean(value: unknown, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function getTripType(value: unknown): TripType {
+  return value === "multi_city" ? "multi_city" : "single_destination";
+}
+
 function cleanTextArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value
@@ -40,6 +53,42 @@ function cleanTextArray(value: unknown) {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, 20);
+}
+
+function cleanPlace(value: unknown): NormalizedPlace | undefined {
+  if (typeof value === "string" && value.trim().length >= 2) return normalizeCustomPlace(value);
+  const record = getRecord(value);
+  if (!record) return undefined;
+  const label = getString(record.label || record.value || record.formatted_address);
+  const placeValue = getString(record.value || record.label || record.formatted_address);
+  if (placeValue.length < 2 && label.length < 2) return undefined;
+  return {
+    label: label || placeValue,
+    value: placeValue || label,
+    city: getString(record.city) || undefined,
+    region: getString(record.region) || undefined,
+    country: getString(record.country) || undefined,
+    place_id: getString(record.place_id || record.placeId) || undefined,
+    latitude: getNumber(record.latitude) ?? undefined,
+    longitude: getNumber(record.longitude) ?? undefined,
+    formatted_address: getString(record.formatted_address || record.formattedAddress) || undefined,
+    currency: getString(record.currency) || undefined,
+    timezone: getString(record.timezone) || undefined,
+    source: record.source === "google" || record.source === "local" ? record.source : "custom"
+  };
+}
+
+function cleanStops(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.map(cleanPlace).filter((place): place is NormalizedPlace => Boolean(place)).slice(0, 12);
+}
+
+function cleanTravelers(value: unknown, travelersCount: number): TravelerDetails {
+  const record = getRecord(value);
+  const adults = Math.max(1, Math.round(getPositiveNumber(record?.adults) || travelersCount || 1));
+  const children = Math.max(0, Math.round(getNumber(record?.children) || 0));
+  const infants = Math.max(0, Math.round(getNumber(record?.infants) || 0));
+  return { adults, children, infants };
 }
 
 function daysBetween(startDate: string, endDate: string) {
@@ -57,28 +106,62 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
   const startDate = getString(body.startDate);
   const endDate = getString(body.endDate);
   const explicitDays = getPositiveNumber(body.daysCount);
+  const tripType = getTripType(body.tripType || body.trip_type);
+  const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
+  const destinationPlace = cleanPlace(body.destinationPlace || body.destination_place);
+  const originPlace = cleanPlace(body.originPlace || body.origin_place);
+  const destination =
+    tripType === "multi_city" && destinationStops.length
+      ? destinationStops.map((place) => place.value).join(" \u2192 ")
+      : getString(body.destination) || destinationPlace?.value || "";
+  const travelersCount = getPositiveNumber(body.travelersCount) || 1;
+  const travelers = cleanTravelers(body.travelers, travelersCount);
 
   return {
-    origin: getString(body.origin),
-    destination: getString(body.destination),
-    destinationCity: getString(body.destinationCity),
-    destinationCountry: getString(body.destinationCountry),
-    destinationRegion: getString(body.destinationRegion),
-    destinationLatitude: getNumber(body.destinationLatitude) ?? undefined,
-    destinationLongitude: getNumber(body.destinationLongitude) ?? undefined,
+    tripType,
+    origin: getString(body.origin) || originPlace?.value || "",
+    originPlaceId: getString(body.originPlaceId || body.origin_place_id || originPlace?.place_id) || undefined,
+    originCity: getString(body.originCity || body.origin_city || originPlace?.city) || undefined,
+    originRegion: getString(body.originRegion || body.origin_region || originPlace?.region) || undefined,
+    originCountry: getString(body.originCountry || body.origin_country || originPlace?.country) || undefined,
+    originLatitude: getNumber(body.originLatitude ?? body.origin_latitude ?? originPlace?.latitude) ?? undefined,
+    originLongitude: getNumber(body.originLongitude ?? body.origin_longitude ?? originPlace?.longitude) ?? undefined,
+    originPlace,
+    destination,
+    destinationPlaceId: getString(body.destinationPlaceId || body.destination_place_id || destinationPlace?.place_id) || undefined,
+    destinationCity: getString(body.destinationCity || body.destination_city || destinationPlace?.city || destinationStops.at(-1)?.city) || undefined,
+    destinationCountry:
+      getString(body.destinationCountry || body.destination_country || destinationPlace?.country || destinationStops.at(-1)?.country) || undefined,
+    destinationRegion:
+      getString(body.destinationRegion || body.destination_region || destinationPlace?.region || destinationStops.at(-1)?.region) || undefined,
+    destinationLatitude: getNumber(body.destinationLatitude ?? body.destination_latitude ?? destinationPlace?.latitude ?? destinationStops.at(-1)?.latitude) ?? undefined,
+    destinationLongitude:
+      getNumber(body.destinationLongitude ?? body.destination_longitude ?? destinationPlace?.longitude ?? destinationStops.at(-1)?.longitude) ?? undefined,
+    destinationPlace,
+    destinationStops: tripType === "multi_city" ? destinationStops : undefined,
+    returnToOrigin: getBoolean(body.returnToOrigin ?? body.return_to_origin, true),
+    flexibleCityOrder: getBoolean(body.flexibleCityOrder ?? body.flexible_city_order, false),
+    flexibleDates: getBoolean(body.flexibleDates ?? body.flexible_dates, false),
     startDate,
     endDate,
     daysCount: explicitDays ?? daysBetween(startDate, endDate),
-    travelersCount: getPositiveNumber(body.travelersCount) || 1,
+    travelersCount: travelers.adults + travelers.children + (travelers.infants || 0),
+    travelers,
+    rooms: getPositiveNumber(body.rooms) || 1,
+    bedPreference: getString(body.bedPreference || body.bed_preference) || "No preference",
     budgetAmount: getPositiveNumber(body.budgetAmount),
     budgetCurrency: getString(body.budgetCurrency) || "CAD",
     budgetIncludesFlights: body.budgetIncludesFlights !== false,
     budgetIncludesHotel: body.budgetIncludesHotel !== false,
+    budgetIncludesActivities: body.budgetIncludesActivities !== false,
     travelStyle: getString(body.travelStyle) || "Balanced",
     interests: cleanTextArray(body.interests),
-    pace: getString(body.pace) || "Normal",
+    pace: getString(body.pace) || "Balanced",
+    walkingTolerance: getString(body.walkingTolerance || body.walking_tolerance) || "Medium",
     accommodationPreference: getString(body.accommodationPreference) || "Not sure",
     transportationPreference: getString(body.transportationPreference) || "Mixed",
+    accessibilityNeeds: getString(body.accessibilityNeeds || body.accessibility_needs),
+    dietaryPreference: getString(body.dietaryPreference || body.dietary_preference),
     specialNotes: getString(body.specialNotes),
     language: normalizeLocale(getString(body.language)),
     priceDiscoveryId: getString(body.priceDiscoveryId) || null,
@@ -87,25 +170,52 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
 }
 
 function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPlannerPayload {
+  const metadata = getRecord(trip.metadata);
+  const planning = getRecord(metadata?.planning) || {};
+  const destinationStops = cleanStops(planning.destinationStops || planning.destination_stops);
+  const tripType = getTripType(planning.tripType || planning.trip_type || (destinationStops.length >= 2 ? "multi_city" : "single_destination"));
+  const travelersCount = getPositiveNumber(trip.travelers_count) || 1;
+  const travelers = cleanTravelers(planning.travelers, travelersCount);
+
   return {
+    tripType,
     origin: getString(trip.origin),
+    originPlaceId: getString(planning.originPlaceId || planning.origin_place_id) || undefined,
+    originCity: getString(planning.originCity || planning.origin_city) || undefined,
+    originRegion: getString(planning.originRegion || planning.origin_region) || undefined,
+    originCountry: getString(planning.originCountry || planning.origin_country) || undefined,
+    originLatitude: getNumber(planning.originLatitude ?? planning.origin_latitude) ?? undefined,
+    originLongitude: getNumber(planning.originLongitude ?? planning.origin_longitude) ?? undefined,
+    originPlace: cleanPlace(planning.originPlace || planning.origin_place),
     destination: getString(trip.destination),
     destinationCity: getString(trip.destination_city),
     destinationCountry: getString(trip.destination_country),
     destinationRegion: getString(trip.destination_region),
+    destinationPlace: cleanPlace(planning.destinationPlace || planning.destination_place),
+    destinationStops: tripType === "multi_city" ? destinationStops : undefined,
+    returnToOrigin: getBoolean(planning.returnToOrigin ?? planning.return_to_origin, true),
+    flexibleCityOrder: getBoolean(planning.flexibleCityOrder ?? planning.flexible_city_order, false),
+    flexibleDates: getBoolean(planning.flexibleDates ?? planning.flexible_dates, false),
     startDate: getString(trip.start_date),
     endDate: getString(trip.end_date),
     daysCount: getPositiveNumber(trip.days_count) || 1,
-    travelersCount: getPositiveNumber(trip.travelers_count) || 1,
+    travelersCount: travelers.adults + travelers.children + (travelers.infants || 0),
+    travelers,
+    rooms: getPositiveNumber(planning.rooms) || 1,
+    bedPreference: getString(planning.bedPreference || planning.bed_preference) || "No preference",
     budgetAmount: getPositiveNumber(trip.budget_amount) || 1,
     budgetCurrency: getString(trip.budget_currency) || "CAD",
     budgetIncludesFlights: trip.budget_includes_flights !== false,
     budgetIncludesHotel: trip.budget_includes_hotel !== false,
+    budgetIncludesActivities: getBoolean(planning.budgetIncludesActivities ?? planning.budget_includes_activities, true),
     travelStyle: getString(trip.travel_style) || "Balanced",
     interests: Array.isArray(trip.interests) ? cleanTextArray(trip.interests) : [],
-    pace: "Normal",
+    pace: getString(planning.pace) || "Balanced",
+    walkingTolerance: getString(planning.walkingTolerance || planning.walking_tolerance) || "Medium",
     accommodationPreference: getString(trip.accommodation_preference) || "Not sure",
     transportationPreference: getString(trip.transportation_preference) || "Mixed",
+    accessibilityNeeds: getString(planning.accessibilityNeeds || planning.accessibility_needs),
+    dietaryPreference: getString(planning.dietaryPreference || planning.dietary_preference),
     specialNotes: getString(trip.special_notes),
     language: normalizeLocale(language),
     priceDiscoveryId: getString(trip.latest_price_discovery_id) || null
@@ -113,7 +223,11 @@ function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPl
 }
 
 function validatePayload(payload: TripPlannerPayload) {
+  if (!payload.origin || payload.origin.trim().length < 2) return "Please choose or enter your origin before continuing.";
   if (!payload.destination || payload.destination.trim().length < 2) return "Please choose or enter a destination before continuing.";
+  if (payload.tripType === "multi_city" && (!payload.destinationStops || payload.destinationStops.length < 2)) {
+    return "Please add at least two cities for a multi-city trip.";
+  }
   if (!payload.daysCount) return "Dates or number of days are required.";
   if (!payload.budgetAmount) return "Budget amount is required.";
   return "";
@@ -197,20 +311,8 @@ async function finalizeItinerary(params: {
   const discovery = await discoverTripPrices({
     userId: params.userId,
     tripId: params.tripId,
-    origin: params.payload.origin,
-    destination: params.payload.destination,
-    startDate: params.payload.startDate,
-    endDate: params.payload.endDate,
-    daysCount: params.payload.daysCount,
-    travelersCount: params.payload.travelersCount,
-    budgetAmount: params.payload.budgetAmount,
-    budgetCurrency: params.payload.budgetCurrency,
-    budgetIncludesFlights: params.payload.budgetIncludesFlights,
-    budgetIncludesHotel: params.payload.budgetIncludesHotel,
+    ...params.payload,
     committedBudgetCents: committed.amountCents,
-    accommodationPreference: params.payload.accommodationPreference,
-    travelStyle: params.payload.travelStyle,
-    interests: params.payload.interests
   });
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,
@@ -220,7 +322,8 @@ async function finalizeItinerary(params: {
   const generated = await generateRoamlyItinerary({
     ...params.payload,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
-    budgetConstraint: buildBudgetConstraintForItinerary(discovery)
+    budgetConstraint: buildBudgetConstraintForItinerary(discovery),
+    priceDiscovery: discovery as unknown as Record<string, unknown>
   });
   const sync = await syncGeneratedItinerary(params.supabase, {
     tripId: params.tripId,
@@ -325,6 +428,30 @@ export async function POST(request: NextRequest) {
     if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
     const title = `${payload.destination} ${payload.daysCount}-day itinerary`;
+    const planningMetadata = {
+      tripType: payload.tripType || "single_destination",
+      originPlace: payload.originPlace || null,
+      originPlaceId: payload.originPlaceId || null,
+      originCity: payload.originCity || null,
+      originRegion: payload.originRegion || null,
+      originCountry: payload.originCountry || null,
+      originLatitude: payload.originLatitude ?? null,
+      originLongitude: payload.originLongitude ?? null,
+      destinationPlace: payload.destinationPlace || null,
+      destinationPlaceId: payload.destinationPlaceId || null,
+      destinationStops: payload.destinationStops || [],
+      returnToOrigin: payload.returnToOrigin !== false,
+      flexibleCityOrder: payload.flexibleCityOrder === true,
+      flexibleDates: payload.flexibleDates === true,
+      travelers: payload.travelers || null,
+      rooms: payload.rooms || 1,
+      bedPreference: payload.bedPreference || "No preference",
+      budgetIncludesActivities: payload.budgetIncludesActivities !== false,
+      pace: payload.pace,
+      walkingTolerance: payload.walkingTolerance || "Medium",
+      accessibilityNeeds: payload.accessibilityNeeds || null,
+      dietaryPreference: payload.dietaryPreference || null
+    };
     const { data: trip, error: insertError } = await supabase
       .from("roamly_trips")
       .insert({
@@ -354,7 +481,10 @@ export async function POST(request: NextRequest) {
         itinerary_status: "draft",
         itinerary_locked: false,
         itinerary_payment_status: "unpaid",
-        tracking_unlocked: false
+        tracking_unlocked: false,
+        metadata: {
+          planning: planningMetadata
+        }
       })
       .select("id")
       .single();

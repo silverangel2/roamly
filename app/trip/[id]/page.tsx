@@ -57,7 +57,9 @@ function DayCard({ day, destination }: { day: RoamlyItinerary["daily_itinerary"]
     <article className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Day {day.day_number}</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+            Day {day.day_number}{day.city ? ` · ${day.city}` : ""}
+          </p>
           <h3 className="mt-1 text-2xl font-black text-ink">{day.title}</h3>
         </div>
         <span className="w-fit rounded-full bg-mist px-3 py-2 text-xs font-black text-slate-600">
@@ -283,6 +285,33 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             </Card>
           </section>
 
+          <section className="mt-7 grid gap-4 lg:grid-cols-3">
+            <Card>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Route logic</p>
+              <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{full.route_reasoning}</p>
+            </Card>
+            <Card>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Budget fit</p>
+              <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{full.budget_fit_summary}</p>
+            </Card>
+            <Card>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-coral">Booking status</p>
+              <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{full.booking_status_summary}</p>
+            </Card>
+            {full.free_or_low_cost_notes.length ? (
+              <Card className="lg:col-span-3">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Free and low-cost options</p>
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {full.free_or_low_cost_notes.map((note) => (
+                    <p key={note} className="rounded-2xl bg-mist px-4 py-3 text-sm font-bold leading-6 text-slate-600">
+                      {note}
+                    </p>
+                  ))}
+                </div>
+              </Card>
+            ) : null}
+          </section>
+
           <section className="mt-7 grid gap-4">
             {full.daily_itinerary.map((day) => (
               <DayCard key={day.day_number} day={day} destination={trip.destination} />
@@ -364,7 +393,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           </section>
 
           <section className="mt-7">
-            <BookingCards trip={trip} />
+            <BookingCards trip={trip} itinerary={full} />
           </section>
 
           {Object.keys(activitiesByDay).length ? null : null}

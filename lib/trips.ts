@@ -284,7 +284,7 @@ export async function syncGeneratedItinerary(
       description: activity.description,
       category: activity.category,
       address: activity.location_name,
-      city: null,
+      city: day.city || null,
       region: null,
       country: null,
       latitude: null,

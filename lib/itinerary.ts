@@ -20,9 +20,25 @@ export type RoamlyActivitySeed = {
   map_query: string;
 };
 
+export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "tour" | "transport" | "car_rental";
+
+export type RoamlyBookingSuggestion = {
+  booking_category: RoamlyBookingCategory;
+  booking_label: string;
+  normal_search_url: string;
+  affiliate_url?: string;
+  affiliate_provider?: string;
+  affiliate_disclosure?: string;
+  estimated_cost_min: number | null;
+  estimated_cost_max: number | null;
+  currency: string;
+  price_confidence: "estimated" | "partner" | "unknown";
+};
+
 export type RoamlyDayPlan = {
   day_number: number;
   date?: string;
+  city?: string;
   title: string;
   morning: string;
   afternoon: string;
@@ -37,6 +53,10 @@ export type RoamlyItinerary = {
   trip_title: string;
   destination_summary: string;
   best_for: string[];
+  route_reasoning: string;
+  budget_fit_summary: string;
+  booking_status_summary: string;
+  free_or_low_cost_notes: string[];
   estimated_budget_breakdown: BudgetBreakdown;
   hotel_area_suggestions: string[];
   transport_overview: string;
@@ -45,6 +65,7 @@ export type RoamlyItinerary = {
   local_tips: string[];
   safety_notes: string[];
   emergency_notes: string[];
+  booking_suggestions: RoamlyBookingSuggestion[];
   regenerate_suggestions: string[];
   generation_note?: string;
 };
@@ -112,6 +133,15 @@ function cleanNumber(value: unknown, fallback: number) {
   return fallback;
 }
 
+function cleanNullableNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.round(value));
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+  }
+  return null;
+}
+
 export function createMapLink(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
@@ -119,6 +149,56 @@ export function createMapLink(query: string) {
 export function makeTripTitle(payload: Pick<TripPlannerPayload, "destination" | "daysCount" | "travelStyle">) {
   const days = clampTripDays(payload.daysCount);
   return `${payload.destination} ${days}-day ${payload.travelStyle || "smart"} trip`;
+}
+
+function searchUrl(baseQuery: string) {
+  return `https://www.google.com/search?q=${encodeURIComponent(baseQuery)}`;
+}
+
+function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBookingSuggestion[] {
+  const currency = payload.budgetCurrency || "CAD";
+  const destination = payload.destination || "your destination";
+  const origin = payload.origin || "your origin";
+  const perDay = payload.budgetAmount && payload.daysCount ? Math.round(payload.budgetAmount / clampTripDays(payload.daysCount)) : null;
+
+  return [
+    {
+      booking_category: "flight",
+      booking_label: `Flights from ${origin} to ${destination}`,
+      normal_search_url: `https://www.google.com/travel/flights?q=${encodeURIComponent(`${origin} to ${destination} flights`)}`,
+      estimated_cost_min: null,
+      estimated_cost_max: null,
+      currency,
+      price_confidence: "estimated"
+    },
+    {
+      booking_category: "hotel",
+      booking_label: `Hotels in ${destination}`,
+      normal_search_url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
+      estimated_cost_min: perDay ? Math.round(perDay * 0.28) : null,
+      estimated_cost_max: perDay ? Math.round(perDay * 0.55) : null,
+      currency,
+      price_confidence: "estimated"
+    },
+    {
+      booking_category: "tour",
+      booking_label: `Tours and activities in ${destination}`,
+      normal_search_url: `https://www.viator.com/searchResults/all?text=${encodeURIComponent(`${destination} tours activities`)}`,
+      estimated_cost_min: perDay ? Math.round(perDay * 0.12) : null,
+      estimated_cost_max: perDay ? Math.round(perDay * 0.3) : null,
+      currency,
+      price_confidence: "estimated"
+    },
+    {
+      booking_category: "transport",
+      booking_label: `Transport around ${destination}`,
+      normal_search_url: searchUrl(`${destination} public transit airport transfer train bus`),
+      estimated_cost_min: perDay ? Math.round(perDay * 0.06) : null,
+      estimated_cost_max: perDay ? Math.round(perDay * 0.18) : null,
+      currency,
+      price_confidence: "estimated"
+    }
+  ];
 }
 
 export function buildPreviewFromItinerary(itinerary: RoamlyItinerary): RoamlyPreview {
@@ -139,6 +219,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
   const days = clampTripDays(payload.daysCount);
   const perDay = payload.budgetAmount ? Math.max(35, Math.round(payload.budgetAmount / days)) : 120;
   const interests = payload.interests.length ? payload.interests : ["Food", "Culture", "Hidden gems"];
+  const stops = payload.tripType === "multi_city" && payload.destinationStops?.length ? payload.destinationStops : [];
 
   return {
     trip_title: makeTripTitle(payload),
@@ -147,6 +228,13 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       payload.budgetCurrency
     )} budget, and ${interests.slice(0, 3).join(", ").toLowerCase()} priorities.`,
     best_for: [payload.travelStyle, payload.pace, payload.accommodationPreference],
+    route_reasoning:
+      payload.tripType === "multi_city"
+        ? "The route follows the requested city order and keeps travel days between city blocks."
+        : "The route keeps the trip focused on one destination from the selected origin.",
+    budget_fit_summary: "Use the budget check as a planning guardrail and verify live prices before booking.",
+    booking_status_summary: "No bookings are assumed unless they were uploaded or confirmed in Roamly.",
+    free_or_low_cost_notes: ["Balance paid anchors with free neighborhoods, parks, markets, and viewpoints."],
     estimated_budget_breakdown: {
       lodging: "Match the area to your comfort level before booking.",
       food: `${formatMoney(Math.round(perDay * 0.28), payload.budgetCurrency)} per day target.`,
@@ -166,10 +254,12 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       const dayNumber = index + 1;
       const theme = interests[index % interests.length];
       const title = dayNumber === 1 ? `Arrive and get oriented` : `${theme} and local rhythm`;
-      const baseQuery = `${payload.destination} ${theme}`;
+      const city = stops.length ? stops[Math.min(stops.length - 1, Math.floor((index / days) * stops.length))]?.value : payload.destination;
+      const baseQuery = `${city} ${theme}`;
 
       return {
         day_number: dayNumber,
+        city,
         title,
         morning: `Start with a low-friction ${theme.toLowerCase()} area so the day feels easy to enter.`,
         afternoon: `Visit one anchor stop and one nearby flexible stop instead of crossing the city twice.`,
@@ -212,9 +302,47 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
     local_tips: ["Save offline maps.", "Check opening hours the night before.", "Group nearby stops."],
     safety_notes: ["Keep emergency contacts saved.", "Use licensed transport late at night."],
     emergency_notes: ["Find the local emergency number before arrival.", "Save your hotel address offline."],
+    booking_suggestions: buildStarterBookingSuggestions(payload),
     regenerate_suggestions: [],
     generation_note: "Starter itinerary generated without live AI completion."
   };
+}
+
+function cleanBookingCategory(value: unknown): RoamlyBookingCategory {
+  if (value === "hotel" || value === "flight" || value === "attraction" || value === "tour" || value === "transport" || value === "car_rental") {
+    return value;
+  }
+  return "attraction";
+}
+
+function cleanPriceConfidence(value: unknown): RoamlyBookingSuggestion["price_confidence"] {
+  if (value === "estimated" || value === "partner" || value === "unknown") return value;
+  return "unknown";
+}
+
+function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggestion[], payload: TripPlannerPayload) {
+  if (!Array.isArray(value)) return fallback;
+  const cleaned = value
+    .map((item) => {
+      const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+      const category = cleanBookingCategory(record.booking_category);
+      const label = cleanString(record.booking_label, fallback[0]?.booking_label || `${payload.destination} booking`);
+      const url = cleanString(record.normal_search_url, searchUrl(label));
+      return {
+        booking_category: category,
+        booking_label: label,
+        normal_search_url: url,
+        affiliate_url: cleanString(record.affiliate_url, ""),
+        affiliate_provider: cleanString(record.affiliate_provider, ""),
+        affiliate_disclosure: cleanString(record.affiliate_disclosure, ""),
+        estimated_cost_min: cleanNullableNumber(record.estimated_cost_min),
+        estimated_cost_max: cleanNullableNumber(record.estimated_cost_max),
+        currency: cleanString(record.currency, payload.budgetCurrency || "CAD"),
+        price_confidence: cleanPriceConfidence(record.price_confidence)
+      };
+    })
+    .slice(0, 12);
+  return cleaned.length ? cleaned : fallback;
 }
 
 export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): RoamlyItinerary {
@@ -248,6 +376,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
         return {
           day_number: dayNumber,
           date: cleanString(day.date, ""),
+          city: cleanString(day.city, fallback.daily_itinerary[index]?.city || payload.destination),
           title,
           morning: cleanString(day.morning, fallback.daily_itinerary[index]?.morning || ""),
           afternoon: cleanString(day.afternoon, fallback.daily_itinerary[index]?.afternoon || ""),
@@ -264,6 +393,10 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
     trip_title: cleanString(record.trip_title, fallback.trip_title),
     destination_summary: cleanString(record.destination_summary, fallback.destination_summary),
     best_for: cleanList(record.best_for, fallback.best_for, 6),
+    route_reasoning: cleanString(record.route_reasoning, fallback.route_reasoning),
+    budget_fit_summary: cleanString(record.budget_fit_summary, fallback.budget_fit_summary),
+    booking_status_summary: cleanString(record.booking_status_summary, fallback.booking_status_summary),
+    free_or_low_cost_notes: cleanList(record.free_or_low_cost_notes, fallback.free_or_low_cost_notes, 8),
     estimated_budget_breakdown: {
       lodging: cleanString(budget?.lodging, fallback.estimated_budget_breakdown.lodging),
       food: cleanString(budget?.food, fallback.estimated_budget_breakdown.food),
@@ -280,6 +413,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
     local_tips: cleanList(record.local_tips, fallback.local_tips, 10),
     safety_notes: cleanList(record.safety_notes, fallback.safety_notes, 8),
     emergency_notes: cleanList(record.emergency_notes, fallback.emergency_notes, 8),
+    booking_suggestions: cleanBookingSuggestions(record.booking_suggestions, fallback.booking_suggestions, payload),
     regenerate_suggestions: cleanList(record.regenerate_suggestions, fallback.regenerate_suggestions, 8),
     generation_note: cleanString(record.generation_note, "")
   };

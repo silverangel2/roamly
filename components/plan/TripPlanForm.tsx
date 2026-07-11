@@ -4,63 +4,51 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   accommodationOptions,
+  bedPreferenceOptions,
   currencyOptions,
-  paceOptions,
-  recommendedDestinations,
   transportationOptions,
-  travelStyles,
-  tripInterests,
-  type RecommendedDestination,
-  type TripPlannerPayload
+  walkingToleranceOptions,
+  type TripPlannerPayload,
+  type TripType
 } from "@/lib/trip-planner";
+import {
+  isValidPlaceValue,
+  normalizePlaceText,
+  popularOriginPlaces,
+  recommendedPlaces,
+  type NormalizedPlace
+} from "@/lib/roamly/places";
+import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
 const steps = [
-  { title: "Destination", detail: "Where and how long" },
-  { title: "Budget", detail: "Dates and money" },
-  { title: "Style", detail: "Trip personality" },
-  { title: "Interests", detail: "What matters" },
-  { title: "Review", detail: "Generate and lock" }
+  { title: "Route", detail: "Origin and stops" },
+  { title: "Dates & travelers", detail: "When and who" },
+  { title: "Budget", detail: "What the total includes" },
+  { title: "Preferences", detail: "Pace, access, interests" },
+  { title: "Review & generate", detail: "Check costs first" }
 ];
 
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
-}
+const planningTravelStyles = ["Budget", "Balanced", "Premium"] as const;
+const planningPaces = ["Relaxed", "Balanced", "Packed"] as const;
+const planningInterests = [
+  "Culture",
+  "Food",
+  "Nightlife",
+  "Nature",
+  "Shopping",
+  "Museums",
+  "Beaches",
+  "Family",
+  "Adventure",
+  "Romance",
+  "Business"
+] as const;
 
-function toNumberOrNull(value: string) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function classNames(...items: Array<string | false | null | undefined>) {
-  return items.filter(Boolean).join(" ");
-}
-
-function normalizeDestinationText(value: string) {
-  return value.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-function findRecommendedDestination(value: string): RecommendedDestination | undefined {
-  const normalized = normalizeDestinationText(value);
-  if (!normalized) return undefined;
-  return recommendedDestinations.find((destination) => {
-    const matches = [
-      destination.value,
-      destination.label,
-      destination.city,
-      `${destination.city}, ${destination.country}`
-    ];
-    return matches.some((match) => normalizeDestinationText(match) === normalized);
-  });
-}
-
-function isCurrencyOption(value: string | undefined): value is (typeof currencyOptions)[number] {
-  return Boolean(value && (currencyOptions as readonly string[]).includes(value));
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-sm font-black text-ink">{children}</span>;
-}
+type StopItem = {
+  id: string;
+  place: NormalizedPlace | null;
+};
 
 type PriceDiscoveryResult = {
   flightEstimateCents: number;
@@ -72,10 +60,40 @@ type PriceDiscoveryResult = {
   totalEstimateCents: number;
   committedBudgetCents: number;
   remainingBudgetCents: number | null;
-  budgetStatus: "within_budget" | "tight" | "over_budget";
+  budgetStatus: "within_budget" | "tight" | "over_budget" | "unknown";
   budgetCurrency: string;
   coverageNote: string;
 };
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toNumberOrNull(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function toInteger(value: string, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
+}
+
+function classNames(...items: Array<string | false | null | undefined>) {
+  return items.filter(Boolean).join(" ");
+}
+
+function isCurrencyOption(value: string | undefined): value is (typeof currencyOptions)[number] {
+  return Boolean(value && (currencyOptions as readonly string[]).includes(value));
+}
+
+function placeValue(place: NormalizedPlace | null) {
+  return normalizePlaceText(place?.value || place?.label || "");
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <span className="text-sm font-black text-ink">{children}</span>;
+}
 
 function formatMoney(cents: number | null, currency: string) {
   if (cents == null) return "Not set";
@@ -87,11 +105,14 @@ function formatMoney(cents: number | null, currency: string) {
 }
 
 function budgetStatusCopy(status: PriceDiscoveryResult["budgetStatus"]) {
+  if (status === "unknown") {
+    return "Add a total budget to compare this estimate against your comfort zone.";
+  }
   if (status === "tight") {
     return "Your budget is tight. Roamly will prioritize affordable stays, free attractions, public transit, and low-cost food.";
   }
   if (status === "over_budget") {
-    return "This trip may exceed your budget. You can still continue, but Roamly recommends changing dates, destination, trip length, or excluding flights/hotel.";
+    return "This trip may exceed your budget. Roamly can suggest cheaper city order, shorter stays, fewer paid activities, lower-cost hotel areas, public transit, excluding flights or hotel, or increasing budget.";
   }
   return "Your trip looks possible within budget.";
 }
@@ -100,19 +121,21 @@ function TextInput({
   value,
   onChange,
   ariaLabel,
-  type = "text"
+  type = "text",
+  min
 }: {
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
   type?: "text" | "date" | "number";
+  min?: string | number;
 }) {
   return (
     <input
       value={value}
       onChange={(event) => onChange(event.target.value)}
       type={type}
-      min={type === "date" ? todayIsoDate() : undefined}
+      min={min ?? (type === "date" ? todayIsoDate() : undefined)}
       aria-label={ariaLabel}
       className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
     />
@@ -154,6 +177,7 @@ function Chip({
   selected: boolean;
   onClick: () => void;
 }) {
+  const { translateText } = useI18n();
   return (
     <button
       type="button"
@@ -165,7 +189,34 @@ function Chip({
           : "border-cloud bg-white text-slate-600 hover:border-ocean/40 hover:text-ink"
       )}
     >
-      {label}
+      {translateText(label)}
+    </button>
+  );
+}
+
+function ToggleButton({
+  label,
+  enabled,
+  onToggle
+}: {
+  label: string;
+  enabled: boolean;
+  onToggle: () => void;
+}) {
+  const { translateText } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={classNames(
+        "rounded-2xl px-4 py-3 text-left text-sm font-black ring-1 ring-cloud transition",
+        enabled ? "bg-ink text-white" : "bg-white text-ink"
+      )}
+    >
+      <span className="block">{translateText(label)}</span>
+      <span className={classNames("mt-1 block text-xs", enabled ? "text-white/70" : "text-slate-500")}>
+        {enabled ? translateText("Yes") : translateText("No")}
+      </span>
     </button>
   );
 }
@@ -174,23 +225,39 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
   const router = useRouter();
   const { locale, translateText } = useI18n();
   const [step, setStep] = useState(0);
-  const [destination, setDestination] = useState("");
-  const [origin, setOrigin] = useState("");
+  const [originPlace, setOriginPlace] = useState<NormalizedPlace | null>(null);
+  const [destinationPlace, setDestinationPlace] = useState<NormalizedPlace | null>(null);
+  const [tripType, setTripType] = useState<TripType>("single_destination");
+  const [stops, setStops] = useState<StopItem[]>([
+    { id: "stop-1", place: null },
+    { id: "stop-2", place: null }
+  ]);
+  const [returnToOrigin, setReturnToOrigin] = useState(true);
+  const [flexibleCityOrder, setFlexibleCityOrder] = useState(false);
+  const [flexibleDates, setFlexibleDates] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [daysCount, setDaysCount] = useState("");
-  const [travelersCount, setTravelersCount] = useState("1");
+  const [adults, setAdults] = useState("1");
+  const [children, setChildren] = useState("0");
+  const [infants, setInfants] = useState("0");
+  const [rooms, setRooms] = useState("1");
+  const [bedPreference, setBedPreference] = useState<(typeof bedPreferenceOptions)[number]>("No preference");
   const [budgetAmount, setBudgetAmount] = useState("");
   const [budgetCurrency, setBudgetCurrency] = useState<(typeof currencyOptions)[number]>("CAD");
   const [budgetIncludesFlights, setBudgetIncludesFlights] = useState(true);
   const [budgetIncludesHotel, setBudgetIncludesHotel] = useState(true);
-  const [travelStyle, setTravelStyle] = useState<(typeof travelStyles)[number]>("Balanced");
+  const [budgetIncludesActivities, setBudgetIncludesActivities] = useState(true);
+  const [travelStyle, setTravelStyle] = useState<(typeof planningTravelStyles)[number]>("Balanced");
   const [interests, setInterests] = useState<string[]>(["Food", "Culture"]);
-  const [pace, setPace] = useState<(typeof paceOptions)[number]>("Normal");
+  const [pace, setPace] = useState<(typeof planningPaces)[number]>("Balanced");
+  const [walkingTolerance, setWalkingTolerance] = useState<(typeof walkingToleranceOptions)[number]>("Medium");
   const [accommodationPreference, setAccommodationPreference] =
     useState<(typeof accommodationOptions)[number]>("Mid-range");
   const [transportationPreference, setTransportationPreference] =
     useState<(typeof transportationOptions)[number]>("Mixed");
+  const [accessibilityNeeds, setAccessibilityNeeds] = useState("");
+  const [dietaryPreference, setDietaryPreference] = useState("");
   const [specialNotes, setSpecialNotes] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -201,60 +268,60 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
   const [priceDiscoveryId, setPriceDiscoveryId] = useState<string | null>(null);
   const [budgetConstraint, setBudgetConstraint] = useState("");
 
-  const progress = Math.round(((step + 1) / steps.length) * 100);
-  const selectedDestination = useMemo(() => findRecommendedDestination(destination), [destination]);
-  const normalizedDestination = selectedDestination?.value || destination.trim().replace(/\s+/g, " ");
+  const validStops = useMemo(() => stops.map((stop) => stop.place).filter((place): place is NormalizedPlace => isValidPlaceValue(place?.value)), [stops]);
+  const normalizedDestination = useMemo(() => {
+    if (tripType === "multi_city") return validStops.map((place) => place.value).join(" \u2192 ");
+    return placeValue(destinationPlace);
+  }, [destinationPlace, tripType, validStops]);
+  const routePreview = useMemo(() => {
+    const items = [placeValue(originPlace), ...(tripType === "multi_city" ? validStops.map((place) => place.value) : [normalizedDestination])].filter(Boolean);
+    if (returnToOrigin && originPlace && tripType === "multi_city") items.push(placeValue(originPlace));
+    return items.join(" \u2192 ");
+  }, [normalizedDestination, originPlace, returnToOrigin, tripType, validStops]);
 
-  const payload: TripPlannerPayload = useMemo(
-    () => ({
-      origin: origin.trim(),
-      destination: normalizedDestination,
-      destinationCity: selectedDestination?.city,
-      destinationCountry: selectedDestination?.country,
-      destinationRegion: selectedDestination?.region,
-      destinationLatitude: selectedDestination?.latitude,
-      destinationLongitude: selectedDestination?.longitude,
-      startDate,
-      endDate,
-      daysCount: toNumberOrNull(daysCount),
-      travelersCount: toNumberOrNull(travelersCount) || 1,
-      budgetAmount: toNumberOrNull(budgetAmount),
-      budgetCurrency,
-      budgetIncludesFlights,
-      budgetIncludesHotel,
-      travelStyle,
-      interests,
-      pace,
-      accommodationPreference,
-      transportationPreference,
-      specialNotes: specialNotes.trim(),
-      language: locale,
-      priceDiscoveryId,
-      budgetConstraint
-    }),
-    [
-      accommodationPreference,
-      budgetAmount,
-      budgetConstraint,
-      budgetCurrency,
-      budgetIncludesFlights,
-      budgetIncludesHotel,
-      daysCount,
-      endDate,
-      interests,
-      locale,
-      normalizedDestination,
-      origin,
-      pace,
-      priceDiscoveryId,
-      selectedDestination,
-      specialNotes,
-      startDate,
-      transportationPreference,
-      travelersCount,
-      travelStyle
-    ]
-  );
+  const adultCount = Math.max(0, toInteger(adults, 1));
+  const childCount = Math.max(0, toInteger(children, 0));
+  const infantCount = Math.max(0, toInteger(infants, 0));
+  const roomCount = Math.max(1, toInteger(rooms, 1));
+  const travelersCount = Math.max(1, adultCount + childCount + infantCount);
+  const progress = Math.round(((step + 1) / steps.length) * 100);
+
+  function resetDiscovery() {
+    setPriceDiscovery(null);
+    setPriceDiscoveryId(null);
+    setBudgetConstraint("");
+  }
+
+  function applyCurrency(place: NormalizedPlace | null) {
+    if (isCurrencyOption(place?.currency)) setBudgetCurrency(place.currency);
+  }
+
+  function setOrigin(place: NormalizedPlace | null) {
+    setOriginPlace(place);
+    resetDiscovery();
+  }
+
+  function setDestination(place: NormalizedPlace | null) {
+    setDestinationPlace(place);
+    applyCurrency(place);
+    resetDiscovery();
+  }
+
+  function setStopPlace(id: string, place: NormalizedPlace | null) {
+    setStops((current) => current.map((stop) => (stop.id === id ? { ...stop, place } : stop)));
+    applyCurrency(place);
+    resetDiscovery();
+  }
+
+  function addCity() {
+    setStops((current) => [...current, { id: `stop-${Date.now()}-${current.length}`, place: null }]);
+    resetDiscovery();
+  }
+
+  function removeCity(id: string) {
+    setStops((current) => (current.length <= 2 ? current : current.filter((stop) => stop.id !== id)));
+    resetDiscovery();
+  }
 
   function toggleInterest(interest: string) {
     setInterests((current) =>
@@ -262,31 +329,127 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
         ? current.filter((item) => item !== interest)
         : [...current, interest]
     );
+    resetDiscovery();
   }
 
-  function setDestinationValue(value: string) {
-    const recommended = findRecommendedDestination(value);
-    setDestination(recommended?.value || value);
-    setPriceDiscovery(null);
-    setPriceDiscoveryId(null);
-    setBudgetConstraint("");
-    if (recommended?.currency && isCurrencyOption(recommended.currency)) {
-      setBudgetCurrency(recommended.currency);
+  const payload: TripPlannerPayload = useMemo(
+    () => ({
+      tripType,
+      origin: placeValue(originPlace),
+      originPlaceId: originPlace?.place_id,
+      originCity: originPlace?.city,
+      originRegion: originPlace?.region,
+      originCountry: originPlace?.country,
+      originLatitude: originPlace?.latitude,
+      originLongitude: originPlace?.longitude,
+      originPlace: originPlace || undefined,
+      destination: normalizedDestination,
+      destinationPlaceId: tripType === "single_destination" ? destinationPlace?.place_id : undefined,
+      destinationCity: tripType === "single_destination" ? destinationPlace?.city : validStops[validStops.length - 1]?.city,
+      destinationCountry: tripType === "single_destination" ? destinationPlace?.country : validStops[validStops.length - 1]?.country,
+      destinationRegion: tripType === "single_destination" ? destinationPlace?.region : validStops[validStops.length - 1]?.region,
+      destinationLatitude: tripType === "single_destination" ? destinationPlace?.latitude : validStops[validStops.length - 1]?.latitude,
+      destinationLongitude: tripType === "single_destination" ? destinationPlace?.longitude : validStops[validStops.length - 1]?.longitude,
+      destinationPlace: tripType === "single_destination" && destinationPlace ? destinationPlace : undefined,
+      destinationStops: tripType === "multi_city" ? validStops : undefined,
+      returnToOrigin,
+      flexibleCityOrder,
+      flexibleDates,
+      startDate,
+      endDate,
+      daysCount: toNumberOrNull(daysCount),
+      travelersCount,
+      travelers: {
+        adults: adultCount,
+        children: childCount,
+        infants: infantCount
+      },
+      rooms: roomCount,
+      bedPreference,
+      budgetAmount: toNumberOrNull(budgetAmount),
+      budgetCurrency,
+      budgetIncludesFlights,
+      budgetIncludesHotel,
+      budgetIncludesActivities,
+      travelStyle,
+      interests,
+      pace,
+      walkingTolerance,
+      accommodationPreference,
+      transportationPreference,
+      accessibilityNeeds: accessibilityNeeds.trim(),
+      dietaryPreference: dietaryPreference.trim(),
+      specialNotes: specialNotes.trim(),
+      language: locale,
+      priceDiscoveryId,
+      budgetConstraint
+    }),
+    [
+      accessibilityNeeds,
+      accommodationPreference,
+      adultCount,
+      bedPreference,
+      budgetAmount,
+      budgetConstraint,
+      budgetCurrency,
+      budgetIncludesActivities,
+      budgetIncludesFlights,
+      budgetIncludesHotel,
+      childCount,
+      daysCount,
+      destinationPlace,
+      dietaryPreference,
+      endDate,
+      flexibleCityOrder,
+      flexibleDates,
+      infantCount,
+      interests,
+      locale,
+      normalizedDestination,
+      originPlace,
+      pace,
+      priceDiscoveryId,
+      returnToOrigin,
+      roomCount,
+      specialNotes,
+      startDate,
+      transportationPreference,
+      travelStyle,
+      travelersCount,
+      tripType,
+      validStops,
+      walkingTolerance
+    ]
+  );
+
+  function validateStep(stepToValidate: number) {
+    if (stepToValidate === 0) {
+      if (!isValidPlaceValue(payload.origin)) return "Please choose or enter your origin before continuing.";
+      if (tripType === "multi_city" && validStops.length < 2) return "Please add at least two cities for a multi-city trip.";
+      if (tripType === "single_destination" && !isValidPlaceValue(payload.destination)) {
+        return "Please choose or enter a destination before continuing.";
+      }
     }
+    if (stepToValidate === 1) {
+      if (!daysCount && (!startDate || !endDate)) return "Add dates or a number of days.";
+      if (adultCount < 1) return "Add at least one adult traveler.";
+      if (roomCount < 1) return "Add at least one room.";
+    }
+    if (stepToValidate === 2 && !budgetAmount) return "Add an estimated budget.";
+    if (stepToValidate === 3 && interests.length === 0) return "Pick at least one interest.";
+    return "";
   }
 
-  function validateCurrentStep() {
-    if (step === 0 && normalizedDestination.length < 2) return "Please choose or enter a destination before continuing.";
-    if (step === 0 && !daysCount && (!startDate || !endDate)) {
-      return "Add dates or a number of days.";
+  function validateBeforeGenerate() {
+    for (let index = 0; index < steps.length - 1; index += 1) {
+      const validation = validateStep(index);
+      if (validation) return validation;
     }
-    if (step === 1 && !budgetAmount) return "Add an estimated budget.";
-    if (step === 3 && interests.length === 0) return "Pick at least one interest.";
     return "";
   }
 
   function goNext() {
-    const validation = validateCurrentStep();
+    const validation = validateStep(step);
     setError(validation);
     if (validation) return;
     setStep((current) => Math.min(current + 1, steps.length - 1));
@@ -330,7 +493,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
   }
 
   async function openFinalConfirmation() {
-    const validation = validateCurrentStep();
+    const validation = validateBeforeGenerate();
     setError(validation);
     setNotice("");
     if (validation) return;
@@ -340,7 +503,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
   }
 
   async function submitPlan() {
-    const validation = validateCurrentStep();
+    const validation = validateBeforeGenerate();
     setError(validation);
     setNotice("");
     if (validation) return;
@@ -385,15 +548,25 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
     }
   }
 
+  const summaryRows = [
+    ["Route", routePreview || "Route pending"],
+    ["Dates", payload.daysCount ? `${payload.daysCount} days` : `${payload.startDate || "Start"} to ${payload.endDate || "End"}`],
+    ["Travelers", `${adultCount} adults, ${childCount} children${infantCount ? `, ${infantCount} infants` : ""}`],
+    ["Rooms", `${roomCount} room${roomCount === 1 ? "" : "s"}${bedPreference !== "No preference" ? `, ${bedPreference}` : ""}`],
+    ["Budget", payload.budgetAmount ? `${payload.budgetCurrency} ${payload.budgetAmount}` : "Budget pending"],
+    ["Style", `${payload.travelStyle} style, ${payload.pace} pace, ${payload.walkingTolerance} walking`],
+    ["Interests", payload.interests.join(", ") || "No interests selected"]
+  ];
+
   return (
     <section className="rounded-[2rem] border border-cloud bg-white/92 p-4 shadow-soft backdrop-blur sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
-            Step {step + 1} of {steps.length}
+            {translateText("Step")} {step + 1} {translateText("of")} {steps.length}
           </p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-ink">{steps[step].title}</h2>
-          <p className="mt-1 text-sm font-bold text-slate-500">{steps[step].detail}</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-ink">{translateText(steps[step].title)}</h2>
+          <p className="mt-1 text-sm font-bold text-slate-500">{translateText(steps[step].detail)}</p>
         </div>
         <div className="grid h-14 w-14 place-items-center rounded-2xl bg-mist text-sm font-black text-ocean">
           {progress}%
@@ -410,165 +583,214 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       <div className="mt-5 min-h-[24rem]">
         {step === 0 ? (
           <div className="grid gap-4">
-            <label className="block">
-              <FieldLabel>Origin / leaving from</FieldLabel>
-              <TextInput value={origin} onChange={setOrigin} ariaLabel="Origin city or country" />
-            </label>
-            <div className="rounded-[1.5rem] border border-cloud bg-mist/60 p-4">
-              <label className="block">
-                <FieldLabel>{translateText("Choose a destination")}</FieldLabel>
+            <PlaceSelector
+              label="Origin / leaving from"
+              value={originPlace}
+              onChange={setOrigin}
+              placeholder="Search origin"
+              helper="Choose a known origin to improve flight and transport estimates. You can still type a custom origin if it is not listed."
+              popularPlaces={popularOriginPlaces}
+            />
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                ["single_destination", "Single destination"],
+                ["multi_city", "Multi-city trip"]
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setTripType(value as TripType);
+                    resetDiscovery();
+                  }}
+                  className={classNames(
+                    "rounded-2xl border px-4 py-3 text-left text-sm font-black transition",
+                    tripType === value ? "border-ink bg-ink text-white shadow-soft" : "border-cloud bg-white text-slate-600 hover:border-ocean/40"
+                  )}
+                >
+                  {translateText(label)}
+                </button>
+              ))}
+            </div>
+
+            {tripType === "single_destination" ? (
+              <PlaceSelector
+                label="Destination"
+                value={destinationPlace}
+                onChange={setDestination}
+                placeholder="Search destination"
+                helper="Search worldwide or type a custom place."
+                popularPlaces={recommendedPlaces}
+              />
+            ) : (
+              <div className="rounded-[1.5rem] border border-cloud bg-mist/60 p-4">
+                <p className="text-sm font-black text-ink">{translateText("Multi-city trip")}</p>
                 <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
-                  {translateText("Select a known destination to reduce planning errors. You can still type a custom destination if it is not listed.")}
+                  {translateText("Add each city in the order you want to visit. Roamly will build the route and budget around these stops.")}
                 </p>
-                <input
-                  value={destination}
-                  onChange={(event) => setDestinationValue(event.target.value)}
-                  onBlur={() => setDestinationValue(destination)}
-                  list="roamly-destinations"
-                  autoComplete="off"
-                  aria-label={translateText("Choose a destination")}
-                  placeholder={translateText("Choose a destination")}
-                  className="mt-3 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-                />
-                <datalist id="roamly-destinations">
-                  {recommendedDestinations.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
+                <div className="mt-4 grid gap-3">
+                  {stops.map((stop, index) => (
+                    <div key={stop.id} className="rounded-2xl border border-cloud bg-white p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
+                          {translateText("City")} {index + 1}
+                        </p>
+                        {index > 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => removeCity(stop.id)}
+                            className="rounded-full px-3 py-1 text-xs font-black text-coral ring-1 ring-coral/20 transition hover:bg-coral/10"
+                          >
+                            {translateText("Remove")}
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="mt-2">
+                        <PlaceSelector
+                          label="Destination"
+                          value={stop.place}
+                          onChange={(place) => setStopPlace(stop.id, place)}
+                          placeholder="Search city"
+                          popularPlaces={recommendedPlaces}
+                        />
+                      </div>
+                    </div>
                   ))}
-                </datalist>
-              </label>
-
-              <div className="mt-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
-                  {translateText("Popular destinations")}
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {["Toronto", "Vancouver", "New York City", "Paris", "Tokyo", "Singapore"].map((city) => {
-                    const item = recommendedDestinations.find((destinationItem) => destinationItem.city === city);
-                    return (
-                      <button
-                        key={city}
-                        type="button"
-                        onClick={() => item && setDestinationValue(item.value)}
-                        className={classNames(
-                          "rounded-2xl border px-4 py-3 text-left text-sm font-black transition",
-                          selectedDestination?.city === city
-                            ? "border-ink bg-ink text-white shadow-soft"
-                            : "border-cloud bg-white text-slate-600 hover:border-ocean/40 hover:text-ink"
-                        )}
-                      >
-                        {city}
-                      </button>
-                    );
-                  })}
                 </div>
+                <button
+                  type="button"
+                  onClick={addCity}
+                  className="mt-3 rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/30"
+                >
+                  {translateText("Add city")}
+                </button>
               </div>
+            )}
 
-              {!selectedDestination && destination.trim().length >= 2 ? (
-                <p className="mt-3 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-xs font-black text-amber-800">
-                  {translateText("Custom destination")}: {translateText("Custom destinations may use estimated travel data.")}
-                </p>
-              ) : null}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <FieldLabel>Start date</FieldLabel>
-                <TextInput value={startDate} onChange={setStartDate} type="date" ariaLabel="Start date" />
-              </label>
-              <label className="block">
-                <FieldLabel>End date</FieldLabel>
-                <TextInput value={endDate} onChange={setEndDate} type="date" ariaLabel="End date" />
-              </label>
-            </div>
-            <label className="block">
-              <FieldLabel>Or number of days</FieldLabel>
-              <TextInput value={daysCount} onChange={setDaysCount} type="number" ariaLabel="Number of travel days" />
-            </label>
-            <label className="block">
-              <FieldLabel>Travelers</FieldLabel>
-              <TextInput value={travelersCount} onChange={setTravelersCount} type="number" ariaLabel="Number of travelers" />
-            </label>
+            {tripType === "multi_city" ? (
+              <div className="grid gap-2 sm:grid-cols-3">
+                <ToggleButton label="Return to origin" enabled={returnToOrigin} onToggle={() => setReturnToOrigin((value) => !value)} />
+                <ToggleButton label="Flexible city order" enabled={flexibleCityOrder} onToggle={() => setFlexibleCityOrder((value) => !value)} />
+                <ToggleButton label="Flexible dates" enabled={flexibleDates} onToggle={() => setFlexibleDates((value) => !value)} />
+              </div>
+            ) : (
+              <ToggleButton label="Flexible dates" enabled={flexibleDates} onToggle={() => setFlexibleDates((value) => !value)} />
+            )}
+
+            {routePreview ? (
+              <div className="rounded-[1.5rem] border border-ocean/20 bg-ocean/10 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Route")}</p>
+                <p className="mt-2 text-base font-black leading-7 text-ink">{routePreview}</p>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
         {step === 1 ? (
           <div className="grid gap-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_0.55fr]">
-              <label className="block">
-                <FieldLabel>Budget amount</FieldLabel>
-                <TextInput value={budgetAmount} onChange={setBudgetAmount} type="number" ariaLabel="Budget amount" />
-              </label>
-              <label className="block">
-                <FieldLabel>Currency</FieldLabel>
-                <SelectField value={budgetCurrency} onChange={(value) => setBudgetCurrency(value as typeof budgetCurrency)} options={currencyOptions} />
-              </label>
-            </div>
-            <div className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Roamly budget rule</p>
-              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                Use your comfortable total. Roamly checks flights, stays, food, activities, local transportation, and buffer before generation.
-              </p>
-            </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setBudgetIncludesFlights((value) => !value)}
-                className={`rounded-2xl px-4 py-3 text-sm font-black ring-1 ring-cloud ${budgetIncludesFlights ? "bg-ink text-white" : "bg-white text-ink"}`}
-              >
-                {budgetIncludesFlights ? "Budget includes flights" : "Flights already handled"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setBudgetIncludesHotel((value) => !value)}
-                className={`rounded-2xl px-4 py-3 text-sm font-black ring-1 ring-cloud ${budgetIncludesHotel ? "bg-ink text-white" : "bg-white text-ink"}`}
-              >
-                {budgetIncludesHotel ? "Budget includes hotel" : "Hotel already handled"}
-              </button>
+              <label className="block">
+                <FieldLabel>{translateText("Start date")}</FieldLabel>
+                <TextInput value={startDate} onChange={setStartDate} type="date" ariaLabel="Start date" />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("End date")}</FieldLabel>
+                <TextInput value={endDate} onChange={setEndDate} type="date" ariaLabel="End date" />
+              </label>
+            </div>
+            <label className="block">
+              <FieldLabel>{translateText("Or number of days")}</FieldLabel>
+              <TextInput value={daysCount} onChange={setDaysCount} type="number" min={1} ariaLabel="Number of travel days" />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block">
+                <FieldLabel>{translateText("Adults")}</FieldLabel>
+                <TextInput value={adults} onChange={setAdults} type="number" min={1} ariaLabel="Adults" />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("Children")}</FieldLabel>
+                <TextInput value={children} onChange={setChildren} type="number" min={0} ariaLabel="Children" />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("Infants")}</FieldLabel>
+                <TextInput value={infants} onChange={setInfants} type="number" min={0} ariaLabel="Infants" />
+              </label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[0.6fr_1fr]">
+              <label className="block">
+                <FieldLabel>{translateText("Rooms")}</FieldLabel>
+                <TextInput value={rooms} onChange={setRooms} type="number" min={1} ariaLabel="Rooms" />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("Bed preference")}</FieldLabel>
+                <SelectField value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} />
+              </label>
             </div>
           </div>
         ) : null}
 
         {step === 2 ? (
-          <div className="grid gap-5">
-            <div>
-              <FieldLabel>Travel style</FieldLabel>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {travelStyles.map((style) => (
-                  <Chip
-                    key={style}
-                    label={style}
-                    selected={travelStyle === style}
-                    onClick={() => setTravelStyle(style)}
-                  />
-                ))}
-              </div>
+          <div className="grid gap-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_0.55fr]">
+              <label className="block">
+                <FieldLabel>{translateText("Budget amount")}</FieldLabel>
+                <TextInput value={budgetAmount} onChange={setBudgetAmount} type="number" min={1} ariaLabel="Budget amount" />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("Currency")}</FieldLabel>
+                <SelectField value={budgetCurrency} onChange={(value) => setBudgetCurrency(value as typeof budgetCurrency)} options={currencyOptions} />
+              </label>
             </div>
-            <label className="block">
-              <FieldLabel>Pace</FieldLabel>
-              <SelectField value={pace} onChange={(value) => setPace(value as typeof pace)} options={paceOptions} />
-            </label>
+            <div className="rounded-2xl bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Roamly budget rule")}</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+                {translateText("Use your comfortable total. Roamly checks flights, stays, food, activities, local transportation, and buffer before generation.")}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <ToggleButton label="Budget includes flights" enabled={budgetIncludesFlights} onToggle={() => setBudgetIncludesFlights((value) => !value)} />
+              <ToggleButton label="Budget includes hotel" enabled={budgetIncludesHotel} onToggle={() => setBudgetIncludesHotel((value) => !value)} />
+              <ToggleButton label="Budget includes activities" enabled={budgetIncludesActivities} onToggle={() => setBudgetIncludesActivities((value) => !value)} />
+            </div>
           </div>
         ) : null}
 
         {step === 3 ? (
           <div className="grid gap-5">
             <div>
-              <FieldLabel>Interests</FieldLabel>
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {tripInterests.map((interest) => (
-                  <Chip
-                    key={interest}
-                    label={interest}
-                    selected={interests.includes(interest)}
-                    onClick={() => toggleInterest(interest)}
-                  />
+              <FieldLabel>{translateText("Travel style")}</FieldLabel>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {planningTravelStyles.map((style) => (
+                  <Chip key={style} label={style} selected={travelStyle === style} onClick={() => setTravelStyle(style)} />
                 ))}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
-                <FieldLabel>Accommodation</FieldLabel>
+                <FieldLabel>{translateText("Pace")}</FieldLabel>
+                <SelectField value={pace} onChange={(value) => setPace(value as typeof pace)} options={planningPaces} />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("Walking tolerance")}</FieldLabel>
+                <SelectField
+                  value={walkingTolerance}
+                  onChange={(value) => setWalkingTolerance(value as typeof walkingTolerance)}
+                  options={walkingToleranceOptions}
+                />
+              </label>
+            </div>
+            <div>
+              <FieldLabel>{translateText("Interests")}</FieldLabel>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {planningInterests.map((interest) => (
+                  <Chip key={interest} label={interest} selected={interests.includes(interest)} onClick={() => toggleInterest(interest)} />
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <FieldLabel>{translateText("Accommodation")}</FieldLabel>
                 <SelectField
                   value={accommodationPreference}
                   onChange={(value) => setAccommodationPreference(value as typeof accommodationPreference)}
@@ -576,7 +798,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                 />
               </label>
               <label className="block">
-                <FieldLabel>Transportation</FieldLabel>
+                <FieldLabel>{translateText("Transportation")}</FieldLabel>
                 <SelectField
                   value={transportationPreference}
                   onChange={(value) => setTransportationPreference(value as typeof transportationPreference)}
@@ -584,34 +806,50 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                 />
               </label>
             </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <FieldLabel>{translateText("Accessibility needs")}</FieldLabel>
+                <TextInput value={accessibilityNeeds} onChange={setAccessibilityNeeds} ariaLabel="Accessibility needs" />
+              </label>
+              <label className="block">
+                <FieldLabel>{translateText("Dietary preference")}</FieldLabel>
+                <TextInput value={dietaryPreference} onChange={setDietaryPreference} ariaLabel="Dietary preference" />
+              </label>
+            </div>
+            <label className="block">
+              <FieldLabel>{translateText("Special notes")}</FieldLabel>
+              <textarea
+                value={specialNotes}
+                onChange={(event) => setSpecialNotes(event.target.value)}
+                rows={4}
+                aria-label="Special trip notes"
+                className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+              />
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                {translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}
+              </p>
+            </label>
           </div>
         ) : null}
 
         {step === 4 ? (
           <div className="grid gap-4">
-            <label className="block">
-              <FieldLabel>Special notes</FieldLabel>
-              <textarea
-                value={specialNotes}
-                onChange={(event) => setSpecialNotes(event.target.value)}
-                rows={5}
-                aria-label="Special trip notes"
-                className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-              />
-              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.
-              </p>
-            </label>
             <div className="rounded-[1.5rem] bg-ink p-4 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">Trip brief</p>
-              <h3 className="mt-2 text-xl font-black">{payload.destination || "Destination pending"}</h3>
-              <div className="mt-3 grid gap-2 text-sm font-bold text-white/76">
-                <p>{payload.daysCount ? `${payload.daysCount} days` : `${payload.startDate || "Start"} to ${payload.endDate || "End"}`}</p>
-                <p>{payload.travelersCount || 1} traveler{(payload.travelersCount || 1) === 1 ? "" : "s"}</p>
-                <p>{payload.budgetAmount ? `${payload.budgetCurrency} ${payload.budgetAmount}` : "Budget pending"}</p>
-                <p>{payload.travelStyle} style · {payload.pace} pace</p>
-                <p>{payload.interests.join(", ") || "No interests selected"}</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">{translateText("Trip brief")}</p>
+              <h3 className="mt-2 text-xl font-black">{normalizedDestination || translateText("Destination pending")}</h3>
+              <div className="mt-4 grid gap-2 text-sm font-bold text-white/76">
+                {summaryRows.map(([label, value]) => (
+                  <p key={label}>
+                    <span className="text-white">{translateText(label)}:</span> {value}
+                  </p>
+                ))}
               </div>
+            </div>
+            <div className="rounded-[1.25rem] border border-sun/30 bg-sun/10 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">{translateText("Before you generate")}</p>
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
+                {translateText("Review your trip details carefully. Once your itinerary is generated, it cannot be edited. New destinations, date changes, or major changes require a new itinerary.")}
+              </p>
             </div>
           </div>
         ) : null}
@@ -619,13 +857,13 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
 
       {error ? (
         <p className="mt-4 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {error}
+          {translateText(error)}
         </p>
       ) : null}
 
       {notice ? (
         <p className="mt-4 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
-          {notice}
+          {translateText(notice)}
         </p>
       ) : null}
 
@@ -633,25 +871,15 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
         <div className="mt-4 overflow-hidden rounded-2xl bg-mist p-4">
           <div className="h-2 animate-pulse rounded-full bg-lagoon" />
           <p className="mt-3 text-sm font-black text-ink">
-            {priceChecking ? "Checking trip costs..." : "Generating and locking your itinerary..."}
-          </p>
-        </div>
-      ) : null}
-
-      {step === steps.length - 1 ? (
-        <div className="mt-4 rounded-[1.25rem] border border-sun/30 bg-sun/10 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">Before you generate</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
-            Review your trip details carefully. Once your itinerary is generated, it cannot be edited. New
-            destinations, date changes, or major changes require a new itinerary.
+            {priceChecking ? translateText("Checking trip costs...") : translateText("Generating and locking your itinerary...")}
           </p>
         </div>
       ) : null}
 
       {step === steps.length - 1 && priceDiscovery ? (
         <div className="mt-4 rounded-[1.5rem] border border-cloud bg-white p-4 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Budget check</p>
-          <h3 className="mt-2 text-xl font-black text-ink">{budgetStatusCopy(priceDiscovery.budgetStatus)}</h3>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Budget check")}</p>
+          <h3 className="mt-2 text-xl font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</h3>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {[
               ["Flights", priceDiscovery.flightEstimateCents],
@@ -665,25 +893,25 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
               ["Remaining budget", priceDiscovery.remainingBudgetCents]
             ].map(([label, value]) => (
               <div key={label as string} className="rounded-2xl bg-mist p-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-400">{label}</p>
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-400">{translateText(label as string)}</p>
                 <p className="mt-1 text-sm font-black text-ink">
                   {formatMoney(value as number | null, priceDiscovery.budgetCurrency)}
                 </p>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{priceDiscovery.coverageNote}</p>
+          <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{translateText(priceDiscovery.coverageNote)}</p>
         </div>
       ) : null}
 
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      <div className="sticky bottom-3 z-20 mt-5 grid grid-cols-2 gap-3 rounded-[1.25rem] bg-white/95 p-2 shadow-soft backdrop-blur sm:static sm:p-0 sm:shadow-none">
         <button
           type="button"
           onClick={goBack}
           disabled={step === 0 || loading}
           className="rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/30 disabled:translate-y-0 disabled:opacity-40"
         >
-          Back
+          {translateText("Back")}
         </button>
         {step < steps.length - 1 ? (
           <button
@@ -692,7 +920,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
             disabled={loading}
             className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
           >
-            Continue
+            {translateText("Continue")}
           </button>
         ) : (
           <button
@@ -702,10 +930,10 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
             className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
           >
             {priceChecking
-              ? "Checking costs..."
+              ? translateText("Checking costs...")
               : freeItineraryUsed
-                ? "Unlock full itinerary - $4.99 CAD"
-                : "Generate my free itinerary"}
+                ? translateText("Unlock full itinerary - $4.99 CAD")
+                : translateText("Generate my free itinerary")}
           </button>
         )}
       </div>
@@ -713,19 +941,18 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       {step === steps.length - 1 ? (
         <p className="mt-3 text-center text-xs font-bold leading-5 text-slate-500">
           {freeItineraryUsed
-            ? "One custom itinerary for one trip. No subscription."
-            : "You get 1 free itinerary per account."}
+            ? translateText("One custom itinerary for one trip. No subscription.")
+            : translateText("You get 1 free itinerary per account.")}
         </p>
       ) : null}
 
       {confirming ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Final step</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{translateText("Final step")}</p>
+            <h2 className="mt-2 text-2xl font-black text-ink">{translateText("Generate and lock this itinerary?")}</h2>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-              Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates,
-              travelers, budget, and preferences are correct.
+              {translateText("Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates, travelers, budget, and preferences are correct.")}
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
@@ -734,7 +961,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                 disabled={loading}
                 className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-ocean/30 disabled:opacity-60"
               >
-                Go back and edit
+                {translateText("Go back and edit")}
               </button>
               <button
                 type="button"
@@ -742,7 +969,7 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                 disabled={loading}
                 className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-60"
               >
-                {loading ? "Generating..." : "Generate itinerary"}
+                {loading ? translateText("Generating...") : translateText("Generate itinerary")}
               </button>
             </div>
           </div>
