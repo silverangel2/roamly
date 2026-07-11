@@ -8,6 +8,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 type AuthFormProps = {
   mode: "login" | "signup";
   nextPath?: string;
+  initialError?: string;
 };
 
 const VERIFY_ACCOUNT_MESSAGE = "Account created. Please verify your email before logging in.";
@@ -15,6 +16,8 @@ const RESEND_SUCCESS_MESSAGE = "Verification email sent. Check your inbox, spam,
 const RESEND_ERROR_MESSAGE = "We could not resend the verification email. Try again or contact support.";
 const TESTER_UNVERIFIED_MESSAGE = "Tester access starts after this email is verified.";
 const SUPPORT_MESSAGE = "Still no email? Contact support or ask an admin to confirm your account in Supabase.";
+const SHARED_GOOGLE_MESSAGE = "Already used ReviewIntel with Google? Continue with Google using the same email.";
+const EXISTING_ACCOUNT_MESSAGE = "This email may already have an account. Try logging in or continue with Google.";
 const LOGIN_UNVERIFIED_MESSAGE =
   "This email is not verified yet. Please verify your email before logging in. You can resend the verification email below.";
 
@@ -29,6 +32,21 @@ function isEmailNotConfirmedError(error: unknown) {
   const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
 
   return code === "email_not_confirmed" || message.includes("email not confirmed") || message.includes("email not verified");
+}
+
+function isUserAlreadyRegisteredError(error: unknown) {
+  if (!isRecord(error)) return false;
+
+  const code = typeof error.code === "string" ? error.code.toLowerCase() : "";
+  const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+
+  return (
+    code === "user_already_exists" ||
+    message.includes("user already registered") ||
+    message.includes("already registered") ||
+    message.includes("already exists") ||
+    message.includes("email already")
+  );
 }
 
 async function getTesterEmailStatus(email: string) {
@@ -48,13 +66,14 @@ async function getTesterEmailStatus(email: string) {
   }
 }
 
-export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
+export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: AuthFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState("");
   const [resendNotice, setResendNotice] = useState("");
   const [resendError, setResendError] = useState("");
@@ -67,6 +86,36 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
 
   function emailRedirectTo() {
     return `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+  }
+
+  async function continueWithGoogle() {
+    setError("");
+    setNotice("");
+    setResendNotice("");
+    setResendError("");
+    setTesterVerificationNotice(false);
+
+    if (!configured) {
+      setError("Supabase is not configured yet.");
+      return;
+    }
+
+    setGoogleBusy(true);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: emailRedirectTo()
+        }
+      });
+
+      if (oauthError) throw oauthError;
+    } catch (err) {
+      setGoogleBusy(false);
+      setError(err instanceof Error ? err.message : "Google sign-in failed.");
+    }
   }
 
   async function showVerificationState(address: string) {
@@ -193,6 +242,8 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
         const trimmedEmail = email.trim();
         setError(LOGIN_UNVERIFIED_MESSAGE);
         await showVerificationState(trimmedEmail);
+      } else if (isSignup && isUserAlreadyRegisteredError(err)) {
+        setError(EXISTING_ACCOUNT_MESSAGE);
       } else {
         setError(err instanceof Error ? err.message : "Authentication failed.");
       }
@@ -270,6 +321,27 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
 
   return (
     <form onSubmit={submit} className="space-y-4">
+      <div className="space-y-3">
+        <button
+          type="button"
+          disabled={busy || googleBusy}
+          onClick={continueWithGoogle}
+          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:border-ocean hover:text-ocean disabled:opacity-60"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-cloud bg-white text-sm font-black text-slate-700">
+            G
+          </span>
+          {googleBusy ? "Continuing..." : "Continue with Google"}
+        </button>
+        <p className="text-center text-xs font-bold leading-5 text-slate-500">{SHARED_GOOGLE_MESSAGE}</p>
+      </div>
+
+      <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+        <span className="h-px flex-1 bg-cloud" />
+        <span>Email</span>
+        <span className="h-px flex-1 bg-cloud" />
+      </div>
+
       {isSignup ? (
         <label className="block">
           <span className="text-sm font-black text-ink">Full name</span>

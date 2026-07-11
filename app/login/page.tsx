@@ -12,7 +12,13 @@ type LoginPageProps = {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = searchParams ? await searchParams : {};
   const nextPath = safeNextPath(params.next);
+  const authError = typeof params.error === "string" ? params.error : "";
   const current = await getCurrentUser();
+  const authErrorMessage = authError
+    ? authError === "supabase_not_configured"
+      ? "Supabase is not configured yet."
+      : "We could not finish Google sign-in. Please try again."
+    : "";
 
   if (current.configured && current.user) {
     redirect(nextPath);
@@ -26,7 +32,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Log in and keep your trips together.
         </h1>
         <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
-          Roamly uses a separate Supabase auth setup from ReviewIntel. Your trip data stays under Roamly tables only.
+          Roamly shares Supabase authentication with ReviewIntel. Your trip data stays under Roamly tables only.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {["Saved trips", "1 free itinerary", "One-time trip packs"].map((item) => (
@@ -41,7 +47,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Roamly account</p>
         <h2 className="mt-2 text-2xl font-black text-ink">Log in</h2>
         <div className="mt-5">
-          <AuthForm mode="login" nextPath={nextPath} />
+          <AuthForm mode="login" nextPath={nextPath} initialError={authErrorMessage} />
         </div>
       </Card>
     </main>

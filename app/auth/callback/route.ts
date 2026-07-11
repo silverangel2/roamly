@@ -8,23 +8,37 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get("code");
   const next = safeNextPath(requestUrl.searchParams.get("next") || undefined);
   const redirectUrl = new URL(next, requestUrl.origin);
+  const providerError = requestUrl.searchParams.get("error");
   const supabase = await createSupabaseServerClient();
 
-  if (!supabase) {
+  function loginRedirect(error: string) {
     const loginUrl = new URL("/login", requestUrl.origin);
-    loginUrl.searchParams.set("error", "supabase_not_configured");
+    loginUrl.searchParams.set("next", next);
+    loginUrl.searchParams.set("error", error);
     return NextResponse.redirect(loginUrl);
   }
 
+  if (!supabase) {
+    return loginRedirect("supabase_not_configured");
+  }
+
+  if (providerError) {
+    return loginRedirect("oauth_failed");
+  }
+
   if (code) {
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return loginRedirect("oauth_exchange_failed");
+    }
   }
 
   const { data } = await supabase.auth.getUser();
 
   if (data.user) {
     await upsertRoamlyProfile(supabase, data.user);
+    return NextResponse.redirect(redirectUrl);
   }
 
-  return NextResponse.redirect(redirectUrl);
+  return loginRedirect("missing_session");
 }
