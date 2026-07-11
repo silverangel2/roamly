@@ -14,11 +14,27 @@ function readCookieNext(value?: string) {
   }
 }
 
+function pathnameFromPath(path: string) {
+  return path.split(/[?#]/, 1)[0];
+}
+
+function selectAuthNextPath(queryNext: string | null, cookieNext: string | undefined) {
+  const nextPath = safeAuthNextPath(queryNext || undefined);
+  const pendingPlannerNext = safeAuthNextPath(cookieNext, "");
+
+  if (pathnameFromPath(pendingPlannerNext) === "/plan") {
+    const nextPathname = pathnameFromPath(nextPath);
+    if (nextPathname === "/plan" || nextPathname === "/dashboard") return pendingPlannerNext;
+  }
+
+  return nextPath;
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
   const cookieNext = readCookieNext(request.cookies.get(AUTH_NEXT_COOKIE)?.value);
-  const next = safeAuthNextPath(requestUrl.searchParams.get("next") || cookieNext || undefined);
+  const next = selectAuthNextPath(requestUrl.searchParams.get("next"), cookieNext);
   const redirectUrl = new URL(next, requestUrl.origin);
   const providerError = requestUrl.searchParams.get("error");
   const supabase = await createSupabaseServerClient();
