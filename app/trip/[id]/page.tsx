@@ -15,6 +15,7 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay, isMissingTableError } from "@/lib/trips";
 
@@ -199,6 +200,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   }
 
   const { trip, itinerary, checklist, activities } = bundleResult.data;
+  const destinationLabel = getTripDestinationLabel(trip) || "your destination";
   const full = itinerary?.full_json || null;
   const itineraryLocked = isTripLocked(trip);
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
@@ -246,7 +248,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           <Badge tone={itineraryLocked ? "ocean" : freeAvailable || paidForItinerary ? "sun" : "coral"}>{accessLabel}</Badge>
           {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">
-            {trip.title || preview?.trip_title || trip.destination}
+            {trip.title || preview?.trip_title || destinationLabel}
           </h1>
           <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-slate-600">
             {canShowFull
@@ -386,7 +388,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
           <section className="mt-7 grid gap-4">
             {full.daily_itinerary.map((day) => (
-              <DayCard key={day.day_number} day={day} destination={trip.destination} tripId={id} />
+              <DayCard key={day.day_number} day={day} destination={destinationLabel} tripId={id} />
             ))}
           </section>
 

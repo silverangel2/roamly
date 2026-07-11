@@ -1,18 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 type CompanionTrip = {
   id: string;
   user_id: string;
-  destination: string | null;
+  destination?: string | null;
+  destination_name?: string | null;
   destination_city?: string | null;
   destination_country?: string | null;
   start_date: string | null;
   end_date: string | null;
-  days_count: number | null;
+  days_count?: number | null;
   live_companion_unlocked?: boolean | null;
   tracking_unlocked?: boolean | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type CompanionBooking = {
@@ -43,7 +46,7 @@ export function tripHasLiveCompanionUnlock(trip: Pick<CompanionTrip, "live_compa
 export async function isLiveCompanionUnlocked(supabase: SupabaseClient, tripId: string) {
   const { data, error } = await supabase
     .from("roamly_trips")
-    .select("live_companion_unlocked,tracking_unlocked")
+    .select("tracking_unlocked")
     .eq("id", tripId)
     .maybeSingle();
   if (error) return { unlocked: false, error: error.message };
@@ -64,13 +67,14 @@ export function buildCountryInfo(destinationCountry?: string | null, destination
 }
 
 export function buildPackingChecklist(trip: CompanionTrip) {
+  const destination = getTripDestinationLabel(trip) || "the destination";
   return [
     "Passport or government ID",
     "Travel insurance details",
     "Phone charger and power bank",
     "Weather-appropriate clothing",
     "Medication and basic first aid",
-    `Offline maps for ${trip.destination || "the destination"}`
+    `Offline maps for ${destination}`
   ];
 }
 
@@ -134,7 +138,7 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
     {
       event_type: "country_info",
       title: "Country and city info",
-      body: `Review key travel notes for ${trip.destination || "your destination"}.`,
+      body: `Review key travel notes for ${getTripDestinationLabel(trip) || "your destination"}.`,
       scheduled_for: start ? addDays(start, -7) : null
     }
   ].filter(Boolean) as Array<{ event_type: string; title: string; body: string; scheduled_for: string | null }>;
@@ -196,10 +200,15 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
   await reader
     .from("roamly_trips")
     .update({
-      trip_companion_status: "scheduled",
-      travel_country_info: buildCountryInfo(trip.destination_country, trip.destination_city),
-      packing_checklist: buildPackingChecklist(trip),
-      document_checklist: buildDocumentChecklist()
+      metadata: {
+        ...(trip.metadata || {}),
+        companion: {
+          status: "scheduled",
+          travelCountryInfo: buildCountryInfo(trip.destination_country, trip.destination_city),
+          packingChecklist: buildPackingChecklist(trip),
+          documentChecklist: buildDocumentChecklist()
+        }
+      }
     })
     .eq("id", tripId);
 
@@ -216,9 +225,6 @@ export async function unlockLiveCompanion(
   const { data: trip, error } = await writer
     .from("roamly_trips")
     .update({
-      live_companion_unlocked: true,
-      live_companion_unlocked_at: now,
-      live_companion_source: source,
       tracking_unlocked: true,
       tracking_unlock_source: source,
       tracking_paid_at: now
@@ -293,7 +299,7 @@ export async function buildTravelDayStatus(supabase: SupabaseClient, userId: str
 export async function buildLiveCompanionSummary(supabase: SupabaseClient, userId: string, tripId: string) {
   const { data: trip } = await supabase
     .from("roamly_trips")
-    .select("travel_country_info,packing_checklist,document_checklist,trip_companion_status")
+    .select("metadata")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();

@@ -70,6 +70,8 @@ const generateRoute = read("app/api/trips/generate/route.ts");
 assert.ok(generateRoute.includes("markFreeItineraryUsed"), "free itinerary must be consumed after generation");
 assert.ok(generateRoute.includes("getConfirmedBookingCostCents"), "generation must include committed booking costs");
 assert.ok(generateRoute.includes("lockGeneratedItinerary"), "generation must lock itinerary");
+assert.ok(generateRoute.includes("buildTripPlanningMetadata"), "generation must persist planner details in metadata");
+assert.ok(!generateRoute.includes("is_activated: false"), "generation insert must not require legacy is_activated column");
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("checkoutSyncError"), "trip page must surface checkout sync failures");
@@ -98,7 +100,7 @@ assert.ok(middleware.includes("\"/api/trips/:path*\""), "middleware must refresh
 
 const pushServer = read("lib/roamly/pushServer.ts");
 assert.ok(pushServer.includes("createInAppNotification"), "in-app notifications helper missing");
-assert.ok(pushServer.includes("live_companion_unlocked"), "cron must check companion unlock");
+assert.ok(pushServer.includes("tracking_unlocked"), "cron must check companion unlock");
 assert.ok(pushServer.includes("push_status"), "push status diagnostics missing");
 
 const activityActions = read("lib/roamly/activityActions.ts");

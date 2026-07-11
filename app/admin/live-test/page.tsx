@@ -10,7 +10,7 @@ export default async function AdminLiveTestPage() {
 
   const { data: trips } = await state.admin
     .from("roamly_trips")
-    .select("id,user_id,title,destination,start_date,itinerary_status,trip_companion_status,live_companion_unlocked")
+    .select("id,user_id,title,destination_name,start_date,itinerary_status,tracking_unlocked,metadata")
     .order("created_at", { ascending: false })
     .limit(30);
 

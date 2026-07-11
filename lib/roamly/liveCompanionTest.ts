@@ -8,6 +8,7 @@ import {
 } from "@/lib/roamly/tripActivation";
 import { calculateDistanceMeters, type LocationInput } from "@/lib/roamly/location";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 export type LiveTestLocationMode = "first_activity" | "next_activity" | "hotel" | "far_away";
 export type LiveTestReminderType = "one_week_before" | "one_day_before" | "countdown_24h" | "travel_day_started";
@@ -96,11 +97,12 @@ async function ensureActivityCoordinates(
   trip: TrackingTrip,
   activity: TrackingActivity | null
 ) {
-  if (!activity) return cityFallback(trip.destination, trip.destination_city, trip.destination_country);
+  const destination = getTripDestinationLabel(trip);
+  if (!activity) return cityFallback(destination, trip.destination_city, trip.destination_country);
   if (activity.latitude != null && activity.longitude != null) {
     return { latitude: activity.latitude, longitude: activity.longitude };
   }
-  const fallback = cityFallback(trip.destination, trip.destination_city, trip.destination_country);
+  const fallback = cityFallback(destination, trip.destination_city, trip.destination_country);
   await supabase
     .from("roamly_activities")
     .update({
@@ -134,14 +136,14 @@ async function locationForMode(
   if (mode === "hotel") {
     const hotel = bookings.find((booking) => booking.booking_type === "hotel") || bookings[0] || null;
     if (hotel?.latitude != null && hotel.longitude != null) return { location: { latitude: hotel.latitude, longitude: hotel.longitude }, activities, bookings };
-    return { location: cityFallback(trip.destination, hotel?.city || trip.destination_city, hotel?.country || trip.destination_country), activities, bookings };
+    return { location: cityFallback(getTripDestinationLabel(trip), hotel?.city || trip.destination_city, hotel?.country || trip.destination_country), activities, bookings };
   }
   if (mode === "next_activity") {
     const upNext = await getUpNextActivity(supabase, trip.id);
     return { location: await ensureActivityCoordinates(supabase, trip, upNext.activity || activities[0] || null), activities, bookings };
   }
   if (mode === "far_away") {
-    const base = cityFallback(trip.destination, trip.destination_city, trip.destination_country);
+    const base = cityFallback(getTripDestinationLabel(trip), trip.destination_city, trip.destination_country);
     return { location: { latitude: Math.max(-85, base.latitude + 5), longitude: Math.max(-175, base.longitude + 5) }, activities, bookings };
   }
   return { location: await ensureActivityCoordinates(supabase, trip, activities[0] || null), activities, bookings };

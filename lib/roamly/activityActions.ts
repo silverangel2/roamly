@@ -67,7 +67,7 @@ const actionConfig = {
 async function getTripForAction(supabase: SupabaseClient, tripId: string, userId?: string | null, userEmail?: string | null) {
   let query = supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked,live_companion_unlocked")
+    .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked")
     .eq("id", tripId);
   if (userId) query = query.eq("user_id", userId);
   const { data, error } = await query.maybeSingle();

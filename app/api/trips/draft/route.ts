@@ -4,6 +4,7 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { requireUser } from "@/lib/roamly/auth";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
+import { buildTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 import { isMissingTableError } from "@/lib/trips";
 
@@ -185,30 +186,7 @@ export async function POST(request: NextRequest) {
 
   const access = getRoamlyAccessForUser(auth.user.email);
   const title = `${payload.destination} ${payload.daysCount}-day itinerary`;
-  const planningMetadata = {
-    tripType: payload.tripType || "single_destination",
-    originPlace: payload.originPlace || null,
-    originPlaceId: payload.originPlaceId || null,
-    originCity: payload.originCity || null,
-    originRegion: payload.originRegion || null,
-    originCountry: payload.originCountry || null,
-    originLatitude: payload.originLatitude ?? null,
-    originLongitude: payload.originLongitude ?? null,
-    destinationPlace: payload.destinationPlace || null,
-    destinationPlaceId: payload.destinationPlaceId || null,
-    destinationStops: payload.destinationStops || [],
-    returnToOrigin: payload.returnToOrigin !== false,
-    flexibleCityOrder: payload.flexibleCityOrder === true,
-    flexibleDates: payload.flexibleDates === true,
-    travelers: payload.travelers || null,
-    rooms: payload.rooms || 1,
-    bedPreference: payload.bedPreference || "No preference",
-    budgetIncludesActivities: payload.budgetIncludesActivities !== false,
-    pace: payload.pace,
-    walkingTolerance: payload.walkingTolerance || "Medium",
-    accessibilityNeeds: payload.accessibilityNeeds || null,
-    dietaryPreference: payload.dietaryPreference || null
-  };
+  const planningMetadata = buildTripPlanningMetadata(payload);
 
   try {
     const { data: trip, error: insertError } = await auth.supabase
@@ -216,27 +194,13 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: auth.user.id,
         title,
-        destination: payload.destination,
         destination_name: payload.destination,
         destination_city: payload.destinationCity || null,
         destination_country: payload.destinationCountry || null,
         destination_region: payload.destinationRegion || null,
-        origin: payload.origin || null,
         start_date: payload.startDate || null,
         end_date: payload.endDate || null,
-        days_count: payload.daysCount,
-        travelers_count: payload.travelersCount || 1,
-        budget_amount: payload.budgetAmount,
-        budget_currency: payload.budgetCurrency,
-        budget_includes_flights: payload.budgetIncludesFlights !== false,
-        budget_includes_hotel: payload.budgetIncludesHotel !== false,
-        travel_style: payload.travelStyle,
-        interests: payload.interests,
-        accommodation_preference: payload.accommodationPreference,
-        transportation_preference: payload.transportationPreference,
-        special_notes: payload.specialNotes || null,
         status: "draft",
-        is_activated: false,
         itinerary_status: "draft",
         itinerary_locked: false,
         itinerary_payment_status: "unpaid",

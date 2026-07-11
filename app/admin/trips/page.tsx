@@ -2,6 +2,7 @@ import { AdminAccessCard } from "@/components/admin/AdminAccessCard";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 export default async function AdminTripsPage() {
   const state = await getRoamlyAdminPageState();
@@ -10,7 +11,7 @@ export default async function AdminTripsPage() {
   const [{ data }, { data: bookings }, { data: companionEvents }] = await Promise.all([
     state.admin
       .from("roamly_trips")
-      .select("id,user_id,title,destination,destination_city,destination_country,status,itinerary_status,itinerary_locked,itinerary_unlock_source,itinerary_payment_status,tracking_unlocked,live_companion_unlocked,live_companion_source,itinerary_generated_at,itinerary_locked_at,tracking_paid_at,live_companion_unlocked_at,start_date,end_date,created_at")
+      .select("id,user_id,title,destination_name,destination_city,destination_country,status,itinerary_status,itinerary_locked,itinerary_unlock_source,itinerary_payment_status,tracking_unlocked,itinerary_generated_at,itinerary_locked_at,tracking_paid_at,start_date,end_date,metadata,created_at")
       .order("created_at", { ascending: false })
       .limit(100),
     state.admin.from("roamly_bookings").select("trip_id"),
@@ -42,15 +43,15 @@ export default async function AdminTripsPage() {
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
                   {trip.itinerary_locked ? "Locked itinerary" : trip.itinerary_status || trip.status}
                 </p>
-                <h2 className="mt-1 text-xl font-black text-ink">{trip.title || trip.destination}</h2>
+                <h2 className="mt-1 text-xl font-black text-ink">{trip.title || getTripDestinationLabel(trip) || "Trip"}</h2>
                 <p className="mt-1 text-sm font-bold text-slate-500">
-                  {trip.destination_city || trip.destination} {trip.destination_country ? `· ${trip.destination_country}` : ""}
+                  {trip.destination_city || getTripDestinationLabel(trip)} {trip.destination_country ? `· ${trip.destination_country}` : ""}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
                   <span className="rounded-full bg-mist px-3 py-2">{trip.itinerary_payment_status || "unpaid"}</span>
                   <span className="rounded-full bg-mist px-3 py-2">{trip.itinerary_unlock_source || "no source"}</span>
                   <span className="rounded-full bg-mist px-3 py-2">
-                    {trip.live_companion_unlocked || trip.tracking_unlocked ? "companion unlocked" : "companion locked"}
+                    {trip.tracking_unlocked ? "companion unlocked" : "companion locked"}
                   </span>
                   <span className="rounded-full bg-mist px-3 py-2">bookings {bookingsByTrip.get(trip.id) || 0}</span>
                   <span className="rounded-full bg-mist px-3 py-2">events {eventsByTrip.get(trip.id) || 0}</span>

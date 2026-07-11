@@ -13,7 +13,7 @@ type GenerateLockedItineraryButtonProps = {
   apiAuthToken?: string;
 };
 
-const GENERATION_ERROR_MESSAGE = "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const GENERATION_TIMEOUT_MS = 120_000;
 
@@ -82,7 +82,7 @@ export function GenerateLockedItineraryButton({
     } catch (err) {
       console.warn("[Roamly trip] itinerary generation warning", err);
       setConfirming(false);
-      setError(GENERATION_ERROR_MESSAGE);
+      setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
     } finally {
       window.clearTimeout(timeout);
       generationInFlight.current = false;

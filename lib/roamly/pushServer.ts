@@ -185,14 +185,13 @@ export async function sendScheduledTripNotifications() {
     const tripResult = event.trip_id
       ? await supabase
           .from("roamly_trips")
-          .select("live_companion_unlocked,tracking_unlocked")
+          .select("tracking_unlocked")
           .eq("id", event.trip_id)
           .eq("user_id", event.user_id)
           .maybeSingle()
       : { data: null };
     if (
       event.trip_id &&
-      !tripResult.data?.live_companion_unlocked &&
       !tripResult.data?.tracking_unlocked
     ) {
       await supabase

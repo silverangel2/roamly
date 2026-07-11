@@ -95,7 +95,7 @@ const selectedWarmOptionClass =
   "border-orange-300 bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-lg shadow-orange-400/20";
 const unselectedOptionClass =
   "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10";
-const GENERATION_ERROR_MESSAGE = "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const GENERATION_TIMEOUT_MS = 120_000;
 const PLAN_DRAFT_KEY = "roamly.plan.draft.v1";
@@ -1209,7 +1209,7 @@ export function TripPlanForm({
 
       if (response.status === 404 || response.status === 501) {
         setConfirming(false);
-        setError(GENERATION_ERROR_MESSAGE);
+        setError(data?.message || data?.error || GENERATION_ERROR_MESSAGE);
         return;
       }
 
@@ -1224,7 +1224,7 @@ export function TripPlanForm({
     } catch (err) {
       setNotice("");
       setConfirming(false);
-      setError(GENERATION_ERROR_MESSAGE);
+      setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
       trackPlanEvent("itinerary_generation_failed", {
         tripType,
         destination: payload.destination,

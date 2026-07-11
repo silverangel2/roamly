@@ -25,6 +25,7 @@ import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError, syncGeneratedItinerary } from "@/lib/trips";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
+import { buildTripPlanningMetadata, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
 function getString(value: unknown) {
@@ -43,6 +44,29 @@ function getNumber(value: unknown) {
 
 function getBoolean(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
+}
+
+function getFirstString(...values: unknown[]) {
+  for (const value of values) {
+    const stringValue = getString(value);
+    if (stringValue) return stringValue;
+  }
+  return "";
+}
+
+function getFirstPositiveNumber(...values: unknown[]) {
+  for (const value of values) {
+    const numberValue = getPositiveNumber(value);
+    if (numberValue) return numberValue;
+  }
+  return null;
+}
+
+function getFirstBoolean(fallback: boolean, ...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "boolean") return value;
+  }
+  return fallback;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -184,16 +208,18 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
 }
 
 function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPlannerPayload {
-  const metadata = getRecord(trip.metadata);
-  const planning = getRecord(metadata?.planning) || {};
+  const planning = getTripPlanningMetadata(trip.metadata);
   const destinationStops = cleanStops(planning.destinationStops || planning.destination_stops);
   const tripType = getTripType(planning.tripType || planning.trip_type || (destinationStops.length >= 2 ? "multi_city" : "single_destination"));
-  const travelersCount = getPositiveNumber(trip.travelers_count) || 1;
+  const travelersCount = getFirstPositiveNumber(trip.travelers_count, planning.travelersCount, planning.travelers_count) || 1;
   const travelers = cleanTravelers(planning.travelers, travelersCount);
+  const startDate = getFirstString(trip.start_date, planning.startDate, planning.start_date);
+  const endDate = getFirstString(trip.end_date, planning.endDate, planning.end_date);
+  const daysCount = getFirstPositiveNumber(trip.days_count, planning.daysCount, planning.days_count) || daysBetween(startDate, endDate) || 1;
 
   return {
     tripType,
-    origin: getString(trip.origin),
+    origin: getFirstString(trip.origin, planning.origin),
     originPlaceId: getString(planning.originPlaceId || planning.origin_place_id) || undefined,
     originCity: getString(planning.originCity || planning.origin_city) || undefined,
     originRegion: getString(planning.originRegion || planning.origin_region) || undefined,
@@ -201,38 +227,38 @@ function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPl
     originLatitude: getNumber(planning.originLatitude ?? planning.origin_latitude) ?? undefined,
     originLongitude: getNumber(planning.originLongitude ?? planning.origin_longitude) ?? undefined,
     originPlace: cleanPlace(planning.originPlace || planning.origin_place),
-    destination: getString(trip.destination),
-    destinationCity: getString(trip.destination_city),
-    destinationCountry: getString(trip.destination_country),
-    destinationRegion: getString(trip.destination_region),
+    destination: getFirstString(trip.destination, trip.destination_name, planning.destination),
+    destinationCity: getFirstString(trip.destination_city, planning.destinationCity, planning.destination_city),
+    destinationCountry: getFirstString(trip.destination_country, planning.destinationCountry, planning.destination_country),
+    destinationRegion: getFirstString(trip.destination_region, planning.destinationRegion, planning.destination_region),
     destinationPlace: cleanPlace(planning.destinationPlace || planning.destination_place),
     destinationStops: tripType === "multi_city" ? destinationStops : undefined,
     returnToOrigin: getBoolean(planning.returnToOrigin ?? planning.return_to_origin, true),
     flexibleCityOrder: getBoolean(planning.flexibleCityOrder ?? planning.flexible_city_order, false),
     flexibleDates: getBoolean(planning.flexibleDates ?? planning.flexible_dates, false),
-    startDate: getString(trip.start_date),
-    endDate: getString(trip.end_date),
-    daysCount: getPositiveNumber(trip.days_count) || 1,
+    startDate,
+    endDate,
+    daysCount,
     travelersCount: travelers.adults + travelers.children + (travelers.infants || 0),
     travelers,
     rooms: getPositiveNumber(planning.rooms) || 1,
     bedPreference: getString(planning.bedPreference || planning.bed_preference) || "No preference",
-    budgetAmount: getPositiveNumber(trip.budget_amount) || 1,
-    budgetCurrency: getString(trip.budget_currency) || "CAD",
-    budgetIncludesFlights: trip.budget_includes_flights !== false,
-    budgetIncludesHotel: trip.budget_includes_hotel !== false,
+    budgetAmount: getFirstPositiveNumber(trip.budget_amount, planning.budgetAmount, planning.budget_amount, planning.budget_total) || 1,
+    budgetCurrency: getFirstString(trip.budget_currency, planning.budgetCurrency, planning.budget_currency) || "CAD",
+    budgetIncludesFlights: getFirstBoolean(true, trip.budget_includes_flights, planning.budgetIncludesFlights, planning.budget_includes_flights),
+    budgetIncludesHotel: getFirstBoolean(true, trip.budget_includes_hotel, planning.budgetIncludesHotel, planning.budget_includes_hotel),
     budgetIncludesActivities: getBoolean(planning.budgetIncludesActivities ?? planning.budget_includes_activities, true),
-    travelStyle: getString(trip.travel_style) || "Balanced",
-    interests: Array.isArray(trip.interests) ? cleanTextArray(trip.interests) : [],
+    travelStyle: getFirstString(trip.travel_style, planning.travelStyle, planning.travel_style) || "Balanced",
+    interests: Array.isArray(trip.interests) ? cleanTextArray(trip.interests) : cleanTextArray(planning.interests),
     pace: getString(planning.pace) || "Balanced",
     walkingTolerance: getString(planning.walkingTolerance || planning.walking_tolerance) || "Medium",
-    accommodationPreference: getString(trip.accommodation_preference) || "Not sure",
-    transportationPreference: getString(trip.transportation_preference) || "Mixed",
+    accommodationPreference: getFirstString(trip.accommodation_preference, planning.accommodationPreference, planning.accommodation_preference) || "Not sure",
+    transportationPreference: getFirstString(trip.transportation_preference, planning.transportationPreference, planning.transportation_preference) || "Mixed",
     accessibilityNeeds: getString(planning.accessibilityNeeds || planning.accessibility_needs),
     dietaryPreference: getString(planning.dietaryPreference || planning.dietary_preference),
-    specialNotes: getString(trip.special_notes),
+    specialNotes: getFirstString(trip.special_notes, planning.specialNotes, planning.special_notes),
     language: normalizeLocale(language),
-    priceDiscoveryId: getString(trip.latest_price_discovery_id) || null
+    priceDiscoveryId: getFirstString(trip.latest_price_discovery_id, planning.priceDiscoveryId, planning.price_discovery_id) || null
   };
 }
 
@@ -381,7 +407,7 @@ async function finalizeItinerary(params: {
       error instanceof RoamlyItineraryGenerationError
         ? error
         : new RoamlyItineraryGenerationError(
-            "Roamly could not generate this itinerary. Please adjust your trip details and try again.",
+            "Roamly could not finish itinerary generation. Please try again in a moment.",
             "AI_GENERATION_FAILED",
             502
           );
@@ -553,56 +579,19 @@ export async function POST(request: NextRequest) {
     if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
     const title = `${payload.destination} ${payload.daysCount}-day itinerary`;
-    const planningMetadata = {
-      tripType: payload.tripType || "single_destination",
-      originPlace: payload.originPlace || null,
-      originPlaceId: payload.originPlaceId || null,
-      originCity: payload.originCity || null,
-      originRegion: payload.originRegion || null,
-      originCountry: payload.originCountry || null,
-      originLatitude: payload.originLatitude ?? null,
-      originLongitude: payload.originLongitude ?? null,
-      destinationPlace: payload.destinationPlace || null,
-      destinationPlaceId: payload.destinationPlaceId || null,
-      destinationStops: payload.destinationStops || [],
-      returnToOrigin: payload.returnToOrigin !== false,
-      flexibleCityOrder: payload.flexibleCityOrder === true,
-      flexibleDates: payload.flexibleDates === true,
-      travelers: payload.travelers || null,
-      rooms: payload.rooms || 1,
-      bedPreference: payload.bedPreference || "No preference",
-      budgetIncludesActivities: payload.budgetIncludesActivities !== false,
-      pace: payload.pace,
-      walkingTolerance: payload.walkingTolerance || "Medium",
-      accessibilityNeeds: payload.accessibilityNeeds || null,
-      dietaryPreference: payload.dietaryPreference || null
-    };
+    const planningMetadata = buildTripPlanningMetadata(payload);
     const { data: trip, error: insertError } = await supabase
       .from("roamly_trips")
       .insert({
         user_id: user.id,
         title,
-        destination: payload.destination,
         destination_name: payload.destination,
         destination_city: payload.destinationCity || null,
         destination_country: payload.destinationCountry || null,
         destination_region: payload.destinationRegion || null,
-        origin: payload.origin || null,
         start_date: payload.startDate || null,
         end_date: payload.endDate || null,
-        days_count: payload.daysCount,
-        travelers_count: payload.travelersCount || 1,
-        budget_amount: payload.budgetAmount,
-        budget_currency: payload.budgetCurrency,
-        budget_includes_flights: payload.budgetIncludesFlights !== false,
-        budget_includes_hotel: payload.budgetIncludesHotel !== false,
-        travel_style: payload.travelStyle,
-        interests: payload.interests,
-        accommodation_preference: payload.accommodationPreference,
-        transportation_preference: payload.transportationPreference,
-        special_notes: payload.specialNotes || null,
         status: "draft",
-        is_activated: false,
         itinerary_status: "draft",
         itinerary_locked: false,
         itinerary_payment_status: "unpaid",

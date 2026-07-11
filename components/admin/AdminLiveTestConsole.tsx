@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 type Trip = {
   id: string;
   user_id?: string | null;
   title: string | null;
-  destination: string | null;
+  destination?: string | null;
+  destination_name?: string | null;
   start_date: string | null;
   itinerary_status: string | null;
-  trip_companion_status: string | null;
-  live_companion_unlocked: boolean | null;
+  tracking_unlocked?: boolean | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 type Activity = {
@@ -73,6 +75,15 @@ const actions = [
   ["simulate_complete", "Simulate complete checked-in activity"],
   ["debug_report", "Refresh server debug report"]
 ];
+
+function companionStatus(trip: Trip) {
+  const companion = trip.metadata?.companion;
+  if (companion && typeof companion === "object" && !Array.isArray(companion)) {
+    const status = (companion as Record<string, unknown>).status;
+    if (typeof status === "string" && status.trim()) return status;
+  }
+  return "Not set";
+}
 
 function ResultPill({ label, value }: { label: string; value: unknown }) {
   const positive = value === true || value === "sent" || (typeof value === "number" && value > 0);
@@ -163,7 +174,7 @@ export function AdminLiveTestConsole({
           >
             {trips.map((trip) => (
               <option key={trip.id} value={trip.id}>
-                {(trip.title || trip.destination || "Trip").slice(0, 80)}
+                {(trip.title || getTripDestinationLabel(trip) || "Trip").slice(0, 80)}
               </option>
             ))}
           </select>
@@ -171,8 +182,8 @@ export function AdminLiveTestConsole({
 
         {selectedTrip ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <ResultPill label="Companion unlocked" value={Boolean(selectedTrip.live_companion_unlocked)} />
-            <ResultPill label="Companion status" value={selectedTrip.trip_companion_status || "Not set"} />
+            <ResultPill label="Companion unlocked" value={Boolean(selectedTrip.tracking_unlocked)} />
+            <ResultPill label="Companion status" value={companionStatus(selectedTrip)} />
             <ResultPill label="Itinerary status" value={selectedTrip.itinerary_status || "Not set"} />
             <ResultPill label="Start date" value={selectedTrip.start_date || "No date"} />
             <ResultPill label="Push subscriptions" value={activePushSubscriptions.length} />

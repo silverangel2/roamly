@@ -67,16 +67,29 @@ export async function POST() {
     .insert({
       user_id: guard.user.id,
       title: "Toronto Test Trip",
-      destination: "Toronto",
       destination_name: "Toronto",
       destination_country: "Canada",
       destination_region: "Ontario",
       destination_city: "Toronto",
       start_date: new Date().toISOString().slice(0, 10),
-      days_count: 2,
-      status: "activated",
-      is_activated: true,
-      metadata: { admin_test: true }
+      status: "locked",
+      itinerary_status: "locked",
+      itinerary_locked: true,
+      itinerary_locked_at: new Date().toISOString(),
+      itinerary_generated_at: new Date().toISOString(),
+      tracking_unlocked: true,
+      tracking_unlock_source: "admin",
+      metadata: {
+        admin_test: true,
+        planning: {
+          destination: "Toronto",
+          destinationCity: "Toronto",
+          destinationCountry: "Canada",
+          destinationRegion: "Ontario",
+          daysCount: 2,
+          budgetCurrency: "CAD"
+        }
+      }
     })
     .select("id")
     .single();

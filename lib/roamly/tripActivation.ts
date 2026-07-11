@@ -9,17 +9,17 @@ export type TrackingTrip = {
   id: string;
   user_id: string | null;
   title: string;
-  destination: string | null;
+  destination?: string | null;
   destination_name: string | null;
   destination_country: string | null;
   destination_region: string | null;
   destination_city: string | null;
   start_date: string | null;
   end_date: string | null;
-  days_count: number | null;
+  days_count?: number | null;
   status: string;
-  is_activated: boolean;
-  activated_at: string | null;
+  is_activated?: boolean | null;
+  activated_at?: string | null;
   itinerary_status: string | null;
   itinerary_locked: boolean | null;
   itinerary_generated_at: string | null;
@@ -67,8 +67,8 @@ export type TripNotificationPayload = {
   type: "trip_activated" | "activity_nearby" | "day_started";
 };
 
-export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date" | "days_count">) {
-  return getTripDayFromDate(trip.start_date, trip.days_count);
+export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date"> & { days_count?: number | null }) {
+  return getTripDayFromDate(trip.start_date, trip.days_count || null);
 }
 
 function todayIso() {
@@ -82,7 +82,7 @@ export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: 
     .select("*")
     .eq("user_id", userId)
     .eq("itinerary_locked", true)
-    .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
+    .eq("tracking_unlocked", true)
     .in("status", ["locked", "active", "planned"])
     .or(`end_date.gte.${today},end_date.is.null`);
   if (tripId) query = query.eq("id", tripId);

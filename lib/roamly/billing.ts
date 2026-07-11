@@ -260,7 +260,6 @@ export async function lockGeneratedItinerary(
     .from("roamly_trips")
     .update({
       status: "locked",
-      is_activated: true,
       activated_at: now,
       itinerary_status: "locked",
       itinerary_locked: true,
@@ -438,9 +437,7 @@ export async function createBundleCheckoutSession(
         itinerary_unlock_source: "admin",
         tracking_unlocked: true,
         tracking_unlock_source: "admin",
-        live_companion_unlocked: true,
-        live_companion_unlocked_at: new Date().toISOString(),
-        live_companion_source: "admin"
+        tracking_paid_at: new Date().toISOString()
       })
       .eq("id", tripId)
       .eq("user_id", user.id);
@@ -463,7 +460,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
 
   const tripResult = await supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked,live_companion_unlocked")
+    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -487,9 +484,6 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     update.tracking_paid_at = now;
     update.tracking_stripe_checkout_session_id = session.id;
     update.tracking_stripe_payment_intent_id = paymentIntentId(session);
-    update.live_companion_unlocked = true;
-    update.live_companion_unlocked_at = now;
-    update.live_companion_source = "paid";
   }
 
   if (purchaseType === "bundle" && !tripAlreadyLocked) {
@@ -506,9 +500,6 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     update.tracking_paid_at = now;
     update.tracking_stripe_checkout_session_id = session.id;
     update.tracking_stripe_payment_intent_id = paymentIntentId(session);
-    update.live_companion_unlocked = true;
-    update.live_companion_unlocked_at = now;
-    update.live_companion_source = "bundle";
   }
 
   if (Object.keys(update).length) {

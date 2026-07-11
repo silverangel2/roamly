@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 type EmailStatus = "pending" | "sent" | "failed" | "skipped";
 
@@ -249,7 +250,7 @@ export async function sendTripReminderEmail({
     notificationId
       ? admin.from("roamly_notifications").select("id,title,body,type,action_url").eq("id", notificationId).maybeSingle()
       : Promise.resolve({ data: null }),
-    tripId ? admin.from("roamly_trips").select("id,title,destination").eq("id", tripId).maybeSingle() : Promise.resolve({ data: null })
+    tripId ? admin.from("roamly_trips").select("id,title,destination_name,metadata").eq("id", tripId).maybeSingle() : Promise.resolve({ data: null })
   ]);
 
   const to = userResult.user?.email || "";
@@ -262,7 +263,7 @@ export async function sendTripReminderEmail({
     subject: notification?.title || "Roamly trip reminder",
     message: notification?.body || "Open Roamly to review your trip reminder.",
     tripTitle: trip?.title,
-    destination: trip?.destination,
+    destination: trip ? getTripDestinationLabel(trip) : null,
     actionUrl: notification?.action_url || (tripId ? `/trip/${tripId}/companion` : "/notifications")
   });
 

@@ -9,6 +9,12 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
+import {
+  getTripBudgetAmount,
+  getTripBudgetCurrency,
+  getTripDaysCount,
+  getTripDestinationLabel
+} from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
 
@@ -36,6 +42,14 @@ function countdownCopy(value: number | null, currentDay: number) {
   if (value === 1) return "Tomorrow is Day 1";
   if (value === 0) return "Trip activated today";
   return `Current travel day ${currentDay}`;
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function getStringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 export default async function LiveTripPage({ params }: { params: Promise<{ id: string }> }) {
@@ -71,7 +85,10 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   }
 
   await scheduleCompanionEvents(supabase, id);
-  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, bundle.data.trip.days_count);
+  const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";
+  const daysCount = getTripDaysCount(bundle.data.trip);
+  const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
+  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null);
   const activitiesByDay = groupActivitiesByDay(bundle.data.activities);
   const dayActivities = activitiesByDay[currentDay] || bundle.data.activities.slice(0, 4);
   const nextActivity =
@@ -89,18 +106,21 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
       .order("start_date", { ascending: true, nullsFirst: false })
   ]);
 
-  const countryInfo = (companion.trip?.travel_country_info || {}) as {
+  const companionMetadata = getRecord(getRecord(companion.trip?.metadata)?.companion) || {};
+  const countryInfo = (getRecord(companionMetadata.travelCountryInfo) || {}) as {
     title?: string;
     summary?: string;
     reminders?: string[];
   };
-  const packing = (companion.trip?.packing_checklist || bundle.data.checklist.map((item) => item.item)) as string[];
-  const documents = (companion.trip?.document_checklist || []) as string[];
+  const packing = getStringArray(companionMetadata.packingChecklist);
+  const documents = getStringArray(companionMetadata.documentChecklist);
+  const packingItems = packing.length ? packing : bundle.data.checklist.map((item) => item.item);
   const committedBudgetCents = (bookingsResult.data || []).reduce(
     (sum, booking) => sum + (booking.booking_status === "cancelled" ? 0 : Number(booking.amount_cents || 0)),
     0
   );
-  const totalBudgetCents = bundle.data.trip.budget_amount == null ? null : Math.round(Number(bundle.data.trip.budget_amount) * 100);
+  const budgetAmount = getTripBudgetAmount(bundle.data.trip);
+  const totalBudgetCents = budgetAmount == null ? null : Math.round(budgetAmount * 100);
   const remainingBudgetCents = totalBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
   const tripCountdown = daysUntil(bundle.data.trip.start_date);
 
@@ -109,7 +129,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
       <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Badge>Live Trip Companion</Badge>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Today in {bundle.data.trip.destination}</h1>
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Today in {destinationLabel}</h1>
           <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
             Day {currentDay}. Roamly can remind you about packing, documents, check-in times, and what&apos;s up next during your trip.
           </p>
@@ -133,10 +153,10 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         <Card>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
-            {formatMoney(remainingBudgetCents, bundle.data.trip.budget_currency)}
+            {formatMoney(remainingBudgetCents, budgetCurrency)}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Booked items: {formatMoney(committedBudgetCents, bundle.data.trip.budget_currency)}
+            Booked items: {formatMoney(committedBudgetCents, budgetCurrency)}
           </p>
         </Card>
       </section>
@@ -194,7 +214,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         <Card>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Packing checklist</p>
           <div className="mt-3 grid gap-2">
-            {packing.slice(0, 6).map((item) => (
+            {packingItems.slice(0, 6).map((item) => (
               <p key={item} className="rounded-2xl bg-mist px-3 py-2 text-xs font-black text-slate-600">{item}</p>
             ))}
           </div>

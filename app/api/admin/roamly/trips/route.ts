@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data: trips, error } = await guard.admin
     .from("roamly_trips")
-    .select("id,user_id,title,destination,destination_city,destination_country,start_date,end_date,status,itinerary_status,itinerary_locked,itinerary_unlock_source,itinerary_payment_status,tracking_unlocked,live_companion_unlocked,live_companion_source,itinerary_generated_at,itinerary_locked_at,tracking_paid_at,live_companion_unlocked_at,created_at")
+    .select("id,user_id,title,destination_name,destination_city,destination_country,start_date,end_date,status,itinerary_status,itinerary_locked,itinerary_unlock_source,itinerary_payment_status,tracking_unlocked,itinerary_generated_at,itinerary_locked_at,tracking_paid_at,metadata,created_at")
     .order("created_at", { ascending: false })
     .limit(100);
 

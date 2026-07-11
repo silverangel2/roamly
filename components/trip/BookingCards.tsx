@@ -1,5 +1,6 @@
 import { getBookingLinks } from "@/lib/affiliate-links";
 import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { RoamlyTripRecord } from "@/lib/trips";
 import { BookingCardsClient, type BookingCardLink } from "@/components/trip/BookingCardsClient";
@@ -11,6 +12,7 @@ function formatEstimate(min: number | null, max: number | null, currency: string
 }
 
 export function BookingCards({ trip, itinerary }: { trip: RoamlyTripRecord; itinerary?: RoamlyItinerary | null }) {
+  const destination = getTripDestinationLabel(trip) || "your destination";
   const suggestionLinks: BookingCardLink[] =
     itinerary?.booking_suggestions?.map((suggestion) => ({
       title: suggestion.booking_label,
@@ -32,7 +34,7 @@ export function BookingCards({ trip, itinerary }: { trip: RoamlyTripRecord; itin
   return (
     <BookingCardsClient
       tripId={trip.id}
-      destination={trip.destination}
+      destination={destination}
       links={links}
       showDisclosure={links.some((link) => link.affiliate_enabled) || suggestionLinks.length > 0}
     />

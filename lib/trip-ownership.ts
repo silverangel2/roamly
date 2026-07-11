@@ -4,9 +4,10 @@ export type OwnedTripSummary = {
   id: string;
   user_id: string;
   title: string | null;
-  destination: string | null;
+  destination?: string | null;
+  destination_name?: string | null;
   status: "draft" | "preview" | "activated" | "archived" | string | null;
-  is_activated: boolean | null;
+  is_activated?: boolean | null;
   activated_at?: string | null;
   itinerary_status?: string | null;
   itinerary_locked?: boolean | null;
@@ -33,7 +34,7 @@ export async function checkTripOwnership(
 
   const { data, error } = await supabase
     .from("roamly_trips")
-    .select("id,user_id,title,destination,status,is_activated,activated_at,itinerary_status,itinerary_locked,itinerary_generated_at,tracking_unlocked,live_companion_unlocked,metadata")
+    .select("id,user_id,title,destination_name,status,activated_at,itinerary_status,itinerary_locked,itinerary_generated_at,tracking_unlocked,metadata")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();

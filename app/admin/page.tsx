@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminEmails } from "@/lib/roamly/access";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 function adminEmails() {
   return getRoamlyAdminEmails();
@@ -87,7 +88,7 @@ export default async function AdminPage() {
         admin.from("roamly_itinerary_purchases").select("id", { count: "exact", head: true }).eq("status", "paid").in("purchase_type", ["complete_trip", "bundle"]),
         admin
           .from("roamly_trips")
-          .select("id,title,destination,status,itinerary_status,itinerary_locked,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,live_companion_unlocked,itinerary_generated_at,itinerary_locked_at,metadata,created_at")
+          .select("id,title,destination_name,status,itinerary_status,itinerary_locked,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,itinerary_generated_at,itinerary_locked_at,metadata,created_at")
           .order("created_at", { ascending: false })
           .limit(8),
         admin.from("roamly_trips").select("id", { count: "exact", head: true }).eq("status", "active"),
@@ -112,7 +113,7 @@ export default async function AdminPage() {
           .gte("created_at", todayIso),
         admin
           .from("roamly_trips")
-          .select("destination,destination_city,destination_country,metadata")
+          .select("destination_name,destination_city,destination_country,metadata")
           .order("created_at", { ascending: false })
           .limit(200),
         admin.from("roamly_bookings").select("id", { count: "exact", head: true }),
@@ -133,13 +134,13 @@ export default async function AdminPage() {
   const topDestinations = new Map<string, number>();
   const topMultiCityRoutes = new Map<string, number>();
   ((topTrips?.data || []) as Array<{
-    destination?: string;
+    destination_name?: string | null;
     destination_city?: string | null;
     destination_country?: string | null;
     metadata?: Record<string, unknown> | null;
   }>).forEach(
     (trip) => {
-      const label = trip.destination_city || trip.destination || trip.destination_country || "Unknown";
+      const label = trip.destination_city || getTripDestinationLabel(trip) || trip.destination_country || "Unknown";
       topDestinations.set(label, (topDestinations.get(label) || 0) + 1);
       const planning = trip.metadata && typeof trip.metadata === "object" ? (trip.metadata.planning as Record<string, unknown> | undefined) : undefined;
       const stops = Array.isArray(planning?.destinationStops) ? planning.destinationStops : [];
@@ -279,23 +280,22 @@ export default async function AdminPage() {
             {((recentTrips?.data || []) as Array<{
               id: string;
               title: string | null;
-              destination: string;
+              destination_name?: string | null;
               status: string;
               itinerary_status?: string | null;
               itinerary_locked?: boolean | null;
               itinerary_payment_status?: string | null;
               itinerary_unlock_source?: string | null;
               tracking_unlocked?: boolean | null;
-              live_companion_unlocked?: boolean | null;
               itinerary_generated_at?: string | null;
               itinerary_locked_at?: string | null;
               metadata?: Record<string, unknown> | null;
             }>).map((trip) => (
               <div key={trip.id} className="rounded-2xl bg-mist px-4 py-3">
-                <p className="text-sm font-black text-ink">{trip.title || trip.destination}</p>
+                <p className="text-sm font-black text-ink">{trip.title || getTripDestinationLabel(trip) || "Trip"}</p>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                   {trip.itinerary_locked ? "Locked" : trip.itinerary_status || trip.status} · {trip.itinerary_payment_status || "unpaid"} ·{" "}
-                  {trip.live_companion_unlocked || trip.tracking_unlocked ? "companion" : "no companion"}
+                  {trip.tracking_unlocked ? "companion" : "no companion"}
                   {trip.metadata?.qa_tester ? " · tester" : ""}
                 </p>
               </div>

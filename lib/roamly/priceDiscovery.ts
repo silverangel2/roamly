@@ -573,11 +573,14 @@ export async function savePriceDiscovery(
 
   if (error) return { id: null, error: error.message };
   if (input.tripId && data?.id) {
-    await supabase
+    const linked = await supabase
       .from("roamly_trips")
       .update({ latest_price_discovery_id: data.id })
       .eq("id", input.tripId)
       .eq("user_id", input.userId);
+    if (linked.error && !linked.error.message.includes("latest_price_discovery_id")) {
+      return { id: data.id as string, error: linked.error.message };
+    }
   }
   return { id: data?.id as string, error: null };
 }

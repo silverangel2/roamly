@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   const ownership = await auth.supabase
     .from("roamly_trips")
-    .select("id,live_companion_unlocked,tracking_unlocked")
+    .select("id,tracking_unlocked")
     .eq("id", tripId)
     .eq("user_id", auth.user.id)
     .maybeSingle();

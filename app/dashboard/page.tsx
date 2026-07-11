@@ -5,17 +5,18 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
+import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 type DashboardTrip = {
   id: string;
   title: string | null;
-  destination: string;
+  destination?: string | null;
+  destination_name?: string | null;
   start_date: string | null;
   end_date: string | null;
-  days_count: number | null;
+  days_count?: number | null;
   status: string;
-  is_activated: boolean;
   itinerary_status?: string | null;
   itinerary_locked?: boolean | null;
   itinerary_generated_at?: string | null;
@@ -36,6 +37,8 @@ function TripCard({ trip }: { trip: DashboardTrip }) {
   const locked = isTripLocked(trip);
   const hasTracking = tripHasTrackingUnlock(trip);
   const href = hasTracking ? `/trip/${trip.id}/live` : `/trip/${trip.id}`;
+  const destination = getTripDestinationLabel(trip) || "Trip";
+  const daysCount = getTripDaysCount(trip);
 
   return (
     <article className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
@@ -44,9 +47,9 @@ function TripCard({ trip }: { trip: DashboardTrip }) {
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
             {hasTracking ? "Live Trip Companion" : locked ? "Locked itinerary" : trip.status}
           </p>
-          <h3 className="mt-2 text-xl font-black text-ink">{trip.title || trip.destination}</h3>
+          <h3 className="mt-2 text-xl font-black text-ink">{trip.title || destination}</h3>
           <p className="mt-1 text-sm font-bold text-slate-500">
-            {formatDate(trip.start_date)} · {trip.days_count || "?"} days
+            {formatDate(trip.start_date)} · {daysCount || "?"} days
           </p>
         </div>
         <span className="rounded-full bg-mist px-3 py-2 text-xs font-black text-slate-600">
@@ -90,7 +93,7 @@ export default async function DashboardPage() {
     supabase
       ? supabase
           .from("roamly_trips")
-          .select("id,title,destination,start_date,end_date,days_count,status,is_activated,itinerary_status,itinerary_locked,itinerary_generated_at,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,live_companion_unlocked,metadata,created_at")
+          .select("id,title,destination_name,start_date,end_date,status,itinerary_status,itinerary_locked,itinerary_generated_at,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,metadata,created_at")
           .eq("user_id", current.user.id)
           .order("created_at", { ascending: false })
           .limit(20)
@@ -142,7 +145,7 @@ export default async function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Continue live</p>
-                <h2 className="mt-2 text-3xl font-black">{activeNow.title || activeNow.destination}</h2>
+                <h2 className="mt-2 text-3xl font-black">{activeNow.title || getTripDestinationLabel(activeNow) || "Trip"}</h2>
                 <p className="mt-2 text-sm font-bold text-slate-600">Your Live Trip Companion is ready.</p>
               </div>
               <Button href={`/trip/${activeNow.id}/live`}>Open companion</Button>

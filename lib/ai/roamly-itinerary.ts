@@ -12,7 +12,7 @@ export type GeneratedItineraryResult = {
 
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
-  "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+  "Roamly could not finish itinerary generation. Please try again in a moment.";
 const OPENAI_ITINERARY_TIMEOUT_MS = 45_000;
 
 export class RoamlyItineraryGenerationError extends Error {
