@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth, getSupabaseBrowserSessionUser } from "@/lib/roamly/authenticatedFetch";
 
 type CheckoutKind = "itinerary" | "tracking" | "complete";
 
@@ -27,12 +28,23 @@ export function ActivateTripButton({
     setError("");
 
     try {
-      const response = await fetch("/api/stripe/create-trip-checkout", {
+      const response = await fetchWithSupabaseAuth("/api/stripe/create-trip-checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tripId, checkoutKind })
       });
       const data = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        const user = await getSupabaseBrowserSessionUser();
+        if (user) {
+          setError("Your login session could not be confirmed. Refresh this page and try again.");
+          setBusy("");
+          return;
+        }
+        window.location.href = `/login?next=${encodeURIComponent(`/trip/${tripId}`)}`;
+        return;
+      }
 
       if (!response.ok) throw new Error(data?.error || "Checkout could not start.");
       if (data?.alreadyActivated || data?.alreadyUnlocked) {

@@ -450,6 +450,7 @@ export function TripPlanForm({
   const generationInFlight = useRef(false);
   const draftHydrated = useRef(false);
   const skipNextDraftSave = useRef(false);
+  const requiresPaidUnlock = freeItineraryUsed && !testerAccess;
 
   const refreshSessionUser = useCallback(async () => {
     if (typeof window === "undefined") return null;
@@ -807,6 +808,15 @@ export function TripPlanForm({
     }
   }, [planDraft]);
 
+  const clearCurrentPlanDraft = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(PLAN_DRAFT_KEY);
+    } catch {
+      // Clearing local draft state should never block navigation.
+    }
+  }, []);
+
   function redirectToLoginForGeneration() {
     if (process.env.NODE_ENV === "development") {
       console.warn("[Roamly] No active session before generation; redirecting to login");
@@ -867,9 +877,7 @@ export function TripPlanForm({
   }, []);
 
   function resetPlanner() {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(PLAN_DRAFT_KEY);
-    }
+    clearCurrentPlanDraft();
     skipNextDraftSave.current = true;
     trackedSelections.current.clear();
     generationInFlight.current = false;
@@ -1045,12 +1053,99 @@ export function TripPlanForm({
     }
   }
 
+  async function createDraftAndStartCheckout() {
+    if (generationInFlight.current) return;
+    const validation = validateBeforeGenerate();
+    setError(validation);
+    setNotice("");
+    if (validation) return;
+
+    saveCurrentPlanDraft();
+    const activeUser = await ensureActiveSessionBeforeGeneration();
+    if (!activeUser) return;
+
+    generationInFlight.current = true;
+    setLoading(true);
+    setNotice("Preparing secure checkout...");
+    let draftTripId = "";
+
+    try {
+      const draftResponse = await fetchWithSupabaseAuth("/api/trips/draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const draftData = await draftResponse.json().catch(() => null);
+
+      if (draftResponse.status === 401) {
+        const user = await refreshSessionUser();
+        if (user) {
+          setError("Your login session could not be confirmed. Refresh this page and try again.");
+          return;
+        }
+        redirectToLoginForGeneration();
+        return;
+      }
+
+      if (!draftResponse.ok || !draftData?.tripId) {
+        throw new Error(draftData?.message || draftData?.setupHint || draftData?.error || "Trip draft could not be saved.");
+      }
+
+      draftTripId = String(draftData.tripId);
+      const checkoutResponse = await fetchWithSupabaseAuth("/api/stripe/create-trip-checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tripId: draftTripId, checkoutKind: "itinerary" })
+      });
+      const checkoutData = await checkoutResponse.json().catch(() => null);
+
+      if (checkoutResponse.status === 401) {
+        const user = await refreshSessionUser();
+        if (user) {
+          setError("Your login session could not be confirmed. Refresh this page and try again.");
+          return;
+        }
+        clearCurrentPlanDraft();
+        router.push(`/login?next=${encodeURIComponent(`/trip/${draftTripId}`)}`);
+        return;
+      }
+
+      if (!checkoutResponse.ok) {
+        throw new Error(checkoutData?.message || checkoutData?.error || "Checkout could not start.");
+      }
+
+      clearCurrentPlanDraft();
+      if (checkoutData?.alreadyActivated || checkoutData?.alreadyUnlocked) {
+        router.push(`/trip/${draftTripId}`);
+        return;
+      }
+      if (!checkoutData?.url) throw new Error("Stripe did not return a checkout link.");
+      window.location.href = checkoutData.url;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Checkout could not start.";
+      if (draftTripId) {
+        clearCurrentPlanDraft();
+        router.push(`/trip/${draftTripId}?checkout=failed`);
+        return;
+      }
+      setNotice("");
+      setError(message);
+    } finally {
+      generationInFlight.current = false;
+      setLoading(false);
+    }
+  }
+
   async function openFinalConfirmation() {
     if (loading || priceChecking || (isCheckingSession && !sessionUser)) return;
     const validation = validateBeforeGenerate();
     setError(validation);
     setNotice("");
     if (validation) return;
+    if (requiresPaidUnlock) {
+      await createDraftAndStartCheckout();
+      return;
+    }
     saveCurrentPlanDraft();
     const checked = await runPriceDiscovery();
     if (!checked) return;
@@ -1100,6 +1195,7 @@ export function TripPlanForm({
       if (response.ok && data?.tripId) {
         trackPlanEvent("itinerary_generation_completed", { tripType, destination: payload.destination, tripId: data.tripId });
         setConfirming(false);
+        clearCurrentPlanDraft();
         router.push(data.previewUrl || `/trip/${data.tripId}`);
         return;
       }
@@ -1111,6 +1207,7 @@ export function TripPlanForm({
           error: "PAYMENT_REQUIRED"
         });
         setConfirming(false);
+        clearCurrentPlanDraft();
         router.push(data.previewUrl);
         return;
       }
@@ -1483,7 +1580,7 @@ export function TripPlanForm({
         </p>
       ) : null}
 
-      {loading && !confirming ? (
+      {loading && !confirming && !requiresPaidUnlock ? (
         <RoamlyGeneratingLoader className="mt-4" />
       ) : null}
 
@@ -1549,7 +1646,9 @@ export function TripPlanForm({
             disabled={loading || priceChecking || (isCheckingSession && !sessionUser)}
             className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
           >
-            {priceChecking
+            {loading && requiresPaidUnlock
+              ? translateText("Opening checkout...")
+              : priceChecking
               ? translateText("Checking costs...")
               : testerAccess && freeItineraryUsed
                 ? translateText("Continue as tester")

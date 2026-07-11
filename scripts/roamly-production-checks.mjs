@@ -70,6 +70,17 @@ assert.ok(generateRoute.includes("markFreeItineraryUsed"), "free itinerary must 
 assert.ok(generateRoute.includes("getConfirmedBookingCostCents"), "generation must include committed booking costs");
 assert.ok(generateRoute.includes("lockGeneratedItinerary"), "generation must lock itinerary");
 
+const tripPage = read("app/trip/[id]/page.tsx");
+assert.ok(tripPage.includes("checkoutSyncError"), "trip page must surface checkout sync failures");
+assert.ok(tripPage.includes("checkout_sync_failed"), "checkout sync failures must be observable");
+assert.ok(tripPage.includes("CheckoutUrlCleanup") && tripPage.includes("checkoutNeedsAttention"), "checkout success URL must be retained while sync needs attention");
+
+const activateTripButton = read("components/trip/ActivateTripButton.tsx");
+assert.ok(activateTripButton.includes("fetchWithSupabaseAuth"), "trip checkout buttons must forward Supabase auth");
+
+const planForm = read("components/plan/TripPlanForm.tsx");
+assert.ok(planForm.includes("checkout=failed"), "planner checkout failures after draft save must land on a retryable trip page");
+
 const pushServer = read("lib/roamly/pushServer.ts");
 assert.ok(pushServer.includes("createInAppNotification"), "in-app notifications helper missing");
 assert.ok(pushServer.includes("live_companion_unlocked"), "cron must check companion unlock");

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingCards } from "@/components/trip/BookingCards";
+import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { NavigationButtons } from "@/components/roamly/NavigationButtons";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
@@ -151,9 +152,18 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   }
 
   const sessionId = one(search.session_id);
+  let checkoutSyncError = "";
   const access = getRoamlyAccessForUser(current.user.email);
   if (sessionId && one(search.checkout) === "success") {
-    await confirmCheckoutSessionForTrip({ sessionId, tripId: id, userId: current.user.id });
+    const confirmation = await confirmCheckoutSessionForTrip({ sessionId, tripId: id, userId: current.user.id });
+    if (!confirmation.ok) {
+      checkoutSyncError = confirmation.error || "Checkout confirmation failed.";
+      console.error("[Roamly trip] Checkout confirmation failed", {
+        tripId: id,
+        userId: current.user.id,
+        error: checkoutSyncError
+      });
+    }
   }
 
   const supabase = await createSupabaseServerClient();
@@ -191,6 +201,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const itineraryLocked = isTripLocked(trip);
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
+  const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
+  const checkoutStartFailed = one(search.checkout) === "failed";
+  const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention);
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const preview = full ? buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
@@ -215,8 +228,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
         ? "Free itinerary available"
         : "Payment required";
 
+  if (checkoutNeedsAttention) {
+    await recordAppEvent(supabase, {
+      userId: current.user.id,
+      eventType: "checkout_sync_failed",
+      metadata: { tripId: id, error: checkoutSyncError }
+    });
+  }
+
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <section className="grid gap-5 lg:grid-cols-[1fr_0.75fr] lg:items-end">
         <div>
           <Badge tone={itineraryLocked ? "ocean" : freeAvailable || paidForItinerary ? "sun" : "coral"}>{accessLabel}</Badge>
@@ -233,6 +255,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           {itineraryLocked ? (
             <p className="mt-4 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
               This itinerary is locked. To make major changes, create a new itinerary.
+            </p>
+          ) : null}
+          {checkoutNeedsAttention ? (
+            <p className="mt-4 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
+              Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a
+              moment; if it stays locked, contact support with your checkout receipt.
+            </p>
+          ) : null}
+          {checkoutStartFailed ? (
+            <p className="mt-4 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
+              Checkout could not start. Your trip draft was saved, so you can try unlocking it again from this page.
             </p>
           ) : null}
           {generationRequiresPayment ? (
