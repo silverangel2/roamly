@@ -28,7 +28,6 @@ export const config = {
     "/admin/:path*",
     "/dashboard/:path*",
     "/notifications/:path*",
-    "/plan/:path*",
     "/preview/:path*",
     "/trip/:path*"
   ]

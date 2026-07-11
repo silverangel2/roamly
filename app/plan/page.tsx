@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { TripPlanForm } from "@/components/plan/TripPlanForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -16,11 +15,6 @@ const promiseCards = [
 
 export default async function PlanPage() {
   const current = await getCurrentUser();
-
-  if (!current.user) {
-    redirect("/login?next=/plan");
-  }
-
   const supabase = current.user ? await createSupabaseServerClient() : null;
   const [, free] =
     supabase && current.user
