@@ -1,6 +1,7 @@
 import { TripPlanForm } from "@/components/plan/TripPlanForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -16,12 +17,14 @@ export default async function PlanPage() {
   const supabase = current.user ? await createSupabaseServerClient() : null;
   const free = supabase && current.user ? await hasUsedFreeItinerary(supabase, current.user.id) : null;
   const freeItineraryUsed = Boolean(free?.used);
+  const access = getRoamlyAccessForUser(current.user?.email);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <section className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
         <div className="space-y-5 lg:sticky lg:top-24">
           <Badge>Plan trip</Badge>
+          {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <div>
             <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
               Tell Roamly what kind of trip you want.
@@ -41,7 +44,7 @@ export default async function PlanPage() {
           </div>
         </div>
 
-        <TripPlanForm freeItineraryUsed={freeItineraryUsed} />
+        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} />
       </section>
     </main>
   );

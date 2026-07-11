@@ -5,9 +5,10 @@ import { LiveTripClient } from "@/components/trip/LiveTripClient";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
-import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
+import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
 
@@ -58,10 +59,16 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) redirect("/dashboard");
+  const access = getRoamlyAccessForUser(current.user.email);
   const bundle = await getTripBundle(supabase, current.user.id, id);
 
   if (!bundle.data) redirect("/dashboard?tripAccess=denied");
-  if (!isTripLocked(bundle.data.trip) || !tripHasTrackingUnlock(bundle.data.trip)) redirect(`/trip/${id}`);
+  const locked = isTripLocked(bundle.data.trip);
+  const companionUnlocked = tripHasTrackingUnlock(bundle.data.trip);
+  if (!locked || (!companionUnlocked && !access.hasQaAccess)) redirect(`/trip/${id}`);
+  if (access.hasQaAccess && locked && !companionUnlocked) {
+    await unlockLiveCompanion(supabase, id, "admin");
+  }
 
   await scheduleCompanionEvents(supabase, id);
   const currentDay = getTripDayFromDate(bundle.data.trip.start_date, bundle.data.trip.days_count);

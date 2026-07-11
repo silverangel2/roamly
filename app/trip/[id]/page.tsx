@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { buildPreviewFromItinerary, createMapLink, type RoamlyItinerary, type RoamlyPreview } from "@/lib/itinerary";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { buildAttractionAffiliateUrl } from "@/lib/roamly/affiliateLinks";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
@@ -146,6 +147,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   }
 
   const sessionId = one(search.session_id);
+  const access = getRoamlyAccessForUser(current.user.email);
   if (sessionId && one(search.checkout) === "success") {
     await confirmCheckoutSessionForTrip({ sessionId, tripId: id, userId: current.user.id });
   }
@@ -183,8 +185,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const { trip, itinerary, checklist, activities } = bundleResult.data;
   const full = itinerary?.full_json || null;
   const itineraryLocked = isTripLocked(trip);
-  const trackingUnlocked = tripHasTrackingUnlock(trip);
-  const paidForItinerary = isItineraryPaid(trip);
+  const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
+  const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const preview = full ? buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
@@ -201,7 +203,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
   const accessLabel = itineraryLocked
     ? "Locked itinerary"
-    : paidForItinerary
+    : access.hasQaAccess
+      ? "Tester access"
+      : paidForItinerary
       ? "Ready to generate"
       : freeAvailable
         ? "Free itinerary available"
@@ -212,6 +216,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       <section className="grid gap-5 lg:grid-cols-[1fr_0.75fr] lg:items-end">
         <div>
           <Badge tone={itineraryLocked ? "ocean" : freeAvailable || paidForItinerary ? "sun" : "coral"}>{accessLabel}</Badge>
+          {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">
             {trip.title || preview?.trip_title || trip.destination}
           </h1>
@@ -243,7 +248,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 ? "Itinerary + companion"
                 : "Full itinerary"
               : paidForItinerary
-                ? "Payment received"
+                ? access.hasQaAccess
+                  ? "Tester access"
+                  : "Payment received"
                 : freeAvailable
                   ? "1 free itinerary"
                   : "$4.99 or $7.99"}
@@ -252,7 +259,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             {itineraryLocked
               ? "The itinerary is permanent for this trip. Live Trip Companion is optional per trip."
               : paidForItinerary
-                ? "Generate once to lock the final itinerary for this trip."
+                ? access.hasQaAccess
+                  ? "Tester access unlocks itinerary generation, Live Trip Companion, and Complete Trip Pack checks without creating Stripe revenue."
+                  : "Generate once to lock the final itinerary for this trip."
                 : freeAvailable
                   ? "You get 1 free itinerary per account."
                 : "You’ve used your free itinerary. Unlock this trip to generate a new full itinerary."}
@@ -262,7 +271,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               trackingUnlocked ? (
                 <Button href={`/trip/${id}/live`}>Start Live Trip Companion</Button>
               ) : (
-                <ActivateTripButton tripId={id} itineraryLocked trackingUnlocked={false} showItineraryUnlock={false} />
+                <ActivateTripButton
+                  tripId={id}
+                  itineraryLocked
+                  trackingUnlocked={false}
+                  showItineraryUnlock={false}
+                  testerAccess={access.hasQaAccess}
+                />
               )
             ) : paidForItinerary ? (
               <GenerateLockedItineraryButton
@@ -277,7 +292,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 subtext="You get 1 free itinerary per account."
               />
             ) : (
-              <ActivateTripButton tripId={id} itineraryLocked={false} trackingUnlocked={false} />
+              <ActivateTripButton tripId={id} itineraryLocked={false} trackingUnlocked={false} testerAccess={access.hasQaAccess} />
             )}
           </div>
         </Card>

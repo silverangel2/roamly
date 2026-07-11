@@ -31,6 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const result = await performActivityAction(auth.supabase, {
     userId: auth.user.id,
+    userEmail: auth.user.email,
     tripId: id,
     activityId,
     action,

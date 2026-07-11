@@ -5,12 +5,10 @@ import { getCurrentUser } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { getRoamlyAdminEmails } from "@/lib/roamly/access";
 
 function adminEmails() {
-  return (process.env.ROAMLY_ADMIN_EMAILS || "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
+  return getRoamlyAdminEmails();
 }
 
 function Stat({ label, value }: { label: string; value: string | number }) {
@@ -52,6 +50,7 @@ export default async function AdminPage() {
   const [
     users,
     trips,
+    qaTesterTrips,
     lockedTrips,
     payments,
     freeUsed,
@@ -79,6 +78,7 @@ export default async function AdminPage() {
     ? await Promise.all([
         admin.from("roamly_profiles").select("id", { count: "exact", head: true }),
         admin.from("roamly_trips").select("id", { count: "exact", head: true }),
+        admin.from("roamly_trips").select("id", { count: "exact", head: true }).contains("metadata", { qa_tester: true }),
         admin.from("roamly_trips").select("id", { count: "exact", head: true }).eq("itinerary_locked", true),
         admin.from("roamly_itinerary_purchases").select("amount_cents,status,created_at").eq("status", "paid").limit(200),
         admin.from("roamly_user_entitlements").select("id", { count: "exact", head: true }).not("free_itinerary_used_at", "is", null),
@@ -87,7 +87,7 @@ export default async function AdminPage() {
         admin.from("roamly_itinerary_purchases").select("id", { count: "exact", head: true }).eq("status", "paid").in("purchase_type", ["complete_trip", "bundle"]),
         admin
           .from("roamly_trips")
-          .select("id,title,destination,status,itinerary_status,itinerary_locked,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,live_companion_unlocked,itinerary_generated_at,itinerary_locked_at,created_at")
+          .select("id,title,destination,status,itinerary_status,itinerary_locked,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,live_companion_unlocked,itinerary_generated_at,itinerary_locked_at,metadata,created_at")
           .order("created_at", { ascending: false })
           .limit(8),
         admin.from("roamly_trips").select("id", { count: "exact", head: true }).eq("status", "active"),
@@ -126,7 +126,7 @@ export default async function AdminPage() {
         admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "checkout_completed"),
         admin.from("roamly_app_events").select("event_type,metadata,created_at").order("created_at", { ascending: false }).limit(500)
       ])
-    : [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+    : [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
 
   const paidRows = (payments?.data || []) as Array<{ amount_cents: number }>;
   const revenue = paidRows.reduce((sum, row) => sum + (row.amount_cents || 0), 0) / 100;
@@ -172,6 +172,7 @@ export default async function AdminPage() {
         <Stat label="Trips generated" value={trips?.count ?? "Setup"} />
         <Stat label="Locked itineraries" value={lockedTrips?.count ?? "Setup"} />
         <Stat label="Revenue estimate" value={`$${revenue.toFixed(2)}`} />
+        <Stat label="Tester trips" value={qaTesterTrips?.count ?? 0} />
         <Stat label="Free itineraries used" value={freeUsed?.count ?? 0} />
         <Stat label="Paid itineraries unlocked" value={paidItineraries?.count ?? 0} />
         <Stat label="Affiliate clicks" value={affiliateClicks?.count ?? 0} />
@@ -186,6 +187,9 @@ export default async function AdminPage() {
         <Card>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Today</p>
           <h2 className="mt-2 text-2xl font-black text-ink">Itinerary and companion sales</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+            Tester activity is excluded from revenue totals where possible.
+          </p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {[
               ["Free itinerary used", `${freeUsed?.count ?? 0} accounts`],
@@ -196,6 +200,7 @@ export default async function AdminPage() {
               ["Booking imports", `${bookingCount?.count ?? 0}`],
               ["Budget checks", `${priceDiscoveryCount?.count ?? 0}`],
               ["Checkout completions", `${checkoutCompleted?.count ?? 0}`],
+              ["Tester activity", `${qaTesterTrips?.count ?? 0} QA trips marked`],
               ["Affiliate clicks", `${affiliateClicks?.count ?? 0}`],
               ["Affiliate provider missing", `${affiliateProviderMissing?.count ?? 0}`],
               ["Notifications", `${notificationCount?.count ?? 0}`],
@@ -284,12 +289,14 @@ export default async function AdminPage() {
               live_companion_unlocked?: boolean | null;
               itinerary_generated_at?: string | null;
               itinerary_locked_at?: string | null;
+              metadata?: Record<string, unknown> | null;
             }>).map((trip) => (
               <div key={trip.id} className="rounded-2xl bg-mist px-4 py-3">
                 <p className="text-sm font-black text-ink">{trip.title || trip.destination}</p>
                 <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                   {trip.itinerary_locked ? "Locked" : trip.itinerary_status || trip.status} · {trip.itinerary_payment_status || "unpaid"} ·{" "}
                   {trip.live_companion_unlocked || trip.tracking_unlocked ? "companion" : "no companion"}
+                  {trip.metadata?.qa_tester ? " · tester" : ""}
                 </p>
               </div>
             ))}

@@ -6,16 +6,19 @@ import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "
 import {
   canGenerateFinalItinerary,
   lockGeneratedItinerary,
+  markTripAsQaTester,
   markFreeItineraryUsed,
   requireTripEditable
 } from "@/lib/roamly/billing";
 import { requireUser } from "@/lib/roamly/auth";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import {
   buildBudgetConstraintForItinerary,
   discoverTripPrices,
   savePriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
+import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError, syncGeneratedItinerary } from "@/lib/trips";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
@@ -284,10 +287,12 @@ async function clearGeneratedTripArtifacts(
 async function finalizeItinerary(params: {
   supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
   userId: string;
+  userEmail?: string | null;
   tripId: string;
   payload: TripPlannerPayload;
 }) {
-  const canGenerate = await canGenerateFinalItinerary(params.supabase, params.userId, params.tripId);
+  const access = getRoamlyAccessForUser(params.userEmail);
+  const canGenerate = await canGenerateFinalItinerary(params.supabase, params.userId, params.tripId, params.userEmail);
 
   if (!canGenerate.ok) {
     await recordAppEvent(params.supabase, {
@@ -318,6 +323,14 @@ async function finalizeItinerary(params: {
     );
   }
 
+  const qaTester = access.hasQaAccess || ("qaTester" in canGenerate && canGenerate.qaTester === true);
+  if (qaTester) {
+    await markTripAsQaTester(params.supabase, params.userId, params.tripId, {
+      qa_access_role: access.role,
+      qa_generation: true
+    });
+  }
+
   await params.supabase
     .from("roamly_trips")
     .update({ status: "generating", itinerary_status: "generating" })
@@ -331,7 +344,8 @@ async function finalizeItinerary(params: {
     metadata: {
       tripType: params.payload.tripType || "single_destination",
       destination: params.payload.destination,
-      stops: params.payload.destinationStops || []
+      stops: params.payload.destinationStops || [],
+      qa_tester: qaTester
     }
   });
 
@@ -417,6 +431,11 @@ async function finalizeItinerary(params: {
     });
     return NextResponse.json({ ok: false, error: lock.error.message }, { status: 500 });
   }
+
+  if (qaTester) {
+    await unlockLiveCompanion(params.supabase, params.tripId, "admin");
+  }
+
   await recordTripEvent(params.supabase, {
     userId: params.userId,
     tripId: params.tripId,
@@ -424,6 +443,7 @@ async function finalizeItinerary(params: {
     eventTitle: "Itinerary generated and locked",
     metadata: {
       source: canGenerate.source,
+      qa_tester: qaTester,
       tripType: params.payload.tripType || "single_destination",
       destination: params.payload.destination,
       aiUsed: generated.aiUsed,
@@ -440,6 +460,7 @@ async function finalizeItinerary(params: {
       model: generated.model,
       locked: true,
       unlockSource: canGenerate.source,
+      qaTester,
       preview: buildPreviewFromItinerary(generated.itinerary)
     },
     { status: 201 }
@@ -451,6 +472,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const { supabase, user } = auth;
+  const access = getRoamlyAccessForUser(user.email);
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const existingTripId = getString(body.tripId);
@@ -483,7 +505,7 @@ export async function POST(request: NextRequest) {
       const validation = validatePayload(payload);
       if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
-      return finalizeItinerary({ supabase, userId: user.id, tripId: existingTripId, payload });
+      return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: existingTripId, payload });
     }
 
     const payload = cleanPayload(body);
@@ -546,7 +568,8 @@ export async function POST(request: NextRequest) {
         itinerary_payment_status: "unpaid",
         tracking_unlocked: false,
         metadata: {
-          planning: planningMetadata
+          planning: planningMetadata,
+          ...(access.hasQaAccess ? { qa_tester: true, qa_access_role: access.role } : {})
         }
       })
       .select("id")
@@ -563,7 +586,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return finalizeItinerary({ supabase, userId: user.id, tripId: trip.id, payload });
+    return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: trip.id, payload });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";
     await recordAppEvent(supabase, {

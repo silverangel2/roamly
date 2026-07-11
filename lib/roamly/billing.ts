@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createStripeClient } from "@/lib/stripe";
 import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 
 export type RoamlyPurchaseType = "itinerary_unlock" | "tracking_addon" | "bundle";
 export type RoamlyItineraryUnlockSource = "free" | "paid" | "bundle" | "admin";
@@ -21,6 +22,8 @@ export type RoamlyBillingTrip = {
   live_companion_unlocked?: boolean | null;
   metadata?: Record<string, unknown> | null;
 };
+
+type RoamlyQaTrip = Pick<RoamlyBillingTrip, "id" | "user_id" | "metadata">;
 
 const purchaseOptions: Record<
   RoamlyPurchaseType,
@@ -71,6 +74,44 @@ export function isTripLocked(trip: Pick<RoamlyBillingTrip, "itinerary_locked" | 
 
 export function tripHasTrackingUnlock(trip: Pick<RoamlyBillingTrip, "tracking_unlocked">) {
   return Boolean(trip.tracking_unlocked || (trip as { live_companion_unlocked?: boolean | null }).live_companion_unlocked);
+}
+
+export function tripIsQaTester(trip: Pick<RoamlyBillingTrip, "metadata">) {
+  return Boolean(trip.metadata?.qa_tester);
+}
+
+export async function markTripAsQaTester(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string,
+  extraMetadata: Record<string, unknown> = {}
+) {
+  const writer = createSupabaseAdminClient() || supabase;
+  const { data: trip, error } = await writer
+    .from("roamly_trips")
+    .select("id,user_id,metadata")
+    .eq("id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) return { ok: false as const, error: error.message };
+  if (!trip) return { ok: false as const, error: "Trip not found." };
+
+  const typed = trip as RoamlyQaTrip;
+  const { error: updateError } = await writer
+    .from("roamly_trips")
+    .update({
+      metadata: {
+        ...(typed.metadata || {}),
+        ...extraMetadata,
+        qa_tester: true
+      }
+    })
+    .eq("id", tripId)
+    .eq("user_id", userId);
+
+  if (updateError) return { ok: false as const, error: updateError.message };
+  return { ok: true as const };
 }
 
 export async function getUserItineraryEntitlement(supabase: SupabaseClient, userId: string) {
@@ -130,7 +171,12 @@ export async function markFreeItineraryUsed(supabase: SupabaseClient, userId: st
   return { ok: true };
 }
 
-export async function canGenerateFinalItinerary(supabase: SupabaseClient, userId: string, tripId: string) {
+export async function canGenerateFinalItinerary(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string,
+  userEmail?: string | null
+) {
   const { data: trip, error } = await supabase
     .from("roamly_trips")
     .select("*")
@@ -169,6 +215,11 @@ export async function canGenerateFinalItinerary(supabase: SupabaseClient, userId
 
   if (trip.itinerary_unlock_source === "admin") {
     return { ok: true as const, source: "admin" as const, trip };
+  }
+
+  const access = getRoamlyAccessForUser(userEmail);
+  if (access.hasQaAccess) {
+    return { ok: true as const, source: "admin" as const, trip, qaTester: true as const };
   }
 
   const free = await hasUsedFreeItinerary(supabase, userId);
@@ -328,6 +379,11 @@ export async function createItineraryCheckoutSession(
 ) {
   const editable = await requireTripEditable(supabase, user.id, tripId);
   if (!editable.ok) return editable;
+  const access = getRoamlyAccessForUser(user.email);
+  if (access.hasQaAccess) {
+    await markTripAsQaTester(supabase, user.id, tripId, { qa_checkout_kind: "itinerary" });
+    return { ok: true as const, alreadyUnlocked: true, tester: true as const, url: `/trip/${tripId}` };
+  }
   return createCheckoutSession(supabase, user, tripId, "itinerary_unlock");
 }
 
@@ -338,6 +394,12 @@ export async function createTrackingCheckoutSession(
 ) {
   const locked = await requireTripLockedForTracking(supabase, user.id, tripId);
   if (!locked.ok) return locked;
+  const access = getRoamlyAccessForUser(user.email);
+  if (access.hasQaAccess) {
+    await markTripAsQaTester(supabase, user.id, tripId, { qa_checkout_kind: "tracking" });
+    await unlockLiveCompanion(supabase, tripId, "admin");
+    return { ok: true as const, alreadyUnlocked: true, tester: true as const, url: `/trip/${tripId}/live` };
+  }
   if (tripHasTrackingUnlock(locked.trip)) {
     return { ok: true as const, alreadyUnlocked: true, url: `/trip/${tripId}/live` };
   }
@@ -353,6 +415,25 @@ export async function createBundleCheckoutSession(
 ) {
   const editable = await requireTripEditable(supabase, user.id, tripId);
   if (!editable.ok) return editable;
+  const access = getRoamlyAccessForUser(user.email);
+  if (access.hasQaAccess) {
+    await markTripAsQaTester(supabase, user.id, tripId, { qa_checkout_kind: "complete" });
+    const writer = createSupabaseAdminClient() || supabase;
+    await writer
+      .from("roamly_trips")
+      .update({
+        itinerary_unlock_source: "admin",
+        tracking_unlocked: true,
+        tracking_unlock_source: "admin",
+        live_companion_unlocked: true,
+        live_companion_unlocked_at: new Date().toISOString(),
+        live_companion_source: "admin"
+      })
+      .eq("id", tripId)
+      .eq("user_id", user.id);
+    await unlockLiveCompanion(writer, tripId, "admin");
+    return { ok: true as const, alreadyUnlocked: true, tester: true as const, url: `/trip/${tripId}` };
+  }
   return createCheckoutSession(supabase, user, tripId, "bundle");
 }
 

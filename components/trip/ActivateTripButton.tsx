@@ -9,13 +9,15 @@ type ActivateTripButtonProps = {
   itineraryLocked?: boolean;
   trackingUnlocked?: boolean;
   showItineraryUnlock?: boolean;
+  testerAccess?: boolean;
 };
 
 export function ActivateTripButton({
   tripId,
   itineraryLocked = false,
   trackingUnlocked = false,
-  showItineraryUnlock = true
+  showItineraryUnlock = true,
+  testerAccess = false
 }: ActivateTripButtonProps) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<CheckoutKind | "">("");
@@ -47,9 +49,20 @@ export function ActivateTripButton({
   }
 
   if (itineraryLocked && trackingUnlocked) return null;
+  const testerKind: CheckoutKind = itineraryLocked ? "tracking" : "complete";
 
   return (
     <div className="space-y-3">
+      {testerAccess ? (
+        <button
+          type="button"
+          onClick={() => startCheckout(testerKind)}
+          disabled={Boolean(busy)}
+          className="w-full rounded-2xl border border-ocean/25 bg-ocean/10 px-5 py-4 text-sm font-black text-ocean transition hover:-translate-y-0.5 hover:bg-ocean/15 disabled:translate-y-0 disabled:opacity-60"
+        >
+          {busy === testerKind ? "Continuing..." : "Continue as tester"}
+        </button>
+      ) : null}
       {!itineraryLocked && showItineraryUnlock ? (
         <>
           <button

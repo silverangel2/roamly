@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
 
   const result = await performActivityAction(auth.supabase, {
     userId: auth.user.id,
+    userEmail: auth.user.email,
     tripId,
     activityId,
     action: "complete",

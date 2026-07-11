@@ -251,7 +251,13 @@ function ToggleButton({
   );
 }
 
-export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?: boolean }) {
+export function TripPlanForm({
+  freeItineraryUsed = false,
+  testerAccess = false
+}: {
+  freeItineraryUsed?: boolean;
+  testerAccess?: boolean;
+}) {
   const router = useRouter();
   const { locale, translateText } = useI18n();
   const [step, setStep] = useState(0);
@@ -657,6 +663,11 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
           </p>
           <h2 className="mt-1 text-2xl font-black tracking-tight text-ink">{translateText(steps[step].title)}</h2>
           <p className="mt-1 text-sm font-bold text-slate-500">{translateText(steps[step].detail)}</p>
+          {testerAccess ? (
+            <p className="mt-2 w-fit rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
+              {translateText("Tester access")}
+            </p>
+          ) : null}
         </div>
         <div className="grid h-14 w-14 place-items-center rounded-2xl bg-mist text-sm font-black text-ocean">
           {progress}%
@@ -1022,7 +1033,9 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
           >
             {priceChecking
               ? translateText("Checking costs...")
-              : freeItineraryUsed
+              : testerAccess && freeItineraryUsed
+                ? translateText("Continue as tester")
+                : freeItineraryUsed
                 ? translateText("Unlock itinerary — $4.99 CAD")
                 : translateText("Generate my free itinerary")}
           </button>
@@ -1032,7 +1045,9 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
       {step === steps.length - 1 ? (
         <p className="mt-3 text-center text-xs font-bold leading-5 text-slate-500">
           {freeItineraryUsed
-            ? translateText("One custom itinerary for one trip. No subscription.")
+            ? testerAccess
+              ? translateText("Tester activity is excluded from revenue totals where possible.")
+              : translateText("One custom itinerary for one trip. No subscription.")
             : translateText("You get 1 free itinerary per account.")}
         </p>
       ) : null}
@@ -1069,7 +1084,11 @@ export function TripPlanForm({ freeItineraryUsed = false }: { freeItineraryUsed?
                 disabled={loading}
                 className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-60"
               >
-                {loading ? translateText("Generating...") : translateText("Generate itinerary")}
+                {loading
+                  ? translateText("Generating...")
+                  : testerAccess && freeItineraryUsed
+                    ? translateText("Continue as tester")
+                    : translateText("Generate itinerary")}
               </button>
             </div>
           </div>

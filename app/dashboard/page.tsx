@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -80,6 +81,7 @@ export default async function DashboardPage() {
   if (!current.user) {
     redirect("/login?next=/dashboard");
   }
+  const access = getRoamlyAccessForUser(current.user.email);
 
   const supabase = await createSupabaseServerClient();
   const [{ data: trips }, free] = await Promise.all([
@@ -105,6 +107,7 @@ export default async function DashboardPage() {
       <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr] lg:items-end">
         <div>
           <Badge>Trips</Badge>
+          {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">
             Your travel command center.
           </h1>
@@ -120,7 +123,7 @@ export default async function DashboardPage() {
 
       <section className="mt-7 grid gap-4 md:grid-cols-3">
         {[
-          ["Free itinerary", free.used ? "Used" : "Available"],
+          ["Free itinerary", access.hasQaAccess ? "Tester access" : free.used ? "Used" : "Available"],
           ["Locked itineraries", String(locked.length)],
           ["Draft trips", String(drafts.length)]
         ].map(([label, value]) => (

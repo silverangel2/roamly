@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyProfile } from "@/lib/profiles";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -44,12 +45,14 @@ export default async function AccountPage() {
         ? current.user.user_metadata.name
         : "";
   const profileName = profileResult.profile?.full_name || metadataName || "";
+  const access = getRoamlyAccessForUser(current.user.email);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <section className="space-y-4">
           <Badge>Account</Badge>
+          {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <h1 className="text-4xl font-black tracking-tight text-ink sm:text-6xl">Your Roamly profile.</h1>
           <p className="text-base font-semibold leading-7 text-slate-600">
             Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.
@@ -57,12 +60,16 @@ export default async function AccountPage() {
           <div className="grid gap-3">
             <Card className="p-4">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Account type</p>
-              <p className="mt-2 text-2xl font-black text-ink">Free user</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">Payments unlock one itinerary or Live Trip Companion for one trip.</p>
+              <p className="mt-2 text-2xl font-black text-ink">{access.hasQaAccess ? "Tester access" : "Free user"}</p>
+              <p className="mt-1 text-sm font-bold text-slate-500">
+                {access.hasQaAccess
+                  ? "Tester access unlocks paid feature checks without creating Stripe revenue."
+                  : "Payments unlock one itinerary or Live Trip Companion for one trip."}
+              </p>
             </Card>
             <Card className="p-4">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Free itinerary</p>
-              <p className="mt-2 text-2xl font-black text-ink">{free.used ? "Used" : "Available"}</p>
+              <p className="mt-2 text-2xl font-black text-ink">{access.hasQaAccess ? "Tester override" : free.used ? "Used" : "Available"}</p>
               <p className="mt-1 text-sm font-bold text-slate-500">You get 1 free itinerary per account.</p>
             </Card>
           </div>

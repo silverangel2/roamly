@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { NotificationPermissionCard } from "@/components/roamly/NotificationPermissionCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
+import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle } from "@/lib/trips";
 
@@ -18,7 +20,13 @@ export default async function CompanionPage({ params }: { params: Promise<{ id: 
   const bundle = await getTripBundle(supabase, current.user.id, id);
   if (!bundle.data) redirect("/dashboard?tripAccess=denied");
 
-  const unlocked = isTripLocked(bundle.data.trip) && tripHasTrackingUnlock(bundle.data.trip);
+  const access = getRoamlyAccessForUser(current.user.email);
+  const locked = isTripLocked(bundle.data.trip);
+  const companionUnlocked = tripHasTrackingUnlock(bundle.data.trip);
+  if (access.hasQaAccess && locked && !companionUnlocked) {
+    await unlockLiveCompanion(supabase, id, "admin");
+  }
+  const unlocked = locked && (companionUnlocked || access.hasQaAccess);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">

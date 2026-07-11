@@ -92,6 +92,24 @@ export default async function AdminSystemPage() {
   const affiliatesEnabled = process.env.ROAMLY_AFFILIATES_ENABLED === "true";
   const systemChecks: Array<{ group: string; label: string; status: ReadinessStatus; detail: string }> = [
     {
+      group: "QA access",
+      label: "Tester emails",
+      status: state.access.testerEmailsConfigured ? "Ready" : "Optional",
+      detail: "ROAMLY_TESTER_EMAILS enables private tester access when configured."
+    },
+    {
+      group: "QA access",
+      label: "Current user is tester",
+      status: state.access.isTester ? "Ready" : "Optional",
+      detail: "Admin accounts automatically have tester-style access."
+    },
+    {
+      group: "QA access",
+      label: "Current user is admin",
+      status: state.access.isAdmin ? "Ready" : "Missing",
+      detail: "Admin checks use ROAMLY_ADMIN_EMAILS and never expose configured emails."
+    },
+    {
       group: "Places",
       label: "Google Places server key",
       status: optionalStatus(Boolean(process.env.GOOGLE_MAPS_API_KEY), process.env.ROAMLY_PLACES_PROVIDER === "google"),
@@ -247,7 +265,10 @@ export default async function AdminSystemPage() {
           ["From email", emailReadiness.fromEmail ? "Configured" : "Missing"],
           ["Email logs", `${emailLogs.count || 0}`],
           ["Last email status", lastEmail.data?.status || "None"],
-          ["Last email error", lastEmail.data?.error || "None"]
+          ["Last email error", lastEmail.data?.error || "None"],
+          ["ROAMLY_TESTER_EMAILS", state.access.testerEmailsConfigured ? "Configured" : "Not configured"],
+          ["Current user tester", state.access.isTester ? "Yes" : "No"],
+          ["Current user admin", state.access.isAdmin ? "Yes" : "No"]
         ].map(([label, value]) => (
           <Card key={label} className="p-4">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>

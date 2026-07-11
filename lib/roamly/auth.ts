@@ -7,6 +7,7 @@ import {
   getCurrentUser as getSupabaseCurrentUser,
   type CurrentUserResult
 } from "@/lib/supabase/server";
+import { getRoamlyAdminEmails, isRoamlyAdmin } from "@/lib/roamly/access";
 
 export const AUTH_REQUIRED_MESSAGE = "Please log in to continue.";
 
@@ -25,16 +26,10 @@ export function getLoginRedirect(path: string) {
   return `/login?next=${encodeURIComponent(safeNextPath(path, "/dashboard"))}`;
 }
 
-export function getRoamlyAdminEmails() {
-  return (process.env.ROAMLY_ADMIN_EMAILS || "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-}
+export { getRoamlyAdminEmails };
 
 export function isAdminEmail(email: string | null | undefined) {
-  if (!email) return false;
-  return getRoamlyAdminEmails().includes(email.toLowerCase());
+  return isRoamlyAdmin(email);
 }
 
 export async function getCurrentUser(): Promise<CurrentUserResult> {

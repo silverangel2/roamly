@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
     metadata: {
       tripId,
       checkoutKind: kind,
+      qa_tester: "tester" in checkout ? checkout.tester === true : false,
       alreadyUnlocked: "alreadyUnlocked" in checkout ? checkout.alreadyUnlocked : false
     }
   });
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     url: checkout.url,
+    tester: "tester" in checkout ? checkout.tester === true : false,
     alreadyActivated: "alreadyUnlocked" in checkout ? checkout.alreadyUnlocked : false
   });
 }
