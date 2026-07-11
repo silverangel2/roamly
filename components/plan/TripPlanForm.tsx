@@ -83,6 +83,21 @@ function classNames(...items: Array<string | false | null | undefined>) {
   return items.filter(Boolean).join(" ");
 }
 
+const primaryActionClass =
+  "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60";
+const selectedPrimaryOptionClass =
+  "border-cyan-300 bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20";
+const selectedWarmOptionClass =
+  "border-orange-300 bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-lg shadow-orange-400/20";
+const unselectedOptionClass =
+  "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10";
+
+function selectedOptionClass(label: string) {
+  return ["Food", "Nightlife", "Romance", "Premium"].includes(label)
+    ? selectedWarmOptionClass
+    : selectedPrimaryOptionClass;
+}
+
 function getVisitorKey() {
   if (typeof window === "undefined") return "";
   const key = "roamly_visitor_key";
@@ -214,9 +229,7 @@ function Chip({
       onClick={onClick}
       className={classNames(
         "rounded-2xl border px-4 py-3 text-sm font-black transition",
-        selected
-          ? "border-ink bg-ink text-white shadow-soft"
-          : "border-cloud bg-white text-slate-600 hover:border-ocean/40 hover:text-ink"
+        selected ? selectedOptionClass(label) : unselectedOptionClass
       )}
     >
       {translateText(label)}
@@ -239,12 +252,14 @@ function ToggleButton({
       type="button"
       onClick={onToggle}
       className={classNames(
-        "rounded-2xl px-4 py-3 text-left text-sm font-black ring-1 ring-cloud transition",
-        enabled ? "bg-ink text-white" : "bg-white text-ink"
+        "rounded-2xl px-4 py-3 text-left text-sm font-black ring-1 transition",
+        enabled
+          ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20 ring-cyan-300"
+          : "bg-white text-slate-700 ring-slate-200 hover:ring-cyan-300 hover:text-cyan-700"
       )}
     >
       <span className="block">{translateText(label)}</span>
-      <span className={classNames("mt-1 block text-xs", enabled ? "text-white/70" : "text-slate-500")}>
+      <span className={classNames("mt-1 block text-xs", enabled ? "text-white/85" : "text-slate-500")}>
         {enabled ? translateText("Yes") : translateText("No")}
       </span>
     </button>
@@ -708,7 +723,7 @@ export function TripPlanForm({
                   }}
                   className={classNames(
                     "rounded-2xl border px-4 py-3 text-left text-sm font-black transition",
-                    tripType === value ? "border-ink bg-ink text-white shadow-soft" : "border-cloud bg-white text-slate-600 hover:border-ocean/40"
+                    tripType === value ? selectedOptionClass(label) : unselectedOptionClass
                   )}
                 >
                   {translateText(label)}
@@ -763,7 +778,7 @@ export function TripPlanForm({
                 <button
                   type="button"
                   onClick={addCity}
-                  className="mt-3 rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/30"
+                  className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10"
                 >
                   {translateText("Add city")}
                 </button>
@@ -936,13 +951,13 @@ export function TripPlanForm({
 
         {step === 4 ? (
           <div className="grid gap-4">
-            <div className="rounded-[1.5rem] bg-ink p-4 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">{translateText("Trip brief")}</p>
-              <h3 className="mt-2 text-xl font-black">{normalizedDestination || translateText("Destination pending")}</h3>
-              <div className="mt-4 grid gap-2 text-sm font-bold text-white/76">
+            <div className="rounded-[1.5rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_55%,#fff7ed_100%)] p-4 text-ink shadow-soft">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{translateText("Trip brief")}</p>
+              <h3 className="mt-2 text-xl font-black text-ink">{normalizedDestination || translateText("Destination pending")}</h3>
+              <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600">
                 {summaryRows.map(([label, value]) => (
                   <p key={label}>
-                    <span className="text-white">{translateText(label)}:</span> {value}
+                    <span className="text-ink">{translateText(label)}:</span> {value}
                   </p>
                 ))}
               </div>
@@ -1011,7 +1026,7 @@ export function TripPlanForm({
           type="button"
           onClick={goBack}
           disabled={step === 0 || loading}
-          className="rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/30 disabled:translate-y-0 disabled:opacity-40"
+          className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 disabled:translate-y-0 disabled:opacity-40"
         >
           {translateText("Back")}
         </button>
@@ -1020,7 +1035,7 @@ export function TripPlanForm({
             type="button"
             onClick={goNext}
             disabled={loading}
-            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
+            className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
           >
             {translateText("Continue")}
           </button>
@@ -1029,7 +1044,7 @@ export function TripPlanForm({
             type="button"
             onClick={openFinalConfirmation}
             disabled={loading || priceChecking}
-            className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
+            className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
           >
             {priceChecking
               ? translateText("Checking costs...")
@@ -1074,7 +1089,7 @@ export function TripPlanForm({
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={loading}
-                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-ocean/30 disabled:opacity-60"
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 disabled:opacity-60"
               >
                 {translateText("Go back and edit")}
               </button>
@@ -1082,7 +1097,7 @@ export function TripPlanForm({
                 type="button"
                 onClick={submitPlan}
                 disabled={loading}
-                className="rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white transition hover:bg-ocean disabled:opacity-60"
+                className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
               >
                 {loading
                   ? translateText("Generating...")

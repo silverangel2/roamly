@@ -28,10 +28,10 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
           Start with one free itinerary per account. Unlock only the new trips you want to fully use.
         </p>
-        <div className="rounded-[2rem] bg-ink p-5 text-white shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">Simple accounts</p>
+        <div className="rounded-[2rem] border border-orange-100 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_58%,#ecfeff_100%)] p-5 text-ink shadow-soft">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Simple accounts</p>
           <p className="mt-3 text-2xl font-black">One free itinerary now. One-time trip packs later.</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-white/70">
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
             No buyer/seller/admin tier complexity. Roamly stays light.
           </p>
         </div>

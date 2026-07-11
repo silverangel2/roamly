@@ -71,7 +71,9 @@ export function LocationTrackingSettings() {
           disabled={busy}
           onClick={() => save({ ...settings, location_tracking_enabled: !tracking })}
           className={`rounded-2xl px-4 py-3 text-sm font-black shadow-soft transition disabled:opacity-60 ${
-            tracking ? "bg-ink text-white" : "bg-white text-ink ring-1 ring-cloud"
+            tracking
+              ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
+              : "bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-cyan-300 hover:text-cyan-700"
           }`}
         >
           {tracking ? "Trip sensing on" : "Trip sensing off"}
@@ -81,7 +83,9 @@ export function LocationTrackingSettings() {
           disabled={busy}
           onClick={() => save({ ...settings, notification_enabled: !notifications })}
           className={`rounded-2xl px-4 py-3 text-sm font-black shadow-soft transition disabled:opacity-60 ${
-            notifications ? "bg-ocean text-white" : "bg-white text-ink ring-1 ring-cloud"
+            notifications
+              ? "bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-lg shadow-orange-400/20"
+              : "bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-cyan-300 hover:text-cyan-700"
           }`}
         >
           {notifications ? "Notifications on" : "Notifications off"}

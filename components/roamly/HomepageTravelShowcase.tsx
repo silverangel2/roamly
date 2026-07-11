@@ -76,7 +76,7 @@ export function HomepageTravelShowcase() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Route preview</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight">Montreal to Rome</h2>
             </div>
-            <span className="rounded-full bg-ink px-3 py-2 text-xs font-black text-white">Multi-city</span>
+            <span className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20">Multi-city</span>
           </div>
           <div className="mt-4 grid gap-3">
             {routeStops.map((stop, index) => (

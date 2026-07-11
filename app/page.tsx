@@ -132,7 +132,7 @@ export default function Home() {
               organize bookings, and follow your trip with a live companion.
             </p>
             <div className="mt-7 grid gap-3 sm:flex">
-              <Button href="/plan" className="min-h-12 bg-ink px-6 text-white hover:bg-ocean">
+              <Button href="/plan" className="min-h-12 px-6">
                 Start planning
               </Button>
               <Button

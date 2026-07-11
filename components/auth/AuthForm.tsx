@@ -157,7 +157,7 @@ export function AuthForm({ mode, nextPath = "/dashboard" }: AuthFormProps) {
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean disabled:translate-y-0 disabled:opacity-60"
+        className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
       >
         {busy ? "Working..." : isSignup ? "Create free account" : "Log in"}
       </button>

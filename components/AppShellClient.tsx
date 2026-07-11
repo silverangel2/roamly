@@ -161,8 +161,8 @@ function AppShellContent({
                   href={route.href}
                   className={`rounded-full px-4 py-2 text-sm font-black transition ${
                     isActive(pathname, route.href)
-                      ? "bg-ink text-white shadow-soft"
-                      : "text-slate-600 hover:bg-white/90 hover:text-ink"
+                      ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)]"
+                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700"
                   }`}
                 >
                   {route.label}
@@ -178,7 +178,7 @@ function AppShellContent({
                 <>
                   <Link
                     href="/login"
-                    className="hidden rounded-full border border-cloud bg-white/90 px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean sm:inline-flex"
+                    className="hidden rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 sm:inline-flex"
                   >
                     {t("ui.nav.login", "Log in")}
                   </Link>
@@ -191,7 +191,7 @@ function AppShellContent({
                   {t("ui.nav.logout", "Logout")}
                 </Link>
               )}
-              <Link href={planTripHref} className="rounded-full bg-ink px-4 py-2 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ocean">
+              <Link href={planTripHref} className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400">
                 {planTripLabel}
               </Link>
             </div>
@@ -216,8 +216,8 @@ function AppShellContent({
               href={route.href}
               className={`relative rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
                 isActive(pathname, route.href)
-                  ? "bg-ink text-white"
-                  : "text-slate-500 hover:bg-mist hover:text-ink"
+                  ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
+                  : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"
               }`}
             >
               {route.label}
