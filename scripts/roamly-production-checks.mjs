@@ -82,6 +82,11 @@ const planForm = read("components/plan/TripPlanForm.tsx");
 assert.ok(planForm.includes("checkout=failed"), "planner checkout failures after draft save must land on a retryable trip page");
 assert.ok(!planForm.includes("ensureActiveSessionBeforeGeneration"), "planner must not block generation on stale browser session state before server auth runs");
 
+const middleware = read("middleware.ts");
+assert.ok(middleware.includes("createServerClient"), "middleware must refresh Supabase sessions");
+assert.ok(middleware.includes("supabase.auth.getUser()"), "middleware must validate/refresh auth before protected routes");
+assert.ok(middleware.includes("\"/api/trips/:path*\""), "middleware must refresh auth for trip API requests");
+
 const pushServer = read("lib/roamly/pushServer.ts");
 assert.ok(pushServer.includes("createInAppNotification"), "in-app notifications helper missing");
 assert.ok(pushServer.includes("live_companion_unlocked"), "cron must check companion unlock");
