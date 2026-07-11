@@ -20,6 +20,7 @@ export type RoamlyBillingTrip = {
   itinerary_unlock_source?: string | null;
   tracking_unlocked?: boolean | null;
   live_companion_unlocked?: boolean | null;
+  updated_at?: string | null;
   metadata?: Record<string, unknown> | null;
 };
 
@@ -49,6 +50,8 @@ const purchaseOptions: Record<
   }
 };
 
+const GENERATING_STALE_AFTER_MS = 3 * 60 * 1000;
+
 export function normalizePurchaseType(value: unknown): RoamlyPurchaseType {
   if (value === "itinerary_unlock" || value === "tracking_addon" || value === "bundle") return value;
   if (value === "itinerary") return "itinerary_unlock";
@@ -70,6 +73,16 @@ function paymentIntentId(session: Stripe.Checkout.Session) {
 
 export function isTripLocked(trip: Pick<RoamlyBillingTrip, "itinerary_locked" | "itinerary_status" | "itinerary_generated_at">) {
   return Boolean(trip.itinerary_locked || trip.itinerary_status === "locked" || trip.itinerary_generated_at);
+}
+
+function isTripGenerating(trip: Pick<RoamlyBillingTrip, "itinerary_status"> & { status?: string | null }) {
+  return trip.itinerary_status === "generating" || trip.status === "generating";
+}
+
+function isStaleGeneratingTrip(trip: Pick<RoamlyBillingTrip, "updated_at">) {
+  if (!trip.updated_at) return false;
+  const updatedAt = new Date(trip.updated_at).getTime();
+  return Number.isFinite(updatedAt) && Date.now() - updatedAt > GENERATING_STALE_AFTER_MS;
 }
 
 export function tripHasTrackingUnlock(trip: Pick<RoamlyBillingTrip, "tracking_unlocked">) {
@@ -195,7 +208,7 @@ export async function canGenerateFinalItinerary(
       trip
     };
   }
-  if (trip.itinerary_status === "generating" || trip.status === "generating") {
+  if (isTripGenerating(trip) && !isStaleGeneratingTrip(trip)) {
     return {
       ok: false as const,
       status: 409,

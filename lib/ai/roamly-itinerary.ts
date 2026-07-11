@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { normalizeItinerary, type RoamlyItinerary } from "@/lib/itinerary";
+import { buildStarterItinerary, normalizeItinerary, type RoamlyItinerary } from "@/lib/itinerary";
 import { normalizeLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
@@ -13,6 +13,7 @@ export type GeneratedItineraryResult = {
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+const OPENAI_ITINERARY_TIMEOUT_MS = 45_000;
 
 export class RoamlyItineraryGenerationError extends Error {
   code: string;
@@ -30,6 +31,20 @@ function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
   return new OpenAI({ apiKey });
+}
+
+function buildFallbackItinerary(payload: TripPlannerPayload, generationNote: string): GeneratedItineraryResult {
+  return {
+    itinerary: enrichItineraryBookingSuggestions(
+      {
+        ...buildStarterItinerary(payload),
+        generation_note: generationNote
+      },
+      payload
+    ),
+    model: "local-starter-itinerary",
+    aiUsed: false
+  };
 }
 
 function centsToMoney(value: unknown, currency: string) {
@@ -197,23 +212,32 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
   const client = getClient();
 
   if (!client) {
-    throw new RoamlyItineraryGenerationError(ROAMLY_AI_NOT_CONFIGURED_MESSAGE, "AI_NOT_CONFIGURED", 503);
+    return buildFallbackItinerary(
+      payload,
+      "Generated with Roamly's local itinerary builder because AI generation is not configured."
+    );
   }
 
   try {
-    const completion = await client.chat.completions.create({
-      model,
-      temperature: 0.45,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
-        },
-        { role: "user", content: buildPrompt(payload) }
-      ]
-    });
+    const completion = await client.chat.completions.create(
+      {
+        model,
+        temperature: 0.45,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
+          },
+          { role: "user", content: buildPrompt(payload) }
+        ]
+      },
+      {
+        maxRetries: 0,
+        timeout: OPENAI_ITINERARY_TIMEOUT_MS
+      }
+    );
 
     const text = completion.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(text) as unknown;
@@ -226,6 +250,9 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
   } catch (error) {
     if (error instanceof RoamlyItineraryGenerationError) throw error;
     console.error("[Roamly AI] itinerary generation failed", error);
-    throw new RoamlyItineraryGenerationError(ROAMLY_AI_GENERATION_FAILED_MESSAGE, "AI_GENERATION_FAILED", 502);
+    return buildFallbackItinerary(
+      payload,
+      "Generated with Roamly's local itinerary builder because AI generation did not finish in time."
+    );
   }
 }
