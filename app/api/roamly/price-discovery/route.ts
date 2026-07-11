@@ -4,9 +4,7 @@ import {
   discoverTripPrices,
   savePriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
-import { getConfirmedBookingCostCents } from "@/lib/roamly/bookings";
-import { requireUser } from "@/lib/roamly/auth";
-import { recordAppEvent } from "@/lib/roamly/events";
+import { getCurrentUser } from "@/lib/roamly/auth";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import type { TripType } from "@/lib/trip-planner";
 
@@ -69,9 +67,13 @@ function cleanStops(value: unknown) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser();
-  if (!auth.ok) return auth.response;
+  const auth = await getCurrentUser();
 
+  const currentUser = auth.user;
+
+  if (process.env.NODE_ENV === "development" && !currentUser) {
+    console.warn("[Roamly] Price discovery running anonymously before final generation");
+  }
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const tripType = getTripType(body.tripType || body.trip_type);
   const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
@@ -82,14 +84,12 @@ export async function POST(request: NextRequest) {
   if (!destination) return NextResponse.json({ ok: false, error: "Destination is required." }, { status: 400 });
 
   const tripId = getString(body.tripId) || null;
-  let committedBudgetCents = 0;
-  if (tripId) {
-    const cost = await getConfirmedBookingCostCents(auth.supabase, auth.user.id, tripId);
-    committedBudgetCents = cost.amountCents;
-  }
+  // Keep anonymous budget checks working. Confirmed booking costs are applied later
+  // in authenticated trip generation/saved-trip flows.
+  const committedBudgetCents = 0;
 
   const input = {
-    userId: auth.user.id,
+    userId: auth.user?.id,
     tripId,
     tripType,
     origin: getString(body.origin),
@@ -127,63 +127,19 @@ export async function POST(request: NextRequest) {
     dietaryPreference: getString(body.dietaryPreference || body.dietary_preference)
   };
 
-  await recordAppEvent(auth.supabase, {
-    userId: auth.user.id,
-    eventType: "price_discovery_started",
-    metadata: {
-      tripType,
-      destination,
-      budgetCurrency: input.budgetCurrency,
-      budgetAmount: input.budgetAmount
-    }
-  });
-
   let discovery;
   let saved;
   try {
     discovery = await discoverTripPrices(input);
-    saved = await savePriceDiscovery(auth.supabase, input, discovery);
+    saved = null;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Price discovery failed.";
-    await recordAppEvent(auth.supabase, {
-      userId: auth.user.id,
-      eventType: "price_discovery_failed",
-      metadata: {
-        tripType,
-        destination,
-        error: message
-      }
-    });
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
 
-  if (saved.error) {
-    await recordAppEvent(auth.supabase, {
-      userId: auth.user.id,
-      eventType: "price_discovery_failed",
-      metadata: { tripType, destination, error: saved.error }
-    });
-    return NextResponse.json(
-      { ok: false, error: saved.error, setupHint: "Run the Roamly budget/booking/companion migration." },
-      { status: 500 }
-    );
-  }
-
-  await recordAppEvent(auth.supabase, {
-    userId: auth.user.id,
-    eventType: "price_discovery_completed",
-    metadata: {
-      tripType,
-      destination,
-      discoveryId: saved.id,
-      budgetStatus: discovery.budgetStatus,
-      totalEstimateCents: discovery.totalEstimateCents
-    }
-  });
-
   return NextResponse.json({
     ok: true,
-    discoveryId: saved.id,
+    discoveryId: null,
     discovery,
     budgetConstraint: buildBudgetConstraintForItinerary(discovery)
   });

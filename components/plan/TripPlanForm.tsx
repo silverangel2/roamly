@@ -1010,8 +1010,6 @@ export function TripPlanForm({
   }
 
   async function runPriceDiscovery() {
-    const activeUser = await ensureActiveSessionBeforeGeneration();
-    if (!activeUser) return false;
 
     setPriceChecking(true);
     setNotice("Checking trip costs...");
@@ -1027,12 +1025,7 @@ export function TripPlanForm({
       const response = await retryAfterSessionRefresh(await request(), request);
       const data = await response.json().catch(() => null);
       if (response.status === 401) {
-        const user = await refreshSessionUser();
-        if (user) {
-          setError("Your login session is still syncing. Please try again.");
-          return false;
-        }
-        redirectToLoginForGeneration();
+        setError("Roamly could not check the budget yet. Please try again.");
         return false;
       }
       if (!response.ok) throw new Error(data?.message || data?.error || "Could not check trip costs.");
