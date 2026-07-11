@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   accommodationOptions,
   bedPreferenceOptions,
@@ -93,12 +93,132 @@ const selectedWarmOptionClass =
 const unselectedOptionClass =
   "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10";
 const GENERATION_ERROR_MESSAGE = "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const GENERATION_TIMEOUT_MS = 120_000;
+const PLAN_DRAFT_KEY = "roamly.plan.draft.v1";
+const PLAN_RESUME_PATH = "/plan?resumePlan=1";
 
 function selectedOptionClass(label: string) {
   return ["Food", "Nightlife", "Romance", "Premium"].includes(label)
     ? selectedWarmOptionClass
     : selectedPrimaryOptionClass;
+}
+
+function planLoginUrl() {
+  return `/login?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+}
+
+function defaultStops(): StopItem[] {
+  return [
+    { id: "stop-1", place: null },
+    { id: "stop-2", place: null }
+  ];
+}
+
+function clampStep(value: unknown) {
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : 0;
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.min(steps.length - 1, Math.max(0, Math.round(parsed)));
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function readDraftString(value: unknown, fallback = "") {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return fallback;
+}
+
+function readDraftBoolean(value: unknown, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function readDraftStringArray(value: unknown, fallback: string[]) {
+  if (!Array.isArray(value)) return fallback;
+  const items = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  return items.length ? items : fallback;
+}
+
+function readDraftOption<T extends readonly string[]>(value: unknown, options: T, fallback: T[number]): T[number] {
+  return typeof value === "string" && (options as readonly string[]).includes(value) ? value : fallback;
+}
+
+function readDraftTripType(value: unknown): TripType {
+  return value === "multi_city" ? "multi_city" : "single_destination";
+}
+
+function readDraftNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readDraftPlace(value: unknown): NormalizedPlace | null {
+  if (typeof value === "string") {
+    const text = normalizePlaceText(value);
+    return text.length >= 2 ? { label: text, value: text, source: "custom" } : null;
+  }
+
+  const record = getRecord(value);
+  if (!record) return null;
+
+  const label = readDraftString(record.label || record.value || record.formatted_address);
+  const placeValue = readDraftString(record.value || record.label || record.formatted_address);
+  const normalized = normalizePlaceText(placeValue || label);
+  if (normalized.length < 2) return null;
+  const source = record.source === "google" || record.source === "local" ? record.source : "custom";
+
+  return {
+    label: label || normalized,
+    value: normalized,
+    city: readDraftString(record.city) || undefined,
+    region: readDraftString(record.region) || undefined,
+    country: readDraftString(record.country) || undefined,
+    place_id: readDraftString(record.place_id || record.placeId) || undefined,
+    latitude: readDraftNumber(record.latitude),
+    longitude: readDraftNumber(record.longitude),
+    formatted_address: readDraftString(record.formatted_address || record.formattedAddress) || undefined,
+    currency: readDraftString(record.currency) || undefined,
+    timezone: readDraftString(record.timezone) || undefined,
+    source
+  };
+}
+
+function readDraftStops(record: Record<string, unknown>) {
+  const rawStopItems = Array.isArray(record.stopItems)
+    ? record.stopItems
+    : Array.isArray(record.stops)
+      ? record.stops
+      : null;
+
+  if (rawStopItems) {
+    const restored = rawStopItems
+      .map((item, index) => {
+        const stop = getRecord(item);
+        const id = readDraftString(stop?.id, `stop-${index + 1}`);
+        return { id, place: readDraftPlace(stop?.place) };
+      })
+      .slice(0, 12);
+    while (restored.length < 2) restored.push({ id: `stop-${restored.length + 1}`, place: null });
+    return restored;
+  }
+
+  const rawStops = Array.isArray(record.destinationStops)
+    ? record.destinationStops
+    : Array.isArray(record.destination_stops)
+      ? record.destination_stops
+      : [];
+  const restored = rawStops
+    .map((item, index) => ({ id: `stop-${index + 1}`, place: readDraftPlace(item) }))
+    .filter((stop) => stop.place)
+    .slice(0, 12);
+  while (restored.length < 2) restored.push({ id: `stop-${restored.length + 1}`, place: null });
+  return restored;
+}
+
+function readDraftPriceDiscovery(value: unknown) {
+  const record = getRecord(value);
+  return record ? (record as unknown as PriceDiscoveryResult) : null;
 }
 
 function getVisitorKey() {
@@ -277,15 +397,14 @@ export function TripPlanForm({
   testerAccess?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale, translateText } = useI18n();
+  const shouldShowResumeNotice = searchParams.get("resumePlan") === "1";
   const [step, setStep] = useState(0);
   const [originPlace, setOriginPlace] = useState<NormalizedPlace | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<NormalizedPlace | null>(null);
   const [tripType, setTripType] = useState<TripType>("single_destination");
-  const [stops, setStops] = useState<StopItem[]>([
-    { id: "stop-1", place: null },
-    { id: "stop-2", place: null }
-  ]);
+  const [stops, setStops] = useState<StopItem[]>(() => defaultStops());
   const [returnToOrigin, setReturnToOrigin] = useState(true);
   const [flexibleCityOrder, setFlexibleCityOrder] = useState(false);
   const [flexibleDates, setFlexibleDates] = useState(false);
@@ -321,8 +440,11 @@ export function TripPlanForm({
   const [priceDiscovery, setPriceDiscovery] = useState<PriceDiscoveryResult | null>(null);
   const [priceDiscoveryId, setPriceDiscoveryId] = useState<string | null>(null);
   const [budgetConstraint, setBudgetConstraint] = useState("");
+  const [restoreNotice, setRestoreNotice] = useState(false);
   const trackedSelections = useRef(new Set<string>());
   const generationInFlight = useRef(false);
+  const draftHydrated = useRef(false);
+  const skipNextDraftSave = useRef(false);
 
   useEffect(() => {
     trackPlanEvent("plan_started");
@@ -495,6 +617,250 @@ export function TripPlanForm({
     ]
   );
 
+  const planDraft = useMemo(
+    () => ({
+      version: 1,
+      currentStep: step,
+      step,
+      origin: payload.origin,
+      originPlace,
+      origin_metadata: originPlace,
+      destination: payload.destination,
+      destinationPlace,
+      destination_metadata: destinationPlace,
+      trip_type: tripType,
+      tripType,
+      stopItems: stops,
+      stops,
+      destination_stops: validStops,
+      destinationStops: validStops,
+      return_to_origin: returnToOrigin,
+      returnToOrigin,
+      flexible_city_order: flexibleCityOrder,
+      flexibleCityOrder,
+      flexible_dates: flexibleDates,
+      flexibleDates,
+      start_date: startDate,
+      startDate,
+      end_date: endDate,
+      endDate,
+      days_count: daysCount,
+      daysCount,
+      travelers: {
+        adults: adultCount,
+        children: childCount,
+        infants: infantCount
+      },
+      travelersCount,
+      adults,
+      children,
+      infants,
+      rooms,
+      bedPreference,
+      budget_total: budgetAmount,
+      budgetAmount,
+      budget_currency: budgetCurrency,
+      budgetCurrency,
+      budget_includes_flights: budgetIncludesFlights,
+      budgetIncludesFlights,
+      budget_includes_hotel: budgetIncludesHotel,
+      budgetIncludesHotel,
+      budget_includes_activities: budgetIncludesActivities,
+      budgetIncludesActivities,
+      travel_style: travelStyle,
+      travelStyle,
+      pace,
+      walking_tolerance: walkingTolerance,
+      walkingTolerance,
+      interests,
+      accommodationPreference,
+      transportationPreference,
+      accessibility_needs: accessibilityNeeds,
+      accessibilityNeeds,
+      dietary_preference: dietaryPreference,
+      dietaryPreference,
+      specialNotes,
+      special_notes: specialNotes,
+      language: locale,
+      priceDiscoveryId,
+      budgetConstraint,
+      priceDiscovery,
+      itineraryRequest: payload
+    }),
+    [
+      accessibilityNeeds,
+      adultCount,
+      adults,
+      bedPreference,
+      budgetAmount,
+      budgetConstraint,
+      budgetCurrency,
+      budgetIncludesActivities,
+      budgetIncludesFlights,
+      budgetIncludesHotel,
+      childCount,
+      children,
+      daysCount,
+      destinationPlace,
+      dietaryPreference,
+      endDate,
+      flexibleCityOrder,
+      flexibleDates,
+      infantCount,
+      infants,
+      interests,
+      locale,
+      originPlace,
+      pace,
+      payload,
+      priceDiscovery,
+      priceDiscoveryId,
+      returnToOrigin,
+      rooms,
+      specialNotes,
+      startDate,
+      step,
+      stops,
+      travelStyle,
+      travelersCount,
+      tripType,
+      validStops,
+      walkingTolerance,
+      accommodationPreference,
+      transportationPreference
+    ]
+  );
+
+  const saveCurrentPlanDraft = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(PLAN_DRAFT_KEY, JSON.stringify(planDraft));
+    } catch {
+      // Draft persistence should never block planning or auth navigation.
+    }
+  }, [planDraft]);
+
+  const restorePlanDraft = useCallback((record: Record<string, unknown>) => {
+    const travelers = getRecord(record.travelers);
+    setStep(clampStep(record.currentStep ?? record.step));
+    setOriginPlace(readDraftPlace(record.originPlace ?? record.origin_metadata ?? record.origin));
+    setDestinationPlace(readDraftPlace(record.destinationPlace ?? record.destination_metadata ?? record.destination));
+    setTripType(readDraftTripType(record.tripType ?? record.trip_type));
+    setStops(readDraftStops(record));
+    setReturnToOrigin(readDraftBoolean(record.returnToOrigin ?? record.return_to_origin, true));
+    setFlexibleCityOrder(readDraftBoolean(record.flexibleCityOrder ?? record.flexible_city_order, false));
+    setFlexibleDates(readDraftBoolean(record.flexibleDates ?? record.flexible_dates, false));
+    setStartDate(readDraftString(record.startDate ?? record.start_date));
+    setEndDate(readDraftString(record.endDate ?? record.end_date));
+    setDaysCount(readDraftString(record.daysCount ?? record.days_count));
+    setAdults(readDraftString(record.adults ?? travelers?.adults, "1"));
+    setChildren(readDraftString(record.children ?? travelers?.children, "0"));
+    setInfants(readDraftString(record.infants ?? travelers?.infants, "0"));
+    setRooms(readDraftString(record.rooms, "1"));
+    setBedPreference(readDraftOption(record.bedPreference ?? record.bed_preference, bedPreferenceOptions, "No preference"));
+    setBudgetAmount(readDraftString(record.budgetAmount ?? record.budget_total));
+    setBudgetCurrency(readDraftOption(record.budgetCurrency ?? record.budget_currency, currencyOptions, "CAD"));
+    setBudgetIncludesFlights(readDraftBoolean(record.budgetIncludesFlights ?? record.budget_includes_flights, true));
+    setBudgetIncludesHotel(readDraftBoolean(record.budgetIncludesHotel ?? record.budget_includes_hotel, true));
+    setBudgetIncludesActivities(readDraftBoolean(record.budgetIncludesActivities ?? record.budget_includes_activities, true));
+    setTravelStyle(readDraftOption(record.travelStyle ?? record.travel_style, planningTravelStyles, "Balanced"));
+    setInterests(readDraftStringArray(record.interests, ["Food", "Culture"]));
+    setPace(readDraftOption(record.pace, planningPaces, "Balanced"));
+    setWalkingTolerance(readDraftOption(record.walkingTolerance ?? record.walking_tolerance, walkingToleranceOptions, "Medium"));
+    setAccommodationPreference(readDraftOption(record.accommodationPreference, accommodationOptions, "Mid-range"));
+    setTransportationPreference(readDraftOption(record.transportationPreference, transportationOptions, "Mixed"));
+    setAccessibilityNeeds(readDraftString(record.accessibilityNeeds ?? record.accessibility_needs));
+    setDietaryPreference(readDraftString(record.dietaryPreference ?? record.dietary_preference));
+    setSpecialNotes(readDraftString(record.specialNotes ?? record.special_notes));
+    setPriceDiscovery(readDraftPriceDiscovery(record.priceDiscovery));
+    setPriceDiscoveryId(readDraftString(record.priceDiscoveryId) || null);
+    setBudgetConstraint(readDraftString(record.budgetConstraint));
+    setError("");
+    setNotice("");
+    setLoading(false);
+    setConfirming(false);
+    setPriceChecking(false);
+    generationInFlight.current = false;
+  }, []);
+
+  function resetPlanner() {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(PLAN_DRAFT_KEY);
+    }
+    skipNextDraftSave.current = true;
+    trackedSelections.current.clear();
+    generationInFlight.current = false;
+    setRestoreNotice(false);
+    setStep(0);
+    setOriginPlace(null);
+    setDestinationPlace(null);
+    setTripType("single_destination");
+    setStops(defaultStops());
+    setReturnToOrigin(true);
+    setFlexibleCityOrder(false);
+    setFlexibleDates(false);
+    setStartDate("");
+    setEndDate("");
+    setDaysCount("");
+    setAdults("1");
+    setChildren("0");
+    setInfants("0");
+    setRooms("1");
+    setBedPreference("No preference");
+    setBudgetAmount("");
+    setBudgetCurrency("CAD");
+    setBudgetIncludesFlights(true);
+    setBudgetIncludesHotel(true);
+    setBudgetIncludesActivities(true);
+    setTravelStyle("Balanced");
+    setInterests(["Food", "Culture"]);
+    setPace("Balanced");
+    setWalkingTolerance("Medium");
+    setAccommodationPreference("Mid-range");
+    setTransportationPreference("Mixed");
+    setAccessibilityNeeds("");
+    setDietaryPreference("");
+    setSpecialNotes("");
+    setError("");
+    setNotice("");
+    setLoading(false);
+    setConfirming(false);
+    setPriceChecking(false);
+    setPriceDiscovery(null);
+    setPriceDiscoveryId(null);
+    setBudgetConstraint("");
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    skipNextDraftSave.current = true;
+    const raw = window.localStorage.getItem(PLAN_DRAFT_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        const record = getRecord(parsed);
+        if (record) {
+          restorePlanDraft(record);
+          setRestoreNotice(shouldShowResumeNotice);
+        }
+      } catch {
+        window.localStorage.removeItem(PLAN_DRAFT_KEY);
+      }
+    }
+
+    draftHydrated.current = true;
+  }, [restorePlanDraft, shouldShowResumeNotice]);
+
+  useEffect(() => {
+    if (!draftHydrated.current) return;
+    if (skipNextDraftSave.current) {
+      skipNextDraftSave.current = false;
+      return;
+    }
+    saveCurrentPlanDraft();
+  }, [saveCurrentPlanDraft]);
+
   function validateStep(stepToValidate: number) {
     if (stepToValidate === 0) {
       if (!isValidPlaceValue(payload.origin)) return "Please choose or enter your origin before continuing.";
@@ -566,7 +932,8 @@ export function TripPlanForm({
       });
       const data = await response.json().catch(() => null);
       if (response.status === 401) {
-        router.push("/login?next=/plan");
+        saveCurrentPlanDraft();
+        router.push(planLoginUrl());
         return false;
       }
       if (!response.ok) throw new Error(data?.message || data?.error || "Could not check trip costs.");
@@ -601,6 +968,7 @@ export function TripPlanForm({
     setError(validation);
     setNotice("");
     if (validation) return;
+    saveCurrentPlanDraft();
     const checked = await runPriceDiscovery();
     if (!checked) return;
     setConfirming(true);
@@ -613,6 +981,7 @@ export function TripPlanForm({
     setNotice("");
     if (validation) return;
 
+    saveCurrentPlanDraft();
     generationInFlight.current = true;
     setLoading(true);
     trackPlanEvent("itinerary_generation_started", { tripType, destination: payload.destination });
@@ -631,7 +1000,8 @@ export function TripPlanForm({
 
       if (response.status === 401) {
         setConfirming(false);
-        router.push("/login?next=/plan");
+        saveCurrentPlanDraft();
+        router.push(planLoginUrl());
         return;
       }
 
@@ -659,7 +1029,14 @@ export function TripPlanForm({
         return;
       }
 
-      throw new Error(data?.setupHint || data?.error || GENERATION_ERROR_MESSAGE);
+      const failureMessage = data?.message || data?.setupHint || data?.error || GENERATION_ERROR_MESSAGE;
+      if (failureMessage === AI_NOT_CONFIGURED_MESSAGE) {
+        setConfirming(false);
+        setError(AI_NOT_CONFIGURED_MESSAGE);
+        return;
+      }
+
+      throw new Error(failureMessage);
     } catch (err) {
       setNotice("");
       setConfirming(false);
@@ -712,6 +1089,19 @@ export function TripPlanForm({
           style={{ width: `${progress}%` }}
         />
       </div>
+
+      {restoreNotice ? (
+        <div className="mt-5 flex flex-col gap-3 rounded-[1.25rem] border border-ocean/20 bg-ocean/10 p-4 text-ocean sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-black">Your trip plan was restored. Continue where you left off.</p>
+          <button
+            type="button"
+            onClick={resetPlanner}
+            className="w-fit rounded-2xl bg-white px-4 py-2 text-xs font-black text-ocean shadow-soft transition hover:text-ink"
+          >
+            Start over
+          </button>
+        </div>
+      ) : null}
 
       <div className="mt-5 min-h-[24rem]">
         {step === 0 ? (

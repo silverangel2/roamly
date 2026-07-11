@@ -455,9 +455,9 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     sources: [
       { provider: "roamly_estimator", label: "Provider-ready estimate model", confidence: "medium" },
       { provider: "routeEstimator", label: "Broad route and inter-city travel estimate", confidence: "low" },
-      { provider: "flightProvider", label: "Placeholder for live airfare provider", confidence: "low" },
-      { provider: "hotelProvider", label: "Placeholder for live stay provider", confidence: "low" },
-      { provider: "activityProvider", label: "Placeholder for live activity provider", confidence: "low" }
+      { provider: "flightProvider", label: "Live airfare provider pending", confidence: "low" },
+      { provider: "hotelProvider", label: "Live stay provider pending", confidence: "low" },
+      { provider: "activityProvider", label: "Live activity provider pending", confidence: "low" }
     ]
   };
 }

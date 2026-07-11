@@ -10,6 +10,22 @@ export type GeneratedItineraryResult = {
   aiUsed: boolean;
 };
 
+export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
+export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
+  "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+
+export class RoamlyItineraryGenerationError extends Error {
+  code: string;
+  status: number;
+
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.name = "RoamlyItineraryGenerationError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -181,11 +197,7 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
   const client = getClient();
 
   if (!client) {
-    return {
-      itinerary: enrichItineraryBookingSuggestions(normalizeItinerary(null, payload), payload),
-      model: "starter",
-      aiUsed: false
-    };
+    throw new RoamlyItineraryGenerationError(ROAMLY_AI_NOT_CONFIGURED_MESSAGE, "AI_NOT_CONFIGURED", 503);
   }
 
   try {
@@ -212,14 +224,8 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
       aiUsed: true
     };
   } catch (error) {
+    if (error instanceof RoamlyItineraryGenerationError) throw error;
     console.error("[Roamly AI] itinerary generation failed", error);
-    return {
-      itinerary: {
-        ...enrichItineraryBookingSuggestions(normalizeItinerary(null, payload), payload),
-        generation_note: "AI completion failed, so Roamly saved a starter itinerary. Verify details before travel."
-      },
-      model,
-      aiUsed: false
-    };
+    throw new RoamlyItineraryGenerationError(ROAMLY_AI_GENERATION_FAILED_MESSAGE, "AI_GENERATION_FAILED", 502);
   }
 }

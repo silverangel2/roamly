@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateRoamlyItinerary } from "@/lib/ai/roamly-itinerary";
+import {
+  generateRoamlyItinerary,
+  RoamlyItineraryGenerationError
+} from "@/lib/ai/roamly-itinerary";
 import { buildPreviewFromItinerary } from "@/lib/itinerary";
 import { normalizeLocale } from "@/lib/i18n";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
@@ -364,13 +367,50 @@ async function finalizeItinerary(params: {
     { userId: params.userId, tripId: params.tripId, ...params.payload },
     discovery
   );
-  const generated = await generateRoamlyItinerary({
-    ...params.payload,
-    priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
-    budgetConstraint: buildBudgetConstraintForItinerary(discovery),
-    priceDiscovery: discovery as unknown as Record<string, unknown>,
-    confirmedBookings: confirmedBookings.bookings
-  });
+  let generated: Awaited<ReturnType<typeof generateRoamlyItinerary>>;
+  try {
+    generated = await generateRoamlyItinerary({
+      ...params.payload,
+      priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
+      budgetConstraint: buildBudgetConstraintForItinerary(discovery),
+      priceDiscovery: discovery as unknown as Record<string, unknown>,
+      confirmedBookings: confirmedBookings.bookings
+    });
+  } catch (error) {
+    const generationError =
+      error instanceof RoamlyItineraryGenerationError
+        ? error
+        : new RoamlyItineraryGenerationError(
+            "Roamly could not generate this itinerary. Please adjust your trip details and try again.",
+            "AI_GENERATION_FAILED",
+            502
+          );
+    await params.supabase
+      .from("roamly_trips")
+      .update({ status: "draft", itinerary_status: "draft" })
+      .eq("id", params.tripId)
+      .eq("user_id", params.userId);
+    await recordTripEvent(params.supabase, {
+      userId: params.userId,
+      tripId: params.tripId,
+      eventType: "itinerary_generation_failed",
+      eventTitle: "Itinerary generation failed",
+      eventBody: generationError.message,
+      metadata: {
+        destination: params.payload.destination,
+        error: generationError.code,
+        aiUsed: false
+      }
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: generationError.code,
+        message: generationError.message
+      },
+      { status: generationError.status }
+    );
+  }
   const sync = await syncGeneratedItinerary(params.supabase, {
     tripId: params.tripId,
     userId: params.userId,

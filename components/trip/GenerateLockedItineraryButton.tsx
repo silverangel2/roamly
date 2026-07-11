@@ -12,6 +12,7 @@ type GenerateLockedItineraryButtonProps = {
 };
 
 const GENERATION_ERROR_MESSAGE = "Roamly could not generate this itinerary. Please adjust your trip details and try again.";
+const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const GENERATION_TIMEOUT_MS = 120_000;
 
 export function GenerateLockedItineraryButton({
@@ -56,7 +57,13 @@ export function GenerateLockedItineraryButton({
       }
 
       if (!response.ok) {
-        throw new Error(data?.message || data?.error || GENERATION_ERROR_MESSAGE);
+        const message = data?.message || data?.error || GENERATION_ERROR_MESSAGE;
+        if (message === AI_NOT_CONFIGURED_MESSAGE) {
+          setConfirming(false);
+          setError(AI_NOT_CONFIGURED_MESSAGE);
+          return;
+        }
+        throw new Error(message);
       }
 
       setConfirming(false);

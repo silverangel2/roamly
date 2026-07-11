@@ -242,7 +242,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       transport: `${formatMoney(Math.round(perDay * 0.15), payload.budgetCurrency)} per day target.`,
       buffer: "Keep 10-15% flexible for weather, taxis, and spontaneous stops.",
       total_estimate: formatMoney(payload.budgetAmount, payload.budgetCurrency),
-      notes: "Starter estimate; verify prices before booking."
+      notes: "Planning estimate; verify prices before booking."
     },
     hotel_area_suggestions: [
       `Central ${payload.destination} for first-time convenience`,
@@ -270,7 +270,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
         live_timeline: [
           {
             time_label: "9:30 AM",
-            title: `${theme} starter stop`,
+            title: `${theme} first stop`,
             description: "Begin with the easiest high-value stop of the day.",
             location_name: payload.destination,
             estimated_cost: Math.round(perDay * 0.2),
@@ -304,7 +304,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
     emergency_notes: ["Find the local emergency number before arrival.", "Save your hotel address offline."],
     booking_suggestions: buildStarterBookingSuggestions(payload),
     regenerate_suggestions: [],
-    generation_note: "Starter itinerary generated without live AI completion."
+    generation_note: ""
   };
 }
 
