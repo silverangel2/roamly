@@ -413,6 +413,7 @@ export function TripPlanForm({
   const searchParams = useSearchParams();
   const { locale, translateText } = useI18n();
   const shouldShowResumeNotice = searchParams.get("resumePlan") === "1";
+  const shouldContinueGenerate = searchParams.get("continueGenerate") === "1";
   const [step, setStep] = useState(0);
   const [originPlace, setOriginPlace] = useState<NormalizedPlace | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<NormalizedPlace | null>(null);
@@ -454,11 +455,14 @@ export function TripPlanForm({
   const [priceDiscoveryId, setPriceDiscoveryId] = useState<string | null>(null);
   const [budgetConstraint, setBudgetConstraint] = useState("");
   const [restoreNotice, setRestoreNotice] = useState(false);
+  const [draftHydratedState, setDraftHydratedState] = useState(false);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const trackedSelections = useRef(new Set<string>());
   const generationInFlight = useRef(false);
   const draftHydrated = useRef(false);
+  const resumeGenerateAttempted = useRef(false);
+  const submitPlanRef = useRef<(() => Promise<void>) | null>(null);
   const skipNextDraftSave = useRef(false);
   const requiresPaidUnlock = freeItineraryUsed && !testerAccess;
 
@@ -950,6 +954,7 @@ export function TripPlanForm({
     }
 
     draftHydrated.current = true;
+    setDraftHydratedState(true);
   }, [restorePlanDraft, shouldShowResumeNotice]);
 
   useEffect(() => {
@@ -1243,6 +1248,23 @@ export function TripPlanForm({
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    submitPlanRef.current = submitPlan;
+  });
+
+  useEffect(() => {
+    if (!shouldContinueGenerate) return;
+    if (resumeGenerateAttempted.current) return;
+    if (!draftHydratedState || isCheckingSession) return;
+    if (!sessionUser && !apiAuthToken) return;
+
+    resumeGenerateAttempted.current = true;
+    setStep(steps.length - 1);
+    setRestoreNotice(false);
+    setNotice("Continuing itinerary generation...");
+    void submitPlanRef.current?.();
+  }, [apiAuthToken, draftHydratedState, isCheckingSession, sessionUser, shouldContinueGenerate]);
 
   const summaryRows = [
     ["Route", routePreview || "Route pending"],

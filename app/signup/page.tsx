@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
@@ -9,9 +10,38 @@ type SignupPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const AUTH_NEXT_COOKIE = "roamly_auth_next";
+
+function readCookieNext(value?: string) {
+  if (!value) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function pathnameFromPath(path: string) {
+  return path.split(/[?#]/, 1)[0];
+}
+
+function selectAuthNextPath(queryNext: string | string[] | undefined, cookieNext: string | undefined) {
+  const nextPath = safeAuthNextPath(queryNext);
+  const pendingPlannerNext = safeAuthNextPath(cookieNext, "");
+
+  if (pathnameFromPath(pendingPlannerNext) === "/plan") {
+    const nextPathname = pathnameFromPath(nextPath);
+    if (nextPathname === "/plan" || nextPathname === "/dashboard") return pendingPlannerNext;
+  }
+
+  return nextPath;
+}
+
 export default async function SignupPage({ searchParams }: SignupPageProps) {
   const params = searchParams ? await searchParams : {};
-  const nextPath = safeAuthNextPath(params.next);
+  const cookieStore = await cookies();
+  const cookieNext = readCookieNext(cookieStore.get(AUTH_NEXT_COOKIE)?.value);
+  const nextPath = selectAuthNextPath(params.next, cookieNext);
   const current = await getCurrentUser();
 
   if (current.configured && current.user) {

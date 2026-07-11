@@ -3,6 +3,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { safeAuthNextPath } from "@/lib/navigation";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
 
+const AUTH_NEXT_COOKIE = "roamly_auth_next";
+
 function hasSupabaseAuthCookie(request: NextRequest) {
   return request.cookies
     .getAll()
@@ -25,6 +27,25 @@ function loginRedirectUrl(request: NextRequest) {
   const url = new URL("/login", request.url);
   url.searchParams.set("next", next);
   return url;
+}
+
+function readCookieNext(value?: string) {
+  if (!value) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function readPendingPlannerNext(request: NextRequest) {
+  const next = safeAuthNextPath(readCookieNext(request.cookies.get(AUTH_NEXT_COOKIE)?.value), "");
+  const pathname = next.split(/[?#]/, 1)[0];
+  return pathname === "/plan" ? next : "";
+}
+
+function isDashboardPath(pathname: string) {
+  return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
 }
 
 export async function middleware(request: NextRequest) {
@@ -56,6 +77,15 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user }
   } = await supabase.auth.getUser();
+
+  if (user && isDashboardPath(request.nextUrl.pathname)) {
+    const plannerNext = readPendingPlannerNext(request);
+    if (plannerNext) {
+      const redirectResponse = NextResponse.redirect(new URL(plannerNext, request.url));
+      redirectResponse.cookies.set(AUTH_NEXT_COOKIE, "", { path: "/", maxAge: 0 });
+      return redirectResponse;
+    }
+  }
 
   if (isProtectedPage(request.nextUrl.pathname) && !user && !hasSupabaseAuthCookie(request)) {
     return NextResponse.redirect(loginRedirectUrl(request));
