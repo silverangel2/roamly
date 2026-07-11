@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import {
   accommodationOptions,
   bedPreferenceOptions,
@@ -21,6 +22,7 @@ import {
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -441,14 +443,78 @@ export function TripPlanForm({
   const [priceDiscoveryId, setPriceDiscoveryId] = useState<string | null>(null);
   const [budgetConstraint, setBudgetConstraint] = useState("");
   const [restoreNotice, setRestoreNotice] = useState(false);
+  const [sessionUser, setSessionUser] = useState<User | null>(null);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const trackedSelections = useRef(new Set<string>());
   const generationInFlight = useRef(false);
   const draftHydrated = useRef(false);
   const skipNextDraftSave = useRef(false);
 
+  const refreshSessionUser = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+
+    setIsCheckingSession(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      const user = data.session?.user ?? null;
+      setSessionUser(user);
+      return user;
+    } catch {
+      setSessionUser(null);
+      return null;
+    } finally {
+      setIsCheckingSession(false);
+    }
+  }, []);
+
   useEffect(() => {
     trackPlanEvent("plan_started");
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      setIsCheckingSession(true);
+
+      void supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          if (!alive) return;
+          setSessionUser(data.session?.user ?? null);
+        })
+        .catch(() => {
+          if (alive) setSessionUser(null);
+        })
+        .finally(() => {
+          if (alive) setIsCheckingSession(false);
+        });
+
+      const {
+        data: { subscription }
+      } = supabase.auth.onAuthStateChange((_event, session) => {
+        if (!alive) return;
+        setSessionUser(session?.user ?? null);
+        setIsCheckingSession(false);
+      });
+
+      return () => {
+        alive = false;
+        subscription.unsubscribe();
+      };
+    } catch {
+      setSessionUser(null);
+      setIsCheckingSession(false);
+      return undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!shouldShowResumeNotice) return;
+    void refreshSessionUser();
+  }, [refreshSessionUser, shouldShowResumeNotice]);
 
   const validStops = useMemo(() => stops.map((stop) => stop.place).filter((place): place is NormalizedPlace => isValidPlaceValue(place?.value)), [stops]);
   const normalizedDestination = useMemo(() => {
@@ -740,6 +806,31 @@ export function TripPlanForm({
     }
   }, [planDraft]);
 
+  function redirectToLoginForGeneration() {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[Roamly] No active session before generation; redirecting to login");
+    }
+    saveCurrentPlanDraft();
+    setConfirming(false);
+    router.push(planLoginUrl());
+  }
+
+  async function ensureActiveSessionBeforeGeneration() {
+    const user = await refreshSessionUser();
+    if (user) return user;
+    redirectToLoginForGeneration();
+    return null;
+  }
+
+  async function retryAfterSessionRefresh(response: Response, request: () => Promise<Response>) {
+    if (response.status !== 401) return response;
+
+    const user = await refreshSessionUser();
+    if (!user) return response;
+
+    return request();
+  }
+
   const restorePlanDraft = useCallback((record: Record<string, unknown>) => {
     const travelers = getRecord(record.travelers);
     setStep(clampStep(record.currentStep ?? record.step));
@@ -919,21 +1010,29 @@ export function TripPlanForm({
   }
 
   async function runPriceDiscovery() {
+    const activeUser = await ensureActiveSessionBeforeGeneration();
+    if (!activeUser) return false;
+
     setPriceChecking(true);
     setNotice("Checking trip costs...");
     setError("");
     trackPlanEvent("price_discovery_started", { tripType, destination: payload.destination });
 
     try {
-      const response = await fetch("/api/roamly/price-discovery", {
+      const request = () => fetch("/api/roamly/price-discovery", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload)
       });
+      const response = await retryAfterSessionRefresh(await request(), request);
       const data = await response.json().catch(() => null);
       if (response.status === 401) {
-        saveCurrentPlanDraft();
-        router.push(planLoginUrl());
+        const user = await refreshSessionUser();
+        if (user) {
+          setError("Your login session is still syncing. Please try again.");
+          return false;
+        }
+        redirectToLoginForGeneration();
         return false;
       }
       if (!response.ok) throw new Error(data?.message || data?.error || "Could not check trip costs.");
@@ -963,7 +1062,7 @@ export function TripPlanForm({
   }
 
   async function openFinalConfirmation() {
-    if (loading || priceChecking) return;
+    if (loading || priceChecking || (isCheckingSession && !sessionUser)) return;
     const validation = validateBeforeGenerate();
     setError(validation);
     setNotice("");
@@ -982,6 +1081,9 @@ export function TripPlanForm({
     if (validation) return;
 
     saveCurrentPlanDraft();
+    const activeUser = await ensureActiveSessionBeforeGeneration();
+    if (!activeUser) return;
+
     generationInFlight.current = true;
     setLoading(true);
     trackPlanEvent("itinerary_generation_started", { tripType, destination: payload.destination });
@@ -989,19 +1091,24 @@ export function TripPlanForm({
     const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
-      const response = await fetch("/api/trips/generate", {
+      const request = () => fetch("/api/trips/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
         signal: controller.signal
       });
+      const response = await retryAfterSessionRefresh(await request(), request);
 
       const data = await response.json().catch(() => null);
 
       if (response.status === 401) {
-        setConfirming(false);
-        saveCurrentPlanDraft();
-        router.push(planLoginUrl());
+        const user = await refreshSessionUser();
+        if (user) {
+          setConfirming(false);
+          setError("Your login session is still syncing. Please try again.");
+          return;
+        }
+        redirectToLoginForGeneration();
         return;
       }
 
@@ -1454,7 +1561,7 @@ export function TripPlanForm({
           <button
             type="button"
             onClick={openFinalConfirmation}
-            disabled={loading || priceChecking}
+            disabled={loading || priceChecking || (isCheckingSession && !sessionUser)}
             className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
           >
             {priceChecking
@@ -1510,7 +1617,7 @@ export function TripPlanForm({
                 <button
                   type="button"
                   onClick={submitPlan}
-                  disabled={loading}
+                  disabled={loading || (isCheckingSession && !sessionUser)}
                   className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
                 >
                   {testerAccess && freeItineraryUsed ? translateText("Continue as tester") : translateText("Generate itinerary")}
