@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { HomepageTravelShowcase } from "@/components/roamly/HomepageTravelShowcase";
+import { TravelPartnerPlacement } from "@/components/roamly/TravelPartnerPlacement";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -169,6 +170,8 @@ export default function Home() {
         </div>
       </section>
 
+      <TravelPartnerPlacement variant="horizontal" />
+
       <section id="how-it-works" className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="grid gap-7 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
@@ -248,6 +251,8 @@ export default function Home() {
         </div>
       </section>
 
+      <TravelPartnerPlacement variant="native" />
+
       <section className="relative px-4 py-12 sm:px-6 sm:py-16">
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,#ffffff_0%,#eefbff_48%,#fff7ea_100%)]" />
         <div className="mx-auto w-full max-w-6xl">
@@ -271,6 +276,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <TravelPartnerPlacement variant="footer" />
 
       <section className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
         <div className="relative overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff_0%,#effaff_52%,#fff0dc_100%)] p-6 shadow-soft sm:p-8 lg:p-10">
