@@ -107,7 +107,7 @@ const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. 
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const GENERATION_TIMEOUT_MS = 120_000;
 const PLAN_DRAFT_KEY = "roamly.plan.draft.v1";
-const PLAN_RESUME_PATH = "/plan?resumePlan=1";
+const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
 
 function selectedOptionClass(label: string) {
   return ["Food", "Nightlife", "Romance", "Premium"].includes(label)

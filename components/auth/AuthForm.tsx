@@ -23,6 +23,8 @@ const EXISTING_ACCOUNT_MESSAGE =
 const LOGIN_ERROR_MESSAGE = "We could not sign you in. Please try again.";
 const LOGIN_UNVERIFIED_MESSAGE =
   "This email is not verified yet. Please verify your email before logging in. You can resend the verification email below.";
+const AUTH_NEXT_COOKIE = "roamly_auth_next";
+const AUTH_NEXT_STORAGE_KEY = "roamly.auth.next";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -50,6 +52,34 @@ function isUserAlreadyRegisteredError(error: unknown) {
     message.includes("already exists") ||
     message.includes("email already")
   );
+}
+
+function persistAuthNext(path: string) {
+  const safePath = safeAuthNextPath(path);
+  try {
+    window.sessionStorage.setItem(AUTH_NEXT_STORAGE_KEY, safePath);
+  } catch {
+    // Best-effort only; the cookie is the server-side callback fallback.
+  }
+  document.cookie = `${AUTH_NEXT_COOKIE}=${encodeURIComponent(safePath)}; path=/; max-age=900; samesite=lax`;
+  return safePath;
+}
+
+function readStoredAuthNext() {
+  try {
+    return window.sessionStorage.getItem(AUTH_NEXT_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearStoredAuthNext() {
+  try {
+    window.sessionStorage.removeItem(AUTH_NEXT_STORAGE_KEY);
+  } catch {
+    // Best-effort cleanup.
+  }
+  document.cookie = `${AUTH_NEXT_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }
 
 async function getTesterEmailStatus(email: string) {
@@ -114,7 +144,9 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
         .then(({ data }) => {
           if (!alive || !data.session?.user) return;
           syncProfileBestEffort("GET");
-          window.location.replace(redirectPath);
+          const target = safeAuthNextPath(readStoredAuthNext() || redirectPath);
+          clearStoredAuthNext();
+          window.location.replace(target);
         })
         .catch(() => undefined);
     } catch {
@@ -141,6 +173,7 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
     setGoogleBusy(true);
 
     try {
+      persistAuthNext(redirectPath);
       const supabase = createSupabaseBrowserClient();
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: "google",
