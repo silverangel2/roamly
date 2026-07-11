@@ -117,6 +117,45 @@ export type TripBundle = {
   checklist: ChecklistRecord[];
 };
 
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function getStoredItinerary(metadata: unknown) {
+  const record = getRecord(metadata);
+  return getRecord(record?.generatedItinerary) || getRecord(record?.itinerary);
+}
+
+function itineraryFromTripMetadata(trip: RoamlyTripRecord): ItineraryRecord | null {
+  const stored = getStoredItinerary(trip.metadata);
+  const full = getRecord(stored?.full_json) || getRecord(stored?.fullJson);
+  if (!full) return null;
+
+  const preview = getRecord(stored?.preview_json) || getRecord(stored?.previewJson);
+  return {
+    id: `metadata-${trip.id}`,
+    trip_id: trip.id,
+    user_id: trip.user_id,
+    ai_summary: typeof stored?.ai_summary === "string" ? stored.ai_summary : typeof stored?.aiSummary === "string" ? stored.aiSummary : null,
+    full_json: full as unknown as RoamlyItinerary,
+    preview_json: preview ? (preview as unknown as RoamlyPreview) : buildPreviewFromItinerary(full as unknown as RoamlyItinerary),
+    created_at: trip.created_at,
+    updated_at: trip.updated_at
+  };
+}
+
+function checklistFromItinerary(trip: RoamlyTripRecord, itinerary: ItineraryRecord | null): ChecklistRecord[] {
+  const items = itinerary?.full_json?.packing_checklist || [];
+  return items.map((item, index) => ({
+    id: `metadata-checklist-${trip.id}-${index}`,
+    trip_id: trip.id,
+    user_id: trip.user_id,
+    item,
+    category: "Packing",
+    is_done: false
+  }));
+}
+
 export function isMissingTableError(message?: string | null) {
   return Boolean(
     message &&
@@ -140,8 +179,10 @@ export async function getTripBundle(
 
   if (tripError) return { data: null, error: tripError.message };
   if (!trip) return { data: null, error: "Trip not found." };
+  const tripRecord = trip as RoamlyTripRecord;
+  const metadataItinerary = itineraryFromTripMetadata(tripRecord);
 
-  const [{ data: itinerary, error: itineraryError }, { data: days }, { data: activities }, { data: checklist }] =
+  const [itineraryResult, daysResult, activitiesResult, checklistResult] =
     await Promise.all([
       supabase
         .from("roamly_itineraries")
@@ -156,17 +197,29 @@ export async function getTripBundle(
       supabase.from("roamly_trip_checklists").select("*").eq("trip_id", tripId).eq("user_id", userId).order("created_at")
     ]);
 
-  if (itineraryError && !itineraryError.message.includes("0 rows")) {
-    return { data: null, error: itineraryError.message };
+  if (itineraryResult.error && !itineraryResult.error.message.includes("0 rows") && !isMissingTableError(itineraryResult.error.message)) {
+    return { data: null, error: itineraryResult.error.message };
   }
+  if (daysResult.error && !isMissingTableError(daysResult.error.message)) {
+    return { data: null, error: daysResult.error.message };
+  }
+  if (activitiesResult.error && !isMissingTableError(activitiesResult.error.message)) {
+    return { data: null, error: activitiesResult.error.message };
+  }
+  if (checklistResult.error && !isMissingTableError(checklistResult.error.message)) {
+    return { data: null, error: checklistResult.error.message };
+  }
+
+  const itinerary = ((itineraryResult.data as ItineraryRecord | null) ?? metadataItinerary) || null;
+  const checklist = (checklistResult.data as ChecklistRecord[] | null) ?? checklistFromItinerary(tripRecord, itinerary);
 
   return {
     data: {
-      trip: trip as RoamlyTripRecord,
-      itinerary: (itinerary as ItineraryRecord | null) ?? null,
-      days: (days as DayRecord[] | null) ?? [],
-      activities: (activities as ActivityRecord[] | null) ?? [],
-      checklist: (checklist as ChecklistRecord[] | null) ?? []
+      trip: tripRecord,
+      itinerary,
+      days: (daysResult.data as DayRecord[] | null) ?? [],
+      activities: (activitiesResult.data as ActivityRecord[] | null) ?? [],
+      checklist
     }
   };
 }
@@ -181,6 +234,22 @@ export async function syncGeneratedItinerary(
   }
 ) {
   const preview = buildPreviewFromItinerary(params.itinerary);
+  const now = new Date().toISOString();
+  const tripMetadataResult = await supabase
+    .from("roamly_trips")
+    .select("metadata")
+    .eq("id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (tripMetadataResult.error) return { error: tripMetadataResult.error.message };
+  const existingMetadata = getRecord(tripMetadataResult.data?.metadata) || {};
+  const generatedItineraryMetadata = {
+    ai_summary: params.itinerary.destination_summary,
+    full_json: params.itinerary,
+    preview_json: preview,
+    status: params.status || "preview",
+    updated_at: now
+  };
 
   const existing = await supabase
     .from("roamly_itineraries")
@@ -188,6 +257,12 @@ export async function syncGeneratedItinerary(
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
     .maybeSingle();
+  let itineraryDisplayTablesAvailable = true;
+  if (existing.error && isMissingTableError(existing.error.message)) {
+    itineraryDisplayTablesAvailable = false;
+  } else if (existing.error && !existing.error.message.includes("0 rows")) {
+    return { error: existing.error.message };
+  }
 
   const payload = {
     trip_id: params.tripId,
@@ -197,16 +272,31 @@ export async function syncGeneratedItinerary(
     preview_json: preview
   };
 
-  const itineraryResult = existing.data?.id
-    ? await supabase.from("roamly_itineraries").update(payload).eq("id", existing.data.id).select("id").single()
-    : await supabase.from("roamly_itineraries").insert(payload).select("id").single();
+  if (itineraryDisplayTablesAvailable) {
+    const itineraryResult = existing.data?.id
+      ? await supabase.from("roamly_itineraries").update(payload).eq("id", existing.data.id).select("id").single()
+      : await supabase.from("roamly_itineraries").insert(payload).select("id").single();
 
-  if (itineraryResult.error) return { error: itineraryResult.error.message };
+    if (itineraryResult.error && isMissingTableError(itineraryResult.error.message)) {
+      itineraryDisplayTablesAvailable = false;
+    } else if (itineraryResult.error) {
+      return { error: itineraryResult.error.message };
+    }
+  }
 
   await Promise.all([
-    supabase.from("roamly_itinerary_days").delete().eq("trip_id", params.tripId),
-    supabase.from("roamly_trip_activities").delete().eq("trip_id", params.tripId),
-    supabase.from("roamly_trip_checklists").delete().eq("trip_id", params.tripId).eq("user_id", params.userId),
+    supabase.from("roamly_itinerary_days").delete().eq("trip_id", params.tripId).then((result) => {
+      if (result.error && !isMissingTableError(result.error.message)) console.error(result.error.message);
+      return result;
+    }),
+    supabase.from("roamly_trip_activities").delete().eq("trip_id", params.tripId).then((result) => {
+      if (result.error && !isMissingTableError(result.error.message)) console.error(result.error.message);
+      return result;
+    }),
+    supabase.from("roamly_trip_checklists").delete().eq("trip_id", params.tripId).eq("user_id", params.userId).then((result) => {
+      if (result.error && !isMissingTableError(result.error.message)) console.error(result.error.message);
+      return result;
+    }),
     supabase.from("roamly_trip_days").delete().eq("trip_id", params.tripId).then((result) => {
       if (result.error && !isMissingTableError(result.error.message)) console.error(result.error.message);
       return result;
@@ -217,7 +307,7 @@ export async function syncGeneratedItinerary(
     })
   ]);
 
-  if (params.itinerary.daily_itinerary.length) {
+  if (itineraryDisplayTablesAvailable && params.itinerary.daily_itinerary.length) {
     const daysResult = await supabase.from("roamly_itinerary_days").insert(
       params.itinerary.daily_itinerary.map((day) => ({
         trip_id: params.tripId,
@@ -233,7 +323,7 @@ export async function syncGeneratedItinerary(
         estimated_cost: day.estimated_cost
       }))
     );
-    if (daysResult.error) return { error: daysResult.error.message };
+    if (daysResult.error && !isMissingTableError(daysResult.error.message)) return { error: daysResult.error.message };
   }
 
   const activities = params.itinerary.daily_itinerary.flatMap((day) =>
@@ -251,9 +341,9 @@ export async function syncGeneratedItinerary(
     }))
   );
 
-  if (activities.length) {
+  if (itineraryDisplayTablesAvailable && activities.length) {
     const activityResult = await supabase.from("roamly_trip_activities").insert(activities);
-    if (activityResult.error) return { error: activityResult.error.message };
+    if (activityResult.error && !isMissingTableError(activityResult.error.message)) return { error: activityResult.error.message };
   }
 
   const trackingDays = await supabase
@@ -309,7 +399,7 @@ export async function syncGeneratedItinerary(
     }
   }
 
-  if (params.itinerary.packing_checklist.length) {
+  if (itineraryDisplayTablesAvailable && params.itinerary.packing_checklist.length) {
     const checklistResult = await supabase.from("roamly_trip_checklists").insert(
       params.itinerary.packing_checklist.map((item) => ({
         trip_id: params.tripId,
@@ -319,7 +409,7 @@ export async function syncGeneratedItinerary(
         is_done: false
       }))
     );
-    if (checklistResult.error) return { error: checklistResult.error.message };
+    if (checklistResult.error && !isMissingTableError(checklistResult.error.message)) return { error: checklistResult.error.message };
   }
 
   const tripUpdate = await supabase
@@ -327,7 +417,10 @@ export async function syncGeneratedItinerary(
     .update({
       title: params.itinerary.trip_title,
       status: params.status || "preview",
-      destination_name: params.itinerary.trip_title
+      metadata: {
+        ...existingMetadata,
+        generatedItinerary: generatedItineraryMetadata
+      }
     })
     .eq("id", params.tripId)
     .eq("user_id", params.userId);
