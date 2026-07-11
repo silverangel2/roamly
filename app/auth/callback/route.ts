@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { upsertRoamlyProfile } from "@/lib/profiles";
+import { ensureRoamlyProfile } from "@/lib/roamly/profile";
 import { safeNextPath } from "@/lib/navigation";
 
 export async function GET(request: NextRequest) {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { data } = await supabase.auth.getUser();
 
   if (data.user) {
-    await upsertRoamlyProfile(supabase, data.user);
+    await ensureRoamlyProfile(data.user, {}, supabase);
     return NextResponse.redirect(redirectUrl);
   }
 

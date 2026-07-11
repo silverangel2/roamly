@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
+import { ensureRoamlyProfile, getRoamlyProfileTableStatus, getRoamlyUserAppStatus } from "@/lib/roamly/profile";
 
 const tables = [
+  "roamly_profiles",
   "roamly_trips",
   "roamly_trip_days",
   "roamly_activities",
@@ -26,6 +28,9 @@ export async function GET() {
       return { table, ok: !error, error: error?.message || null };
     })
   );
+  const profileTableStatus = await getRoamlyProfileTableStatus(guard.admin);
+  await ensureRoamlyProfile(guard.user, {}, guard.admin);
+  const appStatus = await getRoamlyUserAppStatus(guard.user, guard.admin);
 
   const since = new Date();
   since.setHours(0, 0, 0, 0);
@@ -74,6 +79,10 @@ export async function GET() {
     ok: true,
     diagnostics: {
       supabaseConfigured: true,
+      sharedSupabaseAuthMode: true,
+      sharedAuthCopy: "Roamly uses its own profile records even when Supabase Auth is shared.",
+      roamlyProfileTableAvailable: profileTableStatus.available,
+      currentUserAppStatus: appStatus,
       tables: tableChecks,
       recentEventsCount: recentEvents.count || 0,
       locationTrackingEnabledCount: locationEnabled.count || 0,

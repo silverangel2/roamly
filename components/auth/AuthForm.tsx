@@ -16,8 +16,9 @@ const RESEND_SUCCESS_MESSAGE = "Verification email sent. Check your inbox, spam,
 const RESEND_ERROR_MESSAGE = "We could not resend the verification email. Try again or contact support.";
 const TESTER_UNVERIFIED_MESSAGE = "Tester access starts after this email is verified.";
 const SUPPORT_MESSAGE = "Still no email? Contact support or ask an admin to confirm your account in Supabase.";
-const SHARED_GOOGLE_MESSAGE = "Already used ReviewIntel with Google? Continue with Google using the same email.";
-const EXISTING_ACCOUNT_MESSAGE = "This email may already have an account. Try logging in or continue with Google.";
+const SHARED_GOOGLE_MESSAGE = "Already used ReviewIntel? You can continue with the same email or Google account.";
+const EXISTING_ACCOUNT_MESSAGE =
+  "This email may already have an account from ReviewIntel or Roamly. Try logging in or continue with Google.";
 const LOGIN_UNVERIFIED_MESSAGE =
   "This email is not verified yet. Please verify your email before logging in. You can resend the verification email below.";
 
@@ -213,6 +214,11 @@ export function AuthForm({ mode, nextPath = "/dashboard", initialError = "" }: A
         });
 
         if (signUpError) throw signUpError;
+
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setError(EXISTING_ACCOUNT_MESSAGE);
+          return;
+        }
 
         if (data.session) {
           await fetch("/api/account/profile", {

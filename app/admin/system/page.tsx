@@ -5,8 +5,10 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
 import { isEmailConfigured } from "@/lib/roamly/email";
+import { ensureRoamlyProfile, getRoamlyProfileTableStatus, getRoamlyUserAppStatus } from "@/lib/roamly/profile";
 
 const tables = [
+  "roamly_profiles",
   "roamly_trips",
   "roamly_trip_days",
   "roamly_activities",
@@ -49,6 +51,11 @@ export default async function AdminSystemPage() {
       return { table, ok: !error, error: error?.message };
     })
   );
+  const profileTableStatus = await getRoamlyProfileTableStatus(state.admin);
+  if (state.user) {
+    await ensureRoamlyProfile(state.user, {}, state.admin);
+  }
+  const appStatus = state.user ? await getRoamlyUserAppStatus(state.user, state.admin) : null;
   const [
     pushSubscriptions,
     notifications,
@@ -91,6 +98,24 @@ export default async function AdminSystemPage() {
   const emailReadiness = isEmailConfigured();
   const affiliatesEnabled = process.env.ROAMLY_AFFILIATES_ENABLED === "true";
   const systemChecks: Array<{ group: string; label: string; status: ReadinessStatus; detail: string }> = [
+    {
+      group: "Shared auth",
+      label: "Shared Supabase Auth mode",
+      status: "Ready",
+      detail: "Roamly uses its own profile records even when Supabase Auth is shared."
+    },
+    {
+      group: "Shared auth",
+      label: "Roamly profile table",
+      status: profileTableStatus.available ? "Ready" : "Missing",
+      detail: "Tracks Roamly-specific identity for users from the shared Supabase Auth project."
+    },
+    {
+      group: "Shared auth",
+      label: "Current user has Roamly profile",
+      status: appStatus?.has_roamly_profile ? "Ready" : "Missing",
+      detail: "Existing ReviewIntel auth users get a separate Roamly profile on first Roamly use."
+    },
     {
       group: "QA access",
       label: "Tester emails",
@@ -266,6 +291,10 @@ export default async function AdminSystemPage() {
           ["Email logs", `${emailLogs.count || 0}`],
           ["Last email status", lastEmail.data?.status || "None"],
           ["Last email error", lastEmail.data?.error || "None"],
+          ["Shared Supabase auth mode", "Yes"],
+          ["Roamly profile table available", profileTableStatus.available ? "Yes" : "No"],
+          ["Current user has Roamly profile", appStatus?.has_roamly_profile ? "Yes" : "No"],
+          ["Current auth provider", appStatus?.auth_provider || "Email/password"],
           ["ROAMLY_TESTER_EMAILS", state.access.testerEmailsConfigured ? "Configured" : "Not configured"],
           ["Current user tester", state.access.isTester ? "Yes" : "No"],
           ["Current user admin", state.access.isAdmin ? "Yes" : "No"]

@@ -4,9 +4,9 @@ import { LocationTrackingSettings } from "@/components/account/LocationTrackingS
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { getRoamlyProfile } from "@/lib/profiles";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
+import { ensureRoamlyProfile } from "@/lib/roamly/profile";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 export default async function AccountPage() {
@@ -35,7 +35,7 @@ export default async function AccountPage() {
 
   const supabase = await createSupabaseServerClient();
   const [profileResult, free] = await Promise.all([
-    supabase ? getRoamlyProfile(supabase, current.user) : Promise.resolve({ profile: null, error: "" }),
+    supabase ? ensureRoamlyProfile(current.user, {}, supabase) : Promise.resolve({ profile: null, error: "" }),
     supabase ? hasUsedFreeItinerary(supabase, current.user.id) : Promise.resolve({ used: false, entitlement: null, error: null })
   ]);
   const metadataName =
@@ -96,7 +96,7 @@ export default async function AccountPage() {
             <div className="rounded-app border border-amber-200 bg-amber-50 p-5 text-amber-900 shadow-soft">
               <p className="text-xs font-black uppercase tracking-[0.18em]">Profile table pending</p>
               <p className="mt-2 text-sm font-bold leading-6">
-                {profileResult.error}. Phase 4 will add the roamly_profiles table and row-level security.
+                {profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.
               </p>
             </div>
           ) : null}

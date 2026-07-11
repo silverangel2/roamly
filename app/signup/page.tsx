@@ -26,7 +26,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
           Create your trip space.
         </h1>
         <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
-          Start with one free itinerary per account. If you used ReviewIntel with Google, use that same email here.
+          Start with one free itinerary per Roamly profile. Existing ReviewIntel users can use the same email or Google account.
         </p>
         <div className="rounded-[2rem] border border-orange-100 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_58%,#ecfeff_100%)] p-5 text-ink shadow-soft">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Simple accounts</p>
