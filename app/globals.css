@@ -110,3 +110,55 @@ select {
 .roamly-status-chip {
   animation: roamly-status-chip 2.4s ease-in-out infinite;
 }
+
+@page {
+  margin: 16mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #ffffff !important;
+    color: #102033 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  header,
+  nav,
+  button,
+  input,
+  textarea,
+  select,
+  .roamly-no-print {
+    display: none !important;
+  }
+
+  .safe-bottom {
+    padding-bottom: 0 !important;
+  }
+
+  .roamly-print-document {
+    background: #ffffff !important;
+    padding: 0 !important;
+  }
+
+  .roamly-print-paper {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .roamly-print-section,
+  .roamly-day-print {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
+  }
+}
