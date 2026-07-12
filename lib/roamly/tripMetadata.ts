@@ -1,4 +1,5 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -82,9 +83,12 @@ export function getTripOriginLabel(trip: { origin?: unknown; metadata?: unknown 
   return getString(trip.origin) || getString(planning.origin);
 }
 
-export function getTripDaysCount(trip: { days_count?: unknown; metadata?: unknown }) {
+export function getTripDaysCount(trip: { start_date?: unknown; end_date?: unknown; days_count?: unknown; metadata?: unknown }) {
   const planning = getTripPlanningMetadata(trip.metadata);
-  return getPositiveNumber(trip.days_count) || getPositiveNumber(planning.daysCount) || getPositiveNumber(planning.days_count);
+  const storedDays = getPositiveNumber(trip.days_count) || getPositiveNumber(planning.daysCount) || getPositiveNumber(planning.days_count) || 3;
+  const startDate = getString(trip.start_date) || getString(planning.startDate) || getString(planning.start_date);
+  const endDate = getString(trip.end_date) || getString(planning.endDate) || getString(planning.end_date);
+  return calculateInclusiveTripDays(startDate, endDate, storedDays);
 }
 
 export function getTripBudgetAmount(trip: { budget_amount?: unknown; metadata?: unknown }) {

@@ -3,6 +3,7 @@ import { buildStarterItinerary, normalizeItinerary, type RoamlyItinerary } from 
 import { normalizeLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -86,6 +87,7 @@ function buildPrompt(payload: TripPlannerPayload) {
   const outputLanguage = languageNames[normalizeLocale(payload.language)] || "English";
   const priceSummary = priceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
+  const tripDays = calculateInclusiveTripDays(payload.startDate, payload.endDate, payload.daysCount || 3);
 
   return `Create a practical travel itinerary for Roamly.
 
@@ -100,7 +102,7 @@ Traveler input:
 - Flexible dates: ${payload.flexibleDates ? "yes" : "no"}
 - Start date: ${payload.startDate || "not set"}
 - End date: ${payload.endDate || "not set"}
-- Days: ${payload.daysCount}
+- Days: ${tripDays}
 - Travelers: ${payload.travelersCount || 1} total (${travelers.adults || 1} adults, ${travelers.children || 0} children, ${travelers.infants || 0} infants)
 - Rooms: ${payload.rooms || 1}
 - Bed preference: ${payload.bedPreference || "No preference"}
@@ -169,15 +171,39 @@ Return ONLY valid JSON with this shape:
   ],
   "booking_suggestions": [
     {
-      "booking_category": "hotel | flight | attraction | tour | transport | car_rental",
-      "booking_label": "short booking/search label",
-      "normal_search_url": "normal search URL",
-      "affiliate_url": "",
-      "affiliate_provider": "",
+      "category": "flight | hotel | attraction | tour | transport | restaurant",
+      "booking_category": "same as category",
+      "title": "specific search-ready option title",
+      "description": "what this option is and what to verify before booking",
+      "location": "airport, neighborhood, attraction, station, or meeting area",
+      "city": "city",
+      "country": "country if known",
+      "date": "YYYY-MM-DD when relevant",
+      "time_window": "morning | afternoon | evening | flexible | specific time window",
+      "origin": "flight or transport origin city/airport when relevant",
+      "destination": "flight or transport destination city/airport when relevant",
+      "departure_date": "YYYY-MM-DD for outbound travel when relevant",
+      "return_date": "YYYY-MM-DD for return travel when relevant",
+      "room_type": "Standard queen room | Budget private room | Family room | Central hotel room when relevant",
+      "neighborhood": "stay area when relevant",
+      "duration": "tour or transport duration when relevant",
       "estimated_cost_min": 0,
       "estimated_cost_max": 0,
+      "estimated_nightly_cost_min": 0,
+      "estimated_nightly_cost_max": 0,
+      "estimated_total_cost_min": 0,
+      "estimated_total_cost_max": 0,
       "currency": "${payload.budgetCurrency || "CAD"}",
-      "price_confidence": "estimated | partner | unknown"
+      "price_confidence": "estimated | partner | user_uploaded | unknown",
+      "booking_label": "Find this flight | Find this room | Book ticket | Find tour | Open directions",
+      "normal_search_url": "normal Google Flights, Booking, attraction, tour, transit, or maps search URL",
+      "affiliate_url": "",
+      "affiliate_provider": "",
+      "provider": "Google Flights search | Booking.com search | Viator search | GetYourGuide search | Google Maps | public transit search",
+      "booking_status": "suggested | user_uploaded | needs_booking",
+      "why_recommended": "why this option fits the route, budget, travelers, area, or day",
+      "advance_booking_recommended": true,
+      "free_or_paid": "free | paid | mixed"
     }
   ],
   "packing_checklist": ["items"],
@@ -193,18 +219,26 @@ Rules:
 - Keep each field short enough for mobile cards.
 - Give map queries, not URLs.
 - Include clean location names and addresses when possible in location_name and map_query so Google Maps, Apple Maps, and Citymapper link-outs work reliably.
-- Booking suggestions must include normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
-- Include a flight, hotel, activity or tour, and local transport booking suggestion when relevant.
+- Booking suggestions must be specific and practical, like real travel-site searches: suggested flight searches, hotel room/stay options, entrance tickets, attractions, tours, airport transfers, inter-city transport, local transport, and restaurants when useful.
+- Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
+- If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Estimated price", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
+- Do not claim exact live prices unless a real partner/live API returned them. Do not invent confirmation numbers.
+- Do not say "booked", "reserved", or "confirmed" unless the user uploaded a booking screenshot or confirmed booking in Fixed bookings and screenshots. Those can use booking_status "user_uploaded" and price_confidence "user_uploaded".
+- Include at least one flight or arrival transport option, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
+- For hotel/stay suggestions, include room_type, neighborhood, estimated nightly range, estimated total stay range, and why the room/area fits the traveler.
+- For attraction tickets, include the specific attraction name, ticket note, estimated ticket range, free_or_paid, and whether advance booking is recommended.
+- For tours/activities, include a specific tour/activity title, estimated range, duration, best day/time, and "Find tour" booking_label.
+- For transport, include airport transfer, inter-city legs for multi-city trips, local transport, and map/search links where possible.
 - Explain what still needs booking and what is already booked or committed based on the committed cost signal.
 - Respect fixed bookings, booked dates, addresses, and check-in/check-out times from the booking summary when present.
 - Separate free/cheap activities from paid anchors.
 - Respect walking tolerance, accessibility needs, dietary preference, travel pace, and Live Companion timeline needs.
 - Account for hotel check-in/check-out timing and inter-city travel time when useful.
-- For multi-city trips, group daily_itinerary entries by city in route order, include travel days between cities, and keep city blocks contiguous. If flexible city order is yes, you may recommend a cheaper or smoother order in route_reasoning while still producing a coherent day sequence.
+- For multi-city trips, group daily_itinerary entries by city in route order, include travel days between cities, and keep city blocks contiguous. Include origin-to-first-city, between-city, and final return transport suggestions if return_to_origin is yes. Include stay, ticket, tour/activity, local transport, and at least one free activity idea per city. If flexible city order is yes, you may recommend a cheaper or smoother order in route_reasoning while still producing a coherent day sequence.
 - Mention users must verify opening hours and prices.
 - Mention: "Prices are estimates and may change before booking."
 - Do not invent reservations or claim bookings are made.
-- Build exactly ${payload.daysCount || 3} itinerary days.`;
+- Build exactly ${tripDays} itinerary days.`;
 }
 
 export async function generateRoamlyItinerary(payload: TripPlannerPayload): Promise<GeneratedItineraryResult> {

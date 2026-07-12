@@ -4,6 +4,7 @@ import {
   discoverTripPrices
 } from "@/lib/roamly/priceDiscovery";
 import { getCurrentUser } from "@/lib/roamly/auth";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import type { TripType } from "@/lib/trip-planner";
 
@@ -83,6 +84,9 @@ export async function POST(request: NextRequest) {
   if (!destination) return NextResponse.json({ ok: false, error: "Destination is required." }, { status: 400 });
 
   const tripId = getString(body.tripId) || null;
+  const startDate = getString(body.startDate || body.start_date);
+  const endDate = getString(body.endDate || body.end_date);
+  const daysCount = calculateInclusiveTripDays(startDate, endDate, getNumber(body.daysCount ?? body.days_count) ?? 3);
   // Keep anonymous budget checks working. Confirmed booking costs are applied later
   // in authenticated trip generation/saved-trip flows.
   const committedBudgetCents = 0;
@@ -99,9 +103,9 @@ export async function POST(request: NextRequest) {
     returnToOrigin: body.returnToOrigin !== false && body.return_to_origin !== false,
     flexibleCityOrder: body.flexibleCityOrder === true || body.flexible_city_order === true,
     flexibleDates: body.flexibleDates === true || body.flexible_dates === true,
-    startDate: getString(body.startDate || body.start_date),
-    endDate: getString(body.endDate || body.end_date),
-    daysCount: getNumber(body.daysCount ?? body.days_count),
+    startDate,
+    endDate,
+    daysCount,
     travelersCount: getNumber(body.travelersCount ?? body.travelers_count),
     travelers: getRecord(body.travelers) || {
       adults: getNumber(body.adults) || 1,

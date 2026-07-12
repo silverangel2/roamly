@@ -2,7 +2,7 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
-export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "insurance";
+export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
 
 export type RoamlyAffiliateInput = {
   category?: RoamlyBookingCategory;
@@ -225,6 +225,9 @@ export function buildRoamlyAffiliateUrl(input: RoamlyAffiliateInput) {
   if (input.category === "car_rental") {
     return linkResult(input, "car_rental", `https://www.google.com/search?q=${q(`${place(input)} car rental`)}`, "direct");
   }
+  if (input.category === "restaurant") {
+    return linkResult(input, "restaurant", `https://www.google.com/search?q=${q(`${place(input)} restaurant reservations`)}`, "direct");
+  }
   return linkResult(input, input.category || "insurance", `https://www.google.com/search?q=${q(place(input))}`, "direct");
 }
 
@@ -305,8 +308,8 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         category: suggestion.booking_category,
         destination: payload.destination,
         origin: payload.origin,
-        title: suggestion.booking_label,
-        query: suggestion.booking_label,
+        title: suggestion.title || suggestion.booking_label,
+        query: suggestion.title || suggestion.booking_label,
         startDate: payload.startDate,
         endDate: payload.endDate,
         url: suggestion.normal_search_url
@@ -317,7 +320,8 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         affiliate_url: link.affiliate_enabled ? link.affiliate_url : "",
         affiliate_provider: link.affiliate_provider,
         affiliate_disclosure: affiliateDisclosure,
-        price_confidence: link.affiliate_enabled ? "partner" : suggestion.price_confidence
+        provider: suggestion.provider || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search"),
+        price_confidence: suggestion.price_confidence || "estimated"
       };
     })
   };

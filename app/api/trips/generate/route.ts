@@ -15,6 +15,7 @@ import {
 } from "@/lib/roamly/billing";
 import { requireUser } from "@/lib/roamly/auth";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import {
   buildBudgetConstraintForItinerary,
   discoverTripPrices,
@@ -130,22 +131,11 @@ function cleanTravelers(value: unknown, travelersCount: number): TravelerDetails
   return { adults, children, infants };
 }
 
-function daysBetween(startDate: string, endDate: string) {
-  if (!startDate || !endDate) return null;
-
-  const start = new Date(`${startDate}T00:00:00Z`).getTime();
-  const end = new Date(`${endDate}T00:00:00Z`).getTime();
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-
-  return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
-}
-
 function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
   const startDate = getString(body.startDate || body.start_date);
   const endDate = getString(body.endDate || body.end_date);
   const explicitDays = getPositiveNumber(body.daysCount ?? body.days_count);
-  const resolvedDaysCount = explicitDays ?? daysBetween(startDate, endDate) ?? 3;
+  const resolvedDaysCount = calculateInclusiveTripDays(startDate, endDate, explicitDays ?? 3);
   const tripType = getTripType(body.tripType || body.trip_type);
   const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
   const destinationPlace = cleanPlace(body.destinationPlace || body.destination_place);
@@ -224,7 +214,11 @@ function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPl
   const travelers = cleanTravelers(planning.travelers, travelersCount);
   const startDate = getFirstString(trip.start_date, planning.startDate, planning.start_date);
   const endDate = getFirstString(trip.end_date, planning.endDate, planning.end_date);
-  const daysCount = getFirstPositiveNumber(trip.days_count, planning.daysCount, planning.days_count) || daysBetween(startDate, endDate) || 3;
+  const daysCount = calculateInclusiveTripDays(
+    startDate,
+    endDate,
+    getFirstPositiveNumber(trip.days_count, planning.daysCount, planning.days_count) || 3
+  );
 
   return {
     tripType,
@@ -328,6 +322,21 @@ async function finalizeItinerary(params: {
   tripId: string;
   payload: TripPlannerPayload;
 }) {
+  const serverDaysCount = calculateInclusiveTripDays(
+    params.payload.startDate,
+    params.payload.endDate,
+    params.payload.daysCount || 3
+  );
+  const payload: TripPlannerPayload = { ...params.payload, daysCount: serverDaysCount };
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Roamly generate] Inclusive trip days", {
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      serverDaysCount
+    });
+  }
+
   const access = getRoamlyAccessForUser(params.userEmail);
   const canGenerate = await canGenerateFinalItinerary(params.supabase, params.userId, params.tripId, params.userEmail);
 
@@ -337,7 +346,7 @@ async function finalizeItinerary(params: {
       eventType: "itinerary_generation_failed",
       metadata: {
         tripId: params.tripId,
-        destination: params.payload.destination,
+        destination: payload.destination,
         error: canGenerate.error
       }
     });
@@ -370,7 +379,7 @@ async function finalizeItinerary(params: {
 
   await params.supabase
     .from("roamly_trips")
-    .update({ status: "generating", itinerary_status: "generating" })
+    .update({ status: "generating", itinerary_status: "generating", days_count: serverDaysCount })
     .eq("id", params.tripId)
     .eq("user_id", params.userId);
   await recordTripEvent(params.supabase, {
@@ -379,9 +388,10 @@ async function finalizeItinerary(params: {
     eventType: "itinerary_generation_started",
     eventTitle: "Itinerary generation started",
     metadata: {
-      tripType: params.payload.tripType || "single_destination",
-      destination: params.payload.destination,
-      stops: params.payload.destinationStops || [],
+      tripType: payload.tripType || "single_destination",
+      destination: payload.destination,
+      stops: payload.destinationStops || [],
+      daysCount: serverDaysCount,
       qa_tester: qaTester
     }
   });
@@ -393,19 +403,19 @@ async function finalizeItinerary(params: {
   const discovery = await discoverTripPrices({
     userId: params.userId,
     tripId: params.tripId,
-    ...params.payload,
+    ...payload,
     committedBudgetCents: committed.amountCents,
   });
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,
-    { userId: params.userId, tripId: params.tripId, ...params.payload },
+    { userId: params.userId, tripId: params.tripId, ...payload },
     discovery
   );
   let generated: Awaited<ReturnType<typeof generateRoamlyItinerary>>;
   try {
     generated = await generateRoamlyItinerary({
-      ...params.payload,
-      priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
+      ...payload,
+      priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null,
       budgetConstraint: buildBudgetConstraintForItinerary(discovery),
       priceDiscovery: discovery as unknown as Record<string, unknown>,
       confirmedBookings: confirmedBookings.bookings
@@ -431,7 +441,7 @@ async function finalizeItinerary(params: {
       eventTitle: "Itinerary generation failed",
       eventBody: generationError.message,
       metadata: {
-        destination: params.payload.destination,
+        destination: payload.destination,
         error: generationError.code,
         aiUsed: false
       }
@@ -464,7 +474,7 @@ async function finalizeItinerary(params: {
       eventType: "itinerary_generation_failed",
       eventTitle: "Itinerary generation failed",
       eventBody: sync.error,
-      metadata: { destination: params.payload.destination }
+      metadata: { destination: payload.destination }
     });
     return NextResponse.json(
       {
@@ -501,7 +511,7 @@ async function finalizeItinerary(params: {
       eventType: "itinerary_generation_failed",
       eventTitle: "Itinerary lock failed",
       eventBody: lock.error.message,
-      metadata: { destination: params.payload.destination }
+      metadata: { destination: payload.destination }
     });
     return NextResponse.json({ ok: false, error: lock.error.message }, { status: 500 });
   }
@@ -518,8 +528,9 @@ async function finalizeItinerary(params: {
     metadata: {
       source: canGenerate.source,
       qa_tester: qaTester,
-      tripType: params.payload.tripType || "single_destination",
-      destination: params.payload.destination,
+      tripType: payload.tripType || "single_destination",
+      destination: payload.destination,
+      daysCount: serverDaysCount,
       aiUsed: generated.aiUsed,
       model: generated.model
     }
@@ -631,7 +642,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-const access = getRoamlyAccessForUser(user.email);
+  const access = getRoamlyAccessForUser(user.email);
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const existingTripId = getString(body.tripId);
@@ -657,7 +668,15 @@ const access = getRoamlyAccessForUser(user.email);
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (tripError) return NextResponse.json({ ok: false, error: tripError.message }, { status: 500 });
+      if (tripError) {
+        console.error("[Roamly generate] Existing trip lookup failed", {
+          message: tripError.message,
+          details: tripError.details,
+          hint: tripError.hint,
+          code: tripError.code
+        });
+        return NextResponse.json({ ok: false, error: tripError.message }, { status: 500 });
+      }
       if (!trip) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
       const payload = payloadFromTrip(trip as Record<string, unknown>, getString(body.language));
@@ -684,6 +703,7 @@ const access = getRoamlyAccessForUser(user.email);
         destination_region: payload.destinationRegion || null,
         start_date: payload.startDate || null,
         end_date: payload.endDate || null,
+        days_count: payload.daysCount,
         status: "draft",
         itinerary_status: "draft",
         itinerary_locked: false,
@@ -698,10 +718,20 @@ const access = getRoamlyAccessForUser(user.email);
       .single();
 
     if (insertError) {
+      console.error("[Roamly generate] Draft trip insert failed", {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code
+      });
+
       return NextResponse.json(
         {
           ok: false,
           error: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
           setupHint: "Run the Roamly Supabase migrations before saving itinerary drafts."
         },
         { status: 500 }
@@ -711,6 +741,7 @@ const access = getRoamlyAccessForUser(user.email);
     return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: trip.id, payload });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";
+    console.error("[Roamly generate] Unhandled generation failure", error);
     await recordAppEvent(supabase, {
       userId: user.id,
       eventType: "itinerary_generation_failed",

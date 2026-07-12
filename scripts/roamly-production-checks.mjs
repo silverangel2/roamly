@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
+import ts from "typescript";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 
@@ -116,6 +118,27 @@ const liveTest = read("lib/roamly/liveCompanionTest.ts");
 const affiliateLinks = read("lib/roamly/affiliateLinks.ts");
 ["buildHotelAffiliateUrl", "buildFlightAffiliateUrl", "buildAttractionAffiliateUrl", "attachAffiliateMetadata"].forEach((needle) =>
   assert.ok(affiliateLinks.includes(needle), `affiliate helper missing ${needle}`)
+);
+
+const dateUtilsSource = read("lib/roamly/dateUtils.ts");
+const compiledDateUtils = ts.transpileModule(dateUtilsSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020
+  }
+}).outputText;
+const dateUtilsExports = {};
+vm.runInNewContext(compiledDateUtils, { exports: dateUtilsExports, module: { exports: dateUtilsExports } });
+
+assert.equal(
+  dateUtilsExports.calculateInclusiveTripDays("2026-08-05", "2026-08-12"),
+  8,
+  "Roamly date counting failed: Aug 5 to Aug 12 must be 8 days."
+);
+assert.equal(
+  dateUtilsExports.calculateInclusiveTripDays("2026-08-05", "2026-08-05"),
+  1,
+  "Roamly date counting failed: same-day trips must be 1 day."
 );
 
 console.log("Roamly production checks passed.");

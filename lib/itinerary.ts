@@ -20,10 +20,32 @@ export type RoamlyActivitySeed = {
   map_query: string;
 };
 
-export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "tour" | "transport" | "car_rental";
+export type RoamlyBookingCategory = "flight" | "hotel" | "attraction" | "tour" | "transport" | "restaurant" | "car_rental";
+export type RoamlyPriceConfidence = "estimated" | "partner" | "user_uploaded" | "unknown";
+export type RoamlyBookingStatus = "suggested" | "user_uploaded" | "needs_booking";
 
 export type RoamlyBookingSuggestion = {
+  category: RoamlyBookingCategory;
   booking_category: RoamlyBookingCategory;
+  title: string;
+  description: string;
+  location?: string;
+  city?: string;
+  country?: string;
+  date?: string;
+  time_window?: string;
+  origin?: string;
+  destination?: string;
+  departure_date?: string;
+  return_date?: string;
+  room_type?: string;
+  neighborhood?: string;
+  duration?: string;
+  provider?: string;
+  booking_status: RoamlyBookingStatus;
+  why_recommended?: string;
+  advance_booking_recommended?: boolean;
+  free_or_paid?: "free" | "paid" | "mixed" | "unknown";
   booking_label: string;
   normal_search_url: string;
   affiliate_url?: string;
@@ -31,8 +53,12 @@ export type RoamlyBookingSuggestion = {
   affiliate_disclosure?: string;
   estimated_cost_min: number | null;
   estimated_cost_max: number | null;
+  estimated_nightly_cost_min?: number | null;
+  estimated_nightly_cost_max?: number | null;
+  estimated_total_cost_min?: number | null;
+  estimated_total_cost_max?: number | null;
   currency: string;
-  price_confidence: "estimated" | "partner" | "unknown";
+  price_confidence: RoamlyPriceConfidence;
 };
 
 export type RoamlyDayPlan = {
@@ -155,50 +181,261 @@ function searchUrl(baseQuery: string) {
   return `https://www.google.com/search?q=${encodeURIComponent(baseQuery)}`;
 }
 
+function googleFlightsUrl(origin: string, destination: string) {
+  return `https://www.google.com/travel/flights?q=${encodeURIComponent(`${origin} to ${destination} flights`)}`;
+}
+
+function bookingSearchUrl(destination: string) {
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`;
+}
+
+function tourSearchUrl(query: string) {
+  return `https://www.viator.com/searchResults/all?text=${encodeURIComponent(query)}`;
+}
+
+function defaultBookingAction(category: RoamlyBookingCategory) {
+  if (category === "flight") return "Find this flight";
+  if (category === "hotel") return "Find this room";
+  if (category === "attraction") return "Book ticket";
+  if (category === "tour") return "Find tour";
+  if (category === "transport" || category === "car_rental") return "Open directions";
+  if (category === "restaurant") return "Find restaurant";
+  return "Find option";
+}
+
+function stopValue(stop: NonNullable<TripPlannerPayload["destinationStops"]>[number], fallback: string) {
+  return stop?.value || stop?.label || fallback;
+}
+
+function tripCities(payload: TripPlannerPayload) {
+  if (payload.tripType === "multi_city" && payload.destinationStops?.length) {
+    return payload.destinationStops.map((stop, index) => ({
+      label: stopValue(stop, `City ${index + 1}`),
+      city: stop.city || stop.value || stop.label || `City ${index + 1}`,
+      country: stop.country || payload.destinationCountry || ""
+    }));
+  }
+  return [
+    {
+      label: payload.destination,
+      city: payload.destinationCity || payload.destination,
+      country: payload.destinationCountry || ""
+    }
+  ];
+}
+
+function roomTypeForPayload(payload: TripPlannerPayload) {
+  const text = `${payload.bedPreference || ""} ${payload.accommodationPreference || ""}`.toLowerCase();
+  if ((payload.travelers?.children || 0) > 0 || text.includes("family")) return "Family room";
+  if (text.includes("budget")) return "Budget private room";
+  if (text.includes("two")) return "Twin room";
+  return "Standard queen room";
+}
+
+function centsRange(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return { min: null, max: null };
+  const amount = Math.round(value / 100);
+  return {
+    min: Math.max(1, Math.round(amount * 0.88)),
+    max: Math.max(1, Math.round(amount * 1.12))
+  };
+}
+
+function discoveryList(payload: TripPlannerPayload, key: string) {
+  const value = payload.priceDiscovery?.[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function buildSuggestion(input: Omit<RoamlyBookingSuggestion, "category" | "booking_category" | "booking_label" | "normal_search_url" | "estimated_cost_min" | "estimated_cost_max" | "currency" | "price_confidence" | "booking_status"> & {
+  category: RoamlyBookingCategory;
+  booking_label?: string;
+  normal_search_url: string;
+  estimated_cost_min?: number | null;
+  estimated_cost_max?: number | null;
+  currency: string;
+  price_confidence?: RoamlyPriceConfidence;
+  booking_status?: RoamlyBookingStatus;
+}): RoamlyBookingSuggestion {
+  return {
+    ...input,
+    category: input.category,
+    booking_category: input.category,
+    booking_label: input.booking_label || defaultBookingAction(input.category),
+    normal_search_url: input.normal_search_url,
+    estimated_cost_min: input.estimated_cost_min ?? null,
+    estimated_cost_max: input.estimated_cost_max ?? null,
+    currency: input.currency,
+    price_confidence: input.price_confidence || "estimated",
+    booking_status: input.booking_status || "needs_booking"
+  };
+}
+
 function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBookingSuggestion[] {
   const currency = payload.budgetCurrency || "CAD";
   const destination = payload.destination || "your destination";
   const origin = payload.origin || "your origin";
   const perDay = payload.budgetAmount && payload.daysCount ? Math.round(payload.budgetAmount / clampTripDays(payload.daysCount)) : null;
+  const cities = tripCities(payload);
+  const routeLegs = discoveryList(payload, "routeLegs") as Array<Record<string, unknown>>;
+  const cityEstimates = discoveryList(payload, "cityEstimates") as Array<Record<string, unknown>>;
+  const roomType = roomTypeForPayload(payload);
+  const suggestions: RoamlyBookingSuggestion[] = [];
 
-  return [
-    {
-      booking_category: "flight",
-      booking_label: `Flights from ${origin} to ${destination}`,
-      normal_search_url: `https://www.google.com/travel/flights?q=${encodeURIComponent(`${origin} to ${destination} flights`)}`,
-      estimated_cost_min: null,
-      estimated_cost_max: null,
-      currency,
-      price_confidence: "estimated"
-    },
-    {
-      booking_category: "hotel",
-      booking_label: `Hotels in ${destination}`,
-      normal_search_url: `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(destination)}`,
-      estimated_cost_min: perDay ? Math.round(perDay * 0.28) : null,
-      estimated_cost_max: perDay ? Math.round(perDay * 0.55) : null,
-      currency,
-      price_confidence: "estimated"
-    },
-    {
-      booking_category: "tour",
-      booking_label: `Tours and activities in ${destination}`,
-      normal_search_url: `https://www.viator.com/searchResults/all?text=${encodeURIComponent(`${destination} tours activities`)}`,
-      estimated_cost_min: perDay ? Math.round(perDay * 0.12) : null,
-      estimated_cost_max: perDay ? Math.round(perDay * 0.3) : null,
-      currency,
-      price_confidence: "estimated"
-    },
-    {
-      booking_category: "transport",
-      booking_label: `Transport around ${destination}`,
-      normal_search_url: searchUrl(`${destination} public transit airport transfer train bus`),
-      estimated_cost_min: perDay ? Math.round(perDay * 0.06) : null,
-      estimated_cost_max: perDay ? Math.round(perDay * 0.18) : null,
-      currency,
-      price_confidence: "estimated"
+  if (routeLegs.length) {
+    for (const leg of routeLegs.slice(0, 8)) {
+      const from = cleanString(leg.from, origin);
+      const to = cleanString(leg.to, destination);
+      const mode = cleanString(leg.transportMode, "mixed");
+      const category: RoamlyBookingCategory = mode === "flight" ? "flight" : "transport";
+      const range = centsRange(leg.estimateCents);
+      suggestions.push(
+        buildSuggestion({
+          category,
+          title: category === "flight" ? `Suggested flight search: ${from} to ${to}` : `Inter-city transport search: ${from} to ${to}`,
+          description:
+            category === "flight"
+              ? "Search-ready flight option. Compare live schedules, baggage rules, and total fare before booking."
+              : "Search-ready transport option. Compare train, bus, rideshare, or regional flight schedules before booking.",
+          location: `${from} to ${to}`,
+          origin: from,
+          destination: to,
+          departure_date: payload.startDate || undefined,
+          return_date: payload.returnToOrigin !== false ? payload.endDate || undefined : undefined,
+          provider: category === "flight" ? "Google Flights search" : "Transport search",
+          normal_search_url: category === "flight" ? googleFlightsUrl(from, to) : searchUrl(`${from} to ${to} train bus flights`),
+          estimated_cost_min: range.min,
+          estimated_cost_max: range.max,
+          currency,
+          why_recommended: "Matches the planned route without claiming a reservation or live fare.",
+          free_or_paid: "paid"
+        })
+      );
     }
-  ];
+  } else if (origin && destination) {
+    suggestions.push(
+      buildSuggestion({
+        category: "flight",
+        title: `Suggested flight search: ${origin} to ${destination}`,
+        description: "Search-ready flight option. Verify live fare, baggage, seat, and schedule details before booking.",
+        location: `${origin} to ${destination}`,
+        origin,
+        destination,
+        departure_date: payload.startDate || undefined,
+        return_date: payload.returnToOrigin !== false ? payload.endDate || undefined : undefined,
+        provider: "Google Flights search",
+        normal_search_url: googleFlightsUrl(origin, destination),
+        currency,
+        why_recommended: "Connects the selected origin with the trip destination.",
+        free_or_paid: "paid"
+      })
+    );
+  }
+
+  for (const [index, city] of cities.entries()) {
+    const estimate = cityEstimates.find((item) => cleanString(item.city, "").toLowerCase() === city.label.toLowerCase());
+    const nights = typeof estimate?.nights === "number" && Number.isFinite(estimate.nights) ? Math.max(1, Math.round(estimate.nights)) : Math.max(1, Math.round((clampTripDays(payload.daysCount) - 1) / Math.max(1, cities.length)));
+    const hotelRange = centsRange(estimate?.hotelEstimateCents);
+    const nightlyMin = hotelRange.min == null ? (perDay ? Math.round(perDay * 0.28) : null) : Math.max(1, Math.round(hotelRange.min / nights));
+    const nightlyMax = hotelRange.max == null ? (perDay ? Math.round(perDay * 0.55) : null) : Math.max(1, Math.round(hotelRange.max / nights));
+    const activityRange = centsRange(estimate?.activitiesEstimateCents);
+
+    suggestions.push(
+      buildSuggestion({
+        category: "hotel",
+        title: `${roomType} in central ${city.city}`,
+        description: "Search-ready stay option. Confirm cancellation policy, taxes, resort fees, and exact room details before booking.",
+        location: `Central ${city.city}`,
+        city: city.city,
+        country: city.country || undefined,
+        room_type: roomType,
+        neighborhood: `Central ${city.city} near reliable transit`,
+        provider: "Booking.com search",
+        normal_search_url: bookingSearchUrl(city.label),
+        estimated_cost_min: hotelRange.min,
+        estimated_cost_max: hotelRange.max,
+        estimated_nightly_cost_min: nightlyMin,
+        estimated_nightly_cost_max: nightlyMax,
+        estimated_total_cost_min: hotelRange.min,
+        estimated_total_cost_max: hotelRange.max,
+        currency,
+        why_recommended: "Keeps the stay close to transit and day-plan clusters.",
+        free_or_paid: "paid"
+      }),
+      buildSuggestion({
+        category: "attraction",
+        title: `Search-ready ticket: key paid attraction in ${city.city}`,
+        description: "Compare official attraction tickets and timed-entry options before adding this paid anchor to the day plan.",
+        location: city.city,
+        city: city.city,
+        country: city.country || undefined,
+        provider: "Attraction ticket search",
+        normal_search_url: searchUrl(`${city.label} official attraction tickets timed entry`),
+        estimated_cost_min: activityRange.min ? Math.max(10, Math.round(activityRange.min / 3)) : perDay ? Math.round(perDay * 0.12) : null,
+        estimated_cost_max: activityRange.max ? Math.max(20, Math.round(activityRange.max / 2)) : perDay ? Math.round(perDay * 0.28) : null,
+        currency,
+        why_recommended: "Adds one bookable paid anchor while leaving room for free neighborhoods and flexible stops.",
+        advance_booking_recommended: true,
+        free_or_paid: "paid"
+      }),
+      buildSuggestion({
+        category: "tour",
+        title: `${city.city} small-group highlights tour`,
+        description: "Search-ready tour option. Compare duration, meeting point, cancellation terms, and traveler reviews before booking.",
+        location: city.city,
+        city: city.city,
+        country: city.country || undefined,
+        duration: "2-4 hours",
+        time_window: index === 0 ? "afternoon" : "morning",
+        provider: "Viator search",
+        normal_search_url: tourSearchUrl(`${city.label} small group highlights tour`),
+        estimated_cost_min: activityRange.min ? Math.max(25, Math.round(activityRange.min / 3)) : perDay ? Math.round(perDay * 0.18) : null,
+        estimated_cost_max: activityRange.max ? Math.max(45, Math.round(activityRange.max / 2)) : perDay ? Math.round(perDay * 0.35) : null,
+        currency,
+        why_recommended: "Gives structure early in the city block without filling the whole day.",
+        advance_booking_recommended: true,
+        free_or_paid: "paid"
+      }),
+      buildSuggestion({
+        category: "transport",
+        title: `${city.city} airport transfer and local transit`,
+        description: "Search-ready local movement option. Compare transit passes, airport train, taxi, and rideshare before arrival.",
+        location: city.city,
+        city: city.city,
+        country: city.country || undefined,
+        provider: "Google Maps search",
+        normal_search_url: searchUrl(`${city.label} airport transfer public transit pass`),
+        estimated_cost_min: perDay ? Math.round(perDay * 0.06) : null,
+        estimated_cost_max: perDay ? Math.round(perDay * 0.18) : null,
+        currency,
+        why_recommended: "Keeps daily logistics realistic and avoids last-minute airport transfer decisions.",
+        free_or_paid: "mixed"
+      })
+    );
+  }
+
+  if (payload.interests.some((interest) => interest.toLowerCase().includes("food"))) {
+    const city = cities[0];
+    suggestions.push(
+      buildSuggestion({
+        category: "restaurant",
+        title: `Dinner reservation search in ${city.city}`,
+        description: "Search restaurants near the final activity area and verify opening hours, reservation availability, and dietary fit.",
+        location: city.city,
+        city: city.city,
+        country: city.country || undefined,
+        provider: "Restaurant search",
+        normal_search_url: searchUrl(`${city.label} restaurants reservations ${payload.dietaryPreference || ""}`),
+        estimated_cost_min: perDay ? Math.round(perDay * 0.18) : null,
+        estimated_cost_max: perDay ? Math.round(perDay * 0.36) : null,
+        currency,
+        booking_label: "Find restaurant",
+        why_recommended: "Supports the trip's food interests without claiming a reservation.",
+        free_or_paid: "paid"
+      })
+    );
+  }
+
+  return suggestions.slice(0, 24);
 }
 
 export function buildPreviewFromItinerary(itinerary: RoamlyItinerary): RoamlyPreview {
@@ -309,15 +546,42 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
 }
 
 function cleanBookingCategory(value: unknown): RoamlyBookingCategory {
-  if (value === "hotel" || value === "flight" || value === "attraction" || value === "tour" || value === "transport" || value === "car_rental") {
+  if (
+    value === "hotel" ||
+    value === "flight" ||
+    value === "attraction" ||
+    value === "tour" ||
+    value === "transport" ||
+    value === "restaurant" ||
+    value === "car_rental"
+  ) {
     return value;
   }
+  if (value === "ticket") return "attraction";
   return "attraction";
 }
 
 function cleanPriceConfidence(value: unknown): RoamlyBookingSuggestion["price_confidence"] {
-  if (value === "estimated" || value === "partner" || value === "unknown") return value;
+  if (value === "estimated" || value === "partner" || value === "user_uploaded" || value === "unknown") return value;
   return "unknown";
+}
+
+function cleanBookingStatus(value: unknown): RoamlyBookingStatus {
+  if (value === "suggested" || value === "user_uploaded" || value === "needs_booking") return value;
+  return "needs_booking";
+}
+
+function cleanFreeOrPaid(value: unknown): RoamlyBookingSuggestion["free_or_paid"] {
+  if (value === "free" || value === "paid" || value === "mixed" || value === "unknown") return value;
+  return "unknown";
+}
+
+function cleanOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function cleanOptionalBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggestion[], payload: TripPlannerPayload) {
@@ -325,23 +589,50 @@ function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggesti
   const cleaned = value
     .map((item) => {
       const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
-      const category = cleanBookingCategory(record.booking_category);
-      const label = cleanString(record.booking_label, fallback[0]?.booking_label || `${payload.destination} booking`);
-      const url = cleanString(record.normal_search_url, searchUrl(label));
+      const category = cleanBookingCategory(record.category || record.booking_category);
+      const legacyLabel = cleanString(record.booking_label, fallback[0]?.title || `${payload.destination} booking`);
+      const title = cleanString(record.title, legacyLabel);
+      const actionLabel = cleanString(record.title ? record.booking_label : "", defaultBookingAction(category));
+      const description = cleanString(record.description, cleanString(record.why_recommended, "Search current availability and verify prices before booking."));
+      const url = cleanString(record.normal_search_url, searchUrl(`${title} ${payload.destination}`));
       return {
+        category,
         booking_category: category,
-        booking_label: label,
+        title,
+        description,
+        location: cleanOptionalString(record.location),
+        city: cleanOptionalString(record.city),
+        country: cleanOptionalString(record.country),
+        date: cleanOptionalString(record.date),
+        time_window: cleanOptionalString(record.time_window),
+        origin: cleanOptionalString(record.origin),
+        destination: cleanOptionalString(record.destination),
+        departure_date: cleanOptionalString(record.departure_date),
+        return_date: cleanOptionalString(record.return_date),
+        room_type: cleanOptionalString(record.room_type),
+        neighborhood: cleanOptionalString(record.neighborhood || record.area),
+        duration: cleanOptionalString(record.duration),
+        provider: cleanOptionalString(record.provider),
+        booking_status: cleanBookingStatus(record.booking_status),
+        why_recommended: cleanOptionalString(record.why_recommended),
+        advance_booking_recommended: cleanOptionalBoolean(record.advance_booking_recommended),
+        free_or_paid: cleanFreeOrPaid(record.free_or_paid),
+        booking_label: actionLabel,
         normal_search_url: url,
         affiliate_url: cleanString(record.affiliate_url, ""),
         affiliate_provider: cleanString(record.affiliate_provider, ""),
         affiliate_disclosure: cleanString(record.affiliate_disclosure, ""),
         estimated_cost_min: cleanNullableNumber(record.estimated_cost_min),
         estimated_cost_max: cleanNullableNumber(record.estimated_cost_max),
+        estimated_nightly_cost_min: cleanNullableNumber(record.estimated_nightly_cost_min),
+        estimated_nightly_cost_max: cleanNullableNumber(record.estimated_nightly_cost_max),
+        estimated_total_cost_min: cleanNullableNumber(record.estimated_total_cost_min),
+        estimated_total_cost_max: cleanNullableNumber(record.estimated_total_cost_max),
         currency: cleanString(record.currency, payload.budgetCurrency || "CAD"),
         price_confidence: cleanPriceConfidence(record.price_confidence)
       };
     })
-    .slice(0, 12);
+    .slice(0, 24);
   return cleaned.length ? cleaned : fallback;
 }
 
@@ -349,10 +640,11 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
   const fallback = buildStarterItinerary(payload);
   const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const budget = record.estimated_budget_breakdown as Record<string, unknown> | undefined;
+  const targetDays = clampTripDays(payload.daysCount);
 
   const rawDays = Array.isArray(record.daily_itinerary) ? record.daily_itinerary : [];
-  const days = rawDays.length
-    ? rawDays.slice(0, clampTripDays(payload.daysCount)).map((item, index) => {
+  const normalizedDays = rawDays.length
+    ? rawDays.slice(0, targetDays).map((item, index) => {
         const day = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
         const dayNumber = cleanNumber(day.day_number, index + 1);
         const title = cleanString(day.title, fallback.daily_itinerary[index]?.title || `Day ${dayNumber}`);
@@ -387,7 +679,10 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
           live_timeline: liveTimeline
         };
       })
-    : fallback.daily_itinerary;
+    : [];
+  const days = normalizedDays.length
+    ? [...normalizedDays, ...fallback.daily_itinerary.slice(normalizedDays.length, targetDays)].slice(0, targetDays)
+    : fallback.daily_itinerary.slice(0, targetDays);
 
   return {
     trip_title: cleanString(record.trip_title, fallback.trip_title),

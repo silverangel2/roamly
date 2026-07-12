@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import type { TravelerDetails, TripType } from "@/lib/trip-planner";
 
@@ -94,14 +95,6 @@ export type TripPriceDiscovery = {
   sources: Array<{ provider: string; label: string; confidence: "low" | "medium" | "high" }>;
 };
 
-function daysBetween(startDate?: string, endDate?: string) {
-  if (!startDate || !endDate) return null;
-  const start = new Date(`${startDate}T00:00:00Z`).getTime();
-  const end = new Date(`${endDate}T00:00:00Z`).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-  return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
-}
-
 function cents(amount: number) {
   return Math.max(0, Math.round(amount * 100));
 }
@@ -113,6 +106,10 @@ function cleanNumber(value: unknown, fallback: number) {
 function cleanInteger(value: unknown, fallback: number) {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) return Math.round(value);
   return fallback;
+}
+
+function tripDays(input: Pick<TripPriceDiscoveryInput, "startDate" | "endDate" | "daysCount">) {
+  return calculateInclusiveTripDays(input.startDate, input.endDate, cleanNumber(input.daysCount, 3));
 }
 
 function normalizeTravelers(input: TripPriceDiscoveryInput): TravelerDetails {
@@ -259,7 +256,7 @@ export async function estimateFlights(input: TripPriceDiscoveryInput) {
 
 export async function estimateHotels(input: TripPriceDiscoveryInput) {
   if (input.budgetIncludesHotel === false) return 0;
-  const days = cleanNumber(input.daysCount ?? daysBetween(input.startDate, input.endDate), 3);
+  const days = tripDays(input);
   const nights = Math.max(1, days - 1);
   const style = (input.accommodationPreference || input.travelStyle || "").toLowerCase();
   const nightly = style.includes("luxury") || style.includes("premium") ? 260 : style.includes("budget") ? 95 : 155;
@@ -269,7 +266,7 @@ export async function estimateHotels(input: TripPriceDiscoveryInput) {
 
 export async function estimateActivities(input: TripPriceDiscoveryInput) {
   if (input.budgetIncludesActivities === false) return 0;
-  const days = cleanNumber(input.daysCount ?? daysBetween(input.startDate, input.endDate), 3);
+  const days = tripDays(input);
   const pace = `${input.travelStyle || ""} ${input.pace || ""}`.toLowerCase();
   const intense = pace.includes("packed") || (input.interests || []).length > 5;
   const factor = travelerCostFactor(normalizeTravelers(input));
@@ -277,7 +274,7 @@ export async function estimateActivities(input: TripPriceDiscoveryInput) {
 }
 
 export async function estimateFood(input: TripPriceDiscoveryInput) {
-  const days = cleanNumber(input.daysCount ?? daysBetween(input.startDate, input.endDate), 3);
+  const days = tripDays(input);
   const travelers = travelerCostFactor(normalizeTravelers(input));
   const style = (input.travelStyle || "").toLowerCase();
   const daily = style.includes("luxury") || style.includes("premium") || style.includes("foodie") ? 85 : style.includes("budget") ? 38 : 58;
@@ -285,7 +282,7 @@ export async function estimateFood(input: TripPriceDiscoveryInput) {
 }
 
 export async function estimateLocalTransport(input: TripPriceDiscoveryInput) {
-  const days = cleanNumber(input.daysCount ?? daysBetween(input.startDate, input.endDate), 3);
+  const days = tripDays(input);
   const preference = input.transportationPreference?.toLowerCase?.() || "";
   const travelers = travelerCostFactor(normalizeTravelers(input));
   const daily = preference.includes("rental") ? 85 : preference.includes("rideshare") ? 45 : 22;
@@ -359,7 +356,7 @@ function recommendationNotes(status: BudgetStatus, input: TripPriceDiscoveryInpu
 }
 
 export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promise<TripPriceDiscovery> {
-  const daysCount = cleanNumber(input.daysCount ?? daysBetween(input.startDate, input.endDate), 3);
+  const daysCount = tripDays(input);
   const travelers = normalizeTravelers(input);
   const destinationStops = routeStops(input);
   const normalized: TripPriceDiscoveryInput = {

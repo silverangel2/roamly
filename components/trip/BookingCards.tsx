@@ -15,9 +15,9 @@ export function BookingCards({ trip, itinerary }: { trip: RoamlyTripRecord; itin
   const destination = getTripDestinationLabel(trip) || "your destination";
   const suggestionLinks: BookingCardLink[] =
     itinerary?.booking_suggestions?.map((suggestion) => ({
-      title: suggestion.booking_label,
+      title: suggestion.title || suggestion.booking_label,
       label: suggestion.booking_category.replace("_", " "),
-      description: formatEstimate(suggestion.estimated_cost_min, suggestion.estimated_cost_max, suggestion.currency),
+      description: suggestion.description || formatEstimate(suggestion.estimated_cost_min, suggestion.estimated_cost_max, suggestion.currency),
       href: suggestion.affiliate_url || suggestion.normal_search_url,
       booking_category: suggestion.booking_category,
       affiliate_enabled: Boolean(suggestion.affiliate_url),

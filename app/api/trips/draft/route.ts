@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeLocale } from "@/lib/i18n";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { requireUser } from "@/lib/roamly/auth";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import { buildTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
@@ -87,22 +88,11 @@ function cleanTravelers(value: unknown, travelersCount: number): TravelerDetails
   return { adults, children, infants };
 }
 
-function daysBetween(startDate: string, endDate: string) {
-  if (!startDate || !endDate) return null;
-
-  const start = new Date(`${startDate}T00:00:00Z`).getTime();
-  const end = new Date(`${endDate}T00:00:00Z`).getTime();
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-
-  return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
-}
-
 function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
   const startDate = getString(body.startDate || body.start_date);
   const endDate = getString(body.endDate || body.end_date);
   const explicitDays = getPositiveNumber(body.daysCount ?? body.days_count);
-  const resolvedDaysCount = explicitDays ?? daysBetween(startDate, endDate) ?? 3;
+  const resolvedDaysCount = calculateInclusiveTripDays(startDate, endDate, explicitDays ?? 3);
   const tripType = getTripType(body.tripType || body.trip_type);
   const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
   const destinationPlace = cleanPlace(body.destinationPlace || body.destination_place);
@@ -208,6 +198,7 @@ export async function POST(request: NextRequest) {
         destination_region: payload.destinationRegion || null,
         start_date: payload.startDate || null,
         end_date: payload.endDate || null,
+        days_count: payload.daysCount,
         status: "draft",
         itinerary_status: "draft",
         itinerary_locked: false,

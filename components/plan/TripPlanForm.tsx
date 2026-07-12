@@ -24,6 +24,7 @@ import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoad
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -76,14 +77,6 @@ function todayIsoDate() {
 function toNumberOrNull(value: string) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-function daysBetweenInput(startDate: string, endDate: string) {
-  if (!startDate || !endDate) return null;
-  const start = new Date(`${startDate}T00:00:00Z`).getTime();
-  const end = new Date(`${endDate}T00:00:00Z`).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-  return Math.max(1, Math.round((end - start) / 86_400_000) + 1);
 }
 
 function toInteger(value: string, fallback: number) {
@@ -554,6 +547,7 @@ export function TripPlanForm({
   const infantCount = Math.max(0, toInteger(infants, 0));
   const roomCount = Math.max(1, toInteger(rooms, 1));
   const travelersCount = Math.max(1, adultCount + childCount + infantCount);
+  const resolvedDaysCount = calculateInclusiveTripDays(startDate, endDate, toNumberOrNull(daysCount) ?? 3);
   const progress = Math.round(((step + 1) / steps.length) * 100);
 
   function resetDiscovery() {
@@ -640,7 +634,7 @@ export function TripPlanForm({
       flexibleDates,
       startDate,
       endDate,
-      daysCount: toNumberOrNull(daysCount) ?? daysBetweenInput(startDate, endDate) ?? 3,
+      daysCount: resolvedDaysCount,
       travelersCount,
       travelers: {
         adults: adultCount,
@@ -679,7 +673,6 @@ export function TripPlanForm({
       budgetIncludesFlights,
       budgetIncludesHotel,
       childCount,
-      daysCount,
       destinationPlace,
       dietaryPreference,
       endDate,
@@ -693,6 +686,7 @@ export function TripPlanForm({
       pace,
       priceDiscoveryId,
       returnToOrigin,
+      resolvedDaysCount,
       roomCount,
       specialNotes,
       startDate,
