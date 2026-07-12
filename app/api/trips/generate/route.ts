@@ -549,6 +549,7 @@ async function checkRoamlyGenerationSchema(supabase: Awaited<ReturnType<typeof c
       missing: ["supabase_client"]
     };
   }
+
   const required: Record<string, string[]> = {
     roamly_trips: [
       "id",
@@ -588,28 +589,18 @@ async function checkRoamlyGenerationSchema(supabase: Awaited<ReturnType<typeof c
     ]
   };
 
-  const { data, error } = await supabase
-    .from("information_schema.columns")
-    .select("table_name,column_name")
-    .eq("table_schema", "public")
-    .in("table_name", Object.keys(required));
+  const missing: string[] = [];
 
-  if (error) {
-    return {
-      ok: false,
-      missing: [`schema_check_failed: ${error.message}`]
-    };
+  for (const [table, columns] of Object.entries(required)) {
+    const { error } = await supabase
+      .from(table)
+      .select(columns.join(","))
+      .limit(1);
+
+    if (error) {
+      missing.push(`${table}: ${error.message}`);
+    }
   }
-
-  const existing = new Set(
-    (data || []).map((row: { table_name: string; column_name: string }) => `${row.table_name}.${row.column_name}`)
-  );
-
-  const missing = Object.entries(required).flatMap(([table, columns]) =>
-    columns
-      .filter((column) => !existing.has(`${table}.${column}`))
-      .map((column) => `${table}.${column}`)
-  );
 
   return {
     ok: missing.length === 0,
