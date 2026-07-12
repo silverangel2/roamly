@@ -302,7 +302,8 @@ function TextInput({
   type?: "text" | "date" | "number";
   min?: string | number;
 }) {
-  return (
+
+return (
     <input
       value={value}
       onChange={(event) => onChange(event.target.value)}
@@ -417,7 +418,7 @@ export function TripPlanForm({
   const [flexibleDates, setFlexibleDates] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [daysCount, setDaysCount] = useState("");
+  const [daysCount, setDaysCount] = useState("3");
   const [adults, setAdults] = useState("1");
   const [children, setChildren] = useState("0");
   const [infants, setInfants] = useState("0");
@@ -726,7 +727,7 @@ export function TripPlanForm({
       startDate,
       end_date: endDate,
       endDate,
-      days_count: daysCount,
+      days_count: resolvedDaysCount,
       daysCount,
       travelers: {
         adults: adultCount,
