@@ -192,6 +192,10 @@ select {
     display: none !important;
   }
 
+  .roamly-print-only {
+    display: block !important;
+  }
+
   .safe-bottom {
     padding-bottom: 0 !important;
   }

@@ -75,14 +75,16 @@ export function BookingCardsClient({
           key={link.title}
           href={link.href}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           onClick={() =>
             trackBookingEvent("booking_link_clicked", {
-              tripId,
-              destination,
-              bookingCategory: link.booking_category,
-              affiliateProvider: link.affiliate_provider,
-              affiliateEnabled: link.affiliate_enabled
+              trip_id: tripId,
+              category: link.booking_category,
+              title: link.title,
+              provider: link.affiliate_provider || "direct",
+              has_affiliate_url: link.affiliate_enabled,
+              url_type: link.affiliate_enabled ? "affiliate" : "normal_search",
+              destination
             })
           }
           className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/40"

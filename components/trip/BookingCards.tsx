@@ -7,8 +7,8 @@ import { BookingCardsClient, type BookingCardLink } from "@/components/trip/Book
 
 function formatEstimate(min: number | null, max: number | null, currency: string) {
   if (min == null && max == null) return "Search current prices before booking.";
-  if (min != null && max != null) return `Estimated ${currency} ${min}-${max}. Verify live prices.`;
-  return `Estimated ${currency} ${min ?? max}. Verify live prices.`;
+  if (min != null && max != null) return `Estimated ${currency} ${min}-${max}. Verify current prices.`;
+  return `Estimated ${currency} ${min ?? max}. Verify current prices.`;
 }
 
 export function BookingCards({ trip, itinerary }: { trip: RoamlyTripRecord; itinerary?: RoamlyItinerary | null }) {

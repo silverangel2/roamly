@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { buildPreviewFromItinerary, formatMoney, getItineraryTotalEstimateAmount, type RoamlyItinerary } from "@/lib/itinerary";
 import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
+import {
+  buildAttractionTicketSearchUrl,
+  buildFlightSearchUrl,
+  buildHotelSearchUrl,
+  buildTourSearchUrl,
+  buildTransportSearchUrl,
+  safeExternalUrl
+} from "@/lib/roamly/bookingLinks";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { isEmailConfigured, sendRoamlyEmail } from "@/lib/roamly/email";
 import { requireUser } from "@/lib/roamly/auth";
-import { getTripBudgetAmount, getTripBudgetCurrency, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
-import { getTripBundle, isMissingTableError } from "@/lib/trips";
+import {
+  getTripBudgetAmount,
+  getTripBudgetCurrency,
+  getTripDestinationLabel,
+  getTripOriginLabel,
+  getTripPlanningMetadata
+} from "@/lib/roamly/tripMetadata";
+import { getTripBundle, isMissingTableError, type RoamlyTripRecord } from "@/lib/trips";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -40,15 +54,99 @@ function bookingAction(suggestion: RoamlyItinerary["booking_suggestions"][number
   return suggestion.booking_label || "Find option";
 }
 
-function bookingHref(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  return suggestion.affiliate_url || suggestion.normal_search_url || "";
+function getPositiveNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return Math.round(value);
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  return null;
+}
+
+function getRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function tripTravelerDetails(trip: RoamlyTripRecord) {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  const travelers = getRecord(planning.travelers);
+  return {
+    adults:
+      getPositiveNumber(travelers.adults) ||
+      getPositiveNumber(planning.travelersCount) ||
+      getPositiveNumber(trip.travelers_count) ||
+      1,
+    children: getPositiveNumber(travelers.children) || 0,
+    infants: getPositiveNumber(travelers.infants) || 0
+  };
+}
+
+function tripRooms(trip: RoamlyTripRecord) {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  return getPositiveNumber(planning.rooms) || 1;
+}
+
+function bookingHref(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const affiliate = safeExternalUrl(suggestion.affiliate_url);
+  if (affiliate) return affiliate;
+  const normal = safeExternalUrl(suggestion.normal_search_url);
+  if (normal) return normal;
+
+  const category = suggestion.category || suggestion.booking_category;
+  const travelers = tripTravelerDetails(trip);
+  const destination = suggestion.destination || suggestion.city || getTripDestinationLabel(trip) || "";
+  const startDate = suggestion.departure_date || suggestion.date || trip.start_date || "";
+  const endDate = suggestion.return_date || trip.end_date || "";
+  const origin = suggestion.origin || getTripOriginLabel(trip) || "";
+
+  if (category === "flight") {
+    return safeExternalUrl(
+      buildFlightSearchUrl({
+        origin,
+        destination,
+        departureDate: startDate,
+        returnDate: endDate,
+        travelers
+      })
+    );
+  }
+  if (category === "hotel") {
+    return safeExternalUrl(
+      buildHotelSearchUrl({
+        destination,
+        checkInDate: trip.start_date,
+        checkOutDate: trip.end_date,
+        adults: travelers.adults,
+        children: travelers.children,
+        rooms: tripRooms(trip),
+        neighborhood: suggestion.neighborhood || suggestion.location,
+        roomType: suggestion.room_type
+      })
+    );
+  }
+  if (category === "attraction") {
+    return safeExternalUrl(buildAttractionTicketSearchUrl({ attractionName: bookingTitle(suggestion), destination, date: suggestion.date || startDate }));
+  }
+  if (category === "tour") {
+    return safeExternalUrl(buildTourSearchUrl({ tourName: bookingTitle(suggestion), destination, date: suggestion.date || startDate }));
+  }
+  if (category === "transport" || category === "car_rental") {
+    return safeExternalUrl(
+      buildTransportSearchUrl({
+        origin,
+        destination: suggestion.destination || suggestion.location || destination || bookingTitle(suggestion),
+        date: startDate
+      })
+    );
+  }
+  return "";
 }
 
 function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
   const currency = suggestion.currency || "CAD";
   const min = suggestion.estimated_total_cost_min ?? suggestion.estimated_cost_min;
   const max = suggestion.estimated_total_cost_max ?? suggestion.estimated_cost_max;
-  if (min == null && max == null) return "Estimated/search-ready option; verify live prices.";
+  if (min == null && max == null) return "Estimated/search-ready option; verify current prices.";
   if (min != null && max != null) return `Estimated ${formatMoney(min, currency)}-${formatMoney(max, currency)}.`;
   return `Estimated ${formatMoney(min ?? max, currency)}.`;
 }
@@ -71,7 +169,8 @@ function renderItineraryEmail({
   days,
   recommendations,
   budgetSummary,
-  tripUrl
+  tripUrl,
+  trip
 }: {
   title: string;
   destination: string;
@@ -81,6 +180,7 @@ function renderItineraryEmail({
   recommendations: RoamlyItinerary["booking_suggestions"];
   budgetSummary: string;
   tripUrl: string;
+  trip: RoamlyTripRecord;
 }) {
   const dayHtml = days
     .slice(0, 10)
@@ -96,13 +196,14 @@ function renderItineraryEmail({
     .join("");
   const bookingHtml = recommendations
     .map((suggestion) => {
-      const href = bookingHref(suggestion);
+      const href = bookingHref(suggestion, trip);
+      const action = `Search: ${bookingAction(suggestion)}`;
       return `<section style="border-top:1px solid #e5edf3;padding:14px 0;">
         <p style="margin:0 0 5px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#0f8f9c;">${escapeHtml(suggestion.category || suggestion.booking_category)}</p>
         <h2 style="margin:0 0 8px;font-size:17px;line-height:1.25;color:#132033;">${escapeHtml(bookingTitle(suggestion))}</h2>
         <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#526176;">${escapeHtml(suggestion.description || suggestion.why_recommended || "Search current availability before booking.")}</p>
         <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#526176;">${escapeHtml(bookingEstimate(suggestion))}</p>
-        ${href ? `<a href="${escapeHtml(href)}" style="font-size:13px;font-weight:900;color:#0f8f9c;text-decoration:none;">${escapeHtml(bookingAction(suggestion))}</a>` : ""}
+        ${href ? `<a href="${escapeHtml(href)}" style="font-size:13px;font-weight:900;color:#0f8f9c;text-decoration:none;">${escapeHtml(action)}</a>` : `<p style="margin:0;font-size:13px;font-weight:900;color:#7a8798;">Search link unavailable</p>`}
       </section>`;
     })
     .join("");
@@ -127,7 +228,7 @@ function renderItineraryEmail({
           ? `<section style="background:#ffffff;border:1px solid #dce8f2;border-radius:24px;padding:24px;margin-top:18px;">
         <p style="margin:0 0 12px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#0aa6a6;">Top booking recommendations</p>
         ${bookingHtml}
-        <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:#7a8798;">Suggested options are not confirmed bookings. Estimated prices may change before booking. ${escapeHtml(affiliateDisclosure)}</p>
+        <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:#7a8798;">Suggested options are search-ready planning recommendations, not completed bookings. Estimated prices may change before booking. ${escapeHtml(affiliateDisclosure)}</p>
       </section>`
           : ""
       }
@@ -137,17 +238,17 @@ function renderItineraryEmail({
 </html>`;
 
   const bookingText = recommendations.length
-    ? `\n\nTop booking recommendations (not booked yet; verify price and availability before booking):\n${recommendations
+    ? `\n\nTop booking recommendations (verify price and availability before booking):\n${recommendations
         .map((suggestion) =>
           [
             `${suggestion.category || suggestion.booking_category}: ${bookingTitle(suggestion)}`,
             bookingEstimate(suggestion),
-            bookingHref(suggestion) ? `${bookingAction(suggestion)}: ${bookingHref(suggestion)}` : ""
+            `Search: ${bookingAction(suggestion)}`
           ]
             .filter(Boolean)
             .join("\n")
         )
-        .join("\n\n")}\n\nSuggested options are not confirmed bookings. Estimated prices may change before booking. ${affiliateDisclosure}`
+        .join("\n\n")}\n\nSuggested options are search-ready planning recommendations, not completed bookings. Estimated prices may change before booking. Open the trip page for search links. ${affiliateDisclosure}`
     : "";
   const text = `${title}\n${destination}${dates ? ` - ${dates}` : ""}${budgetSummary ? `\n${budgetSummary}` : ""}\n\n${summary}\n\n${plainDaySummary(days)}${bookingText}\n\nOpen trip: ${tripUrl}\nPDF export is available from the trip page.\n\nGenerated by Roamly.`;
   return { html, text };
@@ -219,7 +320,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     days: full.daily_itinerary,
     recommendations: topBookingRecommendations(full.booking_suggestions || []),
     budgetSummary,
-    tripUrl
+    tripUrl,
+    trip
   });
 
   const result = await sendRoamlyEmail({

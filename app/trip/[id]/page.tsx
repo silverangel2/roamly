@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
+import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
@@ -23,12 +24,23 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import {
+  buildAttractionTicketSearchUrl,
+  buildFlightSearchUrl,
+  buildHotelSearchUrl,
+  buildTourSearchUrl,
+  buildTransportSearchUrl,
+  googleSearchUrl,
+  safeExternalUrl,
+  type BookingUrlType
+} from "@/lib/roamly/bookingLinks";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
   getTripDaysCount,
   getTripDestinationLabel,
+  getTripOriginLabel,
   getTripPlanningMetadata
 } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
@@ -388,7 +400,7 @@ function BudgetTable({
 }
 
 function fallbackSearchUrl(query: string) {
-  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  return googleSearchUrl(query);
 }
 
 function bookingCategory(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -403,8 +415,144 @@ function bookingDescription(suggestion: RoamlyItinerary["booking_suggestions"][n
   return suggestion.description || suggestion.why_recommended || "Search current availability and verify prices before booking.";
 }
 
-function suggestionHref(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  return suggestion.affiliate_url?.trim() || suggestion.normal_search_url?.trim() || fallbackSearchUrl(bookingTitle(suggestion));
+function getPositiveNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) return Math.round(value);
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  return null;
+}
+
+function getRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function tripTravelerDetails(trip: RoamlyTripRecord) {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  const travelers = getRecord(planning.travelers);
+  const adults =
+    getPositiveNumber(travelers.adults) ||
+    getPositiveNumber(planning.travelersCount) ||
+    getPositiveNumber(trip.travelers_count) ||
+    1;
+  return {
+    adults,
+    children: getPositiveNumber(travelers.children) || 0,
+    infants: getPositiveNumber(travelers.infants) || 0
+  };
+}
+
+function tripRooms(trip: RoamlyTripRecord) {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  return getPositiveNumber(planning.rooms) || 1;
+}
+
+function tripDate(trip: RoamlyTripRecord, key: "start" | "end") {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  if (key === "start") return trip.start_date || getString(planning.startDate) || getString(planning.start_date);
+  return trip.end_date || getString(planning.endDate) || getString(planning.end_date);
+}
+
+function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const category = bookingCategory(suggestion);
+  const title = bookingTitle(suggestion);
+  const travelers = tripTravelerDetails(trip);
+  const destination = suggestion.destination || suggestion.city || getTripDestinationLabel(trip) || "";
+  const origin = suggestion.origin || getTripOriginLabel(trip) || "";
+  const startDate = suggestion.departure_date || suggestion.date || tripDate(trip, "start") || "";
+  const endDate = suggestion.return_date || tripDate(trip, "end") || "";
+
+  if (category === "flight") {
+    return buildFlightSearchUrl({
+      origin,
+      destination,
+      departureDate: startDate,
+      returnDate: endDate,
+      travelers
+    });
+  }
+
+  if (category === "hotel") {
+    return buildHotelSearchUrl({
+      destination,
+      checkInDate: tripDate(trip, "start"),
+      checkOutDate: tripDate(trip, "end"),
+      adults: travelers.adults,
+      children: travelers.children,
+      rooms: tripRooms(trip),
+      neighborhood: suggestion.neighborhood || suggestion.location,
+      roomType: suggestion.room_type
+    });
+  }
+
+  if (category === "attraction") {
+    return buildAttractionTicketSearchUrl({
+      attractionName: title,
+      destination,
+      date: suggestion.date || startDate
+    });
+  }
+
+  if (category === "tour") {
+    return buildTourSearchUrl({
+      tourName: title,
+      destination,
+      date: suggestion.date || startDate
+    });
+  }
+
+  if (category === "transport" || category === "car_rental") {
+    return buildTransportSearchUrl({
+      origin,
+      destination: suggestion.destination || suggestion.location || destination || title,
+      date: startDate
+    });
+  }
+
+  if (category === "restaurant") {
+    return fallbackSearchUrl(`${title} ${destination} reservations ${suggestion.date || ""}`);
+  }
+
+  return fallbackSearchUrl(`${title} ${destination}`);
+}
+
+function bookingProvider(suggestion: RoamlyItinerary["booking_suggestions"][number], fallback: string) {
+  return suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || fallback;
+}
+
+function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const affiliate = safeExternalUrl(suggestion.affiliate_url);
+  if (affiliate) {
+    return {
+      href: affiliate,
+      provider: bookingProvider(suggestion, "Affiliate partner"),
+      hasAffiliateUrl: true,
+      urlType: "affiliate" as BookingUrlType
+    };
+  }
+
+  const normal = safeExternalUrl(suggestion.normal_search_url);
+  if (normal) {
+    return {
+      href: normal,
+      provider: bookingProvider(suggestion, "Normal search"),
+      hasAffiliateUrl: false,
+      urlType: "normal_search" as BookingUrlType
+    };
+  }
+
+  const fallback = safeExternalUrl(fallbackBookingUrl(suggestion, trip));
+  if (fallback) {
+    return {
+      href: fallback,
+      provider: bookingProvider(suggestion, "Fallback search"),
+      hasAffiliateUrl: false,
+      urlType: "fallback" as BookingUrlType
+    };
+  }
+
+  return null;
 }
 
 function bookingActionLabel(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -449,7 +597,7 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
   if (nightly && total) return `Estimated nightly ${nightly}; stay ${total}.`;
   if (total) return `Estimated ${total}.`;
   if (suggestion.free_or_paid === "free") return "Free option. Verify hours and access rules.";
-  return "Search-ready option. Verify live prices before booking.";
+  return "Search-ready option. Verify current prices before booking.";
 }
 
 function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -466,12 +614,21 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
     .slice(0, 5);
 }
 
-function BookingRecommendationCard({ suggestion }: { suggestion: RoamlyItinerary["booking_suggestions"][number] }) {
+function BookingRecommendationCard({
+  suggestion,
+  trip,
+  tripId
+}: {
+  suggestion: RoamlyItinerary["booking_suggestions"][number];
+  trip: RoamlyTripRecord;
+  tripId: string;
+}) {
   const category = bookingCategory(suggestion);
   const title = bookingTitle(suggestion);
-  const href = suggestionHref(suggestion);
+  const link = resolveBookingLink(suggestion, trip);
   const mapQuery = suggestion.location || suggestion.neighborhood || suggestion.city || title;
   const confidence = priceConfidenceLabel(suggestion.price_confidence);
+  const actionLabel = bookingActionLabel(suggestion);
 
   return (
     <article className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
@@ -497,20 +654,30 @@ function BookingRecommendationCard({ suggestion }: { suggestion: RoamlyItinerary
           ) : null}
           {category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="roamly-no-print inline-flex w-fit shrink-0 rounded-full border border-ocean/20 bg-ocean/10 px-4 py-2 text-sm font-black text-ocean transition hover:border-ocean/40 hover:bg-ocean/20"
-        >
-          {bookingActionLabel(suggestion)}
-        </a>
+        <div className="flex shrink-0 flex-col gap-2 lg:items-end">
+          <p className="roamly-no-print max-w-[13rem] text-xs font-bold leading-5 text-slate-500">
+            Search-ready suggestion. Verify live price and availability before booking.
+          </p>
+          <BookingRecommendationButton
+            href={link?.href || ""}
+            label={actionLabel}
+            tripId={tripId}
+            category={category}
+            title={title}
+            provider={link?.provider || "unavailable"}
+            hasAffiliateUrl={Boolean(link?.hasAffiliateUrl)}
+            urlType={link?.urlType || "fallback"}
+          />
+          <p className="roamly-print-only hidden text-xs font-black text-ocean">
+            {link?.href ? `Search: ${actionLabel}` : "Search link unavailable"}
+          </p>
+        </div>
       </div>
     </article>
   );
 }
 
-function BookingPlan({ itinerary }: { itinerary: RoamlyItinerary }) {
+function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string }) {
   const suggestions = itinerary.booking_suggestions || [];
   const groups = [
     { title: "Flights", categories: ["flight"] },
@@ -524,7 +691,7 @@ function BookingPlan({ itinerary }: { itinerary: RoamlyItinerary }) {
   return (
     <div className="grid gap-5">
       <p className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
-        Suggested options are search-ready planning recommendations, not confirmed bookings. Estimated prices may change before booking.
+        Suggested options are search-ready planning recommendations, not completed bookings. Estimated prices may change before booking.
         {" "}
         {affiliateDisclosure}
       </p>
@@ -536,7 +703,12 @@ function BookingPlan({ itinerary }: { itinerary: RoamlyItinerary }) {
             {items.length ? (
               <div className="mt-3 grid gap-3">
                 {items.map((suggestion, index) => (
-                  <BookingRecommendationCard key={`${group.title}-${bookingTitle(suggestion)}-${index}`} suggestion={suggestion} />
+                  <BookingRecommendationCard
+                    key={`${group.title}-${bookingTitle(suggestion)}-${index}`}
+                    suggestion={suggestion}
+                    trip={trip}
+                    tripId={tripId}
+                  />
                 ))}
               </div>
             ) : (
@@ -828,9 +1000,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               <SectionHeading eyebrow="Overview" title="Trip summary" summary="Short planning notes to keep the document easy to scan." />
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <SummaryTile label="Best for" value={full.best_for.slice(0, 4).join(" · ") || travelStyle} />
-                <SummaryTile label="Budget fit" value={compact(full.budget_fit_summary, "Verify live prices before booking.", 170)} />
+                <SummaryTile label="Budget fit" value={compact(full.budget_fit_summary, "Verify current prices before booking.", 170)} />
                 <SummaryTile label="Route logic" value={compact(full.route_reasoning, "The route keeps each day focused and realistic.", 170)} />
-                <SummaryTile label="Booking status" value={compact(full.booking_status_summary, "No bookings are assumed until confirmed.", 170)} />
+                <SummaryTile label="Booking status" value={compact(full.booking_status_summary, "No bookings are assumed until you upload or save them.", 170)} />
                 <SummaryTile label="Transport" value={compact(full.transport_overview, "Use clustered routes to reduce travel time.", 170)} />
                 <SummaryTile
                   label="Important reminders"
@@ -846,7 +1018,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
             <section id="bookings" className="mt-8 scroll-mt-32">
               <SectionHeading eyebrow="Bookings" title="What to reserve" summary="Use direct search links unless a configured Roamly partner link is available." />
-              <BookingPlan itinerary={full} />
+              <BookingPlan itinerary={full} trip={trip} tripId={id} />
               <div className="mt-5 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
                 <div>
                   <h3 className="text-lg font-black text-ink">Confirmed bookings</h3>

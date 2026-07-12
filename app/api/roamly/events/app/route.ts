@@ -27,6 +27,10 @@ export async function POST(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") || "";
   const referrer = typeof body.referrer === "string" ? body.referrer : request.headers.get("referer") || "";
   const referrerHost = referrer ? new URL(referrer, "https://fallback.local").host : "";
+  const metadata =
+    body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
+      ? (body.metadata as Record<string, unknown>)
+      : {};
 
   const result = await recordAppEvent(writer, {
     userId: data.user?.id || null,
@@ -41,6 +45,7 @@ export async function POST(request: NextRequest) {
     platform: typeof body.platform === "string" ? body.platform : null,
     browser: browser(userAgent),
     metadata: {
+      ...metadata,
       language: typeof body.language === "string" ? body.language : null
     }
   });

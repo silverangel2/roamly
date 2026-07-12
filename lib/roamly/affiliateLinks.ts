@@ -1,6 +1,14 @@
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import {
+  buildAttractionTicketSearchUrl,
+  buildFlightSearchUrl,
+  buildHotelSearchUrl,
+  buildTourSearchUrl,
+  buildTransportSearchUrl,
+  googleSearchUrl
+} from "@/lib/roamly/bookingLinks";
 
 export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
 
@@ -12,6 +20,13 @@ export type RoamlyAffiliateInput = {
   query?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  travelers?: number | { adults?: number | null; children?: number | null; infants?: number | null } | null;
+  adults?: number | null;
+  children?: number | null;
+  rooms?: number | null;
+  neighborhood?: string | null;
+  roomType?: string | null;
+  date?: string | null;
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -57,6 +72,10 @@ function place(input: RoamlyAffiliateInput) {
   return clean(input.query) || clean(input.title) || clean(input.destination) || "travel";
 }
 
+function directSearch(provider: string, href: string) {
+  return href || googleSearchUrl(`${provider} travel search`);
+}
+
 function linkResult(
   input: RoamlyAffiliateInput,
   category: RoamlyBookingCategory,
@@ -83,6 +102,9 @@ export function buildHotelAffiliateUrl(input: RoamlyAffiliateInput) {
       "hotel",
       withParams("https://www.stay22.com/search", {
         address: destination,
+        checkin: input.startDate || undefined,
+        checkout: input.endDate || undefined,
+        guests: input.adults ? String(input.adults) : undefined,
         aid: process.env.ROAMLY_STAY22_PARTNER_ID
       }),
       "stay22"
@@ -116,18 +138,40 @@ export function buildHotelAffiliateUrl(input: RoamlyAffiliateInput) {
       "hotel",
       withParams("https://www.booking.com/searchresults.html", {
         ss: destination,
+        checkin: input.startDate || undefined,
+        checkout: input.endDate || undefined,
+        group_adults: input.adults ? String(input.adults) : undefined,
+        group_children: input.children ? String(input.children) : undefined,
+        no_rooms: input.rooms ? String(input.rooms) : undefined,
         aid: process.env.ROAMLY_BOOKING_AFFILIATE_ID
       }),
       "booking"
     );
   }
-  return linkResult(input, "hotel", `https://www.google.com/maps/search/${q(`${destination} hotels`)}`, "direct");
+  return linkResult(
+    input,
+    "hotel",
+    directSearch(
+      "hotel",
+      buildHotelSearchUrl({
+        destination,
+        checkInDate: input.startDate,
+        checkOutDate: input.endDate,
+        adults: input.adults,
+        children: input.children,
+        rooms: input.rooms,
+        neighborhood: input.neighborhood,
+        roomType: input.roomType
+      })
+    ),
+    "direct"
+  );
 }
 
 export function buildFlightAffiliateUrl(input: RoamlyAffiliateInput) {
   const provider = clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER).toLowerCase();
-  const origin = clean(input.origin) || "your origin";
-  const destination = place(input);
+  const origin = clean(input.origin);
+  const destination = clean(input.destination) || place(input);
   if (enabled() && provider === "travelpayouts" && process.env.ROAMLY_TRAVELPAYOUTS_MARKER) {
     return linkResult(
       input,
@@ -135,7 +179,9 @@ export function buildFlightAffiliateUrl(input: RoamlyAffiliateInput) {
       withParams("https://www.aviasales.com/search", {
         marker: process.env.ROAMLY_TRAVELPAYOUTS_MARKER,
         origin,
-        destination
+        destination,
+        depart_date: input.startDate || undefined,
+        return_date: input.endDate || undefined
       }),
       "travelpayouts"
     );
@@ -152,16 +198,31 @@ export function buildFlightAffiliateUrl(input: RoamlyAffiliateInput) {
       "kiwi"
     );
   }
-  return linkResult(input, "flight", `https://www.google.com/travel/flights?q=${q(`${origin} to ${destination} flights`)}`, "direct");
+  return linkResult(
+    input,
+    "flight",
+    directSearch(
+      "flight",
+      buildFlightSearchUrl({
+        origin,
+        destination,
+        departureDate: input.startDate,
+        returnDate: input.endDate,
+        travelers: input.travelers
+      })
+    ),
+    "direct"
+  );
 }
 
 export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
   const provider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase();
   const search = place(input);
+  const category = input.category === "ticket" || input.category === "attraction" ? input.category : "tour";
   if (enabled() && provider === "getyourguide" && process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID) {
     return linkResult(
       input,
-      "tour",
+      category,
       withParams("https://www.getyourguide.com/s/", {
         q: search,
         partner_id: process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID
@@ -172,7 +233,7 @@ export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
   if (enabled() && provider === "viator" && process.env.ROAMLY_VIATOR_PARTNER_ID) {
     return linkResult(
       input,
-      "tour",
+      category,
       withParams("https://www.viator.com/searchResults/all", {
         text: search,
         pid: process.env.ROAMLY_VIATOR_PARTNER_ID
@@ -183,7 +244,7 @@ export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
   if (enabled() && provider === "klook" && process.env.ROAMLY_KLOOK_PARTNER_ID) {
     return linkResult(
       input,
-      "tour",
+      category,
       withParams("https://www.klook.com/en-CA/search/result/", {
         query: search,
         aid: process.env.ROAMLY_KLOOK_PARTNER_ID
@@ -194,7 +255,7 @@ export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
   if (enabled() && provider === "tiqets" && process.env.ROAMLY_TIQETS_PARTNER_ID) {
     return linkResult(
       input,
-      "ticket",
+      category,
       withParams("https://www.tiqets.com/en/search", {
         q: search,
         partner: process.env.ROAMLY_TIQETS_PARTNER_ID
@@ -202,7 +263,17 @@ export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
       "tiqets"
     );
   }
-  return linkResult(input, "tour", `https://www.viator.com/searchResults/all?text=${q(`${search} tours activities tickets`)}`, "direct");
+  return linkResult(
+    input,
+    category,
+    directSearch(
+      "activities",
+      category === "tour"
+        ? buildTourSearchUrl({ tourName: search, destination: input.destination, date: input.date || input.startDate })
+        : buildAttractionTicketSearchUrl({ attractionName: search, destination: input.destination, date: input.date || input.startDate })
+    ),
+    "direct"
+  );
 }
 
 export function buildTransportAffiliateUrl(input: RoamlyAffiliateInput) {
@@ -212,7 +283,18 @@ export function buildTransportAffiliateUrl(input: RoamlyAffiliateInput) {
     latitude: input.latitude,
     longitude: input.longitude
   });
-  return linkResult(input, "transport", nav[0]?.href || `https://www.google.com/search?q=${q(`${place(input)} transport`)}`, "direct");
+  return linkResult(
+    input,
+    "transport",
+    nav[0]?.href ||
+      buildTransportSearchUrl({
+        origin: input.origin,
+        destination: input.destination || input.query || input.title,
+        date: input.date || input.startDate
+      }) ||
+      googleSearchUrl(`${place(input)} transport`),
+    "direct"
+  );
 }
 
 export function buildRoamlyAffiliateUrl(input: RoamlyAffiliateInput) {
@@ -300,23 +382,91 @@ export function getRoamlyBookingLinks(input: {
   ] satisfies RoamlyAffiliateLink[];
 }
 
+function normalSearchUrlForSuggestion(
+  suggestion: RoamlyItinerary["booking_suggestions"][number],
+  payload: TripPlannerPayload
+) {
+  const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
+  const adults = travelers.adults || payload.travelersCount || 1;
+  const children = travelers.children || 0;
+  const destination = suggestion.destination || suggestion.city || payload.destination;
+  const date = suggestion.date || suggestion.departure_date || payload.startDate;
+
+  if (suggestion.booking_category === "flight" || suggestion.category === "flight") {
+    return buildFlightSearchUrl({
+      origin: suggestion.origin || payload.origin,
+      destination,
+      departureDate: suggestion.departure_date || payload.startDate,
+      returnDate: suggestion.return_date || payload.endDate,
+      travelers
+    });
+  }
+
+  if (suggestion.booking_category === "hotel" || suggestion.category === "hotel") {
+    return buildHotelSearchUrl({
+      destination,
+      checkInDate: payload.startDate,
+      checkOutDate: payload.endDate,
+      adults,
+      children,
+      rooms: payload.rooms || 1,
+      neighborhood: suggestion.neighborhood || suggestion.location,
+      roomType: suggestion.room_type
+    });
+  }
+
+  if (suggestion.booking_category === "attraction" || suggestion.category === "attraction") {
+    return buildAttractionTicketSearchUrl({
+      attractionName: suggestion.title || suggestion.booking_label,
+      destination,
+      date
+    });
+  }
+
+  if (suggestion.booking_category === "tour" || suggestion.category === "tour") {
+    return buildTourSearchUrl({
+      tourName: suggestion.title || suggestion.booking_label,
+      destination,
+      date
+    });
+  }
+
+  if (suggestion.booking_category === "transport" || suggestion.category === "transport" || suggestion.category === "car_rental") {
+    return buildTransportSearchUrl({
+      origin: suggestion.origin || payload.origin,
+      destination: suggestion.destination || suggestion.location || destination,
+      date
+    });
+  }
+
+  return googleSearchUrl(`${suggestion.title || suggestion.booking_label} ${destination}`);
+}
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   return {
     ...itinerary,
     booking_suggestions: itinerary.booking_suggestions.map((suggestion) => {
+      const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
       const link = buildRoamlyAffiliateUrl({
         category: suggestion.booking_category,
-        destination: payload.destination,
-        origin: payload.origin,
+        destination: suggestion.destination || suggestion.city || payload.destination,
+        origin: suggestion.origin || payload.origin,
         title: suggestion.title || suggestion.booking_label,
-        query: suggestion.title || suggestion.booking_label,
-        startDate: payload.startDate,
-        endDate: payload.endDate,
+        query: suggestion.booking_category === "flight" ? undefined : suggestion.title || suggestion.booking_label,
+        startDate: suggestion.departure_date || suggestion.date || payload.startDate,
+        endDate: suggestion.return_date || payload.endDate,
+        travelers: payload.travelers || payload.travelersCount || 1,
+        adults: payload.travelers?.adults || payload.travelersCount || 1,
+        children: payload.travelers?.children || 0,
+        rooms: payload.rooms || 1,
+        neighborhood: suggestion.neighborhood || suggestion.location,
+        roomType: suggestion.room_type,
+        date: suggestion.date || suggestion.departure_date || payload.startDate,
         url: suggestion.normal_search_url
       });
       return {
         ...suggestion,
-        normal_search_url: suggestion.normal_search_url || link.href,
+        normal_search_url: suggestion.normal_search_url || normalSearchUrl || link.href,
         affiliate_url: link.affiliate_enabled ? link.affiliate_url : "",
         affiliate_provider: link.affiliate_provider,
         affiliate_disclosure: affiliateDisclosure,

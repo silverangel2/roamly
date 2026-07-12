@@ -243,7 +243,7 @@ Rules:
 - If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Estimated price", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
 - Do not claim exact live prices unless a real partner/live API returned them. Do not invent confirmation numbers.
 - Do not say "booked", "reserved", or "confirmed" unless the user uploaded a booking screenshot or confirmed booking in Fixed bookings and screenshots. Those can use booking_status "user_uploaded" and price_confidence "user_uploaded".
-- For non-uploaded recommendations, make clear they are not reserved and that price and availability must be verified before booking.
+- For non-uploaded recommendations, make clear they are search-ready only and that price and availability must be verified before booking.
 - Budget math must be exact: remaining_budget_amount = user_budget_amount - total_estimate_amount. If the value is negative, budget_fit_summary and estimated_budget_breakdown.notes must say "Over budget by ${payload.budgetCurrency || "CAD"} X"; if positive, say "Remaining budget: ${payload.budgetCurrency || "CAD"} X". Never show a positive remaining budget when the total estimate is higher than the user budget.
 - When Price discovery summary includes total_estimate_display, use that same total estimate in estimated_budget_breakdown.total_estimate and total_estimate_amount.
 - Include at least one flight or arrival transport option, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
