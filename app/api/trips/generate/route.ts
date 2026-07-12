@@ -541,12 +541,106 @@ async function finalizeItinerary(params: {
   );
 }
 
+
+async function checkRoamlyGenerationSchema(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+  if (!supabase) {
+    return {
+      ok: false,
+      missing: ["supabase_client"]
+    };
+  }
+  const required: Record<string, string[]> = {
+    roamly_trips: [
+      "id",
+      "user_id",
+      "title",
+      "destination_name",
+      "start_date",
+      "end_date",
+      "status",
+      "metadata"
+    ],
+    roamly_trip_days: [
+      "id",
+      "trip_id",
+      "day_number",
+      "date",
+      "title",
+      "summary"
+    ],
+    roamly_activities: [
+      "id",
+      "trip_id",
+      "trip_day_id",
+      "title",
+      "description",
+      "category",
+      "address",
+      "sort_order",
+      "status",
+      "metadata"
+    ],
+    roamly_trip_usage: [
+      "id",
+      "user_id",
+      "usage_date",
+      "itinerary_generations"
+    ]
+  };
+
+  const { data, error } = await supabase
+    .from("information_schema.columns")
+    .select("table_name,column_name")
+    .eq("table_schema", "public")
+    .in("table_name", Object.keys(required));
+
+  if (error) {
+    return {
+      ok: false,
+      missing: [`schema_check_failed: ${error.message}`]
+    };
+  }
+
+  const existing = new Set(
+    (data || []).map((row: { table_name: string; column_name: string }) => `${row.table_name}.${row.column_name}`)
+  );
+
+  const missing = Object.entries(required).flatMap(([table, columns]) =>
+    columns
+      .filter((column) => !existing.has(`${table}.${column}`))
+      .map((column) => `${table}.${column}`)
+  );
+
+  return {
+    ok: missing.length === 0,
+    missing
+  };
+}
+
 export async function POST(request: NextRequest) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
   const { supabase, user } = auth;
-  const access = getRoamlyAccessForUser(user.email);
+  
+  const schemaReady = await checkRoamlyGenerationSchema(supabase);
+  if (!schemaReady.ok) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("[Roamly] Generation blocked because migrations are missing", schemaReady.missing);
+    }
+
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "ROAMLY_MIGRATIONS_REQUIRED",
+        message: "Roamly database migrations need to be applied before saving itinerary drafts.",
+        missing: schemaReady.missing
+      },
+      { status: 503 }
+    );
+  }
+
+const access = getRoamlyAccessForUser(user.email);
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const existingTripId = getString(body.tripId);
