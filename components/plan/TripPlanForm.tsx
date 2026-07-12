@@ -25,6 +25,7 @@ import { useI18n } from "@/components/i18n/I18nProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -268,12 +269,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 function formatMoney(cents: number | null, currency: string) {
-  if (cents == null) return "Not set";
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: currency || "CAD",
-    maximumFractionDigits: 0
-  }).format(cents / 100);
+  return formatBudgetMoneyCents(cents, currency);
 }
 
 function budgetStatusCopy(status: PriceDiscoveryResult["budgetStatus"]) {
@@ -1271,8 +1267,26 @@ export function TripPlanForm({
     ["Style", `${payload.travelStyle} style, ${payload.pace} pace, ${payload.walkingTolerance} walking`],
     ["Interests", payload.interests.join(", ") || "No interests selected"]
   ];
+  const finalGenerationLoading = loading && !requiresPaidUnlock;
+  const priceBudgetBalance = priceDiscovery
+    ? describeBudgetBalanceCents(priceDiscovery.remainingBudgetCents, priceDiscovery.budgetCurrency)
+    : null;
+  const priceDiscoveryRows = priceDiscovery
+    ? [
+        ["Flights", formatMoney(priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Hotel/stay", formatMoney(priceDiscovery.hotelEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Activities", formatMoney(priceDiscovery.activitiesEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Food", formatMoney(priceDiscovery.foodEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Local transport", formatMoney(priceDiscovery.localTransportEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Buffer", formatMoney(priceDiscovery.bufferEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Committed bookings", formatMoney(priceDiscovery.committedBudgetCents, priceDiscovery.budgetCurrency)],
+        ["Total estimate", formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)],
+        [priceBudgetBalance?.label || "Remaining budget", priceBudgetBalance?.value || "Not set"]
+      ]
+    : [];
 
   return (
+    <>
     <section className="rounded-[2rem] border border-cloud bg-white/92 p-4 shadow-soft backdrop-blur sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div>
@@ -1600,10 +1614,6 @@ export function TripPlanForm({
         </p>
       ) : null}
 
-      {loading && !confirming && !requiresPaidUnlock ? (
-        <RoamlyGeneratingLoader className="mt-4" />
-      ) : null}
-
       {priceChecking ? (
         <div className="mt-4 overflow-hidden rounded-2xl bg-mist p-4">
           <div className="h-2 animate-pulse rounded-full bg-lagoon" />
@@ -1618,21 +1628,11 @@ export function TripPlanForm({
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Budget check")}</p>
           <h3 className="mt-2 text-xl font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</h3>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            {[
-              ["Flights", priceDiscovery.flightEstimateCents],
-              ["Hotel/stay", priceDiscovery.hotelEstimateCents],
-              ["Activities", priceDiscovery.activitiesEstimateCents],
-              ["Food", priceDiscovery.foodEstimateCents],
-              ["Local transport", priceDiscovery.localTransportEstimateCents],
-              ["Buffer", priceDiscovery.bufferEstimateCents],
-              ["Committed bookings", priceDiscovery.committedBudgetCents],
-              ["Total estimate", priceDiscovery.totalEstimateCents],
-              ["Remaining budget", priceDiscovery.remainingBudgetCents]
-            ].map(([label, value]) => (
+            {priceDiscoveryRows.map(([label, value]) => (
               <div key={label as string} className="rounded-2xl bg-mist p-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-400">{translateText(label as string)}</p>
                 <p className="mt-1 text-sm font-black text-ink">
-                  {formatMoney(value as number | null, priceDiscovery.budgetCurrency)}
+                  {value}
                 </p>
               </div>
             ))}
@@ -1689,48 +1689,68 @@ export function TripPlanForm({
         </p>
       ) : null}
 
-      {confirming ? (
+      {confirming && !finalGenerationLoading ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm">
-          {loading ? (
-            <RoamlyGeneratingLoader className="w-full max-w-xl" />
-          ) : (
-            <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{translateText("Final step")}</p>
-              <h2 className="mt-2 text-2xl font-black text-ink">{translateText("Generate and lock this itinerary?")}</h2>
-              <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-                {translateText("Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates, travelers, budget, and preferences are correct.")}
-              </p>
-              {priceDiscovery ? (
-                <div className="mt-4 rounded-2xl bg-mist p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Budget status")}</p>
-                  <p className="mt-1 text-sm font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</p>
-                  <p className="mt-2 text-xs font-bold text-slate-500">
-                    {translateText("Total estimate")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
+          <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{translateText("Final step")}</p>
+            <h2 className="mt-2 text-2xl font-black text-ink">{translateText("Generate and lock this itinerary?")}</h2>
+            <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
+              {translateText("Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates, travelers, budget, and preferences are correct.")}
+            </p>
+            {priceDiscovery ? (
+              <div className="mt-4 rounded-2xl bg-mist p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Budget status")}</p>
+                <p className="mt-1 text-sm font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">
+                  {translateText("Total estimate")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
+                </p>
+                {priceBudgetBalance ? (
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    {translateText(priceBudgetBalance.label)}: {priceBudgetBalance.value}
                   </p>
-                </div>
-              ) : null}
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  disabled={loading}
-                  className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 disabled:opacity-60"
-                >
-                  {translateText("Go back and edit")}
-                </button>
-                <button
-                  type="button"
-                  onClick={submitPlan}
-                  disabled={loading || (isCheckingSession && !sessionUser)}
-                  className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
-                >
-                  {testerAccess && freeItineraryUsed ? translateText("Continue as tester") : translateText("Generate itinerary")}
-                </button>
+                ) : null}
+              </div>
+            ) : null}
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={loading}
+                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 disabled:opacity-60"
+              >
+                {translateText("Go back and edit")}
+              </button>
+              <button
+                type="button"
+                onClick={submitPlan}
+                disabled={loading || (isCheckingSession && !sessionUser)}
+                className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
+              >
+                {testerAccess && freeItineraryUsed ? translateText("Continue as tester") : translateText("Generate itinerary")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {finalGenerationLoading ? (
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink/60 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-2xl">
+            <RoamlyGeneratingLoader />
+            <div className="mt-3 rounded-[1.25rem] border border-white/70 bg-white/90 p-4 shadow-[0_18px_55px_rgba(15,23,42,0.18)] backdrop-blur">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{translateText("Trip brief")}</p>
+              <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
+                {summaryRows.slice(0, 5).map(([label, value]) => (
+                  <p key={label}>
+                    <span className="text-ink">{translateText(label)}:</span> {value}
+                  </p>
+                ))}
               </div>
             </div>
-          )}
+          </div>
         </div>
       ) : null}
     </section>
+    </>
   );
 }

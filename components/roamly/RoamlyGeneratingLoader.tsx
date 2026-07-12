@@ -7,8 +7,8 @@ type RoamlyGeneratingLoaderProps = {
 const statusMessages = [
   "Checking your route",
   "Balancing your budget",
-  "Finding smarter travel days",
-  "Organizing your city stops",
+  "Reviewing booking options",
+  "Matching your travel style",
   "Preparing your Live Companion"
 ];
 
@@ -66,10 +66,10 @@ export function RoamlyGeneratingLoader({ className = "" }: RoamlyGeneratingLoade
         <div className="mt-2">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Roamly is planning</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">
-            Building your Roamly itinerary
+            Roamly is building your itinerary
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm font-bold leading-6 text-slate-600">
-            Checking your route, budget, bookings, and travel style before creating your plan.
+            Checking route, budget, booking options, and travel style.
           </p>
         </div>
 

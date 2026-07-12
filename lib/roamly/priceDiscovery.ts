@@ -299,8 +299,8 @@ export function calculateBudgetStatus(input: {
     return { budgetStatus: "unknown" as BudgetStatus, remainingBudgetCents: null };
   }
   const budgetCents = cents(input.budgetAmount);
-  const remainingBudgetCents = budgetCents - input.totalEstimateCents - (input.committedBudgetCents || 0);
-  const usedRatio = budgetCents ? (input.totalEstimateCents + (input.committedBudgetCents || 0)) / budgetCents : 0;
+  const remainingBudgetCents = budgetCents - input.totalEstimateCents;
+  const usedRatio = budgetCents ? input.totalEstimateCents / budgetCents : 0;
   const budgetStatus: BudgetStatus =
     remainingBudgetCents < 0 ? "over_budget" : usedRatio >= 0.86 ? "tight" : "within_budget";
   return { budgetStatus, remainingBudgetCents };
@@ -480,8 +480,8 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
   const budgetCents = discovery.budgetAmount == null ? null : cents(discovery.budgetAmount);
   const lowEstimate = Math.round(discovery.totalEstimateCents * 0.88);
   const highEstimate = Math.round(discovery.totalEstimateCents * 1.12);
-  const lowRemaining = budgetCents == null ? null : budgetCents - highEstimate - discovery.committedBudgetCents;
-  const highRemaining = budgetCents == null ? null : budgetCents - lowEstimate - discovery.committedBudgetCents;
+  const lowRemaining = budgetCents == null ? null : budgetCents - highEstimate;
+  const highRemaining = budgetCents == null ? null : budgetCents - lowEstimate;
 
   return {
     user_id: input.userId,

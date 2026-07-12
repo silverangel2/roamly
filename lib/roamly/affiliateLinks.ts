@@ -262,9 +262,9 @@ export function getRoamlyBookingLinks(input: {
 
   return [
     {
-      title: "Hotels near your best area",
-      label: "Find hotels",
-      description: "Open hotel options near the recommended neighborhoods.",
+      title: "Search-ready stays near your trip area",
+      label: "Find a stay",
+      description: "Open stay options near the recommended neighborhoods and verify room type, taxes, and availability.",
       ...hotel
     },
     {
@@ -321,6 +321,10 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         affiliate_provider: link.affiliate_provider,
         affiliate_disclosure: affiliateDisclosure,
         provider: suggestion.provider || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search"),
+        provider_or_search_source:
+          suggestion.provider_or_search_source ||
+          suggestion.provider ||
+          (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search"),
         price_confidence: suggestion.price_confidence || "estimated"
       };
     })

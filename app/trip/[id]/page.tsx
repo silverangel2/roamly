@@ -8,10 +8,17 @@ import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { buildPreviewFromItinerary, formatMoney, type RoamlyItinerary, type RoamlyPreview } from "@/lib/itinerary";
+import {
+  buildPreviewFromItinerary,
+  formatMoney,
+  getItineraryTotalEstimateAmount,
+  type RoamlyItinerary,
+  type RoamlyPreview
+} from "@/lib/itinerary";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
-import { affiliateDisclosure, buildRoamlyAffiliateUrl } from "@/lib/roamly/affiliateLinks";
+import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
+import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
@@ -22,7 +29,6 @@ import {
   getTripBudgetCurrency,
   getTripDaysCount,
   getTripDestinationLabel,
-  getTripOriginLabel,
   getTripPlanningMetadata
 } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
@@ -336,11 +342,8 @@ function budgetRows({
 }) {
   const estimate = itinerary.estimated_budget_breakdown;
   const budgetAmount = getTripBudgetAmount(trip);
-  const dailyEstimate = itinerary.daily_itinerary.reduce((sum, day) => sum + (day.estimated_cost || 0), 0);
-  const remaining =
-    typeof budgetAmount === "number" && dailyEstimate
-      ? formatMoney(Math.max(0, budgetAmount - dailyEstimate), currency)
-      : "Confirm after live booking prices.";
+  const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
+  const balance = describeBudgetBalanceFromAmounts(budgetAmount, totalEstimateAmount, currency);
 
   return [
     {
@@ -355,8 +358,11 @@ function budgetRows({
     { label: "Transport", value: estimate.transport },
     { label: "Activities", value: estimate.activities },
     { label: "Buffer", value: estimate.buffer },
-    { label: "Total estimate", value: estimate.total_estimate },
-    { label: "Remaining budget", value: remaining }
+    {
+      label: "Total estimate",
+      value: totalEstimateAmount == null ? estimate.total_estimate : formatBudgetMoney(totalEstimateAmount, currency)
+    },
+    { label: balance?.label || "Remaining budget", value: balance?.value || "Confirm after live booking prices." }
   ];
 }
 
@@ -448,7 +454,7 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
 
 function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
   return [
-    suggestion.provider || suggestion.affiliate_provider,
+    suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider,
     suggestion.location || suggestion.neighborhood || suggestion.city,
     suggestion.date || suggestion.departure_date,
     suggestion.time_window,
@@ -504,90 +510,8 @@ function BookingRecommendationCard({ suggestion }: { suggestion: RoamlyItinerary
   );
 }
 
-function fallbackSuggestions(trip: RoamlyTripRecord, destination: string): RoamlyItinerary["booking_suggestions"] {
-  const origin = getTripOriginLabel(trip) || "your origin";
-  const flight = buildRoamlyAffiliateUrl({ category: "flight", origin, destination, query: `${origin} to ${destination} flights` });
-  const hotel = buildRoamlyAffiliateUrl({ category: "hotel", destination, query: `${destination} hotels` });
-  const tour = buildRoamlyAffiliateUrl({ category: "tour", destination, query: `${destination} tours activities tickets` });
-  const transport = buildRoamlyAffiliateUrl({ category: "transport", destination, query: `${destination} public transit airport transfer` });
-  return [
-    {
-      category: "flight",
-      booking_category: "flight",
-      title: `Suggested flight search: ${origin} to ${destination}`,
-      description: "Search-ready option. Verify live schedules, fares, and baggage before booking.",
-      booking_label: "Find this flight",
-      normal_search_url: flight.href,
-      affiliate_url: flight.affiliate_enabled ? flight.affiliate_url : "",
-      affiliate_provider: flight.affiliate_provider,
-      affiliate_disclosure: affiliateDisclosure,
-      estimated_cost_min: null,
-      estimated_cost_max: null,
-      currency: getTripBudgetCurrency(trip),
-      price_confidence: "estimated",
-      booking_status: "needs_booking"
-    },
-    {
-      category: "hotel",
-      booking_category: "hotel",
-      title: `Central hotel room in ${destination}`,
-      description: "Search-ready stay option. Confirm room type, taxes, cancellation, and exact location before booking.",
-      booking_label: "Find this room",
-      normal_search_url: hotel.href,
-      affiliate_url: hotel.affiliate_enabled ? hotel.affiliate_url : "",
-      affiliate_provider: hotel.affiliate_provider,
-      affiliate_disclosure: affiliateDisclosure,
-      estimated_cost_min: null,
-      estimated_cost_max: null,
-      currency: getTripBudgetCurrency(trip),
-      price_confidence: "estimated",
-      booking_status: "needs_booking"
-    },
-    {
-      category: "tour",
-      booking_category: "tour",
-      title: `Tours and tickets in ${destination}`,
-      description: "Search-ready tour and ticket option. Compare duration, reviews, meeting point, and cancellation terms.",
-      booking_label: "Find tour",
-      normal_search_url: tour.href,
-      affiliate_url: tour.affiliate_enabled ? tour.affiliate_url : "",
-      affiliate_provider: tour.affiliate_provider,
-      affiliate_disclosure: affiliateDisclosure,
-      estimated_cost_min: null,
-      estimated_cost_max: null,
-      currency: getTripBudgetCurrency(trip),
-      price_confidence: "estimated",
-      booking_status: "needs_booking"
-    },
-    {
-      category: "transport",
-      booking_category: "transport",
-      title: `Airport transfer and local transport in ${destination}`,
-      description: "Search-ready transport option. Compare airport rail, public transit passes, taxi, and rideshare.",
-      booking_label: "Open directions",
-      normal_search_url: transport.href,
-      affiliate_url: "",
-      affiliate_provider: "direct",
-      affiliate_disclosure: affiliateDisclosure,
-      estimated_cost_min: null,
-      estimated_cost_max: null,
-      currency: getTripBudgetCurrency(trip),
-      price_confidence: "estimated",
-      booking_status: "needs_booking"
-    }
-  ];
-}
-
-function BookingPlan({
-  trip,
-  itinerary,
-  destination
-}: {
-  trip: RoamlyTripRecord;
-  itinerary: RoamlyItinerary;
-  destination: string;
-}) {
-  const suggestions = itinerary.booking_suggestions?.length ? itinerary.booking_suggestions : fallbackSuggestions(trip, destination);
+function BookingPlan({ itinerary }: { itinerary: RoamlyItinerary }) {
+  const suggestions = itinerary.booking_suggestions || [];
   const groups = [
     { title: "Flights", categories: ["flight"] },
     { title: "Stays", categories: ["hotel"] },
@@ -606,15 +530,20 @@ function BookingPlan({
       </p>
       {groups.map((group) => {
         const items = suggestions.filter((suggestion) => group.categories.includes(bookingCategory(suggestion)));
-        if (!items.length) return null;
         return (
           <section key={group.title} className="roamly-print-section">
             <h3 className="text-lg font-black text-ink">{group.title}</h3>
-            <div className="mt-3 grid gap-3">
-              {items.map((suggestion, index) => (
-                <BookingRecommendationCard key={`${group.title}-${bookingTitle(suggestion)}-${index}`} suggestion={suggestion} />
-              ))}
-            </div>
+            {items.length ? (
+              <div className="mt-3 grid gap-3">
+                {items.map((suggestion, index) => (
+                  <BookingRecommendationCard key={`${group.title}-${bookingTitle(suggestion)}-${index}`} suggestion={suggestion} />
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-2xl border border-dashed border-[#e8dfd0] bg-white px-4 py-3 text-sm font-black leading-6 text-slate-500">
+                Roamly could not produce a specific option for this category. Try regenerating this itinerary or narrowing your preferences.
+              </p>
+            )}
           </section>
         );
       })}
@@ -758,8 +687,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const importedBookings = bookingsResult.error && isMissingTableError(bookingsResult.error.message) ? [] : bookingsResult.data || [];
   const tripTitle = trip.title || preview?.trip_title || destinationLabel;
   const dayCount = getTripDaysCount(trip) || full?.daily_itinerary.length || preview?.day_outline.length || trip.days_count || 0;
-  const budgetDisplay = getTripBudgetAmount(trip)
-    ? formatMoney(getTripBudgetAmount(trip), currency)
+  const tripBudgetAmount = getTripBudgetAmount(trip);
+  const itineraryTotalEstimate = full ? getItineraryTotalEstimateAmount(full) : null;
+  const headerBudgetBalance = full ? describeBudgetBalanceFromAmounts(tripBudgetAmount, itineraryTotalEstimate, currency) : null;
+  const budgetDisplay = tripBudgetAmount
+    ? `${formatBudgetMoney(tripBudgetAmount, currency)}${headerBudgetBalance ? ` · ${headerBudgetBalance.text}` : ""}`
     : full?.estimated_budget_breakdown.total_estimate || "Flexible";
   const travelStyle = getTravelStyle(trip);
   const emailConfigured = isEmailConfigured().configured;
@@ -914,7 +846,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
             <section id="bookings" className="mt-8 scroll-mt-32">
               <SectionHeading eyebrow="Bookings" title="What to reserve" summary="Use direct search links unless a configured Roamly partner link is available." />
-              <BookingPlan trip={trip} itinerary={full} destination={destinationLabel} />
+              <BookingPlan itinerary={full} />
               <div className="mt-5 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
                 <div>
                   <h3 className="text-lg font-black text-ink">Confirmed bookings</h3>

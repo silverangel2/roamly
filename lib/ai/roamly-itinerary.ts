@@ -4,6 +4,7 @@ import { normalizeLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -56,10 +57,20 @@ function centsToMoney(value: unknown, currency: string) {
 function priceDiscoverySummary(payload: TripPlannerPayload) {
   const discovery = payload.priceDiscovery || {};
   const currency = typeof discovery.budgetCurrency === "string" ? discovery.budgetCurrency : payload.budgetCurrency || "CAD";
+  const balance = describeBudgetBalanceCents(
+    typeof discovery.remainingBudgetCents === "number" ? discovery.remainingBudgetCents : null,
+    currency
+  );
   return {
     status: discovery.budgetStatus || "unknown",
     total_estimate: centsToMoney(discovery.totalEstimateCents, currency),
+    total_estimate_display: formatBudgetMoneyCents(
+      typeof discovery.totalEstimateCents === "number" ? discovery.totalEstimateCents : null,
+      currency
+    ),
     remaining_budget: centsToMoney(discovery.remainingBudgetCents, currency),
+    remaining_or_over_budget: balance?.text || "unknown",
+    remaining_budget_amount: balance?.remainingAmount ?? null,
     committed_bookings: centsToMoney(discovery.committedBudgetCents, currency),
     coverage_note: discovery.coverageNote || "Prices are estimates and may change before booking.",
     route_legs: discovery.routeLegs || [],
@@ -141,7 +152,12 @@ Return ONLY valid JSON with this shape:
     "transport": "short budget note",
     "buffer": "short budget note",
     "total_estimate": "short total estimate",
-    "notes": "verify prices note"
+    "notes": "verify prices note",
+    "user_budget_amount": ${payload.budgetAmount ?? "null"},
+    "total_estimate_amount": 0,
+    "remaining_budget_amount": 0,
+    "budget_status": "within_budget | tight | over_budget | unknown",
+    "currency": "${payload.budgetCurrency || "CAD"}"
   },
   "hotel_area_suggestions": ["area + why"],
   "transport_overview": "concise transport strategy",
@@ -174,6 +190,7 @@ Return ONLY valid JSON with this shape:
       "category": "flight | hotel | attraction | tour | transport | restaurant",
       "booking_category": "same as category",
       "title": "specific search-ready option title",
+      "provider_or_search_source": "Google Flights search | Booking.com search | official attraction site | Viator search | Google Maps | public transit search",
       "description": "what this option is and what to verify before booking",
       "location": "airport, neighborhood, attraction, station, or meeting area",
       "city": "city",
@@ -220,11 +237,17 @@ Rules:
 - Give map queries, not URLs.
 - Include clean location names and addresses when possible in location_name and map_query so Google Maps, Apple Maps, and Citymapper link-outs work reliably.
 - Booking suggestions must be specific and practical, like real travel-site searches: suggested flight searches, hotel room/stay options, entrance tickets, attractions, tours, airport transfers, inter-city transport, local transport, and restaurants when useful.
+- Never output generic placeholder titles or descriptions such as "Flights to book", "Hotel/stay to book", "Find hotels", "Activities/tours to reserve", "Things to do", or "Book activities". Every booking title must name a route, room type + area, attraction/ticket, tour concept, transport option, or restaurant area.
+- Use the required booking recommendation shape. Include provider_or_search_source on every booking suggestion. Keep booking_category equal to category for backward compatibility.
 - Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
 - If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Estimated price", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
 - Do not claim exact live prices unless a real partner/live API returned them. Do not invent confirmation numbers.
 - Do not say "booked", "reserved", or "confirmed" unless the user uploaded a booking screenshot or confirmed booking in Fixed bookings and screenshots. Those can use booking_status "user_uploaded" and price_confidence "user_uploaded".
+- For non-uploaded recommendations, make clear they are not reserved and that price and availability must be verified before booking.
+- Budget math must be exact: remaining_budget_amount = user_budget_amount - total_estimate_amount. If the value is negative, budget_fit_summary and estimated_budget_breakdown.notes must say "Over budget by ${payload.budgetCurrency || "CAD"} X"; if positive, say "Remaining budget: ${payload.budgetCurrency || "CAD"} X". Never show a positive remaining budget when the total estimate is higher than the user budget.
+- When Price discovery summary includes total_estimate_display, use that same total estimate in estimated_budget_breakdown.total_estimate and total_estimate_amount.
 - Include at least one flight or arrival transport option, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
+- For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range, booking_label "Find this flight", and a normal search URL.
 - For hotel/stay suggestions, include room_type, neighborhood, estimated nightly range, estimated total stay range, and why the room/area fits the traveler.
 - For attraction tickets, include the specific attraction name, ticket note, estimated ticket range, free_or_paid, and whether advance booking is recommended.
 - For tours/activities, include a specific tour/activity title, estimated range, duration, best day/time, and "Find tour" booking_label.
@@ -238,6 +261,7 @@ Rules:
 - Mention users must verify opening hours and prices.
 - Mention: "Prices are estimates and may change before booking."
 - Do not invent reservations or claim bookings are made.
+- If the destination is Montreal, suitable specific options include Notre-Dame Basilica admission, Montreal Museum of Fine Arts, Pointe-a-Calliere Museum, Mount Royal as a free attraction, Old Montreal walking tour, Montreal food tasting tour, Plateau street art walk, and an evening jazz/nightlife experience when they fit the user's interests.
 - Build exactly ${tripDays} itinerary days.`;
 }
 

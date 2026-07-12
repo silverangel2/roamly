@@ -455,6 +455,18 @@ async function finalizeItinerary(params: {
       { status: generationError.status }
     );
   }
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Roamly generate] Generation metrics", {
+      totalEstimate: Math.round(discovery.totalEstimateCents / 100),
+      userBudget: payload.budgetAmount,
+      remainingOrOverBudget:
+        discovery.remainingBudgetCents == null ? null : Math.round(discovery.remainingBudgetCents / 100),
+      bookingRecommendations: generated.itinerary.booking_suggestions.length,
+      daysCount: generated.itinerary.daily_itinerary.length
+    });
+  }
+
   const sync = await syncGeneratedItinerary(params.supabase, {
     tripId: params.tripId,
     userId: params.userId,

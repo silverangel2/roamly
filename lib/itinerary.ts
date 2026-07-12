@@ -1,4 +1,10 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import {
+  calculateRemainingBudget,
+  centsToAmount,
+  formatBudgetMoney,
+  parseBudgetAmount
+} from "@/lib/roamly/budget";
 
 export type BudgetBreakdown = {
   lodging: string;
@@ -8,6 +14,11 @@ export type BudgetBreakdown = {
   buffer: string;
   total_estimate: string;
   notes: string;
+  user_budget_amount?: number | null;
+  total_estimate_amount?: number | null;
+  remaining_budget_amount?: number | null;
+  budget_status?: "within_budget" | "tight" | "over_budget" | "unknown";
+  currency?: string;
 };
 
 export type RoamlyActivitySeed = {
@@ -42,6 +53,7 @@ export type RoamlyBookingSuggestion = {
   neighborhood?: string;
   duration?: string;
   provider?: string;
+  provider_or_search_source?: string;
   booking_status: RoamlyBookingStatus;
   why_recommended?: string;
   advance_booking_recommended?: boolean;
@@ -193,6 +205,156 @@ function tourSearchUrl(query: string) {
   return `https://www.viator.com/searchResults/all?text=${encodeURIComponent(query)}`;
 }
 
+function dateOffset(startDate: string | undefined, offsetDays: number) {
+  if (!startDate) return "";
+  const date = new Date(`${startDate}T00:00:00`);
+  if (!Number.isFinite(date.getTime())) return "";
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function destinationProfile(city: string) {
+  const normalized = city.toLowerCase();
+  if (normalized.includes("montreal") || normalized.includes("montréal")) {
+    return {
+      neighborhoods: ["Plateau Mont-Royal", "Ville-Marie"],
+      hotelWhy: "These areas keep nightlife, food, Old Montreal, and STM metro access close without forcing long rides every day.",
+      attractions: [
+        {
+          title: "Notre-Dame Basilica admission",
+          description: "Book or search timed admission for Notre-Dame Basilica in Old Montreal. Suggested option; not reserved.",
+          query: "Notre-Dame Basilica Montreal admission tickets",
+          min: 16,
+          max: 20,
+          free_or_paid: "paid" as const,
+          time_window: "morning",
+          advance_booking_recommended: true
+        },
+        {
+          title: "Pointe-a-Calliere Museum ticket",
+          description: "Search admission for Montreal's archaeology and history museum near the Old Port. Suggested option; not reserved.",
+          query: "Pointe-a-Calliere Museum Montreal tickets",
+          min: 22,
+          max: 30,
+          free_or_paid: "paid" as const,
+          time_window: "afternoon",
+          advance_booking_recommended: true
+        },
+        {
+          title: "Montreal Museum of Fine Arts ticket",
+          description: "Search current exhibition admission for the Montreal Museum of Fine Arts. Suggested option; not reserved.",
+          query: "Montreal Museum of Fine Arts tickets",
+          min: 18,
+          max: 30,
+          free_or_paid: "paid" as const,
+          time_window: "afternoon",
+          advance_booking_recommended: true
+        },
+        {
+          title: "Mount Royal lookout walk",
+          description: "Mount Royal is free; verify trail conditions and use this as a low-cost skyline anchor.",
+          query: "Mount Royal lookout Montreal directions",
+          min: 0,
+          max: 0,
+          free_or_paid: "free" as const,
+          time_window: "morning",
+          advance_booking_recommended: false
+        }
+      ],
+      tours: [
+        {
+          title: "Old Montreal walking tour",
+          description: "Search a 2-hour Old Montreal walking tour with a meeting point near Place d'Armes or the Old Port.",
+          query: "Old Montreal walking tour",
+          min: 28,
+          max: 55,
+          duration: "2 hours",
+          time_window: "morning",
+          why: "Adds context to Old Montreal without filling the whole day."
+        },
+        {
+          title: "Montreal food tasting tour",
+          description: "Search a Mile End, Little Italy, or Old Montreal food tasting tour with small-group reviews.",
+          query: "Montreal food tasting tour Mile End",
+          min: 75,
+          max: 130,
+          duration: "3 hours",
+          time_window: "afternoon",
+          why: "Matches the food interest while reducing restaurant research."
+        },
+        {
+          title: "Plateau street art walk",
+          description: "Search a Plateau Mont-Royal mural and street art walk near Saint-Laurent Boulevard.",
+          query: "Plateau Montreal street art walking tour",
+          min: 25,
+          max: 55,
+          duration: "2 hours",
+          time_window: "afternoon",
+          why: "Fits culture and nightlife areas in the same part of the city."
+        },
+        {
+          title: "Evening jazz or nightlife experience",
+          description: "Search an evening jazz, speakeasy, or guided nightlife experience around Quartier des Spectacles or Plateau.",
+          query: "Montreal evening jazz nightlife experience",
+          min: 25,
+          max: 90,
+          duration: "2-3 hours",
+          time_window: "evening",
+          why: "Fits the nightlife interest without implying a reserved table or ticket."
+        }
+      ],
+      transport: {
+        title: "YUL airport transfer and STM transit pass",
+        description:
+          "Compare the 747 YUL airport bus, taxi/rideshare to Ville-Marie or Plateau, and an STM multi-day pass for local movement.",
+        query: "YUL 747 airport bus STM transit pass Montreal",
+        min: 11,
+        max: 45,
+        why: "Keeps arrival and daily transit decisions clear before departure."
+      },
+      restaurantArea: "Plateau Mont-Royal, Mile End, or Old Montreal"
+    };
+  }
+
+  return {
+    neighborhoods: [`central ${city}`, "a transit-connected neighborhood"],
+    hotelWhy: "Keeps the stay close to daily activity clusters and reliable transport.",
+    attractions: [
+      {
+        title: `${city} official museum or landmark ticket`,
+        description: `Search the official ticket page for a major ${city} museum, landmark, or timed-entry attraction. Suggested option; not reserved.`,
+        query: `${city} official museum landmark tickets timed entry`,
+        min: 15,
+        max: 40,
+        free_or_paid: "paid" as const,
+        time_window: "morning",
+        advance_booking_recommended: true
+      }
+    ],
+    tours: [
+      {
+        title: `${city} walking highlights tour`,
+        description: `Search a small-group ${city} walking tour with a clear meeting point, duration, and cancellation policy.`,
+        query: `${city} small group walking tour`,
+        min: 25,
+        max: 70,
+        duration: "2-3 hours",
+        time_window: "morning",
+        why: "Gives structure early without overfilling the day."
+      }
+    ],
+    transport: {
+      title: `${city} airport transfer and local transit`,
+      description: `Compare airport transfer options, local transit passes, taxi/rideshare, and walking clusters in ${city}.`,
+      query: `${city} airport transfer local transit pass`,
+      min: 10,
+      max: 60,
+      why: "Reduces arrival-day logistics and daily routing decisions."
+    },
+    restaurantArea: `central ${city}`
+  };
+}
+
 function defaultBookingAction(category: RoamlyBookingCategory) {
   if (category === "flight") return "Find this flight";
   if (category === "hotel") return "Find this room";
@@ -288,20 +450,27 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
       const mode = cleanString(leg.transportMode, "mixed");
       const category: RoamlyBookingCategory = mode === "flight" ? "flight" : "transport";
       const range = centsRange(leg.estimateCents);
+      const departureDate = payload.startDate || undefined;
+      const returnDate = payload.returnToOrigin !== false ? payload.endDate || undefined : undefined;
+      const priceTarget =
+        range.max != null ? ` Target total trip price under ${formatBudgetMoney(range.max, currency)} if possible.` : "";
       suggestions.push(
         buildSuggestion({
           category,
-          title: category === "flight" ? `Suggested flight search: ${from} to ${to}` : `Inter-city transport search: ${from} to ${to}`,
+          title: category === "flight" ? `${from} to ${to} ${returnDate ? "round-trip " : ""}flight search` : `${from} to ${to} inter-city transport search`,
           description:
             category === "flight"
-              ? "Search-ready flight option. Compare live schedules, baggage rules, and total fare before booking."
-              : "Search-ready transport option. Compare train, bus, rideshare, or regional flight schedules before booking.",
+              ? `Look for an early outbound ${from} to ${to} flight${departureDate ? ` on ${departureDate}` : ""}${
+                  returnDate ? ` and an afternoon return on ${returnDate}` : ""
+                }. Prioritize one carry-on fare, practical arrival time, and no forced overnight layover.${priceTarget} Suggested option; not reserved.`
+              : `Compare train, bus, rideshare, or regional flight schedules from ${from} to ${to}. Suggested option; not reserved.`,
           location: `${from} to ${to}`,
           origin: from,
           destination: to,
-          departure_date: payload.startDate || undefined,
-          return_date: payload.returnToOrigin !== false ? payload.endDate || undefined : undefined,
+          departure_date: departureDate,
+          return_date: returnDate,
           provider: category === "flight" ? "Google Flights search" : "Transport search",
+          provider_or_search_source: category === "flight" ? "Google Flights search" : "Google transport search",
           normal_search_url: category === "flight" ? googleFlightsUrl(from, to) : searchUrl(`${from} to ${to} train bus flights`),
           estimated_cost_min: range.min,
           estimated_cost_max: range.max,
@@ -312,17 +481,22 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
       );
     }
   } else if (origin && destination) {
+    const departureDate = payload.startDate || undefined;
+    const returnDate = payload.returnToOrigin !== false ? payload.endDate || undefined : undefined;
     suggestions.push(
       buildSuggestion({
         category: "flight",
-        title: `Suggested flight search: ${origin} to ${destination}`,
-        description: "Search-ready flight option. Verify live fare, baggage, seat, and schedule details before booking.",
+        title: `${origin} to ${destination} ${returnDate ? "round-trip " : ""}flight search`,
+        description: `Look for an early outbound ${origin} to ${destination} flight${departureDate ? ` on ${departureDate}` : ""}${
+          returnDate ? ` and an afternoon return on ${returnDate}` : ""
+        }. Verify live fare, baggage, seat, and schedule details before booking. Suggested option; not reserved.`,
         location: `${origin} to ${destination}`,
         origin,
         destination,
-        departure_date: payload.startDate || undefined,
-        return_date: payload.returnToOrigin !== false ? payload.endDate || undefined : undefined,
+        departure_date: departureDate,
+        return_date: returnDate,
         provider: "Google Flights search",
+        provider_or_search_source: "Google Flights search",
         normal_search_url: googleFlightsUrl(origin, destination),
         currency,
         why_recommended: "Connects the selected origin with the trip destination.",
@@ -338,19 +512,23 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
     const nightlyMin = hotelRange.min == null ? (perDay ? Math.round(perDay * 0.28) : null) : Math.max(1, Math.round(hotelRange.min / nights));
     const nightlyMax = hotelRange.max == null ? (perDay ? Math.round(perDay * 0.55) : null) : Math.max(1, Math.round(hotelRange.max / nights));
     const activityRange = centsRange(estimate?.activitiesEstimateCents);
+    const profile = destinationProfile(city.city);
+    const stayArea = profile.neighborhoods.slice(0, 2).join(" or ");
+    const hotelTarget = nightlyMin && nightlyMax ? ` targeting ${formatBudgetMoney(nightlyMin, currency)}-${formatBudgetMoney(nightlyMax, currency)} per night` : "";
 
     suggestions.push(
       buildSuggestion({
         category: "hotel",
-        title: `${roomType} in central ${city.city}`,
-        description: "Search-ready stay option. Confirm cancellation policy, taxes, resort fees, and exact room details before booking.",
-        location: `Central ${city.city}`,
+        title: `${roomType} near ${stayArea}`,
+        description: `Search for a ${roomType.toLowerCase()} near ${stayArea}${hotelTarget}. Confirm cancellation policy, taxes, resort fees, and exact room details before booking. Search-ready option; not reserved.`,
+        location: stayArea,
         city: city.city,
         country: city.country || undefined,
         room_type: roomType,
-        neighborhood: `Central ${city.city} near reliable transit`,
+        neighborhood: stayArea,
         provider: "Booking.com search",
-        normal_search_url: bookingSearchUrl(city.label),
+        provider_or_search_source: "Booking.com or hotel map search",
+        normal_search_url: bookingSearchUrl(`${city.label} ${stayArea} ${roomType}`),
         estimated_cost_min: hotelRange.min,
         estimated_cost_max: hotelRange.max,
         estimated_nightly_cost_min: nightlyMin,
@@ -358,56 +536,91 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
         estimated_total_cost_min: hotelRange.min,
         estimated_total_cost_max: hotelRange.max,
         currency,
-        why_recommended: "Keeps the stay close to transit and day-plan clusters.",
+        why_recommended: profile.hotelWhy,
         free_or_paid: "paid"
-      }),
-      buildSuggestion({
-        category: "attraction",
-        title: `Search-ready ticket: key paid attraction in ${city.city}`,
-        description: "Compare official attraction tickets and timed-entry options before adding this paid anchor to the day plan.",
-        location: city.city,
-        city: city.city,
-        country: city.country || undefined,
-        provider: "Attraction ticket search",
-        normal_search_url: searchUrl(`${city.label} official attraction tickets timed entry`),
-        estimated_cost_min: activityRange.min ? Math.max(10, Math.round(activityRange.min / 3)) : perDay ? Math.round(perDay * 0.12) : null,
-        estimated_cost_max: activityRange.max ? Math.max(20, Math.round(activityRange.max / 2)) : perDay ? Math.round(perDay * 0.28) : null,
-        currency,
-        why_recommended: "Adds one bookable paid anchor while leaving room for free neighborhoods and flexible stops.",
-        advance_booking_recommended: true,
-        free_or_paid: "paid"
-      }),
-      buildSuggestion({
-        category: "tour",
-        title: `${city.city} small-group highlights tour`,
-        description: "Search-ready tour option. Compare duration, meeting point, cancellation terms, and traveler reviews before booking.",
-        location: city.city,
-        city: city.city,
-        country: city.country || undefined,
-        duration: "2-4 hours",
-        time_window: index === 0 ? "afternoon" : "morning",
-        provider: "Viator search",
-        normal_search_url: tourSearchUrl(`${city.label} small group highlights tour`),
-        estimated_cost_min: activityRange.min ? Math.max(25, Math.round(activityRange.min / 3)) : perDay ? Math.round(perDay * 0.18) : null,
-        estimated_cost_max: activityRange.max ? Math.max(45, Math.round(activityRange.max / 2)) : perDay ? Math.round(perDay * 0.35) : null,
-        currency,
-        why_recommended: "Gives structure early in the city block without filling the whole day.",
-        advance_booking_recommended: true,
-        free_or_paid: "paid"
-      }),
+      })
+    );
+
+    profile.attractions.slice(0, 4).forEach((attraction, attractionIndex) => {
+      suggestions.push(
+        buildSuggestion({
+          category: "attraction",
+          title: attraction.title,
+          description: attraction.description,
+          location: city.city,
+          city: city.city,
+          country: city.country || undefined,
+          date: dateOffset(payload.startDate, Math.min(clampTripDays(payload.daysCount) - 1, attractionIndex + index)) || undefined,
+          time_window: attraction.time_window,
+          provider: "Official attraction ticket search",
+          provider_or_search_source: "Official attraction site or ticket search",
+          normal_search_url: searchUrl(attraction.query),
+          estimated_cost_min:
+            attraction.min === 0
+              ? 0
+              : activityRange.min
+                ? Math.max(attraction.min, Math.round(activityRange.min / 4))
+                : attraction.min,
+          estimated_cost_max:
+            attraction.max === 0
+              ? 0
+              : activityRange.max
+                ? Math.max(attraction.max, Math.round(activityRange.max / 3))
+                : attraction.max,
+          currency,
+          booking_label: attraction.free_or_paid === "free" ? "Open directions" : "Book ticket",
+          why_recommended:
+            attraction.free_or_paid === "free"
+              ? "Adds a free anchor that protects the budget."
+              : "Adds a specific bookable culture anchor without pretending availability is confirmed.",
+          advance_booking_recommended: attraction.advance_booking_recommended,
+          free_or_paid: attraction.free_or_paid,
+          booking_status: attraction.free_or_paid === "free" ? "suggested" : "needs_booking"
+        })
+      );
+    });
+
+    profile.tours.slice(0, 4).forEach((tour, tourIndex) => {
+      suggestions.push(
+        buildSuggestion({
+          category: "tour",
+          title: tour.title,
+          description: `${tour.description} Compare duration, meeting point, cancellation terms, and traveler reviews before booking. Suggested option; not reserved.`,
+          location: city.city,
+          city: city.city,
+          country: city.country || undefined,
+          date: dateOffset(payload.startDate, Math.min(clampTripDays(payload.daysCount) - 1, tourIndex + index + 1)) || undefined,
+          duration: tour.duration,
+          time_window: tour.time_window,
+          provider: "Viator or GetYourGuide search",
+          provider_or_search_source: "Viator, GetYourGuide, or local tour search",
+          normal_search_url: tourSearchUrl(tour.query),
+          estimated_cost_min: activityRange.min ? Math.max(tour.min, Math.round(activityRange.min / 4)) : tour.min,
+          estimated_cost_max: activityRange.max ? Math.max(tour.max, Math.round(activityRange.max / 2)) : tour.max,
+          currency,
+          booking_label: "Find tour",
+          why_recommended: tour.why,
+          advance_booking_recommended: true,
+          free_or_paid: "paid"
+        })
+      );
+    });
+
+    suggestions.push(
       buildSuggestion({
         category: "transport",
-        title: `${city.city} airport transfer and local transit`,
-        description: "Search-ready local movement option. Compare transit passes, airport train, taxi, and rideshare before arrival.",
+        title: profile.transport.title,
+        description: `${profile.transport.description} Suggested option; not reserved.`,
         location: city.city,
         city: city.city,
         country: city.country || undefined,
-        provider: "Google Maps search",
-        normal_search_url: searchUrl(`${city.label} airport transfer public transit pass`),
-        estimated_cost_min: perDay ? Math.round(perDay * 0.06) : null,
-        estimated_cost_max: perDay ? Math.round(perDay * 0.18) : null,
+        provider: "Google Maps and public transit search",
+        provider_or_search_source: "Google Maps and official transit search",
+        normal_search_url: searchUrl(profile.transport.query),
+        estimated_cost_min: perDay ? Math.max(profile.transport.min, Math.round(perDay * 0.04)) : profile.transport.min,
+        estimated_cost_max: perDay ? Math.max(profile.transport.max, Math.round(perDay * 0.16)) : profile.transport.max,
         currency,
-        why_recommended: "Keeps daily logistics realistic and avoids last-minute airport transfer decisions.",
+        why_recommended: profile.transport.why,
         free_or_paid: "mixed"
       })
     );
@@ -415,16 +628,18 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
 
   if (payload.interests.some((interest) => interest.toLowerCase().includes("food"))) {
     const city = cities[0];
+    const profile = destinationProfile(city.city);
     suggestions.push(
       buildSuggestion({
         category: "restaurant",
-        title: `Dinner reservation search in ${city.city}`,
-        description: "Search restaurants near the final activity area and verify opening hours, reservation availability, and dietary fit.",
-        location: city.city,
+        title: `Dinner reservation search near ${profile.restaurantArea}`,
+        description: `Search restaurants around ${profile.restaurantArea} and verify opening hours, reservation availability, and dietary fit. Suggested option; not reserved.`,
+        location: profile.restaurantArea,
         city: city.city,
         country: city.country || undefined,
         provider: "Restaurant search",
-        normal_search_url: searchUrl(`${city.label} restaurants reservations ${payload.dietaryPreference || ""}`),
+        provider_or_search_source: "Google, OpenTable, or restaurant site search",
+        normal_search_url: searchUrl(`${city.label} restaurants reservations ${profile.restaurantArea} ${payload.dietaryPreference || ""}`),
         estimated_cost_min: perDay ? Math.round(perDay * 0.18) : null,
         estimated_cost_max: perDay ? Math.round(perDay * 0.36) : null,
         currency,
@@ -452,11 +667,70 @@ export function buildPreviewFromItinerary(itinerary: RoamlyItinerary): RoamlyPre
   };
 }
 
+function discoveryAmount(payload: TripPlannerPayload, key: string) {
+  return centsToAmount(payload.priceDiscovery?.[key] as number | null | undefined);
+}
+
+function cleanSignedNullableNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
+  if (typeof value === "string") {
+    const parsed = Number(value.replace(/[^0-9.-]/g, ""));
+    if (Number.isFinite(parsed)) return Math.round(parsed);
+  }
+  return null;
+}
+
+function cleanBudgetStatus(value: unknown): BudgetBreakdown["budget_status"] {
+  if (value === "within_budget" || value === "tight" || value === "over_budget" || value === "unknown") return value;
+  return undefined;
+}
+
+function budgetStatusFromRemaining(remaining: number | null) {
+  if (remaining == null) return "unknown" as const;
+  return remaining < 0 ? "over_budget" : "within_budget";
+}
+
+function budgetBreakdownNumbers(payload: TripPlannerPayload, budget?: Record<string, unknown>) {
+  const currency = payload.budgetCurrency || cleanString(budget?.currency, "CAD");
+  const discoveredTotal = discoveryAmount(payload, "totalEstimateCents");
+  const discoveredRemaining = discoveryAmount(payload, "remainingBudgetCents");
+  const rawTotal = cleanNullableNumber(budget?.total_estimate_amount ?? budget?.totalEstimateAmount);
+  const rawRemaining = cleanSignedNullableNumber(budget?.remaining_budget_amount ?? budget?.remainingBudgetAmount);
+  const parsedTotal = parseBudgetAmount(budget?.total_estimate);
+  const totalEstimateAmount = discoveredTotal ?? rawTotal ?? parsedTotal;
+  const userBudgetAmount = payload.budgetAmount ?? cleanNullableNumber(budget?.user_budget_amount ?? budget?.userBudgetAmount);
+  const remainingBudgetAmount =
+    discoveredRemaining ?? rawRemaining ?? calculateRemainingBudget(userBudgetAmount, totalEstimateAmount);
+  const budgetStatus =
+    cleanBudgetStatus(payload.priceDiscovery?.budgetStatus) ||
+    cleanBudgetStatus(budget?.budget_status ?? budget?.budgetStatus) ||
+    budgetStatusFromRemaining(remainingBudgetAmount);
+
+  return {
+    currency,
+    userBudgetAmount,
+    totalEstimateAmount,
+    remainingBudgetAmount,
+    budgetStatus
+  };
+}
+
+export function getItineraryTotalEstimateAmount(itinerary: Pick<RoamlyItinerary, "estimated_budget_breakdown" | "daily_itinerary">) {
+  const explicit = itinerary.estimated_budget_breakdown.total_estimate_amount;
+  if (typeof explicit === "number" && Number.isFinite(explicit)) return explicit;
+  const parsed = parseBudgetAmount(itinerary.estimated_budget_breakdown.total_estimate);
+  if (parsed != null) return parsed;
+  const daily = itinerary.daily_itinerary.reduce((sum, day) => sum + (day.estimated_cost || 0), 0);
+  return daily || null;
+}
+
 export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItinerary {
   const days = clampTripDays(payload.daysCount);
   const perDay = payload.budgetAmount ? Math.max(35, Math.round(payload.budgetAmount / days)) : 120;
   const interests = payload.interests.length ? payload.interests : ["Food", "Culture", "Hidden gems"];
   const stops = payload.tripType === "multi_city" && payload.destinationStops?.length ? payload.destinationStops : [];
+  const budgetNumbers = budgetBreakdownNumbers(payload);
+  const totalEstimate = budgetNumbers.totalEstimateAmount ?? payload.budgetAmount;
 
   return {
     trip_title: makeTripTitle(payload),
@@ -478,8 +752,13 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       activities: `${formatMoney(Math.round(perDay * 0.25), payload.budgetCurrency)} per day target.`,
       transport: `${formatMoney(Math.round(perDay * 0.15), payload.budgetCurrency)} per day target.`,
       buffer: "Keep 10-15% flexible for weather, taxis, and spontaneous stops.",
-      total_estimate: formatMoney(payload.budgetAmount, payload.budgetCurrency),
-      notes: "Planning estimate; verify prices before booking."
+      total_estimate: totalEstimate == null ? "Confirm after live booking prices." : formatBudgetMoney(totalEstimate, payload.budgetCurrency),
+      notes: "Planning estimate; verify prices before booking. Suggested booking options are not reserved.",
+      user_budget_amount: budgetNumbers.userBudgetAmount,
+      total_estimate_amount: budgetNumbers.totalEstimateAmount,
+      remaining_budget_amount: budgetNumbers.remainingBudgetAmount,
+      budget_status: budgetNumbers.budgetStatus,
+      currency: budgetNumbers.currency
     },
     hotel_area_suggestions: [
       `Central ${payload.destination} for first-time convenience`,
@@ -613,6 +892,7 @@ function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggesti
         neighborhood: cleanOptionalString(record.neighborhood || record.area),
         duration: cleanOptionalString(record.duration),
         provider: cleanOptionalString(record.provider),
+        provider_or_search_source: cleanOptionalString(record.provider_or_search_source || record.provider || record.search_source),
         booking_status: cleanBookingStatus(record.booking_status),
         why_recommended: cleanOptionalString(record.why_recommended),
         advance_booking_recommended: cleanOptionalBoolean(record.advance_booking_recommended),
@@ -640,6 +920,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
   const fallback = buildStarterItinerary(payload);
   const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const budget = record.estimated_budget_breakdown as Record<string, unknown> | undefined;
+  const budgetNumbers = budgetBreakdownNumbers(payload, budget);
   const targetDays = clampTripDays(payload.daysCount);
 
   const rawDays = Array.isArray(record.daily_itinerary) ? record.daily_itinerary : [];
@@ -698,8 +979,16 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
       activities: cleanString(budget?.activities, fallback.estimated_budget_breakdown.activities),
       transport: cleanString(budget?.transport, fallback.estimated_budget_breakdown.transport),
       buffer: cleanString(budget?.buffer, fallback.estimated_budget_breakdown.buffer),
-      total_estimate: cleanString(budget?.total_estimate, fallback.estimated_budget_breakdown.total_estimate),
-      notes: cleanString(budget?.notes, fallback.estimated_budget_breakdown.notes)
+      total_estimate:
+        budgetNumbers.totalEstimateAmount == null
+          ? cleanString(budget?.total_estimate, fallback.estimated_budget_breakdown.total_estimate)
+          : formatBudgetMoney(budgetNumbers.totalEstimateAmount, budgetNumbers.currency),
+      notes: cleanString(budget?.notes, fallback.estimated_budget_breakdown.notes),
+      user_budget_amount: budgetNumbers.userBudgetAmount,
+      total_estimate_amount: budgetNumbers.totalEstimateAmount,
+      remaining_budget_amount: budgetNumbers.remainingBudgetAmount,
+      budget_status: budgetNumbers.budgetStatus,
+      currency: budgetNumbers.currency
     },
     hotel_area_suggestions: cleanList(record.hotel_area_suggestions, fallback.hotel_area_suggestions, 6),
     transport_overview: cleanString(record.transport_overview, fallback.transport_overview),
