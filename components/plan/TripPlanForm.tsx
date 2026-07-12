@@ -810,7 +810,8 @@ export function TripPlanForm({
       validStops,
       walkingTolerance,
       accommodationPreference,
-      transportationPreference
+      transportationPreference,
+      resolvedDaysCount
     ]
   );
 
