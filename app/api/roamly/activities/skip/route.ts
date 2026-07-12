@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeCoordinates } from "@/lib/roamly/location";
 import { performActivityAction } from "@/lib/roamly/activityActions";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { requireUser } from "@/lib/roamly/auth";
 
 export async function POST(request: NextRequest) {
@@ -9,6 +11,12 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const activityId = typeof body.activityId === "string" ? body.activityId : "";
   const tripId = typeof body.tripId === "string" ? body.tripId : "";
+  const location = normalizeCoordinates({
+    latitude: body.latitude as number,
+    longitude: body.longitude as number
+  });
+  const access = getRoamlyAccessForUser(auth.user.email);
+  const simulated = body.simulated === true && access.hasQaAccess;
 
   if (!activityId || !tripId) {
     return NextResponse.json({ ok: false, error: "Activity and trip are required." }, { status: 400 });
@@ -20,7 +28,9 @@ export async function POST(request: NextRequest) {
     tripId,
     activityId,
     action: "skip",
-    source: "user_skip"
+    location,
+    source: simulated ? "tester_location_simulator" : "user_skip",
+    simulated
   });
 
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

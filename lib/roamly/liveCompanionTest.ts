@@ -50,11 +50,16 @@ function admin() {
 }
 
 function cityFallback(destination?: string | null, city?: string | null, country?: string | null): LocationInput {
-  const text = [city, destination, country].filter(Boolean).join(" ").toLowerCase();
+  const text = [city, destination, country]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   const known: Array<[RegExp, LocationInput]> = [
     [/toronto/, { latitude: 43.6532, longitude: -79.3832 }],
     [/vancouver/, { latitude: 49.2827, longitude: -123.1207 }],
-    [/montreal|montr[eé]al/, { latitude: 45.5019, longitude: -73.5674 }],
+    [/montreal/, { latitude: 45.5019, longitude: -73.5674 }],
     [/new york/, { latitude: 40.7128, longitude: -74.006 }],
     [/los angeles/, { latitude: 34.0522, longitude: -118.2437 }],
     [/london/, { latitude: 51.5072, longitude: -0.1276 }],
@@ -153,20 +158,11 @@ export async function simulateTripLocation(tripId: string, mode: LiveTestLocatio
   const supabase = admin();
   const trip = await getTrip(supabase, tripId);
   const target = await locationForMode(supabase, trip, mode);
-  await supabase.from("roamly_location_settings").upsert(
-    {
-      user_id: trip.user_id,
-      location_tracking_enabled: true,
-      notification_enabled: true,
-      last_permission_state: "granted",
-      last_seen_latitude: target.location.latitude,
-      last_seen_longitude: target.location.longitude,
-      last_seen_at: new Date().toISOString()
-    },
-    { onConflict: "user_id" }
-  );
 
-  const activation = await activateTripIfNearby(supabase, trip.user_id || "", target.location, trip.id);
+  const activation = await activateTripIfNearby(supabase, trip.user_id || "", target.location, trip.id, {
+    simulated: true,
+    source: "admin_live_test"
+  });
   const booking = nearestBooking(target.bookings, target.location);
   const debug = await buildLiveCompanionDebugReport(tripId);
 
@@ -204,7 +200,7 @@ export async function simulateCompanionReminder(tripId: string, type: LiveTestRe
       scheduled_for: now,
       completed_at: now,
       status: "shown",
-      metadata: { simulatedBy: "admin_live_test" }
+      metadata: { simulated: true, simulatedBy: "admin_live_test", source: "admin_live_test" }
     })
     .select("id")
     .maybeSingle();
@@ -218,7 +214,7 @@ export async function simulateCompanionReminder(tripId: string, type: LiveTestRe
     title: copy.title,
     body: copy.body,
     actionUrl: `/trip/${tripId}/live`,
-    metadata: { simulatedBy: "admin_live_test" }
+    metadata: { simulated: true, simulatedBy: "admin_live_test", source: "admin_live_test" }
   });
 
   return {
@@ -239,7 +235,7 @@ export async function sendTestInAppNotification(tripId: string) {
     title: "Roamly test notification",
     body: "Admin live test created this in-app notification.",
     actionUrl: `/trip/${tripId}/live`,
-    metadata: { simulatedBy: "admin_live_test" }
+    metadata: { simulated: true, simulatedBy: "admin_live_test", source: "admin_live_test" }
   });
   return {
     notificationCreated: !notification.error,
@@ -307,6 +303,7 @@ export async function simulateCheckIn(tripId: string) {
     action: "check_in",
     location,
     source: "admin_live_test",
+    simulated: true,
     requireNearbyForCheckIn: false
   });
   return { ...result, debug: await buildLiveCompanionDebugReport(tripId) };
@@ -319,7 +316,8 @@ export async function simulateSkip(tripId: string) {
     tripId,
     activityId: activity.id,
     action: "skip",
-    source: "admin_live_test"
+    source: "admin_live_test",
+    simulated: true
   });
   return { ...result, debug: await buildLiveCompanionDebugReport(tripId) };
 }
@@ -331,7 +329,8 @@ export async function simulateComplete(tripId: string) {
     tripId,
     activityId: activity.id,
     action: "complete",
-    source: "admin_live_test"
+    source: "admin_live_test",
+    simulated: true
   });
   return { ...result, debug: await buildLiveCompanionDebugReport(tripId) };
 }

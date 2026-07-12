@@ -174,6 +174,7 @@ async function writeCompanionActivityEvent(
     activityTitle: string;
     activityId?: string | null;
     source?: string;
+    simulated?: boolean;
   }
 ) {
   const config = actionConfig[params.action];
@@ -191,7 +192,8 @@ async function writeCompanionActivityEvent(
       status: params.action === "skip" ? "skipped" : "completed",
       metadata: {
         activityId: params.activityId || null,
-        source: params.source || "user_action"
+        source: params.source || "user_action",
+        ...(params.simulated ? { simulated: true } : {})
       }
     })
     .select("id")
@@ -207,7 +209,8 @@ async function writeCompanionActivityEvent(
     actionUrl: `/trip/${params.tripId}/live`,
     metadata: {
       activityId: params.activityId || null,
-      source: params.source || "user_action"
+      source: params.source || "user_action",
+      ...(params.simulated ? { simulated: true } : {})
     }
   });
 
@@ -224,6 +227,7 @@ export async function performActivityAction(
     action: RoamlyActivityAction;
     location?: LocationInput | null;
     source?: string;
+    simulated?: boolean;
     requireNearbyForCheckIn?: boolean;
   }
 ) {
@@ -298,7 +302,8 @@ export async function performActivityAction(
       requestedActivityId: params.activityId,
       trackingActivityId: loaded.trackingActivity?.id || null,
       displayActivityId: loaded.displayActivity?.id || null,
-      action: params.action
+      action: params.action,
+      ...(params.simulated ? { simulated: true } : {})
     }
   });
 
@@ -308,7 +313,8 @@ export async function performActivityAction(
     action: params.action,
     activityTitle: loaded.title,
     activityId: loaded.trackingActivity?.id || loaded.displayActivity?.id || params.activityId,
-    source: params.source
+    source: params.source,
+    simulated: params.simulated
   });
 
   const upNext = await getUpNextActivity(supabase, params.tripId, params.location || undefined);

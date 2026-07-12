@@ -67,6 +67,11 @@ export type TripNotificationPayload = {
   type: "trip_activated" | "activity_nearby" | "day_started";
 };
 
+type ActivationOptions = {
+  simulated?: boolean;
+  source?: string;
+};
+
 export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date"> & { days_count?: number | null }) {
   return getTripDayFromDate(trip.start_date, trip.days_count || null);
 }
@@ -224,7 +229,20 @@ export function buildTripNotificationPayload(params: {
   return null;
 }
 
-export async function activateTripIfNearby(supabase: SupabaseClient, userId: string, location: LocationInput, tripId?: string) {
+function simulationMetadata(options?: ActivationOptions, extra: Record<string, unknown> = {}) {
+  return {
+    ...extra,
+    ...(options?.simulated ? { simulated: true, source: options.source || "tester_location_simulator" } : {})
+  };
+}
+
+export async function activateTripIfNearby(
+  supabase: SupabaseClient,
+  userId: string,
+  location: LocationInput,
+  tripId?: string,
+  options?: ActivationOptions
+) {
   const tripResult = await getActiveOrUpcomingTrip(supabase, userId, tripId);
   const trip = tripResult.trip;
 
@@ -281,7 +299,7 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
       latitude: location.latitude,
       longitude: location.longitude,
       distanceMeters: nearby.activities[0]?.distance_meters,
-      metadata: { dayNumber: currentDay.dayNumber }
+      metadata: simulationMetadata(options, { dayNumber: currentDay.dayNumber })
     });
   }
 
@@ -295,7 +313,8 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
       eventBody: "A planned activity is near your current location.",
       latitude: location.latitude,
       longitude: location.longitude,
-      distanceMeters: nearby.activities[0].distance_meters
+      distanceMeters: nearby.activities[0].distance_meters,
+      metadata: simulationMetadata(options)
     });
 
     const now = new Date().toISOString();
@@ -310,10 +329,10 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
         scheduled_for: now,
         completed_at: now,
         status: "shown",
-        metadata: {
+        metadata: simulationMetadata(options, {
           activityId: nearby.activities[0].id,
           distanceMeters: nearby.activities[0].distance_meters ?? null
-        }
+        })
       })
       .select("id")
       .maybeSingle();
@@ -328,7 +347,8 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
       actionUrl: `/trip/${trip.id}/live`,
       metadata: {
         activityId: nearby.activities[0].id,
-        distanceMeters: nearby.activities[0].distance_meters ?? null
+        distanceMeters: nearby.activities[0].distance_meters ?? null,
+        ...(options?.simulated ? { simulated: true, source: options.source || "tester_location_simulator" } : {})
       }
     });
   }
@@ -351,7 +371,7 @@ export async function activateTripIfNearby(supabase: SupabaseClient, userId: str
       latitude: location.latitude,
       longitude: location.longitude,
       distanceMeters: nearby.activities[0]?.distance_meters,
-      metadata: { type: notification.type }
+      metadata: simulationMetadata(options, { type: notification.type })
     });
   }
 

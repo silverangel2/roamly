@@ -35,6 +35,17 @@ function shouldThrottle(key: string, ms: number) {
   return false;
 }
 
+function hasActiveSimulatedLocation(pathname: string) {
+  try {
+    const raw = localStorage.getItem("roamly_live_simulated_location");
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { active?: boolean; tripId?: string };
+    return parsed.active === true && typeof parsed.tripId === "string" && pathname.includes(`/trip/${parsed.tripId}/live`);
+  } catch {
+    return false;
+  }
+}
+
 export function RoamlyLocationTracker() {
   const pathname = usePathname();
   const router = useRouter();
@@ -136,6 +147,7 @@ export function RoamlyLocationTracker() {
   );
 
   const requestLocation = useCallback(async () => {
+    localStorage.removeItem("roamly_live_simulated_location");
     setBusy(true);
     setError("");
 
@@ -176,6 +188,7 @@ export function RoamlyLocationTracker() {
 
   useEffect(() => {
     if (!enabled || !activeTrip || !navigator.geolocation) return;
+    if (hasActiveSimulatedLocation(pathname)) return;
     if (shouldThrottle("roamly_location_update", 10 * 60_000)) return;
 
     navigator.geolocation.getCurrentPosition(

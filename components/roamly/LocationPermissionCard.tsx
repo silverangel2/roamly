@@ -16,6 +16,8 @@ export function LocationPermissionCard({ onEnable, busy, error, compact }: Locat
       </h3>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
         Roamly can show nearby activities from your locked itinerary when you arrive. Your location is only used for trip features.
+        {" "}
+        Location works while Roamly is open or installed as a PWA. Background GPS is limited on web.
       </p>
       <button
         type="button"
