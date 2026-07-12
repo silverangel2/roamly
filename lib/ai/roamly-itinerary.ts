@@ -73,6 +73,11 @@ function priceDiscoverySummary(payload: TripPlannerPayload) {
     remaining_budget_amount: balance?.remainingAmount ?? null,
     committed_bookings: centsToMoney(discovery.committedBudgetCents, currency),
     coverage_note: discovery.coverageNote || "Prices are estimates and may change before booking.",
+    price_coverage: discovery.priceCoverage || "fallback",
+    unknown_market_price_count: discovery.unknownMarketPriceCount || 0,
+    unknown_market_price_categories: discovery.unknownMarketPriceCategories || [],
+    selected_market_prices: discovery.selectedMarketPrices || [],
+    market_results: discovery.marketResults || [],
     route_legs: discovery.routeLegs || [],
     city_estimates: discovery.cityEstimates || [],
     over_budget_recommendations: discovery.recommendationNotes || []
@@ -132,7 +137,7 @@ Traveler input:
 - Notes: ${payload.specialNotes || "none"}
 - Budget instruction: ${payload.budgetConstraint || "Use practical current-price caution. Prices are estimates and may change before booking."}
 - Price discovery summary: ${JSON.stringify(priceSummary)}
-- Uploaded/confirmed booking costs: ${priceSummary.committed_bookings}. Treat these as already committed costs from bookings or screenshots when present; do not invent new bookings.
+- Uploaded/saved booking costs: ${priceSummary.committed_bookings}. Treat these as already committed costs from bookings or screenshots when present; do not invent new bookings.
 - Fixed bookings and screenshots: ${JSON.stringify(payload.confirmedBookings || [])}
 - Output language: ${outputLanguage}
 
@@ -240,12 +245,15 @@ Rules:
 - Never output generic placeholder titles or descriptions such as "Flights to book", "Hotel/stay to book", "Find hotels", "Activities/tours to reserve", "Things to do", or "Book activities". Every booking title must name a route, room type + area, attraction/ticket, tour concept, transport option, or restaurant area.
 - Use the required booking recommendation shape. Include provider_or_search_source on every booking suggestion. Keep booking_category equal to category for backward compatibility.
 - Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
-- If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Estimated price", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
+- Use selected_market_prices and market_results from the Price discovery summary for exact booking recommendation prices, provider/source labels, timestamps, and booking/search URLs.
+- If a selected market result has price_type "live_partner", you may call it a live partner price. If it has "cached_recent", call it recently searched. If it has "search_ready", say live price is needed. If it has "estimated_fallback", call it an estimated fallback.
+- If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Estimated fallback", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
 - Do not claim exact live prices unless a real partner/live API returned them. Do not invent confirmation numbers.
 - Do not say "booked", "reserved", or "confirmed" unless the user uploaded a booking screenshot or confirmed booking in Fixed bookings and screenshots. Those can use booking_status "user_uploaded" and price_confidence "user_uploaded".
 - For non-uploaded recommendations, make clear they are search-ready only and that price and availability must be verified before booking.
-- Budget math must be exact: remaining_budget_amount = user_budget_amount - total_estimate_amount. If the value is negative, budget_fit_summary and estimated_budget_breakdown.notes must say "Over budget by ${payload.budgetCurrency || "CAD"} X"; if positive, say "Remaining budget: ${payload.budgetCurrency || "CAD"} X". Never show a positive remaining budget when the total estimate is higher than the user budget.
+- Budget math must use the selected total from Price discovery summary: remaining_budget_amount = user_budget_amount - total_estimate_amount. If the value is negative, budget_fit_summary and estimated_budget_breakdown.notes must say "Over budget by ${payload.budgetCurrency || "CAD"} X"; if positive, say "Remaining budget: ${payload.budgetCurrency || "CAD"} X". Never show a positive remaining budget when the total estimate is higher than the user budget.
 - When Price discovery summary includes total_estimate_display, use that same total estimate in estimated_budget_breakdown.total_estimate and total_estimate_amount.
+- If unknown_market_price_count is greater than 0, estimated_budget_breakdown.notes must start with "Budget incomplete — live price needed for X items." Do not present fallback estimates as exact.
 - Include at least one flight or arrival transport option, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
 - For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range, booking_label "Find this flight", and a normal search URL.
 - For hotel/stay suggestions, include room_type, neighborhood, estimated nightly range, estimated total stay range, and why the room/area fits the traveler.

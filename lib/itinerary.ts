@@ -13,6 +13,7 @@ import {
   buildTransportSearchUrl,
   googleSearchUrl
 } from "@/lib/roamly/bookingLinks";
+import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource } from "@/lib/roamly/travelMarketSearch";
 
 export type BudgetBreakdown = {
   lodging: string;
@@ -79,6 +80,12 @@ export type RoamlyBookingSuggestion = {
   estimated_total_cost_max?: number | null;
   currency: string;
   price_confidence: RoamlyPriceConfidence;
+  market_source?: TravelMarketSource;
+  price_type?: TravelMarketPriceType;
+  market_confidence?: TravelMarketConfidence;
+  searched_at?: string;
+  expires_at?: string;
+  market_search_key?: string;
 };
 
 export type RoamlyDayPlan = {
@@ -918,6 +925,39 @@ function cleanPriceConfidence(value: unknown): RoamlyBookingSuggestion["price_co
   return "unknown";
 }
 
+function cleanMarketSource(value: unknown): TravelMarketSource | undefined {
+  if (
+    value === "travelpayouts" ||
+    value === "stay22" ||
+    value === "getyourguide" ||
+    value === "viator" ||
+    value === "klook" ||
+    value === "google_search" ||
+    value === "fallback_estimate"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function cleanMarketPriceType(value: unknown): TravelMarketPriceType | undefined {
+  if (
+    value === "live_partner" ||
+    value === "cached_recent" ||
+    value === "search_ready" ||
+    value === "estimated_fallback" ||
+    value === "unknown"
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function cleanMarketConfidence(value: unknown): TravelMarketConfidence | undefined {
+  if (value === "high" || value === "medium" || value === "low") return value;
+  return undefined;
+}
+
 function cleanBookingStatus(value: unknown): RoamlyBookingStatus {
   if (value === "suggested" || value === "user_uploaded" || value === "needs_booking") return value;
   return "needs_booking";
@@ -1042,7 +1082,13 @@ function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggesti
         estimated_total_cost_min: cleanNullableNumber(record.estimated_total_cost_min),
         estimated_total_cost_max: cleanNullableNumber(record.estimated_total_cost_max),
         currency: cleanString(record.currency, payload.budgetCurrency || "CAD"),
-        price_confidence: cleanPriceConfidence(record.price_confidence)
+        price_confidence: cleanPriceConfidence(record.price_confidence),
+        market_source: cleanMarketSource(record.market_source || record.source),
+        price_type: cleanMarketPriceType(record.price_type),
+        market_confidence: cleanMarketConfidence(record.market_confidence || record.confidence),
+        searched_at: cleanOptionalString(record.searched_at),
+        expires_at: cleanOptionalString(record.expires_at),
+        market_search_key: cleanOptionalString(record.market_search_key || record.search_key)
       };
     })
     .slice(0, 24);

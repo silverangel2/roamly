@@ -4,6 +4,7 @@ import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
+import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
@@ -371,7 +372,7 @@ function budgetRows({
     { label: "Activities", value: estimate.activities },
     { label: "Buffer", value: estimate.buffer },
     {
-      label: "Total estimate",
+      label: "Selected total",
       value: totalEstimateAmount == null ? estimate.total_estimate : formatBudgetMoney(totalEstimateAmount, currency)
     },
     { label: balance?.label || "Remaining budget", value: balance?.value || "Confirm after live booking prices." }
@@ -555,23 +556,41 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   return null;
 }
 
-function bookingActionLabel(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  const label = suggestion.booking_label?.trim();
-  if (label && !label.toLowerCase().includes("from ") && label.length <= 28) return label;
-  const category = bookingCategory(suggestion);
-  if (category === "flight") return "Find this flight";
-  if (category === "hotel") return "Find this room";
-  if (category === "attraction") return "Book ticket";
-  if (category === "tour") return "Find tour";
-  if (category === "restaurant") return "Find restaurant";
-  return "Open directions";
-}
-
 function priceConfidenceLabel(value?: string) {
   if (value === "partner") return "Partner price";
   if (value === "user_uploaded") return "Uploaded booking";
   if (value === "unknown") return "Price unknown";
   return "Estimated price";
+}
+
+function isExpired(value?: string | null) {
+  if (!value) return false;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) && date.getTime() <= Date.now();
+}
+
+function formatMarketDateTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (suggestion.price_confidence === "user_uploaded") return "Uploaded booking price";
+  if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
+    return "Refresh price";
+  }
+  if (suggestion.price_type === "live_partner") return "Live partner price";
+  if (suggestion.price_type === "cached_recent") return "Recently searched price";
+  if (suggestion.price_type === "search_ready") return "Search-ready, price must be verified";
+  if (suggestion.price_type === "estimated_fallback") return "Estimated fallback";
+  return priceConfidenceLabel(suggestion.price_confidence);
 }
 
 function bookingStatusLabel(value?: string) {
@@ -594,8 +613,12 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
     suggestion.estimated_total_cost_max ?? suggestion.estimated_cost_max,
     currency
   );
-  if (nightly && total) return `Estimated nightly ${nightly}; stay ${total}.`;
-  if (total) return `Estimated ${total}.`;
+  if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
+    return total ? `Previously searched ${total}. Refresh price before using it for booking.` : "Refresh price before using this option.";
+  }
+  if (suggestion.price_type === "search_ready") return "Search-ready option. Verify live price and availability before booking.";
+  if (nightly && total) return `${suggestion.price_type === "estimated_fallback" ? "Estimated fallback" : "Estimated"} nightly ${nightly}; stay ${total}.`;
+  if (total) return `${suggestion.price_type === "estimated_fallback" ? "Estimated fallback" : "Estimated"} ${total}.`;
   if (suggestion.free_or_paid === "free") return "Free option. Verify hours and access rules.";
   return "Search-ready option. Verify current prices before booking.";
 }
@@ -603,11 +626,18 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
 function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
   return [
     suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider,
+    suggestion.market_source,
     suggestion.location || suggestion.neighborhood || suggestion.city,
     suggestion.date || suggestion.departure_date,
     suggestion.time_window,
     suggestion.duration,
-    suggestion.room_type
+    suggestion.room_type,
+    suggestion.searched_at ? `Searched ${formatMarketDateTime(suggestion.searched_at)}` : "",
+    suggestion.expires_at
+      ? isExpired(suggestion.expires_at)
+        ? "Refresh price"
+        : `Expires ${formatMarketDateTime(suggestion.expires_at)}`
+      : ""
   ]
     .map((item) => getString(item))
     .filter(Boolean)
@@ -627,8 +657,11 @@ function BookingRecommendationCard({
   const title = bookingTitle(suggestion);
   const link = resolveBookingLink(suggestion, trip);
   const mapQuery = suggestion.location || suggestion.neighborhood || suggestion.city || title;
-  const confidence = priceConfidenceLabel(suggestion.price_confidence);
-  const actionLabel = bookingActionLabel(suggestion);
+  const confidence = priceSourceLabel(suggestion);
+  const actionLabel =
+    suggestion.price_confidence !== "user_uploaded" && suggestion.price_type === "live_partner" && !isExpired(suggestion.expires_at)
+      ? "View live price"
+      : "Book/search option";
 
   return (
     <article className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
@@ -1012,12 +1045,15 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             </section>
 
             <section id="budget" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Budget" title="Budget estimate" summary={full.estimated_budget_breakdown.notes} />
+              <SectionHeading eyebrow="Budget" title="Budget status" summary={full.estimated_budget_breakdown.notes} />
               <BudgetTable trip={trip} itinerary={full} currency={currency} />
             </section>
 
             <section id="bookings" className="mt-8 scroll-mt-32">
               <SectionHeading eyebrow="Bookings" title="What to reserve" summary="Use direct search links unless a configured Roamly partner link is available." />
+              <div className="mb-4">
+                <MarketPriceRefreshButton tripId={id} />
+              </div>
               <BookingPlan itinerary={full} trip={trip} tripId={id} />
               <div className="mt-5 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
                 <div>

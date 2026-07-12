@@ -69,6 +69,8 @@ type PriceDiscoveryResult = {
   budgetStatus: "within_budget" | "tight" | "over_budget" | "unknown";
   budgetCurrency: string;
   coverageNote: string;
+  unknownMarketPriceCount?: number;
+  priceCoverage?: "market" | "partial" | "fallback";
 };
 
 function todayIsoDate() {
@@ -1280,7 +1282,11 @@ export function TripPlanForm({
         ["Local transport", formatMoney(priceDiscovery.localTransportEstimateCents, priceDiscovery.budgetCurrency)],
         ["Buffer", formatMoney(priceDiscovery.bufferEstimateCents, priceDiscovery.budgetCurrency)],
         ["Committed bookings", formatMoney(priceDiscovery.committedBudgetCents, priceDiscovery.budgetCurrency)],
-        ["Total estimate", formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Selected total", formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)],
+        [
+          "Live prices needed",
+          priceDiscovery.unknownMarketPriceCount ? `${priceDiscovery.unknownMarketPriceCount} item${priceDiscovery.unknownMarketPriceCount === 1 ? "" : "s"}` : "None"
+        ],
         [priceBudgetBalance?.label || "Remaining budget", priceBudgetBalance?.value || "Not set"]
       ]
     : [];
@@ -1702,7 +1708,7 @@ export function TripPlanForm({
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Budget status")}</p>
                 <p className="mt-1 text-sm font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</p>
                 <p className="mt-2 text-xs font-bold text-slate-500">
-                  {translateText("Total estimate")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
+                  {translateText("Selected total")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
                 </p>
                 {priceBudgetBalance ? (
                   <p className="mt-1 text-xs font-bold text-slate-500">

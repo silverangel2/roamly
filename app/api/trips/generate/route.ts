@@ -21,6 +21,7 @@ import {
   discoverTripPrices,
   savePriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
+import { searchTripMarketPrices } from "@/lib/roamly/travelMarketSearch";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
 import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -400,11 +401,17 @@ async function finalizeItinerary(params: {
     getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId),
     getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId)
   ]);
+  const marketSearch = await searchTripMarketPrices(payload, {
+    supabase: params.supabase,
+    store: true
+  });
   const discovery = await discoverTripPrices({
     userId: params.userId,
     tripId: params.tripId,
     ...payload,
     committedBudgetCents: committed.amountCents,
+    confirmedBookings: confirmedBookings.bookings,
+    marketResults: marketSearch.results
   });
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,

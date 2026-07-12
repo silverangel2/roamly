@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import type { TravelerDetails, TripType } from "@/lib/trip-planner";
+import type { TravelMarketCategory, TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 
 export type BudgetStatus = "within_budget" | "tight" | "over_budget" | "unknown";
 
@@ -56,6 +58,18 @@ export type TripPriceDiscoveryInput = {
   accessibilityNeeds?: string;
   dietaryPreference?: string;
   interests?: string[];
+  marketResults?: TravelMarketResult[] | null;
+  confirmedBookings?: Array<{
+    booking_type?: string | null;
+    title?: string | null;
+    provider_name?: string | null;
+    amount_cents?: number | null;
+    currency?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    city?: string | null;
+    country?: string | null;
+  }>;
 };
 
 export type TripPriceDiscovery = {
@@ -93,10 +107,19 @@ export type TripPriceDiscovery = {
   cityEstimates: CityCostEstimate[];
   recommendationNotes: string[];
   sources: Array<{ provider: string; label: string; confidence: "low" | "medium" | "high" }>;
+  marketResults: TravelMarketResult[];
+  selectedMarketPrices: TravelMarketResult[];
+  unknownMarketPriceCount: number;
+  unknownMarketPriceCategories: string[];
+  priceCoverage: "market" | "partial" | "fallback";
 };
 
 function cents(amount: number) {
   return Math.max(0, Math.round(amount * 100));
+}
+
+function moneyFromCents(value: number, currency = "CAD") {
+  return `${currency.toUpperCase()} ${Math.round(value / 100).toLocaleString("en-CA")}`;
 }
 
 function cleanNumber(value: unknown, fallback: number) {
@@ -355,6 +378,150 @@ function recommendationNotes(status: BudgetStatus, input: TripPriceDiscoveryInpu
   ];
 }
 
+function marketPriceCents(result: TravelMarketResult) {
+  const amount = result.price_amount ?? result.price_max ?? result.price_min;
+  return typeof amount === "number" && Number.isFinite(amount) ? Math.max(0, Math.round(amount * 100)) : null;
+}
+
+function marketRank(result: TravelMarketResult) {
+  if (result.price_type === "live_partner") return 2;
+  if (result.price_type === "cached_recent") return 3;
+  if (result.price_type === "search_ready") return 4;
+  if (result.price_type === "estimated_fallback") return 5;
+  return 6;
+}
+
+function bookingTypeToMarketCategory(value?: string | null): TravelMarketCategory | null {
+  if (value === "flight") return "flight";
+  if (value === "hotel") return "hotel";
+  if (value === "attraction" || value === "event") return "attraction";
+  if (value === "transport" || value === "car_rental") return "transport";
+  return null;
+}
+
+function confirmedMarketResults(input: TripPriceDiscoveryInput, searchedAt: string) {
+  return (input.confirmedBookings || [])
+    .map((booking): TravelMarketResult | null => {
+      const category = bookingTypeToMarketCategory(booking.booking_type);
+      if (!category || typeof booking.amount_cents !== "number" || !Number.isFinite(booking.amount_cents) || booking.amount_cents <= 0) {
+        return null;
+      }
+      return {
+        id: `user-uploaded-${category}-${booking.title || booking.provider_name || booking.start_date || searchedAt}`,
+        category,
+        title: booking.title || `${category} uploaded booking`,
+        provider: booking.provider_name || "User-uploaded booking",
+        source: "fallback_estimate",
+        city: booking.city || undefined,
+        country: booking.country || undefined,
+        start_date: booking.start_date || undefined,
+        end_date: booking.end_date || undefined,
+        price_amount: Math.round(booking.amount_cents) / 100,
+        currency: (booking.currency || input.budgetCurrency || "CAD").toUpperCase(),
+        price_type: "live_partner",
+        confidence: "high",
+        searched_at: searchedAt,
+        expires_at: new Date(new Date(searchedAt).getTime() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        metadata: {
+          source: "user_uploaded_confirmation",
+          priceHierarchy: 1
+        }
+      };
+    })
+    .filter((result): result is TravelMarketResult => Boolean(result));
+}
+
+function fallbackMarketResult(params: {
+  category: TravelMarketCategory;
+  title: string;
+  amountCents: number;
+  currency: string;
+  input: TripPriceDiscoveryInput;
+  searchedAt: string;
+}) {
+  return {
+    id: `fallback-${params.category}`,
+    category: params.category,
+    title: params.title,
+    provider: "Roamly fallback estimate",
+    source: "fallback_estimate",
+    origin: params.input.origin || undefined,
+    destination: params.input.destination || undefined,
+    city: params.input.destination || undefined,
+    start_date: params.input.startDate || undefined,
+    end_date: params.input.endDate || undefined,
+    travelers: params.input.travelersCount || undefined,
+    rooms: params.input.rooms || undefined,
+    price_amount: Math.round(params.amountCents) / 100,
+    currency: params.currency,
+    price_type: "estimated_fallback",
+    confidence: "low",
+    normal_search_url: undefined,
+    searched_at: params.searchedAt,
+    expires_at: new Date(new Date(params.searchedAt).getTime() + 60 * 60 * 1000).toISOString(),
+    metadata: {
+      warning: "Estimated fallback used only because no exact market price was available.",
+      priceHierarchy: 5
+    }
+  } satisfies TravelMarketResult;
+}
+
+function selectMarketPrices(params: {
+  input: TripPriceDiscoveryInput;
+  marketResults: TravelMarketResult[];
+  fallbackCents: Record<TravelMarketCategory, number>;
+  currency: string;
+}) {
+  const searchedAt = new Date().toISOString();
+  const withUserUploaded = [...confirmedMarketResults(params.input, searchedAt), ...params.marketResults];
+  const categories = Object.entries(params.fallbackCents)
+    .filter(([, amount]) => amount > 0)
+    .map(([category]) => category as TravelMarketCategory);
+  const selected: TravelMarketResult[] = [];
+  const unknownCategories: string[] = [];
+
+  for (const category of categories) {
+    const matches = withUserUploaded
+      .filter((result) => result.category === category)
+      .sort((a, b) => marketRank(a) - marketRank(b));
+    const exact = matches.find((result) => marketPriceCents(result) != null && (result.price_type === "live_partner" || result.price_type === "cached_recent"));
+    if (exact) {
+      selected.push(exact);
+      continue;
+    }
+
+    const searchReady = matches.find((result) => result.price_type === "search_ready" || result.price_type === "unknown");
+    if (searchReady) {
+      unknownCategories.push(category);
+    }
+
+    selected.push(
+      fallbackMarketResult({
+        category,
+        title:
+          category === "flight"
+            ? "Fallback flight planning estimate"
+            : category === "hotel"
+              ? "Fallback stay planning estimate"
+              : category === "transport"
+                ? "Fallback transport planning estimate"
+                : "Fallback activity planning estimate",
+        amountCents: params.fallbackCents[category],
+        currency: params.currency,
+        input: params.input,
+        searchedAt
+      })
+    );
+  }
+
+  return {
+    allMarketResults: withUserUploaded,
+    selectedMarketPrices: selected,
+    unknownMarketPriceCategories: Array.from(new Set(unknownCategories)),
+    unknownMarketPriceCount: Array.from(new Set(unknownCategories)).length
+  };
+}
+
 export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promise<TripPriceDiscovery> {
   const daysCount = tripDays(input);
   const travelers = normalizeTravelers(input);
@@ -375,11 +542,11 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   const routeLegs = buildRouteLegEstimates(normalized);
 
   const [
-    flightEstimateCents,
-    hotelEstimateCents,
-    activitiesEstimateCents,
+    fallbackFlightEstimateCents,
+    fallbackHotelEstimateCents,
+    fallbackActivitiesEstimateCents,
     foodEstimateCents,
-    localTransportEstimateCents
+    fallbackLocalTransportEstimateCents
   ] = await Promise.all([
     estimateFlights(normalized),
     estimateHotels(normalized),
@@ -388,15 +555,46 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     estimateLocalTransport(normalized)
   ]);
 
+  const fallbackCents: Record<TravelMarketCategory, number> = {
+    flight: normalized.budgetIncludesFlights === false ? 0 : fallbackFlightEstimateCents,
+    hotel: normalized.budgetIncludesHotel === false ? 0 : fallbackHotelEstimateCents,
+    attraction: normalized.budgetIncludesActivities === false ? 0 : Math.round(fallbackActivitiesEstimateCents * 0.45),
+    tour: normalized.budgetIncludesActivities === false ? 0 : Math.round(fallbackActivitiesEstimateCents * 0.55),
+    transport: fallbackLocalTransportEstimateCents
+  };
+  const marketSelection = selectMarketPrices({
+    input: normalized,
+    marketResults: input.marketResults || [],
+    fallbackCents,
+    currency: normalized.budgetCurrency || "CAD"
+  });
+  const selectedCentsByCategory = marketSelection.selectedMarketPrices.reduce<Record<TravelMarketCategory, number>>(
+    (acc, result) => {
+      const amount = marketPriceCents(result) || 0;
+      acc[result.category] += amount;
+      return acc;
+    },
+    { flight: 0, hotel: 0, attraction: 0, tour: 0, transport: 0 }
+  );
+  const selectedUserUploadedCents = marketSelection.selectedMarketPrices
+    .filter((result) => result.metadata?.source === "user_uploaded_confirmation")
+    .reduce((sum, result) => sum + (marketPriceCents(result) || 0), 0);
+  const committedBudgetCents = Math.max(0, Math.round(input.committedBudgetCents || 0));
+  const uncategorizedCommittedBudgetCents = Math.max(0, committedBudgetCents - selectedUserUploadedCents);
+  const flightEstimateCents = selectedCentsByCategory.flight;
+  const hotelEstimateCents = selectedCentsByCategory.hotel;
+  const activitiesEstimateCents = selectedCentsByCategory.attraction + selectedCentsByCategory.tour;
+  const localTransportEstimateCents = selectedCentsByCategory.transport;
+
   const subtotal =
     flightEstimateCents +
     hotelEstimateCents +
     activitiesEstimateCents +
     foodEstimateCents +
-    localTransportEstimateCents;
+    localTransportEstimateCents +
+    uncategorizedCommittedBudgetCents;
   const bufferEstimateCents = Math.round(subtotal * 0.12);
   const totalEstimateCents = subtotal + bufferEstimateCents;
-  const committedBudgetCents = Math.max(0, Math.round(input.committedBudgetCents || 0));
   const budget = calculateBudgetStatus({
     budgetAmount: normalized.budgetAmount || null,
     budgetCurrency: normalized.budgetCurrency || "CAD",
@@ -411,9 +609,19 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     daysCount
   });
   const coverageNote =
-    normalized.tripType === "multi_city"
-      ? "Multi-city estimates use broad travel ranges until live routing partners are connected."
-      : "Prices are estimates and may change before booking.";
+    marketSelection.unknownMarketPriceCount > 0
+      ? `Budget incomplete — live price needed for ${marketSelection.unknownMarketPriceCount} item${marketSelection.unknownMarketPriceCount === 1 ? "" : "s"}. Fallback estimates are marked and must be verified before booking.`
+      : marketSelection.selectedMarketPrices.some((result) => result.price_type === "live_partner")
+        ? "Budget uses live partner/search market prices where available. Verify before booking."
+        : marketSelection.selectedMarketPrices.some((result) => result.price_type === "cached_recent")
+          ? "Budget uses recently searched market prices. Refresh stale prices before booking."
+          : "Budget uses estimated fallback prices because live market prices were not available. Verify before booking.";
+  const priceCoverage =
+    marketSelection.selectedMarketPrices.every((result) => result.price_type === "estimated_fallback")
+      ? "fallback"
+      : marketSelection.selectedMarketPrices.some((result) => result.price_type === "estimated_fallback")
+        ? "partial"
+        : "market";
 
   return {
     tripType: normalized.tripType || "single_destination",
@@ -450,30 +658,53 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     cityEstimates,
     recommendationNotes: recommendationNotes(budget.budgetStatus, normalized),
     sources: [
-      { provider: "roamly_estimator", label: "Provider-ready estimate model", confidence: "medium" },
-      { provider: "routeEstimator", label: "Broad route and inter-city travel estimate", confidence: "low" },
-      { provider: "flightProvider", label: "Live airfare provider pending", confidence: "low" },
-      { provider: "hotelProvider", label: "Live stay provider pending", confidence: "low" },
-      { provider: "activityProvider", label: "Live activity provider pending", confidence: "low" }
-    ]
+      ...marketSelection.selectedMarketPrices.map((result) => ({
+        provider: result.provider,
+        label:
+          result.metadata?.source === "user_uploaded_confirmation"
+            ? "Uploaded booking price"
+            : result.price_type === "live_partner"
+            ? "Live partner price"
+            : result.price_type === "cached_recent"
+              ? "Recently searched price"
+              : result.price_type === "estimated_fallback"
+                ? "Estimated fallback"
+                : "Search-ready result",
+        confidence: result.confidence
+      })),
+      { provider: "roamly_food_buffer", label: "Food and buffer planning estimate", confidence: "low" as const }
+    ],
+    marketResults: marketSelection.allMarketResults,
+    selectedMarketPrices: marketSelection.selectedMarketPrices,
+    unknownMarketPriceCount: marketSelection.unknownMarketPriceCount,
+    unknownMarketPriceCategories: marketSelection.unknownMarketPriceCategories,
+    priceCoverage
   };
 }
 
 export function buildBudgetConstraintForItinerary(discovery: TripPriceDiscovery) {
+  const marketNote = [
+    `Price coverage: ${discovery.priceCoverage}.`,
+    discovery.unknownMarketPriceCount
+      ? `Budget incomplete — live price needed for ${discovery.unknownMarketPriceCount} item${discovery.unknownMarketPriceCount === 1 ? "" : "s"} (${discovery.unknownMarketPriceCategories.join(", ")}).`
+      : "All selected market categories have a selected price or fallback value.",
+    "Use selectedMarketPrices for booking recommendation prices. Never invent exact prices."
+  ].join(" ");
   if (discovery.budgetStatus === "over_budget") {
     return [
       "The trip may exceed budget. Build a budget-first itinerary with free or low-cost activities, public transit, affordable food, and clear warnings about expensive choices.",
       "Suggest cheaper city order, shorter trip length, fewer paid activities, lower-cost hotel areas, public transit, excluding flights/hotel if already handled, or increasing budget where needed.",
-      `Estimated total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. Committed bookings from uploaded or confirmed costs: ${discovery.budgetCurrency} ${Math.round(discovery.committedBudgetCents / 100)}.`
+      `Selected total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. Uploaded/saved booking costs: ${discovery.budgetCurrency} ${Math.round(discovery.committedBudgetCents / 100)}.`,
+      marketNote
     ].join(" ");
   }
   if (discovery.budgetStatus === "tight") {
-    return `The budget is tight. Prioritize affordable stays, free attractions, public transit, and low-cost food while keeping the trip enjoyable. Estimated total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}.`;
+    return `The budget is tight. Prioritize affordable stays, free attractions, public transit, and low-cost food while keeping the trip enjoyable. Selected total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. ${marketNote}`;
   }
   if (discovery.budgetStatus === "unknown") {
-    return "No total budget was provided. Keep prices transparent, separate free and paid activities, and remind the traveler to verify costs before booking.";
+    return `No total budget was provided. Keep prices transparent, separate free and paid activities, and remind the traveler to verify costs before booking. ${marketNote}`;
   }
-  return "The trip appears possible within budget. Keep the itinerary practical and include price verification reminders.";
+  return `The trip appears possible within budget. Keep the itinerary practical and include price verification reminders. ${marketNote}`;
 }
 
 export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: TripPriceDiscoveryInput & { userId: string }) {
@@ -527,7 +758,9 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
     sources: discovery.sources,
     source_summary: {
       note: discovery.coverageNote,
-      providers: discovery.sources
+      providers: discovery.sources,
+      priceCoverage: discovery.priceCoverage,
+      unknownMarketPriceCount: discovery.unknownMarketPriceCount
     },
     metadata: {
       budgetConstraint: buildBudgetConstraintForItinerary(discovery),
@@ -542,6 +775,11 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       budgetIncludesActivities: discovery.budgetIncludesActivities,
       routeLegs: discovery.routeLegs,
       cityEstimates: discovery.cityEstimates,
+      marketResults: discovery.marketResults,
+      selectedMarketPrices: discovery.selectedMarketPrices,
+      unknownMarketPriceCount: discovery.unknownMarketPriceCount,
+      unknownMarketPriceCategories: discovery.unknownMarketPriceCategories,
+      priceCoverage: discovery.priceCoverage,
       recommendationNotes: discovery.recommendationNotes,
       preferences: {
         accommodationPreference: input.accommodationPreference || null,
@@ -580,4 +818,44 @@ export async function savePriceDiscovery(
     }
   }
   return { id: data?.id as string, error: null };
+}
+
+export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, discovery: TripPriceDiscovery): RoamlyItinerary {
+  const remaining =
+    typeof discovery.remainingBudgetCents === "number"
+      ? Math.round(discovery.remainingBudgetCents / 100)
+      : itinerary.estimated_budget_breakdown.remaining_budget_amount;
+  const totalAmount = Math.round(discovery.totalEstimateCents / 100);
+  const balance =
+    remaining == null
+      ? "Budget total updated from market search."
+      : remaining < 0
+        ? `Over budget by ${moneyFromCents(Math.abs(discovery.remainingBudgetCents || 0), discovery.budgetCurrency)}`
+        : `Remaining budget: ${moneyFromCents(discovery.remainingBudgetCents || 0, discovery.budgetCurrency)}`;
+  const incomplete = discovery.unknownMarketPriceCount
+    ? `Budget incomplete — live price needed for ${discovery.unknownMarketPriceCount} item${discovery.unknownMarketPriceCount === 1 ? "" : "s"}. `
+    : "";
+
+  return {
+    ...itinerary,
+    budget_fit_summary: `${balance}. ${incomplete}Verify before booking.`,
+    booking_status_summary:
+      discovery.unknownMarketPriceCount > 0
+        ? `Search-ready market options were refreshed, but ${discovery.unknownMarketPriceCount} price${discovery.unknownMarketPriceCount === 1 ? "" : "s"} still need live verification.`
+        : "Market prices were refreshed. Verify live price and availability before booking.",
+    estimated_budget_breakdown: {
+      ...itinerary.estimated_budget_breakdown,
+      lodging: `Selected stay market amount: ${moneyFromCents(discovery.hotelEstimateCents, discovery.budgetCurrency)}.`,
+      activities: `Selected ticket/tour market amount: ${moneyFromCents(discovery.activitiesEstimateCents, discovery.budgetCurrency)}.`,
+      transport: `Selected flight/local transport market amount: ${moneyFromCents(discovery.flightEstimateCents + discovery.localTransportEstimateCents, discovery.budgetCurrency)}.`,
+      food: `Food planning estimate: ${moneyFromCents(discovery.foodEstimateCents, discovery.budgetCurrency)}.`,
+      buffer: `Buffer: ${moneyFromCents(discovery.bufferEstimateCents, discovery.budgetCurrency)}.`,
+      total_estimate: moneyFromCents(discovery.totalEstimateCents, discovery.budgetCurrency),
+      notes: `${incomplete}${balance}. ${discovery.coverageNote}`,
+      total_estimate_amount: totalAmount,
+      remaining_budget_amount: remaining,
+      budget_status: discovery.budgetStatus,
+      currency: discovery.budgetCurrency
+    }
+  };
 }

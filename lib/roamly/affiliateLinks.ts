@@ -442,11 +442,90 @@ function normalSearchUrlForSuggestion(
   return googleSearchUrl(`${suggestion.title || suggestion.booking_label} ${destination}`);
 }
 
+function getRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function marketResultsFromPayload(payload: TripPlannerPayload) {
+  const discovery = getRecord(payload.priceDiscovery);
+  const selected = Array.isArray(discovery?.selectedMarketPrices) ? discovery.selectedMarketPrices : [];
+  const all = Array.isArray(discovery?.marketResults) ? discovery.marketResults : [];
+  return [...selected, ...all]
+    .map(getRecord)
+    .filter((item): item is Record<string, unknown> => Boolean(item));
+}
+
+function cleanNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  return null;
+}
+
+function cleanStringValue(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function marketResultRank(result: Record<string, unknown>) {
+  const type = result.price_type;
+  if (result.metadata && typeof result.metadata === "object" && (result.metadata as Record<string, unknown>).source === "user_uploaded_confirmation") return 0;
+  if (type === "live_partner") return 1;
+  if (type === "cached_recent") return 2;
+  if (type === "search_ready") return 3;
+  if (type === "estimated_fallback") return 4;
+  return 5;
+}
+
+function titleOverlap(a: string, b: string) {
+  const left = new Set(a.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length >= 4));
+  const right = b.toLowerCase().split(/[^a-z0-9]+/).filter((part) => part.length >= 4);
+  return right.some((part) => left.has(part));
+}
+
+function pickMarketResult(
+  suggestion: RoamlyItinerary["booking_suggestions"][number],
+  payload: TripPlannerPayload
+) {
+  const category = suggestion.booking_category || suggestion.category;
+  const title = suggestion.title || suggestion.booking_label;
+  const sameCategory = marketResultsFromPayload(payload)
+    .filter((result) => result.category === category)
+    .sort((a, b) => marketResultRank(a) - marketResultRank(b));
+  if (!sameCategory.length) return null;
+  return (
+    sameCategory.find((result) => titleOverlap(cleanStringValue(result.title), title)) ||
+    sameCategory.find((result) => cleanNumber(result.price_amount) != null || cleanNumber(result.price_max) != null || cleanNumber(result.price_min) != null) ||
+    sameCategory[0]
+  );
+}
+
+function marketPriceRange(result: Record<string, unknown>) {
+  const amount = cleanNumber(result.price_amount);
+  const min = cleanNumber(result.price_min);
+  const max = cleanNumber(result.price_max);
+  if (amount != null) return { min: Math.round(amount), max: Math.round(amount) };
+  if (min != null || max != null) return { min: min == null ? null : Math.round(min), max: max == null ? null : Math.round(max) };
+  return { min: null, max: null };
+}
+
+function marketPriceConfidence(result: Record<string, unknown>) {
+  if (result.metadata && typeof result.metadata === "object" && (result.metadata as Record<string, unknown>).source === "user_uploaded_confirmation") {
+    return "user_uploaded" as const;
+  }
+  if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "partner" as const;
+  if (result.price_type === "estimated_fallback") return "estimated" as const;
+  return "unknown" as const;
+}
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   return {
     ...itinerary,
     booking_suggestions: itinerary.booking_suggestions.map((suggestion) => {
       const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
+      const market = pickMarketResult(suggestion, payload);
+      const marketRange = market ? marketPriceRange(market) : { min: null, max: null };
       const link = buildRoamlyAffiliateUrl({
         category: suggestion.booking_category,
         destination: suggestion.destination || suggestion.city || payload.destination,
@@ -466,16 +545,34 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       });
       return {
         ...suggestion,
-        normal_search_url: suggestion.normal_search_url || normalSearchUrl || link.href,
-        affiliate_url: link.affiliate_enabled ? link.affiliate_url : "",
-        affiliate_provider: link.affiliate_provider,
-        affiliate_disclosure: affiliateDisclosure,
-        provider: suggestion.provider || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search"),
+        provider: cleanStringValue(market?.provider) || suggestion.provider || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search"),
         provider_or_search_source:
+          cleanStringValue(market?.source) ||
           suggestion.provider_or_search_source ||
           suggestion.provider ||
           (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search"),
-        price_confidence: suggestion.price_confidence || "estimated"
+        normal_search_url: cleanStringValue(market?.normal_search_url) || suggestion.normal_search_url || normalSearchUrl || link.href,
+        affiliate_url: cleanStringValue(market?.affiliate_url) || (link.affiliate_enabled ? link.affiliate_url : ""),
+        affiliate_provider: cleanStringValue(market?.source) || link.affiliate_provider,
+        affiliate_disclosure: affiliateDisclosure,
+        booking_status:
+          market?.metadata && typeof market.metadata === "object" && (market.metadata as Record<string, unknown>).source === "user_uploaded_confirmation"
+            ? "user_uploaded"
+            : suggestion.booking_status,
+        estimated_cost_min: marketRange.min ?? suggestion.estimated_cost_min,
+        estimated_cost_max: marketRange.max ?? suggestion.estimated_cost_max,
+        estimated_total_cost_min:
+          suggestion.booking_category === "hotel" ? marketRange.min ?? suggestion.estimated_total_cost_min : suggestion.estimated_total_cost_min,
+        estimated_total_cost_max:
+          suggestion.booking_category === "hotel" ? marketRange.max ?? suggestion.estimated_total_cost_max : suggestion.estimated_total_cost_max,
+        currency: cleanStringValue(market?.currency) || suggestion.currency,
+        price_confidence: market ? marketPriceConfidence(market) : suggestion.price_confidence || "estimated",
+        market_source: cleanStringValue(market?.source) as RoamlyItinerary["booking_suggestions"][number]["market_source"],
+        price_type: cleanStringValue(market?.price_type) as RoamlyItinerary["booking_suggestions"][number]["price_type"],
+        market_confidence: cleanStringValue(market?.confidence) as RoamlyItinerary["booking_suggestions"][number]["market_confidence"],
+        searched_at: cleanStringValue(market?.searched_at) || suggestion.searched_at,
+        expires_at: cleanStringValue(market?.expires_at) || suggestion.expires_at,
+        market_search_key: cleanStringValue(market?.search_key) || suggestion.market_search_key
       };
     })
   };

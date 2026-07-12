@@ -6,6 +6,8 @@ import {
 import { getCurrentUser } from "@/lib/roamly/auth";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
+import { searchTripMarketPrices } from "@/lib/roamly/travelMarketSearch";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TripType } from "@/lib/trip-planner";
 
 function getString(value: unknown) {
@@ -132,7 +134,25 @@ export async function POST(request: NextRequest) {
 
   let discovery;
   try {
-    discovery = await discoverTripPrices(input);
+    const supabase = await createSupabaseServerClient();
+    const marketSearch = await searchTripMarketPrices(
+      {
+        ...input,
+        destinationStops: input.destinationStops,
+        travelers: {
+          adults: getNumber((input.travelers as Record<string, unknown>).adults) || 1,
+          children: getAnyNumber((input.travelers as Record<string, unknown>).children) || 0,
+          infants: getAnyNumber((input.travelers as Record<string, unknown>).infants) || 0
+        },
+        specialNotes: "",
+        language: "en"
+      },
+      { supabase, store: true }
+    );
+    discovery = await discoverTripPrices({
+      ...input,
+      marketResults: marketSearch.results
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Price discovery failed.";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
