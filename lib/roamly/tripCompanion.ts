@@ -68,6 +68,7 @@ export function buildCountryInfo(destinationCountry?: string | null, destination
     summary: "Check official government, embassy, airline, and destination sources before travel.",
     reminders: [
       "Verify entry documents and passport validity.",
+      "Confirm roaming or eSIM before departure and check device compatibility before buying.",
       "Confirm local emergency numbers and nearest embassy or consulate.",
       "Check weather, transit disruptions, and local safety updates before leaving."
     ]
@@ -125,15 +126,31 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
           ? {
               event_type: "offline_maps",
               title: "Download offline maps",
-              body: "Download offline maps for your route and destination before crossing the border.",
+              body: "Download offline maps for your route and destination before crossing the border, and save key addresses for offline access.",
               scheduled_for: addDays(start, -3)
             }
           : null,
         start
           ? {
               event_type: "roaming_esim",
-              title: "Confirm roaming or eSIM",
-              body: "Confirm roaming coverage or prepare an eSIM/SIM option before departure.",
+              title: "Confirm roaming or eSIM before departure",
+              body: "Compare roaming or travel eSIM options before departure. Check coverage, device compatibility, speed limits, and refund rules before buying.",
+              scheduled_for: addDays(start, -3)
+            }
+          : null,
+        start
+          ? {
+              event_type: "save_hotel_address_offline",
+              title: "Save hotel address offline",
+              body: "Save your hotel address, booking confirmation, and arrival directions where they work without mobile data.",
+              scheduled_for: addDays(start, -3)
+            }
+          : null,
+        start
+          ? {
+              event_type: "destination_emergency_number",
+              title: "Check destination emergency number",
+              body: "Save the local emergency number and an emergency contact before departure.",
               scheduled_for: addDays(start, -3)
             }
           : null,

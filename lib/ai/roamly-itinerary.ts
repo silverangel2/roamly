@@ -252,7 +252,7 @@ Return ONLY valid JSON with this shape:
     {
       "title": "item name",
       "reason": "why this item fits this destination, dates, weather/season, activities, trip length, or travel style",
-      "category": "Luggage & packing | Power & tech | Comfort | Weather gear | Documents & safety | Destination-specific items",
+      "category": "Luggage & packing | Power & tech | Comfort | Weather gear | Documents & safety | Connectivity | Destination-specific items",
       "search_query": "Amazon search query for the item",
       "amazon_url": "",
       "priority": "high | medium | low"
@@ -285,10 +285,13 @@ Rules:
 - Include clean location names and addresses when possible in location_name and map_query so Google Maps, Apple Maps, and Citymapper link-outs work reliably.
 - Booking suggestions must be specific and practical, like real travel-site searches: suggested flight searches, hotel room/stay options, entrance tickets, attractions, tours, airport transfers, inter-city transport, local transport, and restaurants when useful.
 - Pre-trip essentials must recommend travel items based on destination, dates, likely weather/season, planned activities/interests, trip length, travelers, and travel style.
-- Include essentials across these categories when relevant: Luggage & packing, Power & tech, Comfort, Weather gear, Documents & safety, Destination-specific items.
+- Include essentials across these categories when relevant: Luggage & packing, Power & tech, Comfort, Weather gear, Documents & safety, Connectivity, Destination-specific items.
 - Each pre_trip_essentials item must include title, reason, category, search_query, amazon_url, and priority. Use priority "high", "medium", or "low".
 - Do not include exact Amazon prices, discounts, ratings, review counts, ASINs, or claims that a product is currently available. Roamly will attach the Amazon Associates search URL, so leave amazon_url blank and make search_query search-ready.
 - Include carry-on luggage, packing cubes, and a travel adapter unless clearly irrelevant.
+- For cross-border, international, or roaming-sensitive trips, include a Connectivity pre_trip_essentials item titled "Travel eSIM or roaming plan" with a reason that includes: "Helps keep maps, booking confirmations, and Live Companion available while traveling."
+- Do not put Airalo, eSIMs, roaming, or mobile data under flights, hotels, tours, tickets, or activity booking suggestions. They belong only under Pre-trip essentials, Travel notes, Cross-border reminders, Live Companion reminders, or Connectivity.
+- Do not claim eSIM coverage, speed, price, refund terms, or device compatibility is guaranteed. Include: "Check coverage, device compatibility, speed limits, and refund rules before buying."
 - Never output generic placeholder titles or descriptions such as "Flights to book", "Hotel/stay to book", "Find hotels", "Activities/tours to reserve", "Things to do", or "Book activities". Every booking title must name a route, room type + area, attraction/ticket, tour concept, transport option, or restaurant area.
 - Use the required booking recommendation shape. Include provider_or_search_source on every booking suggestion. Keep booking_category equal to category for backward compatibility.
 - Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
@@ -314,7 +317,7 @@ Rules:
 - For cross-border driving/bus/train, mention "Border wait times can change. Allow extra time." Do not recommend an unverified cross-border bus/train route as best; say "Cross-border route not verified — not recommended as primary option."
 - For currency changes, include: destination currency, exchange-rate reminder, foreign transaction fee reminder, cash/card note, and tolls/parking/payment method note. If applicable, use: "Your trip crosses from CAD to USD. Check card foreign transaction fees and carry a backup payment method."
 - Add customs reminder: "Review customs rules before crossing. Food, alcohol, tobacco, medication, plants, and large purchases may have restrictions."
-- Add phone reminders for cross-border/international trips: roaming plan, eSIM/SIM option, offline maps, and emergency contact/local emergency number note when available.
+- Add phone reminders for cross-border/international trips: confirm roaming or eSIM before departure, check device compatibility before buying, download offline maps, save hotel address offline, and emergency contact/local emergency number note when available.
 - Do not give legal immigration, customs, or duty advice; tell the traveler to check official sources.
 - Include at least one recommended transport option, one flight alternative when relevant, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
 - For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range when present in Price discovery summary, booking_label "Find this flight", and a normal search URL. Say "Faster but more expensive" when the flight is not the budget recommendation.

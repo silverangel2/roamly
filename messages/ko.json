@@ -706,6 +706,12 @@
     "Phone/browser reminders are off. In-app notifications still work.": "Phone/browser reminders are off. In-app notifications still work.",
     "Push notifications could not be enabled.": "Push notifications could not be enabled.",
     "Could not disable push notifications.": "Could not disable push notifications.",
-    "Current browser permission:": "Current browser permission:"
+    "Current browser permission:": "Current browser permission:",
+    "Travel eSIM": "여행용 eSIM",
+    "Compare travel eSIM": "여행용 eSIM 비교",
+    "Get eSIM for this trip": "이 여행용 eSIM 받기",
+    "Check mobile data options": "모바일 데이터 옵션 확인",
+    "Confirm roaming or eSIM before departure": "출발 전 로밍 또는 eSIM 확인",
+    "Check device compatibility before buying": "구매 전 기기 호환성 확인"
   }
 }

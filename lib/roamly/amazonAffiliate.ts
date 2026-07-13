@@ -1,4 +1,6 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { buildEsimAction, isEsimSensitiveTrip } from "@/lib/roamly/esim";
+import { detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
 
 export const amazonAffiliateDisclosure =
   "Roamly may earn a commission from qualifying purchases. This does not change your price.";
@@ -9,6 +11,7 @@ export const travelEssentialCategories = [
   "Comfort",
   "Weather gear",
   "Documents & safety",
+  "Connectivity",
   "Destination-specific items"
 ] as const;
 
@@ -22,6 +25,15 @@ export type RoamlyPreTripEssential = {
   search_query: string;
   amazon_url: string;
   priority: RoamlyEssentialPriority;
+  action_url?: string;
+  action_label?: string;
+  provider?: string;
+  affiliate_provider?: string;
+  affiliate_disclosure?: string;
+  item_type?: "travel_essential" | "connectivity";
+  has_affiliate_url?: boolean;
+  action_url_type?: "affiliate" | "normal_search" | "fallback";
+  verification_note?: string;
 };
 
 type EssentialDraft = Omit<RoamlyPreTripEssential, "amazon_url">;
@@ -80,7 +92,16 @@ function destinationLabel(payload: TripPlannerPayload) {
 function hasDifferentCountries(payload: TripPlannerPayload) {
   const origin = clean(payload.originCountry).toLowerCase();
   const destination = clean(payload.destinationCountry).toLowerCase();
-  return Boolean(origin && destination && origin !== destination);
+  return (
+    Boolean(origin && destination && origin !== destination) ||
+    detectCrossBorderTrip({
+      origin: payload.origin || payload.originCity,
+      originCountry: payload.originCountry,
+      destination: payload.destination || payload.destinationCity,
+      destinationCountry: payload.destinationCountry,
+      routeText: `${payload.origin || ""} ${payload.destination || ""}`
+    }).cross_border
+  );
 }
 
 function tripDays(payload: TripPlannerPayload) {
@@ -215,6 +236,7 @@ function weatherDraft(payload: TripPlannerPayload): EssentialDraft {
 
 export function describeTravelEssentialsContext(payload: TripPlannerPayload) {
   const destination = destinationLabel(payload) || payload.destination;
+  const esimRecommended = isEsimSensitiveTrip(payload);
   return [
     `Destination: ${destination}`,
     `Dates: ${payload.startDate || "flexible"} to ${payload.endDate || "flexible"}`,
@@ -222,14 +244,38 @@ export function describeTravelEssentialsContext(payload: TripPlannerPayload) {
     `Travel style: ${payload.travelStyle || "Balanced"}`,
     `Activities/interests: ${interestsText(payload)}`,
     `Weather/season cue: ${describeTripSeason(payload)}`,
-    `International adapter likely useful: ${hasDifferentCountries(payload) ? "yes" : "check destination plug type"}`
+    `International adapter likely useful: ${hasDifferentCountries(payload) ? "yes" : "check destination plug type"}`,
+    `Travel eSIM or roaming plan likely useful: ${esimRecommended ? "yes" : "only if phone roaming is a concern"}`
   ].join("; ");
 }
 
 export function withAmazonUrl(item: EssentialDraft): RoamlyPreTripEssential {
+  const isConnectivity = item.item_type === "connectivity" || item.category === "Connectivity";
   return {
     ...item,
-    amazon_url: buildAmazonSearchUrl(item.search_query)
+    amazon_url: isConnectivity ? "" : buildAmazonSearchUrl(item.search_query)
+  };
+}
+
+function buildEsimEssential(payload: TripPlannerPayload): EssentialDraft | null {
+  if (!isEsimSensitiveTrip(payload)) return null;
+  const action = buildEsimAction(payload);
+  if (!action) return null;
+  return {
+    title: "Travel eSIM or roaming plan",
+    reason: "Helps keep maps, booking confirmations, and Live Companion available while traveling.",
+    category: "Connectivity",
+    search_query: `${destinationLabel(payload) || payload.destination || "destination"} travel eSIM mobile data roaming plan`,
+    priority: "high",
+    action_url: action.href,
+    action_label: action.label,
+    provider: action.provider,
+    affiliate_provider: action.provider,
+    affiliate_disclosure: "Roamly may earn a commission from qualifying eSIM purchases. This does not change your price.",
+    item_type: "connectivity",
+    has_affiliate_url: action.hasAffiliateUrl,
+    action_url_type: action.urlType,
+    verification_note: action.verificationNote
   };
 }
 
@@ -289,6 +335,8 @@ export function buildPreTripEssentials(payload: TripPlannerPayload): RoamlyPreTr
     },
     destinationSpecificDraft(payload)
   ];
+  const esimEssential = buildEsimEssential(payload);
+  if (esimEssential) drafts.splice(3, 0, esimEssential);
 
   return drafts.map(withAmazonUrl);
 }
@@ -330,6 +378,30 @@ function normalizeEssentialRecord(item: unknown, index: number, payload: TripPla
     clean(typeof record.reason === "string" ? record.reason : "") ||
       `Recommended for ${destinationLabel(payload) || payload.destination} based on trip length, activities, and travel style.`
   );
+  const text = `${title} ${searchQuery} ${typeof record.category === "string" ? record.category : ""}`.toLowerCase();
+  const isEsimItem = /\b(e-?sim|mobile data|roaming plan|travel data)\b/.test(text);
+
+  if (isEsimItem) {
+    const action = buildEsimAction(payload, typeof record.action_label === "string" && record.action_label.trim() ? record.action_label.trim() : "Compare travel eSIM");
+    if (action) {
+      return withAmazonUrl({
+        title: title.includes("eSIM") ? title : "Travel eSIM or roaming plan",
+        reason,
+        category: "Connectivity",
+        search_query: searchQuery || `${destinationLabel(payload) || payload.destination || "destination"} travel eSIM`,
+        priority: "high",
+        action_url: action.href,
+        action_label: action.label,
+        provider: action.provider,
+        affiliate_provider: action.provider,
+        affiliate_disclosure: "Roamly may earn a commission from qualifying eSIM purchases. This does not change your price.",
+        item_type: "connectivity",
+        has_affiliate_url: action.hasAffiliateUrl,
+        action_url_type: action.urlType,
+        verification_note: action.verificationNote
+      });
+    }
+  }
 
   return withAmazonUrl({
     title,
@@ -360,7 +432,7 @@ export function normalizePreTripEssentials(
     .map((item, index) => normalizeEssentialRecord(item, index, payload))
     .filter((item): item is RoamlyPreTripEssential => Boolean(item));
   const essentials = cleaned.length ? [...cleaned] : [...fallback];
-  const requiredPatterns = [/carry[- ]?on|luggage/, /packing cube/, /adapter/];
+  const requiredPatterns = [/carry[- ]?on|luggage/, /packing cube/, /adapter/, /\b(e-?sim|mobile data|roaming plan)\b/];
 
   for (const pattern of requiredPatterns) {
     const required = fallback.find((item) => itemMatches(item, pattern));
@@ -376,7 +448,16 @@ export function normalizePreTripEssentials(
         reason: stripPriceReferences(item.reason),
         category: cleanCategory(item.category),
         search_query: item.search_query || item.title,
-        priority: cleanPriority(item.priority, 4)
+        priority: cleanPriority(item.priority, 4),
+        action_url: item.action_url,
+        action_label: item.action_label,
+        provider: item.provider,
+        affiliate_provider: item.affiliate_provider,
+        affiliate_disclosure: item.affiliate_disclosure,
+        item_type: item.item_type,
+        has_affiliate_url: item.has_affiliate_url,
+        action_url_type: item.action_url_type,
+        verification_note: item.verification_note
       })
     )
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))

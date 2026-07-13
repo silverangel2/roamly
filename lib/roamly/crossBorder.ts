@@ -97,7 +97,7 @@ export function crossBorderTravelNotes(params: { originCurrency?: string | null;
     currencyNote,
     params.driving ? "Confirm tolls, parking payment methods, vehicle registration, and rental car cross-border permission before driving." : "Confirm baggage, transfer, and payment assumptions before booking.",
     "Review customs rules before crossing. Food, alcohol, tobacco, medication, plants, and large purchases may have restrictions.",
-    "Confirm roaming or eSIM/SIM coverage and download offline maps before departure.",
+    "Confirm roaming or eSIM/SIM coverage and download offline maps before departure. Check device compatibility before buying.",
     "Save emergency contacts and the local emergency number before travel."
   ];
 }

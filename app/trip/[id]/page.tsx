@@ -23,6 +23,7 @@ import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
 import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
+import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
@@ -923,7 +924,9 @@ function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; 
 }
 
 function essentialActionLabel(item: RoamlyPreTripEssential) {
+  if (item.action_label) return item.action_label;
   const text = `${item.title} ${item.search_query}`.toLowerCase();
+  if (item.item_type === "connectivity" || /\b(e-?sim|mobile data|roaming plan)\b/.test(text)) return "Compare travel eSIM";
   if (/\bcarry[- ]?on\b|luggage/.test(text)) return "Find carry-on luggage";
   if (/packing cube/.test(text)) return "Find packing cubes";
   if (/adapter/.test(text)) return "Find travel adapter";
@@ -943,8 +946,13 @@ function PreTripEssentialCard({
   item: RoamlyPreTripEssential;
   tripId: string;
 }) {
-  const href = safeExternalUrl(item.amazon_url);
+  const href = safeExternalUrl(item.action_url) || safeExternalUrl(item.amazon_url);
   const label = essentialActionLabel(item);
+  const isConnectivity = item.item_type === "connectivity" || item.category === "Connectivity";
+  const provider = item.provider || (isConnectivity ? "Airalo" : "Amazon Associates");
+  const verificationNote = item.verification_note || (isConnectivity ? esimVerificationCopy : "");
+  const urlType: BookingUrlType = item.action_url_type || (href && href.includes("tag=") ? "affiliate" : "normal_search");
+  const hasAffiliateUrl = Boolean(item.has_affiliate_url || (href && href.includes("tag=")));
 
   return (
     <article className="roamly-print-section rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
@@ -962,23 +970,28 @@ function PreTripEssentialCard({
             </div>
             <h3 className="mt-2 text-lg font-black leading-6 text-ink">{item.title}</h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{item.reason}</p>
+            {verificationNote ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{verificationNote}</p> : null}
             <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Search: {item.search_query}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="roamly-no-print text-xs font-bold leading-5 text-slate-500">Amazon prices are not shown in Roamly. Verify price and availability on Amazon.</p>
+          <p className="roamly-no-print text-xs font-bold leading-5 text-slate-500">
+            {isConnectivity
+              ? "Connectivity options are not guaranteed. Verify coverage, compatibility, price, and terms before buying."
+              : "Amazon prices are not shown in Roamly. Verify price and availability on Amazon."}
+          </p>
           <BookingRecommendationButton
             href={href}
             label={label}
             tripId={tripId}
-            category="travel_essentials"
+            category={isConnectivity ? "connectivity" : "travel_essentials"}
             title={item.title}
-            provider="Amazon Associates"
-            hasAffiliateUrl={Boolean(href && href.includes("tag="))}
-            urlType={href && href.includes("tag=") ? "affiliate" : "normal_search"}
+            provider={provider}
+            hasAffiliateUrl={hasAffiliateUrl}
+            urlType={urlType}
           />
         </div>
-        <p className="roamly-print-only hidden text-xs font-black text-ocean">{href ? `Amazon search: ${label}` : "Amazon search link unavailable"}</p>
+        <p className="roamly-print-only hidden text-xs font-black text-ocean">{href ? `${provider} search: ${label}` : `${provider} search link unavailable`}</p>
       </div>
     </article>
   );
@@ -992,6 +1005,7 @@ function PreTripEssentialsSection({
   tripId: string;
 }) {
   if (!essentials.length) return null;
+  const hasConnectivity = essentials.some((item) => item.item_type === "connectivity" || item.category === "Connectivity");
 
   return (
     <section id="pre-trip-essentials" className="mt-8 scroll-mt-32">
@@ -1002,6 +1016,7 @@ function PreTripEssentialsSection({
       />
       <p className="mb-4 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
         {amazonAffiliateDisclosure}
+        {hasConnectivity ? " Connectivity recommendations are for mobile data planning only, not flights, hotels, tours, or tickets." : ""}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         {essentials.map((item, index) => (

@@ -706,6 +706,12 @@
     "Phone/browser reminders are off. In-app notifications still work.": "Phone/browser reminders are off. In-app notifications still work.",
     "Push notifications could not be enabled.": "Push notifications could not be enabled.",
     "Could not disable push notifications.": "Could not disable push notifications.",
-    "Current browser permission:": "Current browser permission:"
+    "Current browser permission:": "Current browser permission:",
+    "Travel eSIM": "旅行 eSIM",
+    "Compare travel eSIM": "比较旅行 eSIM",
+    "Get eSIM for this trip": "获取本次旅行的 eSIM",
+    "Check mobile data options": "查看移动数据选项",
+    "Confirm roaming or eSIM before departure": "出发前确认漫游或 eSIM",
+    "Check device compatibility before buying": "购买前检查设备兼容性"
   }
 }

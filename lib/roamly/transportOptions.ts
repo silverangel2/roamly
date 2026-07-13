@@ -488,12 +488,14 @@ function flightOption(input: TransportBuildInput, origin: string, destination: s
   const market = flightMarketPrice(config.marketResults);
   const fallback = centsToAmount(config.flightEstimateCents || config.fallbackFlightEstimateCents || null);
   const travelers = travelersCount(input);
+  const routeCrossesBorder = crossBorder(undefined, undefined, input, origin, destination);
   const baseMin = market?.min ?? (fallback ? Math.max(1, Math.round(fallback * 0.88)) : null);
   const baseMax = market?.max ?? (fallback ? Math.max(1, Math.round(fallback * 1.12)) : null);
   const baggage = baseMax ? Math.round(45 * travelers) : undefined;
   const transfer = baseMax ? Math.round(35 * travelers) : undefined;
-  const min = baseMin == null ? null : baseMin + Math.round(20 * travelers);
-  const max = baseMax == null ? null : baseMax + (baggage || 0) + (transfer || 0);
+  const roamingEsim = routeCrossesBorder ? 35 : 0;
+  const min = baseMin == null ? null : baseMin + Math.round(20 * travelers) + roamingEsim;
+  const max = baseMax == null ? null : baseMax + (baggage || 0) + (transfer || 0) + roamingEsim;
   const normalSearchUrl = buildFlightSearchUrl({
     origin,
     destination,
@@ -504,8 +506,8 @@ function flightOption(input: TransportBuildInput, origin: string, destination: s
   const availability: TransportAvailability = market?.confidence === "live_partner" || market?.confidence === "cached_recent" ? "verified" : "search_ready";
   const warning =
     availability === "verified"
-      ? "Verify baggage, seat, transfer, and schedule details before booking."
-      : "Conservative flight estimate — refresh live prices before booking.";
+      ? `Verify baggage, seat, transfer, and schedule details before booking.${routeCrossesBorder ? " Estimate includes a roaming/eSIM planning buffer; check coverage and device compatibility before buying." : ""}`
+      : `Conservative flight estimate — refresh live prices before booking.${routeCrossesBorder ? " Estimate includes a roaming/eSIM planning buffer; check coverage and device compatibility before buying." : ""}`;
   const reason = "Fastest practical long-distance option when the route or trip length makes surface transport costly in time.";
 
   return {
@@ -525,7 +527,8 @@ function flightOption(input: TransportBuildInput, origin: string, destination: s
     cost_breakdown: {
       flight: baseMax ?? undefined,
       baggage,
-      airport_transfer: transfer
+      airport_transfer: transfer,
+      roaming_esim: roamingEsim || undefined
     },
     price_confidence: market?.confidence || (fallback ? "estimated" : "unknown"),
     search_url: normalSearchUrl || undefined,
@@ -736,8 +739,9 @@ function buildBusOption(
   }
   const travelers = travelersCount(input);
   const roughBase = distanceKm ? Math.max(55, distanceKm * 0.105) : 115;
-  const min = Math.round(roughBase * travelers * (input.returnToOrigin === false ? 0.75 : 1.15));
-  const max = Math.round(Math.max(min + 25, roughBase * travelers * (input.returnToOrigin === false ? 1.1 : 1.75)));
+  const roamingEsim = isCrossBorder ? 35 : 0;
+  const min = Math.round(roughBase * travelers * (input.returnToOrigin === false ? 0.75 : 1.15)) + roamingEsim;
+  const max = Math.round(Math.max(min + 25, roughBase * travelers * (input.returnToOrigin === false ? 1.1 : 1.75) + roamingEsim));
   const query = `bus ${originLabel} to ${destinationLabel} ${cleanDate(input.startDate)} ${cleanDate(input.endDate)}`;
   const realistic = availability === "search_ready" && !isTooLong;
   const warning =
@@ -770,7 +774,8 @@ function buildBusOption(
     duration_label: oneWayHours ? `about ${Math.round(oneWayHours)} hr one way if available` : "longer, schedule varies",
     distance_km: distanceKm ? Math.round(distanceKm) : undefined,
     cost_breakdown: {
-      train_or_bus_ticket: max
+      train_or_bus_ticket: max,
+      roaming_esim: roamingEsim || undefined
     },
     price_confidence: "estimated",
     search_url: googleSearchUrl(query),
@@ -805,8 +810,10 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
   const flightFallback = centsToAmount(config.flightEstimateCents || config.fallbackFlightEstimateCents || null);
   const flight = flightFallback ? Math.round(flightFallback * 0.82) : Math.round(240 * travelers);
   const transfer = Math.round(25 * travelers);
-  const low = Math.max(1, Math.round((gas + airportParking + flight + transfer) * 0.9));
-  const high = Math.max(low, Math.round((gas + airportParking + flight + transfer) * 1.18));
+  const routeCrossesBorder = crossBorder(undefined, undefined, input, originLabel, destinationLabel);
+  const roamingEsim = routeCrossesBorder ? 35 : 0;
+  const low = Math.max(1, Math.round((gas + airportParking + flight + transfer + roamingEsim) * 0.9));
+  const high = Math.max(low, Math.round((gas + airportParking + flight + transfer + roamingEsim) * 1.18));
   const airportDriveHours = driveHoursFromDistance(airport.driveKm) || 0;
   const estimatedDurationHours = Math.max(4, airportDriveHours + 3.5);
   const flightSearch = buildFlightSearchUrl({
@@ -836,13 +843,14 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
       gas,
       parking: airportParking || undefined,
       flight,
-      airport_transfer: transfer
+      airport_transfer: transfer,
+      roaming_esim: roamingEsim || undefined
     },
     price_confidence: "estimated",
     search_url: flightSearch || googleSearchUrl(`${airport.airportName} to ${destinationLabel} flights`),
     booking_url: flightSearch || googleSearchUrl(`${airport.airportName} to ${destinationLabel} flights`),
     reason: "Mixed route can be practical when the nearest airport is costly or poorly connected.",
-    warning: "Conservative mixed-route estimate — refresh live flight, parking, and transfer prices before booking.",
+    warning: `Conservative mixed-route estimate — refresh live flight, parking, and transfer prices before booking.${routeCrossesBorder ? " Estimate includes a roaming/eSIM planning buffer; check coverage and device compatibility before buying." : ""}`,
     source: "Regional airport route estimate",
     why_recommended: "This option may reduce transport cost but increases travel time.",
     budget_fit: "unknown"

@@ -1183,6 +1183,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
     local_tips: [
       ...(crossBorder ? crossBorderWarnings.slice(1, 5) : []),
       "Save offline maps.",
+      ...(crossBorder ? ["Travel eSIM or roaming plan: check coverage, device compatibility, speed limits, and refund rules before buying."] : []),
       "Check opening hours the night before.",
       "Group nearby stops."
     ],
@@ -1192,7 +1193,13 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       "Use licensed transport late at night."
     ],
     emergency_notes: [
-      ...(crossBorder ? ["Confirm roaming or eSIM/SIM coverage before departure.", "Save emergency contacts and the local emergency number before travel."] : []),
+      ...(crossBorder
+        ? [
+            "Confirm roaming or eSIM before departure.",
+            "Check device compatibility before buying a travel eSIM.",
+            "Save emergency contacts and the local emergency number before travel."
+          ]
+        : []),
       "Find the local emergency number before arrival.",
       "Save your hotel address offline."
     ],

@@ -706,6 +706,12 @@
     "Phone/browser reminders are off. In-app notifications still work.": "Los recordatorios del teléfono/navegador están desactivados. Las notificaciones internas siguen funcionando.",
     "Push notifications could not be enabled.": "No se pudieron activar las notificaciones push.",
     "Could not disable push notifications.": "No se pudieron desactivar las notificaciones push.",
-    "Current browser permission:": "Permiso actual del navegador:"
+    "Current browser permission:": "Permiso actual del navegador:",
+    "Travel eSIM": "eSIM de viaje",
+    "Compare travel eSIM": "Comparar eSIM de viaje",
+    "Get eSIM for this trip": "Obtener eSIM para este viaje",
+    "Check mobile data options": "Consultar opciones de datos móviles",
+    "Confirm roaming or eSIM before departure": "Confirmar roaming o eSIM antes de salir",
+    "Check device compatibility before buying": "Comprobar compatibilidad del dispositivo antes de comprar"
   }
 }
