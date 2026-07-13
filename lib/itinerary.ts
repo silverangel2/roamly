@@ -13,6 +13,11 @@ import {
   buildTransportSearchUrl,
   googleSearchUrl
 } from "@/lib/roamly/bookingLinks";
+import {
+  buildPreTripEssentials,
+  normalizePreTripEssentials,
+  type RoamlyPreTripEssential
+} from "@/lib/roamly/amazonAffiliate";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource } from "@/lib/roamly/travelMarketSearch";
 
@@ -124,6 +129,7 @@ export type RoamlyItinerary = {
   safety_notes: string[];
   emergency_notes: string[];
   booking_suggestions: RoamlyBookingSuggestion[];
+  pre_trip_essentials: RoamlyPreTripEssential[];
   regenerate_suggestions: string[];
   generation_note?: string;
 };
@@ -974,6 +980,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
   const totalEstimate = budgetNumbers.totalEstimateAmount ?? payload.budgetAmount;
   const transportOptions = discoveryTransportOptions(payload);
   const recommendedTransportOption = discoveryRecommendedTransportOption(payload, transportOptions);
+  const preTripEssentials = buildPreTripEssentials(payload);
   const recommendedTransportSummary = recommendedTransportOption
     ? `${recommendedTransportOption.title}: ${formatRange(recommendedTransportOption.estimated_cost_min, recommendedTransportOption.estimated_cost_max, recommendedTransportOption.currency)}. ${recommendedTransportOption.why_recommended}`
     : `${payload.transportationPreference} is the preferred transport style.`;
@@ -1076,6 +1083,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
     safety_notes: ["Keep emergency contacts saved.", "Use licensed transport late at night."],
     emergency_notes: ["Find the local emergency number before arrival.", "Save your hotel address offline."],
     booking_suggestions: buildStarterBookingSuggestions(payload),
+    pre_trip_essentials: preTripEssentials,
     regenerate_suggestions: [],
     generation_note: ""
   };
@@ -1373,6 +1381,11 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
     safety_notes: cleanList(record.safety_notes, fallback.safety_notes, 8),
     emergency_notes: cleanList(record.emergency_notes, fallback.emergency_notes, 8),
     booking_suggestions: cleanBookingSuggestions(record.booking_suggestions, fallback.booking_suggestions, payload),
+    pre_trip_essentials: normalizePreTripEssentials(
+      record.pre_trip_essentials ?? record.preTripEssentials,
+      fallback.pre_trip_essentials,
+      payload
+    ),
     regenerate_suggestions: cleanList(record.regenerate_suggestions, fallback.regenerate_suggestions, 8),
     generation_note: cleanString(record.generation_note, "")
   };

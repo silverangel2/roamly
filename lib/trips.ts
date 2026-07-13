@@ -146,14 +146,25 @@ function itineraryFromTripMetadata(trip: RoamlyTripRecord): ItineraryRecord | nu
 
 function checklistFromItinerary(trip: RoamlyTripRecord, itinerary: ItineraryRecord | null): ChecklistRecord[] {
   const items = itinerary?.full_json?.packing_checklist || [];
-  return items.map((item, index) => ({
-    id: `metadata-checklist-${trip.id}-${index}`,
-    trip_id: trip.id,
-    user_id: trip.user_id,
-    item,
-    category: "Packing",
-    is_done: false
-  }));
+  const essentials = itinerary?.full_json?.pre_trip_essentials || [];
+  return [
+    ...items.map((item, index) => ({
+      id: `metadata-checklist-${trip.id}-${index}`,
+      trip_id: trip.id,
+      user_id: trip.user_id,
+      item,
+      category: "Packing",
+      is_done: false
+    })),
+    ...essentials.map((item, index) => ({
+      id: `metadata-essential-checklist-${trip.id}-${index}`,
+      trip_id: trip.id,
+      user_id: trip.user_id,
+      item: item.title,
+      category: "Pre-trip essentials",
+      is_done: false
+    }))
+  ];
 }
 
 export function isMissingTableError(message?: string | null) {
@@ -399,14 +410,31 @@ export async function syncGeneratedItinerary(
     }
   }
 
-  if (itineraryDisplayTablesAvailable && params.itinerary.packing_checklist.length) {
+  const checklistRows = [
+    ...params.itinerary.packing_checklist.map((item) => ({
+      trip_id: params.tripId,
+      user_id: params.userId,
+      item,
+      category: "Packing",
+      is_done: false
+    })),
+    ...(params.itinerary.pre_trip_essentials || []).map((item) => ({
+      trip_id: params.tripId,
+      user_id: params.userId,
+      item: item.title,
+      category: "Pre-trip essentials",
+      is_done: false
+    }))
+  ];
+
+  if (itineraryDisplayTablesAvailable && checklistRows.length) {
     const checklistResult = await supabase.from("roamly_trip_checklists").insert(
-      params.itinerary.packing_checklist.map((item) => ({
+      checklistRows.map((item) => ({
         trip_id: params.tripId,
         user_id: params.userId,
-        item,
-        category: "Packing",
-        is_done: false
+        item: item.item,
+        category: item.category,
+        is_done: item.is_done
       }))
     );
     if (checklistResult.error && !isMissingTableError(checklistResult.error.message)) return { error: checklistResult.error.message };

@@ -5,6 +5,7 @@ import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
+import { describeTravelEssentialsContext } from "@/lib/roamly/amazonAffiliate";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -108,6 +109,7 @@ function buildPrompt(payload: TripPlannerPayload) {
   const priceSummary = priceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
   const tripDays = calculateInclusiveTripDays(payload.startDate, payload.endDate, payload.daysCount || 3);
+  const essentialsContext = describeTravelEssentialsContext(payload);
 
   return `Create a practical travel itinerary for Roamly.
 
@@ -143,6 +145,7 @@ Traveler input:
 - Price discovery summary: ${JSON.stringify(priceSummary)}
 - Uploaded/saved booking costs: ${priceSummary.committed_bookings}. Treat these as already committed costs from bookings or screenshots when present; do not invent new bookings.
 - Fixed bookings and screenshots: ${JSON.stringify(payload.confirmedBookings || [])}
+- Pre-trip essentials context: ${essentialsContext}
 - Output language: ${outputLanguage}
 
 Return ONLY valid JSON with this shape:
@@ -232,6 +235,16 @@ Return ONLY valid JSON with this shape:
       "free_or_paid": "free | paid | mixed"
     }
   ],
+  "pre_trip_essentials": [
+    {
+      "title": "item name",
+      "reason": "why this item fits this destination, dates, weather/season, activities, trip length, or travel style",
+      "category": "Luggage & packing | Power & tech | Comfort | Weather gear | Documents & safety | Destination-specific items",
+      "search_query": "Amazon search query for the item",
+      "amazon_url": "",
+      "priority": "high | medium | low"
+    }
+  ],
   "packing_checklist": ["items"],
   "local_tips": ["tips"],
   "safety_notes": ["notes"],
@@ -251,6 +264,11 @@ Rules:
 - Give map queries, not URLs.
 - Include clean location names and addresses when possible in location_name and map_query so Google Maps, Apple Maps, and Citymapper link-outs work reliably.
 - Booking suggestions must be specific and practical, like real travel-site searches: suggested flight searches, hotel room/stay options, entrance tickets, attractions, tours, airport transfers, inter-city transport, local transport, and restaurants when useful.
+- Pre-trip essentials must recommend travel items based on destination, dates, likely weather/season, planned activities/interests, trip length, travelers, and travel style.
+- Include essentials across these categories when relevant: Luggage & packing, Power & tech, Comfort, Weather gear, Documents & safety, Destination-specific items.
+- Each pre_trip_essentials item must include title, reason, category, search_query, amazon_url, and priority. Use priority "high", "medium", or "low".
+- Do not include exact Amazon prices, discounts, ratings, review counts, ASINs, or claims that a product is currently available. Roamly will attach the Amazon Associates search URL, so leave amazon_url blank and make search_query search-ready.
+- Include carry-on luggage, packing cubes, and a travel adapter unless clearly irrelevant.
 - Never output generic placeholder titles or descriptions such as "Flights to book", "Hotel/stay to book", "Find hotels", "Activities/tours to reserve", "Things to do", or "Book activities". Every booking title must name a route, room type + area, attraction/ticket, tour concept, transport option, or restaurant area.
 - Use the required booking recommendation shape. Include provider_or_search_source on every booking suggestion. Keep booking_category equal to category for backward compatibility.
 - Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.

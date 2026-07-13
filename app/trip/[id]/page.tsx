@@ -20,6 +20,7 @@ import {
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
+import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -901,6 +902,96 @@ function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; 
   );
 }
 
+function essentialActionLabel(item: RoamlyPreTripEssential) {
+  const text = `${item.title} ${item.search_query}`.toLowerCase();
+  if (/\bcarry[- ]?on\b|luggage/.test(text)) return "Find carry-on luggage";
+  if (/packing cube/.test(text)) return "Find packing cubes";
+  if (/adapter/.test(text)) return "Find travel adapter";
+  return "Shop on Amazon";
+}
+
+function priorityLabel(priority: RoamlyPreTripEssential["priority"]) {
+  if (priority === "high") return "High priority";
+  if (priority === "low") return "Low priority";
+  return "Medium priority";
+}
+
+function PreTripEssentialCard({
+  item,
+  tripId
+}: {
+  item: RoamlyPreTripEssential;
+  tripId: string;
+}) {
+  const href = safeExternalUrl(item.amazon_url);
+  const label = essentialActionLabel(item);
+
+  return (
+    <article className="roamly-print-section rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+      <div className="flex h-full flex-col gap-4">
+        <div className="flex grow gap-3">
+          <span className="mt-1 grid h-4 w-4 shrink-0 place-items-center rounded border border-ocean/30 bg-ocean/5" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                {item.category}
+              </span>
+              <span className="rounded-full border border-sun/30 bg-sun/10 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">
+                {priorityLabel(item.priority)}
+              </span>
+            </div>
+            <h3 className="mt-2 text-lg font-black leading-6 text-ink">{item.title}</h3>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{item.reason}</p>
+            <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Search: {item.search_query}</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="roamly-no-print text-xs font-bold leading-5 text-slate-500">Amazon prices are not shown in Roamly. Verify price and availability on Amazon.</p>
+          <BookingRecommendationButton
+            href={href}
+            label={label}
+            tripId={tripId}
+            category="travel_essentials"
+            title={item.title}
+            provider="Amazon Associates"
+            hasAffiliateUrl={Boolean(href && href.includes("tag="))}
+            urlType={href && href.includes("tag=") ? "affiliate" : "normal_search"}
+          />
+        </div>
+        <p className="roamly-print-only hidden text-xs font-black text-ocean">{href ? `Amazon search: ${label}` : "Amazon search link unavailable"}</p>
+      </div>
+    </article>
+  );
+}
+
+function PreTripEssentialsSection({
+  essentials,
+  tripId
+}: {
+  essentials: RoamlyPreTripEssential[];
+  tripId: string;
+}) {
+  if (!essentials.length) return null;
+
+  return (
+    <section id="pre-trip-essentials" className="mt-8 scroll-mt-32">
+      <SectionHeading
+        eyebrow="Pre-trip essentials"
+        title="Essentials checklist"
+        summary="Travel item recommendations are based on the destination, dates, activities, season, trip length, and travel style."
+      />
+      <p className="mb-4 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
+        {amazonAffiliateDisclosure}
+      </p>
+      <div className="grid gap-3 md:grid-cols-2">
+        {essentials.map((item, index) => (
+          <PreTripEssentialCard key={`${item.title}-${index}`} item={item} tripId={tripId} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function BookingSummaryList({ bookings }: { bookings: Array<Record<string, unknown>> }) {
   if (!bookings.length) {
     return <p className="rounded-2xl border border-dashed border-[#e8dfd0] bg-white px-4 py-3 text-sm font-black text-slate-500">No confirmed bookings saved yet.</p>;
@@ -939,6 +1030,14 @@ function ChecklistGroup({ title, items }: { title: string; items: string[] }) {
       </div>
     </article>
   );
+}
+
+function packingChecklistItems(checklist: Array<{ item: string; category: string | null }>, itinerary: RoamlyItinerary) {
+  const packing = checklist
+    .filter((item) => item.category !== "Pre-trip essentials")
+    .map((item) => item.item)
+    .filter(Boolean);
+  return packing.length ? packing.slice(0, 14) : itinerary.packing_checklist.slice(0, 14);
 }
 
 function isItineraryPaid(trip: {
@@ -1144,6 +1243,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   ["overview", "Overview"],
                   ["budget", "Budget"],
                   ["bookings", "Bookings"],
+                  ["pre-trip-essentials", "Essentials"],
                   ["travel-notes", "Travel notes"]
                 ].map(([href, label], index) => (
                   <a
@@ -1215,12 +1315,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </details>
             </section>
 
+            <PreTripEssentialsSection essentials={full.pre_trip_essentials || []} tripId={id} />
+
             <section id="travel-notes" className="mt-8 scroll-mt-32">
               <SectionHeading eyebrow="Travel notes" title="Checklist and local notes" />
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <ChecklistGroup
                   title="Packing checklist"
-                  items={checklist.length ? checklist.slice(0, 14).map((item) => item.item) : full.packing_checklist.slice(0, 14)}
+                  items={packingChecklistItems(checklist, full)}
                 />
                 <ChecklistGroup title="Local tips" items={full.local_tips.slice(0, 8)} />
                 <ChecklistGroup title="Safety" items={full.safety_notes.slice(0, 8)} />
