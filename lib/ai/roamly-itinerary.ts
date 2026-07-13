@@ -1,5 +1,11 @@
 import OpenAI from "openai";
-import { buildStarterItinerary, normalizeItinerary, type RoamlyItinerary } from "@/lib/itinerary";
+import {
+  buildStarterItinerary,
+  normalizeItinerary,
+  repairItineraryForTravelRequirements,
+  validateItineraryForProduction,
+  type RoamlyItinerary
+} from "@/lib/itinerary";
 import { normalizeLocale, type RoamlyLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
@@ -46,10 +52,11 @@ function getClient() {
 }
 
 function buildFallbackItinerary(payload: TripPlannerPayload, generationNote: string): GeneratedItineraryResult {
+  const repaired = repairItineraryForTravelRequirements(buildStarterItinerary(payload), payload);
   return {
     itinerary: enrichItineraryBookingSuggestions(
       {
-        ...buildStarterItinerary(payload),
+        ...repaired,
         generation_note: generationNote
       },
       payload
@@ -116,7 +123,7 @@ function languageName(value?: string | null) {
   return languageNames[normalizeLocale(value)] || "English";
 }
 
-function buildPrompt(payload: TripPlannerPayload) {
+function buildPrompt(payload: TripPlannerPayload, validationErrors: string[] = []) {
   const outputLanguage = languageName(payload.language);
   const priceSummary = priceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
@@ -158,8 +165,9 @@ Traveler input:
 - Price discovery summary: ${JSON.stringify(priceSummary)}
 - Uploaded/saved booking costs: ${priceSummary.committed_bookings}. Treat these as already committed costs from bookings or screenshots when present; do not invent new bookings.
 - Fixed bookings and screenshots: ${JSON.stringify(payload.confirmedBookings || [])}
-- Pre-trip essentials context: ${essentialsContext}
-- Output language: ${outputLanguage}
+	- Pre-trip essentials context: ${essentialsContext}
+	- Output language: ${outputLanguage}
+${validationErrors.length ? `\nPrevious itinerary attempt was rejected for: ${validationErrors.join(" | ")}. Correct these issues deterministically in the next JSON.` : ""}
 
 Return ONLY valid JSON with this shape:
 {
@@ -204,9 +212,16 @@ Return ONLY valid JSON with this shape:
           "description": "one helpful sentence",
           "location_name": "place or area",
           "estimated_cost": 20,
-          "category": "Activity",
-          "map_query": "Google Maps search query"
-        }
+	          "category": "Activity | Travel | Transfer | Hotel | Meal | Rest | Booking | Reminder",
+	          "item_type": "travel | transfer | hotel | activity | meal | rest | booking | reminder",
+	          "travel_mode": "flight | train | bus | ferry | drive | walk/transit | transfer when relevant",
+	          "duration": "estimated duration or buffer",
+	          "origin": "origin when relevant",
+	          "destination": "destination when relevant",
+	          "booking_label": "Check flights | Find a hotel | Book activity | Book transfer when relevant",
+	          "affiliate_category": "flight | hotel | attraction | tour | transport when relevant",
+	          "map_query": "maps search query"
+	        }
       ]
     }
   ],
@@ -215,7 +230,7 @@ Return ONLY valid JSON with this shape:
       "category": "flight | hotel | attraction | tour | transport | restaurant",
       "booking_category": "same as category",
       "title": "specific search-ready option title",
-      "provider_or_search_source": "Google Flights search | Booking.com search | official attraction site | Viator search | Google Maps | public transit search",
+	      "provider_or_search_source": "Travelpayouts | Stay22 | Klook | Amazon | eSIM partner | Roamly discovery",
       "description": "what this option is and what to verify before booking",
       "location": "airport, neighborhood, attraction, station, or meeting area",
       "city": "city",
@@ -237,11 +252,11 @@ Return ONLY valid JSON with this shape:
       "estimated_total_cost_max": 0,
       "currency": "${payload.budgetCurrency || "CAD"}",
       "price_confidence": "estimated | partner | user_uploaded | unknown",
-      "booking_label": "Find this flight | Find this room | Book ticket | Find tour | Open directions",
-      "normal_search_url": "normal Google Flights, Booking, attraction, tour, transit, or maps search URL",
+	      "booking_label": "Check flights | Find a hotel | Book activity | Book transfer",
+	      "normal_search_url": "Roamly internal fallback URL only when no approved affiliate URL is configured",
       "affiliate_url": "",
       "affiliate_provider": "",
-      "provider": "Google Flights search | Booking.com search | Viator search | GetYourGuide search | Google Maps | public transit search",
+	      "provider": "Travelpayouts | Stay22 | Klook | Roamly discovery",
       "booking_status": "suggested | user_uploaded | needs_booking",
       "why_recommended": "why this option fits the route, budget, travelers, area, or day",
       "advance_booking_recommended": true,
@@ -279,11 +294,17 @@ Rules:
 - If the remaining budget is comfortable, do not force a painful bus route just because it is cheaper.
 - Explain transport tradeoffs clearly. Use "Recommended because it keeps the trip closer to your budget" for the selected cheaper option or "Faster but more expensive" for a flight or premium option.
 - If transport_options includes driving, train, bus, flight, or mixed options, reflect them in booking_suggestions as search-ready transport recommendations and do not invent exact fares.
-- Make the plan useful without overstuffing the day.
-- Keep each field short enough for mobile cards.
-- Give map queries, not URLs.
-- Include clean location names and addresses when possible in location_name and map_query so Google Maps, Apple Maps, and Citymapper link-outs work reliably.
-- Booking suggestions must be specific and practical, like real travel-site searches: suggested flight searches, hotel room/stay options, entrance tickets, attractions, tours, airport transfers, inter-city transport, local transport, and restaurants when useful.
+	- Make the plan useful without overstuffing the day.
+	- Keep each field short enough for mobile cards.
+	- Give map queries, not URLs.
+	- Include clean location names and addresses when possible in location_name and map_query so map/navigation link-outs work reliably.
+	- Day 1 must begin with the actual journey to the destination unless the traveler is already there. Include departure city, departure point, travel mode, realistic buffer, arrival, baggage/customs/immigration when relevant, transfer to hotel, check-in or luggage storage, and recovery/rest before local activities.
+	- The first Day 1 item must not be a local attraction when Origin is set and different from Destination.
+	- Final day must include hotel checkout, transfer to airport/station/terminal/departure point, recommended arrival buffer, return travel, and final arrival timing when return_to_origin is yes.
+	- Add first-class Travel or Transfer live_timeline items between every major activity, meal, hotel, and booking. Do not hide travel time in notes.
+	- Do not schedule two major places back-to-back without a Transfer item and realistic buffer.
+	- Use item_type "Travel" for flights, train, bus, ferry, drive, and inter-city movement; "Transfer" for local movement; "Hotel" for check-in/checkout/luggage; "Rest" for arrival recovery.
+	- Booking suggestions must be specific and practical: Travelpayouts flight searches, Stay22 stay options, Klook entrance tickets/tours/activities/transfers, and Roamly discovery fallback only when a provider is not configured.
 - Pre-trip essentials must recommend travel items based on destination, dates, likely weather/season, planned activities/interests, trip length, travelers, and travel style.
 - Include essentials across these categories when relevant: Luggage & packing, Power & tech, Comfort, Weather gear, Documents & safety, Connectivity, Destination-specific items.
 - Each pre_trip_essentials item must include title, reason, category, search_query, amazon_url, and priority. Use priority "high", "medium", or "low".
@@ -294,7 +315,7 @@ Rules:
 - Do not claim eSIM coverage, speed, price, refund terms, or device compatibility is guaranteed. Include: "Check coverage, device compatibility, speed limits, and refund rules before buying."
 - Never output generic placeholder titles or descriptions such as "Flights to book", "Hotel/stay to book", "Find hotels", "Activities/tours to reserve", "Things to do", or "Book activities". Every booking title must name a route, room type + area, attraction/ticket, tour concept, transport option, or restaurant area.
 - Use the required booking recommendation shape. Include provider_or_search_source on every booking suggestion. Keep booking_category equal to category for backward compatibility.
-- Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
+	- Do not output Google Flights, Google Search, Booking.com, Viator, GetYourGuide, or generic hotel/activity booking URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach Travelpayouts, Stay22, Klook, Amazon, and eSIM links if configured.
 - Use selected_market_prices and market_results from the Price discovery summary for exact booking recommendation prices, provider/source labels, timestamps, and booking/search URLs.
 - If a selected market result has price_type "live_partner", you may call it a live partner price. If it has "cached_recent", call it recently searched. If it has "search_ready", call it a market estimate that should be refreshed before booking. If it has "estimated_fallback", call it a conservative estimate.
 - If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Conservative estimate", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
@@ -438,7 +459,7 @@ Rules:
 - Translate user-facing prose, titles, descriptions, itinerary day text, budget notes, booking labels, checklist items, essential item names, essential reasons, and Live Companion descriptions.
 - Keep JSON keys exactly the same.
 - Preserve all numbers, booleans, nulls, dates, currencies, price ranges, normal_search_url, affiliate_url, amazon_url, provider names, brand names, map URLs, and booking/affiliate links exactly.
-- Keep these provider/brand names unchanged when they appear: Klook, Stay22, Amazon, Google Maps, Citymapper, Travelpayouts, Viator, GetYourGuide, Booking.com, Google Flights, Roamly.
+- Keep these provider/brand names unchanged when they appear: Klook, Stay22, Amazon, Google Maps, Citymapper, Travelpayouts, Airalo, Roamly.
 - Do not regenerate, reorder, add, remove, or replace trip stops, days, activities, prices, URLs, or booking recommendations.
 - Search queries may remain as-is if translating them could reduce booking or navigation accuracy.
 
@@ -478,35 +499,56 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
     );
   }
 
+  let validationErrors: string[] = [];
+
   try {
-    const completion = await client.chat.completions.create(
-      {
-        model,
-        temperature: 0.45,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
-          },
-          { role: "user", content: buildPrompt(payload) }
-        ]
-      },
-      {
-        maxRetries: 0,
-        timeout: OPENAI_ITINERARY_TIMEOUT_MS
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const completion = await client.chat.completions.create(
+        {
+          model,
+          temperature: 0.45,
+          response_format: { type: "json_object" },
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
+            },
+            { role: "user", content: buildPrompt(payload, validationErrors) }
+          ]
+        },
+        {
+          maxRetries: 0,
+          timeout: OPENAI_ITINERARY_TIMEOUT_MS
+        }
+      );
+
+      const text = completion.choices[0]?.message?.content || "{}";
+      const parsed = JSON.parse(text) as unknown;
+      const normalized = normalizeItinerary(parsed, payload);
+      const repaired = repairItineraryForTravelRequirements(normalized, payload);
+      const itinerary = enrichItineraryBookingSuggestions(repaired, payload);
+      const validation = validateItineraryForProduction(itinerary, payload);
+
+      if (validation.ok) {
+        return {
+          itinerary,
+          model,
+          aiUsed: true
+        };
       }
+
+      validationErrors = validation.errors;
+      console.warn("[Roamly AI] itinerary validation failed", {
+        attempt: attempt + 1,
+        errors: validationErrors
+      });
+    }
+
+    return buildFallbackItinerary(
+      payload,
+      `Generated with Roamly's deterministic builder after itinerary validation rejected AI output: ${validationErrors.slice(0, 3).join("; ")}`
     );
-
-    const text = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(text) as unknown;
-
-    return {
-      itinerary: enrichItineraryBookingSuggestions(normalizeItinerary(parsed, payload), payload),
-      model,
-      aiUsed: true
-    };
   } catch (error) {
     if (error instanceof RoamlyItineraryGenerationError) throw error;
     console.error("[Roamly AI] itinerary generation failed", error);

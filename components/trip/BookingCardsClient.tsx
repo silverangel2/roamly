@@ -74,8 +74,8 @@ export function BookingCardsClient({
         <a
           key={link.title}
           href={link.href}
-          target="_blank"
-          rel="noopener noreferrer"
+          target={/^https?:\/\//i.test(link.href) ? "_blank" : undefined}
+          rel={/^https?:\/\//i.test(link.href) ? "noopener noreferrer" : undefined}
           onClick={() =>
             trackBookingEvent("booking_link_clicked", {
               trip_id: tripId,
@@ -93,7 +93,7 @@ export function BookingCardsClient({
           <h3 className="mt-2 text-lg font-black text-ink">{link.title}</h3>
           <p className="mt-2 text-sm font-bold leading-5 text-slate-500">{link.description}</p>
           <p className="mt-3 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-            {link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Direct search link"}
+            {link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Roamly discovery link"}
           </p>
         </a>
       ))}

@@ -1,4 +1,4 @@
-import { buildFlightSearchUrl, googleSearchUrl, safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { buildFlightSearchUrl, safeExternalUrl } from "@/lib/roamly/bookingLinks";
 import { detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
 import { recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
@@ -153,6 +153,16 @@ const regionalAirportOptions: Array<{
 
 function clean(value?: string | null) {
   return (value || "").trim();
+}
+
+function internalTransportDiscoveryUrl(category: string, origin: string, destination: string, date?: string | null) {
+  const url = new URL("/plan", "https://roamlyhq.com");
+  url.searchParams.set("source", "transport_fallback");
+  url.searchParams.set("category", category);
+  if (origin) url.searchParams.set("origin", origin);
+  if (destination) url.searchParams.set("destination", destination);
+  if (date) url.searchParams.set("startDate", date);
+  return `${url.pathname}${url.search}`;
 }
 
 function cleanCurrency(value?: string | null) {
@@ -535,7 +545,7 @@ function flightOption(input: TransportBuildInput, origin: string, destination: s
     booking_url: market?.bookingUrl || normalSearchUrl || undefined,
     reason,
     warning,
-    source: market?.source || "Google Flights search",
+    source: market?.source || "Travelpayouts/Roamly flight discovery",
     why_recommended: "Faster but more expensive. Use this when time matters more than keeping transport cost low.",
     budget_fit: "unknown"
   };
@@ -666,7 +676,7 @@ function buildTrainOption(
   const roughBase = distanceKm ? Math.max(80, distanceKm * 0.16) : 160;
   const min = Math.round(roughBase * travelers * (input.returnToOrigin === false ? 0.72 : 1.15));
   const max = Math.round(Math.max(min + 40, roughBase * travelers * (input.returnToOrigin === false ? 1.1 : 1.7)));
-  const query = `VIA Rail train ${originLabel} to ${destinationLabel} ${cleanDate(input.startDate)} ${cleanDate(input.endDate)}`;
+  const trainUrl = internalTransportDiscoveryUrl("train", originLabel, destinationLabel, cleanDate(input.startDate));
   const realistic = availability === "search_ready" && !isTooLong;
   const warning =
     availability === "unverified"
@@ -697,8 +707,8 @@ function buildTrainOption(
       train_or_bus_ticket: max
     },
     price_confidence: "estimated",
-    search_url: googleSearchUrl(query),
-    booking_url: googleSearchUrl(query),
+    search_url: trainUrl,
+    booking_url: trainUrl,
     reason,
     warning,
     source: "Rail schedule search",
@@ -742,7 +752,7 @@ function buildBusOption(
   const roamingEsim = isCrossBorder ? 35 : 0;
   const min = Math.round(roughBase * travelers * (input.returnToOrigin === false ? 0.75 : 1.15)) + roamingEsim;
   const max = Math.round(Math.max(min + 25, roughBase * travelers * (input.returnToOrigin === false ? 1.1 : 1.75) + roamingEsim));
-  const query = `bus ${originLabel} to ${destinationLabel} ${cleanDate(input.startDate)} ${cleanDate(input.endDate)}`;
+  const busUrl = internalTransportDiscoveryUrl("bus", originLabel, destinationLabel, cleanDate(input.startDate));
   const realistic = availability === "search_ready" && !isTooLong;
   const warning =
     availability === "unverified"
@@ -778,8 +788,8 @@ function buildBusOption(
       roaming_esim: roamingEsim || undefined
     },
     price_confidence: "estimated",
-    search_url: googleSearchUrl(query),
-    booking_url: googleSearchUrl(query),
+    search_url: busUrl,
+    booking_url: busUrl,
     reason,
     warning,
     source: "Bus schedule search",
@@ -847,8 +857,8 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
       roaming_esim: roamingEsim || undefined
     },
     price_confidence: "estimated",
-    search_url: flightSearch || googleSearchUrl(`${airport.airportName} to ${destinationLabel} flights`),
-    booking_url: flightSearch || googleSearchUrl(`${airport.airportName} to ${destinationLabel} flights`),
+    search_url: flightSearch || internalTransportDiscoveryUrl("flight", airport.airportName, destinationLabel, cleanDate(input.startDate)),
+    booking_url: flightSearch || internalTransportDiscoveryUrl("flight", airport.airportName, destinationLabel, cleanDate(input.startDate)),
     reason: "Mixed route can be practical when the nearest airport is costly or poorly connected.",
     warning: `Conservative mixed-route estimate — refresh live flight, parking, and transfer prices before booking.${routeCrossesBorder ? " Estimate includes a roaming/eSIM planning buffer; check coverage and device compatibility before buying." : ""}`,
     source: "Regional airport route estimate",
@@ -963,7 +973,7 @@ export function transportOptionsToMarketResults(input: TransportBuildInput, opti
       option.mode === "flight" && (option.price_confidence === "live_partner" || option.price_confidence === "cached_recent")
         ? "travelpayouts"
         : option.mode === "drive"
-          ? "google_search"
+          ? "roamly_internal"
           : option.price_confidence === "live_partner"
             ? "travelpayouts"
             : "fallback_estimate";

@@ -72,10 +72,16 @@ export function safeExternalUrl(value?: string | null) {
   }
 }
 
-export function googleSearchUrl(query: string) {
+export function roamlyDiscoveryUrl(category: string, query: string, params: Record<string, string | number | null | undefined> = {}) {
   const cleaned = clean(query);
-  if (!cleaned) return "";
-  return `https://www.google.com/search?q=${encodeURIComponent(cleaned)}`;
+  const url = new URL("/plan", "https://roamlyhq.com");
+  url.searchParams.set("source", "booking_fallback");
+  url.searchParams.set("category", category);
+  if (cleaned) url.searchParams.set("destination", cleaned);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && String(value).trim()) url.searchParams.set(key, String(value).trim());
+  }
+  return `${url.pathname}${url.search}`;
 }
 
 function googleMapsSearchUrl(query: string) {
@@ -164,7 +170,11 @@ export function buildFlightSearchUrl({
   const route = from && to ? compact([from, "to", to]) : to ? compact(["flights to", to]) : from ? compact(["flights from", from]) : "";
   const query = compact([route || compact(["flights to", withAirportHint(destination)]), formatDate(departureDate), formatDate(returnDate), travelersText(travelers), "flight"]);
   if (!query) return "";
-  return withParams("https://www.google.com/travel/flights", { q: query });
+  return roamlyDiscoveryUrl("flight", to || destination || query, {
+    origin: from,
+    startDate: isoDate(departureDate),
+    endDate: isoDate(returnDate)
+  });
 }
 
 export function buildHotelSearchUrl({
@@ -203,13 +213,12 @@ export function buildHotelSearchUrl({
     "hotel"
   ]);
   if (!query) return "";
-  return withParams("https://www.booking.com/searchresults.html", {
-    ss: query,
-    checkin: isoDate(checkInDate),
-    checkout: isoDate(checkOutDate),
-    group_adults: adultCount,
-    group_children: childCount || undefined,
-    no_rooms: positiveInteger(rooms, 1)
+  return roamlyDiscoveryUrl("hotel", area || city || query, {
+    checkInDate: isoDate(checkInDate),
+    checkOutDate: isoDate(checkOutDate),
+    adults: adultCount,
+    children: childCount || undefined,
+    rooms: positiveInteger(rooms, 1)
   });
 }
 
@@ -225,7 +234,7 @@ export function buildAttractionTicketSearchUrl({
   const name = clean(attractionName);
   const ticketPhrase = /ticket|admission|entry/i.test(name) ? "" : "admission ticket";
   const query = compact([name, destination, ticketPhrase, formatDate(date, "long"), "official"]);
-  return googleSearchUrl(query);
+  return roamlyDiscoveryUrl("activity", destination || name || query, { query });
 }
 
 export function buildTourSearchUrl({
@@ -239,7 +248,7 @@ export function buildTourSearchUrl({
 }) {
   const query = compact([tourName, destination, formatDate(date, "long")]);
   if (!query) return "";
-  return withParams("https://www.getyourguide.com/s/", { q: query });
+  return roamlyDiscoveryUrl("tour", destination || tourName || query, { query });
 }
 
 export function buildTransportSearchUrl({

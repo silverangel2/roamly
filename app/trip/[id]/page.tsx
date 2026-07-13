@@ -39,7 +39,7 @@ import {
   buildHotelSearchUrl,
   buildTourSearchUrl,
   buildTransportSearchUrl,
-  googleSearchUrl,
+  roamlyDiscoveryUrl,
   safeExternalUrl,
   type BookingUrlType
 } from "@/lib/roamly/bookingLinks";
@@ -297,6 +297,91 @@ function NavigationChipList({ query }: { query: string }) {
   );
 }
 
+type TimelineItem = RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number];
+
+function timelineKind(item: TimelineItem) {
+  const value = getString(item.item_type || item.category).toLowerCase();
+  if (value.includes("travel")) return "travel";
+  if (value.includes("transfer")) return "transfer";
+  if (value.includes("hotel")) return "hotel";
+  if (value.includes("meal") || value.includes("food")) return "meal";
+  if (value.includes("rest")) return "rest";
+  if (value.includes("book")) return "booking";
+  if (value.includes("reminder")) return "reminder";
+  return "activity";
+}
+
+function timelineKindLabel(kind: string) {
+  if (kind === "travel") return "Travel";
+  if (kind === "transfer") return "Transfer";
+  if (kind === "hotel") return "Hotel";
+  if (kind === "meal") return "Meal";
+  if (kind === "rest") return "Rest";
+  if (kind === "booking") return "Booking";
+  if (kind === "reminder") return "Reminder";
+  return "Activity";
+}
+
+function timelineKindClass(kind: string) {
+  if (kind === "travel") return "border-ocean/25 bg-ocean/10 text-ocean";
+  if (kind === "transfer") return "border-lagoon/25 bg-lagoon/10 text-ocean";
+  if (kind === "hotel") return "border-sun/35 bg-sun/15 text-amber-800";
+  if (kind === "meal") return "border-coral/25 bg-coral/10 text-coral";
+  if (kind === "rest") return "border-slate-200 bg-slate-50 text-slate-600";
+  return "border-[#e8dfd0] bg-white text-ink";
+}
+
+function timelineMeta(item: TimelineItem) {
+  return [
+    item.travel_mode,
+    item.duration,
+    item.origin && item.destination ? `${item.origin} to ${item.destination}` : "",
+    item.location_name
+  ]
+    .map((value) => getString(value))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function TimelineItemCard({ item }: { item: TimelineItem }) {
+  const kind = timelineKind(item);
+  const meta = timelineMeta(item);
+  const description = compact(item.description, "", 180);
+
+  return (
+    <article className={`rounded-[0.9rem] border px-3 py-3 ${timelineKindClass(kind)}`}>
+      <div className="grid grid-cols-[4.5rem_1fr] gap-3">
+        <div>
+          <p className="text-[0.72rem] font-black uppercase tracking-[0.08em]">{item.time_label || "Flex"}</p>
+          <span className="mt-2 inline-flex rounded-full border border-current/20 bg-white/50 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.06em]">
+            {timelineKindLabel(kind)}
+          </span>
+        </div>
+        <div className="min-w-0">
+          <h4 className="text-sm font-black leading-5 text-ink">{item.title}</h4>
+          {meta.length ? <p className="mt-1 text-xs font-bold leading-5 text-slate-600">{meta.join(" · ")}</p> : null}
+          {item.booking_label ? (
+            <span className="mt-2 inline-flex rounded-full border border-ocean/20 bg-white/70 px-3 py-1.5 text-xs font-black text-ocean">
+              {item.booking_label}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {description || item.map_query ? (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs font-black text-ocean">View details</summary>
+          {description ? <p className="mt-2 text-xs font-semibold leading-5 text-slate-700">{description}</p> : null}
+          {item.map_query ? (
+            <div className="mt-2">
+              <NavigationChipList query={item.map_query} />
+            </div>
+          ) : null}
+        </details>
+      ) : null}
+    </article>
+  );
+}
+
 function DayTimelineCard({
   day,
   currency
@@ -307,48 +392,66 @@ function DayTimelineCard({
   const places = day.map_queries.slice(0, 5);
 
   return (
-    <article className="roamly-day-print rounded-[1.15rem] border border-[#e8dfd0] bg-white p-5 shadow-[0_16px_42px_rgba(16,32,51,0.07)]">
-      <div className="flex flex-col gap-3 border-b border-[#eee5d7] pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-ocean">
+    <details
+      id={`day-${day.day_number}`}
+      name="roamly-day"
+      open={day.day_number === 1}
+      className="roamly-day-print scroll-mt-36 rounded-[1.15rem] border border-[#e8dfd0] bg-white shadow-[0_12px_34px_rgba(16,32,51,0.06)]"
+    >
+      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
             Day {day.day_number}
             {day.city ? ` · ${day.city}` : ""}
             {day.date ? ` · ${formatTripDate(day.date)}` : ""}
           </p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-ink">{day.title}</h3>
+          <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">{day.title}</h3>
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-500 sm:hidden">
+            {compact(day.morning || day.afternoon || day.evening, "Tap to view the day timeline.", 90)}
+          </p>
         </div>
         <span className="w-fit rounded-full border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
           Est. {formatMoney(day.estimated_cost, currency)}
         </span>
-      </div>
+      </summary>
 
-      <div className="relative mt-5 grid gap-5 before:absolute before:left-2 before:top-3 before:h-[calc(100%-1.5rem)] before:w-px before:bg-gradient-to-b before:from-lagoon before:to-sun">
-        <TimelineEntry label="Morning" text={day.morning} />
-        <TimelineEntry label="Afternoon" text={day.afternoon} />
-        <TimelineEntry label="Evening" text={day.evening} />
-      </div>
-
-      {day.food.length ? (
-        <div className="mt-5 rounded-2xl bg-[#f8faf8] px-4 py-3">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Food ideas</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{day.food.slice(0, 3).join(" · ")}</p>
+      <div className="border-t border-[#eee5d7] px-4 pb-4 pt-3">
+        <div className="grid gap-2">
+          {day.live_timeline.length ? (
+            day.live_timeline.map((item, index) => (
+              <TimelineItemCard key={`${day.day_number}-${item.time_label}-${item.title}-${index}`} item={item} />
+            ))
+          ) : (
+            <>
+              <TimelineEntry label="Morning" text={day.morning} />
+              <TimelineEntry label="Afternoon" text={day.afternoon} />
+              <TimelineEntry label="Evening" text={day.evening} />
+            </>
+          )}
         </div>
-      ) : null}
 
-      {places.length ? (
-        <div className="mt-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Places & directions</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {places.map((query) => (
-              <div key={query} className="rounded-2xl border border-cloud bg-white px-4 py-3">
-                <p className="text-sm font-black leading-5 text-ink">{query}</p>
-                <NavigationChipList query={query} />
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </article>
+        {day.food.length ? (
+          <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-3">
+            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Food ideas</summary>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{day.food.slice(0, 3).join(" · ")}</p>
+          </details>
+        ) : null}
+
+        {places.length ? (
+          <details className="mt-3 rounded-[0.9rem] border border-cloud bg-white px-3 py-3">
+            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Map details</summary>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              {places.map((query) => (
+                <div key={query} className="rounded-[0.9rem] border border-cloud bg-white px-3 py-3">
+                  <p className="text-sm font-black leading-5 text-ink">{query}</p>
+                  <NavigationChipList query={query} />
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : null}
+      </div>
+    </details>
   );
 }
 
@@ -431,7 +534,14 @@ function BudgetTable({
 }
 
 function fallbackSearchUrl(query: string) {
-  return googleSearchUrl(query);
+  return roamlyDiscoveryUrl("discovery", query);
+}
+
+function safeBookingUrl(value?: string | null) {
+  const raw = getString(value);
+  if (!raw) return "";
+  if (raw.startsWith("/")) return raw;
+  return safeExternalUrl(raw);
 }
 
 function bookingCategory(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -553,7 +663,7 @@ function bookingProvider(suggestion: RoamlyItinerary["booking_suggestions"][numb
 }
 
 function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
-  const affiliate = safeExternalUrl(suggestion.affiliate_url);
+  const affiliate = safeBookingUrl(suggestion.affiliate_url);
   if (affiliate) {
     return {
       href: affiliate,
@@ -563,7 +673,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     };
   }
 
-  const normal = safeExternalUrl(suggestion.normal_search_url);
+  const normal = safeBookingUrl(suggestion.normal_search_url);
   if (normal) {
     return {
       href: normal,
@@ -573,7 +683,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     };
   }
 
-  const fallback = safeExternalUrl(fallbackBookingUrl(suggestion, trip));
+  const fallback = safeBookingUrl(fallbackBookingUrl(suggestion, trip));
   if (fallback) {
     return {
       href: fallback,
@@ -680,7 +790,7 @@ function transportEstimate(option: TransportOption) {
 }
 
 function transportHref(option: TransportOption) {
-  const direct = safeExternalUrl(option.booking_url) || safeExternalUrl(option.search_url);
+  const direct = safeBookingUrl(option.booking_url) || safeBookingUrl(option.search_url);
   if (direct) return direct;
   if (option.mode === "flight") {
     return buildFlightSearchUrl({
@@ -947,7 +1057,7 @@ function PreTripEssentialCard({
   item: RoamlyPreTripEssential;
   tripId: string;
 }) {
-  const href = safeExternalUrl(item.action_url) || safeExternalUrl(item.amazon_url);
+  const href = safeBookingUrl(item.action_url) || safeBookingUrl(item.amazon_url);
   const label = essentialActionLabel(item);
   const isConnectivity = item.item_type === "connectivity" || item.category === "Connectivity";
   const provider = item.provider || (isConnectivity ? "Airalo" : "Amazon Associates");
@@ -1190,10 +1300,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   }
 
   return (
-    <main className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 py-8 text-ink sm:px-6">
+    <main className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-24 pt-5 text-ink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <div className="roamly-print-paper mx-auto max-w-6xl">
-        <section className="rounded-[1.35rem] border border-[#e8dfd0] bg-[#fffdf8] p-5 shadow-[0_20px_60px_rgba(16,32,51,0.08)] sm:p-7">
+        <section className="rounded-[1.1rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 shadow-[0_16px_44px_rgba(16,32,51,0.07)] sm:rounded-[1.35rem] sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <div className="flex flex-wrap items-center gap-2">
@@ -1209,8 +1319,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 {access.hasQaAccess ? <Badge tone="sun">Tester access</Badge> : null}
                 {trackingUnlocked ? <Badge tone="ocean">Live Companion</Badge> : null}
               </div>
-              <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-5xl">{tripTitle}</h1>
-              <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-700">
+              <h1 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripTitle}</h1>
+              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-700 sm:text-base sm:leading-7">
                 {canShowFull
                   ? full?.destination_summary
                   : preview?.destination_summary ||
@@ -1277,7 +1387,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
         {canShowFull && full ? (
           <>
-            <nav className="roamly-no-print sticky top-[5.15rem] z-20 -mx-4 mt-5 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-full sm:border sm:px-3">
+            <nav className="roamly-no-print sticky top-[4.25rem] z-20 -mx-4 mt-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
               <div className="flex min-w-max gap-2">
                 {[
                   ["day-by-day", "Day-by-day"],
@@ -1290,7 +1400,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   <a
                     key={href}
                     href={`#${href}`}
-                    className={`rounded-full px-4 py-2 text-sm font-black transition ${
+                    className={`rounded-full px-3 py-2 text-xs font-black transition sm:px-4 sm:text-sm ${
                       index === 0
                         ? "bg-ocean text-white shadow-[0_10px_24px_rgba(27,154,170,0.22)]"
                         : "bg-white text-slate-600 ring-1 ring-[#e8dfd0] hover:text-ocean"
@@ -1306,9 +1416,22 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               <SectionHeading
                 eyebrow="Day-by-day"
                 title="Your travel timeline"
-                summary="Each day is grouped by time of day, with directions kept in compact place chips."
+                summary="Jump by day, expand one section, and open details only when needed."
               />
-              <div className="grid gap-5">
+              <nav className="roamly-no-print sticky top-[8.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:top-[9.2rem] sm:mx-0 sm:rounded-full sm:border">
+                <div className="flex min-w-max gap-2">
+                  {full.daily_itinerary.map((day) => (
+                    <a
+                      key={day.day_number}
+                      href={`#day-${day.day_number}`}
+                      className="rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean"
+                    >
+                      Day {day.day_number}
+                    </a>
+                  ))}
+                </div>
+              </nav>
+              <div className="grid gap-3 sm:gap-5">
                 {full.daily_itinerary.map((day) => (
                   <DayTimelineCard key={day.day_number} day={day} currency={currency} />
                 ))}
@@ -1336,7 +1459,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             </section>
 
             <section id="bookings" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Bookings" title="What to reserve" summary="Use direct search links unless a configured Roamly partner link is available." />
+              <SectionHeading eyebrow="Bookings" title="What to reserve" summary="Roamly uses configured partner links when available and internal discovery when a provider is missing." />
               <div className="mb-4">
                 <MarketPriceRefreshButton tripId={id} />
               </div>
@@ -1382,6 +1505,19 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             <footer className="mt-10 border-t border-[#e8dfd0] py-6 text-sm font-bold text-slate-500">
               Generated by Roamly
             </footer>
+            <div className="roamly-no-print fixed inset-x-0 bottom-0 z-30 border-t border-[#e8dfd0] bg-[#fffdf8]/95 px-3 py-3 shadow-[0_-12px_30px_rgba(16,32,51,0.08)] backdrop-blur sm:hidden">
+              <div className="grid grid-cols-3 gap-2">
+                <a href="#day-by-day" className="rounded-full bg-ink px-3 py-3 text-center text-xs font-black text-white">
+                  Days
+                </a>
+                <a href="#bookings" className="rounded-full border border-ocean/20 bg-ocean/10 px-3 py-3 text-center text-xs font-black text-ocean">
+                  Book
+                </a>
+                <a href="#budget" className="rounded-full border border-[#e8dfd0] bg-white px-3 py-3 text-center text-xs font-black text-slate-600">
+                  Budget
+                </a>
+              </div>
+            </div>
           </>
         ) : (
           <>

@@ -59,11 +59,13 @@ export function BookingRecommendationButton({
     );
   }
 
+  const isExternal = /^https?:\/\//i.test(href);
+
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
       onClick={() =>
         trackBookingClick({
           trip_id: tripId,

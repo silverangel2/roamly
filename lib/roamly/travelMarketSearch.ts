@@ -17,10 +17,8 @@ export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | 
 export type TravelMarketSource =
   | "travelpayouts"
   | "stay22"
-  | "getyourguide"
-  | "viator"
   | "klook"
-  | "google_search"
+  | "roamly_internal"
   | "fallback_estimate";
 export type TravelMarketPriceType = "live_partner" | "cached_recent" | "search_ready" | "estimated_fallback" | "unknown";
 export type TravelMarketConfidence = "high" | "medium" | "low";
@@ -89,6 +87,13 @@ const ttlHours: Record<TravelMarketCategory, number> = {
 
 function clean(value?: string | null) {
   return (value || "").trim();
+}
+
+function safeMarketHref(value?: string | null) {
+  const raw = clean(value);
+  if (!raw) return "";
+  if (raw.startsWith("/")) return raw;
+  return safeExternalUrl(raw);
 }
 
 function cleanCurrency(value?: string | null) {
@@ -239,16 +244,16 @@ function baseResult(
   overrides: Partial<TravelMarketResult> = {}
 ): TravelMarketResult {
   const searchedAt = overrides.searched_at || nowIso();
-  const normal = safeExternalUrl(overrides.normal_search_url) || safeExternalUrl(normalSearchUrl(request));
-  const affiliate = safeExternalUrl(overrides.affiliate_url) || safeExternalUrl(affiliateUrl(request));
-  const booking = safeExternalUrl(overrides.booking_url) || affiliate || normal;
+  const normal = safeMarketHref(overrides.normal_search_url) || safeMarketHref(normalSearchUrl(request));
+  const affiliate = safeMarketHref(overrides.affiliate_url) || safeMarketHref(affiliateUrl(request));
+  const booking = safeMarketHref(overrides.booking_url) || affiliate || normal;
 
   return {
     id: overrides.id || randomUUID(),
     category: request.category,
     title: overrides.title || clean(request.title) || categoryDefaultTitle(request),
     provider: overrides.provider || "Search",
-    source: overrides.source || "google_search",
+    source: overrides.source || "roamly_internal",
     origin: clean(request.origin) || undefined,
     destination: clean(request.destination) || undefined,
     city: clean(request.city || request.destination) || undefined,
@@ -286,7 +291,7 @@ function rowToResult(row: Record<string, unknown>, cachedRecent: boolean): Trave
     category,
     title: clean(row.title as string) || "Market option",
     provider: clean(row.provider as string) || "Search",
-    source: (clean(row.source as string) || "google_search") as TravelMarketSource,
+    source: (clean(row.source as string) === "google_search" ? "roamly_internal" : clean(row.source as string) || "roamly_internal") as TravelMarketSource,
     origin: clean(row.origin as string) || undefined,
     destination: clean(row.destination as string) || undefined,
     city: clean(row.city as string) || undefined,
@@ -302,9 +307,9 @@ function rowToResult(row: Record<string, unknown>, cachedRecent: boolean): Trave
     currency: cleanCurrency(row.currency as string),
     price_type: cachedRecent && hasPrice ? "cached_recent" : storedPriceType,
     confidence: (clean(row.confidence as string) || "low") as TravelMarketConfidence,
-    booking_url: safeExternalUrl(row.booking_url as string) || undefined,
-    normal_search_url: safeExternalUrl(row.normal_search_url as string) || undefined,
-    affiliate_url: safeExternalUrl(row.affiliate_url as string) || undefined,
+    booking_url: safeMarketHref(row.booking_url as string) || undefined,
+    normal_search_url: safeMarketHref(row.normal_search_url as string) || undefined,
+    affiliate_url: safeMarketHref(row.affiliate_url as string) || undefined,
     searched_at: searchedAt,
     expires_at: clean(row.expires_at as string) || expiresAt(category || "tour", new Date(searchedAt)),
     metadata: row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {}
@@ -381,13 +386,9 @@ function marketEnabled() {
 function providerConfigured(request: TravelMarketSearchRequest) {
   const category = request.category;
   if (category === "flight") return Boolean(process.env.TRAVELPAYOUTS_API_TOKEN && process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
-  if (category === "hotel") return Boolean(process.env.ROAMLY_STAY22_PARTNER_ID || process.env.BOOKING_AFFILIATE_ID || process.env.EXPEDIA_AFFILIATE_ID);
+  if (category === "hotel") return stay22AffiliateConfigured();
   if (category === "attraction" || category === "tour") {
-    return Boolean(
-      (process.env.GETYOURGUIDE_API_KEY && process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID) ||
-        (process.env.VIATOR_API_KEY && process.env.ROAMLY_VIATOR_PARTNER_ID) ||
-        (process.env.KLOOK_API_KEY && process.env.ROAMLY_KLOOK_PARTNER_ID)
-    );
+    return Boolean(process.env.KLOOK_API_KEY && process.env.ROAMLY_KLOOK_PARTNER_ID && clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook");
   }
   if (category === "transport") {
     return Boolean(
@@ -504,71 +505,6 @@ async function searchTravelpayouts(request: TravelMarketSearchRequest) {
     .slice(0, 5);
 }
 
-async function searchGetYourGuide(request: TravelMarketSearchRequest) {
-  if (!marketEnabled() || !process.env.GETYOURGUIDE_API_KEY || !process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID) return [];
-  const url = new URL("https://api.getyourguide.com/1/tours");
-  url.searchParams.set("q", clean(request.title || request.destination || request.city));
-  url.searchParams.set("currency", cleanCurrency(request.currency));
-  const json = await fetchJson(url.toString(), {
-    headers: {
-      "x-access-token": process.env.GETYOURGUIDE_API_KEY,
-      accept: "application/json"
-    }
-  });
-  return arrayFromUnknown(json)
-    .map((item) => {
-      const price = providerPrice(item);
-      if (price == null) return null;
-      return baseResult(request, {
-        title: clean(item.title as string) || categoryDefaultTitle(request),
-        provider: "GetYourGuide",
-        source: "getyourguide",
-        price_amount: price,
-        price_type: "live_partner",
-        confidence: "high",
-        booking_url: safeExternalUrl(item.url as string) || undefined,
-        metadata: { providerPayload: item }
-      });
-    })
-    .filter((item): item is TravelMarketResult => Boolean(item))
-    .slice(0, 5);
-}
-
-async function searchViator(request: TravelMarketSearchRequest) {
-  if (!marketEnabled() || !process.env.VIATOR_API_KEY || !process.env.ROAMLY_VIATOR_PARTNER_ID) return [];
-  const json = await fetchJson("https://api.viator.com/partner/products/search", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "exp-api-key": process.env.VIATOR_API_KEY,
-      accept: "application/json"
-    },
-    body: JSON.stringify({
-      searchTerm: clean(request.title || request.destination || request.city),
-      currency: cleanCurrency(request.currency),
-      startDate: cleanDate(request.start_date),
-      endDate: cleanDate(request.end_date || request.start_date)
-    })
-  });
-  return arrayFromUnknown(json)
-    .map((item) => {
-      const price = providerPrice(item);
-      if (price == null) return null;
-      return baseResult(request, {
-        title: clean(item.title as string) || categoryDefaultTitle(request),
-        provider: "Viator",
-        source: "viator",
-        price_amount: price,
-        price_type: "live_partner",
-        confidence: "high",
-        booking_url: safeExternalUrl(item.productUrl as string) || safeExternalUrl(item.url as string) || undefined,
-        metadata: { providerPayload: item }
-      });
-    })
-    .filter((item): item is TravelMarketResult => Boolean(item))
-    .slice(0, 5);
-}
-
 async function searchKlook(request: TravelMarketSearchRequest) {
   if (!marketEnabled() || !process.env.KLOOK_API_KEY || !process.env.ROAMLY_KLOOK_PARTNER_ID) return [];
   const url = new URL("https://www.klook.com/v1/usrcsrv/search");
@@ -602,7 +538,7 @@ async function searchKlook(request: TravelMarketSearchRequest) {
 async function liveProviderResults(request: TravelMarketSearchRequest) {
   if (request.category === "flight") return searchTravelpayouts(request);
   if (request.category === "attraction" || request.category === "tour") {
-    const providers = await Promise.allSettled([searchGetYourGuide(request), searchViator(request), searchKlook(request)]);
+    const providers = await Promise.allSettled([searchKlook(request)]);
     return providers.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
   }
   if (request.category === "transport" && isKlookTransportSearch(request)) {
@@ -613,11 +549,11 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
 
 function searchReadyResult(request: TravelMarketSearchRequest, warning?: string) {
   const source: TravelMarketSource =
-    request.category === "hotel" && stay22AffiliateConfigured()
-      ? "stay22"
-      : klookAffiliateConfigured() && shouldUseKlookSearch(request)
-        ? "klook"
-        : "google_search";
+	    request.category === "hotel" && stay22AffiliateConfigured()
+	      ? "stay22"
+	      : klookAffiliateConfigured() && shouldUseKlookSearch(request)
+	        ? "klook"
+	        : "roamly_internal";
   return baseResult(request, {
     provider: source === "stay22" ? "Stay22 search" : source === "klook" ? "Klook search" : "Search-ready link",
     source,

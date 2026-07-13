@@ -21,7 +21,7 @@ export default async function AdminSettingsPage() {
           ["Trip pricing", "$4.99 itinerary, $3.99 Live Trip Companion, $7.99 Complete Trip Pack"],
           ["Location permission", "User opt-in only, account setting can disable anytime"],
           ["Notifications", "Live Trip Companion ready, activity nearby, permission events"],
-          ["Affiliate readiness", affiliates.affiliatesEnabled ? "Enabled with launch-safe fallbacks" : "Disabled - direct search links are used"],
+          ["Affiliate readiness", affiliates.affiliatesEnabled ? "Enabled with Roamly internal fallbacks" : "Disabled - booking CTAs use Roamly internal discovery fallbacks"],
           ["Affiliate providers", `Hotels: ${affiliates.hotelProviderConfigured ? "ready" : "not set"} · Flights: ${affiliates.flightProviderConfigured ? "ready" : "not set"} · Activities: ${affiliates.attractionsProviderConfigured ? "ready" : "not set"}`],
           ["Email provider", email.configured ? `${email.provider} ready` : email.reason],
           ["Email reminders", email.remindersEnabled ? "Enabled for Live Trip Companion notifications" : "Disabled"],

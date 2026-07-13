@@ -11,7 +11,7 @@ import {
   buildHotelSearchUrl,
   buildTourSearchUrl,
   buildTransportSearchUrl,
-  googleSearchUrl
+  roamlyDiscoveryUrl
 } from "@/lib/roamly/bookingLinks";
 import {
   buildPreTripEssentials,
@@ -66,6 +66,13 @@ export type RoamlyActivitySeed = {
   estimated_cost: number;
   category: string;
   map_query: string;
+  item_type?: "travel" | "transfer" | "hotel" | "activity" | "meal" | "rest" | "booking" | "reminder";
+  travel_mode?: string;
+  duration?: string;
+  origin?: string;
+  destination?: string;
+  booking_label?: string;
+  affiliate_category?: RoamlyBookingCategory | "product" | "esim";
 };
 
 export type RoamlyBookingCategory = "flight" | "hotel" | "attraction" | "tour" | "transport" | "restaurant" | "car_rental";
@@ -240,10 +247,10 @@ export function makeTripTitle(payload: Pick<TripPlannerPayload, "destination" | 
 }
 
 function searchUrl(baseQuery: string) {
-  return googleSearchUrl(baseQuery);
+  return roamlyDiscoveryUrl("discovery", baseQuery);
 }
 
-function googleFlightsUrl(
+function flightSearchUrl(
   origin: string,
   destination: string,
   departureDate?: string,
@@ -304,6 +311,373 @@ function dateOffset(startDate: string | undefined, offsetDays: number) {
   if (!Number.isFinite(date.getTime())) return "";
   date.setUTCDate(date.getUTCDate() + offsetDays);
   return date.toISOString().slice(0, 10);
+}
+
+function normalizePlace(value?: string | null) {
+  return cleanString(value, "")
+    .toLowerCase()
+    .replace(/\b(city|airport|station|terminal|downtown|centre|center)\b/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function needsOriginTravel(payload: TripPlannerPayload) {
+  const origin = normalizePlace(payload.origin || payload.originCity);
+  const destination = normalizePlace(payload.destination || payload.destinationCity);
+  return Boolean(origin && destination && origin !== destination);
+}
+
+function returnTravelRequired(payload: TripPlannerPayload) {
+  return payload.returnToOrigin !== false && needsOriginTravel(payload);
+}
+
+function timelineType(item: RoamlyActivitySeed): NonNullable<RoamlyActivitySeed["item_type"]> {
+  if (item.item_type) return item.item_type;
+  const text = `${item.category} ${item.title} ${item.description}`.toLowerCase();
+  if (/\b(check[- ]?in|check[- ]?out|hotel|luggage|accommodation)\b/.test(text)) return "hotel";
+  if (/\b(transfer|airport|station|terminal|shuttle|taxi|rideshare|transit)\b/.test(text)) return "transfer";
+  if (/\b(flight|fly|train|bus|ferry|drive|depart|arrive|arrival|return travel|journey|travel)\b/.test(text)) return "travel";
+  if (/\b(lunch|dinner|breakfast|cafe|restaurant|meal|food)\b/.test(text)) return "meal";
+  if (/\b(rest|recover|recovery|buffer|break)\b/.test(text)) return "rest";
+  if (/\b(book|ticket|reserve)\b/.test(text)) return "booking";
+  return "activity";
+}
+
+function hasArrivalTravel(day: RoamlyDayPlan) {
+  return day.live_timeline.slice(0, 5).some((item) => {
+    const text = `${item.category} ${item.title} ${item.description}`.toLowerCase();
+    return (timelineType(item) === "travel" || timelineType(item) === "transfer") && /\b(arrive|arrival|depart|flight|train|bus|ferry|drive|airport|station|terminal|hotel)\b/.test(text);
+  });
+}
+
+function hasDepartureTravel(day: RoamlyDayPlan) {
+  return day.live_timeline.some((item) => {
+    const text = `${item.category} ${item.title} ${item.description}`.toLowerCase();
+    return (timelineType(item) === "travel" || timelineType(item) === "transfer" || timelineType(item) === "hotel") && /\b(check[- ]?out|return|depart|departure|flight|train|bus|ferry|drive|airport|station|terminal)\b/.test(text);
+  });
+}
+
+function transportMode(payload: TripPlannerPayload) {
+  const option = discoveryRecommendedTransportOption(payload, discoveryTransportOptions(payload));
+  if (option?.mode === "flight") return "flight";
+  if (option?.mode === "train") return "train";
+  if (option?.mode === "bus") return "bus";
+  if (option?.mode === "drive") return "drive";
+  if (option?.mode === "mixed") return "mixed transport";
+  const preference = cleanString(payload.transportationPreference, "mixed transport").toLowerCase();
+  if (/\bflight|fly|plane\b/.test(preference)) return "flight";
+  if (/\btrain|rail\b/.test(preference)) return "train";
+  if (/\bbus|coach\b/.test(preference)) return "bus";
+  if (/\bcar|drive|road\b/.test(preference)) return "drive";
+  if (/\bferry\b/.test(preference)) return "ferry";
+  return "mixed transport";
+}
+
+function travelDurationLabel(payload: TripPlannerPayload) {
+  const option = discoveryRecommendedTransportOption(payload, discoveryTransportOptions(payload));
+  if (option?.duration_label) return option.duration_label;
+  if (typeof option?.estimated_duration_hours === "number" && Number.isFinite(option.estimated_duration_hours)) {
+    return `about ${Math.max(1, Math.round(option.estimated_duration_hours))} hr`;
+  }
+  return "duration varies";
+}
+
+function travelBookingLabel(mode: string) {
+  if (mode === "flight" || mode === "mixed transport") return "Check flights";
+  if (mode === "train") return "Check train";
+  if (mode === "bus") return "Check bus";
+  if (mode === "ferry") return "Check ferry";
+  if (mode === "drive") return "Open route";
+  return "Check route";
+}
+
+function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
+  const origin = cleanString(payload.origin || payload.originCity, "Departure city");
+  const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
+  const mode = transportMode(payload);
+  const duration = travelDurationLabel(payload);
+  const crossBorder = detectCrossBorderTrip({
+    origin,
+    originCountry: payload.originCountry,
+    destination,
+    destinationCountry: payload.destinationCountry,
+    routeText: `${origin} ${destination}`
+  }).cross_border;
+
+  return [
+    {
+      time_label: "6:30 AM",
+      title: `Leave ${origin}`,
+      description: mode === "drive" ? "Start the road trip with fuel, documents, parking, and route buffers checked." : "Leave home with enough time for terminal/station arrival, bags, documents, and security.",
+      location_name: origin,
+      estimated_cost: 0,
+      category: "Travel",
+      map_query: origin,
+      item_type: "travel",
+      travel_mode: mode,
+      duration: "30-90 min buffer",
+      origin,
+      destination: mode === "drive" ? destination : `${origin} departure point`,
+      booking_label: travelBookingLabel(mode),
+      affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
+    },
+    {
+      time_label: "8:00 AM",
+      title: `${mode === "drive" ? "Drive" : "Travel"} to ${destination}`,
+      description: `Main ${mode} segment. Verify live timing, baggage rules, transfer points, and current schedule before departure.`,
+      location_name: `${origin} to ${destination}`,
+      estimated_cost: 0,
+      category: "Travel",
+      map_query: `${origin} to ${destination}`,
+      item_type: "travel",
+      travel_mode: mode,
+      duration,
+      origin,
+      destination,
+      booking_label: travelBookingLabel(mode),
+      affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
+    },
+    {
+      time_label: "11:30 AM",
+      title: `Arrive in ${destination}`,
+      description: `${crossBorder ? "Allow immigration/customs time, then " : "Allow arrival buffer, then "}collect bags, orient, and confirm the transfer to your stay.`,
+      location_name: destination,
+      estimated_cost: 0,
+      category: "Travel",
+      map_query: `${destination} airport station arrivals`,
+      item_type: "travel",
+      travel_mode: mode,
+      duration: crossBorder ? "60-120 min arrival buffer" : "30-60 min arrival buffer",
+      origin,
+      destination
+    },
+    {
+      time_label: "12:30 PM",
+      title: "Transfer to hotel area",
+      description: "Use the most practical airport/station transfer, rideshare, taxi, or transit route before starting local sightseeing.",
+      location_name: destination,
+      estimated_cost: 0,
+      category: "Transfer",
+      map_query: `${destination} airport station to hotel transfer`,
+      item_type: "transfer",
+      travel_mode: "transfer",
+      duration: "30-75 min",
+      origin: `${destination} arrival point`,
+      destination: "Hotel area",
+      booking_label: "Book transfer",
+      affiliate_category: "transport"
+    },
+    {
+      time_label: "1:30 PM",
+      title: "Check in, store bags, and recover",
+      description: "Check in if available, store luggage if early, eat lightly, hydrate, and keep the first local activity low-pressure.",
+      location_name: "Hotel or accommodation",
+      estimated_cost: 0,
+      category: "Hotel",
+      map_query: `${destination} hotel check in`,
+      item_type: "hotel",
+      duration: "60-120 min"
+    }
+  ];
+}
+
+function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
+  const origin = cleanString(payload.origin || payload.originCity, "Home");
+  const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
+  const mode = transportMode(payload);
+  const duration = travelDurationLabel(payload);
+  return [
+    {
+      time_label: "9:00 AM",
+      title: "Hotel checkout and luggage check",
+      description: "Check out, settle any charges, store luggage if needed, and confirm return travel timing.",
+      location_name: "Hotel or accommodation",
+      estimated_cost: 0,
+      category: "Hotel",
+      map_query: `${destination} hotel checkout`,
+      item_type: "hotel",
+      duration: "30-45 min"
+    },
+    {
+      time_label: "10:00 AM",
+      title: "Transfer to departure point",
+      description: "Leave for the airport, train station, bus terminal, ferry port, or road departure point with a practical buffer.",
+      location_name: destination,
+      estimated_cost: 0,
+      category: "Transfer",
+      map_query: `${destination} hotel to airport station terminal`,
+      item_type: "transfer",
+      travel_mode: "transfer",
+      duration: "30-90 min",
+      origin: "Hotel area",
+      destination: `${destination} departure point`,
+      booking_label: "Book transfer",
+      affiliate_category: "transport"
+    },
+    {
+      time_label: "11:30 AM",
+      title: `Recommended ${mode} departure buffer`,
+      description: mode === "flight" ? "Arrive early enough for check-in, bags, security, and any passport or border checks." : "Arrive early enough for tickets, platform/terminal changes, bags, and route checks.",
+      location_name: `${destination} departure point`,
+      estimated_cost: 0,
+      category: "Reminder",
+      map_query: `${destination} departure terminal`,
+      item_type: "reminder",
+      travel_mode: mode,
+      duration: mode === "flight" ? "2-3 hr airport buffer" : "30-90 min buffer"
+    },
+    {
+      time_label: "1:30 PM",
+      title: `Return travel to ${origin}`,
+      description: `Main return ${mode} segment. Verify live schedule, transfer points, baggage rules, and final arrival time before booking.`,
+      location_name: `${destination} to ${origin}`,
+      estimated_cost: 0,
+      category: "Travel",
+      map_query: `${destination} to ${origin}`,
+      item_type: "travel",
+      travel_mode: mode,
+      duration,
+      origin: destination,
+      destination: origin,
+      booking_label: travelBookingLabel(mode),
+      affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
+    }
+  ];
+}
+
+function localTransferItem(from: RoamlyActivitySeed, to: RoamlyActivitySeed): RoamlyActivitySeed {
+  const fromLabel = cleanString(from.location_name || from.title, "Previous stop");
+  const toLabel = cleanString(to.location_name || to.title, "Next stop");
+  return {
+    time_label: "Transfer",
+    title: `Travel to ${toLabel}`,
+    description: "Allow realistic walking, transit, rideshare, traffic, wayfinding, and entry/check-in buffer before the next stop.",
+    location_name: `${fromLabel} to ${toLabel}`,
+    estimated_cost: 0,
+    category: "Transfer",
+    map_query: `${fromLabel} to ${toLabel}`,
+    item_type: "transfer",
+    travel_mode: "walk/transit",
+    duration: "15-45 min",
+    origin: fromLabel,
+    destination: toLabel
+  };
+}
+
+function retimeLocalItems(items: RoamlyActivitySeed[], times: string[]) {
+  return items.map((item, index) => ({
+    ...item,
+    time_label: item.time_label && item.time_label !== "9:30 AM" ? item.time_label : times[index] || item.time_label
+  }));
+}
+
+function withTransfersBetweenMajorItems(items: RoamlyActivitySeed[]) {
+  const output: RoamlyActivitySeed[] = [];
+  for (const item of items) {
+    const previous = output[output.length - 1];
+    if (previous) {
+      const previousType = timelineType(previous);
+      const currentType = timelineType(item);
+      const needsTransfer =
+        previousType !== "transfer" &&
+        currentType !== "transfer" &&
+        previousType !== "travel" &&
+        currentType !== "travel" &&
+        previousType !== "reminder" &&
+        currentType !== "reminder" &&
+        previous.location_name &&
+        item.location_name &&
+        normalizePlace(previous.location_name) !== normalizePlace(item.location_name);
+      if (needsTransfer) output.push(localTransferItem(previous, item));
+    }
+    output.push({ ...item, item_type: timelineType(item) });
+  }
+  return output.slice(0, 14);
+}
+
+export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
+  const days = itinerary.daily_itinerary.map((day, index, allDays) => {
+    let timeline: RoamlyActivitySeed[] = day.live_timeline.map((item) => ({ ...item, item_type: timelineType(item) }));
+    if (index === 0 && needsOriginTravel(payload) && !hasArrivalTravel({ ...day, live_timeline: timeline })) {
+      const local = timeline.filter((item) => !["travel", "transfer", "hotel"].includes(timelineType(item)));
+      timeline = [...arrivalTravelItems(payload), ...retimeLocalItems(local, ["3:30 PM", "5:30 PM", "7:30 PM"])];
+    }
+    if (index === allDays.length - 1 && returnTravelRequired(payload) && !hasDepartureTravel({ ...day, live_timeline: timeline })) {
+      const local = timeline.filter((item) => !["travel", "transfer", "hotel"].includes(timelineType(item))).slice(0, 1);
+      timeline = [...retimeLocalItems(local, ["8:00 AM"]), ...departureTravelItems(payload)];
+    }
+    timeline = withTransfersBetweenMajorItems(timeline);
+    return {
+      ...day,
+      title: index === 0 && needsOriginTravel(payload) ? "Travel, arrival, and first easy local stop" : day.title,
+      morning: index === 0 && needsOriginTravel(payload) ? "Start with the journey to the destination, arrival buffer, transfer, and luggage/check-in plan before local activities." : day.morning,
+      afternoon: index === 0 && needsOriginTravel(payload) ? "After arrival and recovery, keep the first local activity close to the hotel area." : day.afternoon,
+      evening: index === allDays.length - 1 && returnTravelRequired(payload) ? "Return travel is prioritized; add only flexible local time before checkout if the schedule allows." : day.evening,
+      live_timeline: timeline
+    };
+  });
+  return { ...itinerary, daily_itinerary: days };
+}
+
+function timelineHasTransferBetweenMajorItems(day: RoamlyDayPlan) {
+  let previousMajor: RoamlyActivitySeed | null = null;
+  let previousMajorIndex = -1;
+
+  for (const [index, item] of day.live_timeline.entries()) {
+    const type = timelineType(item);
+    if (!["activity", "meal", "hotel", "travel"].includes(type)) continue;
+    const previousType = previousMajor ? timelineType(previousMajor) : "";
+    if (
+      previousMajor &&
+      previousType !== "travel" &&
+      type !== "travel" &&
+      previousMajor.location_name &&
+      item.location_name &&
+      normalizePlace(previousMajor.location_name) !== normalizePlace(item.location_name)
+    ) {
+      const transferBetween = day.live_timeline
+        .slice(previousMajorIndex + 1, index)
+        .some((betweenItem) => timelineType(betweenItem) === "transfer");
+      if (!transferBetween) return false;
+    }
+    previousMajor = item;
+    previousMajorIndex = index;
+  }
+
+  return true;
+}
+
+function legacyBookingLinkPresent(itinerary: RoamlyItinerary) {
+  const text = JSON.stringify(itinerary.booking_suggestions || []);
+  return /(?:google\.com\/travel\/flights|booking\.com|google\.com\/search)/i.test(text);
+}
+
+export function validateItineraryForProduction(itinerary: RoamlyItinerary, payload: TripPlannerPayload) {
+  const errors: string[] = [];
+  const firstDay = itinerary.daily_itinerary[0];
+  const finalDay = itinerary.daily_itinerary[itinerary.daily_itinerary.length - 1];
+  if (needsOriginTravel(payload) && (!firstDay || !hasArrivalTravel(firstDay))) {
+    errors.push("Day 1 is missing travel/arrival before local activities.");
+  }
+  if (returnTravelRequired(payload) && (!finalDay || !hasDepartureTravel(finalDay))) {
+    errors.push("Final day is missing checkout/departure/return travel.");
+  }
+  itinerary.daily_itinerary.forEach((day) => {
+    if (!timelineHasTransferBetweenMajorItems(day)) errors.push(`Day ${day.day_number} is missing transfer time between major items.`);
+  });
+  if (legacyBookingLinkPresent(itinerary)) errors.push("Legacy Google or Booking.com booking URL found.");
+  itinerary.booking_suggestions.forEach((suggestion) => {
+    if (suggestion.affiliate_url && suggestion.category === "flight" && suggestion.affiliate_provider !== "travelpayouts") {
+      errors.push(`Flight suggestion ${suggestion.title} is not routed through Travelpayouts.`);
+    }
+    if (suggestion.affiliate_url && suggestion.category === "hotel" && suggestion.affiliate_provider !== "stay22") {
+      errors.push(`Hotel suggestion ${suggestion.title} is not routed through Stay22.`);
+    }
+    if (suggestion.affiliate_url && (suggestion.category === "tour" || suggestion.category === "attraction") && suggestion.affiliate_provider !== "klook") {
+      errors.push(`Activity suggestion ${suggestion.title} is not routed through Klook.`);
+    }
+  });
+  return { ok: errors.length === 0, errors };
 }
 
 function destinationProfile(city: string) {
@@ -620,7 +994,7 @@ function transportBookingLabel(mode: TransportOption["mode"]) {
 }
 
 function transportProviderLabel(mode: TransportOption["mode"]) {
-  if (mode === "flight") return "Google Flights search";
+  if (mode === "flight") return "Travelpayouts flight search";
   if (mode === "drive") return "Google Maps driving directions";
   if (mode === "train") return "Train search";
   if (mode === "bus") return "Bus search";
@@ -687,7 +1061,7 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
             option.search_url ||
             option.booking_url ||
             (option.mode === "flight"
-              ? googleFlightsUrl(option.origin, option.destination, option.departure_date, option.return_date, travelers)
+              ? flightSearchUrl(option.origin, option.destination, option.departure_date, option.return_date, travelers)
               : buildTransportSearchUrl({ origin: option.origin, destination: option.destination, date: option.departure_date }) ||
                 searchUrl(`${option.origin} to ${option.destination} ${option.mode}`)),
           estimated_cost_min: option.estimated_cost_min,
@@ -737,11 +1111,11 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
           destination: to,
           departure_date: departureDate,
           return_date: returnDate,
-          provider: category === "flight" ? "Google Flights search" : "Transport search",
-          provider_or_search_source: category === "flight" ? "Google Flights search" : "Google transport search",
+          provider: category === "flight" ? "Travelpayouts flight search" : "Transport search",
+          provider_or_search_source: category === "flight" ? "Travelpayouts flight search" : "Roamly transport discovery",
           normal_search_url:
             category === "flight"
-              ? googleFlightsUrl(from, to, departureDate, returnDate, travelers)
+              ? flightSearchUrl(from, to, departureDate, returnDate, travelers)
               : buildTransportSearchUrl({ origin: from, destination: to, date: departureDate }) || searchUrl(`${from} to ${to} train bus flights`),
           estimated_cost_min: range.min,
           estimated_cost_max: range.max,
@@ -766,9 +1140,9 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
         destination,
         departure_date: departureDate,
         return_date: returnDate,
-        provider: "Google Flights search",
-        provider_or_search_source: "Google Flights search",
-        normal_search_url: googleFlightsUrl(origin, destination, departureDate, returnDate, travelers),
+        provider: "Travelpayouts flight search",
+        provider_or_search_source: "Travelpayouts flight search",
+        normal_search_url: flightSearchUrl(origin, destination, departureDate, returnDate, travelers),
         currency,
         why_recommended: "Connects the selected origin with the trip destination.",
         free_or_paid: "paid"
@@ -798,8 +1172,8 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
         country: city.country || undefined,
         room_type: roomType,
         neighborhood: stayArea,
-        provider: "Booking.com search",
-        provider_or_search_source: "Booking.com or hotel map search",
+        provider: "Stay22 hotel search",
+        provider_or_search_source: "Stay22 or Roamly stay discovery",
         normal_search_url: bookingSearchUrl({
           destination: city.label,
           checkInDate: payload.startDate,
@@ -881,8 +1255,8 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
           date: tourDate,
           duration: tour.duration,
           time_window: tour.time_window,
-          provider: "Viator or GetYourGuide search",
-          provider_or_search_source: "Viator, GetYourGuide, or local tour search",
+          provider: "Klook activity search",
+          provider_or_search_source: "Klook or Roamly activity discovery",
           normal_search_url: tourSearchUrl(tour.title || tour.query, city.city, tourDate),
           estimated_cost_min: activityRange.min ? Math.max(tour.min, Math.round(activityRange.min / 4)) : tour.min,
           estimated_cost_max: activityRange.max ? Math.max(tour.max, Math.round(activityRange.max / 2)) : tour.max,
@@ -903,8 +1277,8 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
         location: city.city,
         city: city.city,
         country: city.country || undefined,
-        provider: "Google Maps and public transit search",
-        provider_or_search_source: "Google Maps and official transit search",
+        provider: "Klook transfer or public transit search",
+        provider_or_search_source: "Klook transfer, official transit, or Roamly discovery",
         normal_search_url: buildTransportSearchUrl({ destination: `${city.label} ${profile.transport.query}`, date: payload.startDate }) || searchUrl(profile.transport.query),
         estimated_cost_min: perDay ? Math.max(profile.transport.min, Math.round(perDay * 0.04)) : profile.transport.min,
         estimated_cost_max: perDay ? Math.max(profile.transport.max, Math.round(perDay * 0.16)) : profile.transport.max,
@@ -927,7 +1301,7 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
         city: city.city,
         country: city.country || undefined,
         provider: "Restaurant search",
-        provider_or_search_source: "Google, OpenTable, or restaurant site search",
+        provider_or_search_source: "Roamly restaurant discovery",
         normal_search_url: searchUrl(`${city.label} restaurants reservations ${profile.restaurantArea} ${payload.dietaryPreference || ""}`),
         estimated_cost_min: perDay ? Math.round(perDay * 0.18) : null,
         estimated_cost_max: perDay ? Math.round(perDay * 0.36) : null,
@@ -1235,14 +1609,13 @@ function cleanMarketSource(value: unknown): TravelMarketSource | undefined {
   if (
     value === "travelpayouts" ||
     value === "stay22" ||
-    value === "getyourguide" ||
-    value === "viator" ||
     value === "klook" ||
-    value === "google_search" ||
+    value === "roamly_internal" ||
     value === "fallback_estimate"
   ) {
     return value;
   }
+  if (value === "google_search") return "roamly_internal";
   return undefined;
 }
 
@@ -1280,6 +1653,29 @@ function cleanOptionalString(value: unknown) {
 
 function cleanOptionalBoolean(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function cleanTimelineItemType(value: unknown, categoryFallback: unknown): RoamlyActivitySeed["item_type"] {
+  if (
+    value === "travel" ||
+    value === "transfer" ||
+    value === "hotel" ||
+    value === "activity" ||
+    value === "meal" ||
+    value === "rest" ||
+    value === "booking" ||
+    value === "reminder"
+  ) {
+    return value;
+  }
+  const category = cleanString(categoryFallback, "").toLowerCase();
+  if (/travel|flight|train|bus|ferry|drive/.test(category)) return "travel";
+  if (/transfer|taxi|rideshare|transit/.test(category)) return "transfer";
+  if (/hotel|check/.test(category)) return "hotel";
+  if (/meal|food|lunch|dinner|breakfast/.test(category)) return "meal";
+  if (/rest|buffer|recover/.test(category)) return "rest";
+  if (/book|ticket|reserve/.test(category)) return "booking";
+  return "activity";
 }
 
 function bookingSuggestionFallbackUrl(
@@ -1423,19 +1819,26 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
         const title = cleanString(day.title, fallback.daily_itinerary[index]?.title || `Day ${dayNumber}`);
         const mapQueries = cleanList(day.map_queries, [`${payload.destination} ${title}`], 6);
         const liveTimelineRaw = Array.isArray(day.live_timeline) ? day.live_timeline : [];
-        const liveTimeline = liveTimelineRaw.length
-          ? liveTimelineRaw.slice(0, 6).map((activity, activityIndex) => {
-              const itemRecord = activity && typeof activity === "object" ? (activity as Record<string, unknown>) : {};
-              return {
-                time_label: cleanString(itemRecord.time_label, ["9:30 AM", "1:30 PM", "6:30 PM"][activityIndex] || "Anytime"),
-                title: cleanString(itemRecord.title, `${title} stop`),
-                description: cleanString(itemRecord.description, cleanString(day.morning, "Enjoy this planned stop.")),
-                location_name: cleanString(itemRecord.location_name, payload.destination),
-                estimated_cost: cleanNumber(itemRecord.estimated_cost, 0),
-                category: cleanString(itemRecord.category, "Activity"),
-                map_query: cleanString(itemRecord.map_query, mapQueries[0] || payload.destination)
-              };
-            })
+	        const liveTimeline = liveTimelineRaw.length
+	          ? liveTimelineRaw.slice(0, 12).map((activity, activityIndex) => {
+	              const itemRecord = activity && typeof activity === "object" ? (activity as Record<string, unknown>) : {};
+	              return {
+	                time_label: cleanString(itemRecord.time_label, ["9:30 AM", "1:30 PM", "6:30 PM"][activityIndex] || "Anytime"),
+	                title: cleanString(itemRecord.title, `${title} stop`),
+	                description: cleanString(itemRecord.description, cleanString(day.morning, "Enjoy this planned stop.")),
+	                location_name: cleanString(itemRecord.location_name, payload.destination),
+	                estimated_cost: cleanNumber(itemRecord.estimated_cost, 0),
+	                category: cleanString(itemRecord.category, "Activity"),
+	                map_query: cleanString(itemRecord.map_query, mapQueries[0] || payload.destination),
+	                item_type: cleanTimelineItemType(itemRecord.item_type, itemRecord.category),
+	                travel_mode: cleanOptionalString(itemRecord.travel_mode),
+	                duration: cleanOptionalString(itemRecord.duration ?? itemRecord.duration_label),
+	                origin: cleanOptionalString(itemRecord.origin),
+	                destination: cleanOptionalString(itemRecord.destination),
+	                booking_label: cleanOptionalString(itemRecord.booking_label),
+	                affiliate_category: cleanOptionalString(itemRecord.affiliate_category) as RoamlyActivitySeed["affiliate_category"]
+	              };
+	            })
           : fallback.daily_itinerary[index]?.live_timeline || [];
 
         return {

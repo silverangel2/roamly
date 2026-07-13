@@ -181,7 +181,7 @@ export default async function AdminSystemPage() {
       group: "Affiliate",
       label: "Affiliates enabled",
       status: affiliatesEnabled ? "Ready" : "Optional",
-      detail: "Normal booking links render when disabled."
+      detail: "Roamly internal discovery fallbacks render when disabled."
     },
     {
       group: "Affiliate",
@@ -194,18 +194,6 @@ export default async function AdminSystemPage() {
       label: "Travelpayouts marker",
       status: optionalStatus(affiliateReadiness.travelpayoutsMarkerConfigured, affiliatesEnabled),
       detail: "Flight affiliate links use this only when configured."
-    },
-    {
-      group: "Affiliate",
-      label: "GetYourGuide partner",
-      status: optionalStatus(affiliateReadiness.getYourGuidePartnerConfigured, affiliatesEnabled),
-      detail: "Attraction links can use this provider."
-    },
-    {
-      group: "Affiliate",
-      label: "Viator partner",
-      status: optionalStatus(affiliateReadiness.viatorPartnerConfigured, affiliatesEnabled),
-      detail: "Attraction links can use this provider."
     },
     {
       group: "Affiliate",

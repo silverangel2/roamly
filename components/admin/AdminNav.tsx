@@ -9,6 +9,7 @@ const adminLinks = [
   ["/admin/social/library", "Content Library"],
   ["/admin/seo", "SEO Pages"],
   ["/admin/email", "Email Center"],
+  ["/admin/affiliates", "Affiliates"],
   ["/admin/users", "Users"],
   ["/admin/trips", "Trips"],
   ["/admin/traffic", "Traffic"],
