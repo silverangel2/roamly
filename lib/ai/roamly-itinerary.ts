@@ -79,6 +79,10 @@ function priceDiscoverySummary(payload: TripPlannerPayload) {
     selected_market_prices: discovery.selectedMarketPrices || [],
     market_results: discovery.marketResults || [],
     route_legs: discovery.routeLegs || [],
+    transport_options: discovery.transportOptions || [],
+    recommended_transport_option: discovery.recommendedTransportOption || null,
+    selected_transport_estimate: centsToMoney(discovery.selectedTransportEstimateCents, currency),
+    transport_assumptions: discovery.transportAssumptions || [],
     city_estimates: discovery.cityEstimates || [],
     over_budget_recommendations: discovery.recommendationNotes || []
   };
@@ -237,6 +241,11 @@ Return ONLY valid JSON with this shape:
 
 Rules:
 - Write every user-facing JSON value in ${outputLanguage}. Keep JSON keys exactly as shown in English.
+- Act like a personal travel agent. Before finalizing the itinerary, compare flight, driving, train, bus, and mixed route options from Price discovery summary.
+- Choose the transport option that best fits budget, time, and comfort. Do not default to flights.
+- If budget is tight, prefer realistic cheaper options such as driving, train, bus, or mixed airport routes when practical.
+- Explain transport tradeoffs clearly. Use "Recommended because it keeps the trip closer to your budget" for the selected cheaper option or "Faster but more expensive" for a flight or premium option.
+- If transport_options includes driving, train, bus, flight, or mixed options, reflect them in booking_suggestions as search-ready transport recommendations and do not invent exact fares.
 - Make the plan useful without overstuffing the day.
 - Keep each field short enough for mobile cards.
 - Give map queries, not URLs.
@@ -252,10 +261,14 @@ Rules:
 - Do not say "booked", "reserved", or "confirmed" unless the user uploaded a booking screenshot or confirmed booking in Fixed bookings and screenshots. Those can use booking_status "user_uploaded" and price_confidence "user_uploaded".
 - For non-uploaded recommendations, make clear they are search-ready only and that price and availability must be verified before booking.
 - Budget math must use the selected total from Price discovery summary: remaining_budget_amount = user_budget_amount - total_estimate_amount. If the value is negative, budget_fit_summary and estimated_budget_breakdown.notes must say "Over budget by ${payload.budgetCurrency || "CAD"} X"; if positive, say "Remaining budget: ${payload.budgetCurrency || "CAD"} X". Never show a positive remaining budget when the total estimate is higher than the user budget.
+- Budget math must use recommended_transport_option and selected_transport_estimate from Price discovery summary, not a flight-only path.
 - When Price discovery summary includes total_estimate_display, use that same total estimate in estimated_budget_breakdown.total_estimate and total_estimate_amount.
 - If unknown_market_price_count is greater than 0, estimated_budget_breakdown.notes must start with "Budget incomplete — live price needed for X items." Do not present fallback estimates as exact.
-- Include at least one flight or arrival transport option, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
-- For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range, booking_label "Find this flight", and a normal search URL.
+- Include at least one recommended transport option, one flight alternative when relevant, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
+- For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range when present in Price discovery summary, booking_label "Find this flight", and a normal search URL. Say "Faster but more expensive" when the flight is not the budget recommendation.
+- For driving, include a gas/parking estimate if Price discovery summary provides it, booking_label "Open driving route", and a Google Maps directions URL. Say the estimate uses fuel assumptions until live maps/gas providers are connected.
+- For train and bus, include search-ready links when live provider APIs are unavailable, booking_label "Check train" or "Check bus", and say "Verify live schedule and price." Do not invent exact ticket prices.
+- For mixed routes, explain that the option may reduce transport cost but increases travel time.
 - For hotel/stay suggestions, include room_type, neighborhood, estimated nightly range, estimated total stay range, and why the room/area fits the traveler.
 - For attraction tickets, include the specific attraction name, ticket note, estimated ticket range, free_or_paid, and whether advance booking is recommended.
 - For tours/activities, include a specific tour/activity title, estimated range, duration, best day/time, and "Find tour" booking_label.

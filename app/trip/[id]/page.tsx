@@ -21,6 +21,7 @@ import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
+import type { TransportOption } from "@/lib/roamly/transportOptions";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
@@ -357,11 +358,20 @@ function budgetRows({
   const budgetAmount = getTripBudgetAmount(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
   const balance = describeBudgetBalanceFromAmounts(budgetAmount, totalEstimateAmount, currency);
+  const transportOptions = transportOptionsFromItinerary(itinerary);
+  const recommendedTransport = recommendedTransportFromItinerary(itinerary);
 
   return [
     {
-      label: "Flights",
-      value: trip.budget_includes_flights === false ? "Not included in trip budget." : "Included if flight prices fit the total budget."
+      label: "Recommended transport",
+      value:
+        trip.budget_includes_flights === false
+          ? "Inter-city transport is not included in this trip budget."
+          : formatBudgetTransportOption(recommendedTransport, currency)
+    },
+    {
+      label: "Other options",
+      value: formatOtherTransportOptions(transportOptions, recommendedTransport, currency)
     },
     {
       label: "Hotel",
@@ -605,6 +615,78 @@ function formatRange(min: number | null | undefined, max: number | null | undefi
   return formatMoney(min ?? max, currency);
 }
 
+function transportOptionsFromItinerary(itinerary: RoamlyItinerary) {
+  return itinerary.estimated_budget_breakdown.transport_options || [];
+}
+
+function recommendedTransportFromItinerary(itinerary: RoamlyItinerary) {
+  return (
+    itinerary.estimated_budget_breakdown.recommended_transport_option ||
+    transportOptionsFromItinerary(itinerary).find((option) => option.budget_fit === "best") ||
+    null
+  );
+}
+
+function transportModeLabel(mode: TransportOption["mode"]) {
+  if (mode === "drive") return "Drive";
+  if (mode === "train") return "Train";
+  if (mode === "bus") return "Bus";
+  if (mode === "mixed") return "Mixed route";
+  return "Flight";
+}
+
+function transportActionLabel(mode: TransportOption["mode"]) {
+  if (mode === "flight") return "Find this flight";
+  if (mode === "train") return "Check train";
+  if (mode === "bus") return "Check bus";
+  if (mode === "drive") return "Open driving route";
+  return "Search mixed route";
+}
+
+function transportSourceLabel(option: TransportOption) {
+  if (option.price_confidence === "live_partner") return "Live partner price";
+  if (option.price_confidence === "cached_recent") return "Recently searched price";
+  if (option.mode === "train" || option.mode === "bus") return "Search-ready, verify live schedule and price";
+  if (option.mode === "drive") return "Estimated fuel and parking";
+  return "Estimated fallback";
+}
+
+function transportEstimate(option: TransportOption) {
+  const range = formatRange(option.estimated_cost_min, option.estimated_cost_max, option.currency || "CAD");
+  return range || "Search-ready. Verify live price.";
+}
+
+function transportHref(option: TransportOption) {
+  const direct = safeExternalUrl(option.booking_url) || safeExternalUrl(option.search_url);
+  if (direct) return direct;
+  if (option.mode === "flight") {
+    return buildFlightSearchUrl({
+      origin: option.origin,
+      destination: option.destination,
+      departureDate: option.departure_date,
+      returnDate: option.return_date
+    });
+  }
+  return buildTransportSearchUrl({
+    origin: option.origin,
+    destination: option.destination,
+    date: option.departure_date
+  });
+}
+
+function formatBudgetTransportOption(option: TransportOption | null, currency: string) {
+  if (!option) return "Compare transport before booking.";
+  return `${transportModeLabel(option.mode)}: ${transportEstimate({ ...option, currency: option.currency || currency })}. ${option.why_recommended}`;
+}
+
+function formatOtherTransportOptions(options: TransportOption[], recommended: TransportOption | null, currency: string) {
+  const others = options.filter((option) => option !== recommended && option.budget_fit !== "best");
+  if (!others.length) return "No alternatives returned yet.";
+  return others
+    .map((option) => `${transportModeLabel(option.mode)} ${transportEstimate({ ...option, currency: option.currency || currency })}`)
+    .join(" | ");
+}
+
 function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
   const currency = suggestion.currency || "CAD";
   const nightly = formatRange(suggestion.estimated_nightly_cost_min, suggestion.estimated_nightly_cost_max, currency);
@@ -710,6 +792,68 @@ function BookingRecommendationCard({
   );
 }
 
+function TransportComparison({ itinerary, tripId }: { itinerary: RoamlyItinerary; tripId: string }) {
+  const options = transportOptionsFromItinerary(itinerary);
+  const recommended = recommendedTransportFromItinerary(itinerary);
+  if (!options.length) return null;
+  const ordered = [
+    ...(recommended ? [recommended] : []),
+    ...options.filter((option) => option !== recommended && option.budget_fit !== "best")
+  ].slice(0, 6);
+
+  return (
+    <section className="roamly-print-section">
+      <h3 className="text-lg font-black text-ink">Transport comparison</h3>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        {ordered.map((option, index) => {
+          const isRecommended = option.budget_fit === "best" || option === recommended;
+          const href = transportHref(option);
+          const title = isRecommended ? `Recommended: ${transportModeLabel(option.mode)}` : `${transportModeLabel(option.mode)} option`;
+          const provider = transportSourceLabel(option);
+          return (
+            <article key={`${option.mode}-${option.title}-${index}`} className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                      {title}
+                    </span>
+                    <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                      {provider}
+                    </span>
+                  </div>
+                  <h4 className="mt-2 text-lg font-black leading-6 text-ink">{option.title}</h4>
+                  <p className="mt-1 text-sm font-black text-ink">{transportEstimate(option)}</p>
+                  {option.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{option.duration_label}</p> : null}
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{option.why_recommended}</p>
+                  {option.mode === "drive" ? (
+                    <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+                      Driving estimate uses fuel assumptions until live maps/gas providers are connected.
+                    </p>
+                  ) : null}
+                  {option.mode === "train" || option.mode === "bus" ? (
+                    <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Verify live schedule and price.</p>
+                  ) : null}
+                </div>
+                <BookingRecommendationButton
+                  href={href}
+                  label={transportActionLabel(option.mode)}
+                  tripId={tripId}
+                  category={option.mode === "flight" ? "flight" : "transport"}
+                  title={option.title}
+                  provider={provider}
+                  hasAffiliateUrl={false}
+                  urlType="normal_search"
+                />
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string }) {
   const suggestions = itinerary.booking_suggestions || [];
   const groups = [
@@ -728,6 +872,7 @@ function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; 
         {" "}
         {affiliateDisclosure}
       </p>
+      <TransportComparison itinerary={itinerary} tripId={tripId} />
       {groups.map((group) => {
         const items = suggestions.filter((suggestion) => group.categories.includes(bookingCategory(suggestion)));
         return (

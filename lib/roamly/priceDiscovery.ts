@@ -4,6 +4,12 @@ import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import type { TravelerDetails, TripType } from "@/lib/trip-planner";
 import type { TravelMarketCategory, TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import {
+  compareTransportOptions,
+  isTransportOptionMarketResult,
+  transportOptionCostCents,
+  type TransportOption
+} from "@/lib/roamly/transportOptions";
 
 export type BudgetStatus = "within_budget" | "tight" | "over_budget" | "unknown";
 
@@ -97,6 +103,7 @@ export type TripPriceDiscovery = {
   activitiesEstimateCents: number;
   foodEstimateCents: number;
   localTransportEstimateCents: number;
+  selectedTransportEstimateCents: number;
   bufferEstimateCents: number;
   totalEstimateCents: number;
   committedBudgetCents: number;
@@ -104,6 +111,9 @@ export type TripPriceDiscovery = {
   budgetStatus: BudgetStatus;
   coverageNote: string;
   routeLegs: RouteLegEstimate[];
+  transportOptions: TransportOption[];
+  recommendedTransportOption: TransportOption | null;
+  transportAssumptions: string[];
   cityEstimates: CityCostEstimate[];
   recommendationNotes: string[];
   sources: Array<{ provider: string; label: string; confidence: "low" | "medium" | "high" }>;
@@ -372,6 +382,7 @@ function recommendationNotes(status: BudgetStatus, input: TripPriceDiscoveryInpu
     "Shorten the trip or reduce nights in the most expensive city.",
     "Keep fewer paid activities and add free walking areas, markets, parks, and museums with free hours.",
     "Choose lower-cost hotel areas near reliable public transit.",
+    "Compare flight, driving, train, bus, and mixed airport routes before accepting an expensive flight.",
     "Use public transit for local movement where practical.",
     "Exclude flights or hotel from this budget if they are already handled.",
     "Increase the total budget if the route and trip length are fixed."
@@ -564,7 +575,7 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   };
   const marketSelection = selectMarketPrices({
     input: normalized,
-    marketResults: input.marketResults || [],
+    marketResults: (input.marketResults || []).filter((result) => !isTransportOptionMarketResult(result)),
     fallbackCents,
     currency: normalized.budgetCurrency || "CAD"
   });
@@ -585,14 +596,24 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   const hotelEstimateCents = selectedCentsByCategory.hotel;
   const activitiesEstimateCents = selectedCentsByCategory.attraction + selectedCentsByCategory.tour;
   const localTransportEstimateCents = selectedCentsByCategory.transport;
-
-  const subtotal =
-    flightEstimateCents +
+  const fixedTripCostCents =
     hotelEstimateCents +
     activitiesEstimateCents +
     foodEstimateCents +
     localTransportEstimateCents +
     uncategorizedCommittedBudgetCents;
+  const transportComparison = compareTransportOptions({ ...normalized, travelers }, {
+    marketResults: input.marketResults || [],
+    flightEstimateCents,
+    fallbackFlightEstimateCents,
+    fixedTripCostCents
+  });
+  const selectedTransportEstimateCents =
+    normalized.budgetIncludesFlights === false
+      ? 0
+      : transportOptionCostCents(transportComparison.recommendedOption) || flightEstimateCents;
+
+  const subtotal = selectedTransportEstimateCents + fixedTripCostCents;
   const bufferEstimateCents = Math.round(subtotal * 0.12);
   const totalEstimateCents = subtotal + bufferEstimateCents;
   const budget = calculateBudgetStatus({
@@ -610,12 +631,12 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   });
   const coverageNote =
     marketSelection.unknownMarketPriceCount > 0
-      ? `Budget incomplete — live price needed for ${marketSelection.unknownMarketPriceCount} item${marketSelection.unknownMarketPriceCount === 1 ? "" : "s"}. Fallback estimates are marked and must be verified before booking.`
+      ? `Budget incomplete — live price needed for ${marketSelection.unknownMarketPriceCount} item${marketSelection.unknownMarketPriceCount === 1 ? "" : "s"}. Fallback estimates are marked and must be verified before booking. Transport comparison includes estimated/search-ready alternatives.`
       : marketSelection.selectedMarketPrices.some((result) => result.price_type === "live_partner")
-        ? "Budget uses live partner/search market prices where available. Verify before booking."
+        ? "Budget uses live partner/search market prices where available. Transport alternatives are compared and estimates must be verified before booking."
         : marketSelection.selectedMarketPrices.some((result) => result.price_type === "cached_recent")
-          ? "Budget uses recently searched market prices. Refresh stale prices before booking."
-          : "Budget uses estimated fallback prices because live market prices were not available. Verify before booking.";
+          ? "Budget uses recently searched market prices. Refresh stale prices before booking. Transport alternatives are compared with estimates where live data is missing."
+          : "Budget uses estimated fallback prices because live market prices were not available. Transport comparison includes driving assumptions and search-ready train/bus links. Verify before booking.";
   const priceCoverage =
     marketSelection.selectedMarketPrices.every((result) => result.price_type === "estimated_fallback")
       ? "fallback"
@@ -648,6 +669,7 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     activitiesEstimateCents,
     foodEstimateCents,
     localTransportEstimateCents,
+    selectedTransportEstimateCents,
     bufferEstimateCents,
     totalEstimateCents,
     committedBudgetCents,
@@ -655,6 +677,9 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     budgetStatus: budget.budgetStatus,
     coverageNote,
     routeLegs,
+    transportOptions: transportComparison.options,
+    recommendedTransportOption: transportComparison.recommendedOption,
+    transportAssumptions: transportComparison.assumptions,
     cityEstimates,
     recommendationNotes: recommendationNotes(budget.budgetStatus, normalized),
     sources: [
@@ -672,6 +697,23 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
                 : "Search-ready result",
         confidence: result.confidence
       })),
+      ...transportComparison.options.map((option) => ({
+        provider:
+          option.mode === "drive"
+            ? "Google Maps search"
+            : option.mode === "train"
+              ? "Train search"
+              : option.mode === "bus"
+                ? "Bus search"
+                : option.mode === "mixed"
+                  ? "Mixed route estimate"
+                  : "Flight search",
+        label:
+          option.budget_fit === "best"
+            ? `Recommended ${option.mode} transport option`
+            : `${option.mode} transport comparison option`,
+        confidence: option.price_confidence === "live_partner" ? ("high" as const) : option.price_confidence === "cached_recent" ? ("medium" as const) : ("low" as const)
+      })),
       { provider: "roamly_food_buffer", label: "Food and buffer planning estimate", confidence: "low" as const }
     ],
     marketResults: marketSelection.allMarketResults,
@@ -682,13 +724,28 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   };
 }
 
+function transportRangeLabel(option: TransportOption | null | undefined, currency: string) {
+  if (!option) return "No recommended transport option selected.";
+  const min = option.estimated_cost_min == null ? null : moneyFromCents(option.estimated_cost_min * 100, currency);
+  const max = option.estimated_cost_max == null ? null : moneyFromCents(option.estimated_cost_max * 100, currency);
+  const range = min && max ? `${min}-${max}` : min || max || "price unknown";
+  return `${option.title}: ${range} (${option.price_confidence}). ${option.why_recommended}`;
+}
+
 export function buildBudgetConstraintForItinerary(discovery: TripPriceDiscovery) {
+  const transportComparison = [
+    `Recommended transport: ${transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency)}`,
+    `Transport options: ${discovery.transportOptions.map((option) => transportRangeLabel(option, discovery.budgetCurrency)).join(" | ") || "none"}.`,
+    "Before finalizing the itinerary, compare flight, driving, train, bus, and mixed transport modes. Do not default to flights.",
+    "If the budget is tight, prefer realistic cheaper options and explain tradeoffs with the phrases: \"Recommended because it keeps the trip closer to your budget\" or \"Faster but more expensive\" as appropriate."
+  ].join(" ");
   const marketNote = [
     `Price coverage: ${discovery.priceCoverage}.`,
     discovery.unknownMarketPriceCount
       ? `Budget incomplete — live price needed for ${discovery.unknownMarketPriceCount} item${discovery.unknownMarketPriceCount === 1 ? "" : "s"} (${discovery.unknownMarketPriceCategories.join(", ")}).`
       : "All selected market categories have a selected price or fallback value.",
-    "Use selectedMarketPrices for booking recommendation prices. Never invent exact prices."
+    "Use selectedMarketPrices and transportOptions for booking recommendation prices. Never invent exact prices.",
+    transportComparison
   ].join(" ");
   if (discovery.budgetStatus === "over_budget") {
     return [
@@ -760,7 +817,9 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       note: discovery.coverageNote,
       providers: discovery.sources,
       priceCoverage: discovery.priceCoverage,
-      unknownMarketPriceCount: discovery.unknownMarketPriceCount
+      unknownMarketPriceCount: discovery.unknownMarketPriceCount,
+      recommendedTransportOption: discovery.recommendedTransportOption,
+      selectedTransportEstimateCents: discovery.selectedTransportEstimateCents
     },
     metadata: {
       budgetConstraint: buildBudgetConstraintForItinerary(discovery),
@@ -774,6 +833,10 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       bedPreference: discovery.bedPreference,
       budgetIncludesActivities: discovery.budgetIncludesActivities,
       routeLegs: discovery.routeLegs,
+      transportOptions: discovery.transportOptions,
+      recommendedTransportOption: discovery.recommendedTransportOption,
+      selectedTransportEstimateCents: discovery.selectedTransportEstimateCents,
+      transportAssumptions: discovery.transportAssumptions,
       cityEstimates: discovery.cityEstimates,
       marketResults: discovery.marketResults,
       selectedMarketPrices: discovery.selectedMarketPrices,
@@ -835,6 +898,11 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
   const incomplete = discovery.unknownMarketPriceCount
     ? `Budget incomplete — live price needed for ${discovery.unknownMarketPriceCount} item${discovery.unknownMarketPriceCount === 1 ? "" : "s"}. `
     : "";
+  const recommendedTransport = transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency);
+  const otherTransportOptions = discovery.transportOptions
+    .filter((option) => option.budget_fit !== "best")
+    .map((option) => transportRangeLabel(option, discovery.budgetCurrency))
+    .join(" | ");
 
   return {
     ...itinerary,
@@ -847,7 +915,7 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
       ...itinerary.estimated_budget_breakdown,
       lodging: `Selected stay market amount: ${moneyFromCents(discovery.hotelEstimateCents, discovery.budgetCurrency)}.`,
       activities: `Selected ticket/tour market amount: ${moneyFromCents(discovery.activitiesEstimateCents, discovery.budgetCurrency)}.`,
-      transport: `Selected flight/local transport market amount: ${moneyFromCents(discovery.flightEstimateCents + discovery.localTransportEstimateCents, discovery.budgetCurrency)}.`,
+      transport: `Recommended transport: ${recommendedTransport}. Other options: ${otherTransportOptions || "none"}. Local transport estimate: ${moneyFromCents(discovery.localTransportEstimateCents, discovery.budgetCurrency)}.`,
       food: `Food planning estimate: ${moneyFromCents(discovery.foodEstimateCents, discovery.budgetCurrency)}.`,
       buffer: `Buffer: ${moneyFromCents(discovery.bufferEstimateCents, discovery.budgetCurrency)}.`,
       total_estimate: moneyFromCents(discovery.totalEstimateCents, discovery.budgetCurrency),
@@ -855,7 +923,11 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
       total_estimate_amount: totalAmount,
       remaining_budget_amount: remaining,
       budget_status: discovery.budgetStatus,
-      currency: discovery.budgetCurrency
+      currency: discovery.budgetCurrency,
+      recommended_transport_option: discovery.recommendedTransportOption,
+      transport_options: discovery.transportOptions,
+      selected_transport_estimate_amount: Math.round(discovery.selectedTransportEstimateCents / 100),
+      transport_assumptions: discovery.transportAssumptions
     }
   };
 }

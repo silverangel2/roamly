@@ -10,6 +10,7 @@ import {
 } from "@/lib/roamly/bookingLinks";
 import { buildRoamlyAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import type { NormalizedPlace } from "@/lib/roamly/places";
+import { compareTransportOptions, transportOptionsToMarketResults } from "@/lib/roamly/transportOptions";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "transport";
@@ -390,6 +391,23 @@ function providerConfigured(category: TravelMarketCategory) {
   return false;
 }
 
+function buildTransportOptionsSearchKey(payload: TripPlannerPayload) {
+  return [
+    "transport_options",
+    buildTravelMarketSearchKey({
+      category: "transport",
+      origin: payload.origin,
+      destination: payload.destination,
+      city: payload.destinationCity,
+      country: payload.destinationCountry,
+      start_date: payload.startDate,
+      end_date: payload.returnToOrigin === false ? undefined : payload.endDate,
+      travelers: payload.travelersCount || payload.travelers?.adults || 1,
+      currency: payload.budgetCurrency || "CAD"
+    })
+  ].join("|");
+}
+
 async function fetchJson(url: string, init?: RequestInit) {
   const response = await fetch(url, {
     ...init,
@@ -730,9 +748,17 @@ export async function searchTripMarketPrices(
   const responses = await Promise.all(
     buildTripMarketSearchRequests(payload).map((request) => searchTravelMarket(request, options))
   );
+  const baseResults = responses.flatMap((response) => response.results);
+  const transportComparison = compareTransportOptions(payload, { marketResults: baseResults });
+  const transportResults = transportOptionsToMarketResults(payload, transportComparison.options);
+
+  if (options.store !== false && transportResults.length) {
+    await storeResults(options.supabase, buildTransportOptionsSearchKey(payload), transportResults);
+  }
+
   return {
     responses,
-    results: responses.flatMap((response) => response.results),
+    results: [...baseResults, ...transportResults],
     searchedAt: nowIso(),
     providerWarnings: responses.map((response) => response.warning).filter((warning): warning is string => Boolean(warning))
   };

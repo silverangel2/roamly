@@ -13,6 +13,7 @@ import {
   buildTransportSearchUrl,
   googleSearchUrl
 } from "@/lib/roamly/bookingLinks";
+import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource } from "@/lib/roamly/travelMarketSearch";
 
 export type BudgetBreakdown = {
@@ -28,6 +29,10 @@ export type BudgetBreakdown = {
   remaining_budget_amount?: number | null;
   budget_status?: "within_budget" | "tight" | "over_budget" | "unknown";
   currency?: string;
+  recommended_transport_option?: TransportOption | null;
+  transport_options?: TransportOption[];
+  selected_transport_estimate_amount?: number | null;
+  transport_assumptions?: string[];
 };
 
 export type RoamlyActivitySeed = {
@@ -162,6 +167,12 @@ export function formatMoney(amount: number | null | undefined, currency = "CAD")
   } catch {
     return `${currency} ${Math.round(amount).toLocaleString()}`;
   }
+}
+
+function formatRange(min: number | null | undefined, max: number | null | undefined, currency = "CAD") {
+  if (min == null && max == null) return "";
+  if (min != null && max != null) return `${formatMoney(min, currency)}-${formatMoney(max, currency)}`;
+  return formatMoney(min ?? max, currency);
 }
 
 export function cleanList(value: unknown, fallback: string[] = [], limit = 8) {
@@ -466,6 +477,78 @@ function discoveryList(payload: TripPlannerPayload, key: string) {
   return Array.isArray(value) ? value : [];
 }
 
+function cleanTransportMode(value: unknown): TransportOption["mode"] {
+  if (value === "flight" || value === "drive" || value === "train" || value === "bus" || value === "mixed") return value;
+  return "mixed";
+}
+
+function cleanTransportPriceConfidence(value: unknown): TransportOption["price_confidence"] {
+  if (value === "live_partner" || value === "cached_recent" || value === "estimated" || value === "unknown") return value;
+  return "unknown";
+}
+
+function cleanTransportBudgetFit(value: unknown): TransportOption["budget_fit"] {
+  if (value === "best" || value === "okay" || value === "expensive" || value === "unknown") return value;
+  return "unknown";
+}
+
+function cleanTransportOption(value: unknown, currency: string): TransportOption | null {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  if (!record) return null;
+  const title = cleanString(record.title, "");
+  const origin = cleanString(record.origin, "");
+  const destination = cleanString(record.destination, "");
+  if (!title || !destination) return null;
+  const costBreakdown = record.cost_breakdown && typeof record.cost_breakdown === "object" ? (record.cost_breakdown as Record<string, unknown>) : {};
+  return {
+    mode: cleanTransportMode(record.mode),
+    title,
+    origin,
+    destination,
+    departure_date: cleanString(record.departure_date, ""),
+    return_date: cleanOptionalString(record.return_date),
+    estimated_cost_min: cleanNullableNumber(record.estimated_cost_min),
+    estimated_cost_max: cleanNullableNumber(record.estimated_cost_max),
+    currency: cleanString(record.currency, currency),
+    duration_label: cleanOptionalString(record.duration_label),
+    distance_km: cleanNullableNumber(record.distance_km) ?? undefined,
+    cost_breakdown: {
+      gas: cleanNullableNumber(costBreakdown.gas) ?? undefined,
+      parking: cleanNullableNumber(costBreakdown.parking) ?? undefined,
+      tolls: cleanNullableNumber(costBreakdown.tolls) ?? undefined,
+      train_or_bus_ticket: cleanNullableNumber(costBreakdown.train_or_bus_ticket) ?? undefined,
+      flight: cleanNullableNumber(costBreakdown.flight) ?? undefined,
+      baggage: cleanNullableNumber(costBreakdown.baggage) ?? undefined,
+      airport_transfer: cleanNullableNumber(costBreakdown.airport_transfer) ?? undefined
+    },
+    price_confidence: cleanTransportPriceConfidence(record.price_confidence),
+    search_url: cleanOptionalString(record.search_url),
+    booking_url: cleanOptionalString(record.booking_url),
+    why_recommended: cleanString(record.why_recommended, "Verify current price and schedule before booking."),
+    budget_fit: cleanTransportBudgetFit(record.budget_fit)
+  };
+}
+
+function cleanTransportOptions(value: unknown, currency: string) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanTransportOption(item, currency))
+    .filter((item): item is TransportOption => Boolean(item))
+    .slice(0, 8);
+}
+
+function discoveryTransportOptions(payload: TripPlannerPayload) {
+  return cleanTransportOptions(payload.priceDiscovery?.transportOptions, payload.budgetCurrency || "CAD");
+}
+
+function discoveryRecommendedTransportOption(payload: TripPlannerPayload, options: TransportOption[]) {
+  return (
+    cleanTransportOption(payload.priceDiscovery?.recommendedTransportOption, payload.budgetCurrency || "CAD") ||
+    options.find((option) => option.budget_fit === "best") ||
+    null
+  );
+}
+
 function buildSuggestion(input: Omit<RoamlyBookingSuggestion, "category" | "booking_category" | "booking_label" | "normal_search_url" | "estimated_cost_min" | "estimated_cost_max" | "currency" | "price_confidence" | "booking_status"> & {
   category: RoamlyBookingCategory;
   booking_label?: string;
@@ -490,12 +573,48 @@ function buildSuggestion(input: Omit<RoamlyBookingSuggestion, "category" | "book
   };
 }
 
+function transportBookingLabel(mode: TransportOption["mode"]) {
+  if (mode === "flight") return "Find this flight";
+  if (mode === "train") return "Check train";
+  if (mode === "bus") return "Check bus";
+  if (mode === "drive") return "Open driving route";
+  return "Search mixed route";
+}
+
+function transportProviderLabel(mode: TransportOption["mode"]) {
+  if (mode === "flight") return "Google Flights search";
+  if (mode === "drive") return "Google Maps driving directions";
+  if (mode === "train") return "Train search";
+  if (mode === "bus") return "Bus search";
+  return "Mixed transport search";
+}
+
+function transportPriceConfidence(value: TransportOption["price_confidence"]): RoamlyPriceConfidence {
+  if (value === "live_partner" || value === "cached_recent") return "partner";
+  if (value === "estimated") return "estimated";
+  return "unknown";
+}
+
+function transportOptionDescription(option: TransportOption) {
+  const verify = option.mode === "train" || option.mode === "bus" ? " Verify live schedule and price." : " Verify price, timing, and availability.";
+  const confidence =
+    option.price_confidence === "live_partner"
+      ? "Live partner price."
+      : option.price_confidence === "cached_recent"
+        ? "Recently searched price."
+        : option.price_confidence === "estimated"
+          ? "Estimated option."
+          : "Search-ready option.";
+  return `${confidence} ${option.duration_label ? `${option.duration_label}. ` : ""}${option.why_recommended}${verify}`;
+}
+
 function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBookingSuggestion[] {
   const currency = payload.budgetCurrency || "CAD";
   const destination = payload.destination || "your destination";
   const origin = payload.origin || "your origin";
   const perDay = payload.budgetAmount && payload.daysCount ? Math.round(payload.budgetAmount / clampTripDays(payload.daysCount)) : null;
   const cities = tripCities(payload);
+  const transportOptions = discoveryTransportOptions(payload);
   const routeLegs = discoveryList(payload, "routeLegs") as Array<Record<string, unknown>>;
   const cityEstimates = discoveryList(payload, "cityEstimates") as Array<Record<string, unknown>>;
   const roomType = roomTypeForPayload(payload);
@@ -505,7 +624,49 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
   const rooms = payload.rooms || 1;
   const suggestions: RoamlyBookingSuggestion[] = [];
 
-  if (routeLegs.length) {
+  if (transportOptions.length) {
+    for (const option of transportOptions.slice(0, 8)) {
+      const category: RoamlyBookingCategory = option.mode === "flight" ? "flight" : "transport";
+      suggestions.push(
+        buildSuggestion({
+          category,
+          title: option.budget_fit === "best" ? `Recommended: ${option.title}` : option.title,
+          description: transportOptionDescription(option),
+          location: `${option.origin} to ${option.destination}`,
+          origin: option.origin,
+          destination: option.destination,
+          departure_date: option.departure_date || payload.startDate || undefined,
+          return_date: option.return_date,
+          duration: option.duration_label,
+          provider: transportProviderLabel(option.mode),
+          provider_or_search_source: transportProviderLabel(option.mode),
+          normal_search_url:
+            option.search_url ||
+            option.booking_url ||
+            (option.mode === "flight"
+              ? googleFlightsUrl(option.origin, option.destination, option.departure_date, option.return_date, travelers)
+              : buildTransportSearchUrl({ origin: option.origin, destination: option.destination, date: option.departure_date }) ||
+                searchUrl(`${option.origin} to ${option.destination} ${option.mode}`)),
+          estimated_cost_min: option.estimated_cost_min,
+          estimated_cost_max: option.estimated_cost_max,
+          currency: option.currency || currency,
+          price_confidence: transportPriceConfidence(option.price_confidence),
+          price_type:
+            option.price_confidence === "live_partner"
+              ? "live_partner"
+              : option.price_confidence === "cached_recent"
+                ? "cached_recent"
+                : option.mode === "train" || option.mode === "bus"
+                  ? "search_ready"
+                  : "estimated_fallback",
+          market_confidence: option.price_confidence === "live_partner" ? "high" : option.price_confidence === "cached_recent" ? "medium" : "low",
+          booking_label: transportBookingLabel(option.mode),
+          why_recommended: option.why_recommended,
+          free_or_paid: "paid"
+        })
+      );
+    }
+  } else if (routeLegs.length) {
     for (const leg of routeLegs.slice(0, 8)) {
       const from = cleanString(leg.from, origin);
       const to = cleanString(leg.to, destination);
@@ -811,6 +972,11 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
   const stops = payload.tripType === "multi_city" && payload.destinationStops?.length ? payload.destinationStops : [];
   const budgetNumbers = budgetBreakdownNumbers(payload);
   const totalEstimate = budgetNumbers.totalEstimateAmount ?? payload.budgetAmount;
+  const transportOptions = discoveryTransportOptions(payload);
+  const recommendedTransportOption = discoveryRecommendedTransportOption(payload, transportOptions);
+  const recommendedTransportSummary = recommendedTransportOption
+    ? `${recommendedTransportOption.title}: ${formatRange(recommendedTransportOption.estimated_cost_min, recommendedTransportOption.estimated_cost_max, recommendedTransportOption.currency)}. ${recommendedTransportOption.why_recommended}`
+    : `${payload.transportationPreference} is the preferred transport style.`;
 
   return {
     trip_title: makeTripTitle(payload),
@@ -830,7 +996,12 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       lodging: "Match the area to your comfort level before booking.",
       food: `${formatMoney(Math.round(perDay * 0.28), payload.budgetCurrency)} per day target.`,
       activities: `${formatMoney(Math.round(perDay * 0.25), payload.budgetCurrency)} per day target.`,
-      transport: `${formatMoney(Math.round(perDay * 0.15), payload.budgetCurrency)} per day target.`,
+      transport: transportOptions.length
+        ? `Recommended transport: ${recommendedTransportSummary} Other options: ${transportOptions
+            .filter((option) => option.budget_fit !== "best")
+            .map((option) => `${option.mode} ${formatRange(option.estimated_cost_min, option.estimated_cost_max, option.currency) || "search-ready"}`)
+            .join(" | ") || "none"}.`
+        : `${formatMoney(Math.round(perDay * 0.15), payload.budgetCurrency)} per day target.`,
       buffer: "Keep 10-15% flexible for weather, taxis, and spontaneous stops.",
       total_estimate: totalEstimate == null ? "Confirm after live booking prices." : formatBudgetMoney(totalEstimate, payload.budgetCurrency),
       notes: "Planning estimate; verify prices before booking. Suggested booking options are search-ready only.",
@@ -838,14 +1009,20 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       total_estimate_amount: budgetNumbers.totalEstimateAmount,
       remaining_budget_amount: budgetNumbers.remainingBudgetAmount,
       budget_status: budgetNumbers.budgetStatus,
-      currency: budgetNumbers.currency
+      currency: budgetNumbers.currency,
+      recommended_transport_option: recommendedTransportOption,
+      transport_options: transportOptions,
+      selected_transport_estimate_amount: centsToAmount(payload.priceDiscovery?.selectedTransportEstimateCents as number | null | undefined),
+      transport_assumptions: cleanList(payload.priceDiscovery?.transportAssumptions, [], 4)
     },
     hotel_area_suggestions: [
       `Central ${payload.destination} for first-time convenience`,
       "Transit-connected neighborhood for better value",
       "Quieter local area if you prefer slower evenings"
     ],
-    transport_overview: `${payload.transportationPreference} is the preferred transport style. Build each day around nearby clusters to avoid wasted travel time.`,
+    transport_overview: transportOptions.length
+      ? `Roamly compared flight, driving, train, bus, and mixed transport. ${recommendedTransportSummary}`
+      : `${payload.transportationPreference} is the preferred transport style. Build each day around nearby clusters to avoid wasted travel time.`,
     daily_itinerary: Array.from({ length: days }, (_, index) => {
       const dayNumber = index + 1;
       const theme = interests[index % interests.length];
@@ -1167,7 +1344,26 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
       total_estimate_amount: budgetNumbers.totalEstimateAmount,
       remaining_budget_amount: budgetNumbers.remainingBudgetAmount,
       budget_status: budgetNumbers.budgetStatus,
-      currency: budgetNumbers.currency
+      currency: budgetNumbers.currency,
+      recommended_transport_option:
+        cleanTransportOption(budget?.recommended_transport_option ?? budget?.recommendedTransportOption, budgetNumbers.currency) ||
+        fallback.estimated_budget_breakdown.recommended_transport_option ||
+        null,
+      transport_options: cleanTransportOptions(
+        budget?.transport_options ?? budget?.transportOptions,
+        budgetNumbers.currency
+      ).length
+        ? cleanTransportOptions(budget?.transport_options ?? budget?.transportOptions, budgetNumbers.currency)
+        : fallback.estimated_budget_breakdown.transport_options || [],
+      selected_transport_estimate_amount:
+        cleanNullableNumber(budget?.selected_transport_estimate_amount ?? budget?.selectedTransportEstimateAmount) ??
+        fallback.estimated_budget_breakdown.selected_transport_estimate_amount ??
+        null,
+      transport_assumptions: cleanList(
+        budget?.transport_assumptions ?? budget?.transportAssumptions,
+        fallback.estimated_budget_breakdown.transport_assumptions || [],
+        4
+      )
     },
     hotel_area_suggestions: cleanList(record.hotel_area_suggestions, fallback.hotel_area_suggestions, 6),
     transport_overview: cleanString(record.transport_overview, fallback.transport_overview),

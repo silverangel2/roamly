@@ -26,6 +26,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
+import type { TransportOption } from "@/lib/roamly/transportOptions";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -62,6 +63,7 @@ type PriceDiscoveryResult = {
   activitiesEstimateCents: number;
   foodEstimateCents: number;
   localTransportEstimateCents: number;
+  selectedTransportEstimateCents?: number;
   bufferEstimateCents: number;
   totalEstimateCents: number;
   committedBudgetCents: number;
@@ -69,6 +71,9 @@ type PriceDiscoveryResult = {
   budgetStatus: "within_budget" | "tight" | "over_budget" | "unknown";
   budgetCurrency: string;
   coverageNote: string;
+  recommendedTransportOption?: TransportOption | null;
+  transportOptions?: TransportOption[];
+  transportAssumptions?: string[];
   unknownMarketPriceCount?: number;
   priceCoverage?: "market" | "partial" | "fallback";
 };
@@ -274,6 +279,28 @@ function formatMoney(cents: number | null, currency: string) {
   return formatBudgetMoneyCents(cents, currency);
 }
 
+function formatTransportMoney(amount: number | null | undefined, currency: string) {
+  if (amount == null || !Number.isFinite(amount)) return "Search-ready";
+  return `${currency} ${Math.round(amount).toLocaleString("en-CA")}`;
+}
+
+function formatTransportOption(option: TransportOption | null | undefined, fallbackCurrency: string) {
+  if (!option) return "Compare transport before booking.";
+  const currency = option.currency || fallbackCurrency;
+  const min = formatTransportMoney(option.estimated_cost_min, currency);
+  const max = formatTransportMoney(option.estimated_cost_max, currency);
+  const range = option.estimated_cost_min != null && option.estimated_cost_max != null ? `${min}-${max}` : min !== "Search-ready" ? min : max;
+  return `${option.title}: ${range}. ${option.why_recommended}`;
+}
+
+function transportOptionSummary(options: TransportOption[] | undefined, recommended: TransportOption | null | undefined, currency: string) {
+  const alternatives = (options || []).filter((option) => option !== recommended && option.budget_fit !== "best");
+  if (!alternatives.length) return "No alternatives returned yet.";
+  return alternatives
+    .map((option) => `${option.mode}: ${formatTransportMoney(option.estimated_cost_min, option.currency || currency)}-${formatTransportMoney(option.estimated_cost_max, option.currency || currency)}`)
+    .join(" | ");
+}
+
 function budgetStatusCopy(status: PriceDiscoveryResult["budgetStatus"]) {
   if (status === "unknown") {
     return "Add a total budget to compare this estimate against your comfort zone.";
@@ -282,7 +309,7 @@ function budgetStatusCopy(status: PriceDiscoveryResult["budgetStatus"]) {
     return "Your budget is tight. Roamly will prioritize affordable stays, free attractions, public transit, and low-cost food.";
   }
   if (status === "over_budget") {
-    return "This trip may exceed your budget. Roamly can suggest cheaper city order, shorter stays, fewer paid activities, lower-cost hotel areas, public transit, excluding flights or hotel, or increasing budget.";
+    return "This trip may exceed your budget. Roamly will compare driving, train, bus, mixed airport routes, lower-cost stays, fewer paid activities, or a higher budget.";
   }
   return "Your trip looks possible within budget.";
 }
@@ -1275,7 +1302,15 @@ export function TripPlanForm({
     : null;
   const priceDiscoveryRows = priceDiscovery
     ? [
-        ["Flights", formatMoney(priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)],
+        [
+          "Recommended transport",
+          formatTransportOption(priceDiscovery.recommendedTransportOption, priceDiscovery.budgetCurrency)
+        ],
+        [
+          "Other options",
+          transportOptionSummary(priceDiscovery.transportOptions, priceDiscovery.recommendedTransportOption, priceDiscovery.budgetCurrency)
+        ],
+        ["Flight option", formatMoney(priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)],
         ["Hotel/stay", formatMoney(priceDiscovery.hotelEstimateCents, priceDiscovery.budgetCurrency)],
         ["Activities", formatMoney(priceDiscovery.activitiesEstimateCents, priceDiscovery.budgetCurrency)],
         ["Food", formatMoney(priceDiscovery.foodEstimateCents, priceDiscovery.budgetCurrency)],
@@ -1710,6 +1745,12 @@ export function TripPlanForm({
                 <p className="mt-2 text-xs font-bold text-slate-500">
                   {translateText("Selected total")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
                 </p>
+                {priceDiscovery.recommendedTransportOption ? (
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    {translateText("Recommended transport")}:{" "}
+                    {formatTransportOption(priceDiscovery.recommendedTransportOption, priceDiscovery.budgetCurrency)}
+                  </p>
+                ) : null}
                 {priceBudgetBalance ? (
                   <p className="mt-1 text-xs font-bold text-slate-500">
                     {translateText(priceBudgetBalance.label)}: {priceBudgetBalance.value}
