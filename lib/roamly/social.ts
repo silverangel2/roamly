@@ -81,10 +81,6 @@ function enabled(value?: string | null) {
   return /^(true|1|yes|on)$/i.test(clean(value));
 }
 
-function disabled(value?: string | null) {
-  return /^(false|0|no|off)$/i.test(clean(value));
-}
-
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   return apiKey ? new OpenAI({ apiKey }) : null;
@@ -114,7 +110,7 @@ export function getRoamlySocialEnvStatus() {
   const facebookEnabled = enabled(process.env.ROAMLY_SOCIAL_FACEBOOK_ENABLED);
   const instagramEnabled = enabled(process.env.ROAMLY_SOCIAL_INSTAGRAM_ENABLED);
   const autoPostEnabled = enabled(process.env.ROAMLY_SOCIAL_AUTOPOST_ENABLED);
-  const requireApproval = !disabled(process.env.ROAMLY_SOCIAL_REQUIRE_APPROVAL || "true");
+  const requireApproval = enabled(process.env.ROAMLY_SOCIAL_REQUIRE_APPROVAL);
   const pageIdConfigured = Boolean(clean(process.env.ROAMLY_META_PAGE_ID));
   const tokenConfigured = Boolean(clean(process.env.ROAMLY_META_ACCESS_TOKEN));
   const instagramAccountConfigured = Boolean(clean(process.env.ROAMLY_INSTAGRAM_BUSINESS_ACCOUNT_ID));

@@ -26,10 +26,11 @@ function isTripPage(pathname: string) {
   return pathname === "/trip" || pathname.startsWith("/trip/");
 }
 
-function loginRedirectUrl(request: NextRequest) {
+function loginRedirectUrl(request: NextRequest, error?: string) {
   const next = safeAuthNextPath(`${request.nextUrl.pathname}${request.nextUrl.search}`, "/plan");
   const url = new URL("/login", request.url);
   url.searchParams.set("next", next);
+  if (error) url.searchParams.set("error", error);
   return url;
 }
 
@@ -53,7 +54,9 @@ function isDashboardPath(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-roamly-path", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (!hasSupabaseConfig()) {
     return response;
@@ -69,7 +72,7 @@ export async function middleware(request: NextRequest) {
           request.cookies.set(name, value);
         });
 
-        response = NextResponse.next({ request });
+        response = NextResponse.next({ request: { headers: requestHeaders } });
 
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
@@ -100,7 +103,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isProtectedPage(request.nextUrl.pathname) && !user) {
-    return NextResponse.redirect(loginRedirectUrl(request));
+    return NextResponse.redirect(loginRedirectUrl(request, hasSupabaseAuthCookie(request) ? "session_expired" : undefined));
   }
 
   return response;

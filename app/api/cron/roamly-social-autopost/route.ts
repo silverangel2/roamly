@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { runRoamlySocialAutopost } from "@/lib/roamly/social";
+import { runFacebookAutomationCycle } from "@/lib/roamly/socialAutomation";
 
 function authorized(request: NextRequest) {
   const secret = (process.env.ROAMLY_SOCIAL_CRON_SECRET || "").trim();
@@ -19,7 +19,7 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Supabase service role is not configured." }, { status: 503 });
   }
 
-  const result = await runRoamlySocialAutopost(admin);
+  const result = await runFacebookAutomationCycle(admin, { trigger: "cron" });
   return NextResponse.json(result, { status: result.ok ? 200 : 500 });
 }
 

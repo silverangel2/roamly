@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description: "Plan realistic single-city and multi-city trips, organize bookings, and travel with a live AI companion.",
   applicationName: "Roamly",
   manifest: "/manifest.json",
-  metadataBase: new URL("https://getroamly.com"),
+  metadataBase: new URL("https://roamlyhq.com"),
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },

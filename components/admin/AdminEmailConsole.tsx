@@ -15,10 +15,18 @@ type EmailLog = {
 };
 
 const templates = [
-  "general_admin_message",
-  "beta_invite",
+  "welcome",
+  "contact_confirmation",
+  "support_notification",
+  "login_help",
   "trip_reminder",
-  "live_trip_companion_reminder",
+  "social_autopost_status",
+  "facebook_publishing_failure",
+  "weekly_automation_report",
+  "feature_announcement",
+  "newsletter",
+  "admin_test_email",
+  "general_admin_message",
   "support_reply"
 ];
 
@@ -32,7 +40,7 @@ export function AdminEmailConsole({
   const [to, setTo] = useState(adminEmail);
   const [subject, setSubject] = useState("Roamly update");
   const [message, setMessage] = useState("Hi, this is a Roamly update from the admin team.");
-  const [template, setTemplate] = useState("general_admin_message");
+  const [template, setTemplate] = useState("admin_test_email");
   const [logs, setLogs] = useState(initialLogs);
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
@@ -111,6 +119,9 @@ export function AdminEmailConsole({
               className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-ocean"
             />
           </label>
+          <div className="rounded-2xl bg-mist px-4 py-3 text-sm font-bold leading-6 text-slate-600">
+            Transactional templates are sent only for account, support, trip, or automation notices. Marketing templates must include unsubscribe controls before production sends.
+          </div>
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <button
@@ -135,7 +146,22 @@ export function AdminEmailConsole({
       </section>
 
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Recent email logs</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Preview</p>
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <article className="rounded-2xl border border-cloud bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Desktop</p>
+            <h2 className="mt-3 text-xl font-black text-ink">{subject}</h2>
+            <p className="mt-3 whitespace-pre-wrap text-sm font-bold leading-6 text-slate-600">{message}</p>
+            <p className="mt-4 rounded-xl bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">support@roamlyhq.com</p>
+          </article>
+          <article className="mx-auto w-full max-w-[260px] rounded-[1.5rem] border border-cloud bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Mobile</p>
+            <h2 className="mt-3 text-lg font-black leading-tight text-ink">{subject}</h2>
+            <p className="mt-3 whitespace-pre-wrap text-xs font-bold leading-5 text-slate-600">{message}</p>
+          </article>
+        </div>
+
+        <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-ocean">Delivery history</p>
         <div className="mt-4 grid gap-3">
           {logs.map((log) => (
             <article key={log.id} className="rounded-2xl bg-mist px-4 py-3">

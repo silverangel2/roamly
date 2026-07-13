@@ -47,6 +47,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const authErrorMessage = authError
     ? authError === "supabase_not_configured"
       ? "Supabase is not configured yet."
+      : authError === "session_expired"
+        ? "Your session expired. Please log in again to continue."
       : "We could not sign you in. Please try again."
     : "";
 

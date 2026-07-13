@@ -107,7 +107,7 @@ export async function requireAdmin(path = "/admin"): Promise<
   | { ok: true; user: User; admin: SupabaseClient }
   | { ok: false; reason: "setup" | "auth" | "denied"; response: NextResponse; redirectTo?: string }
 > {
-  const current = await getSupabaseCurrentUser();
+  const current = await getCurrentUser();
 
   if (!current.configured) {
     return {

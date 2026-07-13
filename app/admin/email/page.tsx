@@ -3,7 +3,7 @@ import { AdminEmailConsole } from "@/components/admin/AdminEmailConsole";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
-import { isEmailConfigured } from "@/lib/roamly/email";
+import { getRoamlySupportEmail, isEmailConfigured } from "@/lib/roamly/email";
 
 export default async function AdminEmailPage() {
   const state = await getRoamlyAdminPageState();
@@ -57,7 +57,7 @@ export default async function AdminEmailPage() {
       </section>
 
       <section className="mt-6">
-        <AdminEmailConsole adminEmail={state.user.email || ""} initialLogs={logs.data || []} />
+        <AdminEmailConsole adminEmail={getRoamlySupportEmail()} initialLogs={logs.data || []} />
       </section>
     </main>
   );

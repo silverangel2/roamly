@@ -1,315 +1,206 @@
-import { redirect } from "next/navigation";
-import { getMissingEnvironmentVariables } from "@/lib/env";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUser } from "@/lib/supabase/server";
+import { AdminAccessCard } from "@/components/admin/AdminAccessCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { getRoamlyAdminEmails } from "@/lib/roamly/access";
-import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
+import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
+import { isEmailConfigured } from "@/lib/roamly/email";
+import { getFacebookAutomationSummary } from "@/lib/roamly/socialAutomation";
 
-function adminEmails() {
-  return getRoamlyAdminEmails();
+type Section = {
+  title: string;
+  href: string;
+  status: "Ready" | "Needs attention" | "Not configured" | "Error";
+  working: string;
+  attention: string;
+  activity: string;
+  next: string;
+  control: string;
+};
+
+function statusClass(status: Section["status"]) {
+  if (status === "Ready") return "bg-ocean/10 text-ocean";
+  if (status === "Needs attention") return "bg-sun/20 text-amber-800";
+  if (status === "Not configured") return "bg-slate-100 text-slate-600";
+  return "bg-coral/10 text-coral";
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function SectionCard({ section }: { section: Section }) {
   return (
     <Card className="p-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{label}</p>
-      <p className="mt-2 text-3xl font-black text-ink">{value}</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-xl font-black text-ink">{section.title}</h2>
+          <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-black ${statusClass(section.status)}`}>
+            {section.status}
+          </span>
+        </div>
+        <Button href={section.href} tone="secondary">{section.control}</Button>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {[
+          ["Working", section.working],
+          ["Needs attention", section.attention],
+          ["Latest activity", section.activity],
+          ["Next scheduled action", section.next]
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-xl bg-mist px-4 py-3">
+            <p className="text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
+            <p className="mt-1 text-sm font-bold leading-6 text-slate-700">{value}</p>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 }
 
 export default async function AdminPage() {
-  const current = await getCurrentUser();
-  const allowedEmails = adminEmails();
+  const state = await getRoamlyAdminPageState();
+  if (!state.isAdmin || !state.admin) return <AdminAccessCard />;
 
-  if (current.configured && !current.user) redirect("/login?next=/admin");
-
-  if (!current.user || !allowedEmails.includes((current.user.email || "").toLowerCase())) {
-    return (
-      <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <Badge tone="coral">Admin protected</Badge>
-          <h1 className="mt-4 text-3xl font-black text-ink">Roamly admin is private.</h1>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Add your email to ROAMLY_ADMIN_EMAILS to open this operation panel.
-          </p>
-        </Card>
-      </main>
-    );
-  }
-
-  const admin = createSupabaseAdminClient();
-  const missing = getMissingEnvironmentVariables();
-
+  const email = isEmailConfigured();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const todayIso = today.toISOString();
 
   const [
+    social,
     users,
     trips,
-    qaTesterTrips,
-    lockedTrips,
-    payments,
-    freeUsed,
-    paidItineraries,
-    companionAddOns,
-    bundles,
-    recentTrips,
-    activeToday,
-    tripActivations,
-    checkIns,
-    locationOptIns,
     pageViews,
-    topTrips,
-    bookingCount,
-    priceDiscoveryCount,
-    notificationCount,
-    pushSubscriptionCount,
-    affiliateClicks,
-    affiliateProviderMissing,
-    failedAppGenerations,
-    failedTripGenerations,
-    checkoutCompleted,
-    recentAppEvents
-  ] = admin
-    ? await Promise.all([
-        admin.from("roamly_profiles").select("id", { count: "exact", head: true }),
-        admin.from("roamly_trips").select("id", { count: "exact", head: true }),
-        admin.from("roamly_trips").select("id", { count: "exact", head: true }).contains("metadata", { qa_tester: true }),
-        admin.from("roamly_trips").select("id", { count: "exact", head: true }).eq("itinerary_locked", true),
-        admin.from("roamly_itinerary_purchases").select("amount_cents,status,created_at").eq("status", "paid").limit(200),
-        admin.from("roamly_user_entitlements").select("id", { count: "exact", head: true }).not("free_itinerary_used_at", "is", null),
-        admin.from("roamly_itinerary_purchases").select("id", { count: "exact", head: true }).eq("status", "paid").in("purchase_type", ["itinerary", "itinerary_unlock"]),
-        admin.from("roamly_itinerary_purchases").select("id", { count: "exact", head: true }).eq("status", "paid").in("purchase_type", ["features", "tracking_addon"]),
-        admin.from("roamly_itinerary_purchases").select("id", { count: "exact", head: true }).eq("status", "paid").in("purchase_type", ["complete_trip", "bundle"]),
-        admin
-          .from("roamly_trips")
-          .select("id,title,destination_name,status,itinerary_status,itinerary_locked,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,itinerary_generated_at,itinerary_locked_at,metadata,created_at")
-          .order("created_at", { ascending: false })
-          .limit(8),
-        admin.from("roamly_trips").select("id", { count: "exact", head: true }).eq("status", "active"),
-        admin
-          .from("roamly_trip_events")
-          .select("id", { count: "exact", head: true })
-          .eq("event_type", "trip_activated")
-          .gte("created_at", todayIso),
-        admin
-          .from("roamly_trip_events")
-          .select("id", { count: "exact", head: true })
-          .eq("event_type", "activity_checked_in")
-          .gte("created_at", todayIso),
-        admin
-          .from("roamly_location_settings")
-          .select("id", { count: "exact", head: true })
-          .eq("location_tracking_enabled", true),
-        admin
-          .from("roamly_app_events")
-          .select("id", { count: "exact", head: true })
-          .eq("event_type", "page_view")
-          .gte("created_at", todayIso),
-        admin
-          .from("roamly_trips")
-          .select("destination_name,destination_city,destination_country,metadata")
-          .order("created_at", { ascending: false })
-          .limit(200),
-        admin.from("roamly_bookings").select("id", { count: "exact", head: true }),
-        admin.from("roamly_price_discoveries").select("id", { count: "exact", head: true }),
-        admin.from("roamly_notifications").select("id", { count: "exact", head: true }),
-        admin.from("roamly_push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
-        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "booking_link_clicked"),
-        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "affiliate_provider_missing"),
-        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "itinerary_generation_failed"),
-        admin.from("roamly_trip_events").select("id", { count: "exact", head: true }).eq("event_type", "itinerary_generation_failed"),
-        admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "checkout_completed"),
-        admin.from("roamly_app_events").select("event_type,metadata,created_at").order("created_at", { ascending: false }).limit(500)
-      ])
-    : [null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null];
+    notifications,
+    failedEmails,
+    supportMessages
+  ] = await Promise.all([
+    getFacebookAutomationSummary(state.admin),
+    state.admin.from("roamly_profiles").select("id", { count: "exact", head: true }),
+    state.admin.from("roamly_trips").select("id", { count: "exact", head: true }),
+    state.admin.from("roamly_app_events").select("id", { count: "exact", head: true }).eq("event_type", "page_view").gte("created_at", today.toISOString()),
+    state.admin.from("roamly_notifications").select("id", { count: "exact", head: true }),
+    state.admin.from("roamly_email_logs").select("id", { count: "exact", head: true }).eq("status", "failed"),
+    state.admin.from("roamly_support_messages").select("id", { count: "exact", head: true }).eq("status", "new")
+  ]);
 
-  const paidRows = (payments?.data || []) as Array<{ amount_cents: number }>;
-  const revenue = paidRows.reduce((sum, row) => sum + (row.amount_cents || 0), 0) / 100;
-  const topDestinations = new Map<string, number>();
-  const topMultiCityRoutes = new Map<string, number>();
-  ((topTrips?.data || []) as Array<{
-    destination_name?: string | null;
-    destination_city?: string | null;
-    destination_country?: string | null;
-    metadata?: Record<string, unknown> | null;
-  }>).forEach(
-    (trip) => {
-      const label = trip.destination_city || getTripDestinationLabel(trip) || trip.destination_country || "Unknown";
-      topDestinations.set(label, (topDestinations.get(label) || 0) + 1);
-      const planning = trip.metadata && typeof trip.metadata === "object" ? (trip.metadata.planning as Record<string, unknown> | undefined) : undefined;
-      const stops = Array.isArray(planning?.destinationStops) ? planning.destinationStops : [];
-      const route = stops
-        .map((stop) => (stop && typeof stop === "object" ? (stop as Record<string, unknown>).value || (stop as Record<string, unknown>).label : ""))
-        .filter((item): item is string => typeof item === "string" && item.length > 0)
-        .join(" → ");
-      if (route) topMultiCityRoutes.set(route, (topMultiCityRoutes.get(route) || 0) + 1);
+  const socialAttention = social.env.blockingIssues[0] || (social.counts.queueSize < social.settings.minimumQueueSize ? "Queue is below target." : "No action needed.");
+  const socialStatus: Section["status"] = social.env.publishingReady
+    ? "Ready"
+    : social.env.facebookConnected
+      ? "Needs attention"
+      : "Not configured";
+
+  const sections: Section[] = [
+    {
+      title: "Facebook Autopost",
+      href: "/admin/social",
+      status: socialStatus,
+      working: `${social.counts.queueSize} future posts, ${social.counts.published} published, ${social.counts.retrying} retrying.`,
+      attention: socialAttention,
+      activity: social.lastCron?.finished_at || social.recentActivity[0]?.updated_at || "No automation run yet.",
+      next: social.nextPost?.scheduled_for || social.nextAutomationRun,
+      control: "Open autopost"
+    },
+    {
+      title: "Content Library",
+      href: "/admin/social/library",
+      status: social.counts.mediaAssets ? "Ready" : "Needs attention",
+      working: `${social.counts.mediaAssets} media assets available to review.`,
+      attention: social.counts.mediaAssets ? "Keep approving fresh media for rotation." : "Add or approve media for image posts and Reels.",
+      activity: social.recentActivity[0]?.draft?.hook || "No social content yet.",
+      next: social.nextPost?.draft?.content_type || "Generate the initial queue.",
+      control: "Review library"
+    },
+    {
+      title: "SEO Pages",
+      href: "/admin/seo",
+      status: "Needs attention",
+      working: "SEO drafts and published guide pages are supported.",
+      attention: "Generate destination, itinerary, packing, budget, and checklist pages.",
+      activity: "No SEO run shown on overview.",
+      next: "Create the next useful travel guide.",
+      control: "Open SEO"
+    },
+    {
+      title: "Email Center",
+      href: "/admin/email",
+      status: email.configured ? "Ready" : "Not configured",
+      working: email.configured ? `${email.provider} is configured.` : "Email logs are still recorded when sending is skipped.",
+      attention: email.configured ? `${failedEmails.count || 0} failed sends need review.` : email.reason,
+      activity: `${supportMessages.count || 0} new contact messages.`,
+      next: "Send a test email to support@roamlyhq.com.",
+      control: "Open email"
+    },
+    {
+      title: "Users",
+      href: "/admin/users",
+      status: "Ready",
+      working: `${users.count || 0} user profiles.`,
+      attention: "Watch for support requests and login issues.",
+      activity: "Profiles update automatically after login.",
+      next: "Review new users as needed.",
+      control: "View users"
+    },
+    {
+      title: "Trips",
+      href: "/admin/trips",
+      status: "Ready",
+      working: `${trips.count || 0} trips in Roamly.`,
+      attention: "Investigate failed itinerary generations from Traffic or Launch Readiness.",
+      activity: "Trip records are created by the planner.",
+      next: "Review recent trips.",
+      control: "View trips"
+    },
+    {
+      title: "Traffic",
+      href: "/admin/traffic",
+      status: "Ready",
+      working: `${pageViews.count || 0} page views today.`,
+      attention: "Look for broken funnels or missing events.",
+      activity: "App events are tracked in Supabase.",
+      next: "Review today traffic.",
+      control: "Open traffic"
+    },
+    {
+      title: "Notifications",
+      href: "/admin/notifications",
+      status: "Ready",
+      working: `${notifications.count || 0} notifications stored.`,
+      attention: "Check push/email failures before launch.",
+      activity: "Trip reminders run from cron.",
+      next: "Review notification queue.",
+      control: "Open notifications"
+    },
+    {
+      title: "Launch Readiness",
+      href: "/admin/launch",
+      status: social.env.publishingReady && email.configured ? "Ready" : "Needs attention",
+      working: "Launch checks hide secret values and show direct next actions.",
+      attention: "Confirm auth, email, Meta, cron, sitemap, legal, and affiliate disclosure.",
+      activity: "Readiness updates from current environment.",
+      next: "Resolve remaining checks.",
+      control: "Check launch"
+    },
+    {
+      title: "Settings",
+      href: "/admin/settings",
+      status: "Ready",
+      working: "Admin settings and launch values are grouped in one place.",
+      attention: "Production-only secrets should stay in Vercel and Supabase.",
+      activity: "Settings are read server-side.",
+      next: "Review Facebook and email settings.",
+      control: "Open settings"
     }
-  );
-  const recentEventRows = (recentAppEvents?.data || []) as Array<{ event_type?: string; metadata?: Record<string, unknown> | null }>;
-  const eventCounts = recentEventRows.reduce<Record<string, number>>((acc, event) => {
-    if (event.event_type) acc[event.event_type] = (acc[event.event_type] || 0) + 1;
-    return acc;
-  }, {});
-  const failedGenerationCount = (failedAppGenerations?.count || 0) + (failedTripGenerations?.count || 0);
+  ];
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <section>
-        <Badge>Admin</Badge>
-        <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Roamly control center.</h1>
-        <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
-          A clean single-operator view for launch readiness, settings, usage, and revenue checks.
-        </p>
-      </section>
+    <main className="safe-bottom">
+      <Badge>Overview</Badge>
+      <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-5xl">Roamly admin dashboard</h1>
+      <p className="mt-3 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+        A simple operations view for launch, Facebook automation, content, email, users, trips, traffic, and settings.
+      </p>
 
-      <section className="mt-7 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Users" value={users?.count ?? "Setup"} />
-        <Stat label="Trips generated" value={trips?.count ?? "Setup"} />
-        <Stat label="Locked itineraries" value={lockedTrips?.count ?? "Setup"} />
-        <Stat label="Revenue estimate" value={`$${revenue.toFixed(2)}`} />
-        <Stat label="Tester trips" value={qaTesterTrips?.count ?? 0} />
-        <Stat label="Free itineraries used" value={freeUsed?.count ?? 0} />
-        <Stat label="Paid itineraries unlocked" value={paidItineraries?.count ?? 0} />
-        <Stat label="Affiliate clicks" value={affiliateClicks?.count ?? 0} />
-        <Stat label="Failed generations" value={failedGenerationCount} />
-        <Stat label="Active trips today" value={activeToday?.count ?? 0} />
-        <Stat label="Live starts today" value={tripActivations?.count ?? 0} />
-        <Stat label="Check-ins today" value={checkIns?.count ?? 0} />
-        <Stat label="Page views today" value={pageViews?.count ?? 0} />
-      </section>
-
-      <section className="mt-5 grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Today</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">Itinerary and companion sales</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Tester activity is excluded from revenue totals where possible.
-          </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {[
-              ["Free itinerary used", `${freeUsed?.count ?? 0} accounts`],
-              ["Paid itineraries", `${paidItineraries?.count ?? 0}`],
-              ["Live Companion add-ons", `${companionAddOns?.count ?? 0}`],
-              ["Bundles", `${bundles?.count ?? 0}`],
-              ["Pricing", "$4.99 itinerary · $3.99 companion · $7.99 complete"],
-              ["Booking imports", `${bookingCount?.count ?? 0}`],
-              ["Budget checks", `${priceDiscoveryCount?.count ?? 0}`],
-              ["Checkout completions", `${checkoutCompleted?.count ?? 0}`],
-              ["Tester activity", `${qaTesterTrips?.count ?? 0} QA trips marked`],
-              ["Affiliate clicks", `${affiliateClicks?.count ?? 0}`],
-              ["Affiliate provider missing", `${affiliateProviderMissing?.count ?? 0}`],
-              ["Notifications", `${notificationCount?.count ?? 0}`],
-              ["Push opt-ins", `${pushSubscriptionCount?.count ?? 0}`],
-              ["Location opt-in", `${locationOptIns?.count ?? 0} users enabled`],
-              ["AI generation", process.env.OPENAI_API_KEY ? "Configured" : "Missing key"],
-              ["OpenAI usage/cost estimate", eventCounts.openai_usage ? `${eventCounts.openai_usage} usage events` : "Not tracked yet"]
-            ].map(([label, value]) => (
-              <div key={label} className="rounded-2xl bg-mist p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
-                <p className="mt-1 text-sm font-black text-ink">{value}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-coral">Environment</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">
-            {missing.length ? "Needs attention" : "Launch values present"}
-          </h2>
-          <div className="mt-4 grid gap-2">
-            {(missing.length ? missing : ["No missing required values detected"]).map((item) => (
-              <p key={item} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
-                {item}
-              </p>
-            ))}
-          </div>
-        </Card>
-      </section>
-
-      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Button href="/admin/live-test" tone="secondary">Live test</Button>
-        <Button href="/admin/email" tone="secondary">Email center</Button>
-        <Button href="/admin/social" tone="secondary">Social center</Button>
-        <Button href="/admin/system" tone="secondary">System diagnostics</Button>
-        <Button href="/admin/launch" tone="secondary">Launch readiness</Button>
-        <Button href="/admin/settings" tone="secondary">Launch settings</Button>
-      </section>
-
-      <section className="mt-5">
-        <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Top destinations</p>
-          <div className="mt-4 grid gap-3">
-            {[...topDestinations.entries()]
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 8)
-              .map(([destination, count]) => (
-                <p key={destination} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
-                  {destination} · {count}
-                </p>
-              ))}
-            {!topDestinations.size ? (
-              <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">No destinations yet.</p>
-            ) : null}
-          </div>
-        </Card>
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Popular multi-city routes</p>
-          <div className="mt-4 grid gap-3">
-            {[...topMultiCityRoutes.entries()]
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 8)
-              .map(([route, count]) => (
-                <p key={route} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
-                  {route} · {count}
-                </p>
-              ))}
-            {!topMultiCityRoutes.size ? (
-              <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">No multi-city routes yet.</p>
-            ) : null}
-          </div>
-        </Card>
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Recent trips</p>
-          <div className="mt-4 grid gap-3">
-            {((recentTrips?.data || []) as Array<{
-              id: string;
-              title: string | null;
-              destination_name?: string | null;
-              status: string;
-              itinerary_status?: string | null;
-              itinerary_locked?: boolean | null;
-              itinerary_payment_status?: string | null;
-              itinerary_unlock_source?: string | null;
-              tracking_unlocked?: boolean | null;
-              itinerary_generated_at?: string | null;
-              itinerary_locked_at?: string | null;
-              metadata?: Record<string, unknown> | null;
-            }>).map((trip) => (
-              <div key={trip.id} className="rounded-2xl bg-mist px-4 py-3">
-                <p className="text-sm font-black text-ink">{trip.title || getTripDestinationLabel(trip) || "Trip"}</p>
-                <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                  {trip.itinerary_locked ? "Locked" : trip.itinerary_status || trip.status} · {trip.itinerary_payment_status || "unpaid"} ·{" "}
-                  {trip.tracking_unlocked ? "companion" : "no companion"}
-                  {trip.metadata?.qa_tester ? " · tester" : ""}
-                </p>
-              </div>
-            ))}
-            {!recentTrips?.data?.length ? (
-              <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-                No recent trip records yet.
-              </p>
-            ) : null}
-          </div>
-        </Card>
-        </div>
+      <section className="mt-6 grid gap-4">
+        {sections.map((section) => (
+          <SectionCard key={section.title} section={section} />
+        ))}
       </section>
     </main>
   );

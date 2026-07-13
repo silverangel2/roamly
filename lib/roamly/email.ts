@@ -9,6 +9,16 @@ import {
 type EmailStatus = "pending" | "sent" | "failed" | "skipped";
 
 type EmailTemplateType =
+  | "welcome"
+  | "contact_confirmation"
+  | "support_notification"
+  | "login_help"
+  | "social_autopost_status"
+  | "facebook_publishing_failure"
+  | "weekly_automation_report"
+  | "feature_announcement"
+  | "newsletter"
+  | "admin_test_email"
   | "general_admin_message"
   | "beta_invite"
   | "trip_reminder"
