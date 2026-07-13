@@ -35,6 +35,11 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 import { isLegacyBookingUrl, resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
 import {
+  getPublicSupabaseHost,
+  logGenerationDiagnostic,
+  summarizeItineraryShape
+} from "@/lib/roamly/generationDiagnostics";
+import {
   buildTransportSearchUrl,
   roamlyDiscoveryUrl,
   safeExternalUrl,
@@ -1343,7 +1348,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     redirect("/dashboard?tripAccess=denied");
   }
 
-  const { trip, itinerary, checklist } = bundleResult.data;
+  const { trip, itinerary, days, activities, checklist } = bundleResult.data;
   const destinationLabel = getTripDestinationLabel(trip) || "your destination";
   const currency = getTripBudgetCurrency(trip);
   const baseFull = itinerary?.full_json || null;
@@ -1389,6 +1394,19 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       metadata: { tripId: id, error: checkoutSyncError }
     });
   }
+
+  logGenerationDiagnostic(canShowFull && full ? "itinerary_render_full_loaded" : "itinerary_render_full_unavailable", {
+    route: "/trip/[id]",
+    tripId: id,
+    supabaseHost: getPublicSupabaseHost(),
+    fullJsonPresent: Boolean(baseFull),
+    localizedFullPresent: Boolean(full),
+    itineraryLocked,
+    canShowFull,
+    displayDayRowsLoaded: days.length,
+    activityRowsLoaded: activities.length,
+    ...(full ? summarizeItineraryShape(full) : {})
+  });
 
   return (
     <main className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-24 pt-5 text-ink sm:px-6 sm:py-8">

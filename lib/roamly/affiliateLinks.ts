@@ -304,7 +304,7 @@ function cleanStringValue(value: unknown) {
 function safeBookingHref(value: unknown) {
   const raw = cleanStringValue(value);
   if (!raw || isLegacyBookingUrl(raw)) return "";
-  if (raw.startsWith("/")) return raw;
+  if (raw.startsWith("/")) return "";
   return safeExternalUrl(raw);
 }
 

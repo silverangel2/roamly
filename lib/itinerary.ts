@@ -768,10 +768,12 @@ function legacyBookingLinkPresent(itinerary: RoamlyItinerary) {
 function isValidBookingHref(value?: string | null) {
   const raw = cleanString(value, "");
   if (!raw || raw === "#" || /^javascript:/i.test(raw) || /placeholder|example\.com/i.test(raw)) return false;
-  if (raw.startsWith("/")) return true;
+  if (raw.startsWith("/")) return false;
   try {
     const url = new URL(raw);
-    return url.protocol === "https:" || url.protocol === "http:";
+    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+    if (/^roamlyhq\.com$/i.test(url.hostname) && url.pathname === "/plan") return false;
+    return true;
   } catch {
     return false;
   }

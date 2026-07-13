@@ -51,11 +51,14 @@ const affiliateResolver = read("lib/roamly/affiliateResolver.ts");
 ["booking\\.com", "google\\.com\\/travel\\/flights", "viator", "getyourguide"].forEach((needle) =>
   assert.ok(affiliateResolver.toLowerCase().includes(needle), `legacy provider guard missing ${needle}`)
 );
+assert.ok(!affiliateResolver.includes("source\", \"affiliate_fallback\""), "affiliate resolver must not send booking CTAs back to /plan");
+assert.ok(affiliateResolver.includes('fallbackBehavior: isAffiliate ? "affiliate" : "hidden"'), "missing affiliate providers must hide CTAs, not create internal fallbacks");
 
 const affiliateLinks = read("lib/roamly/affiliateLinks.ts");
 assert.ok(affiliateLinks.includes("enrichTimelineItems"), "timeline booking CTAs must be resolved server-side");
 assert.ok(affiliateLinks.includes("resolveAffiliateLink"), "affiliate links must use the centralized resolver");
 assert.ok(affiliateLinks.includes("booking: {"), "timeline items must receive structured booking objects");
+assert.ok(affiliateLinks.includes('if (raw.startsWith("/")) return "";'), "generated booking links must reject internal /plan fallbacks");
 
 const itinerary = read("lib/itinerary.ts");
 [
@@ -69,6 +72,7 @@ const itinerary = read("lib/itinerary.ts");
   "CTA"
 ].forEach((needle) => assert.ok(itinerary.includes(needle), `itinerary validation missing ${needle}`));
 assert.ok(itinerary.includes("startTime") && itinerary.includes("endTime") && itinerary.includes("durationMinutes"), "structured timeline fields must be normalized");
+assert.ok(itinerary.includes('if (raw.startsWith("/")) return false;'), "itinerary production validation must reject internal booking CTA URLs");
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("BookingRecommendationButton") && tripPage.includes("item.booking"), "timeline CTAs must render as real booking buttons");
@@ -88,5 +92,43 @@ const trips = read("lib/trips.ts");
 ["startTime", "endTime", "durationMinutes", "travelTimeMinutes", "booking", "affiliate_category"].forEach((needle) =>
   assert.ok(trips.includes(needle), `itinerary persistence metadata missing ${needle}`)
 );
+assert.ok(trips.includes("itinerary_storage_write_completed"), "itinerary storage diagnostics must prove structure was persisted");
+
+const generationDiagnostics = read("lib/roamly/generationDiagnostics.ts");
+[
+  "logGenerationDiagnostic",
+  "summarizeItineraryShape",
+  "SENSITIVE_KEY_PATTERN",
+  "structuredTimelineComplete",
+  "firstDayHasTravel",
+  "finalDayHasReturnTravel"
+].forEach((needle) => assert.ok(generationDiagnostics.includes(needle), `generation diagnostics missing ${needle}`));
+
+const aiGenerator = read("lib/ai/roamly-itinerary.ts");
+[
+  "ai_generation_call_start",
+  "ai_generation_call_result",
+  "ai_generation_response_parsed",
+  "ai_generation_failed_no_fallback",
+  "fallbackDisabled",
+  "openAiKeyPresent",
+  "responseContentPresent"
+].forEach((needle) => assert.ok(aiGenerator.includes(needle), `AI generation trace missing ${needle}`));
+assert.ok(!aiGenerator.includes("buildFallbackItinerary"), "paid itinerary generation must not silently build a template fallback");
+assert.ok(!aiGenerator.includes("local-starter-itinerary"), "paid itinerary generation must not return the local starter itinerary");
+
+const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
+[
+  "generation_route_request_received",
+  "generation_route_auth_failed",
+  "generation_ai_result",
+  "generation_storage_completed",
+  "generation_route_response"
+].forEach((needle) => assert.ok(generateRouteDiagnostics.includes(needle), `generation route trace missing ${needle}`));
+
+assert.ok(tripPage.includes("itinerary_render_full_loaded"), "trip page must log safe structure diagnostics when rendering saved itineraries");
+
+const travelMarketSearch = read("lib/roamly/travelMarketSearch.ts");
+assert.ok(travelMarketSearch.includes('return value !== "false" && value !== "0" && value !== "disabled";'), "market and affiliate gates should default on unless explicitly disabled");
 
 console.log("Roamly core checks passed.");

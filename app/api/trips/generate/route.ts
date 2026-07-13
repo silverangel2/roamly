@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import {
   generateRoamlyItinerary,
   RoamlyItineraryGenerationError
@@ -28,6 +29,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError, syncGeneratedItinerary } from "@/lib/trips";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import { buildTripPlanningMetadata, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
+import {
+  getPublicSupabaseHost,
+  logGenerationDiagnostic,
+  summarizeItineraryShape
+} from "@/lib/roamly/generationDiagnostics";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
 function getString(value: unknown) {
@@ -346,11 +352,23 @@ async function finalizeItinerary(params: {
   userEmail?: string | null;
   tripId: string;
   payload: TripPlannerPayload;
+  requestId: string;
 }) {
   const serverDateRange = calculateTripDateRange(params.payload.startDate, params.payload.endDate);
   if (!serverDateRange.ok) return invalidTripDatesResponse(serverDateRange);
   const serverDaysCount = serverDateRange.days || 1;
   const payload: TripPlannerPayload = { ...params.payload, daysCount: serverDaysCount };
+  logGenerationDiagnostic("generation_finalize_start", {
+    requestId: params.requestId,
+    route: "/api/trips/generate",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    tripType: payload.tripType || "single_destination",
+    daysCount: serverDaysCount,
+    hasOrigin: Boolean(payload.origin),
+    hasDestination: Boolean(payload.destination),
+    hasDates: Boolean(payload.startDate && payload.endDate)
+  });
 
   if (process.env.NODE_ENV === "development") {
     console.log("[Roamly generate] Inclusive trip days", {
@@ -372,6 +390,14 @@ async function finalizeItinerary(params: {
         destination: payload.destination,
         error: canGenerate.error
       }
+    });
+    logGenerationDiagnostic("generation_access_blocked", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      status: canGenerate.status || 500,
+      errorCode: canGenerate.error
     });
     if (canGenerate.error === "PAYMENT_REQUIRED" && canGenerate.trip?.id) {
       await params.supabase
@@ -448,6 +474,10 @@ async function finalizeItinerary(params: {
       budgetConstraint: buildBudgetConstraintForItinerary(discovery),
       priceDiscovery: discovery as unknown as Record<string, unknown>,
       confirmedBookings: confirmedBookings.bookings
+    }, {
+      requestId: params.requestId,
+      tripId: params.tripId,
+      route: "/api/trips/generate"
     });
   } catch (error) {
     const generationError =
@@ -475,6 +505,14 @@ async function finalizeItinerary(params: {
         aiUsed: false
       }
     });
+    logGenerationDiagnostic("generation_ai_error_response", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      status: generationError.status,
+      errorCode: generationError.code
+    });
     return NextResponse.json(
       {
         ok: false,
@@ -484,6 +522,16 @@ async function finalizeItinerary(params: {
       { status: generationError.status }
     );
   }
+
+  logGenerationDiagnostic("generation_ai_result", {
+    requestId: params.requestId,
+    route: "/api/trips/generate",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    aiUsed: generated.aiUsed,
+    model: generated.model,
+    ...summarizeItineraryShape(generated.itinerary)
+  });
 
   if (process.env.NODE_ENV === "development") {
     console.log("[Roamly generate] Generation metrics", {
@@ -500,7 +548,10 @@ async function finalizeItinerary(params: {
     tripId: params.tripId,
     userId: params.userId,
     itinerary: generated.itinerary,
-    status: "generated"
+    status: "generated",
+    diagnostic: {
+      requestId: params.requestId
+    }
   });
 
   if (sync.error) {
@@ -517,6 +568,14 @@ async function finalizeItinerary(params: {
       eventBody: sync.error,
       metadata: { destination: payload.destination }
     });
+    logGenerationDiagnostic("generation_storage_error_response", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      status: 500,
+      errorCode: "ITINERARY_STORAGE_FAILED"
+    });
     return NextResponse.json(
       {
         ok: false,
@@ -526,6 +585,14 @@ async function finalizeItinerary(params: {
       { status: 500 }
     );
   }
+
+  logGenerationDiagnostic("generation_storage_completed", {
+    requestId: params.requestId,
+    route: "/api/trips/generate",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    ...summarizeItineraryShape(generated.itinerary)
+  });
 
   if (canGenerate.source === "free") {
     const marked = await markFreeItineraryUsed(params.supabase, params.userId, params.tripId);
@@ -575,6 +642,18 @@ async function finalizeItinerary(params: {
       aiUsed: generated.aiUsed,
       model: generated.model
     }
+  });
+
+  logGenerationDiagnostic("generation_route_response", {
+    requestId: params.requestId,
+    route: "/api/trips/generate",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    status: 201,
+    aiUsed: generated.aiUsed,
+    model: generated.model,
+    previewUrlPresent: true,
+    ...summarizeItineraryShape(generated.itinerary)
   });
 
   return NextResponse.json(
@@ -661,16 +740,46 @@ async function checkRoamlyGenerationSchema(supabase: Awaited<ReturnType<typeof c
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = randomUUID();
+  logGenerationDiagnostic("generation_route_request_received", {
+    requestId,
+    route: request.nextUrl.pathname,
+    supabaseHost: getPublicSupabaseHost(),
+    method: request.method
+  });
   const auth = await requireUser();
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    logGenerationDiagnostic("generation_route_auth_failed", {
+      requestId,
+      route: request.nextUrl.pathname,
+      supabaseHost: getPublicSupabaseHost(),
+      status: auth.response.status,
+      errorCode: "AUTH_REQUIRED"
+    });
+    return auth.response;
+  }
 
   const { supabase, user } = auth;
+  logGenerationDiagnostic("generation_route_auth_success", {
+    requestId,
+    route: request.nextUrl.pathname,
+    supabaseHost: getPublicSupabaseHost(),
+    authenticatedUserPresent: true
+  });
   
   const schemaReady = await checkRoamlyGenerationSchema(supabase);
   if (!schemaReady.ok) {
     if (process.env.NODE_ENV === "development") {
       console.warn("[Roamly] Generation blocked because migrations are missing", schemaReady.missing);
     }
+    logGenerationDiagnostic("generation_schema_blocked", {
+      requestId,
+      route: request.nextUrl.pathname,
+      supabaseHost: getPublicSupabaseHost(),
+      status: 503,
+      errorCode: "ROAMLY_MIGRATIONS_REQUIRED",
+      missingCount: schemaReady.missing.length
+    });
 
     return NextResponse.json(
       {
@@ -687,6 +796,12 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const existingTripId = getString(body.tripId);
+  logGenerationDiagnostic("generation_route_body_parsed", {
+    requestId,
+    route: request.nextUrl.pathname,
+    supabaseHost: getPublicSupabaseHost(),
+    existingTripIdPresent: Boolean(existingTripId)
+  });
 
   try {
     if (existingTripId) {
@@ -725,7 +840,7 @@ export async function POST(request: NextRequest) {
       if (typeof validation === "object") return invalidTripDatesResponse(validation);
       if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
-      return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: existingTripId, payload });
+      return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: existingTripId, payload, requestId });
     }
 
     const payload = cleanPayload(body);
@@ -781,7 +896,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: trip.id, payload });
+    return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: trip.id, payload, requestId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";
     console.error("[Roamly generate] Unhandled generation failure", error);
@@ -793,6 +908,13 @@ export async function POST(request: NextRequest) {
         destination: getString(body.destination),
         error: message
       }
+    });
+    logGenerationDiagnostic("generation_route_unhandled_error_response", {
+      requestId,
+      route: request.nextUrl.pathname,
+      supabaseHost: getPublicSupabaseHost(),
+      status: 500,
+      errorCode: "ITINERARY_GENERATION_UNHANDLED"
     });
     return NextResponse.json(
       {

@@ -5,6 +5,11 @@ import {
   type RoamlyItinerary,
   type RoamlyPreview
 } from "@/lib/itinerary";
+import {
+  getPublicSupabaseHost,
+  logGenerationDiagnostic,
+  summarizeStoredItinerary
+} from "@/lib/roamly/generationDiagnostics";
 
 export type RoamlyTripRecord = {
   id: string;
@@ -242,10 +247,20 @@ export async function syncGeneratedItinerary(
     userId: string;
     itinerary: RoamlyItinerary;
     status?: "preview" | "generated" | "locked";
+    diagnostic?: {
+      requestId?: string;
+    };
   }
 ) {
   const preview = buildPreviewFromItinerary(params.itinerary);
   const now = new Date().toISOString();
+  logGenerationDiagnostic("itinerary_storage_write_start", {
+    requestId: params.diagnostic?.requestId,
+    route: "syncGeneratedItinerary",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    ...summarizeStoredItinerary(params.itinerary)
+  });
   const tripMetadataResult = await supabase
     .from("roamly_trips")
     .select("metadata")
@@ -292,8 +307,30 @@ export async function syncGeneratedItinerary(
 
     if (itineraryResult.error && isMissingTableError(itineraryResult.error.message)) {
       itineraryDisplayTablesAvailable = false;
+      logGenerationDiagnostic("itinerary_storage_full_json_table_missing", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost()
+      });
     } else if (itineraryResult.error) {
+      logGenerationDiagnostic("itinerary_storage_full_json_error", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        errorCode: itineraryResult.error.code || "SUPABASE_WRITE_ERROR"
+      });
       return { error: itineraryResult.error.message };
+    } else {
+      logGenerationDiagnostic("itinerary_storage_full_json_written", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        fullJsonWritten: true,
+        ...summarizeStoredItinerary(params.itinerary)
+      });
     }
   }
 
@@ -336,7 +373,23 @@ export async function syncGeneratedItinerary(
         estimated_cost: day.estimated_cost
       }))
     );
-    if (daysResult.error && !isMissingTableError(daysResult.error.message)) return { error: daysResult.error.message };
+    if (daysResult.error && !isMissingTableError(daysResult.error.message)) {
+      logGenerationDiagnostic("itinerary_storage_day_rows_error", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        errorCode: daysResult.error.code || "SUPABASE_WRITE_ERROR"
+      });
+      return { error: daysResult.error.message };
+    }
+    logGenerationDiagnostic("itinerary_storage_day_rows_written", {
+      requestId: params.diagnostic?.requestId,
+      route: "syncGeneratedItinerary",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      dayRowsAttempted: params.itinerary.daily_itinerary.length
+    });
   }
 
   const activities = params.itinerary.daily_itinerary.flatMap((day) =>
@@ -356,7 +409,23 @@ export async function syncGeneratedItinerary(
 
   if (itineraryDisplayTablesAvailable && activities.length) {
     const activityResult = await supabase.from("roamly_trip_activities").insert(activities);
-    if (activityResult.error && !isMissingTableError(activityResult.error.message)) return { error: activityResult.error.message };
+    if (activityResult.error && !isMissingTableError(activityResult.error.message)) {
+      logGenerationDiagnostic("itinerary_storage_activity_rows_error", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        errorCode: activityResult.error.code || "SUPABASE_WRITE_ERROR"
+      });
+      return { error: activityResult.error.message };
+    }
+    logGenerationDiagnostic("itinerary_storage_activity_rows_written", {
+      requestId: params.diagnostic?.requestId,
+      route: "syncGeneratedItinerary",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      activityRowsAttempted: activities.length
+    });
   }
 
   const trackingDays = await supabase
@@ -373,8 +442,22 @@ export async function syncGeneratedItinerary(
     .select("id,day_number");
 
   if (trackingDays.error && !isMissingTableError(trackingDays.error.message)) {
+    logGenerationDiagnostic("itinerary_storage_tracking_day_rows_error", {
+      requestId: params.diagnostic?.requestId,
+      route: "syncGeneratedItinerary",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: trackingDays.error.code || "SUPABASE_WRITE_ERROR"
+    });
     return { error: trackingDays.error.message };
   }
+  logGenerationDiagnostic("itinerary_storage_tracking_day_rows_written", {
+    requestId: params.diagnostic?.requestId,
+    route: "syncGeneratedItinerary",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    trackingDayRowsWritten: trackingDays.data?.length || 0
+  });
 
   const dayIdByNumber = new Map(
     ((trackingDays.data || []) as Array<{ id: string; day_number: number }>).map((day) => [day.day_number, day.id])
@@ -420,8 +503,22 @@ export async function syncGeneratedItinerary(
   if (trackingActivities.length) {
     const trackingActivityResult = await supabase.from("roamly_activities").insert(trackingActivities);
     if (trackingActivityResult.error && !isMissingTableError(trackingActivityResult.error.message)) {
+      logGenerationDiagnostic("itinerary_storage_tracking_activity_rows_error", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        errorCode: trackingActivityResult.error.code || "SUPABASE_WRITE_ERROR"
+      });
       return { error: trackingActivityResult.error.message };
     }
+    logGenerationDiagnostic("itinerary_storage_tracking_activity_rows_written", {
+      requestId: params.diagnostic?.requestId,
+      route: "syncGeneratedItinerary",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      trackingActivityRowsAttempted: trackingActivities.length
+    });
   }
 
   const checklistRows = [
@@ -451,7 +548,16 @@ export async function syncGeneratedItinerary(
         is_done: item.is_done
       }))
     );
-    if (checklistResult.error && !isMissingTableError(checklistResult.error.message)) return { error: checklistResult.error.message };
+    if (checklistResult.error && !isMissingTableError(checklistResult.error.message)) {
+      logGenerationDiagnostic("itinerary_storage_checklist_rows_error", {
+        requestId: params.diagnostic?.requestId,
+        route: "syncGeneratedItinerary",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        errorCode: checklistResult.error.code || "SUPABASE_WRITE_ERROR"
+      });
+      return { error: checklistResult.error.message };
+    }
   }
 
   const tripUpdate = await supabase
@@ -467,7 +573,25 @@ export async function syncGeneratedItinerary(
     .eq("id", params.tripId)
     .eq("user_id", params.userId);
 
-  if (tripUpdate.error) return { error: tripUpdate.error.message };
+  if (tripUpdate.error) {
+    logGenerationDiagnostic("itinerary_storage_trip_metadata_error", {
+      requestId: params.diagnostic?.requestId,
+      route: "syncGeneratedItinerary",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: tripUpdate.error.code || "SUPABASE_WRITE_ERROR"
+    });
+    return { error: tripUpdate.error.message };
+  }
+
+  logGenerationDiagnostic("itinerary_storage_write_completed", {
+    requestId: params.diagnostic?.requestId,
+    route: "syncGeneratedItinerary",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    displayTablesAvailable: itineraryDisplayTablesAvailable,
+    ...summarizeStoredItinerary(params.itinerary)
+  });
 
   return { error: null };
 }

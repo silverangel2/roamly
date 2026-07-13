@@ -1,6 +1,5 @@
 import OpenAI from "openai";
 import {
-  buildStarterItinerary,
   normalizeItinerary,
   repairItineraryForTravelRequirements,
   validateItineraryForProduction,
@@ -8,6 +7,12 @@ import {
 } from "@/lib/itinerary";
 import { normalizeLocale, type RoamlyLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
+import {
+  classifyGenerationValidationErrors,
+  getPublicSupabaseHost,
+  logGenerationDiagnostic,
+  summarizeItineraryShape
+} from "@/lib/roamly/generationDiagnostics";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
@@ -17,6 +22,12 @@ export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
   model: string;
   aiUsed: boolean;
+};
+
+export type RoamlyGenerationTrace = {
+  requestId?: string;
+  tripId?: string;
+  route?: string;
 };
 
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
@@ -51,19 +62,53 @@ function getClient() {
   return new OpenAI({ apiKey });
 }
 
-function buildFallbackItinerary(payload: TripPlannerPayload, generationNote: string): GeneratedItineraryResult {
-  const repaired = repairItineraryForTravelRequirements(buildStarterItinerary(payload), payload);
+function traceGeneration(trace: RoamlyGenerationTrace | undefined, event: string, details: Record<string, unknown> = {}) {
+  logGenerationDiagnostic(event, {
+    requestId: trace?.requestId,
+    tripId: trace?.tripId,
+    route: trace?.route,
+    supabaseHost: getPublicSupabaseHost(),
+    ...details
+  });
+}
+
+function safeAiError(error: unknown) {
+  const record = error && typeof error === "object" ? (error as Record<string, unknown>) : null;
+  const status = typeof record?.status === "number" ? record.status : null;
+  const code =
+    typeof record?.code === "string"
+      ? record.code
+      : typeof record?.type === "string"
+        ? record.type
+        : error instanceof Error
+          ? error.name
+          : "UNKNOWN_AI_ERROR";
   return {
-    itinerary: enrichItineraryBookingSuggestions(
-      {
-        ...repaired,
-        generation_note: generationNote
-      },
-      payload
-    ),
-    model: "local-starter-itinerary",
-    aiUsed: false
+    errorCode: code,
+    errorName: error instanceof Error ? error.name : "UnknownError",
+    httpStatus: status
   };
+}
+
+function expectedGenerationDays(payload: TripPlannerPayload) {
+  const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
+  return dateRange.ok ? dateRange.days || 1 : payload.daysCount || 1;
+}
+
+function parsedItineraryStructureErrors(parsed: unknown, payload: TripPlannerPayload) {
+  const shape = summarizeItineraryShape(parsed);
+  const expectedDays = expectedGenerationDays(payload);
+  const errors: string[] = [];
+  if (!shape.hasDailyItinerary) errors.push("AI response missing daily_itinerary.");
+  if (shape.dayCount < expectedDays) errors.push(`AI response returned ${shape.dayCount} days for a ${expectedDays}-day trip.`);
+  if (shape.daysWithTimelineItems < expectedDays) {
+    errors.push("AI response missing live_timeline items for one or more days.");
+  }
+  if (shape.timelineItemCount <= 0) errors.push("AI response has no timeline items.");
+  if (shape.timelineItemsWithTimes < shape.timelineItemCount) {
+    errors.push("AI response has timeline items without startTime/endTime.");
+  }
+  return errors;
 }
 
 function centsToMoney(value: unknown, currency: string) {
@@ -496,14 +541,35 @@ ${JSON.stringify(params.itinerary)}`
   }
 }
 
-export async function generateRoamlyItinerary(payload: TripPlannerPayload): Promise<GeneratedItineraryResult> {
+export async function generateRoamlyItinerary(
+  payload: TripPlannerPayload,
+  trace?: RoamlyGenerationTrace
+): Promise<GeneratedItineraryResult> {
   const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const client = getClient();
+  traceGeneration(trace, "ai_generation_start", {
+    provider: "openai",
+    model,
+    openAiKeyPresent: Boolean(process.env.OPENAI_API_KEY),
+    daysRequested: payload.daysCount || null,
+    hasOrigin: Boolean(payload.origin),
+    hasDestination: Boolean(payload.destination),
+    hasDates: Boolean(payload.startDate && payload.endDate)
+  });
 
   if (!client) {
-    return buildFallbackItinerary(
-      payload,
-      "Generated with Roamly's local itinerary builder because AI generation is not configured."
+    traceGeneration(trace, "ai_generation_client_missing", {
+      provider: "openai",
+      model,
+      status: "failed",
+      errorCode: "OPENAI_API_KEY_MISSING",
+      fallbackUsed: false,
+      fallbackDisabled: true
+    });
+    throw new RoamlyItineraryGenerationError(
+      "Roamly AI generation is not configured in production. No template itinerary was saved.",
+      "OPENAI_API_KEY_MISSING",
+      503
     );
   }
 
@@ -511,6 +577,11 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
 
   try {
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      traceGeneration(trace, "ai_generation_call_start", {
+        provider: "openai",
+        model,
+        attempt: attempt + 1
+      });
       const completion = await client.chat.completions.create(
         {
           model,
@@ -531,14 +602,110 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
         }
       );
 
-      const text = completion.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(text) as unknown;
+      const text = completion.choices[0]?.message?.content || "";
+      traceGeneration(trace, "ai_generation_call_result", {
+        provider: "openai",
+        model,
+        attempt: attempt + 1,
+        status: "success",
+        responseContentPresent: Boolean(completion.choices[0]?.message?.content),
+        finishReason: completion.choices[0]?.finish_reason || null,
+        promptTokens: completion.usage?.prompt_tokens ?? null,
+        completionTokens: completion.usage?.completion_tokens ?? null,
+        totalTokens: completion.usage?.total_tokens ?? null
+      });
+      if (!text) {
+        validationErrors = ["AI returned an empty response."];
+        traceGeneration(trace, "ai_generation_empty_response", {
+          provider: "openai",
+          model,
+          attempt: attempt + 1,
+          status: attempt < 1 ? "retry" : "failed",
+          errorCode: "AI_EMPTY_RESPONSE",
+          fallbackUsed: false,
+          fallbackDisabled: true
+        });
+        if (attempt < 1) continue;
+        throw new RoamlyItineraryGenerationError(
+          "Roamly AI returned an empty itinerary response. No template itinerary was saved.",
+          "AI_EMPTY_RESPONSE",
+          502
+        );
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(text) as unknown;
+      } catch {
+        validationErrors = ["AI returned invalid JSON."];
+        traceGeneration(trace, "ai_generation_parse_failed", {
+          provider: "openai",
+          model,
+          attempt: attempt + 1,
+          status: attempt < 1 ? "retry" : "failed",
+          errorCode: "AI_RESPONSE_PARSE_FAILED",
+          fallbackUsed: false,
+          fallbackDisabled: true
+        });
+        if (attempt < 1) continue;
+        throw new RoamlyItineraryGenerationError(
+          "Roamly AI returned an invalid itinerary response. No template itinerary was saved.",
+          "AI_RESPONSE_PARSE_FAILED",
+          502
+        );
+      }
+      const parsedStructureErrors = parsedItineraryStructureErrors(parsed, payload);
+      traceGeneration(trace, "ai_generation_response_parsed", {
+        provider: "openai",
+        model,
+        attempt: attempt + 1,
+        ...summarizeItineraryShape(parsed)
+      });
+      if (parsedStructureErrors.length) {
+        validationErrors = parsedStructureErrors;
+        traceGeneration(trace, "ai_generation_structure_rejected", {
+          provider: "openai",
+          model,
+          attempt: attempt + 1,
+          status: attempt < 1 ? "retry" : "failed",
+          errorCode: "AI_UNSTRUCTURED_RESPONSE",
+          validationErrorCount: parsedStructureErrors.length,
+          validationErrorTypes: classifyGenerationValidationErrors(parsedStructureErrors),
+          fallbackUsed: false,
+          fallbackDisabled: true
+        });
+        if (attempt < 1) continue;
+        throw new RoamlyItineraryGenerationError(
+          "Roamly AI did not return a complete structured itinerary. No template itinerary was saved.",
+          "AI_UNSTRUCTURED_RESPONSE",
+          502
+        );
+      }
       const normalized = normalizeItinerary(parsed, payload);
+      traceGeneration(trace, "ai_generation_normalized", {
+        provider: "openai",
+        model,
+        attempt: attempt + 1,
+        ...summarizeItineraryShape(normalized)
+      });
       const repaired = repairItineraryForTravelRequirements(normalized, payload);
       const itinerary = enrichItineraryBookingSuggestions(repaired, payload);
+      traceGeneration(trace, "ai_generation_post_processed", {
+        provider: "openai",
+        model,
+        attempt: attempt + 1,
+        ...summarizeItineraryShape(itinerary)
+      });
       const validation = validateItineraryForProduction(itinerary, payload);
 
       if (validation.ok) {
+        traceGeneration(trace, "ai_generation_validation_passed", {
+          provider: "openai",
+          model,
+          attempt: attempt + 1,
+          aiUsed: true,
+          ...summarizeItineraryShape(itinerary)
+        });
         return {
           itinerary,
           model,
@@ -549,20 +716,53 @@ export async function generateRoamlyItinerary(payload: TripPlannerPayload): Prom
       validationErrors = validation.errors;
       console.warn("[Roamly AI] itinerary validation failed", {
         attempt: attempt + 1,
-        errors: validationErrors
+        validationErrorCount: validationErrors.length,
+        validationErrorTypes: classifyGenerationValidationErrors(validationErrors)
+      });
+      traceGeneration(trace, "ai_generation_validation_failed", {
+        provider: "openai",
+        model,
+        attempt: attempt + 1,
+        status: attempt < 1 ? "retry" : "failed",
+        errorCode: "AI_VALIDATION_FAILED",
+        validationErrorCount: validationErrors.length,
+        validationErrorTypes: classifyGenerationValidationErrors(validationErrors),
+        fallbackUsed: false,
+        fallbackDisabled: true
       });
     }
 
-    return buildFallbackItinerary(
-      payload,
-      `Generated with Roamly's deterministic builder after itinerary validation rejected AI output: ${validationErrors.slice(0, 3).join("; ")}`
+    traceGeneration(trace, "ai_generation_failed_no_fallback", {
+      provider: "openai",
+      model,
+      status: "failed",
+      errorCode: "AI_VALIDATION_FAILED",
+      fallbackUsed: false,
+      fallbackDisabled: true,
+      validationErrorCount: validationErrors.length,
+      validationErrorTypes: classifyGenerationValidationErrors(validationErrors)
+    });
+    throw new RoamlyItineraryGenerationError(
+      "Roamly AI generated an itinerary that failed production validation. No template itinerary was saved.",
+      "AI_VALIDATION_FAILED",
+      502
     );
   } catch (error) {
     if (error instanceof RoamlyItineraryGenerationError) throw error;
-    console.error("[Roamly AI] itinerary generation failed", error);
-    return buildFallbackItinerary(
-      payload,
-      "Generated with Roamly's local itinerary builder because AI generation did not finish in time."
+    const safeError = safeAiError(error);
+    console.error("[Roamly AI] itinerary generation failed", safeError);
+    traceGeneration(trace, "ai_generation_call_failed", {
+      provider: "openai",
+      model,
+      status: "failed",
+      ...safeError,
+      fallbackUsed: false,
+      fallbackDisabled: true
+    });
+    throw new RoamlyItineraryGenerationError(
+      "Roamly AI generation failed before a valid structured itinerary was produced. No template itinerary was saved.",
+      "AI_GENERATION_FAILED",
+      502
     );
   }
 }

@@ -68,7 +68,8 @@ function clean(value?: string | null) {
 }
 
 function affiliatesEnabled() {
-  return process.env.ROAMLY_AFFILIATES_ENABLED === "true";
+  const value = clean(process.env.ROAMLY_AFFILIATES_ENABLED).toLowerCase();
+  return value !== "false" && value !== "0" && value !== "disabled";
 }
 
 function withParams(base: string, params: Record<string, string | number | null | undefined>) {
@@ -95,18 +96,6 @@ function searchText(input: AffiliateResolverInput) {
   return clean(input.query) || clean(input.activityType) || clean(input.title) || clean(input.destination) || "travel";
 }
 
-function internalDiscoveryUrl(input: AffiliateResolverInput) {
-  const url = new URL("/plan", "https://roamlyhq.com");
-  url.searchParams.set("source", "affiliate_fallback");
-  url.searchParams.set("category", input.category);
-  const destination = primaryPlace(input);
-  if (destination) url.searchParams.set("destination", destination);
-  if (clean(input.origin)) url.searchParams.set("origin", clean(input.origin));
-  if (clean(input.startDate)) url.searchParams.set("startDate", clean(input.startDate));
-  if (clean(input.endDate)) url.searchParams.set("endDate", clean(input.endDate));
-  return `${url.pathname}${url.search}`;
-}
-
 function result(
   input: AffiliateResolverInput,
   provider: string,
@@ -118,17 +107,17 @@ function result(
   const isAffiliate = affiliatesEnabled() && configured && Boolean(safeExternalUrl(finalUrl));
   return {
     category: input.category,
-    provider: isAffiliate ? provider : "roamly_internal",
-    finalUrl: isAffiliate ? finalUrl : internalDiscoveryUrl(input),
+    provider: isAffiliate ? provider : providerNameForCategory(input.category),
+    finalUrl: isAffiliate ? finalUrl : "",
     ctaLabel,
     disclosureRequired: isAffiliate,
     disclosure: isAffiliate ? ROAMLY_AFFILIATE_DISCLOSURE : "",
     trackingMetadata: {
-      provider: isAffiliate ? provider : "roamly_internal",
+      provider: isAffiliate ? provider : providerNameForCategory(input.category),
       category: input.category,
       affiliate: isAffiliate
     },
-    fallbackBehavior: isAffiliate ? "affiliate" : "internal_discovery",
+    fallbackBehavior: isAffiliate ? "affiliate" : "hidden",
     configured,
     missingConfiguration
   };
@@ -304,7 +293,7 @@ export function getAffiliateProviderStatuses(): ProviderStatus[] {
       configured: test.configured,
       priority: index + 1,
       missingConfiguration: test.missingConfiguration,
-      defaultFallback: test.fallbackBehavior === "affiliate" ? "Affiliate link" : "Roamly internal discovery",
+      defaultFallback: test.fallbackBehavior === "affiliate" ? "Affiliate link" : "Hidden until configured",
       test
     };
   });
@@ -323,14 +312,14 @@ export function testAffiliateLinks() {
   const statuses = getAffiliateProviderStatuses();
   return {
     testedAt: new Date().toISOString(),
-    ok: statuses.every((status) => status.test.finalUrl.startsWith("/") || Boolean(safeExternalUrl(status.test.finalUrl))),
+    ok: statuses.every((status) => status.test.fallbackBehavior === "hidden" || Boolean(safeExternalUrl(status.test.finalUrl))),
     statuses: statuses.map((status) => ({
       provider: status.provider,
       category: status.category,
       configured: status.configured,
       enabled: status.enabled,
       priority: status.priority,
-      finalUrlValid: status.test.finalUrl.startsWith("/") || Boolean(safeExternalUrl(status.test.finalUrl)),
+      finalUrlValid: status.test.fallbackBehavior === "hidden" || Boolean(safeExternalUrl(status.test.finalUrl)),
       disclosureRequired: status.test.disclosureRequired,
       fallbackBehavior: status.defaultFallback,
       missingConfiguration: status.missingConfiguration

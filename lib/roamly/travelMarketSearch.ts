@@ -380,7 +380,8 @@ async function storeResults(
 }
 
 function marketEnabled() {
-  return process.env.ROAMLY_MARKET_SEARCH_ENABLED === "true";
+  const value = clean(process.env.ROAMLY_MARKET_SEARCH_ENABLED).toLowerCase();
+  return value !== "false" && value !== "0" && value !== "disabled";
 }
 
 function providerConfigured(request: TravelMarketSearchRequest) {
@@ -407,7 +408,7 @@ function compact(parts: Array<string | null | undefined>) {
 
 function klookAffiliateConfigured() {
   return (
-    process.env.ROAMLY_AFFILIATES_ENABLED === "true" &&
+    affiliateGateEnabled() &&
     clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook" &&
     Boolean(clean(process.env.ROAMLY_KLOOK_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_KLOOK_REFERRAL_URL))
   );
@@ -425,10 +426,15 @@ function shouldUseKlookSearch(request: TravelMarketSearchRequest) {
 
 function stay22AffiliateConfigured() {
   return (
-    process.env.ROAMLY_AFFILIATES_ENABLED === "true" &&
+    affiliateGateEnabled() &&
     clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase() === "stay22" &&
     Boolean(clean(process.env.ROAMLY_STAY22_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL))
   );
+}
+
+function affiliateGateEnabled() {
+  const value = clean(process.env.ROAMLY_AFFILIATES_ENABLED).toLowerCase();
+  return value !== "false" && value !== "0" && value !== "disabled";
 }
 
 function buildTransportOptionsSearchKey(payload: TripPlannerPayload) {
