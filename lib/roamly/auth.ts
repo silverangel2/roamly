@@ -10,6 +10,7 @@ import {
 import { getRoamlyAdminEmails, isRoamlyAdmin } from "@/lib/roamly/access";
 import { headers } from "next/headers";
 import { getUserFromRoamlySessionToken } from "@/lib/roamly/session-token";
+import { getSupabaseAuthCookieDiagnostics, getSupabaseProjectHost, logAuthDiagnostic } from "@/lib/roamly/authDiagnostics";
 
 export const AUTH_REQUIRED_MESSAGE = "Please log in to continue.";
 
@@ -34,9 +35,29 @@ export function isAdminEmail(email: string | null | undefined) {
   return isRoamlyAdmin(email);
 }
 
-export async function getCurrentUser(): Promise<CurrentUserResult> {
+function safeRequestPath(value: string | null, fallback = "/admin") {
+  if (!value) return fallback;
+  try {
+    const url = value.startsWith("http") ? new URL(value) : new URL(value, "https://roamlyhq.com");
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return fallback;
+  }
+}
+
+function shouldLogAdminAuth(path: string) {
+  return path === "/admin" || path.startsWith("/admin/") || path.startsWith("/api/admin/");
+}
+
+function authCookieDiagnosticsFromHeaders(requestHeaders: Headers) {
+  return getSupabaseAuthCookieDiagnostics(requestHeaders.get("cookie") || "");
+}
+
+export async function getCurrentUser({ allowRoamlySessionToken = true }: { allowRoamlySessionToken?: boolean } = {}): Promise<CurrentUserResult> {
   const supabase = await createSupabaseServerClient();
   const requestHeaders = await headers();
+  const requestPath = safeRequestPath(requestHeaders.get("x-roamly-path"), "/");
+  const logAuth = shouldLogAdminAuth(requestPath);
 
   if (supabase) {
     const authorization = requestHeaders.get("authorization");
@@ -44,18 +65,44 @@ export async function getCurrentUser(): Promise<CurrentUserResult> {
       ? authorization.slice("Bearer ".length).trim()
       : null;
 
+    if (logAuth) {
+      logAuthDiagnostic("get_current_user_start", {
+        path: requestPath,
+        ...authCookieDiagnosticsFromHeaders(requestHeaders),
+        bearerPresent: Boolean(bearerToken),
+        supabaseProjectHost: getSupabaseProjectHost()
+      });
+    }
+
     if (bearerToken) {
       const { data, error } = await supabase.auth.getUser(bearerToken);
 
       if (!error && data.user) {
-        return { user: data.user } as CurrentUserResult;
+        if (logAuth) {
+          logAuthDiagnostic("get_current_user_bearer_ok", {
+            path: requestPath,
+            authenticatedEmail: data.user.email || null,
+            supabaseProjectHost: getSupabaseProjectHost()
+          });
+        }
+        return { configured: true, user: data.user };
+      }
+
+      if (logAuth) {
+        logAuthDiagnostic("get_current_user_bearer_failed", {
+          path: requestPath,
+          getUserError: error ? error.name || "auth_error" : "missing_user",
+          supabaseProjectHost: getSupabaseProjectHost()
+        });
       }
     }
   }
 
-  const fallback = await getUserFromRoamlySessionToken(requestHeaders.get("x-roamly-session-token"));
-  if (fallback) {
-    return { configured: true, user: fallback.user };
+  if (allowRoamlySessionToken) {
+    const fallback = await getUserFromRoamlySessionToken(requestHeaders.get("x-roamly-session-token"));
+    if (fallback) {
+      return { configured: true, user: fallback.user };
+    }
   }
 
   return getSupabaseCurrentUser();
@@ -107,7 +154,25 @@ export async function requireAdmin(path = "/admin"): Promise<
   | { ok: true; user: User; admin: SupabaseClient }
   | { ok: false; reason: "setup" | "auth" | "denied"; response: NextResponse; redirectTo?: string }
 > {
-  const current = await getCurrentUser();
+  const requestHeaders = await headers();
+  const requestPath = safeRequestPath(requestHeaders.get("x-roamly-path"), path);
+  const current = await getCurrentUser({ allowRoamlySessionToken: false });
+  const adminEmails = getRoamlyAdminEmails();
+  const authenticatedEmail = current.user?.email || null;
+  const adminMatch = isAdminEmail(authenticatedEmail);
+
+  if (shouldLogAdminAuth(requestPath)) {
+    logAuthDiagnostic("require_admin_result", {
+      path: requestPath,
+      ...authCookieDiagnosticsFromHeaders(requestHeaders),
+      getUserOk: Boolean(current.user),
+      authenticatedEmail,
+      adminMatch,
+      supportAllowlisted: adminEmails.includes("support@roamlyhq.com"),
+      adminEmailCount: adminEmails.length,
+      supabaseProjectHost: getSupabaseProjectHost()
+    });
+  }
 
   if (!current.configured) {
     return {
@@ -118,6 +183,13 @@ export async function requireAdmin(path = "/admin"): Promise<
   }
 
   if (!current.user) {
+    logAuthDiagnostic("admin_api_auth_required", {
+      path: requestPath,
+      ...authCookieDiagnosticsFromHeaders(requestHeaders),
+      getUserOk: false,
+      supabaseProjectHost: getSupabaseProjectHost()
+    });
+
     return {
       ok: false,
       reason: "auth",

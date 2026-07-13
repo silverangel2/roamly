@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 type Settings = {
   automationEnabled: boolean;
@@ -68,8 +69,9 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
 
     setBusy(action);
     try {
-      const response = await fetch("/api/admin/roamly/social/automation", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/social/automation", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action, confirm: Boolean(confirmMessage) })
       });
@@ -92,8 +94,9 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
     setNotice("");
     setError("");
     try {
-      const response = await fetch("/api/admin/roamly/social/automation", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/social/automation", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "save_settings", settings, confirm: confirmHighDailyLimit })
       });

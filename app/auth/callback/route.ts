@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { safeAuthNextPath } from "@/lib/navigation";
+import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
+import { getSupabaseAuthCookieDiagnostics, getSupabaseProjectHost, logAuthDiagnostic } from "@/lib/roamly/authDiagnostics";
 
 const AUTH_NEXT_COOKIE = "roamly_auth_next";
 
@@ -37,7 +39,7 @@ export async function GET(request: NextRequest) {
   const next = selectAuthNextPath(requestUrl.searchParams.get("next"), cookieNext);
   const redirectUrl = new URL(next, requestUrl.origin);
   const providerError = requestUrl.searchParams.get("error");
-  const supabase = await createSupabaseServerClient();
+  const cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }> = [];
 
   function loginRedirect(error: string) {
     const loginUrl = new URL("/login", requestUrl.origin);
@@ -46,9 +48,41 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (!supabase) {
+  function redirectWithAuthCookies(url: URL) {
+    const response = NextResponse.redirect(url);
+    cookiesToSet.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options);
+    });
+    response.cookies.set(AUTH_NEXT_COOKIE, "", { path: "/", maxAge: 0 });
+    return response;
+  }
+
+  logAuthDiagnostic("oauth_callback_start", {
+    path: requestUrl.pathname,
+    next,
+    codePresent: Boolean(code),
+    providerErrorPresent: Boolean(providerError),
+    ...getSupabaseAuthCookieDiagnostics(request.headers.get("cookie") || ""),
+    supabaseProjectHost: getSupabaseProjectHost()
+  });
+
+  if (!hasSupabaseConfig()) {
     return loginRedirect("supabase_not_configured");
   }
+
+  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(nextCookies: Array<{ name: string; value: string; options: CookieOptions }>) {
+        nextCookies.forEach(({ name, value }) => {
+          request.cookies.set(name, value);
+        });
+        cookiesToSet.push(...nextCookies);
+      }
+    }
+  });
 
   if (providerError) {
     return loginRedirect("oauth_failed");
@@ -57,17 +91,29 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
+      logAuthDiagnostic("oauth_callback_exchange_failed", {
+        path: requestUrl.pathname,
+        errorName: error.name || "auth_error",
+        supabaseProjectHost: getSupabaseProjectHost()
+      });
       return loginRedirect("oauth_exchange_failed");
     }
   }
 
   const { data } = await supabase.auth.getUser();
 
+  logAuthDiagnostic("oauth_callback_user_result", {
+    path: requestUrl.pathname,
+    getUserOk: Boolean(data.user),
+    authenticatedEmail: data.user?.email || null,
+    authCookiesWritten: cookiesToSet.some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")),
+    authCookieWriteCount: cookiesToSet.filter((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")).length,
+    supabaseProjectHost: getSupabaseProjectHost()
+  });
+
   if (data.user) {
     await ensureRoamlyProfileBestEffort(data.user, {}, supabase, "oauth_callback");
-    const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set(AUTH_NEXT_COOKIE, "", { path: "/", maxAge: 0 });
-    return response;
+    return redirectWithAuthCookies(redirectUrl);
   }
 
   return loginRedirect("missing_session");

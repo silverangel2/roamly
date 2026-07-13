@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { safeAuthNextPath } from "@/lib/navigation";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
+import { getSupabaseAuthCookieDiagnostics, getSupabaseProjectHost, logAuthDiagnostic } from "@/lib/roamly/authDiagnostics";
 
 const AUTH_NEXT_COOKIE = "roamly_auth_next";
 
@@ -57,6 +58,10 @@ export async function middleware(request: NextRequest) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-roamly-path", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   let response = NextResponse.next({ request: { headers: requestHeaders } });
+  const isAdminRequest =
+    request.nextUrl.pathname === "/admin" ||
+    request.nextUrl.pathname.startsWith("/admin/") ||
+    request.nextUrl.pathname.startsWith("/api/admin/");
 
   if (!hasSupabaseConfig()) {
     return response;
@@ -82,8 +87,20 @@ export async function middleware(request: NextRequest) {
   });
 
   const {
-    data: { user }
+    data: { user },
+    error: userError
   } = await supabase.auth.getUser();
+
+  if (isAdminRequest) {
+    logAuthDiagnostic("middleware_admin_auth", {
+      path: request.nextUrl.pathname,
+      ...getSupabaseAuthCookieDiagnostics(request.headers.get("cookie") || ""),
+      getUserOk: Boolean(user),
+      authenticatedEmail: user?.email || null,
+      getUserError: userError ? userError.name || "auth_error" : null,
+      supabaseProjectHost: getSupabaseProjectHost()
+    });
+  }
 
   if (user && isDashboardPath(request.nextUrl.pathname)) {
     const plannerNext = readPendingPlannerNext(request);
@@ -117,6 +134,7 @@ export const config = {
     "/notifications/:path*",
     "/preview/:path*",
     "/trip/:path*",
+    "/api/admin/:path*",
     "/api/account/:path*",
     "/api/roamly/:path*",
     "/api/trips/:path*",

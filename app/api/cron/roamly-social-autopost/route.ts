@@ -10,7 +10,7 @@ import {
 } from "@/lib/roamly/socialAutomation";
 
 function authorized(request: NextRequest) {
-  const secret = (process.env.ROAMLY_SOCIAL_CRON_SECRET || "").trim();
+  const secret = (process.env.ROAMLY_SOCIAL_CRON_SECRET || process.env.CRON_SECRET || "").trim();
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
   return Boolean(secret && token && token === secret);
