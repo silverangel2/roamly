@@ -6,6 +6,7 @@ import { BookingRecommendationButton } from "@/components/trip/BookingRecommenda
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshButton";
+import { StagedGenerationProgress } from "@/components/trip/StagedGenerationProgress";
 import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
@@ -31,6 +32,7 @@ import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
+import { publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 import { isLegacyBookingUrl, resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
@@ -1358,6 +1360,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : null;
   const displayedItineraryLanguage = localizedItinerary?.language || getTripItineraryLanguage(trip.metadata);
   const itineraryLocked = isTripLocked(trip);
+  const generationProgress = publicStagedGenerationProgress(trip.metadata);
+  const generationInProgress = Boolean(
+    generationProgress &&
+      generationProgress.status !== "complete" &&
+      generationProgress.status !== "failed"
+  );
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
@@ -1367,7 +1375,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
-  const canShowFull = Boolean(itineraryLocked && full);
+  const canShowFull = Boolean(full && (itineraryLocked || generationInProgress));
   const bookingsResult = await supabase
     .from("roamly_bookings")
     .select("*")
@@ -1436,6 +1444,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     "Review your trip details before generating. Once generated, this itinerary is locked permanently."}
               </p>
               {itineraryLocked ? <NoticeBanner>This itinerary is locked. To make major changes, create a new itinerary.</NoticeBanner> : null}
+              {generationInProgress ? <NoticeBanner>Roamly is generating this itinerary in stages. Completed days appear as they pass validation.</NoticeBanner> : null}
               {checkoutNeedsAttention ? (
                 <NoticeBanner tone="coral">
                   Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
@@ -1498,6 +1507,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             ) : null}
           </div>
         </section>
+
+        {generationProgress && generationInProgress ? (
+          <StagedGenerationProgress tripId={id} initialProgress={generationProgress} />
+        ) : null}
 
         {canShowFull && full ? (
           <>

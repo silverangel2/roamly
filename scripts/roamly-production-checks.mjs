@@ -37,6 +37,11 @@ function exists(file) {
   "app/admin/live-test/page.tsx",
   "app/api/stripe/checkout/features/route.ts",
   "app/api/stripe/checkout/complete-trip/route.ts",
+  "app/api/trips/[id]/generation/status/route.ts",
+  "app/api/trips/[id]/generation/advance/route.ts",
+  "app/api/cron/roamly-itinerary-generation/route.ts",
+  "components/trip/StagedGenerationProgress.tsx",
+  "lib/roamly/stagedItineraryGeneration.ts",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -69,11 +74,31 @@ assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.t
 assert.ok(billing.includes("Live Trip Companion"), "billing copy should use Live Trip Companion");
 
 const generateRoute = read("app/api/trips/generate/route.ts");
-assert.ok(generateRoute.includes("markFreeItineraryUsed"), "free itinerary must be consumed after generation");
-assert.ok(generateRoute.includes("getConfirmedBookingCostCents"), "generation must include committed booking costs");
-assert.ok(generateRoute.includes("lockGeneratedItinerary"), "generation must lock itinerary");
+assert.ok(generateRoute.includes("startStagedItineraryGeneration"), "generation route must create a staged generation job");
+assert.ok(generateRoute.includes("prepareStagedGenerationContext"), "generation route must prepare staged price/booking context");
+assert.ok(generateRoute.includes("status: \"queued\""), "generation route must return a queued staged job");
 assert.ok(generateRoute.includes("buildTripPlanningMetadata"), "generation must persist planner details in metadata");
 assert.ok(!generateRoute.includes("is_activated: false"), "generation insert must not require legacy is_activated column");
+
+const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
+assert.ok(stagedGenerator.includes("markFreeItineraryUsed"), "free itinerary must be consumed only after staged generation completes");
+assert.ok(stagedGenerator.includes("getConfirmedBookingCostCents"), "staged generation must include committed booking costs");
+assert.ok(stagedGenerator.includes("lockGeneratedItinerary"), "staged generation must lock itinerary after final validation");
+assert.ok(stagedGenerator.includes("MAX_AI_COST_USD"), "staged generation must enforce a per-itinerary cost ceiling");
+assert.ok(stagedGenerator.includes("plannedDayBatches"), "staged generation must batch days instead of generating one item per request");
+assert.ok(stagedGenerator.includes("BATCH_ATTEMPT_LIMIT"), "staged generation must cap failed-stage retries");
+assert.ok(stagedGenerator.includes("generatedDays"), "staged generation must preserve completed days across failures");
+assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not silently save template fallback itineraries");
+
+const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
+assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must execute the next persisted stage");
+
+const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
+assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
+
+const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
+assert.ok(generationCron.includes("ROAMLY_GENERATION_CRON_SECRET") && generationCron.includes("CRON_SECRET"), "generation cron must require a bearer secret");
+assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume jobs when the browser is closed");
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("checkoutSyncError"), "trip page must surface checkout sync failures");

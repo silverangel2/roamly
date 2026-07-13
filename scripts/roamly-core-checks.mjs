@@ -92,6 +92,31 @@ assert.ok(!planForm.includes("controller.abort()"), "planner generation must not
 const generateLockedButton = read("components/trip/GenerateLockedItineraryButton.tsx");
 assert.ok(!generateLockedButton.includes("controller.abort()"), "locked itinerary generation must not abort paid AI requests on a client timer");
 
+const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
+[
+  "outlinePrompt",
+  "dayBatchPrompt",
+  "plannedDayBatches",
+  "MAX_AI_COST_USD",
+  "BATCH_ATTEMPT_LIMIT",
+  "assertCostBudget",
+  "estimatedStageCost",
+  "aiCallCount",
+  "estimatedAiCostUsd",
+  "generatedDays",
+  "repairItineraryForTravelRequirements",
+  "enrichItineraryBookingSuggestions",
+  "persistItinerary",
+  "resetFailedStagedBatch",
+  "maxRetries: 0",
+  "staged_ai_call_start",
+  "staged_ai_call_result",
+  "staged_ai_call_failed"
+].forEach((needle) => assert.ok(stagedGenerator.includes(needle), `staged generation missing ${needle}`));
+assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not use template fallback itineraries");
+assert.ok(!stagedGenerator.includes("local-starter-itinerary"), "staged generation must not return a local starter itinerary");
+assert.ok(!stagedGenerator.includes("ROAMLY_SECONDARY_AI"), "secondary-provider fallback is paused until primary production acceptance passes");
+
 const trips = read("lib/trips.ts");
 ["startTime", "endTime", "durationMinutes", "travelTimeMinutes", "booking", "affiliate_category"].forEach((needle) =>
   assert.ok(trips.includes(needle), `itinerary persistence metadata missing ${needle}`)
@@ -128,12 +153,34 @@ const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
 [
   "generation_route_request_received",
   "generation_route_auth_failed",
-  "generation_ai_result",
-  "generation_storage_completed",
+  "prepareStagedGenerationContext",
+  "startStagedItineraryGeneration",
+  "generation_staged_job_started",
   "generation_route_response"
 ].forEach((needle) => assert.ok(generateRouteDiagnostics.includes(needle), `generation route trace missing ${needle}`));
+assert.ok(!generateRouteDiagnostics.includes("generateRoamlyItinerary"), "generate route must not call the old all-in-one AI generator");
+assert.ok(generateRouteDiagnostics.includes("status: \"queued\""), "generate route must return a queued staged job");
 
 assert.ok(tripPage.includes("itinerary_render_full_loaded"), "trip page must log safe structure diagnostics when rendering saved itineraries");
+
+const advanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
+assert.ok(advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must advance one persisted stage");
+assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
+
+const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
+assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
+
+const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
+assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume staged jobs without a browser tab");
+assert.ok(generationCron.includes("ROAMLY_GENERATION_CRON_SECRET") && generationCron.includes("CRON_SECRET"), "generation cron must be protected by bearer secret");
+
+const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
+assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");
+assert.ok(progressComponent.includes("retryLimit"), "generation progress UI must respect the retry ceiling");
+assert.ok(progressComponent.includes("estimatedAiCostUsd"), "generation progress UI must show estimated AI cost");
+
+const vercelConfig = read("vercel.json");
+assert.ok(vercelConfig.includes("/api/cron/roamly-itinerary-generation"), "Vercel cron must resume staged itinerary generation");
 
 const travelMarketSearch = read("lib/roamly/travelMarketSearch.ts");
 assert.ok(travelMarketSearch.includes('return value !== "false" && value !== "0" && value !== "disabled";'), "market and affiliate gates should default on unless explicitly disabled");
