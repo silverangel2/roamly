@@ -202,9 +202,9 @@ export default async function AdminSystemPage() {
     },
     {
       group: "Affiliate",
-      label: "Klook partner",
+      label: "Klook activity link",
       status: optionalStatus(affiliateReadiness.klookPartnerConfigured, affiliatesEnabled),
-      detail: "Attraction links can use this provider."
+      detail: "Activity links use a Klook search URL first, then the referral fallback."
     },
     {
       group: "Notifications",

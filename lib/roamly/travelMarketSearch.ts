@@ -378,7 +378,8 @@ function marketEnabled() {
   return process.env.ROAMLY_MARKET_SEARCH_ENABLED === "true";
 }
 
-function providerConfigured(category: TravelMarketCategory) {
+function providerConfigured(request: TravelMarketSearchRequest) {
+  const category = request.category;
   if (category === "flight") return Boolean(process.env.TRAVELPAYOUTS_API_TOKEN && process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
   if (category === "hotel") return Boolean(process.env.ROAMLY_STAY22_PARTNER_ID || process.env.BOOKING_AFFILIATE_ID || process.env.EXPEDIA_AFFILIATE_ID);
   if (category === "attraction" || category === "tour") {
@@ -388,7 +389,37 @@ function providerConfigured(category: TravelMarketCategory) {
         (process.env.KLOOK_API_KEY && process.env.ROAMLY_KLOOK_PARTNER_ID)
     );
   }
+  if (category === "transport") {
+    return Boolean(
+      process.env.KLOOK_API_KEY &&
+        process.env.ROAMLY_KLOOK_PARTNER_ID &&
+        clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook" &&
+        isKlookTransportSearch(request)
+    );
+  }
   return false;
+}
+
+function compact(parts: Array<string | null | undefined>) {
+  return parts.map((part) => clean(part)).filter(Boolean).join(" ");
+}
+
+function klookAffiliateConfigured() {
+  return (
+    process.env.ROAMLY_AFFILIATES_ENABLED === "true" &&
+    clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook" &&
+    Boolean(clean(process.env.ROAMLY_KLOOK_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_KLOOK_REFERRAL_URL))
+  );
+}
+
+function isKlookTransportSearch(request: TravelMarketSearchRequest) {
+  return /\b(airport|transfer|shuttle|transit|transport pass|travel pass|city pass|metro pass|rail pass|train pass|bus pass)\b/i.test(
+    compact([request.title, request.destination || request.city, request.origin])
+  );
+}
+
+function shouldUseKlookSearch(request: TravelMarketSearchRequest) {
+  return request.category === "attraction" || request.category === "tour" || (request.category === "transport" && isKlookTransportSearch(request));
 }
 
 function stay22AffiliateConfigured() {
@@ -574,13 +605,21 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
     const providers = await Promise.allSettled([searchGetYourGuide(request), searchViator(request), searchKlook(request)]);
     return providers.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
   }
+  if (request.category === "transport" && isKlookTransportSearch(request)) {
+    return searchKlook(request);
+  }
   return [];
 }
 
 function searchReadyResult(request: TravelMarketSearchRequest, warning?: string) {
-  const source: TravelMarketSource = request.category === "hotel" && stay22AffiliateConfigured() ? "stay22" : "google_search";
+  const source: TravelMarketSource =
+    request.category === "hotel" && stay22AffiliateConfigured()
+      ? "stay22"
+      : klookAffiliateConfigured() && shouldUseKlookSearch(request)
+        ? "klook"
+        : "google_search";
   return baseResult(request, {
-    provider: source === "stay22" ? "Stay22 search" : "Search-ready link",
+    provider: source === "stay22" ? "Stay22 search" : source === "klook" ? "Klook search" : "Search-ready link",
     source,
     price_type: "search_ready",
     confidence: "low",
@@ -607,7 +646,7 @@ export async function searchTravelMarket(
     rooms: request.category === "hotel" ? positiveInteger(request.rooms, 1) : positiveInteger(request.rooms, 0)
   };
   const searchKey = buildTravelMarketSearchKey(normalized);
-  const configured = providerConfigured(normalized.category);
+  const configured = providerConfigured(normalized);
 
   if (!options.forceRefresh) {
     const cached = await cachedResults(options.supabase, searchKey);

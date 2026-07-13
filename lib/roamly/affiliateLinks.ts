@@ -61,6 +61,10 @@ function q(value?: string | null) {
   return encodeURIComponent(clean(value));
 }
 
+function compact(parts: Array<string | null | undefined>) {
+  return parts.map((part) => clean(part)).filter(Boolean).join(" ");
+}
+
 function withParams(base: string, params: Record<string, string | undefined>) {
   const url = new URL(base);
   for (const [key, value] of Object.entries(params)) {
@@ -90,6 +94,64 @@ function hasConfiguredHotelAffiliateProvider(provider: string) {
   if (provider === "expedia" || provider === "hotels") return Boolean(process.env.ROAMLY_EXPEDIA_AFFILIATE_ID);
   if (provider === "booking") return Boolean(process.env.ROAMLY_BOOKING_AFFILIATE_ID);
   return false;
+}
+
+function klookPartnerId() {
+  return clean(process.env.ROAMLY_KLOOK_PARTNER_ID);
+}
+
+function klookReferralUrl() {
+  return safeExternalUrl(process.env.ROAMLY_KLOOK_REFERRAL_URL);
+}
+
+function klookEnabled() {
+  return enabled() && clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook";
+}
+
+function klookSearchTarget(search: string) {
+  const query = clean(search);
+  const partnerId = klookPartnerId();
+  if (!query || !partnerId) return "";
+  return withParams("https://www.klook.com/en-CA/search/result/", {
+    query,
+    aid: partnerId
+  });
+}
+
+function klookAffiliateHref(search: string) {
+  const target = klookSearchTarget(search);
+  const referral = klookReferralUrl();
+  if (target) {
+    if (referral) {
+      const redirect = new URL(referral);
+      redirect.searchParams.set("k_site", target);
+      return redirect.toString();
+    }
+    return target;
+  }
+  return referral;
+}
+
+function hasConfiguredAttractionsAffiliateProvider(provider: string) {
+  if (provider === "getyourguide") return Boolean(process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID);
+  if (provider === "viator") return Boolean(process.env.ROAMLY_VIATOR_PARTNER_ID);
+  if (provider === "klook") return Boolean(klookPartnerId() || klookReferralUrl());
+  if (provider === "tiqets") return Boolean(process.env.ROAMLY_TIQETS_PARTNER_ID);
+  return false;
+}
+
+function activitySearch(input: RoamlyAffiliateInput) {
+  return clean(input.query) || compact([input.title, input.destination]) || clean(input.destination);
+}
+
+function klookTransportSearch(input: RoamlyAffiliateInput) {
+  return compact([input.query || input.title, input.destination || input.address]);
+}
+
+function isKlookTransportSearch(input: RoamlyAffiliateInput) {
+  return /\b(airport|transfer|shuttle|transit|transport pass|travel pass|city pass|metro pass|rail pass|train pass|bus pass)\b/i.test(
+    klookTransportSearch(input)
+  );
 }
 
 function linkResult(
@@ -241,7 +303,7 @@ export function buildFlightAffiliateUrl(input: RoamlyAffiliateInput) {
 
 export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
   const provider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase();
-  const search = place(input);
+  const search = activitySearch(input) || place(input);
   const category = input.category === "ticket" || input.category === "attraction" ? input.category : "tour";
   if (enabled() && provider === "getyourguide" && process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID) {
     return linkResult(
@@ -265,16 +327,11 @@ export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
       "viator"
     );
   }
-  if (enabled() && provider === "klook" && process.env.ROAMLY_KLOOK_PARTNER_ID) {
-    return linkResult(
-      input,
-      category,
-      withParams("https://www.klook.com/en-CA/search/result/", {
-        query: search,
-        aid: process.env.ROAMLY_KLOOK_PARTNER_ID
-      }),
-      "klook"
-    );
+  if (klookEnabled()) {
+    const klookHref = klookAffiliateHref(search);
+    if (klookHref) {
+      return linkResult(input, category, klookHref, "klook");
+    }
   }
   if (enabled() && provider === "tiqets" && process.env.ROAMLY_TIQETS_PARTNER_ID) {
     return linkResult(
@@ -301,6 +358,13 @@ export function buildAttractionAffiliateUrl(input: RoamlyAffiliateInput) {
 }
 
 export function buildTransportAffiliateUrl(input: RoamlyAffiliateInput) {
+  if (klookEnabled() && isKlookTransportSearch(input)) {
+    const klookHref = klookAffiliateHref(klookTransportSearch(input));
+    if (klookHref) {
+      return linkResult(input, "transport", klookHref, "klook");
+    }
+  }
+
   const nav = buildNavigationLinks({
     destinationLabel: input.title || input.destination || "Destination",
     address: input.address || input.destination || input.query || undefined,
@@ -604,16 +668,17 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
 
 export function getAffiliateReadiness() {
   const hotelProvider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase();
+  const attractionsProvider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase();
 
   return {
     affiliatesEnabled: enabled(),
     hotelProviderConfigured: hasConfiguredHotelAffiliateProvider(hotelProvider),
     flightProviderConfigured: Boolean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER),
-    attractionsProviderConfigured: Boolean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER),
+    attractionsProviderConfigured: hasConfiguredAttractionsAffiliateProvider(attractionsProvider),
     stay22PartnerConfigured: Boolean(stay22PartnerId() || stay22ReferralUrl()),
     travelpayoutsMarkerConfigured: Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     getYourGuidePartnerConfigured: Boolean(process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID),
     viatorPartnerConfigured: Boolean(process.env.ROAMLY_VIATOR_PARTNER_ID),
-    klookPartnerConfigured: Boolean(process.env.ROAMLY_KLOOK_PARTNER_ID)
+    klookPartnerConfigured: Boolean(klookPartnerId() || klookReferralUrl())
   };
 }
