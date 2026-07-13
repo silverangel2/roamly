@@ -116,7 +116,10 @@ const aiGenerator = read("lib/ai/roamly-itinerary.ts");
   "ai_generation_failed_no_fallback",
   "fallbackDisabled",
   "openAiKeyPresent",
-  "responseContentPresent"
+  "responseContentPresent",
+  "generationModelCandidates",
+  "model_failover",
+  "AI_PROVIDER_FAILED"
 ].forEach((needle) => assert.ok(aiGenerator.includes(needle), `AI generation trace missing ${needle}`));
 assert.ok(!aiGenerator.includes("buildFallbackItinerary"), "paid itinerary generation must not silently build a template fallback");
 assert.ok(!aiGenerator.includes("local-starter-itinerary"), "paid itinerary generation must not return the local starter itinerary");

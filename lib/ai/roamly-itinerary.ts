@@ -33,7 +33,7 @@ export type RoamlyGenerationTrace = {
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not finish itinerary generation. Please try again in a moment.";
-const OPENAI_ITINERARY_TIMEOUT_MS = 165_000;
+const OPENAI_ITINERARY_TIMEOUT_MS = 70_000;
 const OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS = 45_000;
 const languageNames: Record<RoamlyLocale, string> = {
   en: "English",
@@ -109,6 +109,28 @@ function safeAiError(error: unknown) {
 function expectedGenerationDays(payload: TripPlannerPayload) {
   const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
   return dateRange.ok ? dateRange.days || 1 : payload.daysCount || 1;
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function generationModelCandidates(primaryModel: string) {
+  return uniqueStrings([
+    primaryModel,
+    process.env.OPENAI_FALLBACK_MODEL || "",
+    "gpt-4o-mini"
+  ]);
+}
+
+function shouldTryNextAiModel(errorCategory: unknown) {
+  return (
+    errorCategory === "timeout" ||
+    errorCategory === "connection" ||
+    errorCategory === "provider_server_error" ||
+    errorCategory === "rate_limit" ||
+    errorCategory === "unknown"
+  );
 }
 
 function parsedItineraryStructureErrors(parsed: unknown, payload: TripPlannerPayload) {
@@ -815,42 +837,89 @@ export async function generateRoamlyItinerary(
     );
   }
 
+  const modelCandidates = generationModelCandidates(model);
   let validationErrors: string[] = [];
+  let lastProviderError: ReturnType<typeof safeAiError> | null = null;
 
-  try {
+  traceGeneration(trace, "ai_generation_model_candidates", {
+    provider: "openai",
+    primaryModel: model,
+    modelCandidates,
+    modelCandidateCount: modelCandidates.length
+  });
+
+  for (let modelIndex = 0; modelIndex < modelCandidates.length; modelIndex += 1) {
+    const activeModel = modelCandidates[modelIndex];
+    const failoverFromPrimary = activeModel !== model;
+
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const prompt = buildCompactPrompt(payload, validationErrors);
       traceGeneration(trace, "ai_generation_call_start", {
         provider: "openai",
-        model,
+        model: activeModel,
+        primaryModel: model,
+        failoverFromPrimary,
         attempt: attempt + 1,
-        promptCharacters: prompt.length
+        inputCharacters: prompt.length
       });
-      const completion = await client.chat.completions.create(
-        {
-          model,
-          temperature: 0.45,
-          max_completion_tokens: 12000,
-          response_format: { type: "json_object" },
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
-            },
-            { role: "user", content: prompt }
-          ]
-        },
-        {
-          maxRetries: 0,
-          timeout: OPENAI_ITINERARY_TIMEOUT_MS
-        }
-      );
+
+      let completion: Awaited<ReturnType<typeof client.chat.completions.create>>;
+      try {
+        completion = await client.chat.completions.create(
+          {
+            model: activeModel,
+            temperature: 0.45,
+            max_completion_tokens: 12000,
+            response_format: { type: "json_object" },
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
+              },
+              { role: "user", content: prompt }
+            ]
+          },
+          {
+            maxRetries: 0,
+            timeout: OPENAI_ITINERARY_TIMEOUT_MS
+          }
+        );
+      } catch (error) {
+        const safeError = safeAiError(error);
+        lastProviderError = safeError;
+        const hasNextModel = modelIndex < modelCandidates.length - 1;
+        const retryWithNextModel = hasNextModel && shouldTryNextAiModel(safeError.errorCategory);
+        console.error("[Roamly AI] itinerary generation call failed", safeError);
+        traceGeneration(trace, "ai_generation_call_failed", {
+          provider: "openai",
+          model: activeModel,
+          primaryModel: model,
+          failoverFromPrimary,
+          attempt: attempt + 1,
+          status: retryWithNextModel ? "model_failover" : "failed",
+          ...safeError,
+          modelFailoverAvailable: retryWithNextModel,
+          templateFallbackUsed: false,
+          fallbackUsed: false,
+          fallbackDisabled: true
+        });
+
+        if (retryWithNextModel) break;
+
+        throw new RoamlyItineraryGenerationError(
+          "Roamly AI provider failed before returning itinerary content. No template itinerary was saved.",
+          "AI_PROVIDER_FAILED",
+          safeError.httpStatus && safeError.httpStatus >= 400 ? safeError.httpStatus : 502
+        );
+      }
 
       const text = completion.choices[0]?.message?.content || "";
       traceGeneration(trace, "ai_generation_call_result", {
         provider: "openai",
-        model,
+        model: activeModel,
+        primaryModel: model,
+        failoverFromPrimary,
         attempt: attempt + 1,
         status: "success",
         responseContentPresent: Boolean(completion.choices[0]?.message?.content),
@@ -863,7 +932,9 @@ export async function generateRoamlyItinerary(
         validationErrors = ["AI returned an empty response."];
         traceGeneration(trace, "ai_generation_empty_response", {
           provider: "openai",
-          model,
+          model: activeModel,
+          primaryModel: model,
+          failoverFromPrimary,
           attempt: attempt + 1,
           status: attempt < 1 ? "retry" : "failed",
           errorCode: "AI_EMPTY_RESPONSE",
@@ -885,7 +956,9 @@ export async function generateRoamlyItinerary(
         validationErrors = ["AI returned invalid JSON."];
         traceGeneration(trace, "ai_generation_parse_failed", {
           provider: "openai",
-          model,
+          model: activeModel,
+          primaryModel: model,
+          failoverFromPrimary,
           attempt: attempt + 1,
           status: attempt < 1 ? "retry" : "failed",
           errorCode: "AI_RESPONSE_PARSE_FAILED",
@@ -902,7 +975,9 @@ export async function generateRoamlyItinerary(
       const parsedStructureErrors = parsedItineraryStructureErrors(parsed, payload);
       traceGeneration(trace, "ai_generation_response_parsed", {
         provider: "openai",
-        model,
+        model: activeModel,
+        primaryModel: model,
+        failoverFromPrimary,
         attempt: attempt + 1,
         ...summarizeItineraryShape(parsed)
       });
@@ -910,7 +985,9 @@ export async function generateRoamlyItinerary(
         validationErrors = parsedStructureErrors;
         traceGeneration(trace, "ai_generation_structure_rejected", {
           provider: "openai",
-          model,
+          model: activeModel,
+          primaryModel: model,
+          failoverFromPrimary,
           attempt: attempt + 1,
           status: attempt < 1 ? "retry" : "failed",
           errorCode: "AI_UNSTRUCTURED_RESPONSE",
@@ -929,7 +1006,9 @@ export async function generateRoamlyItinerary(
       const normalized = normalizeItinerary(parsed, payload);
       traceGeneration(trace, "ai_generation_normalized", {
         provider: "openai",
-        model,
+        model: activeModel,
+        primaryModel: model,
+        failoverFromPrimary,
         attempt: attempt + 1,
         ...summarizeItineraryShape(normalized)
       });
@@ -937,7 +1016,9 @@ export async function generateRoamlyItinerary(
       const itinerary = enrichItineraryBookingSuggestions(repaired, payload);
       traceGeneration(trace, "ai_generation_post_processed", {
         provider: "openai",
-        model,
+        model: activeModel,
+        primaryModel: model,
+        failoverFromPrimary,
         attempt: attempt + 1,
         ...summarizeItineraryShape(itinerary)
       });
@@ -946,27 +1027,32 @@ export async function generateRoamlyItinerary(
       if (validation.ok) {
         traceGeneration(trace, "ai_generation_validation_passed", {
           provider: "openai",
-          model,
+          model: activeModel,
+          primaryModel: model,
+          failoverFromPrimary,
           attempt: attempt + 1,
           aiUsed: true,
           ...summarizeItineraryShape(itinerary)
         });
         return {
           itinerary,
-          model,
+          model: activeModel,
           aiUsed: true
         };
       }
 
       validationErrors = validation.errors;
       console.warn("[Roamly AI] itinerary validation failed", {
+        model: activeModel,
         attempt: attempt + 1,
         validationErrorCount: validationErrors.length,
         validationErrorTypes: classifyGenerationValidationErrors(validationErrors)
       });
       traceGeneration(trace, "ai_generation_validation_failed", {
         provider: "openai",
-        model,
+        model: activeModel,
+        primaryModel: model,
+        failoverFromPrimary,
         attempt: attempt + 1,
         status: attempt < 1 ? "retry" : "failed",
         errorCode: "AI_VALIDATION_FAILED",
@@ -976,38 +1062,32 @@ export async function generateRoamlyItinerary(
         fallbackDisabled: true
       });
     }
+  }
 
-    traceGeneration(trace, "ai_generation_failed_no_fallback", {
-      provider: "openai",
-      model,
-      status: "failed",
-      errorCode: "AI_VALIDATION_FAILED",
-      fallbackUsed: false,
-      fallbackDisabled: true,
-      validationErrorCount: validationErrors.length,
-      validationErrorTypes: classifyGenerationValidationErrors(validationErrors)
-    });
+  traceGeneration(trace, "ai_generation_failed_no_fallback", {
+    provider: "openai",
+    model,
+    status: "failed",
+    errorCode: validationErrors.length ? "AI_VALIDATION_FAILED" : lastProviderError?.errorCode || "AI_PROVIDER_FAILED",
+    lastErrorCategory: lastProviderError?.errorCategory || null,
+    fallbackUsed: false,
+    fallbackDisabled: true,
+    templateFallbackUsed: false,
+    validationErrorCount: validationErrors.length,
+    validationErrorTypes: classifyGenerationValidationErrors(validationErrors)
+  });
+
+  if (!validationErrors.length && lastProviderError) {
     throw new RoamlyItineraryGenerationError(
-      "Roamly AI generated an itinerary that failed production validation. No template itinerary was saved.",
-      "AI_VALIDATION_FAILED",
-      502
-    );
-  } catch (error) {
-    if (error instanceof RoamlyItineraryGenerationError) throw error;
-    const safeError = safeAiError(error);
-    console.error("[Roamly AI] itinerary generation failed", safeError);
-    traceGeneration(trace, "ai_generation_call_failed", {
-      provider: "openai",
-      model,
-      status: "failed",
-      ...safeError,
-      fallbackUsed: false,
-      fallbackDisabled: true
-    });
-    throw new RoamlyItineraryGenerationError(
-      "Roamly AI generation failed before a valid structured itinerary was produced. No template itinerary was saved.",
-      "AI_GENERATION_FAILED",
-      502
+      "Roamly AI provider failed before returning itinerary content. No template itinerary was saved.",
+      "AI_PROVIDER_FAILED",
+      lastProviderError.httpStatus && lastProviderError.httpStatus >= 400 ? lastProviderError.httpStatus : 502
     );
   }
+
+  throw new RoamlyItineraryGenerationError(
+    "Roamly AI generated an itinerary that failed production validation. No template itinerary was saved.",
+    "AI_VALIDATION_FAILED",
+    502
+  );
 }
