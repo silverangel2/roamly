@@ -33,7 +33,7 @@ export type RoamlyGenerationTrace = {
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not finish itinerary generation. Please try again in a moment.";
-const OPENAI_ITINERARY_TIMEOUT_MS = 120_000;
+const OPENAI_ITINERARY_TIMEOUT_MS = 165_000;
 const OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS = 45_000;
 const languageNames: Record<RoamlyLocale, string> = {
   en: "English",
@@ -248,7 +248,7 @@ function languageName(value?: string | null) {
   return languageNames[normalizeLocale(value)] || "English";
 }
 
-function buildPrompt(payload: TripPlannerPayload, validationErrors: string[] = []) {
+export function buildPrompt(payload: TripPlannerPayload, validationErrors: string[] = []) {
   const outputLanguage = languageName(payload.language);
   const priceSummary = priceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
@@ -496,6 +496,167 @@ Rules:
 - Build exactly ${tripDays} itinerary days.`;
 }
 
+function buildCompactPrompt(payload: TripPlannerPayload, validationErrors: string[] = []) {
+  const outputLanguage = languageName(payload.language);
+  const priceSummary = priceDiscoverySummary(payload);
+  const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
+  const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
+  const tripDays = dateRange.ok ? dateRange.days || 1 : payload.daysCount || 3;
+  const essentialsContext = describeTravelEssentialsContext(payload);
+  const confirmedBookingSummary = arrayFromUnknown(payload.confirmedBookings).slice(0, 8).map(summarizeConfirmedBooking);
+
+  return `Return ONLY valid JSON for a paid Roamly itinerary. Keep all strings concise for mobile cards.
+
+Trip:
+- Language: ${outputLanguage}
+- Route: ${routeSummary(payload)}
+- Origin: ${payload.origin || "not set"}
+- Destination: ${payload.destination}
+- Stops: ${(payload.destinationStops || []).map((stop) => stop.value).join(" | ") || "single destination"}
+- Dates: ${payload.startDate || "not set"} to ${payload.endDate || "not set"} (${tripDays} days)
+- Return to origin: ${payload.returnToOrigin !== false ? "yes" : "no"}
+- Travelers: ${payload.travelersCount || 1} total (${travelers.adults || 1} adults, ${travelers.children || 0} children, ${travelers.infants || 0} infants)
+- Rooms: ${payload.rooms || 1}
+- Budget: ${payload.budgetCurrency || "CAD"} ${payload.budgetAmount ?? "not set"}
+- Style/interests: ${payload.travelStyle || "Balanced"}; ${payload.interests.join(", ") || "balanced travel"}
+- Pace/walking: ${payload.pace || "Balanced"}; ${payload.walkingTolerance || "Medium"}
+- Accommodation/transport: ${payload.accommodationPreference || "Not sure"}; ${payload.transportationPreference || "Mixed"}
+- Accessibility/diet: ${payload.accessibilityNeeds || "none"}; ${payload.dietaryPreference || "none"}
+- Notes: ${payload.specialNotes || "none"}
+- Fixed bookings summary: ${JSON.stringify(confirmedBookingSummary)}
+- Price summary: ${JSON.stringify(priceSummary)}
+- Essentials context: ${essentialsContext}
+${validationErrors.length ? `\nPrevious attempt failed validation: ${validationErrors.slice(0, 8).join(" | ")}. Fix these issues in the JSON.` : ""}
+
+Required JSON shape:
+{
+  "trip_title": "short title",
+  "destination_summary": "two concise sentences",
+  "best_for": ["label"],
+  "route_reasoning": "short route logic",
+  "budget_fit_summary": "short budget fit using Price summary",
+  "booking_status_summary": "what needs booking; do not claim booked unless fixed booking says so",
+  "free_or_low_cost_notes": ["short notes"],
+  "estimated_budget_breakdown": {
+    "lodging": "short",
+    "food": "short",
+    "activities": "short",
+    "transport": "short",
+    "buffer": "short",
+    "total_estimate": "${priceSummary.total_estimate_display || priceSummary.total_estimate}",
+    "notes": "Prices are estimates and may change before booking.",
+    "user_budget_amount": ${payload.budgetAmount ?? "null"},
+    "total_estimate_amount": ${typeof payload.priceDiscovery?.totalEstimateCents === "number" ? Math.round(payload.priceDiscovery.totalEstimateCents / 100) : 0},
+    "remaining_budget_amount": ${priceSummary.remaining_budget_amount ?? "null"},
+    "budget_status": "${priceSummary.status || "unknown"}",
+    "currency": "${payload.budgetCurrency || "CAD"}"
+  },
+  "hotel_area_suggestions": ["area + why"],
+  "transport_overview": "short transport strategy",
+  "daily_itinerary": [
+    {
+      "day_number": 1,
+      "date": "${payload.startDate || ""}",
+      "city": "city/area",
+      "title": "short day theme",
+      "morning": "short summary",
+      "afternoon": "short summary",
+      "evening": "short summary",
+      "food": ["short food idea"],
+      "estimated_cost": 0,
+      "map_queries": ["place or area map search"],
+      "live_timeline": [
+        {
+          "time_label": "06:30",
+          "startTime": "06:30",
+          "endTime": "07:30",
+          "title": "short item title",
+          "description": "one short sentence",
+          "location_name": "place or area",
+          "estimated_cost": 0,
+          "category": "Travel",
+          "item_type": "travel",
+          "travel_mode": "flight",
+          "transportMode": "flight",
+          "duration": "60 min",
+          "durationMinutes": 60,
+          "travelTimeMinutes": 60,
+          "origin": "origin when relevant",
+          "destination": "destination when relevant",
+          "booking_label": "Check flights only when bookable",
+          "affiliate_category": "flight",
+          "booking": null,
+          "map_query": "map search"
+        }
+      ]
+    }
+  ],
+  "booking_suggestions": [
+    {
+      "category": "flight",
+      "booking_category": "flight",
+      "title": "route-specific search title",
+      "provider_or_search_source": "Travelpayouts",
+      "description": "what to verify",
+      "location": "",
+      "city": "",
+      "country": "",
+      "date": "${payload.startDate || ""}",
+      "time_window": "flexible",
+      "origin": "${payload.origin || ""}",
+      "destination": "${payload.destination || ""}",
+      "departure_date": "${payload.startDate || ""}",
+      "return_date": "${payload.returnToOrigin !== false ? payload.endDate || "" : ""}",
+      "room_type": "",
+      "neighborhood": "",
+      "duration": "",
+      "estimated_cost_min": 0,
+      "estimated_cost_max": 0,
+      "estimated_nightly_cost_min": 0,
+      "estimated_nightly_cost_max": 0,
+      "estimated_total_cost_min": 0,
+      "estimated_total_cost_max": 0,
+      "currency": "${payload.budgetCurrency || "CAD"}",
+      "price_confidence": "estimated",
+      "booking_label": "Check flights",
+      "normal_search_url": "",
+      "affiliate_url": "",
+      "affiliate_provider": "",
+      "provider": "Travelpayouts",
+      "booking_status": "needs_booking",
+      "why_recommended": "fits the route",
+      "advance_booking_recommended": true,
+      "free_or_paid": "paid"
+    }
+  ],
+  "pre_trip_essentials": [
+    { "title": "item", "reason": "short reason", "category": "Power & tech", "search_query": "Amazon search query", "amazon_url": "", "priority": "medium" }
+  ],
+  "packing_checklist": ["item"],
+  "local_tips": ["tip"],
+  "safety_notes": ["note"],
+  "emergency_notes": ["note"],
+  "regenerate_suggestions": []
+}
+
+Rules:
+- Write user-facing values in ${outputLanguage}; keep JSON keys in English.
+- Build exactly ${tripDays} daily_itinerary entries, day_number 1 through ${tripDays}.
+- Every day must have live_timeline with 4 to 7 ordered items, each with startTime and endTime in 24-hour HH:mm, no overlaps.
+- Day 1 must start with origin-to-destination travel unless origin is already the destination: departure, departure buffer, main travel, arrival, baggage/customs/station exit when relevant, transfer to lodging, check-in/luggage, rest, then local activity.
+- Final day must include checkout/luggage, transfer to departure point, departure buffer, return travel when return_to_origin is yes, and final arrival.
+- Add transfer items between different major locations. Do not hide travel time in prose.
+- Use item_type only: travel, transfer, hotel, activity, meal, rest, booking, reminder.
+- Keep descriptions one sentence. No long paragraphs.
+- Leave booking null and URL fields blank. Roamly attaches Travelpayouts, Stay22, Klook, Amazon, and eSIM links server-side.
+- Use booking_label only for real booking opportunities: Check flights, Find a hotel, Book activity, Book transfer. Do not put booking_label on ordinary walking/local transfer items.
+- Booking suggestions must include at least: one flight, one hotel, one activity/tour or attraction when relevant, one airport transfer when relevant.
+- Do not mention or output Google Flights, Google Search, Booking.com, Viator, GetYourGuide, or placeholder URLs.
+- Do not invent exact live availability, reservations, confirmation numbers, discounts, ratings, or prices. Use Price summary confidence.
+- Include carry-on luggage, packing cubes, travel adapter, and eSIM/roaming prep when relevant in pre_trip_essentials.
+- Mention official entry/customs requirements for cross-border/international trips without giving legal advice.`;
+}
+
 const translationPreserveKeys = new Set([
   "normal_search_url",
   "affiliate_url",
@@ -658,10 +819,12 @@ export async function generateRoamlyItinerary(
 
   try {
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const prompt = buildCompactPrompt(payload, validationErrors);
       traceGeneration(trace, "ai_generation_call_start", {
         provider: "openai",
         model,
-        attempt: attempt + 1
+        attempt: attempt + 1,
+        promptCharacters: prompt.length
       });
       const completion = await client.chat.completions.create(
         {
@@ -675,7 +838,7 @@ export async function generateRoamlyItinerary(
               content:
                 "You are Roamly, a concise AI travel planner. You create practical, safe, budget-aware trip plans in strict JSON."
             },
-            { role: "user", content: buildPrompt(payload, validationErrors) }
+            { role: "user", content: prompt }
           ]
         },
         {

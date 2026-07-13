@@ -15,7 +15,6 @@ type GenerateLockedItineraryButtonProps = {
 
 const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
-const GENERATION_TIMEOUT_MS = 120_000;
 
 export function GenerateLockedItineraryButton({
   tripId,
@@ -35,8 +34,6 @@ export function GenerateLockedItineraryButton({
     generationInFlight.current = true;
     setBusy(true);
     setError("");
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
@@ -45,8 +42,7 @@ export function GenerateLockedItineraryButton({
           "content-type": "application/json",
           ...(apiAuthToken ? { "x-roamly-session-token": apiAuthToken } : {})
         },
-        body: JSON.stringify({ tripId, language: locale }),
-        signal: controller.signal
+        body: JSON.stringify({ tripId, language: locale })
       });
       const data = await response.json().catch(() => null);
 
@@ -84,7 +80,6 @@ export function GenerateLockedItineraryButton({
       setConfirming(false);
       setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
     } finally {
-      window.clearTimeout(timeout);
       generationInFlight.current = false;
       setBusy(false);
     }

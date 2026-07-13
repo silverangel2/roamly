@@ -87,6 +87,10 @@ const planForm = read("components/plan/TripPlanForm.tsx");
 assert.ok(!planForm.includes("setConfirming") && !planForm.includes("confirming"), "planner must not use the old extra confirmation modal");
 assert.ok(!planForm.includes("min-h-[24rem]"), "planner form must not reserve excessive blank height");
 assert.ok(planForm.includes("submitPlan(generationPayload)"), "final planner action must generate immediately after budget check");
+assert.ok(!planForm.includes("controller.abort()"), "planner generation must not abort paid AI requests on a client timer");
+
+const generateLockedButton = read("components/trip/GenerateLockedItineraryButton.tsx");
+assert.ok(!generateLockedButton.includes("controller.abort()"), "locked itinerary generation must not abort paid AI requests on a client timer");
 
 const trips = read("lib/trips.ts");
 ["startTime", "endTime", "durationMinutes", "travelTimeMinutes", "booking", "affiliate_category"].forEach((needle) =>

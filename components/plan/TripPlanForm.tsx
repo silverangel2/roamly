@@ -114,7 +114,6 @@ const unselectedOptionClass =
   "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10";
 const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
-const GENERATION_TIMEOUT_MS = 120_000;
 const PLAN_DRAFT_KEY = "roamly.plan.draft.v1";
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
 
@@ -1285,15 +1284,12 @@ export function TripPlanForm({
     generationInFlight.current = true;
     setLoading(true);
     trackPlanEvent("itinerary_generation_started", { tripType, destination: generationPayload.destination });
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
     try {
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
         headers: jsonHeaders(),
-        body: JSON.stringify(generationPayload),
-        signal: controller.signal
+        body: JSON.stringify(generationPayload)
       });
 
       const data = await response.json().catch(() => null);
@@ -1347,7 +1343,6 @@ export function TripPlanForm({
         error: err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE
       });
     } finally {
-      window.clearTimeout(timeout);
       generationInFlight.current = false;
       setLoading(false);
     }
