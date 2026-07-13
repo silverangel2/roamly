@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import { requireUser } from "@/lib/roamly/auth";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import {
   applyPriceDiscoveryToItinerary,
   buildBudgetConstraintForItinerary,
@@ -67,6 +67,7 @@ function payloadFromTrip(trip: RoamlyTripRecord): TripPlannerPayload {
   const travelers = tripTravelers(trip);
   const startDate = trip.start_date || getString(planning.startDate || planning.start_date);
   const endDate = trip.end_date || getString(planning.endDate || planning.end_date);
+  const dateRange = calculateTripDateRange(startDate, endDate);
   return {
     tripType: tripType(planning.tripType || planning.trip_type),
     origin: getTripOriginLabel(trip),
@@ -80,7 +81,12 @@ function payloadFromTrip(trip: RoamlyTripRecord): TripPlannerPayload {
     flexibleDates: planning.flexibleDates === true || planning.flexible_dates === true,
     startDate,
     endDate,
-    daysCount: calculateInclusiveTripDays(startDate, endDate, positiveNumber(trip.days_count, positiveNumber(planning.daysCount, 3))),
+    daysCount:
+      dateRange.ok
+        ? dateRange.days || 1
+        : dateRange.errorCode === "MISSING_DATES"
+          ? positiveNumber(trip.days_count, positiveNumber(planning.daysCount, 3))
+          : 0,
     travelersCount: travelers.adults + travelers.children + (travelers.infants || 0),
     travelers,
     rooms: positiveNumber(planning.rooms, 1),
@@ -153,6 +159,24 @@ export async function POST(request: NextRequest) {
 
   const { trip, itinerary } = bundle.data;
   const payload = payloadFromTrip(trip);
+  const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
+  if (!dateRange.ok) {
+    const message =
+      dateRange.errorCode === "END_BEFORE_START"
+        ? "End date must be after or the same as the start date."
+        : dateRange.errorCode === "INVALID_DATES"
+          ? "Enter valid start and end dates."
+          : "Start date and end date are required.";
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "INVALID_TRIP_DATES",
+        message,
+        error: message
+      },
+      { status: 400 }
+    );
+  }
   const [marketSearch, committed, confirmedBookings] = await Promise.all([
     searchTripMarketPrices(payload, { supabase: auth.supabase, forceRefresh, store: true }),
     getConfirmedBookingCostCents(auth.supabase, auth.user.id, tripId),

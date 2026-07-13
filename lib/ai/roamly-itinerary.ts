@@ -3,7 +3,7 @@ import { buildStarterItinerary, normalizeItinerary, type RoamlyItinerary } from 
 import { normalizeLocale, type RoamlyLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { describeTravelEssentialsContext } from "@/lib/roamly/amazonAffiliate";
 
@@ -94,6 +94,13 @@ function priceDiscoverySummary(payload: TripPlannerPayload) {
     selected_transport_estimate: centsToMoney(discovery.selectedTransportEstimateCents, currency),
     transport_assumptions: discovery.transportAssumptions || [],
     city_estimates: discovery.cityEstimates || [],
+    budget_category_confidence: discovery.budgetCategoryConfidence || [],
+    hotel_estimate_note: discovery.hotelEstimateNote || "",
+    cross_border: discovery.cross_border === true,
+    cross_border_warnings: discovery.crossBorderWarnings || [],
+    origin_currency: discovery.originCurrency || currency,
+    destination_currency: discovery.destinationCurrency || currency,
+    currency_change: discovery.currencyChange === true,
     over_budget_recommendations: discovery.recommendationNotes || []
   };
 }
@@ -113,7 +120,8 @@ function buildPrompt(payload: TripPlannerPayload) {
   const outputLanguage = languageName(payload.language);
   const priceSummary = priceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
-  const tripDays = calculateInclusiveTripDays(payload.startDate, payload.endDate, payload.daysCount || 3);
+  const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
+  const tripDays = dateRange.ok ? dateRange.days || 1 : payload.daysCount || 3;
   const essentialsContext = describeTravelEssentialsContext(payload);
 
   return `Create a practical travel itinerary for Roamly.
@@ -259,9 +267,16 @@ Return ONLY valid JSON with this shape:
 
 Rules:
 - Write every user-facing JSON value in ${outputLanguage}. Keep JSON keys exactly as shown in English.
-- Act like a personal travel agent. Before finalizing the itinerary, compare flight, driving, train, bus, and mixed route options from Price discovery summary.
-- Choose the transport option that best fits budget, time, and comfort. Do not default to flights.
-- If budget is tight, prefer realistic cheaper options such as driving, train, bus, or mixed airport routes when practical.
+- Act like a responsible personal travel agent. Before finalizing the itinerary, compare flight, driving, train, bus, and mixed route options from Price discovery summary.
+- Choose transport in this order: route availability/realism, fit with trip duration, fit with user budget, travel comfort, then time saved.
+- Do not recommend transportation that is unrealistic, unavailable, unverified, or too time-consuming for the trip length.
+- Do not choose the cheapest option if it makes the trip miserable or consumes too much of the vacation. Include this exact idea when relevant: "Cheaper is not always better if it costs too much travel time."
+- Do not invent bus routes, train routes, flights, hotel rooms, ticket availability, or exact prices.
+- Never say a room, flight, route, ticket, or tour is available unless provider data in Price discovery summary explicitly says so.
+- If route or price cannot be verified, say it cannot be verified and mark it as needing live verification.
+- For bus/train, recommend them only when transport_options says availability is "verified" or "search_ready", realistic is true, and estimated_duration_hours is reasonable for the trip. If bus/train is "unverified" or "not_available", call it unverified/not recommended.
+- For long international or cross-border routes, prefer flight unless budget cannot support it and driving is realistic. Driving must include fuel, parking, toll, and overnight-stop assumptions when provided.
+- If the remaining budget is comfortable, do not force a painful bus route just because it is cheaper.
 - Explain transport tradeoffs clearly. Use "Recommended because it keeps the trip closer to your budget" for the selected cheaper option or "Faster but more expensive" for a flight or premium option.
 - If transport_options includes driving, train, bus, flight, or mixed options, reflect them in booking_suggestions as search-ready transport recommendations and do not invent exact fares.
 - Make the plan useful without overstuffing the day.
@@ -278,15 +293,29 @@ Rules:
 - Use the required booking recommendation shape. Include provider_or_search_source on every booking suggestion. Keep booking_category equal to category for backward compatibility.
 - Use real provider/search links only. Use normal search URLs, not invented reservation URLs. Leave affiliate_url and affiliate_provider blank; Roamly will attach partner links if configured.
 - Use selected_market_prices and market_results from the Price discovery summary for exact booking recommendation prices, provider/source labels, timestamps, and booking/search URLs.
-- If a selected market result has price_type "live_partner", you may call it a live partner price. If it has "cached_recent", call it recently searched. If it has "search_ready", say live price is needed. If it has "estimated_fallback", call it an estimated fallback.
-- If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Estimated fallback", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
+- If a selected market result has price_type "live_partner", you may call it a live partner price. If it has "cached_recent", call it recently searched. If it has "search_ready", call it a market estimate that should be refreshed before booking. If it has "estimated_fallback", call it a conservative estimate.
+- If live partner APIs are not in the price discovery summary, label options as "Suggested option", "Conservative estimate", or "Search-ready option". Use price_confidence "estimated" unless a real partner/live price source or uploaded user booking is present.
 - Do not claim exact live prices unless a real partner/live API returned them. Do not invent confirmation numbers.
+- Do not invent exact hotel prices. If live stay provider data is missing, say "Needs live price verification" and call the hotel amount an estimated planning value.
+- Hotel/stay budget notes must explain the calculation when fallback pricing is used: nightly estimate x nights + taxes/fees buffer. Include "Hotel estimate uses planning assumptions until live provider pricing is connected."
+- Do not say "specific room available" unless selected_market_prices contains a live partner stay result that says so.
 - Do not say "booked", "reserved", or "confirmed" unless the user uploaded a booking screenshot or confirmed booking in Fixed bookings and screenshots. Those can use booking_status "user_uploaded" and price_confidence "user_uploaded".
 - For non-uploaded recommendations, make clear they are search-ready only and that price and availability must be verified before booking.
 - Budget math must use the selected total from Price discovery summary: remaining_budget_amount = user_budget_amount - total_estimate_amount. If the value is negative, budget_fit_summary and estimated_budget_breakdown.notes must say "Over budget by ${payload.budgetCurrency || "CAD"} X"; if positive, say "Remaining budget: ${payload.budgetCurrency || "CAD"} X". Never show a positive remaining budget when the total estimate is higher than the user budget.
 - Budget math must use recommended_transport_option and selected_transport_estimate from Price discovery summary, not a flight-only path.
+- Budget must reconcile exactly: user budget minus selected transport, selected hotel/stay, tickets/tours, food, local transport, buffer, and uploaded committed bookings equals remaining or over budget.
 - When Price discovery summary includes total_estimate_display, use that same total estimate in estimated_budget_breakdown.total_estimate and total_estimate_amount.
-- If unknown_market_price_count is greater than 0, estimated_budget_breakdown.notes must start with "Budget incomplete — live price needed for X items." Do not present fallback estimates as exact.
+- Do not leave the user with a missing-price final state. Always provide the full budget estimate from Price discovery summary.
+- estimated_budget_breakdown.notes must include: "Full budget estimate generated using best available price sources. Some items use conservative market estimates and should be refreshed before booking."
+- Show confidence/source per category using budget_category_confidence. Use these labels only when supported: Live price, Recently searched, Market estimate, Conservative estimate, User uploaded confirmation.
+- For conservative flight estimates, say "Conservative flight estimate — refresh live prices before booking."
+- For conservative hotel estimates, say "Conservative hotel estimate — refresh live prices before booking."
+- If cross_border is true, include a Travel documents section/reminders in packing_checklist, local_tips, safety_notes, emergency_notes, and booking/status copy: Passport; Visa / ESTA / eTA if applicable; driver's license if driving; vehicle registration / rental car cross-border permission if driving; hotel/booking confirmations; return/onward travel proof if relevant; and "Check official entry requirements before travel."
+- For cross-border driving/bus/train, mention "Border wait times can change. Allow extra time." Do not recommend an unverified cross-border bus/train route as best; say "Cross-border route not verified — not recommended as primary option."
+- For currency changes, include: destination currency, exchange-rate reminder, foreign transaction fee reminder, cash/card note, and tolls/parking/payment method note. If applicable, use: "Your trip crosses from CAD to USD. Check card foreign transaction fees and carry a backup payment method."
+- Add customs reminder: "Review customs rules before crossing. Food, alcohol, tobacco, medication, plants, and large purchases may have restrictions."
+- Add phone reminders for cross-border/international trips: roaming plan, eSIM/SIM option, offline maps, and emergency contact/local emergency number note when available.
+- Do not give legal immigration, customs, or duty advice; tell the traveler to check official sources.
 - Include at least one recommended transport option, one flight alternative when relevant, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
 - For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range when present in Price discovery summary, booking_label "Find this flight", and a normal search URL. Say "Faster but more expensive" when the flight is not the budget recommendation.
 - For driving, include a gas/parking estimate if Price discovery summary provides it, booking_label "Open driving route", and a Google Maps directions URL. Say the estimate uses fuel assumptions until live maps/gas providers are connected.

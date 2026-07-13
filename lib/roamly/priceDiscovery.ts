@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { detectCrossBorderTrip, crossBorderTravelNotes } from "@/lib/roamly/crossBorder";
+import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import type { TravelerDetails, TripType } from "@/lib/trip-planner";
@@ -12,6 +13,12 @@ import {
 } from "@/lib/roamly/transportOptions";
 
 export type BudgetStatus = "within_budget" | "tight" | "over_budget" | "unknown";
+export type BudgetCategoryConfidenceLabel =
+  | "Live price"
+  | "Recently searched"
+  | "Market estimate"
+  | "Conservative estimate"
+  | "User uploaded confirmation";
 
 export type RouteLegEstimate = {
   from: string;
@@ -29,6 +36,14 @@ export type CityCostEstimate = {
   activitiesEstimateCents: number;
   foodEstimateCents: number;
   localTransportEstimateCents: number;
+};
+
+export type BudgetCategoryConfidence = {
+  category: "transport" | "hotel" | "tickets_tours" | "food" | "local_transport" | "buffer" | "committed_bookings";
+  label: BudgetCategoryConfidenceLabel;
+  amountCents: number;
+  source: string;
+  note: string;
 };
 
 export type TripPriceDiscoveryInput = {
@@ -110,6 +125,11 @@ export type TripPriceDiscovery = {
   remainingBudgetCents: number | null;
   budgetStatus: BudgetStatus;
   coverageNote: string;
+  hotelNights: number;
+  hotelNightlyEstimateCents: number;
+  hotelTaxesFeesBufferCents: number;
+  hotelEstimateNote: string;
+  budgetCategoryConfidence: BudgetCategoryConfidence[];
   routeLegs: RouteLegEstimate[];
   transportOptions: TransportOption[];
   recommendedTransportOption: TransportOption | null;
@@ -122,6 +142,11 @@ export type TripPriceDiscovery = {
   unknownMarketPriceCount: number;
   unknownMarketPriceCategories: string[];
   priceCoverage: "market" | "partial" | "fallback";
+  cross_border: boolean;
+  crossBorderWarnings: string[];
+  originCurrency: string;
+  destinationCurrency: string;
+  currencyChange: boolean;
 };
 
 function cents(amount: number) {
@@ -142,7 +167,10 @@ function cleanInteger(value: unknown, fallback: number) {
 }
 
 function tripDays(input: Pick<TripPriceDiscoveryInput, "startDate" | "endDate" | "daysCount">) {
-  return calculateInclusiveTripDays(input.startDate, input.endDate, cleanNumber(input.daysCount, 3));
+  const range = calculateTripDateRange(input.startDate, input.endDate);
+  if (range.ok) return range.days || 1;
+  if (range.errorCode === "MISSING_DATES") return cleanNumber(input.daysCount, 3);
+  return 1;
 }
 
 function normalizeTravelers(input: TripPriceDiscoveryInput): TravelerDetails {
@@ -161,6 +189,42 @@ function travelerCostFactor(travelers: TravelerDetails) {
 function isLongHaul(input: TripPriceDiscoveryInput) {
   const text = `${input.origin || ""} ${input.destination} ${(input.destinationStops || []).map((stop) => stop.value).join(" ")}`.toLowerCase();
   return /japan|tokyo|philippines|manila|europe|paris|london|rome|asia|australia|sydney|seoul|thailand|bali|dubai/.test(text);
+}
+
+function monthFromDate(value?: string | null) {
+  const match = (value || "").match(/^\d{4}-(\d{2})-\d{2}$/);
+  if (!match) return null;
+  const month = Number(match[1]);
+  return Number.isFinite(month) && month >= 1 && month <= 12 ? month : null;
+}
+
+function destinationHotelBaseNightly(input: TripPriceDiscoveryInput) {
+  const text = `${input.destination} ${input.destinationPlace?.city || ""} ${input.destinationPlace?.country || ""}`.toLowerCase();
+  if (/\bnew york\b|\blondon\b|\bparis\b|\btokyo\b|\bvancouver\b/.test(text)) return 245;
+  if (/\bmontreal\b|\bmontr[eé]al\b|\btoronto\b|\bseattle\b|\bboston\b|\bwashington\b/.test(text)) return 185;
+  if (/\bhalifax\b|\bottawa\b|\bquebec\b|\bcalgary\b|\blas vegas\b/.test(text)) return 165;
+  return 155;
+}
+
+function estimateHotelBudgetDetails(input: TripPriceDiscoveryInput) {
+  const days = tripDays(input);
+  const nights = Math.max(1, days - 1);
+  const style = `${input.accommodationPreference || ""} ${input.travelStyle || ""}`.toLowerCase();
+  const month = monthFromDate(input.startDate);
+  const seasonMultiplier = month && month >= 6 && month <= 9 ? 1.12 : month === 12 ? 1.08 : 1;
+  const styleMultiplier = style.includes("luxury") || style.includes("premium") ? 1.55 : style.includes("budget") ? 0.78 : 1;
+  const rooms = cleanNumber(input.rooms, 1);
+  const nightly = Math.round(destinationHotelBaseNightly(input) * seasonMultiplier * styleMultiplier * rooms);
+  const baseCents = cents(nightly * nights);
+  const taxFeeBufferCents = Math.round(baseCents * 0.18);
+  return {
+    nights,
+    rooms,
+    nightlyEstimateCents: cents(nightly),
+    baseCents,
+    taxFeeBufferCents,
+    totalCents: baseCents + taxFeeBufferCents
+  };
 }
 
 function placeLabel(place: NormalizedPlace | undefined, fallback: string) {
@@ -289,12 +353,7 @@ export async function estimateFlights(input: TripPriceDiscoveryInput) {
 
 export async function estimateHotels(input: TripPriceDiscoveryInput) {
   if (input.budgetIncludesHotel === false) return 0;
-  const days = tripDays(input);
-  const nights = Math.max(1, days - 1);
-  const style = (input.accommodationPreference || input.travelStyle || "").toLowerCase();
-  const nightly = style.includes("luxury") || style.includes("premium") ? 260 : style.includes("budget") ? 95 : 155;
-  const rooms = cleanNumber(input.rooms, 1);
-  return cents(nightly * nights * rooms);
+  return estimateHotelBudgetDetails(input).totalCents;
 }
 
 export async function estimateActivities(input: TripPriceDiscoveryInput) {
@@ -402,6 +461,23 @@ function marketRank(result: TravelMarketResult) {
   return 6;
 }
 
+function confidenceLabelForMarketResult(result: TravelMarketResult | undefined): BudgetCategoryConfidenceLabel {
+  if (result?.metadata?.source === "user_uploaded_confirmation") return "User uploaded confirmation";
+  if (result?.price_type === "live_partner") return "Live price";
+  if (result?.price_type === "cached_recent") return "Recently searched";
+  if (result?.price_type === "search_ready" || result?.price_type === "unknown") return "Market estimate";
+  return "Conservative estimate";
+}
+
+function confidenceNoteForMarketResult(result: TravelMarketResult | undefined, fallbackNote: string) {
+  if (!result) return fallbackNote;
+  if (result.metadata?.source === "user_uploaded_confirmation") return "User-uploaded confirmation used in budget.";
+  if (result.price_type === "live_partner") return "Live partner price used; refresh before booking if plans change.";
+  if (result.price_type === "cached_recent") return "Recently searched market price used; refresh before booking.";
+  if (result.price_type === "search_ready") return "Search-ready market result; conservative estimate used until exact price is refreshed.";
+  return fallbackNote;
+}
+
 function bookingTypeToMarketCategory(value?: string | null): TravelMarketCategory | null {
   if (value === "flight") return "flight";
   if (value === "hotel") return "hotel";
@@ -454,7 +530,7 @@ function fallbackMarketResult(params: {
     id: `fallback-${params.category}`,
     category: params.category,
     title: params.title,
-    provider: "Roamly fallback estimate",
+    provider: "Roamly conservative estimate",
     source: "fallback_estimate",
     origin: params.input.origin || undefined,
     destination: params.input.destination || undefined,
@@ -471,7 +547,7 @@ function fallbackMarketResult(params: {
     searched_at: params.searchedAt,
     expires_at: new Date(new Date(params.searchedAt).getTime() + 60 * 60 * 1000).toISOString(),
     metadata: {
-      warning: "Estimated fallback used only because no exact market price was available.",
+      warning: "Conservative market estimate used because no exact live price was available. Refresh live prices before booking.",
       priceHierarchy: 5
     }
   } satisfies TravelMarketResult;
@@ -511,12 +587,12 @@ function selectMarketPrices(params: {
         category,
         title:
           category === "flight"
-            ? "Fallback flight planning estimate"
+            ? "Conservative flight planning estimate"
             : category === "hotel"
-              ? "Fallback stay planning estimate"
+              ? "Conservative hotel planning estimate"
               : category === "transport"
-                ? "Fallback transport planning estimate"
-                : "Fallback activity planning estimate",
+                ? "Conservative transport planning estimate"
+                : "Conservative activity planning estimate",
         amountCents: params.fallbackCents[category],
         currency: params.currency,
         input: params.input,
@@ -531,6 +607,89 @@ function selectMarketPrices(params: {
     unknownMarketPriceCategories: Array.from(new Set(unknownCategories)),
     unknownMarketPriceCount: Array.from(new Set(unknownCategories)).length
   };
+}
+
+function buildBudgetCategoryConfidence(params: {
+  selectedMarketPrices: TravelMarketResult[];
+  recommendedTransportOption: TransportOption | null;
+  hotelEstimateNote: string;
+  hotelEstimateCents: number;
+  activitiesEstimateCents: number;
+  foodEstimateCents: number;
+  localTransportEstimateCents: number;
+  selectedTransportEstimateCents: number;
+  bufferEstimateCents: number;
+  committedBudgetCents: number;
+}) {
+  const selected = params.selectedMarketPrices;
+  const marketFor = (category: TravelMarketCategory) => selected.find((result) => result.category === category);
+  const attraction = marketFor("attraction");
+  const tour = marketFor("tour");
+  const hotel = marketFor("hotel");
+  const transport = params.recommendedTransportOption;
+  const transportLabel: BudgetCategoryConfidenceLabel =
+    transport?.price_confidence === "live_partner"
+      ? "Live price"
+      : transport?.price_confidence === "cached_recent"
+        ? "Recently searched"
+        : transport?.availability === "search_ready"
+          ? "Market estimate"
+          : "Conservative estimate";
+
+  return [
+    {
+      category: "transport",
+      label: transportLabel,
+      amountCents: params.selectedTransportEstimateCents,
+      source: transport?.source || "Transport comparison estimate",
+      note: transport?.warning || "Conservative transport estimate — refresh live prices before booking."
+    },
+    {
+      category: "hotel",
+      label: confidenceLabelForMarketResult(hotel),
+      amountCents: params.hotelEstimateCents,
+      source: hotel?.provider || "Roamly conservative hotel estimate",
+      note: confidenceNoteForMarketResult(hotel, params.hotelEstimateNote)
+    },
+    {
+      category: "tickets_tours",
+      label:
+        confidenceLabelForMarketResult(attraction) === "Conservative estimate" && confidenceLabelForMarketResult(tour) === "Conservative estimate"
+          ? "Conservative estimate"
+          : "Market estimate",
+      amountCents: params.activitiesEstimateCents,
+      source: [attraction?.provider, tour?.provider].filter(Boolean).join(" + ") || "Roamly activities market estimate",
+      note: "Tickets and tours use selected market prices where available; otherwise conservative estimates are used."
+    },
+    {
+      category: "food",
+      label: "Conservative estimate",
+      amountCents: params.foodEstimateCents,
+      source: "Roamly food planning model",
+      note: "Food estimate uses trip length, travel style, and traveler count."
+    },
+    {
+      category: "local_transport",
+      label: confidenceLabelForMarketResult(marketFor("transport")),
+      amountCents: params.localTransportEstimateCents,
+      source: marketFor("transport")?.provider || "Roamly local transport estimate",
+      note: confidenceNoteForMarketResult(marketFor("transport"), "Local transport uses a conservative planning estimate.")
+    },
+    {
+      category: "buffer",
+      label: "Conservative estimate",
+      amountCents: params.bufferEstimateCents,
+      source: "Roamly safety buffer",
+      note: "Buffer protects against taxes, fees, weather changes, taxis, and small price movement."
+    },
+    {
+      category: "committed_bookings",
+      label: params.committedBudgetCents > 0 ? "User uploaded confirmation" : "Conservative estimate",
+      amountCents: params.committedBudgetCents,
+      source: params.committedBudgetCents > 0 ? "Saved bookings" : "No saved booking cost",
+      note: params.committedBudgetCents > 0 ? "Saved booking costs are included in the total." : "No uploaded booking cost has been added."
+    }
+  ] satisfies BudgetCategoryConfidence[];
 }
 
 export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promise<TripPriceDiscovery> {
@@ -551,20 +710,36 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     budgetIncludesActivities: input.budgetIncludesActivities !== false
   };
   const routeLegs = buildRouteLegEstimates(normalized);
+  const crossBorderInfo = detectCrossBorderTrip({
+    origin: normalized.origin,
+    originCountry: normalized.originPlace?.country,
+    destination: normalized.destination,
+    destinationCountry: normalized.destinationPlace?.country || normalized.destinationStops?.at(-1)?.country,
+    routeText: `${normalized.origin || ""} ${normalized.destination} ${(normalized.destinationStops || []).map((stop) => stop.value).join(" ")}`,
+    originCurrency: normalized.originPlace?.currency,
+    destinationCurrency: normalized.destinationPlace?.currency || normalized.destinationStops?.at(-1)?.currency
+  });
+  const crossBorderWarnings = crossBorderInfo.cross_border
+    ? crossBorderTravelNotes({
+        originCurrency: crossBorderInfo.origin_currency || normalized.budgetCurrency,
+        destinationCurrency: crossBorderInfo.destination_currency,
+        driving: true
+      })
+    : [];
+  const fallbackHotelDetails = estimateHotelBudgetDetails(normalized);
 
   const [
     fallbackFlightEstimateCents,
-    fallbackHotelEstimateCents,
     fallbackActivitiesEstimateCents,
     foodEstimateCents,
     fallbackLocalTransportEstimateCents
   ] = await Promise.all([
     estimateFlights(normalized),
-    estimateHotels(normalized),
     estimateActivities(normalized),
     estimateFood(normalized),
     estimateLocalTransport(normalized)
   ]);
+  const fallbackHotelEstimateCents = normalized.budgetIncludesHotel === false ? 0 : fallbackHotelDetails.totalCents;
 
   const fallbackCents: Record<TravelMarketCategory, number> = {
     flight: normalized.budgetIncludesFlights === false ? 0 : fallbackFlightEstimateCents,
@@ -612,6 +787,21 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     normalized.budgetIncludesFlights === false
       ? 0
       : transportOptionCostCents(transportComparison.recommendedOption) || flightEstimateCents;
+  const selectedHotelMarketPrice = marketSelection.selectedMarketPrices.find((result) => result.category === "hotel");
+  const hotelEstimateNote =
+    normalized.budgetIncludesHotel === false
+      ? "Hotel/stay is not included in this budget."
+      : selectedHotelMarketPrice?.price_type === "live_partner"
+        ? "Live partner hotel price used. Refresh before booking."
+        : selectedHotelMarketPrice?.price_type === "cached_recent"
+          ? "Recently searched hotel price used. Refresh before booking."
+          : `Conservative hotel estimate — refresh live prices before booking. Calculation: ${moneyFromCents(
+              fallbackHotelDetails.nightlyEstimateCents,
+              normalized.budgetCurrency
+            )} nightly estimate x ${fallbackHotelDetails.nights} night${fallbackHotelDetails.nights === 1 ? "" : "s"} + ${moneyFromCents(
+              fallbackHotelDetails.taxFeeBufferCents,
+              normalized.budgetCurrency
+            )} taxes/fees buffer.`;
 
   const subtotal = selectedTransportEstimateCents + fixedTripCostCents;
   const bufferEstimateCents = Math.round(subtotal * 0.12);
@@ -630,19 +820,25 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     daysCount
   });
   const coverageNote =
-    marketSelection.unknownMarketPriceCount > 0
-      ? `Budget incomplete — live price needed for ${marketSelection.unknownMarketPriceCount} item${marketSelection.unknownMarketPriceCount === 1 ? "" : "s"}. Fallback estimates are marked and must be verified before booking. Transport comparison includes estimated/search-ready alternatives.`
-      : marketSelection.selectedMarketPrices.some((result) => result.price_type === "live_partner")
-        ? "Budget uses live partner/search market prices where available. Transport alternatives are compared and estimates must be verified before booking."
-        : marketSelection.selectedMarketPrices.some((result) => result.price_type === "cached_recent")
-          ? "Budget uses recently searched market prices. Refresh stale prices before booking. Transport alternatives are compared with estimates where live data is missing."
-          : "Budget uses estimated fallback prices because live market prices were not available. Transport comparison includes driving assumptions and search-ready train/bus links. Verify before booking.";
+    "Full budget estimate generated using best available price sources. Some items use conservative market estimates and should be refreshed before booking.";
   const priceCoverage =
     marketSelection.selectedMarketPrices.every((result) => result.price_type === "estimated_fallback")
       ? "fallback"
       : marketSelection.selectedMarketPrices.some((result) => result.price_type === "estimated_fallback")
         ? "partial"
-        : "market";
+      : "market";
+  const budgetCategoryConfidence = buildBudgetCategoryConfidence({
+    selectedMarketPrices: marketSelection.selectedMarketPrices,
+    recommendedTransportOption: transportComparison.recommendedOption,
+    hotelEstimateNote,
+    hotelEstimateCents,
+    activitiesEstimateCents,
+    foodEstimateCents,
+    localTransportEstimateCents,
+    selectedTransportEstimateCents,
+    bufferEstimateCents,
+    committedBudgetCents
+  });
 
   return {
     tripType: normalized.tripType || "single_destination",
@@ -676,6 +872,11 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     remainingBudgetCents: budget.remainingBudgetCents,
     budgetStatus: budget.budgetStatus,
     coverageNote,
+    hotelNights: fallbackHotelDetails.nights,
+    hotelNightlyEstimateCents: fallbackHotelDetails.nightlyEstimateCents,
+    hotelTaxesFeesBufferCents: fallbackHotelDetails.taxFeeBufferCents,
+    hotelEstimateNote,
+    budgetCategoryConfidence,
     routeLegs,
     transportOptions: transportComparison.options,
     recommendedTransportOption: transportComparison.recommendedOption,
@@ -689,12 +890,12 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
           result.metadata?.source === "user_uploaded_confirmation"
             ? "Uploaded booking price"
             : result.price_type === "live_partner"
-            ? "Live partner price"
-            : result.price_type === "cached_recent"
-              ? "Recently searched price"
-              : result.price_type === "estimated_fallback"
-                ? "Estimated fallback"
-                : "Search-ready result",
+              ? "Live partner price"
+              : result.price_type === "cached_recent"
+                ? "Recently searched price"
+                : result.price_type === "estimated_fallback"
+                  ? "Conservative estimate"
+                  : "Market estimate",
         confidence: result.confidence
       })),
       ...transportComparison.options.map((option) => ({
@@ -720,7 +921,12 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     selectedMarketPrices: marketSelection.selectedMarketPrices,
     unknownMarketPriceCount: marketSelection.unknownMarketPriceCount,
     unknownMarketPriceCategories: marketSelection.unknownMarketPriceCategories,
-    priceCoverage
+    priceCoverage,
+    cross_border: crossBorderInfo.cross_border,
+    crossBorderWarnings,
+    originCurrency: crossBorderInfo.origin_currency || normalized.budgetCurrency || "CAD",
+    destinationCurrency: crossBorderInfo.destination_currency || normalized.budgetCurrency || "CAD",
+    currencyChange: crossBorderInfo.currency_change
   };
 }
 
@@ -729,22 +935,23 @@ function transportRangeLabel(option: TransportOption | null | undefined, currenc
   const min = option.estimated_cost_min == null ? null : moneyFromCents(option.estimated_cost_min * 100, currency);
   const max = option.estimated_cost_max == null ? null : moneyFromCents(option.estimated_cost_max * 100, currency);
   const range = min && max ? `${min}-${max}` : min || max || "price unknown";
-  return `${option.title}: ${range} (${option.price_confidence}). ${option.why_recommended}`;
+  return `${option.title}: ${range} (${option.availability}, ${option.realistic ? "realistic" : "not recommended"}, ${option.price_confidence}). ${option.why_recommended} ${option.warning}`;
 }
 
 export function buildBudgetConstraintForItinerary(discovery: TripPriceDiscovery) {
   const transportComparison = [
     `Recommended transport: ${transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency)}`,
     `Transport options: ${discovery.transportOptions.map((option) => transportRangeLabel(option, discovery.budgetCurrency)).join(" | ") || "none"}.`,
-    "Before finalizing the itinerary, compare flight, driving, train, bus, and mixed transport modes. Do not default to flights.",
+    "Before finalizing the itinerary, compare flight, driving, train, bus, and mixed transport modes by route availability, travel time, budget fit, comfort, and time saved.",
+    "Do not recommend bus/train as best unless the option is verified or search-ready, realistic, and reasonable for the trip length.",
     "If the budget is tight, prefer realistic cheaper options and explain tradeoffs with the phrases: \"Recommended because it keeps the trip closer to your budget\" or \"Faster but more expensive\" as appropriate."
   ].join(" ");
   const marketNote = [
     `Price coverage: ${discovery.priceCoverage}.`,
-    discovery.unknownMarketPriceCount
-      ? `Budget incomplete — live price needed for ${discovery.unknownMarketPriceCount} item${discovery.unknownMarketPriceCount === 1 ? "" : "s"} (${discovery.unknownMarketPriceCategories.join(", ")}).`
-      : "All selected market categories have a selected price or fallback value.",
-    "Use selectedMarketPrices and transportOptions for booking recommendation prices. Never invent exact prices.",
+    "Full budget estimate generated using best available price sources. Some items use conservative market estimates and should be refreshed before booking.",
+    `Budget confidence: ${discovery.budgetCategoryConfidence.map((item) => `${item.category}: ${item.label} (${item.note})`).join(" | ")}.`,
+    discovery.cross_border ? `Cross-border trip: true. ${discovery.crossBorderWarnings.join(" ")}` : "Cross-border trip: false.",
+    "Use selectedMarketPrices and transportOptions for booking recommendation prices. Never invent exact live prices.",
     transportComparison
   ].join(" ");
   if (discovery.budgetStatus === "over_budget") {
@@ -819,7 +1026,10 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       priceCoverage: discovery.priceCoverage,
       unknownMarketPriceCount: discovery.unknownMarketPriceCount,
       recommendedTransportOption: discovery.recommendedTransportOption,
-      selectedTransportEstimateCents: discovery.selectedTransportEstimateCents
+      selectedTransportEstimateCents: discovery.selectedTransportEstimateCents,
+      budgetCategoryConfidence: discovery.budgetCategoryConfidence,
+      cross_border: discovery.cross_border,
+      currencyChange: discovery.currencyChange
     },
     metadata: {
       budgetConstraint: buildBudgetConstraintForItinerary(discovery),
@@ -837,12 +1047,22 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       recommendedTransportOption: discovery.recommendedTransportOption,
       selectedTransportEstimateCents: discovery.selectedTransportEstimateCents,
       transportAssumptions: discovery.transportAssumptions,
+      hotelNights: discovery.hotelNights,
+      hotelNightlyEstimateCents: discovery.hotelNightlyEstimateCents,
+      hotelTaxesFeesBufferCents: discovery.hotelTaxesFeesBufferCents,
+      hotelEstimateNote: discovery.hotelEstimateNote,
+      budgetCategoryConfidence: discovery.budgetCategoryConfidence,
       cityEstimates: discovery.cityEstimates,
       marketResults: discovery.marketResults,
       selectedMarketPrices: discovery.selectedMarketPrices,
       unknownMarketPriceCount: discovery.unknownMarketPriceCount,
       unknownMarketPriceCategories: discovery.unknownMarketPriceCategories,
       priceCoverage: discovery.priceCoverage,
+      cross_border: discovery.cross_border,
+      crossBorderWarnings: discovery.crossBorderWarnings,
+      originCurrency: discovery.originCurrency,
+      destinationCurrency: discovery.destinationCurrency,
+      currencyChange: discovery.currencyChange,
       recommendationNotes: discovery.recommendationNotes,
       preferences: {
         accommodationPreference: input.accommodationPreference || null,
@@ -895,9 +1115,6 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
       : remaining < 0
         ? `Over budget by ${moneyFromCents(Math.abs(discovery.remainingBudgetCents || 0), discovery.budgetCurrency)}`
         : `Remaining budget: ${moneyFromCents(discovery.remainingBudgetCents || 0, discovery.budgetCurrency)}`;
-  const incomplete = discovery.unknownMarketPriceCount
-    ? `Budget incomplete — live price needed for ${discovery.unknownMarketPriceCount} item${discovery.unknownMarketPriceCount === 1 ? "" : "s"}. `
-    : "";
   const recommendedTransport = transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency);
   const otherTransportOptions = discovery.transportOptions
     .filter((option) => option.budget_fit !== "best")
@@ -906,20 +1123,19 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
 
   return {
     ...itinerary,
-    budget_fit_summary: `${balance}. ${incomplete}Verify before booking.`,
+    budget_fit_summary: `${balance}. Full budget estimate generated using best available price sources. Some items use conservative market estimates and should be refreshed before booking.`,
     booking_status_summary:
-      discovery.unknownMarketPriceCount > 0
-        ? `Search-ready market options were refreshed, but ${discovery.unknownMarketPriceCount} price${discovery.unknownMarketPriceCount === 1 ? "" : "s"} still need live verification.`
-        : "Market prices were refreshed. Verify live price and availability before booking.",
+      "Market options were refreshed where available. Conservative estimates are included when exact live prices are not available; verify live price and availability before booking.",
     estimated_budget_breakdown: {
       ...itinerary.estimated_budget_breakdown,
-      lodging: `Selected stay market amount: ${moneyFromCents(discovery.hotelEstimateCents, discovery.budgetCurrency)}.`,
+      lodging: `${moneyFromCents(discovery.hotelEstimateCents, discovery.budgetCurrency)}. ${discovery.hotelEstimateNote}`,
       activities: `Selected ticket/tour market amount: ${moneyFromCents(discovery.activitiesEstimateCents, discovery.budgetCurrency)}.`,
       transport: `Recommended transport: ${recommendedTransport}. Other options: ${otherTransportOptions || "none"}. Local transport estimate: ${moneyFromCents(discovery.localTransportEstimateCents, discovery.budgetCurrency)}.`,
       food: `Food planning estimate: ${moneyFromCents(discovery.foodEstimateCents, discovery.budgetCurrency)}.`,
       buffer: `Buffer: ${moneyFromCents(discovery.bufferEstimateCents, discovery.budgetCurrency)}.`,
       total_estimate: moneyFromCents(discovery.totalEstimateCents, discovery.budgetCurrency),
-      notes: `${incomplete}${balance}. ${discovery.coverageNote}`,
+      notes: `${balance}. ${discovery.coverageNote}${discovery.cross_border ? ` ${discovery.crossBorderWarnings.join(" ")}` : ""}`,
+      user_budget_amount: discovery.budgetAmount,
       total_estimate_amount: totalAmount,
       remaining_budget_amount: remaining,
       budget_status: discovery.budgetStatus,
@@ -927,6 +1143,22 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
       recommended_transport_option: discovery.recommendedTransportOption,
       transport_options: discovery.transportOptions,
       selected_transport_estimate_amount: Math.round(discovery.selectedTransportEstimateCents / 100),
+      selected_hotel_estimate_amount: Math.round(discovery.hotelEstimateCents / 100),
+      tickets_tours_estimate_amount: Math.round(discovery.activitiesEstimateCents / 100),
+      food_estimate_amount: Math.round(discovery.foodEstimateCents / 100),
+      local_transport_estimate_amount: Math.round(discovery.localTransportEstimateCents / 100),
+      buffer_estimate_amount: Math.round(discovery.bufferEstimateCents / 100),
+      committed_bookings_amount: Math.round(discovery.committedBudgetCents / 100),
+      hotel_nights: discovery.hotelNights,
+      hotel_nightly_estimate_amount: Math.round(discovery.hotelNightlyEstimateCents / 100),
+      hotel_taxes_fees_buffer_amount: Math.round(discovery.hotelTaxesFeesBufferCents / 100),
+      hotel_estimate_note: discovery.hotelEstimateNote,
+      budget_category_confidence: discovery.budgetCategoryConfidence,
+      cross_border: discovery.cross_border,
+      cross_border_warnings: discovery.crossBorderWarnings,
+      origin_currency: discovery.originCurrency,
+      destination_currency: discovery.destinationCurrency,
+      currency_change: discovery.currencyChange,
       transport_assumptions: discovery.transportAssumptions
     }
   };

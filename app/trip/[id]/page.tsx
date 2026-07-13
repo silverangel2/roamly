@@ -25,6 +25,7 @@ import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
 import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
+import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
@@ -362,31 +363,28 @@ function budgetRows({
   const budgetAmount = getTripBudgetAmount(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
   const balance = describeBudgetBalanceFromAmounts(budgetAmount, totalEstimateAmount, currency);
-  const transportOptions = transportOptionsFromItinerary(itinerary);
-  const recommendedTransport = recommendedTransportFromItinerary(itinerary);
+  const confidence = (category: BudgetCategoryConfidence["category"]) =>
+    estimate.budget_category_confidence?.find((item) => item.category === category);
+  const withConfidence = (amount: number | null | undefined, category: BudgetCategoryConfidence["category"], fallback: string) => {
+    const label = confidence(category)?.label;
+    const value = typeof amount === "number" && Number.isFinite(amount) ? formatBudgetMoney(amount, currency) : fallback;
+    return label ? `${value} · ${label}` : value;
+  };
 
   return [
     {
-      label: "Recommended transport",
-      value:
-        trip.budget_includes_flights === false
-          ? "Inter-city transport is not included in this trip budget."
-          : formatBudgetTransportOption(recommendedTransport, currency)
+      label: "User budget",
+      value: budgetAmount == null ? "Not set" : formatBudgetMoney(budgetAmount, currency)
     },
+    { label: "Selected transport", value: withConfidence(estimate.selected_transport_estimate_amount, "transport", estimate.transport) },
+    { label: "Selected hotel/stay", value: trip.budget_includes_hotel === false ? "Not included in trip budget." : withConfidence(estimate.selected_hotel_estimate_amount, "hotel", estimate.lodging) },
+    { label: "Tickets/tours", value: withConfidence(estimate.tickets_tours_estimate_amount, "tickets_tours", estimate.activities) },
+    { label: "Food", value: withConfidence(estimate.food_estimate_amount, "food", estimate.food) },
+    { label: "Local transport", value: withConfidence(estimate.local_transport_estimate_amount, "local_transport", "Confirm local transport estimate.") },
+    { label: "Buffer", value: withConfidence(estimate.buffer_estimate_amount, "buffer", estimate.buffer) },
+    { label: "Committed bookings", value: withConfidence(estimate.committed_bookings_amount, "committed_bookings", "None saved") },
     {
-      label: "Other options",
-      value: formatOtherTransportOptions(transportOptions, recommendedTransport, currency)
-    },
-    {
-      label: "Hotel",
-      value: trip.budget_includes_hotel === false ? "Not included in trip budget." : estimate.lodging
-    },
-    { label: "Food", value: estimate.food },
-    { label: "Transport", value: estimate.transport },
-    { label: "Activities", value: estimate.activities },
-    { label: "Buffer", value: estimate.buffer },
-    {
-      label: "Selected total",
+      label: "Total",
       value: totalEstimateAmount == null ? estimate.total_estimate : formatBudgetMoney(totalEstimateAmount, currency)
     },
     { label: balance?.label || "Remaining budget", value: balance?.value || "Confirm after live booking prices." }
@@ -402,14 +400,30 @@ function BudgetTable({
   itinerary: RoamlyItinerary;
   currency: string;
 }) {
+  const estimate = itinerary.estimated_budget_breakdown;
+  const crossBorderBadges = estimate.cross_border
+    ? ["Cross-border trip", "Passport check", estimate.currency_change ? "Currency change" : "", "Border time buffer", "Roaming reminder", "Customs reminder"].filter((label): label is string => Boolean(label))
+    : [];
+
   return (
-    <div className="overflow-hidden rounded-[1.15rem] border border-[#e8dfd0] bg-white shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
-      {budgetRows({ trip, itinerary, currency }).map((row) => (
-        <div key={row.label} className="grid gap-1 border-b border-[#eee5d7] px-4 py-3 last:border-b-0 sm:grid-cols-[11rem_1fr] sm:gap-5">
-          <p className="text-sm font-black text-ink">{row.label}</p>
-          <p className="text-sm font-semibold leading-6 text-slate-700">{row.value}</p>
+    <div className="grid gap-3">
+      {crossBorderBadges.length ? (
+        <div className="flex flex-wrap gap-2 rounded-[1.15rem] border border-sun/30 bg-sun/10 px-4 py-3">
+          {crossBorderBadges.map((label) => (
+            <span key={label} className="rounded-full border border-sun/30 bg-white/75 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">
+              {label}
+            </span>
+          ))}
         </div>
-      ))}
+      ) : null}
+      <div className="overflow-hidden rounded-[1.15rem] border border-[#e8dfd0] bg-white shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+        {budgetRows({ trip, itinerary, currency }).map((row) => (
+          <div key={row.label} className="grid gap-1 border-b border-[#eee5d7] px-4 py-3 last:border-b-0 sm:grid-cols-[11rem_1fr] sm:gap-5">
+            <p className="text-sm font-black text-ink">{row.label}</p>
+            <p className="text-sm font-semibold leading-6 text-slate-700">{row.value}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -602,8 +616,8 @@ function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][num
   }
   if (suggestion.price_type === "live_partner") return "Live partner price";
   if (suggestion.price_type === "cached_recent") return "Recently searched price";
-  if (suggestion.price_type === "search_ready") return "Search-ready, price must be verified";
-  if (suggestion.price_type === "estimated_fallback") return "Estimated fallback";
+  if (suggestion.price_type === "search_ready") return "Market estimate";
+  if (suggestion.price_type === "estimated_fallback") return "Conservative estimate";
   return priceConfidenceLabel(suggestion.price_confidence);
 }
 
@@ -650,9 +664,12 @@ function transportActionLabel(mode: TransportOption["mode"]) {
 function transportSourceLabel(option: TransportOption) {
   if (option.price_confidence === "live_partner") return "Live partner price";
   if (option.price_confidence === "cached_recent") return "Recently searched price";
-  if (option.mode === "train" || option.mode === "bus") return "Search-ready, verify live schedule and price";
-  if (option.mode === "drive") return "Estimated fuel and parking";
-  return "Estimated fallback";
+  if (option.availability === "verified") return "Verified route";
+  if (option.availability === "search_ready") return "Search-ready";
+  if (option.availability === "not_available") return "Not available";
+  if (option.availability === "unverified") return "Unverified";
+  if (option.mode === "drive") return "Conservative drive estimate";
+  return "Conservative estimate";
 }
 
 function transportEstimate(option: TransportOption) {
@@ -678,17 +695,14 @@ function transportHref(option: TransportOption) {
   });
 }
 
-function formatBudgetTransportOption(option: TransportOption | null, currency: string) {
-  if (!option) return "Compare transport before booking.";
-  return `${transportModeLabel(option.mode)}: ${transportEstimate({ ...option, currency: option.currency || currency })}. ${option.why_recommended}`;
-}
-
-function formatOtherTransportOptions(options: TransportOption[], recommended: TransportOption | null, currency: string) {
-  const others = options.filter((option) => option !== recommended && option.budget_fit !== "best");
-  if (!others.length) return "No alternatives returned yet.";
-  return others
-    .map((option) => `${transportModeLabel(option.mode)} ${transportEstimate({ ...option, currency: option.currency || currency })}`)
-    .join(" | ");
+function transportBadges(option: TransportOption) {
+  return [
+    transportSourceLabel(option),
+    option.realistic ? "" : "Not recommended",
+    option.warning?.toLowerCase().includes("too long") ? "Too long for this trip" : "",
+    option.price_confidence === "estimated" || option.price_confidence === "unknown" ? "Needs live price check" : "",
+    option.warning?.toLowerCase().includes("border") ? "Border time buffer" : ""
+  ].filter((label): label is string => Boolean(label));
 }
 
 function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -702,9 +716,9 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
   if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
     return total ? `Previously searched ${total}. Refresh price before using it for booking.` : "Refresh price before using this option.";
   }
-  if (suggestion.price_type === "search_ready") return "Search-ready option. Verify live price and availability before booking.";
-  if (nightly && total) return `${suggestion.price_type === "estimated_fallback" ? "Estimated fallback" : "Estimated"} nightly ${nightly}; stay ${total}.`;
-  if (total) return `${suggestion.price_type === "estimated_fallback" ? "Estimated fallback" : "Estimated"} ${total}.`;
+  if (suggestion.price_type === "search_ready") return "Market estimate. Refresh live price and availability before booking.";
+  if (nightly && total) return `${suggestion.price_type === "estimated_fallback" ? "Conservative estimate" : "Estimate"} nightly ${nightly}; stay ${total}.`;
+  if (total) return `${suggestion.price_type === "estimated_fallback" ? "Conservative estimate" : "Estimate"} ${total}.`;
   if (suggestion.free_or_paid === "free") return "Free option. Verify hours and access rules.";
   return "Search-ready option. Verify current prices before booking.";
 }
@@ -822,17 +836,20 @@ function TransportComparison({ itinerary, tripId }: { itinerary: RoamlyItinerary
                     <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
                       {title}
                     </span>
-                    <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
-                      {provider}
-                    </span>
+                    {transportBadges(option).map((badge) => (
+                      <span key={badge} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                        {badge}
+                      </span>
+                    ))}
                   </div>
                   <h4 className="mt-2 text-lg font-black leading-6 text-ink">{option.title}</h4>
                   <p className="mt-1 text-sm font-black text-ink">{transportEstimate(option)}</p>
                   {option.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{option.duration_label}</p> : null}
                   <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{option.why_recommended}</p>
+                  {option.warning ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{option.warning}</p> : null}
                   {option.mode === "drive" ? (
                     <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                      Driving estimate uses fuel assumptions until live maps/gas providers are connected.
+                      Driving estimate uses fuel, parking, toll, border, and overnight-stop assumptions where relevant until live maps/gas providers are connected.
                     </p>
                   ) : null}
                   {option.mode === "train" || option.mode === "bus" ? (

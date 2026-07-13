@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeLocale } from "@/lib/i18n";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { requireUser } from "@/lib/roamly/auth";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import { buildTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
@@ -92,7 +92,8 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
   const startDate = getString(body.startDate || body.start_date);
   const endDate = getString(body.endDate || body.end_date);
   const explicitDays = getPositiveNumber(body.daysCount ?? body.days_count);
-  const resolvedDaysCount = calculateInclusiveTripDays(startDate, endDate, explicitDays ?? 3);
+  const dateRange = calculateTripDateRange(startDate, endDate);
+  const resolvedDaysCount = dateRange.ok ? dateRange.days || 1 : dateRange.errorCode === "MISSING_DATES" ? explicitDays ?? 3 : 0;
   const tripType = getTripType(body.tripType || body.trip_type);
   const destinationStops = cleanStops(body.destinationStops || body.destination_stops);
   const destinationPlace = cleanPlace(body.destinationPlace || body.destination_place);
@@ -169,8 +170,29 @@ function validatePayload(payload: TripPlannerPayload) {
   if (payload.tripType === "multi_city" && (!payload.destinationStops || payload.destinationStops.length < 2)) {
     return "Please add at least two cities for a multi-city trip.";
   }
+  const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
+  if (!dateRange.ok) return dateRange;
   if (!payload.budgetAmount) return "Budget amount is required.";
   return "";
+}
+
+function invalidTripDatesResponse(range: TripDateRangeResult) {
+  const message =
+    range.errorCode === "END_BEFORE_START"
+      ? "End date must be after or the same as the start date."
+      : range.errorCode === "INVALID_DATES"
+        ? "Enter valid start and end dates."
+        : "Start date and end date are required.";
+
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "INVALID_TRIP_DATES",
+      message,
+      error: message
+    },
+    { status: 400 }
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -180,6 +202,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const payload = cleanPayload(body);
   const validation = validatePayload(payload);
+  if (typeof validation === "object") return invalidTripDatesResponse(validation);
   if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
   const access = getRoamlyAccessForUser(auth.user.email);

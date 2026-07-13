@@ -5,7 +5,7 @@ import {
 } from "@/lib/roamly/priceDiscovery";
 import { normalizeLocale } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/roamly/auth";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
 import { searchTripMarketPrices } from "@/lib/roamly/travelMarketSearch";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -69,6 +69,25 @@ function cleanStops(value: unknown) {
   return value.map(cleanPlace).filter((place): place is NormalizedPlace => Boolean(place)).slice(0, 12);
 }
 
+function invalidTripDatesResponse(range: TripDateRangeResult) {
+  const message =
+    range.errorCode === "END_BEFORE_START"
+      ? "End date must be after or the same as the start date."
+      : range.errorCode === "INVALID_DATES"
+        ? "Enter valid start and end dates."
+        : "Start date and end date are required.";
+
+  return NextResponse.json(
+    {
+      ok: false,
+      code: "INVALID_TRIP_DATES",
+      message,
+      error: message
+    },
+    { status: 400 }
+  );
+}
+
 export async function POST(request: NextRequest) {
   const auth = await getCurrentUser();
 
@@ -89,7 +108,9 @@ export async function POST(request: NextRequest) {
   const tripId = getString(body.tripId) || null;
   const startDate = getString(body.startDate || body.start_date);
   const endDate = getString(body.endDate || body.end_date);
-  const daysCount = calculateInclusiveTripDays(startDate, endDate, getNumber(body.daysCount ?? body.days_count) ?? 3);
+  const dateRange = calculateTripDateRange(startDate, endDate);
+  if (!dateRange.ok) return invalidTripDatesResponse(dateRange);
+  const daysCount = dateRange.days || 1;
   // Keep anonymous budget checks working. Confirmed booking costs are applied later
   // in authenticated trip generation/saved-trip flows.
   const committedBudgetCents = 0;

@@ -140,5 +140,14 @@ assert.equal(
   1,
   "Roamly date counting failed: same-day trips must be 1 day."
 );
+const invalidDateRange = dateUtilsExports.calculateTripDateRange("2026-08-13", "2026-07-20");
+assert.equal(invalidDateRange.ok, false, "Roamly date validation failed: backwards dates must be invalid.");
+assert.equal(invalidDateRange.days, null, "Roamly date validation failed: backwards dates must not return days.");
+assert.equal(invalidDateRange.errorCode, "END_BEFORE_START", "Roamly date validation failed: backwards dates must return END_BEFORE_START.");
+assert.notEqual(
+  dateUtilsExports.calculateInclusiveTripDays("2026-08-13", "2026-07-20"),
+  3,
+  "Roamly date counting failed: backwards dates must not fall back to 3 days."
+);
 
 console.log("Roamly production checks passed.");

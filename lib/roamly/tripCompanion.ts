@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  crossBorderTravelDocumentReminders,
+  crossBorderTravelNotes,
+  detectCrossBorderTrip
+} from "@/lib/roamly/crossBorder";
 import { recordTripEvent } from "@/lib/roamly/events";
-import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
+import { getTripBudgetCurrency, getTripDestinationLabel, getTripOriginLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
 
 type CompanionTrip = {
   id: string;
@@ -10,6 +15,9 @@ type CompanionTrip = {
   destination_name?: string | null;
   destination_city?: string | null;
   destination_country?: string | null;
+  origin?: string | null;
+  origin_country?: string | null;
+  budget_currency?: string | null;
   start_date: string | null;
   end_date: string | null;
   days_count?: number | null;
@@ -66,10 +74,27 @@ export function buildCountryInfo(destinationCountry?: string | null, destination
   };
 }
 
+function getCompanionCrossBorderInfo(trip: CompanionTrip) {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  return detectCrossBorderTrip({
+    origin: getTripOriginLabel(trip) || trip.origin || "",
+    originCountry:
+      trip.origin_country ||
+      (typeof planning.originCountry === "string" ? planning.originCountry : "") ||
+      (typeof planning.origin_country === "string" ? planning.origin_country : ""),
+    destination: getTripDestinationLabel(trip),
+    destinationCountry: trip.destination_country,
+    routeText: `${getTripOriginLabel(trip) || ""} ${getTripDestinationLabel(trip) || ""}`,
+    originCurrency: getTripBudgetCurrency(trip),
+    destinationCurrency: undefined
+  });
+}
+
 export function buildPackingChecklist(trip: CompanionTrip) {
   const destination = getTripDestinationLabel(trip) || "the destination";
+  const crossBorder = getCompanionCrossBorderInfo(trip).cross_border;
   return [
-    "Passport or government ID",
+    ...(crossBorder ? crossBorderTravelDocumentReminders(false) : ["Passport or government ID"]),
     "Travel insurance details",
     "Phone charger and power bank",
     "Weather-appropriate clothing",
@@ -78,18 +103,69 @@ export function buildPackingChecklist(trip: CompanionTrip) {
   ];
 }
 
-export function buildDocumentChecklist() {
-  return [
-    "Passport validity",
-    "Visa or eTA requirement",
-    "Flight, hotel, and activity confirmations",
-    "Travel insurance",
-    "Emergency contact details"
-  ];
+export function buildDocumentChecklist(trip?: CompanionTrip) {
+  if (trip && getCompanionCrossBorderInfo(trip).cross_border) return crossBorderTravelDocumentReminders(false);
+  return ["Passport validity", "Visa or eTA requirement", "Flight, hotel, and activity confirmations", "Travel insurance", "Emergency contact details"];
 }
 
 export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBooking[] = []) {
   const start = trip.start_date;
+  const crossBorderInfo = getCompanionCrossBorderInfo(trip);
+  const crossBorderEvents = crossBorderInfo.cross_border
+    ? [
+        start
+          ? {
+              event_type: "cross_border_documents",
+              title: "Check passport and travel documents",
+              body: "Check passport, visa / ESTA / eTA if applicable, booking confirmations, and return/onward travel proof. Check official entry requirements before travel.",
+              scheduled_for: addDays(start, -7)
+            }
+          : null,
+        start
+          ? {
+              event_type: "offline_maps",
+              title: "Download offline maps",
+              body: "Download offline maps for your route and destination before crossing the border.",
+              scheduled_for: addDays(start, -3)
+            }
+          : null,
+        start
+          ? {
+              event_type: "roaming_esim",
+              title: "Confirm roaming or eSIM",
+              body: "Confirm roaming coverage or prepare an eSIM/SIM option before departure.",
+              scheduled_for: addDays(start, -3)
+            }
+          : null,
+        start
+          ? {
+              event_type: "border_documents",
+              title: "Prepare border crossing documents",
+              body: "Prepare passport, booking confirmations, and driver or vehicle documents if driving. Border wait times can change. Allow extra time.",
+              scheduled_for: addDays(start, -2)
+            }
+          : null,
+        start
+          ? {
+              event_type: "currency_payment",
+              title: "Currency and payment reminder",
+              body:
+                crossBorderInfo.currency_change && crossBorderInfo.origin_currency && crossBorderInfo.destination_currency
+                  ? `Your trip crosses from ${crossBorderInfo.origin_currency} to ${crossBorderInfo.destination_currency}. Check card foreign transaction fees and carry a backup payment method.`
+                  : "Check exchange rates, foreign transaction fees, tolls/parking payment methods, and backup payment options.",
+              scheduled_for: addDays(start, -2)
+            }
+          : null,
+        start
+          ? {
+              event_type: "border_time_buffer",
+              title: "Leave extra time for the border",
+              body: "Border wait times can change. Allow extra time.",
+              scheduled_for: addDays(start, -1)
+            }
+          : null
+      ].filter(Boolean)
+    : [];
   const events = [
     start
       ? {
@@ -140,7 +216,8 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
       title: "Country and city info",
       body: `Review key travel notes for ${getTripDestinationLabel(trip) || "your destination"}.`,
       scheduled_for: start ? addDays(start, -7) : null
-    }
+    },
+    ...crossBorderEvents
   ].filter(Boolean) as Array<{ event_type: string; title: string; body: string; scheduled_for: string | null }>;
 
   const bookingEvents = bookings.map((booking) => ({
@@ -204,9 +281,18 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
         ...(trip.metadata || {}),
         companion: {
           status: "scheduled",
-          travelCountryInfo: buildCountryInfo(trip.destination_country, trip.destination_city),
+          travelCountryInfo: {
+            ...buildCountryInfo(trip.destination_country, trip.destination_city),
+            cross_border: getCompanionCrossBorderInfo(trip).cross_border,
+            crossBorderWarnings: getCompanionCrossBorderInfo(trip).cross_border
+              ? crossBorderTravelNotes({
+                  originCurrency: getCompanionCrossBorderInfo(trip).origin_currency,
+                  destinationCurrency: getCompanionCrossBorderInfo(trip).destination_currency
+                })
+              : []
+          },
           packingChecklist: buildPackingChecklist(trip),
-          documentChecklist: buildDocumentChecklist()
+          documentChecklist: buildDocumentChecklist(trip)
         }
       }
     })

@@ -1,5 +1,5 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -88,7 +88,10 @@ export function getTripDaysCount(trip: { start_date?: unknown; end_date?: unknow
   const storedDays = getPositiveNumber(trip.days_count) || getPositiveNumber(planning.daysCount) || getPositiveNumber(planning.days_count) || 3;
   const startDate = getString(trip.start_date) || getString(planning.startDate) || getString(planning.start_date);
   const endDate = getString(trip.end_date) || getString(planning.endDate) || getString(planning.end_date);
-  return calculateInclusiveTripDays(startDate, endDate, storedDays);
+  const range = calculateTripDateRange(startDate, endDate);
+  if (range.ok) return range.days || 1;
+  if (range.errorCode === "MISSING_DATES") return storedDays;
+  return 0;
 }
 
 export function getTripBudgetAmount(trip: { budget_amount?: unknown; metadata?: unknown }) {

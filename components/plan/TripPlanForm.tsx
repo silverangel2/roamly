@@ -24,9 +24,10 @@ import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoad
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
-import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
+import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
+import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -74,8 +75,15 @@ type PriceDiscoveryResult = {
   recommendedTransportOption?: TransportOption | null;
   transportOptions?: TransportOption[];
   transportAssumptions?: string[];
+  hotelEstimateNote?: string;
+  budgetCategoryConfidence?: BudgetCategoryConfidence[];
   unknownMarketPriceCount?: number;
   priceCoverage?: "market" | "partial" | "fallback";
+  cross_border?: boolean;
+  crossBorderWarnings?: string[];
+  originCurrency?: string;
+  destinationCurrency?: string;
+  currencyChange?: boolean;
 };
 
 function todayIsoDate() {
@@ -271,6 +279,13 @@ function placeValue(place: NormalizedPlace | null) {
   return normalizePlaceText(place?.value || place?.label || "");
 }
 
+function tripDateValidationMessage(range: TripDateRangeResult) {
+  if (range.ok) return "";
+  if (range.errorCode === "END_BEFORE_START") return "End date must be after or the same as the start date.";
+  if (range.errorCode === "INVALID_DATES") return "Enter valid start and end dates.";
+  return "Start date and end date are required.";
+}
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <span className="text-sm font-black text-ink">{children}</span>;
 }
@@ -293,12 +308,32 @@ function formatTransportOption(option: TransportOption | null | undefined, fallb
   return `${option.title}: ${range}. ${option.why_recommended}`;
 }
 
-function transportOptionSummary(options: TransportOption[] | undefined, recommended: TransportOption | null | undefined, currency: string) {
-  const alternatives = (options || []).filter((option) => option !== recommended && option.budget_fit !== "best");
-  if (!alternatives.length) return "No alternatives returned yet.";
-  return alternatives
-    .map((option) => `${option.mode}: ${formatTransportMoney(option.estimated_cost_min, option.currency || currency)}-${formatTransportMoney(option.estimated_cost_max, option.currency || currency)}`)
-    .join(" | ");
+function transportBadges(option: TransportOption) {
+  const availability =
+    option.availability === "verified"
+      ? "Verified route"
+      : option.availability === "search_ready"
+        ? "Search-ready"
+        : option.availability === "not_available"
+          ? "Not available"
+          : "Unverified";
+  return [
+    availability,
+    option.realistic ? "" : "Not recommended",
+    option.warning?.toLowerCase().includes("too long") ? "Too long for this trip" : "",
+    option.price_confidence === "estimated" || option.price_confidence === "unknown" ? "Needs live price check" : "",
+    option.warning?.toLowerCase().includes("border") ? "Border time buffer" : ""
+  ].filter(Boolean);
+}
+
+function confidenceFor(discovery: PriceDiscoveryResult, category: BudgetCategoryConfidence["category"]) {
+  return discovery.budgetCategoryConfidence?.find((item) => item.category === category);
+}
+
+function budgetValueWithConfidence(discovery: PriceDiscoveryResult, category: BudgetCategoryConfidence["category"], cents: number | null | undefined) {
+  const confidence = confidenceFor(discovery, category);
+  const value = formatMoney(cents ?? null, discovery.budgetCurrency);
+  return confidence ? `${value} · ${confidence.label}` : value;
 }
 
 function budgetStatusCopy(status: PriceDiscoveryResult["budgetStatus"]) {
@@ -573,7 +608,13 @@ export function TripPlanForm({
   const infantCount = Math.max(0, toInteger(infants, 0));
   const roomCount = Math.max(1, toInteger(rooms, 1));
   const travelersCount = Math.max(1, adultCount + childCount + infantCount);
-  const resolvedDaysCount = calculateInclusiveTripDays(startDate, endDate, toNumberOrNull(daysCount) ?? 3);
+  const tripDateRange = calculateTripDateRange(startDate, endDate);
+  const resolvedDaysCount =
+    tripDateRange.ok
+      ? tripDateRange.days || 1
+      : tripDateRange.errorCode === "MISSING_DATES"
+        ? toNumberOrNull(daysCount) ?? 3
+        : null;
   const progress = Math.round(((step + 1) / steps.length) * 100);
 
   function resetDiscovery() {
@@ -996,6 +1037,8 @@ export function TripPlanForm({
       }
     }
     if (stepToValidate === 1) {
+      const dateValidation = tripDateValidationMessage(tripDateRange);
+      if (dateValidation) return dateValidation;
       if (adultCount < 1) return "Add at least one adult traveler.";
       if (roomCount < 1) return "Add at least one room.";
     }
@@ -1302,25 +1345,26 @@ export function TripPlanForm({
     : null;
   const priceDiscoveryRows = priceDiscovery
     ? [
+        ["User budget", payload.budgetAmount ? `${priceDiscovery.budgetCurrency} ${payload.budgetAmount.toLocaleString("en-CA")}` : "Not set"],
         [
-          "Recommended transport",
-          formatTransportOption(priceDiscovery.recommendedTransportOption, priceDiscovery.budgetCurrency)
+          "Selected transport",
+          `${formatMoney(priceDiscovery.selectedTransportEstimateCents ?? priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)}${
+            priceDiscovery.recommendedTransportOption ? ` · ${priceDiscovery.recommendedTransportOption.mode}` : ""
+          }`
         ],
         [
-          "Other options",
-          transportOptionSummary(priceDiscovery.transportOptions, priceDiscovery.recommendedTransportOption, priceDiscovery.budgetCurrency)
+          "Hotel/stay",
+          budgetValueWithConfidence(priceDiscovery, "hotel", priceDiscovery.hotelEstimateCents)
         ],
-        ["Flight option", formatMoney(priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)],
-        ["Hotel/stay", formatMoney(priceDiscovery.hotelEstimateCents, priceDiscovery.budgetCurrency)],
-        ["Activities", formatMoney(priceDiscovery.activitiesEstimateCents, priceDiscovery.budgetCurrency)],
-        ["Food", formatMoney(priceDiscovery.foodEstimateCents, priceDiscovery.budgetCurrency)],
-        ["Local transport", formatMoney(priceDiscovery.localTransportEstimateCents, priceDiscovery.budgetCurrency)],
-        ["Buffer", formatMoney(priceDiscovery.bufferEstimateCents, priceDiscovery.budgetCurrency)],
-        ["Committed bookings", formatMoney(priceDiscovery.committedBudgetCents, priceDiscovery.budgetCurrency)],
-        ["Selected total", formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)],
+        ["Tickets/tours", budgetValueWithConfidence(priceDiscovery, "tickets_tours", priceDiscovery.activitiesEstimateCents)],
+        ["Food", budgetValueWithConfidence(priceDiscovery, "food", priceDiscovery.foodEstimateCents)],
+        ["Local transport", budgetValueWithConfidence(priceDiscovery, "local_transport", priceDiscovery.localTransportEstimateCents)],
+        ["Buffer", budgetValueWithConfidence(priceDiscovery, "buffer", priceDiscovery.bufferEstimateCents)],
+        ["Committed bookings", budgetValueWithConfidence(priceDiscovery, "committed_bookings", priceDiscovery.committedBudgetCents)],
+        ["Total", formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)],
         [
-          "Live prices needed",
-          priceDiscovery.unknownMarketPriceCount ? `${priceDiscovery.unknownMarketPriceCount} item${priceDiscovery.unknownMarketPriceCount === 1 ? "" : "s"}` : "None"
+          "Price sources",
+          "Full budget estimate generated using best available price sources."
         ],
         [priceBudgetBalance?.label || "Remaining budget", priceBudgetBalance?.value || "Not set"]
       ]
@@ -1480,16 +1524,42 @@ export function TripPlanForm({
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block">
                 <FieldLabel>{translateText("Start date")}</FieldLabel>
-                <TextInput value={startDate} onChange={setStartDate} type="date" ariaLabel="Start date" />
+                <TextInput
+                  value={startDate}
+                  onChange={(value) => {
+                    setStartDate(value);
+                    resetDiscovery();
+                  }}
+                  type="date"
+                  ariaLabel="Start date"
+                />
               </label>
               <label className="block">
                 <FieldLabel>{translateText("End date")}</FieldLabel>
-                <TextInput value={endDate} onChange={setEndDate} type="date" ariaLabel="End date" />
+                <TextInput
+                  value={endDate}
+                  onChange={(value) => {
+                    setEndDate(value);
+                    resetDiscovery();
+                  }}
+                  type="date"
+                  min={startDate || undefined}
+                  ariaLabel="End date"
+                />
               </label>
             </div>
             <label className="block">
               <FieldLabel>{translateText("Or number of days")}</FieldLabel>
-              <TextInput value={daysCount} onChange={setDaysCount} type="number" min={1} ariaLabel="Number of travel days" />
+              <TextInput
+                value={daysCount}
+                onChange={(value) => {
+                  setDaysCount(value);
+                  resetDiscovery();
+                }}
+                type="number"
+                min={1}
+                ariaLabel="Number of travel days"
+              />
             </label>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block">
@@ -1678,6 +1748,39 @@ export function TripPlanForm({
               </div>
             ))}
           </div>
+          {priceDiscovery.cross_border ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {["Cross-border trip", "Passport check", priceDiscovery.currencyChange ? "Currency change" : "", "Border time buffer", "Roaming reminder", "Customs reminder"]
+                .filter((label): label is string => Boolean(label))
+                .map((label) => (
+                  <span key={label} className="rounded-full border border-sun/30 bg-sun/10 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">
+                    {translateText(label)}
+                  </span>
+                ))}
+            </div>
+          ) : null}
+          {priceDiscovery.transportOptions?.length ? (
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {priceDiscovery.transportOptions.slice(0, 5).map((option) => (
+                <div key={`${option.mode}-${option.title}`} className="rounded-2xl border border-cloud bg-white p-3">
+                  <div className="flex flex-wrap gap-2">
+                    {transportBadges(option).map((badge) => (
+                      <span key={badge} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                        {translateText(badge)}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-sm font-black text-ink">{option.budget_fit === "best" ? translateText("Recommended") + ": " : ""}{option.title}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+                    {formatTransportOption(option, priceDiscovery.budgetCurrency)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {priceDiscovery.hotelEstimateNote ? (
+            <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{translateText(priceDiscovery.hotelEstimateNote)}</p>
+          ) : null}
           <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{translateText(priceDiscovery.coverageNote)}</p>
         </div>
       ) : null}
