@@ -22,6 +22,10 @@ function isProtectedPage(pathname: string) {
   ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
+function isTripPage(pathname: string) {
+  return pathname === "/trip" || pathname.startsWith("/trip/");
+}
+
 function loginRedirectUrl(request: NextRequest) {
   const next = safeAuthNextPath(`${request.nextUrl.pathname}${request.nextUrl.search}`, "/plan");
   const url = new URL("/login", request.url);
@@ -85,6 +89,10 @@ export async function middleware(request: NextRequest) {
       redirectResponse.cookies.set(AUTH_NEXT_COOKIE, "", { path: "/", maxAge: 0 });
       return redirectResponse;
     }
+  }
+
+  if (isTripPage(request.nextUrl.pathname) && !user) {
+    return response;
   }
 
   if (isProtectedPage(request.nextUrl.pathname) && !user && !hasSupabaseAuthCookie(request)) {

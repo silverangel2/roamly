@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
+import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
@@ -1095,7 +1096,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   }
 
   if (!current.user) {
-    redirect(`/login?next=${encodeURIComponent(`/trip/${id}`)}`);
+    return <TripAuthSessionCheck tripId={id} nextPath={`/trip/${id}`} />;
   }
 
   const sessionId = one(search.session_id);

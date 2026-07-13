@@ -23,7 +23,7 @@ import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { fetchWithSupabaseAuth, syncSupabaseServerSession } from "@/lib/roamly/authenticatedFetch";
 import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
@@ -126,6 +126,43 @@ function selectedOptionClass(label: string) {
 
 function planLoginUrl() {
   return `/login?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+}
+
+function cleanTripId(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function sameOriginTripPath(previewUrl: unknown, tripIdValue: unknown) {
+  const tripId = cleanTripId(tripIdValue);
+  const fallbackPath = tripId ? `/trip/${encodeURIComponent(tripId)}` : "/dashboard";
+  const rawPath = typeof previewUrl === "string" && previewUrl.trim() ? previewUrl.trim() : fallbackPath;
+
+  try {
+    const url = new URL(rawPath, window.location.origin);
+    const path = `${url.pathname}${url.search}${url.hash}`;
+
+    if (!tripId) return path.startsWith("/trip/") ? path : fallbackPath;
+
+    const expectedPath = `/trip/${encodeURIComponent(tripId)}`;
+    if (
+      path === expectedPath ||
+      path.startsWith(`${expectedPath}?`) ||
+      path.startsWith(`${expectedPath}#`) ||
+      path.startsWith(`${expectedPath}/`)
+    ) {
+      return path;
+    }
+
+    return fallbackPath;
+  } catch {
+    return fallbackPath;
+  }
+}
+
+async function openTripAfterSessionSync(previewUrl: unknown, tripId: unknown) {
+  const tripPath = sameOriginTripPath(previewUrl, tripId);
+  await syncSupabaseServerSession({ refresh: true });
+  window.location.assign(tripPath);
 }
 
 function defaultStops(): StopItem[] {
@@ -1267,7 +1304,7 @@ export function TripPlanForm({
         trackPlanEvent("itinerary_generation_completed", { tripType, destination: payload.destination, tripId: data.tripId });
         setConfirming(false);
         clearCurrentPlanDraft();
-        router.push(data.previewUrl || `/trip/${data.tripId}`);
+        await openTripAfterSessionSync(data.previewUrl, data.tripId);
         return;
       }
 
@@ -1279,7 +1316,7 @@ export function TripPlanForm({
         });
         setConfirming(false);
         clearCurrentPlanDraft();
-        router.push(data.previewUrl);
+        await openTripAfterSessionSync(data.previewUrl, data?.tripId);
         return;
       }
 
