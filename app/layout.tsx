@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
+import { TravelpayoutsDriveScript } from "@/components/roamly/TravelpayoutsDriveScript";
 
 export const metadata: Metadata = {
   title: {
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
+        <TravelpayoutsDriveScript />
         <AppShell>{children}</AppShell>
       </body>
     </html>
