@@ -33,7 +33,7 @@ export type RoamlyGenerationTrace = {
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not finish itinerary generation. Please try again in a moment.";
-const OPENAI_ITINERARY_TIMEOUT_MS = 45_000;
+const OPENAI_ITINERARY_TIMEOUT_MS = 120_000;
 const OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS = 45_000;
 const languageNames: Record<RoamlyLocale, string> = {
   en: "English",
@@ -83,10 +83,26 @@ function safeAiError(error: unknown) {
         : error instanceof Error
           ? error.name
           : "UNKNOWN_AI_ERROR";
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  const category =
+    status === 401 || status === 403
+      ? "auth"
+      : status === 404
+        ? "model_or_endpoint"
+        : status === 429
+          ? "rate_limit"
+          : status != null && status >= 500
+            ? "provider_server_error"
+            : /timeout|timed out|abort|aborted/.test(message)
+              ? "timeout"
+              : /network|connection|fetch|econnreset|enotfound|eai_again/.test(message)
+                ? "connection"
+                : "unknown";
   return {
     errorCode: code,
     errorName: error instanceof Error ? error.name : "UnknownError",
-    httpStatus: status
+    httpStatus: status,
+    errorCategory: category
   };
 }
 
@@ -116,6 +132,70 @@ function centsToMoney(value: unknown, currency: string) {
   return `${currency} ${Math.round(value / 100)}`;
 }
 
+function arrayFromUnknown(value: unknown) {
+  return Array.isArray(value) ? value : [];
+}
+
+function safeSummaryString(value: unknown, fallback = "") {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  return trimmed.length > 140 ? `${trimmed.slice(0, 137)}...` : trimmed;
+}
+
+function safeSummaryNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function summarizeMarketResult(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    category: safeSummaryString(record.category),
+    title: safeSummaryString(record.title),
+    provider: safeSummaryString(record.provider),
+    source: safeSummaryString(record.source),
+    price_type: safeSummaryString(record.price_type),
+    confidence: safeSummaryString(record.confidence),
+    price_amount: safeSummaryNumber(record.price_amount),
+    price_min: safeSummaryNumber(record.price_min),
+    price_max: safeSummaryNumber(record.price_max),
+    currency: safeSummaryString(record.currency),
+    origin: safeSummaryString(record.origin),
+    destination: safeSummaryString(record.destination),
+    city: safeSummaryString(record.city),
+    start_date: safeSummaryString(record.start_date),
+    end_date: safeSummaryString(record.end_date),
+    booking_url_present: typeof record.booking_url === "string" && record.booking_url.length > 0,
+    affiliate_url_present: typeof record.affiliate_url === "string" && record.affiliate_url.length > 0
+  };
+}
+
+function summarizeTransportOption(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    mode: safeSummaryString(record.mode),
+    label: safeSummaryString(record.label || record.title),
+    origin: safeSummaryString(record.origin),
+    destination: safeSummaryString(record.destination),
+    estimated_duration_hours: safeSummaryNumber(record.estimated_duration_hours),
+    estimated_total_cents: safeSummaryNumber(record.estimated_total_cents),
+    availability: safeSummaryString(record.availability),
+    realistic: typeof record.realistic === "boolean" ? record.realistic : null
+  };
+}
+
+function summarizeConfirmedBooking(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    category: safeSummaryString(record.category || record.booking_category),
+    title: safeSummaryString(record.title || record.name),
+    status: safeSummaryString(record.status),
+    start_date: safeSummaryString(record.start_date || record.startDate),
+    end_date: safeSummaryString(record.end_date || record.endDate),
+    location: safeSummaryString(record.location || record.address),
+    price_amount: safeSummaryNumber(record.price_amount || record.amount)
+  };
+}
+
 function priceDiscoverySummary(payload: TripPlannerPayload) {
   const discovery = payload.priceDiscovery || {};
   const currency = typeof discovery.budgetCurrency === "string" ? discovery.budgetCurrency : payload.budgetCurrency || "CAD";
@@ -138,22 +218,22 @@ function priceDiscoverySummary(payload: TripPlannerPayload) {
     price_coverage: discovery.priceCoverage || "fallback",
     unknown_market_price_count: discovery.unknownMarketPriceCount || 0,
     unknown_market_price_categories: discovery.unknownMarketPriceCategories || [],
-    selected_market_prices: discovery.selectedMarketPrices || [],
-    market_results: discovery.marketResults || [],
-    route_legs: discovery.routeLegs || [],
-    transport_options: discovery.transportOptions || [],
-    recommended_transport_option: discovery.recommendedTransportOption || null,
+    selected_market_prices: arrayFromUnknown(discovery.selectedMarketPrices).slice(0, 8).map(summarizeMarketResult),
+    market_results: arrayFromUnknown(discovery.marketResults).slice(0, 12).map(summarizeMarketResult),
+    route_legs: arrayFromUnknown(discovery.routeLegs).slice(0, 8),
+    transport_options: arrayFromUnknown(discovery.transportOptions).slice(0, 8).map(summarizeTransportOption),
+    recommended_transport_option: discovery.recommendedTransportOption ? summarizeTransportOption(discovery.recommendedTransportOption) : null,
     selected_transport_estimate: centsToMoney(discovery.selectedTransportEstimateCents, currency),
     transport_assumptions: discovery.transportAssumptions || [],
-    city_estimates: discovery.cityEstimates || [],
-    budget_category_confidence: discovery.budgetCategoryConfidence || [],
+    city_estimates: arrayFromUnknown(discovery.cityEstimates).slice(0, 8),
+    budget_category_confidence: arrayFromUnknown(discovery.budgetCategoryConfidence).slice(0, 8),
     hotel_estimate_note: discovery.hotelEstimateNote || "",
     cross_border: discovery.cross_border === true,
     cross_border_warnings: discovery.crossBorderWarnings || [],
     origin_currency: discovery.originCurrency || currency,
     destination_currency: discovery.destinationCurrency || currency,
     currency_change: discovery.currencyChange === true,
-    over_budget_recommendations: discovery.recommendationNotes || []
+    over_budget_recommendations: arrayFromUnknown(discovery.recommendationNotes).slice(0, 8)
   };
 }
 
@@ -175,6 +255,7 @@ function buildPrompt(payload: TripPlannerPayload, validationErrors: string[] = [
   const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
   const tripDays = dateRange.ok ? dateRange.days || 1 : payload.daysCount || 3;
   const essentialsContext = describeTravelEssentialsContext(payload);
+  const confirmedBookingSummary = arrayFromUnknown(payload.confirmedBookings).slice(0, 10).map(summarizeConfirmedBooking);
 
   return `Create a practical travel itinerary for Roamly.
 
@@ -209,7 +290,7 @@ Traveler input:
 - Budget instruction: ${payload.budgetConstraint || "Use practical current-price caution. Prices are estimates and may change before booking."}
 - Price discovery summary: ${JSON.stringify(priceSummary)}
 - Uploaded/saved booking costs: ${priceSummary.committed_bookings}. Treat these as already committed costs from bookings or screenshots when present; do not invent new bookings.
-- Fixed bookings and screenshots: ${JSON.stringify(payload.confirmedBookings || [])}
+- Fixed bookings and screenshots summary: ${JSON.stringify(confirmedBookingSummary)}
 	- Pre-trip essentials context: ${essentialsContext}
 	- Output language: ${outputLanguage}
 ${validationErrors.length ? `\nPrevious itinerary attempt was rejected for: ${validationErrors.join(" | ")}. Correct these issues deterministically in the next JSON.` : ""}
@@ -586,6 +667,7 @@ export async function generateRoamlyItinerary(
         {
           model,
           temperature: 0.45,
+          max_completion_tokens: 12000,
           response_format: { type: "json_object" },
           messages: [
             {

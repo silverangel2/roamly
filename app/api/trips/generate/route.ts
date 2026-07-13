@@ -36,6 +36,9 @@ import {
 } from "@/lib/roamly/generationDiagnostics";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
+export const runtime = "nodejs";
+export const maxDuration = 180;
+
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
