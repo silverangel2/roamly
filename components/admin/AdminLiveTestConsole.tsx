@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 type Trip = {
   id: string;
@@ -147,8 +148,9 @@ export function AdminLiveTestConsole({
     setError("");
     setResult(null);
     try {
-      const response = await fetch("/api/admin/roamly/live-test", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/live-test", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tripId, action })
       });

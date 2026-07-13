@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 export function SeoGenerationPanel({ contentTypes }: { contentTypes: string[] }) {
   const [contentType, setContentType] = useState(contentTypes[0] || "Destination guides");
@@ -15,8 +16,9 @@ export function SeoGenerationPanel({ contentTypes }: { contentTypes: string[] })
     setNotice("");
     setError("");
     try {
-      const response = await fetch("/api/admin/roamly/seo/generate", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/seo/generate", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ contentType, topic, queueSocialPost })
       });

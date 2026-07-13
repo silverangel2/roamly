@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 export function DemoSeedButton() {
   const [busy, setBusy] = useState(false);
@@ -13,7 +14,7 @@ export function DemoSeedButton() {
     setError("");
 
     try {
-      const response = await fetch("/api/admin/roamly/seed-demo", { method: "POST" });
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/seed-demo", { method: "POST", credentials: "include" });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Demo seed failed.");
       setNotice(`Toronto test trip created: ${data.tripId}`);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 export function MediaAssetActions({ id }: { id: string }) {
   const [busy, setBusy] = useState("");
@@ -13,8 +14,9 @@ export function MediaAssetActions({ id }: { id: string }) {
     setNotice("");
     setError("");
     try {
-      const response = await fetch("/api/admin/roamly/social/media", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/social/media", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ id, action })
       });

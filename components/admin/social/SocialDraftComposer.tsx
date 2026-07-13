@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 type GeneratedPost = {
   title: string;
@@ -43,8 +44,9 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
     setError("");
 
     try {
-      const response = await fetch("/api/admin/roamly/social/generate", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/social/generate", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ contentType, destination, topic, mediaUrl, affiliatePartners: selectedPartners })
       });
@@ -70,8 +72,9 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
     setError("");
 
     try {
-      const response = await fetch("/api/admin/roamly/social/drafts", {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/social/drafts", {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           contentType,

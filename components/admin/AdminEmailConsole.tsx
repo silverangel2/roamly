@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 type EmailLog = {
   id: string;
@@ -47,7 +48,7 @@ export function AdminEmailConsole({
   const [error, setError] = useState("");
 
   async function refreshLogs() {
-    const response = await fetch("/api/admin/roamly/email/logs");
+    const response = await fetchWithSupabaseAuth("/api/admin/roamly/email/logs", { credentials: "include" });
     const data = await response.json().catch(() => null);
     if (response.ok && Array.isArray(data?.logs)) setLogs(data.logs);
   }
@@ -60,8 +61,9 @@ export function AdminEmailConsole({
     const payload = mode === "test" ? { to } : { to, subject, message, template };
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetchWithSupabaseAuth(endpoint, {
         method: "POST",
+        credentials: "include",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload)
       });
