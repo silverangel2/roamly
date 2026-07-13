@@ -1444,7 +1444,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     "Review your trip details before generating. Once generated, this itinerary is locked permanently."}
               </p>
               {itineraryLocked ? <NoticeBanner>This itinerary is locked. To make major changes, create a new itinerary.</NoticeBanner> : null}
-              {generationInProgress ? <NoticeBanner>Roamly is generating this itinerary in stages. Completed days appear as they pass validation.</NoticeBanner> : null}
+              {generationInProgress ? <NoticeBanner>We’re building your itinerary. You can leave this page—we’ll email you when it’s ready.</NoticeBanner> : null}
               {checkoutNeedsAttention ? (
                 <NoticeBanner tone="coral">
                   Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.

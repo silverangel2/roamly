@@ -16,6 +16,7 @@ import { requireUser } from "@/lib/roamly/auth";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
+import { scheduleStagedGenerationAdvance } from "@/lib/roamly/stagedGenerationBackground";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/trips";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
@@ -325,6 +326,7 @@ async function finalizeItinerary(params: {
   tripId: string;
   payload: TripPlannerPayload;
   requestId: string;
+  requestOrigin: string;
 }) {
   const serverDateRange = calculateTripDateRange(params.payload.startDate, params.payload.endDate);
   if (!serverDateRange.ok) return invalidTripDatesResponse(serverDateRange);
@@ -522,12 +524,20 @@ async function finalizeItinerary(params: {
     batchCount: Object.keys(state.batches).length
   });
 
+  scheduleStagedGenerationAdvance({
+    tripId: params.tripId,
+    origin: params.requestOrigin,
+    reason: "generation_job_created",
+    requestId: params.requestId
+  });
+
   return NextResponse.json(
     {
       ok: true,
       status: "queued",
       tripId: params.tripId,
       previewUrl: `/trip/${params.tripId}?generating=1`,
+      message: "We’re building your itinerary. You can leave this page—we’ll email you when it’s ready.",
       staged: true,
       aiUsed: false,
       locked: false,
@@ -707,7 +717,15 @@ export async function POST(request: NextRequest) {
       if (typeof validation === "object") return invalidTripDatesResponse(validation);
       if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
 
-      return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: existingTripId, payload, requestId });
+      return finalizeItinerary({
+        supabase,
+        userId: user.id,
+        userEmail: user.email,
+        tripId: existingTripId,
+        payload,
+        requestId,
+        requestOrigin: request.nextUrl.origin
+      });
     }
 
     const payload = cleanPayload(body);
@@ -763,7 +781,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return finalizeItinerary({ supabase, userId: user.id, userEmail: user.email, tripId: trip.id, payload, requestId });
+    return finalizeItinerary({
+      supabase,
+      userId: user.id,
+      userEmail: user.email,
+      tripId: trip.id,
+      payload,
+      requestId,
+      requestOrigin: request.nextUrl.origin
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";
     console.error("[Roamly generate] Unhandled generation failure", error);

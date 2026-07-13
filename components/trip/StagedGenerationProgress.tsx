@@ -31,6 +31,13 @@ type GenerationProgress = {
   aiOutputTokens: number;
   lastErrorCode: string | null;
   retryLimit: number;
+  emailNotification?: {
+    email_me_when_ready: boolean;
+    delivery_status?: string | null;
+    completion_email_sent_at?: string | null;
+    failure_email_sent_at?: string | null;
+    last_email_error?: string | null;
+  };
   startedAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -67,6 +74,7 @@ export function StagedGenerationProgress({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const stopped = progress.status === "complete" || progress.status === "failed" || progress.status === "partially_failed";
+  const emailStatus = progress.emailNotification;
   const inFlight = useRef(false);
   const percent = useMemo(() => {
     if (!progress.totalDayCount) return 0;
@@ -114,6 +122,9 @@ export function StagedGenerationProgress({
           <h2 className="mt-1 text-xl font-black text-ink">
             {progress.completedDayCount} of {progress.totalDayCount} days ready
           </h2>
+          <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-600">
+            We’re building your itinerary. You can leave this page—we’ll email you when it’s ready.
+          </p>
         </div>
         <button
           type="button"
@@ -128,6 +139,10 @@ export function StagedGenerationProgress({
         <div className="h-full rounded-full bg-ocean transition-all" style={{ width: `${percent}%` }} />
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full border border-ocean/20 bg-ocean/5 px-3 py-1.5 text-xs font-black text-ocean">
+          Email me when ready {emailStatus?.email_me_when_ready === false ? "off" : "on"}
+          {emailStatus?.delivery_status ? ` · ${emailStatus.delivery_status}` : ""}
+        </span>
         {progress.days.map((day) => (
           <span key={day.dayNumber} className={`rounded-full border px-3 py-1.5 text-xs font-black ${statusClass(day.status)}`}>
             Day {day.dayNumber} {day.status}

@@ -108,6 +108,8 @@ const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
   "enrichItineraryBookingSuggestions",
   "persistItinerary",
   "resetFailedStagedBatch",
+  "sendStagedGenerationEmail",
+  "generationEmail",
   "maxRetries: 0",
   "staged_ai_call_start",
   "staged_ai_call_result",
@@ -172,12 +174,35 @@ assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation st
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume staged jobs without a browser tab");
-assert.ok(generationCron.includes("ROAMLY_GENERATION_CRON_SECRET") && generationCron.includes("CRON_SECRET"), "generation cron must be protected by bearer secret");
+assert.ok(generationCron.includes("getGenerationWorkerSecret"), "generation cron must be protected by bearer secret");
+assert.ok(generationCron.includes("export async function POST"), "generation worker must support protected background POST triggers");
+assert.ok(generationCron.includes("sendPendingStagedGenerationEmail"), "generation worker must retry terminal email delivery without regenerating");
+assert.ok(generationCron.includes("terminalStatus(state.status)"), "terminal jobs must not be advanced with duplicate AI work");
+
+const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
+assert.ok(generationBackground.includes("after("), "generation background trigger must continue after the response");
+assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "background trigger must call the protected worker route");
+assert.ok(generationBackground.includes("ROAMLY_GENERATION_CRON_SECRET") && generationBackground.includes("CRON_SECRET"), "background trigger must use the existing cron secret");
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");
 assert.ok(progressComponent.includes("retryLimit"), "generation progress UI must respect the retry ceiling");
 assert.ok(progressComponent.includes("estimatedAiCostUsd"), "generation progress UI must show estimated AI cost");
+assert.ok(progressComponent.includes("Email me when ready"), "generation progress UI must show transactional email status");
+
+const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
+[
+  "sendStagedGenerationEmail",
+  "sendPendingStagedGenerationEmail",
+  "completion_email_sent_at",
+  "failure_email_sent_at",
+  "email_provider_message_id",
+  "delivery_status",
+  "last_email_error",
+  "sendRoamlyEmail",
+  "transactional: true",
+  "idempotencyKey"
+].forEach((needle) => assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`));
 
 const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("/api/cron/roamly-itinerary-generation"), "Vercel cron must resume staged itinerary generation");

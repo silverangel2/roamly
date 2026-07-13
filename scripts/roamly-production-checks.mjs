@@ -42,6 +42,8 @@ function exists(file) {
   "app/api/cron/roamly-itinerary-generation/route.ts",
   "components/trip/StagedGenerationProgress.tsx",
   "lib/roamly/stagedItineraryGeneration.ts",
+  "lib/roamly/stagedGenerationBackground.ts",
+  "lib/roamly/itineraryGenerationEmail.ts",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -88,6 +90,8 @@ assert.ok(stagedGenerator.includes("MAX_AI_COST_USD"), "staged generation must e
 assert.ok(stagedGenerator.includes("plannedDayBatches"), "staged generation must batch days instead of generating one item per request");
 assert.ok(stagedGenerator.includes("BATCH_ATTEMPT_LIMIT"), "staged generation must cap failed-stage retries");
 assert.ok(stagedGenerator.includes("generatedDays"), "staged generation must preserve completed days across failures");
+assert.ok(stagedGenerator.includes("sendStagedGenerationEmail"), "staged generation must send terminal transactional emails");
+assert.ok(stagedGenerator.includes("generationEmail"), "staged generation must persist email notification state");
 assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not silently save template fallback itineraries");
 
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
@@ -97,8 +101,19 @@ const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.t
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
-assert.ok(generationCron.includes("ROAMLY_GENERATION_CRON_SECRET") && generationCron.includes("CRON_SECRET"), "generation cron must require a bearer secret");
+assert.ok(generationCron.includes("getGenerationWorkerSecret"), "generation cron must require a bearer secret");
 assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume jobs when the browser is closed");
+assert.ok(generationCron.includes("export async function POST"), "generation cron route must support immediate background worker triggers");
+assert.ok(generationCron.includes("sendPendingStagedGenerationEmail"), "generation cron route must retry email delivery without regenerating");
+
+const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
+assert.ok(generationBackground.includes("after("), "generation background trigger must run after the response");
+assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "generation background trigger must call the protected worker");
+
+const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
+["completion_email_sent_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail"].forEach((needle) =>
+  assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`)
+);
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("checkoutSyncError"), "trip page must surface checkout sync failures");

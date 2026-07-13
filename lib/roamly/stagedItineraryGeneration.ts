@@ -17,6 +17,10 @@ import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import { searchTripMarketPrices } from "@/lib/roamly/travelMarketSearch";
+import {
+  getGenerationEmailStatus,
+  sendStagedGenerationEmail
+} from "@/lib/roamly/itineraryGenerationEmail";
 import { syncGeneratedItinerary, type RoamlyTripRecord } from "@/lib/trips";
 import {
   getPublicSupabaseHost,
@@ -277,8 +281,14 @@ export function getStagedGenerationState(metadata: unknown): StagedGenerationSta
 }
 
 function generationMetadata(metadata: unknown, state: StagedGenerationState) {
+  const current = (getRecord(metadata) || {}) as Record<string, unknown>;
+  const currentEmail = getGenerationEmailStatus(current);
   return {
-    ...((getRecord(metadata) || {}) as Record<string, unknown>),
+    ...current,
+    generationEmail: {
+      ...currentEmail,
+      email_me_when_ready: currentEmail.email_me_when_ready !== false
+    },
     generation: state
   };
 }
@@ -494,6 +504,25 @@ function traceStage(trace: StageTrace | undefined, event: string, details: Recor
     supabaseHost: getPublicSupabaseHost(),
     ...details
   });
+}
+
+async function sendGenerationEmailSafely(params: {
+  tripId: string;
+  kind: "completion" | "failure";
+  requestId?: string;
+}) {
+  const result = await sendStagedGenerationEmail({ tripId: params.tripId, kind: params.kind }).catch((error) => ({
+    ok: false,
+    status: "failed" as const,
+    error: error instanceof Error ? error.message : "Generation email failed."
+  }));
+  traceStage({ requestId: params.requestId, tripId: params.tripId, route: "stagedItineraryGeneration" }, "staged_generation_email_result", {
+    kind: params.kind,
+    ok: result.ok,
+    status: result.status,
+    errorPresent: Boolean("error" in result && result.error)
+  });
+  return result;
 }
 
 async function callJsonStage(params: {
@@ -1221,6 +1250,7 @@ async function completeGeneration(params: {
       lastErrorCode: "FINAL_VALIDATION_FAILED"
     });
     await persistState({ supabase: params.supabase, trip: params.trip, state: failed });
+    await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "failure", requestId: params.requestId });
     throw new StagedGenerationError("Final itinerary validation failed.", "FINAL_VALIDATION_FAILED", 502);
   }
 
@@ -1266,6 +1296,7 @@ async function completeGeneration(params: {
       model: completed.model || null
     }
   });
+  await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "completion", requestId: params.requestId });
   return { state: completed, itinerary };
 }
 
@@ -1537,6 +1568,7 @@ export async function advanceStagedItineraryGeneration(params: {
         lastErrorCode: "DAY_PARTIAL_FAILURE"
       });
       await persistState({ supabase: params.supabase, trip: claimedTrip, state: partial });
+      await sendGenerationEmailSafely({ tripId: params.tripId, kind: "failure", requestId: params.requestId });
       return { ok: true, status: partial.status, state: partial, advanced: false };
     }
 
@@ -1582,6 +1614,9 @@ export async function advanceStagedItineraryGeneration(params: {
         permanent: generationError.permanent,
         exhausted
       });
+      if (updatedState.status === "failed") {
+        await sendGenerationEmailSafely({ tripId: params.tripId, kind: "failure", requestId: params.requestId });
+      }
       if (generationError.permanent || exhausted) throw generationError;
       return { ok: false, status: updatedState.status, state: updatedState, advanced: false, error: generationError.code };
     }
@@ -1764,6 +1799,7 @@ export function publicStagedGenerationProgress(metadata: unknown) {
       createdAt: run.createdAt
     })),
     retryLimit: BATCH_ATTEMPT_LIMIT,
+    emailNotification: getGenerationEmailStatus(metadata),
     startedAt: state.startedAt,
     updatedAt: state.updatedAt,
     completedAt: state.completedAt || null
