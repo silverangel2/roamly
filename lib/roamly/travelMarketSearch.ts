@@ -391,6 +391,14 @@ function providerConfigured(category: TravelMarketCategory) {
   return false;
 }
 
+function stay22AffiliateConfigured() {
+  return (
+    process.env.ROAMLY_AFFILIATES_ENABLED === "true" &&
+    clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase() === "stay22" &&
+    Boolean(clean(process.env.ROAMLY_STAY22_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL))
+  );
+}
+
 function buildTransportOptionsSearchKey(payload: TripPlannerPayload) {
   return [
     "transport_options",
@@ -570,7 +578,7 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
 }
 
 function searchReadyResult(request: TravelMarketSearchRequest, warning?: string) {
-  const source: TravelMarketSource = request.category === "hotel" && process.env.ROAMLY_STAY22_PARTNER_ID ? "stay22" : "google_search";
+  const source: TravelMarketSource = request.category === "hotel" && stay22AffiliateConfigured() ? "stay22" : "google_search";
   return baseResult(request, {
     provider: source === "stay22" ? "Stay22 search" : "Search-ready link",
     source,

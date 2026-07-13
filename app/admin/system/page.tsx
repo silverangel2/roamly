@@ -178,9 +178,9 @@ export default async function AdminSystemPage() {
     },
     {
       group: "Affiliate",
-      label: "Stay22 partner",
+      label: "Stay22 hotel link",
       status: optionalStatus(affiliateReadiness.stay22PartnerConfigured, affiliatesEnabled),
-      detail: "Hotel affiliate links use this only when configured."
+      detail: "Hotel affiliate links use a partner ID first, then the referral fallback."
     },
     {
       group: "Affiliate",

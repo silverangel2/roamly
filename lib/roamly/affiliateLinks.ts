@@ -7,7 +7,8 @@ import {
   buildHotelSearchUrl,
   buildTourSearchUrl,
   buildTransportSearchUrl,
-  googleSearchUrl
+  googleSearchUrl,
+  safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
 
 export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
@@ -76,6 +77,21 @@ function directSearch(provider: string, href: string) {
   return href || googleSearchUrl(`${provider} travel search`);
 }
 
+function stay22PartnerId() {
+  return clean(process.env.ROAMLY_STAY22_PARTNER_ID);
+}
+
+function stay22ReferralUrl() {
+  return safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
+}
+
+function hasConfiguredHotelAffiliateProvider(provider: string) {
+  if (provider === "stay22") return Boolean(stay22PartnerId() || stay22ReferralUrl());
+  if (provider === "expedia" || provider === "hotels") return Boolean(process.env.ROAMLY_EXPEDIA_AFFILIATE_ID);
+  if (provider === "booking") return Boolean(process.env.ROAMLY_BOOKING_AFFILIATE_ID);
+  return false;
+}
+
 function linkResult(
   input: RoamlyAffiliateInput,
   category: RoamlyBookingCategory,
@@ -96,19 +112,27 @@ function linkResult(
 export function buildHotelAffiliateUrl(input: RoamlyAffiliateInput) {
   const provider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase();
   const destination = place(input);
-  if (enabled() && provider === "stay22" && process.env.ROAMLY_STAY22_PARTNER_ID) {
-    return linkResult(
-      input,
-      "hotel",
-      withParams("https://www.stay22.com/search", {
-        address: destination,
-        checkin: input.startDate || undefined,
-        checkout: input.endDate || undefined,
-        guests: input.adults ? String(input.adults) : undefined,
-        aid: process.env.ROAMLY_STAY22_PARTNER_ID
-      }),
-      "stay22"
-    );
+  if (enabled() && provider === "stay22") {
+    const partnerId = stay22PartnerId();
+    if (partnerId) {
+      return linkResult(
+        input,
+        "hotel",
+        withParams("https://www.stay22.com/search", {
+          address: destination,
+          checkin: input.startDate || undefined,
+          checkout: input.endDate || undefined,
+          guests: input.adults ? String(input.adults) : undefined,
+          aid: partnerId
+        }),
+        "stay22"
+      );
+    }
+
+    const referralUrl = stay22ReferralUrl();
+    if (referralUrl) {
+      return linkResult(input, "hotel", referralUrl, "stay22");
+    }
   }
   if (enabled() && provider === "expedia" && process.env.ROAMLY_EXPEDIA_AFFILIATE_ID) {
     return linkResult(
@@ -579,12 +603,14 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
 }
 
 export function getAffiliateReadiness() {
+  const hotelProvider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase();
+
   return {
     affiliatesEnabled: enabled(),
-    hotelProviderConfigured: Boolean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER),
+    hotelProviderConfigured: hasConfiguredHotelAffiliateProvider(hotelProvider),
     flightProviderConfigured: Boolean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER),
     attractionsProviderConfigured: Boolean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER),
-    stay22PartnerConfigured: Boolean(process.env.ROAMLY_STAY22_PARTNER_ID),
+    stay22PartnerConfigured: Boolean(stay22PartnerId() || stay22ReferralUrl()),
     travelpayoutsMarkerConfigured: Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     getYourGuidePartnerConfigured: Boolean(process.env.ROAMLY_GETYOURGUIDE_PARTNER_ID),
     viatorPartnerConfigured: Boolean(process.env.ROAMLY_VIATOR_PARTNER_ID),
