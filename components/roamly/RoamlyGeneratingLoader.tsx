@@ -4,27 +4,29 @@ type RoamlyGeneratingLoaderProps = {
 
 const statusMessages = [
   "Checking your route",
-  "Balancing your budget",
-  "Finding smarter travel days",
-  "Organizing your city stops",
-  "Preparing your Live Companion"
+  "Comparing travel options",
+  "Matching your budget",
+  "Organizing your itinerary",
+  "Preparing your trip companion"
 ];
 
 export function RoamlyGeneratingLoader({ className = "" }: RoamlyGeneratingLoaderProps) {
+  const flightPath =
+    "M 54 148 C 128 76 226 50 319 78 C 391 100 451 76 475 38 C 434 94 374 133 292 137 C 202 141 129 163 76 198";
+
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`relative isolate overflow-hidden rounded-[2rem] border border-white/85 bg-white/85 px-4 py-6 text-ink shadow-[0_28px_90px_rgba(14,116,144,0.2)] backdrop-blur-2xl sm:px-7 sm:py-7 ${className}`}
+      className={`relative isolate overflow-hidden rounded-[2rem] border border-white/80 bg-white/82 px-4 py-6 text-ink shadow-[0_30px_90px_rgba(15,32,51,0.16)] backdrop-blur-2xl sm:px-7 sm:py-8 ${className}`}
     >
-      <div className="pointer-events-none absolute -left-16 top-6 h-48 w-48 rounded-full bg-cyan-200/60 blur-3xl" />
-      <div className="pointer-events-none absolute -right-20 bottom-8 h-52 w-52 rounded-full bg-lagoon/45 blur-3xl" />
-      <div className="pointer-events-none absolute right-12 top-10 h-28 w-28 rounded-full bg-sun/35 blur-2xl" />
-      <div className="pointer-events-none absolute inset-x-10 top-14 h-24 rounded-full bg-sky-200/20 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(186,230,253,0.45),transparent_30%),radial-gradient(circle_at_82%_20%,rgba(255,214,150,0.28),transparent_28%),linear-gradient(135deg,rgba(255,255,255,0.72),rgba(240,249,255,0.44)_52%,rgba(255,247,237,0.48))]" />
+      <div className="pointer-events-none absolute inset-x-10 top-8 h-28 rounded-full bg-cyan-200/18 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-20 left-1/2 h-48 w-72 -translate-x-1/2 rounded-full bg-lagoon/18 blur-3xl" />
 
       <div className="relative mx-auto grid max-w-2xl place-items-center text-center">
-        <div className="roamly-wordmark-stage relative mx-auto h-44 w-full max-w-[34rem] sm:h-56" aria-hidden="true">
-          <div className="absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-full bg-white/70 shadow-[0_20px_70px_rgba(14,116,144,0.12)] sm:inset-x-12 sm:h-28" />
+        <div className="roamly-wordmark-stage relative mx-auto h-44 w-full max-w-[34rem] sm:h-60" aria-hidden="true">
+          <div className="absolute inset-x-4 top-1/2 h-28 -translate-y-1/2 rounded-[1.75rem] border border-white/85 bg-white/72 shadow-[0_22px_70px_rgba(15,32,51,0.1)] sm:inset-x-10 sm:h-32" />
           <svg
             viewBox="0 0 520 220"
             preserveAspectRatio="xMidYMid meet"
@@ -32,36 +34,54 @@ export function RoamlyGeneratingLoader({ className = "" }: RoamlyGeneratingLoade
           >
             <defs>
               <linearGradient id="roamlyFlightGradient" x1="52" x2="472" y1="174" y2="34" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#ffb84d" stopOpacity="0.82" />
-                <stop offset="0.42" stopColor="#22d3ee" stopOpacity="0.76" />
-                <stop offset="1" stopColor="#1b9aaa" stopOpacity="0.82" />
+                <stop stopColor="#f2a83b" stopOpacity="0.72" />
+                <stop offset="0.45" stopColor="#22d3ee" stopOpacity="0.7" />
+                <stop offset="1" stopColor="#0f8f9c" stopOpacity="0.78" />
               </linearGradient>
+              <filter id="roamlyPlaneShadow" x="-35%" y="-35%" width="170%" height="170%">
+                <feDropShadow dx="0" dy="12" stdDeviation="8" floodColor="#0f8f9c" floodOpacity="0.18" />
+              </filter>
             </defs>
             <path
-              d="M48 146 C112 70 228 43 341 70 C442 94 492 50 436 28 C385 9 338 39 365 83 C392 126 312 166 212 164 C118 162 72 190 122 205 C203 230 405 204 464 140"
+              d={flightPath}
               fill="none"
               stroke="url(#roamlyFlightGradient)"
               strokeLinecap="round"
-              strokeWidth="2.5"
-              strokeDasharray="3 13"
-              className="roamly-route-dash opacity-80"
+              strokeWidth="2"
+              strokeDasharray="1 12"
+              className="roamly-route-dash opacity-70"
             />
             <path
-              d="M72 147 C154 96 219 91 276 104 C327 116 381 102 428 58"
+              d="M92 154 C166 105 238 98 300 111 C359 123 416 100 455 59"
               fill="none"
               stroke="#0e7490"
               strokeLinecap="round"
-              strokeWidth="1.5"
-              strokeDasharray="2 14"
-              opacity="0.18"
+              strokeWidth="1"
+              strokeDasharray="2 12"
+              opacity="0.16"
             />
-            <circle cx="55" cy="147" r="4.5" fill="#ffb84d" opacity="0.95" />
-            <circle cx="436" cy="28" r="4" fill="#22d3ee" opacity="0.9" />
-            <circle cx="464" cy="140" r="3.5" fill="#54d6c6" opacity="0.86" />
+            <circle cx="54" cy="148" r="4.5" fill="#f2a83b" opacity="0.95" />
+            <circle cx="475" cy="38" r="4" fill="#22d3ee" opacity="0.9" />
+            <circle cx="76" cy="198" r="3.5" fill="#54d6c6" opacity="0.86" />
+            <g className="roamly-plane-static hidden" transform="translate(168 96) rotate(-22)">
+              <circle r="18" fill="white" opacity="0.92" />
+              <path
+                d="M13.8 1.2 -2.2 5.9 -4.4 13.8 -7.1 13.8 -6.1 5.1 -14.2 1.9 -14.2 -1.9 -6.1 -5.1 -7.1 -13.8 -4.4 -13.8 -2.2 -5.9 13.8 -1.2 C16.8 -0.3 16.8 0.3 13.8 1.2Z"
+                fill="#0f6f82"
+              />
+            </g>
+            <g className="roamly-plane-animated" filter="url(#roamlyPlaneShadow)">
+              <circle r="19" fill="white" opacity="0.95" />
+              <path
+                d="M13.8 1.2 -2.2 5.9 -4.4 13.8 -7.1 13.8 -6.1 5.1 -14.2 1.9 -14.2 -1.9 -6.1 -5.1 -7.1 -13.8 -4.4 -13.8 -2.2 -5.9 13.8 -1.2 C16.8 -0.3 16.8 0.3 13.8 1.2Z"
+                fill="#0f6f82"
+              />
+              <animateMotion dur="10.5s" repeatCount="indefinite" rotate="auto" path={flightPath} calcMode="paced" />
+            </g>
           </svg>
 
           <div className="absolute inset-x-0 top-1/2 z-10 -translate-y-1/2 px-4">
-            <span className="inline-block bg-gradient-to-r from-ink via-cyan-700 to-lagoon bg-clip-text text-5xl font-black leading-none tracking-normal text-transparent drop-shadow-[0_12px_30px_rgba(14,116,144,0.13)] sm:text-7xl">
+            <span className="inline-block bg-gradient-to-r from-[#102033] via-[#0f6f82] to-[#1b9aaa] bg-clip-text text-[2.35rem] font-black leading-none tracking-normal text-transparent drop-shadow-[0_14px_32px_rgba(15,32,51,0.12)] sm:text-[3.75rem]">
               Roamly
             </span>
           </div>
@@ -87,12 +107,12 @@ export function RoamlyGeneratingLoader({ className = "" }: RoamlyGeneratingLoade
         </div>
 
         <div className="mt-1">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Roamly is planning</p>
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-cyan-700">Roamly travel concierge</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">
-            Roamly is building your itinerary
+            Building your Roamly itinerary
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm font-bold leading-6 text-slate-600">
-            Checking route, budget, booking options, and travel style.
+            Checking routes, budget, booking options, and travel style.
           </p>
         </div>
 

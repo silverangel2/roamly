@@ -77,92 +77,43 @@ select {
   }
 }
 
-@keyframes roamly-plane-flight {
-  0% {
-    left: 7%;
-    top: 67%;
-    transform: translate(-50%, -50%) rotate(-22deg) scale(0.95);
-  }
-  18% {
-    left: 31%;
-    top: 44%;
-    transform: translate(-50%, -50%) rotate(36deg) scale(1);
-  }
-  34% {
-    left: 58%;
-    top: 34%;
-    transform: translate(-50%, -50%) rotate(56deg) scale(1.04);
-  }
-  48% {
-    left: 85%;
-    top: 20%;
-    transform: translate(-50%, -50%) rotate(110deg) scale(1.02);
-  }
-  61% {
-    left: 91%;
-    top: 48%;
-    transform: translate(-50%, -50%) rotate(168deg) scale(0.98);
-  }
-  76% {
-    left: 64%;
-    top: 74%;
-    transform: translate(-50%, -50%) rotate(216deg) scale(0.94);
-  }
-  90% {
-    left: 28%;
-    top: 78%;
-    transform: translate(-50%, -50%) rotate(245deg) scale(0.92);
-  }
-  100% {
-    left: 7%;
-    top: 67%;
-    transform: translate(-50%, -50%) rotate(338deg) scale(0.95);
-  }
-}
-
 @keyframes roamly-status-chip {
   0%,
   100% {
-    transform: translateY(0);
     border-color: rgba(165, 243, 252, 0.78);
+    box-shadow: 0 10px 28px rgba(14, 116, 144, 0.07);
   }
   50% {
-    transform: translateY(-2px);
     border-color: rgba(255, 184, 77, 0.55);
+    box-shadow: 0 14px 32px rgba(14, 116, 144, 0.11);
   }
-}
-
-.roamly-plane-flight {
-  left: 7%;
-  top: 67%;
-  transform: translate(-50%, -50%) rotate(-22deg) scale(0.95);
-  animation: roamly-plane-flight 6.2s cubic-bezier(0.45, 0, 0.22, 1) infinite;
 }
 
 .roamly-route-dash {
-  animation: roamly-route-dash 4.8s linear infinite;
+  animation: roamly-route-dash 7s linear infinite;
 }
 
 .roamly-destination-dot {
-  animation: roamly-dot-pulse 1.8s ease-in-out infinite;
+  animation: roamly-dot-pulse 2.4s ease-in-out infinite;
 }
 
 .roamly-status-chip {
-  animation: roamly-status-chip 2.4s ease-in-out infinite;
+  animation: roamly-status-chip 3.6s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .roamly-plane-flight,
   .roamly-route-dash,
   .roamly-destination-dot,
   .roamly-status-chip {
     animation: none !important;
   }
 
-  .roamly-plane-flight {
-    left: 10%;
-    top: 62%;
-    transform: translate(-50%, -50%) rotate(-18deg) scale(1);
+  .roamly-plane-animated {
+    display: none;
+  }
+
+  .roamly-plane-static {
+    display: block;
   }
 }
 
