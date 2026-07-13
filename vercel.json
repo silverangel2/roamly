@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/roamly-social-autopost",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
