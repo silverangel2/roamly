@@ -3,7 +3,13 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { safeAuthNextPath } from "@/lib/navigation";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
-import { getSupabaseAuthCookieDiagnostics, getSupabaseProjectHost, logAuthDiagnostic } from "@/lib/roamly/authDiagnostics";
+import { applyCookieHeaders, normalizeSupabaseCookieOptions } from "@/lib/supabase/cookies";
+import {
+  getSupabaseAuthCookieDiagnostics,
+  getSupabaseProjectHost,
+  isSupabaseAuthCookieName,
+  logAuthDiagnostic
+} from "@/lib/roamly/authDiagnostics";
 
 const AUTH_NEXT_COOKIE = "roamly_auth_next";
 
@@ -40,6 +46,7 @@ export async function GET(request: NextRequest) {
   const redirectUrl = new URL(next, requestUrl.origin);
   const providerError = requestUrl.searchParams.get("error");
   const cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }> = [];
+  let responseCookieHeaders: Record<string, string> = {};
 
   function loginRedirect(error: string) {
     const loginUrl = new URL("/login", requestUrl.origin);
@@ -53,6 +60,7 @@ export async function GET(request: NextRequest) {
     cookiesToSet.forEach(({ name, value, options }) => {
       response.cookies.set(name, value, options);
     });
+    applyCookieHeaders(response.headers, responseCookieHeaders);
     response.cookies.set(AUTH_NEXT_COOKIE, "", { path: "/", maxAge: 0 });
     return response;
   }
@@ -75,11 +83,21 @@ export async function GET(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(nextCookies: Array<{ name: string; value: string; options: CookieOptions }>) {
+      setAll(
+        nextCookies: Array<{ name: string; value: string; options: CookieOptions }>,
+        headersToSet: Record<string, string> = {}
+      ) {
         nextCookies.forEach(({ name, value }) => {
           request.cookies.set(name, value);
         });
-        cookiesToSet.push(...nextCookies);
+        responseCookieHeaders = headersToSet;
+        cookiesToSet.push(
+          ...nextCookies.map(({ name, value, options }) => ({
+            name,
+            value,
+            options: normalizeSupabaseCookieOptions(options)
+          }))
+        );
       }
     }
   });
@@ -105,10 +123,14 @@ export async function GET(request: NextRequest) {
   logAuthDiagnostic("oauth_callback_user_result", {
     path: requestUrl.pathname,
     getUserOk: Boolean(data.user),
+    authenticatedUserId: data.user?.id || null,
     authenticatedEmail: data.user?.email || null,
-    authCookiesWritten: cookiesToSet.some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")),
-    authCookieWriteCount: cookiesToSet.filter((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")).length,
-    supabaseProjectHost: getSupabaseProjectHost()
+    authCookiesWritten: cookiesToSet.some((cookie) => isSupabaseAuthCookieName(cookie.name)),
+    authCookieWriteCount: cookiesToSet.filter((cookie) => isSupabaseAuthCookieName(cookie.name)).length,
+    supabaseProjectHost: getSupabaseProjectHost(),
+    refreshedCookiesAttached: cookiesToSet.some((cookie) => isSupabaseAuthCookieName(cookie.name)),
+    redirectDestination: data.user ? `${redirectUrl.pathname}${redirectUrl.search}` : null,
+    reasonCode: data.user ? null : "missing_session"
   });
 
   if (data.user) {

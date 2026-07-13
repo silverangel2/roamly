@@ -23,10 +23,20 @@ export function getExpectedSupabaseAuthCookiePrefix() {
   return projectRef ? `sb-${projectRef}-auth-token` : "";
 }
 
+export function isSupabaseAuthCookieName(name: string) {
+  const expectedPrefix = getExpectedSupabaseAuthCookiePrefix();
+
+  if (expectedPrefix && (name === expectedPrefix || name.startsWith(`${expectedPrefix}.`))) {
+    return true;
+  }
+
+  return name.startsWith("sb-") && name.includes("auth-token");
+}
+
 export function getSupabaseAuthCookieDiagnostics(cookieHeader: string) {
   const names = cookieNames(cookieHeader);
   const expectedPrefix = getExpectedSupabaseAuthCookiePrefix();
-  const authCookieNames = names.filter((name) => name.startsWith("sb-") && name.includes("auth-token"));
+  const authCookieNames = names.filter(isSupabaseAuthCookieName);
 
   return {
     authCookiePresent: authCookieNames.length > 0,

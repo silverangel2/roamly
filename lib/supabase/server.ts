@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
+import { normalizeSupabaseCookieOptions } from "@/lib/supabase/cookies";
 
 export type CurrentUserResult = {
   configured: boolean;
@@ -22,7 +23,7 @@ export async function createSupabaseServerClient() {
       setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            cookieStore.set(name, value, normalizeSupabaseCookieOptions(options));
           });
         } catch {
           // Server components cannot always write cookies. Middleware and route handlers refresh them.

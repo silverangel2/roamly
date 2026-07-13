@@ -88,7 +88,7 @@ export async function syncSupabaseServerSession({ refresh = false }: { refresh?:
       })
     });
 
-    return { ok: response.ok, user: response.ok ? session.user : null };
+    return { ok: response.ok, user: session.user ?? null };
   } catch {
     return { ok: false, user: session.user ?? null };
   }

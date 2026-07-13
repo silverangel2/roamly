@@ -139,6 +139,42 @@ const middleware = read("middleware.ts");
 assert.ok(middleware.includes("createServerClient"), "middleware must refresh Supabase sessions");
 assert.ok(middleware.includes("supabase.auth.getUser()"), "middleware must validate/refresh auth before protected routes");
 assert.ok(middleware.includes("\"/api/trips/:path*\""), "middleware must refresh auth for trip API requests");
+assert.ok(middleware.includes("attachRefreshedCookies"), "middleware redirects must preserve refreshed Supabase cookies");
+assert.ok(middleware.includes("applyCookieHeaders"), "middleware must preserve Supabase no-store headers when cookies refresh");
+assert.ok(middleware.includes("normalizeSupabaseCookieOptions"), "middleware must normalize Supabase auth cookie options");
+assert.ok(middleware.includes("\"/plan/:path*\""), "middleware must refresh sessions while users plan trips");
+assert.ok(middleware.includes("\"/pricing/:path*\""), "middleware must refresh sessions while users view pricing");
+assert.ok(middleware.includes("middleware_auth_redirect"), "middleware protected-route redirects must log safe diagnostics");
+
+const callbackRoute = read("app/auth/callback/route.ts");
+assert.ok(callbackRoute.includes("exchangeCodeForSession(code)"), "OAuth callback must exchange the Supabase auth code");
+assert.ok(callbackRoute.includes("redirectWithAuthCookies"), "OAuth callback must return session cookies on the redirect response");
+assert.ok(callbackRoute.includes("normalizeSupabaseCookieOptions"), "OAuth callback must normalize production auth cookie options");
+assert.ok(callbackRoute.includes("applyCookieHeaders"), "OAuth callback must preserve Supabase no-store headers");
+assert.ok(callbackRoute.includes("selectAuthNextPath"), "OAuth callback must preserve requested return paths");
+assert.ok(callbackRoute.includes("authCookiesWritten"), "OAuth callback must safely diagnose whether cookies were written");
+
+const sessionRoute = read("app/api/auth/session/route.ts");
+assert.ok(sessionRoute.includes("supabase.auth.setSession"), "session sync route must write Supabase SSR cookies from browser session tokens");
+assert.ok(sessionRoute.includes("normalizeSupabaseCookieOptions"), "session sync route must normalize production auth cookie options");
+assert.ok(sessionRoute.includes("applyCookieHeaders"), "session sync route must preserve Supabase no-store headers");
+assert.ok(sessionRoute.includes("session_sync_succeeded"), "session sync route must log safe diagnostics");
+
+const authenticatedFetch = read("lib/roamly/authenticatedFetch.ts");
+assert.ok(authenticatedFetch.includes('credentials: init.credentials ?? "include"'), "authenticated fetches must include same-origin cookies");
+assert.ok(authenticatedFetch.includes('credentials: "include"'), "session sync must include same-origin cookies");
+assert.ok(authenticatedFetch.includes("user: session.user ?? null"), "failed session sync must still report a browser user to avoid forced login loops");
+
+const tripAuthSessionCheck = read("components/auth/TripAuthSessionCheck.tsx");
+assert.ok(tripAuthSessionCheck.includes("first.user"), "trip auth recovery must not force login while a browser session exists");
+assert.ok(tripAuthSessionCheck.includes("retry.user"), "trip auth recovery must retry after a refresh returns a browser session");
+assert.ok(tripAuthSessionCheck.includes("clearAttemptCount(attemptKey);") && tripAuthSessionCheck.includes("window.location.replace(targetPath)"), "successful trip auth recovery must clear loop state and return to the requested trip");
+
+const supabaseBrowser = read("lib/supabase/browser.ts");
+const supabaseServer = read("lib/supabase/server.ts");
+assert.ok(supabaseBrowser.includes("getSupabaseUrl()") && supabaseServer.includes("getSupabaseUrl()"), "browser and server Supabase clients must use the shared configured project URL");
+assert.ok(supabaseBrowser.includes("getSupabaseAnonKey()") && supabaseServer.includes("getSupabaseAnonKey()"), "browser and server Supabase clients must use the shared configured anon key");
+assert.ok(![middleware, callbackRoute, sessionRoute, supabaseBrowser, supabaseServer].join("\n").includes("localhost:54321"), "production auth flow must not reference a local Supabase URL");
 
 const pushServer = read("lib/roamly/pushServer.ts");
 assert.ok(pushServer.includes("createInAppNotification"), "in-app notifications helper missing");
