@@ -10,7 +10,8 @@ import { recordAppEvent } from "@/lib/roamly/events";
 function normalizeKind(value: unknown) {
   if (value === "itinerary" || value === "itinerary_unlock") return "itinerary";
   if (value === "features" || value === "tracking" || value === "tracking_addon") return "tracking";
-  return "bundle";
+  if (value === "bundle" || value === "complete" || value === "complete_trip") return "bundle";
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -22,17 +23,44 @@ export async function POST(request: NextRequest) {
   const kind = normalizeKind(body.checkoutKind || body.kind || body.purchaseType);
 
   if (!tripId) return NextResponse.json({ ok: false, error: "Trip is required." }, { status: 400 });
+  if (!kind) {
+    return NextResponse.json(
+      { ok: false, error: "INVALID_CHECKOUT_KIND", code: "INVALID_CHECKOUT_KIND", message: "Choose a valid Roamly checkout option." },
+      { status: 400 }
+    );
+  }
 
-  const checkout =
-    kind === "itinerary"
-      ? await createItineraryCheckoutSession(auth.supabase, auth.user, tripId)
-      : kind === "tracking"
-        ? await createTrackingCheckoutSession(auth.supabase, auth.user, tripId)
-        : await createBundleCheckoutSession(auth.supabase, auth.user, tripId);
+  const checkout = await (async () => {
+    try {
+      return kind === "itinerary"
+        ? await createItineraryCheckoutSession(auth.supabase, auth.user, tripId)
+        : kind === "tracking"
+          ? await createTrackingCheckoutSession(auth.supabase, auth.user, tripId)
+          : await createBundleCheckoutSession(auth.supabase, auth.user, tripId);
+    } catch (error) {
+      console.error("[Roamly] Checkout creation failed", {
+        userId: auth.user.id,
+        tripId,
+        checkoutKind: kind,
+        error: error instanceof Error ? error.message : "Unknown checkout error"
+      });
+      return {
+        ok: false as const,
+        status: 500,
+        error: "CHECKOUT_SESSION_CREATE_FAILED",
+        message: "Stripe checkout could not be opened. Please retry or contact support if this persists."
+      };
+    }
+  })();
 
   if (!checkout.ok) {
     return NextResponse.json(
-      { ok: false, error: checkout.error, message: "message" in checkout ? checkout.message : undefined },
+      {
+        ok: false,
+        error: checkout.error,
+        code: checkout.error,
+        message: "message" in checkout ? checkout.message : undefined
+      },
       { status: checkout.status || 500 }
     );
   }

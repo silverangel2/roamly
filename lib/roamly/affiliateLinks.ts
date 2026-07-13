@@ -10,7 +10,7 @@ import {
   roamlyDiscoveryUrl,
   safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
-import { isLegacyBookingUrl, resolveAffiliateLink, testAffiliateLinks } from "@/lib/roamly/affiliateResolver";
+import { isLegacyBookingUrl, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
 
 export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
 
@@ -376,9 +376,89 @@ function marketPriceConfidence(result: Record<string, unknown>) {
   return "unknown" as const;
 }
 
+function timelineAffiliateCategory(item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number]): AffiliateCategory | null {
+  const explicit = cleanStringValue(item.affiliate_category).toLowerCase();
+  if (
+    explicit === "flight" ||
+    explicit === "hotel" ||
+    explicit === "activity" ||
+    explicit === "attraction" ||
+    explicit === "ticket" ||
+    explicit === "tour" ||
+    explicit === "transport" ||
+    explicit === "car_rental" ||
+    explicit === "restaurant" ||
+    explicit === "product" ||
+    explicit === "esim"
+  ) {
+    return explicit as AffiliateCategory;
+  }
+  const text = `${item.item_type || ""} ${item.category || ""} ${item.title || ""} ${item.booking_label || ""}`.toLowerCase();
+  if (/\bflight|airport|plane|airfare\b/.test(text)) return "flight";
+  if (/\bhotel|stay|room|check[- ]?in|check[- ]?out|luggage\b/.test(text)) return "hotel";
+  if (/\btransfer|shuttle|train|bus|ferry|transport|station|terminal\b/.test(text)) return "transport";
+  if (/\btour|experience|activity|ticket|admission|attraction\b/.test(text)) return "activity";
+  if (/\be-?sim|roaming|mobile data\b/.test(text)) return "esim";
+  if (/\bluggage|adapter|packing|gear\b/.test(text)) return "product";
+  return item.booking_label ? "activity" : null;
+}
+
+function ctaLabelForTimeline(category: AffiliateCategory, label?: string | null) {
+  const cleaned = cleanStringValue(label);
+  if (cleaned) return cleaned;
+  if (category === "flight") return "Check flights";
+  if (category === "hotel") return "Find a hotel";
+  if (category === "transport") return "Book transfer";
+  if (category === "esim") return "Get an eSIM";
+  if (category === "product") return "Shop travel gear";
+  return "Book activity";
+}
+
+function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary["daily_itinerary"] {
+  const travelers = payload.travelers || payload.travelersCount || 1;
+  return itinerary.daily_itinerary.map((day) => ({
+    ...day,
+    live_timeline: day.live_timeline.map((item) => {
+      const category = timelineAffiliateCategory(item);
+      if (!category) return item;
+      const title = item.title || item.booking_label || day.title;
+      const resolved = resolveAffiliateLink({
+        category,
+        origin: item.origin || payload.origin,
+        destination: item.destination || item.location_name || payload.destination,
+        title,
+        query: category === "flight" ? undefined : title,
+        startDate: day.date || payload.startDate,
+        endDate: payload.endDate,
+        travelers,
+        adults: payload.travelers?.adults || payload.travelersCount || 1,
+        children: payload.travelers?.children || 0,
+        rooms: payload.rooms || 1,
+        route: item.origin && item.destination ? `${item.origin} to ${item.destination}` : undefined,
+        activityType: title,
+        productKeyword: title,
+        currency: payload.budgetCurrency,
+        locale: payload.language
+      });
+      return {
+        ...item,
+        affiliate_category: category === "activity" || category === "ticket" ? "attraction" : category === "esim" || category === "product" ? category : (category as typeof item.affiliate_category),
+        booking_label: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel),
+        booking: {
+          provider: resolved.provider,
+          url: resolved.finalUrl,
+          ctaLabel: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel),
+          disclosureRequired: resolved.disclosureRequired
+        }
+      };
+    })
+  }));
+}
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   return {
     ...itinerary,
+    daily_itinerary: enrichTimelineItems(itinerary, payload),
     booking_suggestions: itinerary.booking_suggestions.map((suggestion) => {
       const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
       const market = pickMarketResult(suggestion, payload);

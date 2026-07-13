@@ -399,6 +399,18 @@ export async function syncGeneratedItinerary(
       status: "planned",
       metadata: {
         time_label: activity.time_label,
+        startTime: activity.startTime || null,
+        endTime: activity.endTime || null,
+        durationMinutes: activity.durationMinutes || null,
+        travelTimeMinutes: activity.travelTimeMinutes || null,
+        transportMode: activity.transportMode || activity.travel_mode || null,
+        item_type: activity.item_type || null,
+        travel_mode: activity.travel_mode || null,
+        origin: activity.origin || null,
+        destination: activity.destination || null,
+        booking_label: activity.booking_label || null,
+        affiliate_category: activity.affiliate_category || null,
+        booking: activity.booking || null,
         estimated_cost: activity.estimated_cost,
         map_query: activity.map_query
       }

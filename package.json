@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
+    "test:roamly": "node scripts/roamly-core-checks.mjs",
     "test:tracking": "node scripts/roamly-tracking-checks.mjs",
     "test:production": "node scripts/roamly-production-checks.mjs"
   },

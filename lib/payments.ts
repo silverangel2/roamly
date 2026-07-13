@@ -60,7 +60,11 @@ export async function confirmCheckoutSessionForTrip(params: {
     return { ok: false, error: "Checkout session does not match this trip." };
   }
 
-  return applyPaidCheckoutSession(session);
+  if (session.payment_status !== "paid") {
+    return { ok: false, error: "Stripe has not marked this checkout as paid yet." };
+  }
+
+  return { ok: true, awaitingWebhook: true };
 }
 
 export async function applyPaidCheckoutSession(session: Parameters<typeof applyPaidItineraryPurchase>[1]) {

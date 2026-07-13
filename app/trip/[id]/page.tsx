@@ -22,7 +22,7 @@ import {
 import { getServerLocale } from "@/lib/i18n-server";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
-import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
+import { affiliateDisclosure, enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
@@ -33,11 +33,8 @@ import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib
 import { recordAppEvent } from "@/lib/roamly/events";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { isLegacyBookingUrl, resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
 import {
-  buildAttractionTicketSearchUrl,
-  buildFlightSearchUrl,
-  buildHotelSearchUrl,
-  buildTourSearchUrl,
   buildTransportSearchUrl,
   roamlyDiscoveryUrl,
   safeExternalUrl,
@@ -54,6 +51,7 @@ import {
 } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, isMissingTableError, type RoamlyTripRecord } from "@/lib/trips";
+import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -333,8 +331,10 @@ function timelineKindClass(kind: string) {
 
 function timelineMeta(item: TimelineItem) {
   return [
-    item.travel_mode,
-    item.duration,
+    item.transportMode || item.travel_mode,
+    item.startTime && item.endTime ? `${item.startTime}-${item.endTime}` : "",
+    item.durationMinutes ? `${item.durationMinutes} min` : item.duration,
+    item.travelTimeMinutes ? `${item.travelTimeMinutes} min travel` : "",
     item.origin && item.destination ? `${item.origin} to ${item.destination}` : "",
     item.location_name
   ]
@@ -343,10 +343,19 @@ function timelineMeta(item: TimelineItem) {
     .slice(0, 3);
 }
 
-function TimelineItemCard({ item }: { item: TimelineItem }) {
+function TimelineItemCard({ item, tripId }: { item: TimelineItem; tripId: string }) {
   const kind = timelineKind(item);
   const meta = timelineMeta(item);
   const description = compact(item.description, "", 180);
+  const booking = item.booking && safeBookingUrl(item.booking.url)
+    ? {
+        href: safeBookingUrl(item.booking.url),
+        label: item.booking.ctaLabel || item.booking_label || "View options",
+        provider: item.booking.provider || "roamly_internal",
+        hasAffiliateUrl: Boolean(item.booking.disclosureRequired),
+        urlType: item.booking.disclosureRequired ? "affiliate" as BookingUrlType : "fallback" as BookingUrlType
+      }
+    : null;
 
   return (
     <article className={`rounded-[0.9rem] border px-3 py-3 ${timelineKindClass(kind)}`}>
@@ -360,9 +369,22 @@ function TimelineItemCard({ item }: { item: TimelineItem }) {
         <div className="min-w-0">
           <h4 className="text-sm font-black leading-5 text-ink">{item.title}</h4>
           {meta.length ? <p className="mt-1 text-xs font-bold leading-5 text-slate-600">{meta.join(" · ")}</p> : null}
-          {item.booking_label ? (
-            <span className="mt-2 inline-flex rounded-full border border-ocean/20 bg-white/70 px-3 py-1.5 text-xs font-black text-ocean">
-              {item.booking_label}
+          {booking ? (
+            <div className="mt-2">
+              <BookingRecommendationButton
+                href={booking.href}
+                label={booking.label}
+                tripId={tripId}
+                category={item.affiliate_category || kind}
+                title={item.title}
+                provider={booking.provider}
+                hasAffiliateUrl={booking.hasAffiliateUrl}
+                urlType={booking.urlType}
+              />
+            </div>
+          ) : item.booking_label ? (
+            <span className="mt-2 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-400">
+              Search link unavailable
             </span>
           ) : null}
         </div>
@@ -384,10 +406,12 @@ function TimelineItemCard({ item }: { item: TimelineItem }) {
 
 function DayTimelineCard({
   day,
-  currency
+  currency,
+  tripId
 }: {
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
+  tripId: string;
 }) {
   const places = day.map_queries.slice(0, 5);
 
@@ -419,7 +443,7 @@ function DayTimelineCard({
         <div className="grid gap-2">
           {day.live_timeline.length ? (
             day.live_timeline.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time_label}-${item.title}-${index}`} item={item} />
+              <TimelineItemCard key={`${day.day_number}-${item.time_label}-${item.title}-${index}`} item={item} tripId={tripId} />
             ))
           ) : (
             <>
@@ -540,6 +564,8 @@ function fallbackSearchUrl(query: string) {
 function safeBookingUrl(value?: string | null) {
   const raw = getString(value);
   if (!raw) return "";
+  if (isLegacyBookingUrl(raw)) return "";
+  if (raw === "#" || /^javascript:/i.test(raw) || /placeholder|example\.com/i.test(raw)) return "";
   if (raw.startsWith("/")) return raw;
   return safeExternalUrl(raw);
 }
@@ -595,6 +621,50 @@ function tripDate(trip: RoamlyTripRecord, key: "start" | "end") {
   return trip.end_date || getString(planning.endDate) || getString(planning.end_date);
 }
 
+function savedTripPayload(trip: RoamlyTripRecord, locale: string): TripPlannerPayload {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  const travelers = tripTravelerDetails(trip);
+  const destination = getTripDestinationLabel(trip) || getString(planning.destination) || "your destination";
+  return {
+    tripType: planning.tripType === "multi_city" || planning.trip_type === "multi_city" ? "multi_city" : "single_destination",
+    origin: getTripOriginLabel(trip) || getString(planning.origin) || "",
+    originCity: getString(planning.originCity || planning.origin_city) || undefined,
+    originRegion: getString(planning.originRegion || planning.origin_region) || undefined,
+    originCountry: getString(planning.originCountry || planning.origin_country) || undefined,
+    destination,
+    destinationCity: trip.destination_city || getString(planning.destinationCity || planning.destination_city) || undefined,
+    destinationCountry: trip.destination_country || getString(planning.destinationCountry || planning.destination_country) || undefined,
+    destinationRegion: trip.destination_region || getString(planning.destinationRegion || planning.destination_region) || undefined,
+    destinationStops: Array.isArray(planning.destinationStops) ? planning.destinationStops as TripPlannerPayload["destinationStops"] : undefined,
+    returnToOrigin: typeof planning.returnToOrigin === "boolean" ? planning.returnToOrigin : planning.return_to_origin !== false,
+    flexibleCityOrder: typeof planning.flexibleCityOrder === "boolean" ? planning.flexibleCityOrder : planning.flexible_city_order === true,
+    flexibleDates: typeof planning.flexibleDates === "boolean" ? planning.flexibleDates : planning.flexible_dates === true,
+    startDate: tripDate(trip, "start") || "",
+    endDate: tripDate(trip, "end") || "",
+    daysCount: getTripDaysCount(trip) || trip.days_count || 1,
+    travelersCount: travelers.adults + travelers.children + travelers.infants,
+    travelers,
+    rooms: tripRooms(trip),
+    bedPreference: getString(planning.bedPreference || planning.bed_preference) || "No preference",
+    budgetAmount: getTripBudgetAmount(trip),
+    budgetCurrency: getTripBudgetCurrency(trip),
+    budgetIncludesFlights: trip.budget_includes_flights !== false,
+    budgetIncludesHotel: trip.budget_includes_hotel !== false,
+    budgetIncludesActivities: planning.budgetIncludesActivities !== false && planning.budget_includes_activities !== false,
+    travelStyle: getTravelStyle(trip),
+    interests: getStringList(trip.interests || planning.interests, [], 20),
+    pace: getString(planning.pace) || "Balanced",
+    walkingTolerance: getString(planning.walkingTolerance || planning.walking_tolerance) || "Medium",
+    accommodationPreference: trip.accommodation_preference || getString(planning.accommodationPreference || planning.accommodation_preference) || "Not sure",
+    transportationPreference: trip.transportation_preference || getString(planning.transportationPreference || planning.transportation_preference) || "Mixed",
+    accessibilityNeeds: getString(planning.accessibilityNeeds || planning.accessibility_needs),
+    dietaryPreference: getString(planning.dietaryPreference || planning.dietary_preference),
+    specialNotes: trip.special_notes || getString(planning.specialNotes || planning.special_notes),
+    language: locale,
+    priceDiscoveryId: trip.latest_price_discovery_id || getString(planning.priceDiscoveryId || planning.price_discovery_id) || null
+  };
+}
+
 function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
   const category = bookingCategory(suggestion);
   const title = bookingTitle(suggestion);
@@ -605,50 +675,55 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
   const endDate = suggestion.return_date || tripDate(trip, "end") || "";
 
   if (category === "flight") {
-    return buildFlightSearchUrl({
+    return resolveAffiliateLink({
+      category: "flight",
       origin,
       destination,
-      departureDate: startDate,
-      returnDate: endDate,
+      startDate,
+      endDate,
       travelers
-    });
+    }).finalUrl;
   }
 
   if (category === "hotel") {
-    return buildHotelSearchUrl({
+    return resolveAffiliateLink({
+      category: "hotel",
       destination,
-      checkInDate: tripDate(trip, "start"),
-      checkOutDate: tripDate(trip, "end"),
+      startDate: tripDate(trip, "start"),
+      endDate: tripDate(trip, "end"),
       adults: travelers.adults,
       children: travelers.children,
       rooms: tripRooms(trip),
       neighborhood: suggestion.neighborhood || suggestion.location,
       roomType: suggestion.room_type
-    });
+    }).finalUrl;
   }
 
   if (category === "attraction") {
-    return buildAttractionTicketSearchUrl({
-      attractionName: title,
+    return resolveAffiliateLink({
+      category: "activity",
+      title,
       destination,
-      date: suggestion.date || startDate
-    });
+      startDate: suggestion.date || startDate
+    }).finalUrl;
   }
 
   if (category === "tour") {
-    return buildTourSearchUrl({
-      tourName: title,
+    return resolveAffiliateLink({
+      category: "tour",
+      title,
       destination,
-      date: suggestion.date || startDate
-    });
+      startDate: suggestion.date || startDate
+    }).finalUrl;
   }
 
   if (category === "transport" || category === "car_rental") {
-    return buildTransportSearchUrl({
+    return resolveAffiliateLink({
+      category: "transport",
       origin,
       destination: suggestion.destination || suggestion.location || destination || title,
-      date: startDate
-    });
+      startDate
+    }).finalUrl;
   }
 
   if (category === "restaurant") {
@@ -793,18 +868,28 @@ function transportHref(option: TransportOption) {
   const direct = safeBookingUrl(option.booking_url) || safeBookingUrl(option.search_url);
   if (direct) return direct;
   if (option.mode === "flight") {
-    return buildFlightSearchUrl({
+    return resolveAffiliateLink({
+      category: "flight",
       origin: option.origin,
       destination: option.destination,
-      departureDate: option.departure_date,
-      returnDate: option.return_date
+      startDate: option.departure_date,
+      endDate: option.return_date
+    }).finalUrl;
+  }
+  if (option.mode === "drive") {
+    return buildTransportSearchUrl({
+      origin: option.origin,
+      destination: option.destination,
+      date: option.departure_date
     });
   }
-  return buildTransportSearchUrl({
+  return resolveAffiliateLink({
+    category: "transport",
     origin: option.origin,
     destination: option.destination,
-    date: option.departure_date
-  });
+    startDate: option.departure_date,
+    title: option.title
+  }).finalUrl;
 }
 
 function transportBadges(option: TransportOption) {
@@ -1211,6 +1296,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
   const sessionId = one(search.session_id);
   let checkoutSyncError = "";
+  let checkoutAwaitingWebhook = false;
   const access = getRoamlyAccessForUser(current.user.email);
   const apiAuthToken = createRoamlySessionToken(current.user);
   if (sessionId && one(search.checkout) === "success") {
@@ -1222,6 +1308,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
         userId: current.user.id,
         error: checkoutSyncError
       });
+    } else {
+      checkoutAwaitingWebhook = true;
     }
   }
 
@@ -1260,14 +1348,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const currency = getTripBudgetCurrency(trip);
   const baseFull = itinerary?.full_json || null;
   const localizedItinerary = baseFull ? getLocalizedItinerary({ metadata: trip.metadata, baseItinerary: baseFull, locale }) : null;
-  const full = localizedItinerary?.itinerary || null;
+  const full = localizedItinerary?.itinerary
+    ? enrichItineraryBookingSuggestions(localizedItinerary.itinerary, savedTripPayload(trip, locale))
+    : null;
   const displayedItineraryLanguage = localizedItinerary?.language || getTripItineraryLanguage(trip.metadata);
   const itineraryLocked = isTripLocked(trip);
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
+  const checkoutProcessing = Boolean(checkoutAwaitingWebhook && !paidForItinerary && !trackingUnlocked);
   const checkoutStartFailed = one(search.checkout) === "failed";
-  const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention);
+  const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention && !checkoutProcessing);
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
@@ -1332,8 +1423,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
                 </NoticeBanner>
               ) : null}
+              {checkoutProcessing ? (
+                <NoticeBanner>
+                  Stripe returned successfully. Roamly is waiting for the signed webhook to update this trip; refresh in a moment if it still looks locked.
+                </NoticeBanner>
+              ) : null}
               {checkoutStartFailed ? (
-                <NoticeBanner tone="coral">Checkout could not start. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
+                <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
               ) : null}
               {generationRequiresPayment ? (
                 <NoticeBanner tone="coral">You have used your free itinerary. Unlock this trip to generate a new full itinerary.</NoticeBanner>
@@ -1433,7 +1529,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </nav>
               <div className="grid gap-3 sm:gap-5">
                 {full.daily_itinerary.map((day) => (
-                  <DayTimelineCard key={day.day_number} day={day} currency={currency} />
+                  <DayTimelineCard key={day.day_number} day={day} currency={currency} tripId={id} />
                 ))}
               </div>
             </section>

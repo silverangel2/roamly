@@ -344,6 +344,7 @@ export function isLegacyBookingUrl(value?: string | null) {
     raw &&
       (/\/\/(?:www\.)?booking\.com\b/.test(raw) ||
         /\/\/(?:www\.)?google\.com\/travel\/flights\b/.test(raw) ||
+        /\/\/(?:www\.)?(?:viator|getyourguide)\.com\b/.test(raw) ||
         (/\/\/(?:www\.)?google\.com\/search\b/.test(raw) && /\b(flight|hotel|tour|ticket|activity|reservation|booking)\b/.test(raw)))
   );
 }

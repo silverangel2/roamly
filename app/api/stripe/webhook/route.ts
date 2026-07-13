@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyPaidCheckoutSession, createStripeClient } from "@/lib/payments";
+import { createStripeClient } from "@/lib/payments";
+import { handleStripeWebhookEvent } from "@/lib/roamly/billing";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
@@ -26,10 +27,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const result = await applyPaidCheckoutSession(session);
-    if (!result.ok) console.error("[Roamly] Stripe webhook checkout sync failed", result.error);
+  const result = await handleStripeWebhookEvent(supabase, event);
+  if (!result.ok) {
+    console.error("[Roamly] Stripe webhook sync failed", {
+      eventType: event.type,
+      eventId: event.id,
+      error: result.error
+    });
+    return NextResponse.json({ ok: false, error: "Stripe webhook sync failed." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

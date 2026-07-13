@@ -51,7 +51,7 @@ export function ActivateTripButton({
         return;
       }
 
-      if (!response.ok) throw new Error(data?.error || "Checkout could not start.");
+      if (!response.ok) throw new Error(data?.message || data?.error || "Stripe checkout could not be opened.");
       if (data?.alreadyActivated || data?.alreadyUnlocked) {
         window.location.href = checkoutKind === "tracking" ? `/trip/${tripId}/live` : `/trip/${tripId}`;
         return;
@@ -60,7 +60,7 @@ export function ActivateTripButton({
 
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Checkout could not start.");
+      setError(err instanceof Error ? err.message : "Stripe checkout could not be opened.");
       setBusy("");
     }
   }

@@ -29,25 +29,25 @@ export default async function PlanPage() {
   const apiAuthToken = createRoamlySessionToken(current.user);
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <section className="grid gap-6 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
-        <div className="space-y-5 lg:sticky lg:top-24">
+    <main className="safe-bottom mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+      <section className="grid gap-4 lg:grid-cols-[0.68fr_1.32fr] lg:items-start">
+        <div className="space-y-3 lg:sticky lg:top-20">
           <Badge>Plan trip</Badge>
           {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <div>
-            <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
+            <h1 className="max-w-2xl text-3xl font-black leading-tight tracking-tight text-ink sm:text-5xl">
               Tell Roamly what kind of trip you want.
             </h1>
-            <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-slate-600">
+            <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600 sm:text-base">
               A few clean choices now. Roamly checks trip costs before building the locked itinerary.
             </p>
           </div>
 
-          <div className="grid gap-3">
+          <div className="hidden gap-2 lg:grid">
             {promiseCards.map(([title, detail]) => (
-              <Card key={title} className="p-4">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{title}</p>
-                <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{detail}</p>
+              <Card key={title} className="p-3">
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.14em] text-ocean">{title}</p>
+                <p className="mt-1 text-xs font-bold leading-5 text-slate-600">{detail}</p>
               </Card>
             ))}
           </div>

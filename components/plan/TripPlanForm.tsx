@@ -540,7 +540,6 @@ export function TripPlanForm({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const [priceChecking, setPriceChecking] = useState(false);
   const [priceDiscovery, setPriceDiscovery] = useState<PriceDiscoveryResult | null>(null);
   const [priceDiscoveryId, setPriceDiscoveryId] = useState<string | null>(null);
@@ -941,7 +940,6 @@ export function TripPlanForm({
       console.warn("[Roamly] No active session before generation; redirecting to login");
     }
     saveCurrentPlanDraft();
-    setConfirming(false);
     router.push(planLoginUrl());
   }
 
@@ -983,7 +981,6 @@ export function TripPlanForm({
     setError("");
     setNotice("");
     setLoading(false);
-    setConfirming(false);
     setPriceChecking(false);
     generationInFlight.current = false;
   }, []);
@@ -1027,7 +1024,6 @@ export function TripPlanForm({
     setError("");
     setNotice("");
     setLoading(false);
-    setConfirming(false);
     setPriceChecking(false);
     setPriceDiscovery(null);
     setPriceDiscoveryId(null);
@@ -1139,7 +1135,7 @@ export function TripPlanForm({
       const data = await response.json().catch(() => null);
       if (response.status === 401) {
         setError("Roamly could not check the budget yet. Please try again.");
-        return false;
+        return null;
       }
       if (!response.ok) throw new Error(data?.message || data?.error || "Could not check trip costs.");
       setPriceDiscovery(data.discovery);
@@ -1152,7 +1148,11 @@ export function TripPlanForm({
         totalEstimateCents: data.discovery?.totalEstimateCents
       });
       setNotice("");
-      return true;
+      return {
+        discovery: data.discovery as PriceDiscoveryResult,
+        discoveryId: typeof data.discoveryId === "string" ? data.discoveryId : null,
+        budgetConstraint: typeof data.budgetConstraint === "string" ? data.budgetConstraint : ""
+      };
     } catch (err) {
       setNotice("");
       setError(err instanceof Error ? err.message : "Could not check trip costs.");
@@ -1161,7 +1161,7 @@ export function TripPlanForm({
         destination: payload.destination,
         error: err instanceof Error ? err.message : "Could not check trip costs."
       });
-      return false;
+      return null;
     } finally {
       setPriceChecking(false);
     }
@@ -1223,7 +1223,7 @@ export function TripPlanForm({
       }
 
       if (!checkoutResponse.ok) {
-        throw new Error(checkoutData?.message || checkoutData?.error || "Checkout could not start.");
+        throw new Error(checkoutData?.message || checkoutData?.error || "Stripe checkout could not be opened.");
       }
 
       clearCurrentPlanDraft();
@@ -1234,7 +1234,7 @@ export function TripPlanForm({
       if (!checkoutData?.url) throw new Error("Stripe did not return a checkout link.");
       window.location.href = checkoutData.url;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Checkout could not start.";
+      const message = err instanceof Error ? err.message : "Stripe checkout could not be opened.";
       if (draftTripId) {
         clearCurrentPlanDraft();
         router.push(`/trip/${draftTripId}?checkout=failed`);
@@ -1259,12 +1259,21 @@ export function TripPlanForm({
       return;
     }
     saveCurrentPlanDraft();
-    const checked = await runPriceDiscovery();
-    if (!checked) return;
-    setConfirming(true);
+    let generationPayload = payload;
+    if (!priceDiscovery) {
+      const checked = await runPriceDiscovery();
+      if (!checked) return;
+      generationPayload = {
+        ...payload,
+        priceDiscoveryId: checked.discoveryId,
+        budgetConstraint: checked.budgetConstraint,
+        priceDiscovery: checked.discovery as unknown as Record<string, unknown>
+      };
+    }
+    await submitPlan(generationPayload);
   }
 
-  async function submitPlan() {
+  async function submitPlan(generationPayload: TripPlannerPayload = payload) {
     if (generationInFlight.current) return;
     const validation = validateBeforeGenerate();
     setError(validation);
@@ -1275,7 +1284,7 @@ export function TripPlanForm({
 
     generationInFlight.current = true;
     setLoading(true);
-    trackPlanEvent("itinerary_generation_started", { tripType, destination: payload.destination });
+    trackPlanEvent("itinerary_generation_started", { tripType, destination: generationPayload.destination });
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), GENERATION_TIMEOUT_MS);
 
@@ -1283,7 +1292,7 @@ export function TripPlanForm({
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
         headers: jsonHeaders(),
-        body: JSON.stringify(payload),
+        body: JSON.stringify(generationPayload),
         signal: controller.signal
       });
 
@@ -1292,7 +1301,6 @@ export function TripPlanForm({
       if (response.status === 401) {
         const user = await refreshSessionUser();
         if (user) {
-          setConfirming(false);
           setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
         }
@@ -1301,8 +1309,7 @@ export function TripPlanForm({
       }
 
       if (response.ok && data?.tripId) {
-        trackPlanEvent("itinerary_generation_completed", { tripType, destination: payload.destination, tripId: data.tripId });
-        setConfirming(false);
+        trackPlanEvent("itinerary_generation_completed", { tripType, destination: generationPayload.destination, tripId: data.tripId });
         clearCurrentPlanDraft();
         await openTripAfterSessionSync(data.previewUrl, data.tripId);
         return;
@@ -1311,24 +1318,21 @@ export function TripPlanForm({
       if (response.status === 402 && data?.previewUrl) {
         trackPlanEvent("itinerary_generation_failed", {
           tripType,
-          destination: payload.destination,
+          destination: generationPayload.destination,
           error: "PAYMENT_REQUIRED"
         });
-        setConfirming(false);
         clearCurrentPlanDraft();
         await openTripAfterSessionSync(data.previewUrl, data?.tripId);
         return;
       }
 
       if (response.status === 404 || response.status === 501) {
-        setConfirming(false);
         setError(data?.message || data?.error || GENERATION_ERROR_MESSAGE);
         return;
       }
 
       const failureMessage = data?.message || data?.setupHint || data?.error || GENERATION_ERROR_MESSAGE;
       if (failureMessage === AI_NOT_CONFIGURED_MESSAGE) {
-        setConfirming(false);
         setError(AI_NOT_CONFIGURED_MESSAGE);
         return;
       }
@@ -1336,11 +1340,10 @@ export function TripPlanForm({
       throw new Error(failureMessage);
     } catch (err) {
       setNotice("");
-      setConfirming(false);
       setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
       trackPlanEvent("itinerary_generation_failed", {
         tripType,
-        destination: payload.destination,
+        destination: generationPayload.destination,
         error: err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE
       });
     } finally {
@@ -1409,26 +1412,26 @@ export function TripPlanForm({
 
   return (
     <>
-    <section className="rounded-[2rem] border border-cloud bg-white/92 p-4 shadow-soft backdrop-blur sm:p-6">
+    <section className="rounded-[1.2rem] border border-cloud bg-white/92 p-3 shadow-soft backdrop-blur sm:rounded-[1.5rem] sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+          <p className="text-[0.7rem] font-black uppercase tracking-[0.14em] text-ocean">
             {translateText("Step")} {step + 1} {translateText("of")} {steps.length}
           </p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-ink">{translateText(steps[step].title)}</h2>
-          <p className="mt-1 text-sm font-bold text-slate-500">{translateText(steps[step].detail)}</p>
+          <h2 className="mt-1 text-xl font-black tracking-tight text-ink sm:text-2xl">{translateText(steps[step].title)}</h2>
+          <p className="mt-1 text-xs font-bold leading-5 text-slate-500 sm:text-sm">{translateText(steps[step].detail)}</p>
           {testerAccess ? (
             <p className="mt-2 w-fit rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
               {translateText("Tester access")}
             </p>
           ) : null}
         </div>
-        <div className="grid h-14 w-14 place-items-center rounded-2xl bg-mist text-sm font-black text-ocean">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-mist text-xs font-black text-ocean sm:h-14 sm:w-14 sm:text-sm">
           {progress}%
         </div>
       </div>
 
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-cloud">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-cloud">
         <div
           className="h-full rounded-full bg-gradient-to-r from-ocean to-lagoon transition-all duration-500"
           style={{ width: `${progress}%` }}
@@ -1448,7 +1451,7 @@ export function TripPlanForm({
         </div>
       ) : null}
 
-      <div className="mt-5 min-h-[24rem]">
+      <div className="mt-4">
         {step === 0 ? (
           <div className="grid gap-4">
             <PlaceSelector
@@ -1868,56 +1871,6 @@ export function TripPlanForm({
               : translateText("One custom itinerary for one trip. No subscription.")
             : translateText("You get 1 free itinerary per account.")}
         </p>
-      ) : null}
-
-      {confirming && !finalGenerationLoading ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{translateText("Final step")}</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">{translateText("Generate and lock this itinerary?")}</h2>
-            <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-              {translateText("Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates, travelers, budget, and preferences are correct.")}
-            </p>
-            {priceDiscovery ? (
-              <div className="mt-4 rounded-2xl bg-mist p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Budget status")}</p>
-                <p className="mt-1 text-sm font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</p>
-                <p className="mt-2 text-xs font-bold text-slate-500">
-                  {translateText("Selected total")}: {formatMoney(priceDiscovery.totalEstimateCents, priceDiscovery.budgetCurrency)}
-                </p>
-                {priceDiscovery.recommendedTransportOption ? (
-                  <p className="mt-1 text-xs font-bold text-slate-500">
-                    {translateText("Recommended transport")}:{" "}
-                    {formatTransportOption(priceDiscovery.recommendedTransportOption, priceDiscovery.budgetCurrency)}
-                  </p>
-                ) : null}
-                {priceBudgetBalance ? (
-                  <p className="mt-1 text-xs font-bold text-slate-500">
-                    {translateText(priceBudgetBalance.label)}: {priceBudgetBalance.value}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setConfirming(false)}
-                disabled={loading}
-                className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 disabled:opacity-60"
-              >
-                {translateText("Go back and edit")}
-              </button>
-              <button
-                type="button"
-                onClick={submitPlan}
-                disabled={loading || (isCheckingSession && !sessionUser)}
-                className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
-              >
-                {testerAccess && freeItineraryUsed ? translateText("Continue as tester") : translateText("Generate itinerary")}
-              </button>
-            </div>
-          </div>
-        </div>
       ) : null}
 
       {finalGenerationLoading ? (

@@ -208,6 +208,8 @@ Return ONLY valid JSON with this shape:
       "live_timeline": [
         {
           "time_label": "9:30 AM",
+          "startTime": "09:30",
+          "endTime": "11:00",
           "title": "activity title",
           "description": "one helpful sentence",
           "location_name": "place or area",
@@ -215,11 +217,15 @@ Return ONLY valid JSON with this shape:
 	          "category": "Activity | Travel | Transfer | Hotel | Meal | Rest | Booking | Reminder",
 	          "item_type": "travel | transfer | hotel | activity | meal | rest | booking | reminder",
 	          "travel_mode": "flight | train | bus | ferry | drive | walk/transit | transfer when relevant",
+	          "transportMode": "flight | train | bus | ferry | drive | walk/transit | transfer when relevant",
 	          "duration": "estimated duration or buffer",
+	          "durationMinutes": 90,
+	          "travelTimeMinutes": 30,
 	          "origin": "origin when relevant",
 	          "destination": "destination when relevant",
 	          "booking_label": "Check flights | Find a hotel | Book activity | Book transfer when relevant",
 	          "affiliate_category": "flight | hotel | attraction | tour | transport when relevant",
+	          "booking": null,
 	          "map_query": "maps search query"
 	        }
       ]
@@ -253,7 +259,7 @@ Return ONLY valid JSON with this shape:
       "currency": "${payload.budgetCurrency || "CAD"}",
       "price_confidence": "estimated | partner | user_uploaded | unknown",
 	      "booking_label": "Check flights | Find a hotel | Book activity | Book transfer",
-	      "normal_search_url": "Roamly internal fallback URL only when no approved affiliate URL is configured",
+	      "normal_search_url": "",
       "affiliate_url": "",
       "affiliate_provider": "",
 	      "provider": "Travelpayouts | Stay22 | Klook | Roamly discovery",
@@ -297,6 +303,7 @@ Rules:
 	- Make the plan useful without overstuffing the day.
 	- Keep each field short enough for mobile cards.
 	- Give map queries, not URLs.
+	- Do not create booking URLs in live_timeline. Leave booking null; Roamly will attach approved affiliate URLs after validation.
 	- Include clean location names and addresses when possible in location_name and map_query so map/navigation link-outs work reliably.
 	- Day 1 must begin with the actual journey to the destination unless the traveler is already there. Include departure city, departure point, travel mode, realistic buffer, arrival, baggage/customs/immigration when relevant, transfer to hotel, check-in or luggage storage, and recovery/rest before local activities.
 	- The first Day 1 item must not be a local attraction when Origin is set and different from Destination.
@@ -305,6 +312,7 @@ Rules:
 	- Do not schedule two major places back-to-back without a Transfer item and realistic buffer.
 	- Use item_type "Travel" for flights, train, bus, ferry, drive, and inter-city movement; "Transfer" for local movement; "Hotel" for check-in/checkout/luggage; "Rest" for arrival recovery.
 	- Booking suggestions must be specific and practical: Travelpayouts flight searches, Stay22 stay options, Klook entrance tickets/tours/activities/transfers, and Roamly discovery fallback only when a provider is not configured.
+	- Include startTime and endTime in 24-hour HH:mm format for every live_timeline item. Times must be chronological and non-overlapping.
 - Pre-trip essentials must recommend travel items based on destination, dates, likely weather/season, planned activities/interests, trip length, travelers, and travel style.
 - Include essentials across these categories when relevant: Luggage & packing, Power & tech, Comfort, Weather gear, Documents & safety, Connectivity, Destination-specific items.
 - Each pre_trip_essentials item must include title, reason, category, search_query, amazon_url, and priority. Use priority "high", "medium", or "low".
@@ -341,9 +349,9 @@ Rules:
 - Add phone reminders for cross-border/international trips: confirm roaming or eSIM before departure, check device compatibility before buying, download offline maps, save hotel address offline, and emergency contact/local emergency number note when available.
 - Do not give legal immigration, customs, or duty advice; tell the traveler to check official sources.
 - Include at least one recommended transport option, one flight alternative when relevant, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
-- For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range when present in Price discovery summary, booking_label "Find this flight", and a normal search URL. Say "Faster but more expensive" when the flight is not the budget recommendation.
-- For driving, include a gas/parking estimate if Price discovery summary provides it, booking_label "Open driving route", and a Google Maps directions URL. Say the estimate uses fuel assumptions until live maps/gas providers are connected.
-- For train and bus, include search-ready links when live provider APIs are unavailable, booking_label "Check train" or "Check bus", and say "Verify live schedule and price." Do not invent exact ticket prices.
+- For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range when present in Price discovery summary, and booking_label "Find this flight". Say "Faster but more expensive" when the flight is not the budget recommendation. Leave URLs blank.
+- For driving, include a gas/parking estimate if Price discovery summary provides it and booking_label "Open driving route". Use map queries only for directions. Say the estimate uses fuel assumptions until live maps/gas providers are connected.
+- For train and bus, include booking_label "Check train" or "Check bus", and say "Verify live schedule and price." Do not invent exact ticket prices. Leave URLs blank.
 - For mixed routes, explain that the option may reduce transport cost but increases travel time.
 - For hotel/stay suggestions, include room_type, neighborhood, estimated nightly range, estimated total stay range, and why the room/area fits the traveler.
 - For attraction tickets, include the specific attraction name, ticket note, estimated ticket range, free_or_paid, and whether advance booking is recommended.
