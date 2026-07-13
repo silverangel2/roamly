@@ -37,7 +37,7 @@ import {
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+export const maxDuration = 300;
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

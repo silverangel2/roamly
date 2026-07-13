@@ -33,7 +33,7 @@ export type RoamlyGenerationTrace = {
 export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not finish itinerary generation. Please try again in a moment.";
-const OPENAI_ITINERARY_TIMEOUT_MS = 70_000;
+const OPENAI_ITINERARY_TIMEOUT_MS = 120_000;
 const OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS = 45_000;
 const languageNames: Record<RoamlyLocale, string> = {
   en: "English",
@@ -131,6 +131,17 @@ function shouldTryNextAiModel(errorCategory: unknown) {
     errorCategory === "rate_limit" ||
     errorCategory === "unknown"
   );
+}
+
+function aiProviderFailureCode(errorCategory: unknown) {
+  return errorCategory === "timeout" ? "AI_PROVIDER_TIMEOUT" : "AI_PROVIDER_FAILED";
+}
+
+function aiProviderFailureMessage(errorCategory: unknown) {
+  if (errorCategory === "timeout") {
+    return "Roamly AI timed out before returning itinerary content. No template itinerary was saved.";
+  }
+  return "Roamly AI provider failed before returning itinerary content. No template itinerary was saved.";
 }
 
 function parsedItineraryStructureErrors(parsed: unknown, payload: TripPlannerPayload) {
@@ -256,6 +267,69 @@ function priceDiscoverySummary(payload: TripPlannerPayload) {
     destination_currency: discovery.destinationCurrency || currency,
     currency_change: discovery.currencyChange === true,
     over_budget_recommendations: arrayFromUnknown(discovery.recommendationNotes).slice(0, 8)
+  };
+}
+
+function summarizeRouteLeg(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    mode: safeSummaryString(record.mode),
+    origin: safeSummaryString(record.origin),
+    destination: safeSummaryString(record.destination),
+    departure_date: safeSummaryString(record.departure_date || record.departureDate),
+    return_date: safeSummaryString(record.return_date || record.returnDate),
+    estimated_duration_hours: safeSummaryNumber(record.estimated_duration_hours || record.estimatedDurationHours),
+    estimated_total_cents: safeSummaryNumber(record.estimated_total_cents || record.estimatedTotalCents),
+    currency: safeSummaryString(record.currency),
+    availability: safeSummaryString(record.availability),
+    realistic: typeof record.realistic === "boolean" ? record.realistic : null
+  };
+}
+
+function summarizeCityEstimate(value: unknown) {
+  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  return {
+    city: safeSummaryString(record.city || record.destination),
+    nights: safeSummaryNumber(record.nights),
+    hotel_nightly_cents: safeSummaryNumber(record.hotel_nightly_cents || record.hotelNightlyCents),
+    hotel_total_cents: safeSummaryNumber(record.hotel_total_cents || record.hotelTotalCents),
+    food_daily_cents: safeSummaryNumber(record.food_daily_cents || record.foodDailyCents),
+    activity_daily_cents: safeSummaryNumber(record.activity_daily_cents || record.activityDailyCents),
+    local_transport_daily_cents: safeSummaryNumber(record.local_transport_daily_cents || record.localTransportDailyCents)
+  };
+}
+
+function compactPriceDiscoverySummary(payload: TripPlannerPayload) {
+  const discovery = payload.priceDiscovery || {};
+  const full = priceDiscoverySummary(payload);
+  return {
+    status: full.status,
+    total_estimate: full.total_estimate,
+    total_estimate_display: full.total_estimate_display,
+    remaining_budget: full.remaining_budget,
+    remaining_or_over_budget: full.remaining_or_over_budget,
+    remaining_budget_amount: full.remaining_budget_amount,
+    committed_bookings: full.committed_bookings,
+    coverage_note: full.coverage_note,
+    price_coverage: full.price_coverage,
+    unknown_market_price_count: full.unknown_market_price_count,
+    unknown_market_price_categories: full.unknown_market_price_categories,
+    selected_market_prices: arrayFromUnknown(discovery.selectedMarketPrices).slice(0, 5).map(summarizeMarketResult),
+    market_results: arrayFromUnknown(discovery.marketResults).slice(0, 6).map(summarizeMarketResult),
+    route_legs: arrayFromUnknown(discovery.routeLegs).slice(0, 5).map(summarizeRouteLeg),
+    transport_options: arrayFromUnknown(discovery.transportOptions).slice(0, 5).map(summarizeTransportOption),
+    recommended_transport_option: discovery.recommendedTransportOption ? summarizeTransportOption(discovery.recommendedTransportOption) : null,
+    selected_transport_estimate: full.selected_transport_estimate,
+    transport_assumptions: arrayFromUnknown(discovery.transportAssumptions).slice(0, 5),
+    city_estimates: arrayFromUnknown(discovery.cityEstimates).slice(0, 5).map(summarizeCityEstimate),
+    budget_category_confidence: arrayFromUnknown(discovery.budgetCategoryConfidence).slice(0, 6),
+    hotel_estimate_note: full.hotel_estimate_note,
+    cross_border: full.cross_border,
+    cross_border_warnings: full.cross_border_warnings,
+    origin_currency: full.origin_currency,
+    destination_currency: full.destination_currency,
+    currency_change: full.currency_change,
+    over_budget_recommendations: full.over_budget_recommendations
   };
 }
 
@@ -520,7 +594,7 @@ Rules:
 
 function buildCompactPrompt(payload: TripPlannerPayload, validationErrors: string[] = []) {
   const outputLanguage = languageName(payload.language);
-  const priceSummary = priceDiscoverySummary(payload);
+  const priceSummary = compactPriceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
   const dateRange = calculateTripDateRange(payload.startDate, payload.endDate);
   const tripDays = dateRange.ok ? dateRange.days || 1 : payload.daysCount || 3;
@@ -908,8 +982,8 @@ export async function generateRoamlyItinerary(
         if (retryWithNextModel) break;
 
         throw new RoamlyItineraryGenerationError(
-          "Roamly AI provider failed before returning itinerary content. No template itinerary was saved.",
-          "AI_PROVIDER_FAILED",
+          aiProviderFailureMessage(safeError.errorCategory),
+          aiProviderFailureCode(safeError.errorCategory),
           safeError.httpStatus && safeError.httpStatus >= 400 ? safeError.httpStatus : 502
         );
       }
@@ -1079,8 +1153,8 @@ export async function generateRoamlyItinerary(
 
   if (!validationErrors.length && lastProviderError) {
     throw new RoamlyItineraryGenerationError(
-      "Roamly AI provider failed before returning itinerary content. No template itinerary was saved.",
-      "AI_PROVIDER_FAILED",
+      aiProviderFailureMessage(lastProviderError.errorCategory),
+      aiProviderFailureCode(lastProviderError.errorCategory),
       lastProviderError.httpStatus && lastProviderError.httpStatus >= 400 ? lastProviderError.httpStatus : 502
     );
   }
