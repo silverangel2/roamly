@@ -1,5 +1,10 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
+import {
+  ROAMLY_PUBLIC_DOMAIN,
+  escapeEmailHtml,
+  renderRoamlyEmailShell
+} from "@/lib/roamly/emailTemplates";
 
 type EmailStatus = "pending" | "sent" | "failed" | "skipped";
 
@@ -15,7 +20,11 @@ type EmailTemplateType =
   | "travel_day_started"
   | "booking_reminder"
   | "packing_check"
-  | "document_check";
+  | "document_check"
+  | "support_auto_reply"
+  | "itinerary_email"
+  | "booking_share"
+  | "launch_contact_confirmation";
 
 type SendRoamlyEmailParams = {
   to: string;
@@ -42,27 +51,23 @@ function provider() {
   return (process.env.ROAMLY_EMAIL_PROVIDER || "resend").trim().toLowerCase();
 }
 
-function fromEmail() {
-  return process.env.ROAMLY_FROM_EMAIL || "Roamly <hello@roamlyhq.com>";
+export function getRoamlySupportEmail() {
+  return (process.env.ROAMLY_SUPPORT_EMAIL || "support@roamlyhq.com").trim();
 }
 
-function replyToEmail() {
-  return process.env.ROAMLY_REPLY_TO_EMAIL || "support@roamlyhq.com";
+export function getRoamlyFromEmail() {
+  return (process.env.ROAMLY_FROM_EMAIL || getRoamlySupportEmail()).trim();
+}
+
+export function getRoamlyReplyToEmail() {
+  return (process.env.ROAMLY_REPLY_TO_EMAIL || getRoamlySupportEmail()).trim();
 }
 
 function siteUrl() {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://roamlyhq.com";
-}
-
-function escapeHtml(value?: string | null) {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return ROAMLY_PUBLIC_DOMAIN;
 }
 
 function validEmail(value: string) {
@@ -130,8 +135,11 @@ export function isEmailConfigured() {
   return {
     configured,
     provider: currentProvider,
-    fromEmail: fromEmail(),
-    replyToEmail: replyToEmail(),
+    supportEmail: getRoamlySupportEmail(),
+    fromEmail: getRoamlyFromEmail(),
+    replyToEmail: getRoamlyReplyToEmail(),
+    supportEmailConfigured: Boolean(process.env.ROAMLY_SUPPORT_EMAIL),
+    fromEmailConfigured: Boolean(process.env.ROAMLY_FROM_EMAIL),
     remindersEnabled: process.env.ROAMLY_EMAIL_REMINDERS_ENABLED !== "false",
     reason: configured ? "" : currentProvider === "resend" ? "RESEND_API_KEY is missing." : "Unsupported email provider."
   };
@@ -146,6 +154,14 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
   const badge =
     type === "beta_invite"
       ? "Beta invite"
+      : type === "support_auto_reply"
+        ? "Support"
+        : type === "launch_contact_confirmation"
+          ? "Contact"
+          : type === "itinerary_email"
+            ? "Roamly itinerary"
+            : type === "booking_share"
+              ? "Booking organization"
       : type === "support_reply"
         ? "Support"
         : type.includes("packing")
@@ -153,26 +169,21 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
           : type.includes("document")
             ? "Documents"
             : "Trip reminder";
+  const bodyHtml = `<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#42526a;">${escapeEmailHtml(message)}</p>
+    <p style="margin:0 0 16px;font-size:14px;font-weight:700;line-height:1.6;color:#526176;">Trip: ${escapeEmailHtml(destination)}</p>`;
+  const bodyText = `${message}\n\nTrip: ${destination}`;
 
-  const html = `<!doctype html>
-<html>
-  <body style="margin:0;background:#f4fbff;font-family:Arial,sans-serif;color:#132033;">
-    <div style="display:none;max-height:0;overflow:hidden;">${escapeHtml(preheader)}</div>
-    <main style="max-width:620px;margin:0 auto;padding:24px;">
-      <section style="background:#ffffff;border:1px solid #dce8f2;border-radius:28px;padding:28px;box-shadow:0 18px 45px rgba(31,45,61,0.10);">
-        <p style="margin:0 0 16px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#0aa6a6;">${escapeHtml(badge)}</p>
-        <h1 style="margin:0;font-size:30px;line-height:1.05;color:#132033;">${escapeHtml(title)}</h1>
-        <p style="margin:18px 0 0;font-size:16px;line-height:1.65;color:#526176;">${escapeHtml(message)}</p>
-        <p style="margin:18px 0 0;font-size:14px;font-weight:700;color:#526176;">Trip: ${escapeHtml(destination)}</p>
-        <a href="${escapeHtml(actionUrl)}" style="display:inline-block;margin-top:22px;background:#132033;color:#ffffff;text-decoration:none;border-radius:16px;padding:14px 18px;font-weight:900;">Open Roamly</a>
-      </section>
-      <p style="margin:18px 8px 0;font-size:12px;line-height:1.6;color:#7a8798;">You received this because you enabled Roamly trip reminders.</p>
-    </main>
-  </body>
-</html>`;
-
-  const text = `${title}\n\n${message}\n\nTrip: ${destination}\nOpen Roamly: ${actionUrl}\n\nYou received this because you enabled Roamly trip reminders.`;
-  return { subject: title, preheader, html, text };
+  return renderRoamlyEmailShell({
+    subject: title,
+    preheader,
+    eyebrow: badge,
+    title,
+    bodyHtml,
+    bodyText,
+    ctaLabel: "Open Roamly",
+    ctaUrl: actionUrl,
+    supportEmail: getRoamlySupportEmail()
+  });
 }
 
 export async function sendRoamlyEmail(params: SendRoamlyEmailParams) {

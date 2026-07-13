@@ -712,6 +712,24 @@
     "Get eSIM for this trip": "Get eSIM for this trip",
     "Check mobile data options": "Check mobile data options",
     "Confirm roaming or eSIM before departure": "Confirm roaming or eSIM before departure",
-    "Check device compatibility before buying": "Check device compatibility before buying"
+    "Check device compatibility before buying": "Check device compatibility before buying",
+    "Contact support": "Contact support",
+    "Message received": "Message received",
+    "We received your Roamly message": "We received your Roamly message",
+    "Support email": "Support email",
+    "Email provider not configured": "Email provider not configured",
+    "Facebook not connected": "Facebook not connected",
+    "Instagram not connected": "Instagram not connected",
+    "Social drafts": "Social drafts",
+    "Generate social post": "Generate social post",
+    "Save draft": "Save draft",
+    "Copy caption": "Copy caption",
+    "Schedule post": "Schedule post",
+    "Launch readiness": "Launch readiness",
+    "Ready": "Ready",
+    "Missing": "Missing",
+    "Optional": "Optional",
+    "Needs setup": "Needs setup",
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly may earn a commission when you book or shop through partner links. This does not change your price."
   }
 }

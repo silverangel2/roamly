@@ -20,7 +20,7 @@ const sections = [
   ],
   [
     "Affiliate and booking links",
-    "Some booking, hotel, activity, transport, or insurance links may be affiliate links. Roamly may earn from qualifying purchases at no extra cost to you."
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price."
   ]
 ];
 

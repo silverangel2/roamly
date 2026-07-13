@@ -23,6 +23,8 @@ export function getMissingEnvironmentVariables() {
 export const roamlyConfig = {
   appName: process.env.NEXT_PUBLIC_ROAMLY_APP_NAME || "Roamly",
   appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  supportEmail: process.env.ROAMLY_SUPPORT_EMAIL || "support@roamlyhq.com",
+  fromEmail: process.env.ROAMLY_FROM_EMAIL || process.env.ROAMLY_SUPPORT_EMAIL || "support@roamlyhq.com",
   currency: "cad",
   itineraryUnlockPriceCents: 499,
   trackingAddonPriceCents: 399,

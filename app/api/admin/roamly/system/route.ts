@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
+import { isEmailConfigured } from "@/lib/roamly/email";
+import { getRoamlyLaunchReadiness } from "@/lib/roamly/launchReadiness";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
+import { getRoamlySocialEnvStatus } from "@/lib/roamly/social";
 import { ensureRoamlyProfile, getRoamlyProfileTableStatus, getRoamlyUserAppStatus } from "@/lib/roamly/profile";
 
 const tables = [
@@ -96,12 +100,18 @@ export async function GET() {
       locationSettingsCount: locationSettings.count || 0,
       lastLocationUpdate: lastLocation.data || null,
       affiliates: getAffiliateReadiness(),
+      email: isEmailConfigured(),
+      social: getRoamlySocialEnvStatus(),
+      launchReadiness: getRoamlyLaunchReadiness(getRoamlyAccessForUser(guard.user.email)),
       env: {
         stripeItineraryConfigured: Boolean(process.env.ROAMLY_STRIPE_ITINERARY_PRICE_ID || process.env.ROAMLY_STRIPE_ITINERARY_UNLOCK_PRICE_ID),
         stripeFeaturesConfigured: Boolean(process.env.ROAMLY_STRIPE_FEATURES_PRICE_ID || process.env.ROAMLY_STRIPE_TRACKING_ADDON_PRICE_ID),
         stripeCompleteTripConfigured: Boolean(process.env.ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID || process.env.ROAMLY_STRIPE_TRIP_BUNDLE_PRICE_ID),
         openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
-        notificationCronConfigured: Boolean(process.env.ROAMLY_NOTIFICATION_CRON_SECRET)
+        notificationCronConfigured: Boolean(process.env.ROAMLY_NOTIFICATION_CRON_SECRET),
+        supportEmailConfigured: Boolean(process.env.ROAMLY_SUPPORT_EMAIL),
+        fromEmailConfigured: Boolean(process.env.ROAMLY_FROM_EMAIL),
+        socialCronConfigured: Boolean(process.env.ROAMLY_SOCIAL_CRON_SECRET)
       }
     }
   });

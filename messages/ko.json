@@ -712,6 +712,24 @@
     "Get eSIM for this trip": "이 여행용 eSIM 받기",
     "Check mobile data options": "모바일 데이터 옵션 확인",
     "Confirm roaming or eSIM before departure": "출발 전 로밍 또는 eSIM 확인",
-    "Check device compatibility before buying": "구매 전 기기 호환성 확인"
+    "Check device compatibility before buying": "구매 전 기기 호환성 확인",
+    "Contact support": "지원팀에 문의",
+    "Message received": "메시지를 받았습니다",
+    "We received your Roamly message": "Roamly 메시지를 받았습니다",
+    "Support email": "지원 이메일",
+    "Email provider not configured": "이메일 제공업체가 설정되지 않았습니다",
+    "Facebook not connected": "Facebook이 연결되지 않았습니다",
+    "Instagram not connected": "Instagram이 연결되지 않았습니다",
+    "Social drafts": "소셜 초안",
+    "Generate social post": "소셜 게시물 생성",
+    "Save draft": "초안 저장",
+    "Copy caption": "캡션 복사",
+    "Schedule post": "게시물 예약",
+    "Launch readiness": "출시 준비 상태",
+    "Ready": "준비됨",
+    "Missing": "누락",
+    "Optional": "선택 사항",
+    "Needs setup": "설정 필요",
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "파트너 링크를 통해 예약하거나 구매하면 Roamly가 수수료를 받을 수 있습니다. 가격은 변경되지 않습니다."
   }
 }

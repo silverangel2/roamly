@@ -712,6 +712,24 @@
     "Get eSIM for this trip": "获取本次旅行的 eSIM",
     "Check mobile data options": "查看移动数据选项",
     "Confirm roaming or eSIM before departure": "出发前确认漫游或 eSIM",
-    "Check device compatibility before buying": "购买前检查设备兼容性"
+    "Check device compatibility before buying": "购买前检查设备兼容性",
+    "Contact support": "联系支持",
+    "Message received": "消息已收到",
+    "We received your Roamly message": "我们已收到你的 Roamly 消息",
+    "Support email": "支持邮箱",
+    "Email provider not configured": "邮件服务未配置",
+    "Facebook not connected": "Facebook 未连接",
+    "Instagram not connected": "Instagram 未连接",
+    "Social drafts": "社交草稿",
+    "Generate social post": "生成社交帖文",
+    "Save draft": "保存草稿",
+    "Copy caption": "复制文案",
+    "Schedule post": "安排发布",
+    "Launch readiness": "上线准备",
+    "Ready": "就绪",
+    "Missing": "缺失",
+    "Optional": "可选",
+    "Needs setup": "需要设置",
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "当你通过合作伙伴链接预订或购物时，Roamly 可能会获得佣金。这不会改变你的价格。"
   }
 }

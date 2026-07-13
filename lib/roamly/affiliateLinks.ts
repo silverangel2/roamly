@@ -1,6 +1,7 @@
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
 import {
   buildAttractionTicketSearchUrl,
   buildFlightSearchUrl,
@@ -47,7 +48,7 @@ export type RoamlyAffiliateLink = {
 };
 
 export const affiliateDisclosure =
-  "Roamly may earn a commission when you book through partner links. This does not change your price.";
+  ROAMLY_AFFILIATE_DISCLOSURE;
 
 function enabled() {
   return process.env.ROAMLY_AFFILIATES_ENABLED === "true";

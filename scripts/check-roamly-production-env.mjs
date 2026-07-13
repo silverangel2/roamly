@@ -95,6 +95,48 @@ const checks = [
     label: "Tester emails",
     required: OPTIONAL,
     keys: ["ROAMLY_TESTER_EMAILS"]
+  },
+  {
+    label: "Support email",
+    required: REQUIRED,
+    keys: ["ROAMLY_SUPPORT_EMAIL"],
+    expected: "support@roamlyhq.com"
+  },
+  {
+    label: "From email",
+    required: REQUIRED,
+    keys: ["ROAMLY_FROM_EMAIL"],
+    expected: "support@roamlyhq.com"
+  },
+  {
+    label: "Email provider",
+    required: OPTIONAL,
+    keys: ["ROAMLY_EMAIL_PROVIDER"]
+  },
+  {
+    label: "Resend API key",
+    required: OPTIONAL,
+    keys: ["RESEND_API_KEY"]
+  },
+  {
+    label: "Social cron secret",
+    required: REQUIRED,
+    keys: ["ROAMLY_SOCIAL_CRON_SECRET"]
+  },
+  {
+    label: "Meta page ID",
+    required: OPTIONAL,
+    keys: ["ROAMLY_META_PAGE_ID"]
+  },
+  {
+    label: "Meta access token",
+    required: OPTIONAL,
+    keys: ["ROAMLY_META_ACCESS_TOKEN"]
+  },
+  {
+    label: "Instagram business account ID",
+    required: OPTIONAL,
+    keys: ["ROAMLY_INSTAGRAM_BUSINESS_ACCOUNT_ID"]
   }
 ];
 

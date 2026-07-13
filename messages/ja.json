@@ -712,6 +712,24 @@
     "Get eSIM for this trip": "この旅行のeSIMを入手",
     "Check mobile data options": "モバイルデータオプションを確認",
     "Confirm roaming or eSIM before departure": "出発前にローミングまたはeSIMを確認",
-    "Check device compatibility before buying": "購入前に端末の互換性を確認"
+    "Check device compatibility before buying": "購入前に端末の互換性を確認",
+    "Contact support": "サポートに連絡",
+    "Message received": "メッセージを受信しました",
+    "We received your Roamly message": "Roamlyへのメッセージを受信しました",
+    "Support email": "サポートメール",
+    "Email provider not configured": "メールプロバイダーが設定されていません",
+    "Facebook not connected": "Facebookは接続されていません",
+    "Instagram not connected": "Instagramは接続されていません",
+    "Social drafts": "ソーシャル下書き",
+    "Generate social post": "ソーシャル投稿を生成",
+    "Save draft": "下書きを保存",
+    "Copy caption": "キャプションをコピー",
+    "Schedule post": "投稿を予約",
+    "Launch readiness": "ローンチ準備",
+    "Ready": "準備完了",
+    "Missing": "不足",
+    "Optional": "任意",
+    "Needs setup": "設定が必要",
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "パートナーリンクから予約または購入すると、Roamlyがコミッションを得る場合があります。お客様の価格は変わりません。"
   }
 }

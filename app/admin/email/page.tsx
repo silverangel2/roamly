@@ -42,7 +42,8 @@ export default async function AdminEmailPage() {
       <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Provider", emailConfig.configured ? `${emailConfig.provider} configured` : emailConfig.reason],
-          ["From", emailConfig.fromEmail],
+          ["Support email", emailConfig.supportEmailConfigured ? "Configured" : "Missing"],
+          ["From email", emailConfig.fromEmailConfigured ? "Configured" : "Missing"],
           ["Reply-to", emailConfig.replyToEmail],
           ["Sent today", `${sentToday.count || 0}`],
           ["Failures today", `${failures.count || 0}`],

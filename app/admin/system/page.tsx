@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
 import { isEmailConfigured } from "@/lib/roamly/email";
+import { getRoamlyLaunchReadiness, type ReadinessStatus } from "@/lib/roamly/launchReadiness";
+import { getRoamlySocialEnvStatus } from "@/lib/roamly/social";
 import { ensureRoamlyProfile, getRoamlyProfileTableStatus, getRoamlyUserAppStatus } from "@/lib/roamly/profile";
 
 const tables = [
@@ -20,10 +22,13 @@ const tables = [
   "roamly_trip_companion_events",
   "roamly_push_subscriptions",
   "roamly_notifications",
-  "roamly_email_logs"
+  "roamly_email_logs",
+  "roamly_support_messages",
+  "roamly_social_media_assets",
+  "roamly_social_posts",
+  "roamly_social_settings",
+  "roamly_social_post_history"
 ];
-
-type ReadinessStatus = "Ready" | "Missing" | "Optional" | "Needs setup";
 
 function statusClass(status: ReadinessStatus) {
   if (status === "Ready") return "bg-ocean/10 text-ocean";
@@ -96,6 +101,8 @@ export default async function AdminSystemPage() {
     ]);
   const affiliateReadiness = getAffiliateReadiness();
   const emailReadiness = isEmailConfigured();
+  const socialReadiness = getRoamlySocialEnvStatus();
+  const launchChecks = getRoamlyLaunchReadiness(state.access);
   const affiliatesEnabled = process.env.ROAMLY_AFFILIATES_ENABLED === "true";
   const systemChecks: Array<{ group: string; label: string; status: ReadinessStatus; detail: string }> = [
     {
@@ -274,6 +281,23 @@ export default async function AdminSystemPage() {
       </section>
 
       <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {launchChecks.map((check) => (
+          <Card key={`launch-${check.group}-${check.label}`} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Launch readiness</p>
+                <h2 className="mt-2 text-lg font-black text-ink">{check.label}</h2>
+              </div>
+              <span className={`rounded-full px-3 py-2 text-xs font-black ${statusClass(check.status)}`}>
+                {check.status}
+              </span>
+            </div>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-500">{check.detail}</p>
+          </Card>
+        ))}
+      </section>
+
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           ["Push subscriptions", `${pushSubscriptions.count || 0}`],
           ["Notifications", `${notifications.count || 0}`],
@@ -287,10 +311,15 @@ export default async function AdminSystemPage() {
           ["Flight provider", affiliateReadiness.flightProviderConfigured ? "Configured" : "Not configured"],
           ["Attractions provider", affiliateReadiness.attractionsProviderConfigured ? "Configured" : "Not configured"],
           ["Email provider", emailReadiness.configured ? `${emailReadiness.provider} configured` : emailReadiness.reason],
-          ["From email", emailReadiness.fromEmail ? "Configured" : "Missing"],
+          ["Support email configured", emailReadiness.supportEmailConfigured ? "Yes" : "No"],
+          ["From email configured", emailReadiness.fromEmailConfigured ? "Yes" : "No"],
           ["Email logs", `${emailLogs.count || 0}`],
           ["Last email status", lastEmail.data?.status || "None"],
           ["Last email error", lastEmail.data?.error || "None"],
+          ["Facebook connected", socialReadiness.facebookConnected ? "Yes" : "No"],
+          ["Instagram connected", socialReadiness.instagramConnected ? "Yes" : "No"],
+          ["Social autopost", socialReadiness.autoPostEnabled ? "Enabled" : "Disabled"],
+          ["Social approval", socialReadiness.requireApproval ? "Required" : "Not required"],
           ["Shared Supabase auth mode", "Yes"],
           ["Roamly profile table available", profileTableStatus.available ? "Yes" : "No"],
           ["Current user has Roamly profile", appStatus?.has_roamly_profile ? "Yes" : "No"],

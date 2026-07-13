@@ -236,7 +236,9 @@ export default async function AdminPage() {
       <section className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Button href="/admin/live-test" tone="secondary">Live test</Button>
         <Button href="/admin/email" tone="secondary">Email center</Button>
+        <Button href="/admin/social" tone="secondary">Social center</Button>
         <Button href="/admin/system" tone="secondary">System diagnostics</Button>
+        <Button href="/admin/launch" tone="secondary">Launch readiness</Button>
         <Button href="/admin/settings" tone="secondary">Launch settings</Button>
       </section>
 

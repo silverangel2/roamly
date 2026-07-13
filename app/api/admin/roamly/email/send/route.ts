@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
-import { renderEmailTemplate, sendRoamlyEmail } from "@/lib/roamly/email";
+import { getRoamlyReplyToEmail, renderEmailTemplate, sendRoamlyEmail } from "@/lib/roamly/email";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     subject: template.subject,
     html: template.html,
     text: template.text,
-    replyTo: process.env.ROAMLY_REPLY_TO_EMAIL || guard.user.email || null,
+    replyTo: getRoamlyReplyToEmail() || guard.user.email || null,
     metadata: { sentBy: guard.user.email, template: templateType, source: "admin_composer" }
   });
 

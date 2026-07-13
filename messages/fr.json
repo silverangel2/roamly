@@ -712,6 +712,24 @@
     "Get eSIM for this trip": "Obtenir une eSIM pour ce voyage",
     "Check mobile data options": "Vérifier les options de données mobiles",
     "Confirm roaming or eSIM before departure": "Confirmer l’itinérance ou l’eSIM avant le départ",
-    "Check device compatibility before buying": "Vérifier la compatibilité de l’appareil avant l’achat"
+    "Check device compatibility before buying": "Vérifier la compatibilité de l’appareil avant l’achat",
+    "Contact support": "Contacter le support",
+    "Message received": "Message reçu",
+    "We received your Roamly message": "Nous avons reçu votre message Roamly",
+    "Support email": "E-mail du support",
+    "Email provider not configured": "Fournisseur d’e-mail non configuré",
+    "Facebook not connected": "Facebook non connecté",
+    "Instagram not connected": "Instagram non connecté",
+    "Social drafts": "Brouillons sociaux",
+    "Generate social post": "Générer une publication sociale",
+    "Save draft": "Enregistrer le brouillon",
+    "Copy caption": "Copier la légende",
+    "Schedule post": "Planifier la publication",
+    "Launch readiness": "Préparation au lancement",
+    "Ready": "Prêt",
+    "Missing": "Manquant",
+    "Optional": "Facultatif",
+    "Needs setup": "Configuration requise",
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly peut gagner une commission lorsque vous réservez ou achetez via des liens partenaires. Cela ne change pas votre prix."
   }
 }

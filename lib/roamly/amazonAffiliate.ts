@@ -1,9 +1,10 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { buildEsimAction, isEsimSensitiveTrip } from "@/lib/roamly/esim";
 import { detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
+import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
 
 export const amazonAffiliateDisclosure =
-  "Roamly may earn a commission from qualifying purchases. This does not change your price.";
+  ROAMLY_AFFILIATE_DISCLOSURE;
 
 export const travelEssentialCategories = [
   "Luggage & packing",
@@ -271,7 +272,7 @@ function buildEsimEssential(payload: TripPlannerPayload): EssentialDraft | null 
     action_label: action.label,
     provider: action.provider,
     affiliate_provider: action.provider,
-    affiliate_disclosure: "Roamly may earn a commission from qualifying eSIM purchases. This does not change your price.",
+    affiliate_disclosure: ROAMLY_AFFILIATE_DISCLOSURE,
     item_type: "connectivity",
     has_affiliate_url: action.hasAffiliateUrl,
     action_url_type: action.urlType,
@@ -394,7 +395,7 @@ function normalizeEssentialRecord(item: unknown, index: number, payload: TripPla
         action_label: action.label,
         provider: action.provider,
         affiliate_provider: action.provider,
-        affiliate_disclosure: "Roamly may earn a commission from qualifying eSIM purchases. This does not change your price.",
+        affiliate_disclosure: ROAMLY_AFFILIATE_DISCLOSURE,
         item_type: "connectivity",
         has_affiliate_url: action.hasAffiliateUrl,
         action_url_type: action.urlType,
