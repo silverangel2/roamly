@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
-import { getTripDayFromDate } from "@/lib/itinerary";
+import { getTripDayFromDate, type RoamlyItinerary } from "@/lib/itinerary";
+import { getServerLocale } from "@/lib/i18n-server";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import {
@@ -15,8 +16,9 @@ import {
   getTripDaysCount,
   getTripDestinationLabel
 } from "@/lib/roamly/tripMetadata";
+import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
-import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
+import { getTripBundle, groupActivitiesByDay, type ActivityRecord } from "@/lib/trips";
 
 function formatMoney(cents: number | null, currency = "CAD") {
   if (cents == null) return "Not set";
@@ -66,8 +68,31 @@ function getRowString(row: Record<string, unknown>, key: string) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function localizeActivityRecords(activities: ActivityRecord[], itinerary: RoamlyItinerary | null) {
+  if (!itinerary) return activities;
+  const localizedByDay = new Map(itinerary.daily_itinerary.map((day) => [day.day_number, day.live_timeline]));
+  const seenByDay = new Map<number, number>();
+
+  return activities.map((activity) => {
+    const index = seenByDay.get(activity.day_number) || 0;
+    seenByDay.set(activity.day_number, index + 1);
+    const localized = localizedByDay.get(activity.day_number)?.[index];
+    if (!localized) return activity;
+    return {
+      ...activity,
+      title: localized.title || activity.title,
+      description: localized.description || activity.description,
+      location_name: localized.location_name || activity.location_name,
+      estimated_cost: localized.estimated_cost ?? activity.estimated_cost,
+      category: localized.category || activity.category,
+      map_query: localized.map_query || activity.map_query
+    };
+  });
+}
+
 export default async function LiveTripPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const locale = await getServerLocale();
   const current = await getCurrentUser();
 
   if (current.configured && !current.user) {
@@ -100,10 +125,14 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
 
   await scheduleCompanionEvents(supabase, id);
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";
+  const localizedFull = bundle.data.itinerary?.full_json
+    ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
+    : null;
+  const localizedActivities = localizeActivityRecords(bundle.data.activities, localizedFull);
   const daysCount = getTripDaysCount(bundle.data.trip);
   const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
   const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null);
-  const activitiesByDay = groupActivitiesByDay(bundle.data.activities);
+  const activitiesByDay = groupActivitiesByDay(localizedActivities);
   const dayActivities = activitiesByDay[currentDay] || bundle.data.activities.slice(0, 4);
   const nextActivity =
     dayActivities.find((activity) => !["completed", "skipped", "missed"].includes(activity.status)) ||
@@ -133,7 +162,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   };
   const packing = getStringArray(companionMetadata.packingChecklist);
   const documents = getStringArray(companionMetadata.documentChecklist);
-  const packingItems = packing.length ? packing : bundle.data.checklist.map((item) => item.item);
+  const packingItems = packing.length ? packing : localizedFull?.packing_checklist || bundle.data.checklist.map((item) => item.item);
   const committedBudgetCents = (bookingsResult.data || []).reduce(
     (sum, booking) => sum + (booking.booking_status === "cancelled" ? 0 : Number(booking.amount_cents || 0)),
     0
@@ -145,16 +174,14 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   const trackingActivityRows = ((trackingActivitiesResult.data || []) as Record<string, unknown>[]);
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
   const simulatorPlaces: LiveSimulatorPlace[] = [
-    ...trackingActivityRows.map((activity, index) => ({
-      id: `activity:${getRowString(activity, "id") || getRowString(activity, "title") || index}`,
-      title: getRowString(activity, "title") || "Trip activity",
+    ...localizedActivities.map((activity, index) => ({
+      id: `activity:${activity.id || activity.title || index}`,
+      title: activity.title || "Trip activity",
       kind: "activity" as const,
-      latitude: getNumberOrNull(activity.latitude),
-      longitude: getNumberOrNull(activity.longitude),
-      address: [getRowString(activity, "address"), getRowString(activity, "city"), getRowString(activity, "country")]
-        .filter(Boolean)
-        .join(", ") || null,
-      status: getRowString(activity, "status")
+      latitude: getNumberOrNull(trackingActivityRows[index]?.latitude),
+      longitude: getNumberOrNull(trackingActivityRows[index]?.longitude),
+      address: activity.map_query || activity.location_name || null,
+      status: activity.status
     })),
     ...bookingRows.map((booking, index) => {
       const type = getRowString(booking, "booking_type") || "booking";

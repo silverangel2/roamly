@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { buildStarterItinerary, normalizeItinerary, type RoamlyItinerary } from "@/lib/itinerary";
-import { normalizeLocale } from "@/lib/i18n";
+import { normalizeLocale, type RoamlyLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
@@ -17,6 +17,15 @@ export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not con
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not finish itinerary generation. Please try again in a moment.";
 const OPENAI_ITINERARY_TIMEOUT_MS = 45_000;
+const OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS = 45_000;
+const languageNames: Record<RoamlyLocale, string> = {
+  en: "English",
+  fr: "French",
+  es: "Spanish",
+  ja: "Japanese",
+  ko: "Korean",
+  zh: "Simplified Chinese"
+};
 
 export class RoamlyItineraryGenerationError extends Error {
   code: string;
@@ -96,16 +105,12 @@ function routeSummary(payload: TripPlannerPayload) {
   return route.join(" \u2192 ");
 }
 
+function languageName(value?: string | null) {
+  return languageNames[normalizeLocale(value)] || "English";
+}
+
 function buildPrompt(payload: TripPlannerPayload) {
-  const languageNames: Record<string, string> = {
-    en: "English",
-    fr: "French",
-    es: "Spanish",
-    ja: "Japanese",
-    ko: "Korean",
-    zh: "Simplified Chinese"
-  };
-  const outputLanguage = languageNames[normalizeLocale(payload.language)] || "English";
+  const outputLanguage = languageName(payload.language);
   const priceSummary = priceDiscoverySummary(payload);
   const travelers = payload.travelers || { adults: payload.travelersCount || 1, children: 0, infants: 0 };
   const tripDays = calculateInclusiveTripDays(payload.startDate, payload.endDate, payload.daysCount || 3);
@@ -302,6 +307,132 @@ Rules:
 - Do not invent reservations or claim bookings are made.
 - If the destination is Montreal, suitable specific options include Notre-Dame Basilica admission, Montreal Museum of Fine Arts, Pointe-a-Calliere Museum, Mount Royal as a free attraction, Old Montreal walking tour, Montreal food tasting tour, Plateau street art walk, and an evening jazz/nightlife experience when they fit the user's interests.
 - Build exactly ${tripDays} itinerary days.`;
+}
+
+const translationPreserveKeys = new Set([
+  "normal_search_url",
+  "affiliate_url",
+  "amazon_url",
+  "url",
+  "href",
+  "currency",
+  "date",
+  "departure_date",
+  "return_date",
+  "start_date",
+  "end_date",
+  "searched_at",
+  "expires_at",
+  "market_search_key",
+  "market_source",
+  "price_type",
+  "market_confidence",
+  "price_confidence",
+  "booking_status",
+  "category",
+  "booking_category",
+  "free_or_paid",
+  "priority",
+  "affiliate_provider"
+]);
+
+function shouldPreserveString(key: string, value: string) {
+  if (translationPreserveKeys.has(key)) return true;
+  if (/url$/i.test(key)) return true;
+  if (/^https?:\/\//i.test(value)) return true;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
+  if (/^[A-Z]{3}$/.test(value)) return true;
+  return false;
+}
+
+function mergeTranslatedJson(original: unknown, translated: unknown, key = ""): unknown {
+  if (typeof original === "string") {
+    return typeof translated === "string" && !shouldPreserveString(key, original) ? translated : original;
+  }
+
+  if (Array.isArray(original)) {
+    if (!Array.isArray(translated)) return original;
+    return original.map((item, index) => mergeTranslatedJson(item, translated[index], key));
+  }
+
+  if (original && typeof original === "object") {
+    const source = original as Record<string, unknown>;
+    const target = translated && typeof translated === "object" && !Array.isArray(translated)
+      ? (translated as Record<string, unknown>)
+      : {};
+    return Object.fromEntries(
+      Object.entries(source).map(([itemKey, value]) => [itemKey, mergeTranslatedJson(value, target[itemKey], itemKey)])
+    );
+  }
+
+  return original;
+}
+
+export async function translateRoamlyItinerary(params: {
+  itinerary: RoamlyItinerary;
+  language: RoamlyLocale;
+  sourceLanguage?: RoamlyLocale;
+}) {
+  const targetLanguage = languageName(params.language);
+  const sourceLanguage = languageName(params.sourceLanguage || "en");
+  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+  const client = getClient();
+
+  if (!client) {
+    throw new RoamlyItineraryGenerationError(
+      "Roamly AI translation is not configured yet.",
+      "AI_TRANSLATION_NOT_CONFIGURED",
+      503
+    );
+  }
+
+  try {
+    const completion = await client.chat.completions.create(
+      {
+        model,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You translate Roamly itinerary JSON. Return strict JSON only. Preserve all keys, structure, prices, dates, URLs, IDs, enum values, and provider names."
+          },
+          {
+            role: "user",
+            content: `Translate this Roamly itinerary from ${sourceLanguage} to ${targetLanguage}.
+
+Rules:
+- Translate user-facing prose, titles, descriptions, itinerary day text, budget notes, booking labels, checklist items, essential item names, essential reasons, and Live Companion descriptions.
+- Keep JSON keys exactly the same.
+- Preserve all numbers, booleans, nulls, dates, currencies, price ranges, normal_search_url, affiliate_url, amazon_url, provider names, brand names, map URLs, and booking/affiliate links exactly.
+- Keep these provider/brand names unchanged when they appear: Klook, Stay22, Amazon, Google Maps, Citymapper, Travelpayouts, Viator, GetYourGuide, Booking.com, Google Flights, Roamly.
+- Do not regenerate, reorder, add, remove, or replace trip stops, days, activities, prices, URLs, or booking recommendations.
+- Search queries may remain as-is if translating them could reduce booking or navigation accuracy.
+
+Itinerary JSON:
+${JSON.stringify(params.itinerary)}`
+          }
+        ]
+      },
+      {
+        maxRetries: 0,
+        timeout: OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS
+      }
+    );
+
+    const text = completion.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(text) as unknown;
+    return mergeTranslatedJson(params.itinerary, parsed) as RoamlyItinerary;
+  } catch (error) {
+    if (error instanceof RoamlyItineraryGenerationError) throw error;
+    console.error("[Roamly AI] itinerary translation failed", error);
+    throw new RoamlyItineraryGenerationError(
+      "Roamly could not translate this itinerary. Please try again in a moment.",
+      "AI_TRANSLATION_FAILED",
+      502
+    );
+  }
 }
 
 export async function generateRoamlyItinerary(payload: TripPlannerPayload): Promise<GeneratedItineraryResult> {

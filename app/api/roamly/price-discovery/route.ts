@@ -3,6 +3,7 @@ import {
   buildBudgetConstraintForItinerary,
   discoverTripPrices
 } from "@/lib/roamly/priceDiscovery";
+import { normalizeLocale } from "@/lib/i18n";
 import { getCurrentUser } from "@/lib/roamly/auth";
 import { calculateInclusiveTripDays } from "@/lib/roamly/dateUtils";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
           infants: getAnyNumber((input.travelers as Record<string, unknown>).infants) || 0
         },
         specialNotes: "",
-        language: "en"
+        language: normalizeLocale(getString(body.language))
       },
       { supabase, store: true }
     );

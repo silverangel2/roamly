@@ -254,10 +254,12 @@ export async function syncGeneratedItinerary(
     .maybeSingle();
   if (tripMetadataResult.error) return { error: tripMetadataResult.error.message };
   const existingMetadata = getRecord(tripMetadataResult.data?.metadata) || {};
+  const planningMetadata = getRecord(existingMetadata.planning);
   const generatedItineraryMetadata = {
     ai_summary: params.itinerary.destination_summary,
     full_json: params.itinerary,
     preview_json: preview,
+    language: typeof planningMetadata?.language === "string" ? planningMetadata.language : "en",
     status: params.status || "preview",
     updated_at: now
   };

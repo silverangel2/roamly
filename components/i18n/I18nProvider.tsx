@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  detectBrowserLocale,
   normalizeLocale,
   supportedLocales,
   translateExactText,
@@ -33,8 +32,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = window.localStorage.getItem("roamly_lang") || cookieLocale();
-    const detected = stored || navigator.languages?.[0] || navigator.language;
-    setLocaleState(detectBrowserLocale(detected));
+    setLocaleState(stored ? normalizeLocale(stored) : "en");
   }, []);
 
   const setLocale = (nextLocale: RoamlyLocale) => {

@@ -5,6 +5,7 @@ import { BookingRecommendationButton } from "@/components/trip/BookingRecommenda
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshButton";
+import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
@@ -17,6 +18,7 @@ import {
   type RoamlyItinerary,
   type RoamlyPreview
 } from "@/lib/itinerary";
+import { getServerLocale } from "@/lib/i18n-server";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure } from "@/lib/roamly/affiliateLinks";
@@ -27,6 +29,7 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 import {
   buildAttractionTicketSearchUrl,
   buildFlightSearchUrl,
@@ -1032,12 +1035,8 @@ function ChecklistGroup({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function packingChecklistItems(checklist: Array<{ item: string; category: string | null }>, itinerary: RoamlyItinerary) {
-  const packing = checklist
-    .filter((item) => item.category !== "Pre-trip essentials")
-    .map((item) => item.item)
-    .filter(Boolean);
-  return packing.length ? packing.slice(0, 14) : itinerary.packing_checklist.slice(0, 14);
+function packingChecklistItems(_checklist: Array<{ item: string; category: string | null }>, itinerary: RoamlyItinerary) {
+  return itinerary.packing_checklist.slice(0, 14);
 }
 
 function isItineraryPaid(trip: {
@@ -1056,6 +1055,7 @@ function isItineraryPaid(trip: {
 export default async function TripPage({ params, searchParams }: TripPageProps) {
   const { id } = await params;
   const search = searchParams ? await searchParams : {};
+  const locale = await getServerLocale();
   const current = await getCurrentUser();
 
   if (!current.configured) {
@@ -1115,7 +1115,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const { trip, itinerary, checklist } = bundleResult.data;
   const destinationLabel = getTripDestinationLabel(trip) || "your destination";
   const currency = getTripBudgetCurrency(trip);
-  const full = itinerary?.full_json || null;
+  const baseFull = itinerary?.full_json || null;
+  const localizedItinerary = baseFull ? getLocalizedItinerary({ metadata: trip.metadata, baseItinerary: baseFull, locale }) : null;
+  const full = localizedItinerary?.itinerary || null;
+  const displayedItineraryLanguage = localizedItinerary?.language || getTripItineraryLanguage(trip.metadata);
   const itineraryLocked = isTripLocked(trip);
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
@@ -1124,7 +1127,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention);
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
-  const preview = full ? buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
+  const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
   const canShowFull = Boolean(itineraryLocked && full);
   const bookingsResult = await supabase
     .from("roamly_bookings")
@@ -1134,7 +1137,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     .order("start_date", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
   const importedBookings = bookingsResult.error && isMissingTableError(bookingsResult.error.message) ? [] : bookingsResult.data || [];
-  const tripTitle = trip.title || preview?.trip_title || destinationLabel;
+  const tripTitle = full?.trip_title || preview?.trip_title || trip.title || destinationLabel;
   const dayCount = getTripDaysCount(trip) || full?.daily_itinerary.length || preview?.day_outline.length || trip.days_count || 0;
   const tripBudgetAmount = getTripBudgetAmount(trip);
   const itineraryTotalEstimate = full ? getItineraryTotalEstimateAmount(full) : null;
@@ -1230,7 +1233,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               testerAccess={access.hasQaAccess}
               apiAuthToken={apiAuthToken}
             />
-            {canShowFull ? <TripShareActions tripId={id} tripTitle={tripTitle} emailConfigured={emailConfigured} /> : null}
+            {canShowFull ? (
+              <>
+                <TripShareActions tripId={id} tripTitle={tripTitle} emailConfigured={emailConfigured} />
+                <TranslateItineraryButton tripId={id} displayedLanguage={displayedItineraryLanguage} />
+              </>
+            ) : null}
           </div>
         </section>
 
