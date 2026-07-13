@@ -17,9 +17,8 @@ const RESEND_SUCCESS_MESSAGE = "Verification email sent. Check your inbox, spam,
 const RESEND_ERROR_MESSAGE = "We could not resend the verification email. Try again or contact support.";
 const TESTER_UNVERIFIED_MESSAGE = "Tester access starts after this email is verified.";
 const SUPPORT_MESSAGE = "Still no email? Contact support or ask an admin to confirm your account in Supabase.";
-const SHARED_GOOGLE_MESSAGE = "Already used ReviewIntel? You can continue with the same email or Google account.";
-const EXISTING_ACCOUNT_MESSAGE =
-  "This email may already have an account from ReviewIntel or Roamly. Try logging in or continue with Google.";
+const SHARED_GOOGLE_MESSAGE = "You can continue with the same email or Google account.";
+const EXISTING_ACCOUNT_MESSAGE = "This email may already have a Roamly account. Try logging in or continue with Google.";
 const LOGIN_ERROR_MESSAGE = "We could not sign you in. Please try again.";
 const LOGIN_UNVERIFIED_MESSAGE =
   "This email is not verified yet. Please verify your email before logging in. You can resend the verification email below.";
@@ -334,7 +333,7 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
         <p className="text-xs font-black uppercase tracking-[0.18em]">Setup needed</p>
         <h2 className="mt-2 text-2xl font-black">Connect Roamly Supabase first.</h2>
         <p className="mt-2 text-sm font-bold leading-6">
-          Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable signup and login.
+          Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to enable signup and login.
         </p>
       </div>
     );

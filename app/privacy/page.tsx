@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/Card";
 
 const sections = [
   ["Data collected", "Roamly stores account email, profile name, trip inputs, itinerary data, booking fields you confirm, checklist status, payments, and basic usage counts."],
-  ["Data separation", "Roamly uses roamly_ database tables and separate environment variables. ReviewIntel data must not be mixed into Roamly."],
+  ["Data separation", "Roamly stores trip data in its standalone Supabase project with roamly_ database tables."],
   ["AI processing", "Trip details may be sent to the OpenAI API to generate itineraries. Locked itineraries are not regenerated."],
   ["Payments", "Stripe handles checkout. Roamly stores payment status and Stripe identifiers, not raw card numbers."],
   ["Location and reminders", "Roamly asks for location and push permission only when Live Trip Companion needs it. In-app reminders still work if phone/browser push is denied."],

@@ -99,22 +99,22 @@ export default async function AdminSystemPage() {
   const affiliatesEnabled = process.env.ROAMLY_AFFILIATES_ENABLED === "true";
   const systemChecks: Array<{ group: string; label: string; status: ReadinessStatus; detail: string }> = [
     {
-      group: "Shared auth",
-      label: "Shared Supabase Auth mode",
+      group: "Supabase auth",
+      label: "Standalone Supabase Auth mode",
       status: "Ready",
-      detail: "Roamly uses its own profile records even when Supabase Auth is shared."
+      detail: "Roamly uses its own Supabase project, profile records, and trip records."
     },
     {
-      group: "Shared auth",
+      group: "Supabase auth",
       label: "Roamly profile table",
       status: profileTableStatus.available ? "Ready" : "Missing",
-      detail: "Tracks Roamly-specific identity for users from the shared Supabase Auth project."
+      detail: "Tracks Roamly-specific identity for users in the standalone Supabase project."
     },
     {
-      group: "Shared auth",
+      group: "Supabase auth",
       label: "Current user has Roamly profile",
       status: appStatus?.has_roamly_profile ? "Ready" : "Missing",
-      detail: "Existing ReviewIntel auth users get a separate Roamly profile on first Roamly use."
+      detail: "Roamly creates or updates this profile when a signed-in user opens the app."
     },
     {
       group: "QA access",

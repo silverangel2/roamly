@@ -19,6 +19,7 @@ In the Roamly Vercel project, set these variables for Production, Preview, and D
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://ikrfkpnbtkdohoxnbphu.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable-or-anon-key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-or-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<secret-or-service-role-key>
 NEXT_PUBLIC_APP_URL=https://roamlyhq.com
 ```
@@ -38,8 +39,13 @@ https://roamlyhq.com
 Add these redirect URLs:
 
 ```text
+https://roamlyhq.com/**
 https://roamlyhq.com/auth/callback
+https://roamlyhq.com/auth/reset-password
+https://www.roamlyhq.com/**
 https://www.roamlyhq.com/auth/callback
+https://www.roamlyhq.com/auth/reset-password
+http://localhost:3000/**
 http://localhost:3000/auth/callback
 ```
 
@@ -52,7 +58,8 @@ In Supabase, open **Authentication > Providers > Google**.
 1. Enable Google.
 2. Add the Google OAuth client ID.
 3. Add the Google OAuth client secret.
-4. In Google Cloud Console, add Supabase's Google callback URL shown in the provider setup screen.
+4. In Google Cloud Console, add Supabase's Google callback URL:
+   `https://ikrfkpnbtkdohoxnbphu.supabase.co/auth/v1/callback`
 5. Save the provider settings.
 
 ## 5. Run the Roamly schema
@@ -99,3 +106,35 @@ After the environment variables are set and the schema verifies:
 5. Confirm rows are created in `roamly_trips`, `roamly_trip_days`, `roamly_activities`, `roamly_itineraries`, `roamly_itinerary_days`, and `roamly_trip_activities`.
 6. Test itinerary generation through completion.
 7. Confirm no ReviewIntel Supabase project activity is involved.
+
+## 9. Final production checklist
+
+In the new Roamly Supabase project, configure **Authentication > URL Configuration**:
+
+Site URL:
+
+```text
+https://roamlyhq.com
+```
+
+Redirect URLs:
+
+```text
+https://roamlyhq.com/**
+https://roamlyhq.com/auth/callback
+https://roamlyhq.com/auth/reset-password
+https://www.roamlyhq.com/**
+https://www.roamlyhq.com/auth/callback
+https://www.roamlyhq.com/auth/reset-password
+http://localhost:3000/**
+http://localhost:3000/auth/callback
+```
+
+Google Provider:
+
+1. Enable Google OAuth in the new Roamly Supabase project.
+2. Use this callback URL in Google Cloud Console:
+
+```text
+https://ikrfkpnbtkdohoxnbphu.supabase.co/auth/v1/callback
+```

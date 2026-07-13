@@ -51,9 +51,10 @@ function replyToEmail() {
 }
 
 function siteUrl() {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://roamly-eosin.vercel.app";
+  return "https://roamlyhq.com";
 }
 
 function escapeHtml(value?: string | null) {

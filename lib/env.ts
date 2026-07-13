@@ -7,12 +7,17 @@ const requiredServerVariables = [
 
 const requiredPublicVariables = [
   "NEXT_PUBLIC_APP_URL",
-  "NEXT_PUBLIC_SUPABASE_URL",
-  "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+  "NEXT_PUBLIC_SUPABASE_URL"
 ] as const;
 
 export function getMissingEnvironmentVariables() {
-  return [...requiredServerVariables, ...requiredPublicVariables].filter((key) => !process.env[key]);
+  const missing: string[] = [...requiredServerVariables, ...requiredPublicVariables].filter((key) => !process.env[key]);
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+  }
+
+  return missing;
 }
 
 export const roamlyConfig = {

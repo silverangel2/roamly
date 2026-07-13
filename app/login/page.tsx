@@ -62,7 +62,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Log in and keep your trips together.
         </h1>
         <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
-          Roamly shares Supabase Auth with ReviewIntel, but keeps its own Roamly profile and trip records.
+          Roamly uses standalone Supabase Auth with dedicated profile and trip records.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {["Saved trips", "1 free itinerary", "One-time trip packs"].map((item) => (
