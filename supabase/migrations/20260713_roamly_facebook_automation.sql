@@ -347,19 +347,25 @@ create table if not exists public.roamly_admin_activity_logs (
   constraint roamly_admin_activity_logs_status check (status in ('started', 'completed', 'failed', 'skipped'))
 );
 
-alter table public.roamly_social_media_assets
-  add column if not exists asset_type text,
-  add column if not exists approved_for_automation boolean not null default false,
-  add column if not exists excluded_from_automation boolean not null default false,
-  add column if not exists archived_at timestamptz,
-  add column if not exists use_count integer not null default 0,
-  add column if not exists last_used_at timestamptz,
-  add column if not exists width integer,
-  add column if not exists height integer,
-  add column if not exists duration_seconds numeric,
-  add column if not exists is_vertical boolean not null default false,
-  add column if not exists source text,
-  add column if not exists rights_note text;
+do $$
+begin
+  if to_regclass('public.roamly_social_media_assets') is not null then
+    alter table public.roamly_social_media_assets
+      add column if not exists asset_type text,
+      add column if not exists approved_for_automation boolean not null default false,
+      add column if not exists excluded_from_automation boolean not null default false,
+      add column if not exists archived_at timestamptz,
+      add column if not exists use_count integer not null default 0,
+      add column if not exists last_used_at timestamptz,
+      add column if not exists width integer,
+      add column if not exists height integer,
+      add column if not exists duration_seconds numeric,
+      add column if not exists is_vertical boolean not null default false,
+      add column if not exists source text,
+      add column if not exists rights_note text;
+  end if;
+end
+$$;
 
 create unique index if not exists roamly_social_drafts_hook_hash_key on public.roamly_social_drafts (hook_hash);
 create unique index if not exists roamly_social_drafts_caption_hash_key on public.roamly_social_drafts (caption_hash);
