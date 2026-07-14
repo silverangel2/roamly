@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { createTripBooking } from "@/lib/roamly/bookingWallet";
 
 export type RoamlyBookingType =
   | "flight"
@@ -196,86 +197,123 @@ export async function saveConfirmedBooking(
     userId: string;
     tripId: string;
     booking: ExtractedBooking;
+    sourceType?: "screenshot" | "email" | "gmail" | "outlook";
   }
 ) {
   const { booking } = params;
-  const { data, error } = await supabase
-    .from("roamly_bookings")
-    .insert({
-      user_id: params.userId,
-      trip_id: params.tripId,
-      booking_type: booking.booking_type,
-      provider_name: booking.provider_name || null,
-      title: booking.title || "Imported booking",
-      confirmation_number: booking.confirmation_number || null,
-      booking_status: booking.booking_status || "unknown",
-      amount_cents: booking.amount_cents,
-      currency: booking.currency || "cad",
-      start_date: booking.start_date || null,
-      end_date: booking.end_date || null,
-      start_time: booking.start_time || null,
-      end_time: booking.end_time || null,
 
-      source_type: "screenshot",
-      traveler_confirmed: true,
-      start_at: combineBookingDateTime(
+  const result = await createTripBooking({
+    supabase,
+    userId: params.userId,
+    tripId: params.tripId,
+    input: {
+      bookingType: booking.booking_type,
+      bookingStatus:
+        booking.booking_status === "cancelled"
+          ? "cancelled"
+          : booking.booking_status === "unknown"
+            ? "pending"
+            : "confirmed",
+
+      provider: booking.provider_name || null,
+      confirmationCode:
+        booking.confirmation_number || null,
+
+      sourceType: params.sourceType || "screenshot",
+      sourceReference:
+        typeof booking.metadata?.messageId === "string"
+          ? booking.metadata.messageId
+          : typeof booking.metadata?.sourceReference === "string"
+            ? booking.metadata.sourceReference
+            : null,
+
+      title: booking.title || "Imported booking",
+
+      startTime: combineBookingDateTime(
         booking.start_date,
         booking.start_time
       ),
-      end_at: combineBookingDateTime(
+      endTime: combineBookingDateTime(
         booking.end_date,
         booking.end_time
       ),
-      check_in_at:
+
+      checkInTime:
         booking.booking_type === "hotel"
           ? combineBookingDateTime(
               booking.start_date,
               booking.start_time
             )
           : null,
-      check_out_at:
+
+      checkOutTime:
         booking.booking_type === "hotel"
           ? combineBookingDateTime(
               booking.end_date,
               booking.end_time
             )
           : null,
-      total_price:
+
+      address: booking.address || null,
+      locationName:
+        booking.city ||
+        booking.address ||
+        null,
+
+      coordinates:
+        typeof booking.latitude === "number" &&
+        typeof booking.longitude === "number"
+          ? {
+              latitude: booking.latitude,
+              longitude: booking.longitude
+            }
+          : null,
+
+      totalPrice:
         typeof booking.amount_cents === "number"
           ? booking.amount_cents / 100
           : null,
-      last_synced_at: new Date().toISOString(),
 
-      address: booking.address || null,
-      city: booking.city || null,
-      region: booking.region || null,
-      country: booking.country || null,
-      latitude: booking.latitude,
-      longitude: booking.longitude,
-      raw_extracted_text: redactSensitivePaymentDetails(booking.raw_extracted_text || ""),
-      extraction_confidence: booking.extraction_confidence || "medium",
-      screenshot_url: null,
-      metadata: {
-        ...booking.metadata,
-        screenshotStored: false,
-        privacyNote: "Roamly stores travel-useful fields only, not raw payment details."
-      }
-    })
-    .select("*")
-    .single();
+      currency: booking.currency || "cad",
+      travelerConfirmed: true,
+      lastSyncedAt: new Date().toISOString()
+    }
+  });
 
-  if (error) return { booking: null, error: error.message };
+  if (result.error || !result.booking) {
+    return {
+      booking: null,
+      error: result.error || "Booking could not be saved."
+    };
+  }
 
   await recordTripEvent(supabase, {
     userId: params.userId,
     tripId: params.tripId,
     eventType: "booking_imported",
-    eventTitle: booking.title || "Booking imported",
-    eventBody: `${booking.booking_type} booking added to this trip.`,
-    metadata: { bookingType: booking.booking_type, amountCents: booking.amount_cents }
+    eventTitle:
+      booking.title || "Booking imported",
+    eventBody:
+      "The imported booking was processed through the Roamly Booking Wallet and Companion pipeline.",
+    metadata: {
+      bookingId: result.booking.id,
+      sourceType: params.sourceType || "screenshot",
+      meaningfulChange:
+        result.meaningfulChange || null,
+      companionTriggered:
+        Boolean(result.companionWorkflow)
+    }
   });
 
-  return { booking: data, error: null };
+  return {
+    booking: result.booking,
+    meaningfulChange:
+      result.meaningfulChange || null,
+    companionWorkflow:
+      result.companionWorkflow || null,
+    created: result.created,
+    error: null
+  };
 }
 
 export async function getConfirmedBookingCostCents(supabase: SupabaseClient, userId: string, tripId: string) {
