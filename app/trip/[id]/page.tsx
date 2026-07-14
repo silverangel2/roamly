@@ -320,107 +320,193 @@ function NavigationChipList({ query }: { query: string }) {
   );
 }
 
-type TimelineItem = RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number];
+function TimelineItemCard({
+  item,
+  tripId
+}: {
+  item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number];
+  tripId: string;
+}) {
+  const entry =
+    item as unknown as Record<string, unknown>;
 
-function timelineKind(item: TimelineItem) {
-  const value = getString(item.item_type || item.category).toLowerCase();
-  if (value.includes("travel")) return "travel";
-  if (value.includes("transfer")) return "transfer";
-  if (value.includes("hotel")) return "hotel";
-  if (value.includes("meal") || value.includes("food")) return "meal";
-  if (value.includes("rest")) return "rest";
-  if (value.includes("book")) return "booking";
-  if (value.includes("reminder")) return "reminder";
-  return "activity";
-}
+  const stringValue = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = entry[key];
 
-function timelineKindLabel(kind: string) {
-  if (kind === "travel") return "Travel";
-  if (kind === "transfer") return "Transfer";
-  if (kind === "hotel") return "Hotel";
-  if (kind === "meal") return "Meal";
-  if (kind === "rest") return "Rest";
-  if (kind === "booking") return "Booking";
-  if (kind === "reminder") return "Reminder";
-  return "Activity";
-}
-
-function timelineKindClass(kind: string) {
-  if (kind === "travel") return "border-ocean/25 bg-ocean/10 text-ocean";
-  if (kind === "transfer") return "border-lagoon/25 bg-lagoon/10 text-ocean";
-  if (kind === "hotel") return "border-sun/35 bg-sun/15 text-amber-800";
-  if (kind === "meal") return "border-coral/25 bg-coral/10 text-coral";
-  if (kind === "rest") return "border-slate-200 bg-slate-50 text-slate-600";
-  return "border-[#e8dfd0] bg-white text-ink";
-}
-
-function timelineMeta(item: TimelineItem) {
-  return [
-    item.transportMode || item.travel_mode,
-    item.startTime && item.endTime ? `${item.startTime}-${item.endTime}` : "",
-    item.durationMinutes ? `${item.durationMinutes} min` : item.duration,
-    item.travelTimeMinutes ? `${item.travelTimeMinutes} min travel` : "",
-    item.origin && item.destination ? `${item.origin} to ${item.destination}` : "",
-    item.location_name
-  ]
-    .map((value) => getString(value))
-    .filter(Boolean)
-    .slice(0, 3);
-}
-
-function TimelineItemCard({ item, tripId }: { item: TimelineItem; tripId: string }) {
-  const kind = timelineKind(item);
-  const meta = timelineMeta(item);
-  const description = compact(item.description, "", 180);
-  const booking = item.booking && safeBookingUrl(item.booking.url)
-    ? {
-        href: safeBookingUrl(item.booking.url),
-        label: item.booking.ctaLabel || item.booking_label || "View options",
-        provider: item.booking.provider || "roamly_internal",
-        hasAffiliateUrl: Boolean(item.booking.disclosureRequired),
-        urlType: item.booking.disclosureRequired ? "affiliate" as BookingUrlType : "fallback" as BookingUrlType
+      if (
+        typeof value === "string" &&
+        value.trim()
+      ) {
+        return value.trim();
       }
-    : null;
+    }
+
+    return "";
+  };
+
+  const numberValue = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = entry[key];
+
+      if (
+        typeof value === "number" &&
+        Number.isFinite(value)
+      ) {
+        return value;
+      }
+    }
+
+    return null;
+  };
+
+  const title =
+    stringValue("title", "name") ||
+    "Planned activity";
+
+  const time =
+    stringValue(
+      "time_label",
+      "time",
+      "start_time"
+    );
+
+  const description =
+    stringValue(
+      "description",
+      "summary",
+      "details",
+      "notes"
+    );
+
+  const location =
+    stringValue(
+      "location",
+      "place_name",
+      "venue",
+      "area"
+    );
+
+  const category =
+    stringValue(
+      "category",
+      "item_type",
+      "type"
+    );
+
+  const duration =
+    numberValue(
+      "duration_minutes",
+      "durationMinutes"
+    );
+
+  const travelMinutes =
+    numberValue(
+      "travel_time_minutes",
+      "travelMinutes"
+    );
+
+  const bookingHref =
+    stringValue(
+      "booking_url",
+      "booking_href",
+      "bookingUrl",
+      "url"
+    );
+
+  const bookingLabel =
+    stringValue(
+      "booking_label",
+      "bookingLabel",
+      "action_label"
+    ) || "Reserve";
+
+  const provider =
+    stringValue(
+      "booking_provider",
+      "provider",
+      "provider_name"
+    ) || "Booking partner";
+
+  const urlType = (
+    stringValue(
+      "url_type",
+      "urlType"
+    ) === "affiliate"
+      ? "affiliate"
+      : "direct"
+  ) as React.ComponentProps<
+    typeof BookingRecommendationButton
+  >["urlType"];
+
+  const hasAffiliateUrl =
+    entry.has_affiliate_url === true ||
+    urlType === "affiliate";
+
+  const meta = [
+    duration
+      ? `${duration} min`
+      : "",
+    travelMinutes
+      ? `${travelMinutes} min travel`
+      : "",
+    location
+  ].filter(Boolean);
 
   return (
-    <article className={`rounded-[0.9rem] border px-3 py-3 ${timelineKindClass(kind)}`}>
-      <div className="grid grid-cols-[4.5rem_1fr] gap-3">
+    <article className="rounded-2xl border border-[#e8e2d8] bg-white p-4 shadow-[0_8px_24px_rgba(16,32,51,0.05)] sm:p-5">
+      <div className="grid gap-3 sm:grid-cols-[92px_minmax(0,1fr)]">
         <div>
-          <p className="text-[0.72rem] font-black uppercase tracking-[0.08em]">{item.time_label || "Flex"}</p>
-          <span className="mt-2 inline-flex rounded-full border border-current/20 bg-white/50 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.06em]">
-            {timelineKindLabel(kind)}
-          </span>
+          <p className="text-sm font-black text-ocean">
+            {time || "Flexible"}
+          </p>
+
+          {category ? (
+            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
+              {category.replaceAll("_", " ")}
+            </p>
+          ) : null}
         </div>
+
         <div className="min-w-0">
-          <h4 className="text-sm font-black leading-5 text-ink">{item.title}</h4>
-          {meta.length ? <p className="mt-1 text-xs font-bold leading-5 text-slate-600">{meta.join(" · ")}</p> : null}
-          {booking ? (
-            <div className="mt-2">
+          <h4 className="text-base font-black leading-6 text-ink sm:text-lg">
+            {title}
+          </h4>
+
+          {meta.length ? (
+            <p className="mt-1 text-xs font-bold text-slate-500">
+              {meta.join(" · ")}
+            </p>
+          ) : null}
+
+          {description ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-sm font-black text-ocean">
+                View details
+              </summary>
+
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+                {description}
+              </p>
+            </details>
+          ) : null}
+
+          {bookingHref ? (
+            <div className="mt-4 flex">
               <BookingRecommendationButton
-                href={booking.href}
-                label={booking.label}
+                href={bookingHref}
+                label={bookingLabel}
                 tripId={tripId}
-                category={item.affiliate_category || kind}
-                title={item.title}
-                provider={booking.provider}
-                hasAffiliateUrl={booking.hasAffiliateUrl}
-                urlType={booking.urlType}
+                category={category || "activity"}
+                title={title}
+                provider={provider}
+                hasAffiliateUrl={hasAffiliateUrl}
+                urlType={urlType}
               />
             </div>
           ) : null}
         </div>
       </div>
-      {description || item.map_query ? (
-        <details className="mt-2">
-          <summary className="cursor-pointer text-xs font-black text-ocean">View details</summary>
-          {description ? <p className="mt-2 text-xs font-semibold leading-5 text-slate-700">{description}</p> : null}
-          {item.map_query ? (
-            <div className="mt-2">
-              <NavigationChipList query={item.map_query} />
-            </div>
-          ) : null}
-        </details>
-      ) : null}
     </article>
   );
 }
@@ -1621,7 +1707,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           ) : null}
         </section>
 
-        {canShowFull && full ? (
+        {canShowFull && full && !generationPanelVisible ? (
           <>
             <nav className="roamly-no-print sticky top-[4.25rem] z-20 -mx-4 mt-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
               <div className="flex min-w-max gap-2">

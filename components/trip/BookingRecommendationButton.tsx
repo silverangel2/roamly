@@ -50,18 +50,9 @@ function trackedAffiliateHref(params: {
   hasAffiliateUrl: boolean;
   urlType: BookingUrlType;
 }) {
-  if (!params.hasAffiliateUrl || params.urlType !== "affiliate" || !/^https?:\/\//i.test(params.href)) return params.href;
-  const query = new URLSearchParams({
-    tripId: params.tripId,
-    recommendationId: `${params.category}:${params.title}`.slice(0, 180),
-    provider: params.provider,
-    affiliatePartner: params.provider,
-    category: params.category,
-    urlType: params.urlType,
-    destinationUrl: params.href,
-    affiliateUrl: params.href
-  });
-  return `/api/roamly/affiliate/click?${query.toString()}`;
+  // Open the actual booking destination directly.
+  // Tracking happens separately and must never block travelers.
+  return params.href;
 }
 
 export function BookingRecommendationButton({
@@ -94,7 +85,7 @@ export function BookingRecommendationButton({
           url_type: urlType
         })
       }
-      className="roamly-no-print inline-flex w-fit shrink-0 rounded-full border border-ocean/20 bg-ocean/10 px-4 py-2 text-sm font-black text-ocean transition hover:border-ocean/40 hover:bg-ocean/20"
+      className="roamly-no-print inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-5 py-2.5 text-sm font-black text-white transition hover:opacity-90"
     >
       {label}
     </a>
