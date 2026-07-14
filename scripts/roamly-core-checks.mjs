@@ -937,6 +937,34 @@ const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.t
   "BookingIcon"
 ].forEach((needle) => assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline UI missing ${needle}`));
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are wired");
+assert.ok(bookingWalletTimeline.includes("/bookings/add"), "Booking Wallet Add booking action must open the manual booking flow");
+
+const manualBookingForm = read("components/companion/ManualBookingForm.tsx");
+[
+  "Upload confirmation",
+  "Enter manually",
+  "Review booking",
+  "Check this field",
+  "Airline",
+  "Flight number",
+  "Hotel name",
+  "Check-in",
+  "Check-out",
+  "Save booking",
+  `/api/trips/${"${tripId}"}/bookings/extract`,
+  `/api/trips/${"${tripId}"}/bookings`
+].forEach((needle) => assert.ok(manualBookingForm.includes(needle), `manual booking form missing ${needle}`));
+assert.ok(!manualBookingForm.includes("Proceed") && !manualBookingForm.includes("Execute"), "manual booking UI must use plain action labels");
+
+const addBookingPage = read("app/trip/[id]/bookings/add/page.tsx");
+["ManualBookingForm", "login?next", "getTripBundle"].forEach((needle) =>
+  assert.ok(addBookingPage.includes(needle), `add booking page missing ${needle}`)
+);
+
+const bookingExtractRoute = read("app/api/trips/[id]/bookings/extract/route.ts");
+["extractBookingFromScreenshot", "application/pdf", "Review the fields before saving.", "Trip access denied"].forEach((needle) =>
+  assert.ok(bookingExtractRoute.includes(needle), `booking extraction route missing ${needle}`)
+);
 
 const affiliateTrackingMigration = read("supabase/migrations/20260716_roamly_affiliate_tracking.sql");
 [

@@ -68,8 +68,10 @@ function exists(file) {
   "app/api/admin/roamly/generation-queue/route.ts",
   "app/trip/[id]/feedback/page.tsx",
   "app/trip/[id]/bookings/page.tsx",
+  "app/trip/[id]/bookings/add/page.tsx",
   "components/account/TravelerMemorySettings.tsx",
   "components/companion/BookingWalletTimeline.tsx",
+  "components/companion/ManualBookingForm.tsx",
   "components/trip/TripFeedbackForm.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
   "supabase/migrations/20260715_roamly_generation_worker.sql",
@@ -80,6 +82,7 @@ function exists(file) {
   "lib/roamly/bookingWallet.ts",
   "lib/roamly/affiliateTracking.ts",
   "app/api/trips/[id]/bookings/route.ts",
+  "app/api/trips/[id]/bookings/extract/route.ts",
   "app/api/roamly/affiliate/click/route.ts",
   "app/api/webhooks/affiliate/route.ts",
   "supabase/migrations/20260716_roamly_affiliate_tracking.sql",
@@ -145,6 +148,18 @@ const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.t
   assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline missing ${needle}`)
 );
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are configured");
+assert.ok(bookingWalletTimeline.includes("/bookings/add"), "Booking Wallet must link to the add-booking flow");
+
+const manualBookingForm = read("components/companion/ManualBookingForm.tsx");
+["Upload confirmation", "Enter manually", "Review booking", "Airline", "Flight number", "Hotel name", "Save booking"].forEach((needle) =>
+  assert.ok(manualBookingForm.includes(needle), `manual booking form missing ${needle}`)
+);
+
+const addBookingPage = read("app/trip/[id]/bookings/add/page.tsx");
+assert.ok(addBookingPage.includes("ManualBookingForm") && addBookingPage.includes("getTripBundle"), "add booking page must be trip-owned");
+
+const bookingExtractRoute = read("app/api/trips/[id]/bookings/extract/route.ts");
+assert.ok(bookingExtractRoute.includes("extractBookingFromScreenshot") && bookingExtractRoute.includes("application/pdf"), "booking extraction route must support screenshot and PDF review flows");
 
 const affiliateTrackingMigration = read("supabase/migrations/20260716_roamly_affiliate_tracking.sql");
 ["affiliate_clicks", "affiliate_conversions", "sub_id", "enable row level security", "trip_bookings_affiliate_click_id_fkey"].forEach((needle) =>

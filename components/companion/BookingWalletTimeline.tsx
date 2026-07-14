@@ -134,7 +134,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
             <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripTitle}</h1>
             <p className="mt-2 text-base font-semibold text-slate-600">{destinationLabel}</p>
           </div>
-          <Link href={`/trip/${tripId}#bookings`} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
+          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
             Add booking
           </Link>
         </div>
@@ -216,7 +216,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
             <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
               Add flights, hotels, tickets, and reservations when you book them.
             </p>
-            <Link href={`/trip/${tripId}#bookings`} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
+            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
               Add booking
             </Link>
           </div>
