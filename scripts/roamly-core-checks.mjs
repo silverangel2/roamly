@@ -714,6 +714,36 @@ const liveProviderAdapters = read("lib/roamly/liveProviderAdapters.ts");
 const providerIndex = read("lib/roamly/providers/index.ts");
 assert.ok(providerIndex.includes("liveProviderAdapters"), "live provider adapters must be exported through provider index");
 
+const companionEventsMigration = read("supabase/migrations/20260716_roamly_companion_events.sql");
+[
+  "booking_change_events",
+  "companion_events",
+  "event_fingerprint",
+  "affected_layers",
+  "requires_user_approval",
+  "booking_change_events_fingerprint_uidx",
+  "companion_events_fingerprint_uidx",
+  "enable row level security",
+  "user_id = auth.uid()"
+].forEach((needle) => assert.ok(companionEventsMigration.toLowerCase().includes(needle.toLowerCase()), `companion event migration missing ${needle}`));
+
+const companionEventEngine = read("lib/roamly/companionEventEngine.ts");
+[
+  "companionEventFingerprint",
+  "recordBookingChangeEvent",
+  "recordCompanionEvent",
+  "processBookingChangeEvent",
+  "eventFromLiveProviderResult",
+  "affectedLayersForCompanionEvent",
+  "approvalRequiredForEvent",
+  "flight_delayed",
+  "flight_cancelled",
+  "gate_changed",
+  "hotel_cancelled",
+  "missed_connection_risk",
+  "onConflict: \"user_id,event_fingerprint\""
+].forEach((needle) => assert.ok(companionEventEngine.includes(needle), `companion event engine missing ${needle}`));
+
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
 [
   "roamly_claim_generation_job_by_trip",

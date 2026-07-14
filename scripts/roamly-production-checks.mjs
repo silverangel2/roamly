@@ -50,6 +50,7 @@ function exists(file) {
   "lib/roamly/providers/adapters.ts",
   "lib/roamly/providers/index.ts",
   "lib/roamly/liveProviderAdapters.ts",
+  "lib/roamly/companionEventEngine.ts",
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
@@ -106,6 +107,7 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_travel_email_filtering.sql",
   "supabase/migrations/20260716_roamly_booking_extraction_matching.sql",
   "supabase/migrations/20260716_roamly_live_provider_status.sql",
+  "supabase/migrations/20260716_roamly_companion_events.sql",
   "app/api/webhooks/gmail/route.ts",
   "app/api/webhooks/outlook/route.ts",
   "lib/roamly/travelEmailFiltering.ts",
@@ -632,6 +634,16 @@ const liveProviderAdapters = read("lib/roamly/liveProviderAdapters.ts");
 
 const providerIndex = read("lib/roamly/providers/index.ts");
 assert.ok(providerIndex.includes("liveProviderAdapters"), "live provider adapters must be exported through provider index");
+
+const companionEventsMigration = read("supabase/migrations/20260716_roamly_companion_events.sql");
+["booking_change_events", "companion_events", "event_fingerprint", "affected_layers", "requires_user_approval", "enable row level security"].forEach((needle) =>
+  assert.ok(companionEventsMigration.toLowerCase().includes(needle.toLowerCase()), `companion event migration missing ${needle}`)
+);
+
+const companionEventEngine = read("lib/roamly/companionEventEngine.ts");
+["companionEventFingerprint", "recordBookingChangeEvent", "recordCompanionEvent", "processBookingChangeEvent", "eventFromLiveProviderResult", "affectedLayersForCompanionEvent", "approvalRequiredForEvent", "flight_delayed", "flight_cancelled", "gate_changed", "onConflict: \"user_id,event_fingerprint\""].forEach((needle) =>
+  assert.ok(companionEventEngine.includes(needle), `companion event engine missing ${needle}`)
+);
 
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
 ["roamly_claim_generation_job_by_trip", "roamly_release_generation_layer", "roamly_skip_remaining_generation_layers", "for update skip locked"].forEach((needle) =>
