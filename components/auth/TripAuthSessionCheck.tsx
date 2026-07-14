@@ -112,6 +112,24 @@ export function TripAuthSessionCheck({ tripId, nextPath }: TripAuthSessionCheckP
         return;
       }
 
+      const finalRefresh = await resolveBrowserAuthState();
+
+      if (finalRefresh.status === "authenticated") {
+        cancelPendingLoginRedirects();
+        setAuthState("authenticated");
+        setMessage("Opening your trip...");
+        const synced = await syncSupabaseServerSession();
+
+        if (!cancelled && synced.ok) {
+          clearAttemptCount(attemptKey);
+          window.location.replace(targetPath);
+        }
+
+        return;
+      }
+
+      if (cancelled) return;
+
       setAuthState("unauthenticated");
       redirectToLoginOnce();
     }

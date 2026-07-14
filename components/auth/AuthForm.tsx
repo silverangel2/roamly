@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { syncSupabaseServerSession } from "@/lib/roamly/authenticatedFetch";
 import { safeAuthNextPath } from "@/lib/navigation";
 
 type AuthFormProps = {
@@ -140,8 +141,12 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
       const supabase = createSupabaseBrowserClient();
       void supabase.auth
         .getSession()
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           if (!alive || !data.session?.user) return;
+
+          await syncSupabaseServerSession();
+          if (!alive) return;
+
           syncProfileBestEffort("GET");
           const target = safeAuthNextPath(readStoredAuthNext() || redirectPath);
           clearStoredAuthNext();
