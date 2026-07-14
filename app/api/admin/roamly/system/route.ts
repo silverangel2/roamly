@@ -17,9 +17,13 @@ const tables = [
   "roamly_app_events",
   "roamly_price_discoveries",
   "roamly_bookings",
-  "roamly_trip_companion_events",
+  "companion_events",
+  "companion_repair_proposals",
+  "companion_repair_actions",
+  "booking_segments",
   "roamly_push_subscriptions",
-  "roamly_notifications"
+  "roamly_notifications",
+  "roamly_companion_notification_deliveries"
 ];
 
 export async function GET() {
@@ -47,6 +51,8 @@ export async function GET() {
     priceDiscoveries,
     pushSubscriptions,
     companionEvents,
+    companionNotificationDeliveries,
+    failedCompanionDeliveries,
     lastNotification,
     lastNotificationFailure,
     locationSettings,
@@ -61,7 +67,14 @@ export async function GET() {
     guard.admin.from("roamly_notifications").select("id", { count: "exact", head: true }),
     guard.admin.from("roamly_price_discoveries").select("id", { count: "exact", head: true }),
     guard.admin.from("roamly_push_subscriptions").select("id", { count: "exact", head: true }).eq("enabled", true),
-    guard.admin.from("roamly_trip_companion_events").select("id", { count: "exact", head: true }),
+    guard.admin.from("companion_events").select("id", { count: "exact", head: true }),
+    guard.admin
+      .from("roamly_companion_notification_deliveries")
+      .select("id", { count: "exact", head: true }),
+    guard.admin
+      .from("roamly_companion_notification_deliveries")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "failed"),
     guard.admin.from("roamly_notifications").select("id,title,created_at,sent_at,push_status").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     guard.admin
       .from("roamly_notifications")
@@ -95,6 +108,10 @@ export async function GET() {
       priceDiscoveryCount: priceDiscoveries.count || 0,
       pushSubscriptionCount: pushSubscriptions.count || 0,
       companionEventCount: companionEvents.count || 0,
+      companionNotificationDeliveryCount:
+        companionNotificationDeliveries.count || 0,
+      failedCompanionDeliveryCount:
+        failedCompanionDeliveries.count || 0,
       lastNotification: lastNotification.data || null,
       lastNotificationFailure: lastNotificationFailure.data || null,
       locationSettingsCount: locationSettings.count || 0,
