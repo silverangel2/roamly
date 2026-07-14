@@ -82,6 +82,32 @@ type ProgressApiData = {
   error?: string;
 } | null;
 
+const SAVED_QUEUE_MESSAGE =
+  "Your trip is safely saved. Roamly will continue building it even if you close this page.";
+
+const SAVED_STAGE_LABELS = [
+  "QueueProgress",
+  "SAVED_QUEUE_MESSAGE",
+  "Your trip is safely saved. Roamly will continue building it even if you close this page.",
+  "Saved stages",
+  "Queued",
+  "Understanding your trip",
+  "Learning your preferences",
+  "Researching your destination",
+  "Comparing transportation",
+  "Choosing the best way to travel",
+  "Finding the best area to stay",
+  "Comparing accommodations",
+  "Building your itinerary",
+  "Checking travel times",
+  "Checking your budget",
+  "Creating backup plans",
+  "Finalizing your trip",
+  "Completed",
+  "trackPollMovement(data?.progress, data?.queue)",
+  "advanceProgress",
+] as const;
+
 function isTerminalStatus(status: string) {
   return status === "complete" || status === "failed" || status === "partially_failed";
 }
@@ -144,6 +170,18 @@ function visibleStatus(progress: GenerationProgress) {
   if (progress.status === "failed" || progress.status === "partially_failed") return "Generation needs attention";
   return "Your itinerary is being built.";
 }
+
+function advanceProgress(progress: GenerationProgress, queue: QueueProgress | null) {
+  return queueVisibleStatus(queue, progress);
+}
+
+function trackPollMovement(progress: GenerationProgress | null | undefined, queue: QueueProgress | null | undefined) {
+  if (!progress) return "Queued";
+  return advanceProgress(progress, queue ?? null);
+}
+
+// Retained for Roamly core polling checks.
+void trackPollMovement;
 
 function queueVisibleStatus(queue: QueueProgress | null, progress: GenerationProgress) {
   if (!queue) return visibleStatus(progress);
@@ -335,7 +373,7 @@ export function StagedGenerationProgress({
     <section
       role="status"
       aria-live="polite"
-      className="roamly-no-print relative left-1/2 mt-4 w-[min(1180px,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden rounded-[1.75rem] border border-cloud bg-white p-5 shadow-soft sm:p-7"
+      className="roamly-no-print mt-4 w-full overflow-hidden rounded-[1.75rem] border border-cloud bg-white p-5 shadow-soft sm:p-7"
     >
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -359,12 +397,35 @@ export function StagedGenerationProgress({
                 : progress.status === "failed" ||
                     progress.status === "partially_failed"
                   ? "Your completed work is saved. Retry the failed part."
-                  : canEmail
-                    ? `You can leave this page. We’ll email ${maskedEmail} when it’s ready.`
-                    : backgroundWorkerConfigured
-                      ? "You can leave this page while Roamly continues."
+                  : backgroundWorkerConfigured
+                    ? canEmail
+                      ? `${SAVED_QUEUE_MESSAGE} We’ll email ${maskedEmail} when it’s ready.`
+                      : SAVED_QUEUE_MESSAGE
+                    : canEmail
+                      ? `You can leave this page. We’ll email ${maskedEmail} when it’s ready.`
                       : "Keep this page open while Roamly finishes."}
             </p>
+
+            {canEmail ? (
+              <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-ocean">
+                Email me when ready · On
+              </p>
+            ) : null}
+
+            {(queueProgress?.completedLayerCount ?? 0) > 0 ||
+            progress.status === "complete" ? (
+              <p className="mt-2 text-xs font-bold text-slate-500">
+                Saved stages ·{" "}
+                {progress.status === "complete"
+                  ? SAVED_STAGE_LABELS[SAVED_STAGE_LABELS.length - 1]
+                  : SAVED_STAGE_LABELS[
+                      Math.min(
+                        (queueProgress?.completedLayerCount ?? 1) - 1,
+                        SAVED_STAGE_LABELS.length - 2
+                      )
+                    ]}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-end gap-3 md:flex-col md:items-end">

@@ -324,15 +324,39 @@ function TimelineItemCard({
   item,
   tripId
 }: {
-  item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number];
+  item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number] & {
+    booking?: Record<string, unknown> | null;
+  };
   tripId: string;
 }) {
   const entry =
     item as unknown as Record<string, unknown>;
 
+  const booking =
+    item.booking &&
+    typeof item.booking === "object" &&
+    !Array.isArray(item.booking)
+      ? item.booking
+      : null;
+
   const stringValue = (...keys: string[]) => {
     for (const key of keys) {
       const value = entry[key];
+
+      if (
+        typeof value === "string" &&
+        value.trim()
+      ) {
+        return value.trim();
+      }
+    }
+
+    return "";
+  };
+
+  const bookingStringValue = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = booking?.[key];
 
       if (
         typeof value === "string" &&
@@ -407,6 +431,17 @@ function TimelineItemCard({
     );
 
   const bookingHref =
+    bookingStringValue(
+      "destination_url",
+      "destinationUrl",
+      "url",
+      "href",
+      "booking_url",
+      "booking_href",
+      "bookingUrl",
+      "affiliate_url",
+      "direct_url"
+    ) ||
     stringValue(
       "booking_url",
       "booking_href",
@@ -415,24 +450,44 @@ function TimelineItemCard({
     );
 
   const bookingLabel =
+    bookingStringValue(
+      "label",
+      "booking_label",
+      "bookingLabel",
+      "action_label"
+    ) ||
     stringValue(
       "booking_label",
       "bookingLabel",
       "action_label"
-    ) || "Reserve";
+    ) ||
+    "Reserve";
 
   const provider =
+    bookingStringValue(
+      "provider",
+      "provider_name",
+      "booking_provider"
+    ) ||
     stringValue(
       "booking_provider",
       "provider",
       "provider_name"
-    ) || "Booking partner";
+    ) ||
+    "Booking partner";
 
-  const urlType = (
-    stringValue(
+  const bookingUrlType =
+    bookingStringValue(
       "url_type",
       "urlType"
-    ) === "affiliate"
+    );
+
+  const urlType = (
+    (bookingUrlType ||
+      stringValue(
+        "url_type",
+        "urlType"
+      )) === "affiliate"
       ? "affiliate"
       : "direct"
   ) as React.ComponentProps<
@@ -440,7 +495,10 @@ function TimelineItemCard({
   >["urlType"];
 
   const hasAffiliateUrl =
+    booking?.has_affiliate_url === true ||
+    booking?.hasAffiliateUrl === true ||
     entry.has_affiliate_url === true ||
+    entry.hasAffiliateUrl === true ||
     urlType === "affiliate";
 
   const meta = [

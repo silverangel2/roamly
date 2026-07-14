@@ -50,9 +50,20 @@ function trackedAffiliateHref(params: {
   hasAffiliateUrl: boolean;
   urlType: BookingUrlType;
 }) {
-  // Open the actual booking destination directly.
-  // Tracking happens separately and must never block travelers.
-  return params.href;
+  if (!params.hasAffiliateUrl && params.urlType !== "affiliate") {
+    return params.href;
+  }
+
+  const searchParams = new URLSearchParams({
+    tripId: params.tripId,
+    category: params.category,
+    title: params.title,
+    provider: params.provider,
+    destinationUrl: params.href,
+    affiliateUrl: params.href
+  });
+
+  return `/api/roamly/affiliate/click?${searchParams.toString()}`;
 }
 
 export function BookingRecommendationButton({
