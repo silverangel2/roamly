@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { extractAndMatchTravelEmailBooking } from "@/lib/roamly/bookingExtraction";
 import { recordTravelEmailFilterResult } from "@/lib/roamly/travelEmailFiltering";
 
 export const GMAIL_PROVIDER = "gmail" as const;
@@ -306,18 +307,29 @@ async function recordGmailTravelMessage(params: {
   const response = await fetch(url, { headers: { authorization: `Bearer ${params.accessToken}` } });
   const message = (await response.json().catch(() => ({}))) as GmailMessageMetadataResponse;
   if (!response.ok) return { saved: false, error: "GMAIL_MESSAGE_METADATA_FAILED" };
-  return recordTravelEmailFilterResult({
-    supabase: params.supabase,
-    connection: params.connection,
-    metadata: {
+  const metadata = {
       provider: GMAIL_PROVIDER,
       messageId: message.id || params.messageId,
       sender: gmailHeader(message, "From"),
       subject: gmailHeader(message, "Subject"),
       receivedAt: gmailReceivedAt(message),
       snippet: message.snippet || null
-    }
+  };
+  const saved = await recordTravelEmailFilterResult({
+    supabase: params.supabase,
+    connection: params.connection,
+    metadata
   });
+  if (saved.saved && saved.filter.shouldProcess) {
+    await extractAndMatchTravelEmailBooking({
+      supabase: params.supabase,
+      connection: params.connection,
+      metadata,
+      filter: saved.filter,
+      emailMessageId: saved.messageRecordId
+    }).catch(() => null);
+  }
+  return saved;
 }
 
 async function recordOutlookTravelMessages(params: {
@@ -330,19 +342,28 @@ async function recordOutlookTravelMessages(params: {
     if (!message.id) continue;
     const address = clean(message.from?.emailAddress?.address);
     const name = clean(message.from?.emailAddress?.name);
-    results.push(
-      await recordTravelEmailFilterResult({
+    const metadata = {
+      provider: OUTLOOK_PROVIDER,
+      messageId: message.id,
+      sender: address ? `${name ? `${name} ` : ""}<${address}>` : name,
+      subject: message.subject || "",
+      receivedAt: message.receivedDateTime || null
+    };
+    const saved = await recordTravelEmailFilterResult({
+      supabase: params.supabase,
+      connection: params.connection,
+      metadata
+    });
+    if (saved.saved && saved.filter.shouldProcess) {
+      await extractAndMatchTravelEmailBooking({
         supabase: params.supabase,
         connection: params.connection,
-        metadata: {
-          provider: OUTLOOK_PROVIDER,
-          messageId: message.id,
-          sender: address ? `${name ? `${name} ` : ""}<${address}>` : name,
-          subject: message.subject || "",
-          receivedAt: message.receivedDateTime || null
-        }
-      })
-    );
+        metadata,
+        filter: saved.filter,
+        emailMessageId: saved.messageRecordId
+      }).catch(() => null);
+    }
+    results.push(saved);
   }
   return results;
 }

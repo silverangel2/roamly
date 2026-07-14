@@ -1065,6 +1065,22 @@ const travelEmailFilteringMigration = read("supabase/migrations/20260716_roamly_
   assert.ok(travelEmailFilteringMigration.toLowerCase().includes(needle.toLowerCase()), `travel email filtering migration missing ${needle}`)
 );
 
+const bookingExtractionMigration = read("supabase/migrations/20260716_roamly_booking_extraction_matching.sql");
+[
+  "booking_extraction_results",
+  "email_message_id",
+  "extracted_booking_json",
+  "field_confidence_json",
+  "overall_confidence",
+  "match_status",
+  "matched_booking_id",
+  "needs_confirmation",
+  "enable row level security",
+  "user_id = auth.uid()"
+].forEach((needle) =>
+  assert.ok(bookingExtractionMigration.toLowerCase().includes(needle.toLowerCase()), `booking extraction migration missing ${needle}`)
+);
+
 const emailConnections = read("lib/roamly/emailConnections.ts");
 [
   "GMAIL_READONLY_SCOPE",
@@ -1081,6 +1097,7 @@ const emailConnections = read("lib/roamly/emailConnections.ts");
   "syncGmailConnection",
   "syncOutlookConnection",
   "recordTravelEmailFilterResult",
+  "extractAndMatchTravelEmailBooking",
   "format\", \"metadata",
   "metadataHeaders",
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -1105,6 +1122,21 @@ const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
 ["full_body", "body_html", "raw_email_body"].forEach((needle) =>
   assert.ok(!travelEmailFilteringMigration.includes(needle), `travel email filtering must not store ${needle}`)
 );
+
+const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
+[
+  "BOOKING_EXTRACTION_JSON_SCHEMA",
+  "deterministicBookingExtraction",
+  "extractBookingWithAiStructuredOutput",
+  "json_schema",
+  "strict: true",
+  "stableBookingKey",
+  "createTripBooking",
+  "bestTripMatch",
+  "needs_confirmation",
+  "high_confidence_match",
+  "Do not infer missing booking facts"
+].forEach((needle) => assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`));
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsIncrementalSync", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>

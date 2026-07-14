@@ -161,9 +161,18 @@ export async function recordTravelEmailFilterResult(params: {
 
   if (!payload.provider_message_id) return { saved: false, filter, error: "MESSAGE_ID_MISSING" };
 
-  const { error } = await writer.from("travel_email_messages").upsert(payload, {
-    onConflict: "email_connection_id,provider,provider_message_id"
-  });
+  const saved = await writer
+    .from("travel_email_messages")
+    .upsert(payload, {
+      onConflict: "email_connection_id,provider,provider_message_id"
+    })
+    .select("id")
+    .maybeSingle();
 
-  return { saved: !error, filter, error: error?.message || null };
+  return {
+    saved: !saved.error,
+    messageRecordId: (saved.data as { id?: string } | null)?.id || null,
+    filter,
+    error: saved.error?.message || null
+  };
 }

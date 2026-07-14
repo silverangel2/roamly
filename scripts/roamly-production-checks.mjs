@@ -100,9 +100,11 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_affiliate_tracking.sql",
   "supabase/migrations/20260716_roamly_email_connections.sql",
   "supabase/migrations/20260716_roamly_travel_email_filtering.sql",
+  "supabase/migrations/20260716_roamly_booking_extraction_matching.sql",
   "app/api/webhooks/gmail/route.ts",
   "app/api/webhooks/outlook/route.ts",
   "lib/roamly/travelEmailFiltering.ts",
+  "lib/roamly/bookingExtraction.ts",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -209,8 +211,13 @@ const travelEmailFilteringMigration = read("supabase/migrations/20260716_roamly_
 );
 assert.ok(travelEmailFilteringMigration.includes("travel_email_messages_no_raw_body_check"), "travel email filtering must enforce no retained raw body");
 
+const bookingExtractionMigration = read("supabase/migrations/20260716_roamly_booking_extraction_matching.sql");
+["booking_extraction_results", "email_message_id", "extracted_booking_json", "field_confidence_json", "matched_booking_id", "needs_confirmation", "enable row level security"].forEach((needle) =>
+  assert.ok(bookingExtractionMigration.toLowerCase().includes(needle.toLowerCase()), `booking extraction migration missing ${needle}`)
+);
+
 const emailConnections = read("lib/roamly/emailConnections.ts");
-["ROAMLY_TOKEN_ENCRYPTION_KEY", "GMAIL_READONLY_SCOPE", "OUTLOOK_READONLY_SCOPES", "encryptToken", "decryptToken", "syncGmailConnection", "syncOutlookConnection", "recordTravelEmailFilterResult", "metadataHeaders"].forEach((needle) =>
+["ROAMLY_TOKEN_ENCRYPTION_KEY", "GMAIL_READONLY_SCOPE", "OUTLOOK_READONLY_SCOPES", "encryptToken", "decryptToken", "syncGmailConnection", "syncOutlookConnection", "recordTravelEmailFilterResult", "extractAndMatchTravelEmailBooking", "metadataHeaders"].forEach((needle) =>
   assert.ok(emailConnections.includes(needle), `email connections helper missing ${needle}`)
 );
 assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must not request write mailbox scopes");
@@ -220,6 +227,11 @@ assert.ok(!emailConnections.includes("format\", \"full"), "Gmail sync must not f
 const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
 ["KNOWN_TRAVEL_DOMAINS", "booking confirmation", "BOOKING_REFERENCE_PATTERN", "filterTravelEmail", "bodyStored: false", "raw_body_retained: false"].forEach((needle) =>
   assert.ok(travelEmailFiltering.includes(needle), `travel email filtering helper missing ${needle}`)
+);
+
+const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
+["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "stableBookingKey", "createTripBooking", "high_confidence_match"].forEach((needle) =>
+  assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`)
 );
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
