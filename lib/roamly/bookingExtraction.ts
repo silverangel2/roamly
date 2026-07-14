@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createTripBooking, stableBookingKey, type TripBookingInput } from "@/lib/roamly/bookingWallet";
+import { createTripBooking, type TripBookingInput } from "@/lib/roamly/bookingWallet";
 import { reconcileTripBookings } from "@/lib/roamly/brain/bookingReconciliation";
 import type { EmailConnectionRecord } from "@/lib/roamly/emailConnections";
 import type { TravelEmailFilterResult, TravelEmailMetadata } from "@/lib/roamly/travelEmailFiltering";
@@ -294,45 +294,6 @@ async function bestTripMatch(supabase: SupabaseClient, userId: string, extractio
   return best && best.score >= 0.4 ? best : null;
 }
 
-async function existingBookingByStableKey(params: {
-  supabase: SupabaseClient;
-  userId: string;
-  tripId: string;
-  booking: TripBookingInput;
-}) {
-  const key = stableBookingKey({
-    userId: params.userId,
-    provider: params.booking.provider,
-    confirmationCode: params.booking.confirmationCode,
-    bookingType: params.booking.bookingType,
-    flightNumber: params.booking.flightNumber,
-    startTime: params.booking.startTime,
-    origin: params.booking.origin,
-    destination: params.booking.destination,
-    title: params.booking.title
-  });
-  const { data: bookings } = await params.supabase
-    .from("roamly_bookings")
-    .select("id,provider,confirmation_code,booking_type,flight_number,start_time,origin,destination,title")
-    .eq("user_id", params.userId)
-    .eq("trip_id", params.tripId)
-    .limit(50);
-  return ((bookings || []) as Array<Record<string, unknown>>).find((booking) => {
-    const candidateKey = stableBookingKey({
-      userId: params.userId,
-      provider: clean(booking.provider),
-      confirmationCode: clean(booking.confirmation_code),
-      bookingType: clean(booking.booking_type),
-      flightNumber: clean(booking.flight_number),
-      startTime: clean(booking.start_time),
-      origin: clean(booking.origin),
-      destination: clean(booking.destination),
-      title: clean(booking.title)
-    });
-    return candidateKey === key;
-  }) as { id: string } | undefined;
-}
-
 async function persistExtraction(params: {
   supabase: SupabaseClient;
   connection: EmailConnectionRecord;
@@ -407,25 +368,58 @@ export async function extractAndMatchTravelEmailBooking(params: {
     return { attached: false, status: "needs_confirmation" as const, tripId: match.trip.id, extraction };
   }
 
-  const existing = await existingBookingByStableKey({
+  const emailSource =
+    params.connection.provider === "gmail"
+      ? "gmail"
+      : params.connection.provider === "outlook"
+        ? "outlook"
+        : "email";
+
+  const saved = await createTripBooking({
     supabase: writer,
     userId: params.connection.user_id,
     tripId: match.trip.id,
-    booking: extraction.booking
+    input: {
+      ...extraction.booking,
+      sourceType: emailSource,
+      sourceReference:
+        extraction.booking.sourceReference ||
+        params.metadata.messageId ||
+        params.emailMessageId ||
+        null,
+      bookingStatus:
+        extraction.booking.bookingStatus ||
+        "confirmed",
+      travelerConfirmed: true,
+      lastSyncedAt: new Date().toISOString()
+    }
   });
-  let bookingId = existing?.id || null;
-  if (!bookingId) {
-    const saved = await createTripBooking({
+
+  const bookingId = saved.booking?.id || null;
+
+  if (saved.error) {
+    await persistExtraction({
       supabase: writer,
-      userId: params.connection.user_id,
+      connection: params.connection,
+      emailMessageId: params.emailMessageId || null,
+      extraction,
       tripId: match.trip.id,
-      input: {
-        ...extraction.booking,
-        bookingStatus: extraction.booking.bookingStatus || "confirmed",
-        travelerConfirmed: true
-      }
+      matchedBookingId: null,
+      matchStatus: "needs_confirmation",
+      matchReasons: [
+        ...extraction.matchReasons,
+        "booking_save_failed",
+        saved.error
+      ]
     });
-    bookingId = saved.booking?.id || null;
+
+    return {
+      attached: false,
+      status: "needs_confirmation" as const,
+      tripId: match.trip.id,
+      extraction,
+      error: saved.error
+    };
   }
 
   await persistExtraction({

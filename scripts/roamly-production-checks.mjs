@@ -254,9 +254,15 @@ const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
 );
 
 const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
-["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "stableBookingKey", "createTripBooking", "high_confidence_match", "reconcileTripBookings"].forEach((needle) =>
+["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "createTripBooking", "high_confidence_match", "reconcileTripBookings"].forEach((needle) =>
   assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`)
 );
+
+assert.ok(
+  bookingWallet.includes("processCompanionBookingChange"),
+  "booking wallet must trigger Companion for meaningful booking changes"
+);
+
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsWatchNotifications", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>

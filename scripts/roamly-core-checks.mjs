@@ -1264,7 +1264,6 @@ const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
   "extractBookingWithAiStructuredOutput",
   "json_schema",
   "strict: true",
-  "stableBookingKey",
   "createTripBooking",
   "bestTripMatch",
   "needs_confirmation",
@@ -1272,6 +1271,10 @@ const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
   "reconcileTripBookings",
   "Do not infer missing booking facts"
 ].forEach((needle) => assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`));
+assert.ok(
+  bookingWallet.includes("processCompanionBookingChange"),
+  "booking wallet must trigger Companion for meaningful booking changes"
+);
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsIncrementalSync", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>
