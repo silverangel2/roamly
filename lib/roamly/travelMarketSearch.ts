@@ -92,7 +92,7 @@ function clean(value?: string | null) {
 function safeMarketHref(value?: string | null) {
   const raw = clean(value);
   if (!raw) return "";
-  if (raw.startsWith("/")) return raw;
+  if (raw.startsWith("/")) return "";
   return safeExternalUrl(raw);
 }
 
@@ -389,13 +389,13 @@ function providerConfigured(request: TravelMarketSearchRequest) {
   if (category === "flight") return Boolean(process.env.TRAVELPAYOUTS_API_TOKEN && process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
   if (category === "hotel") return stay22AffiliateConfigured();
   if (category === "attraction" || category === "tour") {
-    return Boolean(process.env.KLOOK_API_KEY && process.env.ROAMLY_KLOOK_PARTNER_ID && clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook");
+    return Boolean(process.env.KLOOK_API_KEY && process.env.ROAMLY_KLOOK_PARTNER_ID && clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase() === "klook");
   }
   if (category === "transport") {
     return Boolean(
       process.env.KLOOK_API_KEY &&
         process.env.ROAMLY_KLOOK_PARTNER_ID &&
-        clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook" &&
+        clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase() === "klook" &&
         isKlookTransportSearch(request)
     );
   }
@@ -409,7 +409,7 @@ function compact(parts: Array<string | null | undefined>) {
 function klookAffiliateConfigured() {
   return (
     affiliateGateEnabled() &&
-    clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase() === "klook" &&
+    clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase() === "klook" &&
     Boolean(clean(process.env.ROAMLY_KLOOK_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_KLOOK_REFERRAL_URL))
   );
 }
@@ -427,7 +427,7 @@ function shouldUseKlookSearch(request: TravelMarketSearchRequest) {
 function stay22AffiliateConfigured() {
   return (
     affiliateGateEnabled() &&
-    clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase() === "stay22" &&
+    clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "stay22").toLowerCase() === "stay22" &&
     Boolean(clean(process.env.ROAMLY_STAY22_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL))
   );
 }

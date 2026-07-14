@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { syncSupabaseServerSession } from "@/lib/roamly/authenticatedFetch";
+import { useEffect, useRef, useState } from "react";
+import {
+  cancelPendingLoginRedirects,
+  resolveBrowserAuthState,
+  syncSupabaseServerSession,
+  type BrowserAuthStatus
+} from "@/lib/roamly/authenticatedFetch";
 import { safeAuthNextPath } from "@/lib/navigation";
 
 type TripAuthSessionCheckProps = {
@@ -9,7 +14,7 @@ type TripAuthSessionCheckProps = {
   nextPath?: string;
 };
 
-function readAttemptCount(key: string) {
+function readRedirectCount(key: string) {
   try {
     return Number(window.sessionStorage.getItem(key) || "0") || 0;
   } catch {
@@ -17,11 +22,11 @@ function readAttemptCount(key: string) {
   }
 }
 
-function writeAttemptCount(key: string, value: number) {
+function writeRedirectCount(key: string, value: number) {
   try {
     window.sessionStorage.setItem(key, String(value));
   } catch {
-    // Session storage is best-effort loop protection.
+    // Session storage is best-effort login-loop protection.
   }
 }
 
@@ -36,66 +41,88 @@ function clearAttemptCount(key: string) {
 export function TripAuthSessionCheck({ tripId, nextPath }: TripAuthSessionCheckProps) {
   const fallbackPath = `/trip/${tripId}`;
   const targetPath = safeAuthNextPath(nextPath, fallbackPath);
+  const [authState, setAuthState] = useState<BrowserAuthStatus>("loading");
   const [message, setMessage] = useState("Checking your session...");
+  const started = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
-    let retryTimer: number | undefined;
+    const redirectKey = `roamly.login.redirected.${targetPath}`;
     const attemptKey = `roamly.trip.session-check.${tripId}`;
 
-    async function checkSession() {
-      const attempts = readAttemptCount(attemptKey);
-      setMessage(attempts > 0 ? "Restoring your session..." : "Checking your session...");
+    function redirectToLoginOnce() {
+      const attempts = readRedirectCount(redirectKey);
+      if (attempts > 0) {
+        setMessage("Please log in to continue.");
+        return;
+      }
 
-      const first = await syncSupabaseServerSession({ refresh: attempts > 0 });
+      writeRedirectCount(redirectKey, attempts + 1);
+      window.location.replace(`/login?next=${encodeURIComponent(targetPath)}`);
+    }
+
+    async function checkSessionOnce() {
+      setAuthState("loading");
+      setMessage("Checking your session...");
+
+      const current = await resolveBrowserAuthState();
       if (cancelled) return;
 
-      if (first.ok) {
-        clearAttemptCount(attemptKey);
-        window.location.replace(targetPath);
-        return;
-      }
+      if (current.status === "authenticated") {
+        cancelPendingLoginRedirects();
+        setAuthState("authenticated");
+        setMessage("Opening your trip...");
+        const first = await syncSupabaseServerSession();
+        if (cancelled) return;
+        if (first.ok) {
+          clearAttemptCount(attemptKey);
+          window.location.replace(targetPath);
+          return;
+        }
+        if (first.user) {
+          setMessage("Your session is active. Restoring trip access...");
+        }
 
-      if (first.user) {
-        writeAttemptCount(attemptKey, Math.min(attempts + 1, 8));
-        setMessage(attempts >= 4 ? "Still restoring your session..." : "Restoring your session...");
-        retryTimer = window.setTimeout(checkSession, attempts >= 4 ? 1500 : 700);
-        return;
-      }
-
-      if (attempts === 0) {
         const retry = await syncSupabaseServerSession({ refresh: true });
         if (cancelled) return;
-
         if (retry.ok) {
           clearAttemptCount(attemptKey);
           window.location.replace(targetPath);
           return;
         }
-
         if (retry.user) {
-          writeAttemptCount(attemptKey, 1);
-          setMessage("Restoring your session...");
-          retryTimer = window.setTimeout(checkSession, 700);
-          return;
+          clearAttemptCount(attemptKey);
         }
-      }
 
-      if (attempts >= 2) {
-        clearAttemptCount(attemptKey);
-        window.location.replace(`/login?next=${encodeURIComponent(targetPath)}`);
+        setMessage("Your session is active. Refresh this page once if the trip does not open.");
         return;
       }
 
-      writeAttemptCount(attemptKey, attempts + 1);
-      retryTimer = window.setTimeout(checkSession, 700);
+      const refreshed = await resolveBrowserAuthState({ refresh: true });
+      if (cancelled) return;
+      if (refreshed.status === "authenticated") {
+        cancelPendingLoginRedirects();
+        setAuthState("authenticated");
+        setMessage("Opening your trip...");
+        const synced = await syncSupabaseServerSession();
+        if (!cancelled && synced.ok) {
+          clearAttemptCount(attemptKey);
+          window.location.replace(targetPath);
+        }
+        return;
+      }
+
+      setAuthState("unauthenticated");
+      redirectToLoginOnce();
     }
 
-    void checkSession();
+    if (!started.current) {
+      started.current = true;
+      void checkSessionOnce();
+    }
 
     return () => {
       cancelled = true;
-      if (retryTimer) window.clearTimeout(retryTimer);
     };
   }, [targetPath, tripId]);
 
@@ -103,6 +130,14 @@ export function TripAuthSessionCheck({ tripId, nextPath }: TripAuthSessionCheckP
     <main className="safe-bottom grid min-h-[calc(100dvh-7rem)] place-items-center px-4 py-10">
       <div role="status" aria-live="polite" className="rounded-2xl border border-cloud bg-white px-5 py-4 shadow-soft">
         <p className="text-sm font-black text-ink">{message}</p>
+        {authState === "unauthenticated" ? (
+          <a
+            href={`/login?next=${encodeURIComponent(targetPath)}`}
+            className="mt-3 inline-flex rounded-full bg-ink px-4 py-2 text-xs font-black text-white"
+          >
+            Log in
+          </a>
+        ) : null}
       </div>
     </main>
   );

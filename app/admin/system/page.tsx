@@ -103,7 +103,7 @@ export default async function AdminSystemPage() {
   const emailReadiness = isEmailConfigured();
   const socialReadiness = getRoamlySocialEnvStatus();
   const launchChecks = getRoamlyLaunchReadiness(state.access);
-  const affiliatesEnabled = process.env.ROAMLY_AFFILIATES_ENABLED === "true";
+  const affiliatesEnabled = affiliateReadiness.affiliatesEnabled;
   const systemChecks: Array<{ group: string; label: string; status: ReadinessStatus; detail: string }> = [
     {
       group: "Supabase auth",
@@ -301,6 +301,9 @@ export default async function AdminSystemPage() {
           ["Email provider", emailReadiness.configured ? `${emailReadiness.provider} configured` : emailReadiness.reason],
           ["Support email configured", emailReadiness.supportEmailConfigured ? "Yes" : "No"],
           ["From email configured", emailReadiness.fromEmailConfigured ? "Yes" : "No"],
+          ["Sender name configured", emailReadiness.fromNameConfigured ? "Yes" : "Default Roamly"],
+          ["Sender verification", emailReadiness.senderVerificationStatus],
+          ["Local capture mode", emailReadiness.captureEnabled ? "Enabled" : "Off"],
           ["Email logs", `${emailLogs.count || 0}`],
           ["Last email status", lastEmail.data?.status || "None"],
           ["Last email error", lastEmail.data?.error || "None"],

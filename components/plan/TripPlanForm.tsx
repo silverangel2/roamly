@@ -22,8 +22,13 @@ import {
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
 import { useI18n } from "@/components/i18n/I18nProvider";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { fetchWithSupabaseAuth, syncSupabaseServerSession } from "@/lib/roamly/authenticatedFetch";
+import {
+  fetchWithSupabaseAuth,
+  resolveBrowserAuthState,
+  subscribeBrowserAuthState,
+  syncSupabaseServerSession,
+  type BrowserAuthStatus
+} from "@/lib/roamly/authenticatedFetch";
 import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
@@ -546,7 +551,7 @@ export function TripPlanForm({
   const [restoreNotice, setRestoreNotice] = useState(false);
   const [draftHydratedState, setDraftHydratedState] = useState(false);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [authStatus, setAuthStatus] = useState<BrowserAuthStatus>(apiAuthToken ? "authenticated" : "loading");
   const trackedSelections = useRef(new Set<string>());
   const generationInFlight = useRef(false);
   const draftHydrated = useRef(false);
@@ -561,71 +566,44 @@ export function TripPlanForm({
     return headers;
   }, [apiAuthToken]);
 
-  const refreshSessionUser = useCallback(async () => {
-    if (typeof window === "undefined") return null;
+  const isCheckingSession = authStatus === "loading";
 
-    setIsCheckingSession(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { data } = await supabase.auth.getSession();
-      const user = data.session?.user ?? null;
-      setSessionUser(user);
-      return user;
-    } catch {
-      setSessionUser(null);
-      return null;
-    } finally {
-      setIsCheckingSession(false);
+  const resolveSessionUser = useCallback(async ({ refresh = false }: { refresh?: boolean } = {}) => {
+    if (typeof window === "undefined") return null;
+    if (apiAuthToken) {
+      setAuthStatus("authenticated");
+      return sessionUser;
     }
-  }, []);
+
+    const auth = await resolveBrowserAuthState({ refresh });
+    setAuthStatus(auth.status);
+    setSessionUser(auth.user);
+    return auth.user;
+  }, [apiAuthToken, sessionUser]);
 
   useEffect(() => {
     trackPlanEvent("plan_started");
   }, []);
 
   useEffect(() => {
-    let alive = true;
-
-    try {
-      const supabase = createSupabaseBrowserClient();
-      setIsCheckingSession(true);
-
-      void supabase.auth
-        .getSession()
-        .then(({ data }) => {
-          if (!alive) return;
-          setSessionUser(data.session?.user ?? null);
-        })
-        .catch(() => {
-          if (alive) setSessionUser(null);
-        })
-        .finally(() => {
-          if (alive) setIsCheckingSession(false);
-        });
-
-      const {
-        data: { subscription }
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (!alive) return;
-        setSessionUser(session?.user ?? null);
-        setIsCheckingSession(false);
-      });
-
-      return () => {
-        alive = false;
-        subscription.unsubscribe();
-      };
-    } catch {
-      setSessionUser(null);
-      setIsCheckingSession(false);
+    if (apiAuthToken) {
+      setAuthStatus("authenticated");
       return undefined;
     }
-  }, []);
+
+    const unsubscribe = subscribeBrowserAuthState((snapshot) => {
+      setAuthStatus(snapshot.status);
+      setSessionUser(snapshot.user);
+    });
+    void resolveBrowserAuthState();
+    return unsubscribe;
+  }, [apiAuthToken]);
 
   useEffect(() => {
     if (!shouldShowResumeNotice) return;
-    void refreshSessionUser();
-  }, [refreshSessionUser, shouldShowResumeNotice]);
+    if (authStatus !== "loading") return;
+    void resolveSessionUser();
+  }, [authStatus, resolveSessionUser, shouldShowResumeNotice]);
 
   const validStops = useMemo(() => stops.map((stop) => stop.place).filter((place): place is NormalizedPlace => isValidPlaceValue(place?.value)), [stops]);
   const normalizedDestination = useMemo(() => {
@@ -934,6 +912,22 @@ export function TripPlanForm({
     }
   }, []);
 
+  const consumeResumeParams = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    let changed = false;
+    for (const key of ["resumePlan", "continueGenerate"]) {
+      if (url.searchParams.has(key)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) {
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState(window.history.state, "", next || "/plan");
+    }
+  }, []);
+
   function redirectToLoginForGeneration() {
     if (process.env.NODE_ENV === "development") {
       console.warn("[Roamly] No active session before generation; redirecting to login");
@@ -1189,7 +1183,7 @@ export function TripPlanForm({
       const draftData = await draftResponse.json().catch(() => null);
 
       if (draftResponse.status === 401) {
-        const user = await refreshSessionUser();
+        const user = await resolveSessionUser({ refresh: true });
         if (user) {
           setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
@@ -1211,7 +1205,7 @@ export function TripPlanForm({
       const checkoutData = await checkoutResponse.json().catch(() => null);
 
       if (checkoutResponse.status === 401) {
-        const user = await refreshSessionUser();
+        const user = await resolveSessionUser({ refresh: true });
         if (user) {
           setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
@@ -1295,7 +1289,7 @@ export function TripPlanForm({
       const data = await response.json().catch(() => null);
 
       if (response.status === 401) {
-        const user = await refreshSessionUser();
+        const user = await resolveSessionUser({ refresh: true });
         if (user) {
           setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
@@ -1319,6 +1313,17 @@ export function TripPlanForm({
         });
         clearCurrentPlanDraft();
         await openTripAfterSessionSync(data.previewUrl, data?.tripId);
+        return;
+      }
+
+      if (response.status === 409 && data?.error === "ITINERARY_GENERATING" && data?.tripId) {
+        trackPlanEvent("itinerary_generation_resumed", {
+          tripType,
+          destination: generationPayload.destination,
+          tripId: data.tripId
+        });
+        clearCurrentPlanDraft();
+        await openTripAfterSessionSync(data.previewUrl, data.tripId);
         return;
       }
 
@@ -1362,8 +1367,9 @@ export function TripPlanForm({
     setStep(steps.length - 1);
     setRestoreNotice(false);
     setNotice("Continuing itinerary generation...");
+    consumeResumeParams();
     void submitPlanRef.current?.();
-  }, [apiAuthToken, draftHydratedState, isCheckingSession, sessionUser, shouldContinueGenerate]);
+  }, [apiAuthToken, consumeResumeParams, draftHydratedState, isCheckingSession, sessionUser, shouldContinueGenerate]);
 
   const summaryRows = [
     ["Route", routePreview || "Route pending"],

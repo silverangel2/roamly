@@ -51,13 +51,7 @@ export function BookingRecommendationButton({
   hasAffiliateUrl,
   urlType
 }: BookingRecommendationButtonProps) {
-  if (!href) {
-    return (
-      <span className="roamly-no-print inline-flex w-fit shrink-0 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-black text-slate-400">
-        Search link unavailable
-      </span>
-    );
-  }
+  if (!href) return null;
 
   const isExternal = /^https?:\/\//i.test(href);
 
@@ -65,7 +59,7 @@ export function BookingRecommendationButton({
     <a
       href={href}
       target={isExternal ? "_blank" : undefined}
-      rel={isExternal ? "noopener noreferrer" : undefined}
+      rel={isExternal ? "noopener noreferrer sponsored" : undefined}
       onClick={() =>
         trackBookingClick({
           trip_id: tripId,

@@ -191,7 +191,7 @@ function AppShellContent({
                   {t("ui.nav.logout", "Logout")}
                 </Link>
               )}
-              <Link href={planTripHref} className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400">
+              <Link href={planTripHref} className="hidden rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 sm:inline-flex">
                 {planTripLabel}
               </Link>
             </div>

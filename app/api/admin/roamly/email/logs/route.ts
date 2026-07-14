@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data, error } = await guard.admin
     .from("roamly_email_logs")
-    .select("id,to_email,subject,provider,status,provider_message_id,error,created_at,sent_at")
+    .select("id,to_email,subject,provider,status,provider_message_id,error,last_error,template,attempt_count,trip_id,created_at,sent_at")
     .order("created_at", { ascending: false })
     .limit(50);
 

@@ -29,8 +29,15 @@ Recommended app envs:
 ```bash
 ROAMLY_SUPPORT_EMAIL=support@roamlyhq.com
 ROAMLY_FROM_EMAIL=support@roamlyhq.com
-ROAMLY_EMAIL_PROVIDER=resend
-RESEND_API_KEY=...
+ROAMLY_FROM_NAME=Roamly
+ROAMLY_EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=support@roamlyhq.com
+SMTP_PASSWORD=<Google Workspace app password>
 ```
 
-If `ROAMLY_EMAIL_PROVIDER=resend` and `RESEND_API_KEY` is present, Roamly sends contact notifications and customer auto-replies through Resend. If the provider is missing, contact messages can still be saved by the app and the user sees that email delivery is not configured yet.
+Roamly sends transactional email through Google Workspace SMTP when `ROAMLY_EMAIL_PROVIDER=smtp` and the SMTP variables are present. Use a Google Workspace app password for `SMTP_PASSWORD`; never use the normal Google account password.
+
+Resend remains optional for future use only when `ROAMLY_EMAIL_PROVIDER=resend` and `RESEND_API_KEY` are explicitly configured.

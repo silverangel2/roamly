@@ -14,7 +14,7 @@ import {
 } from "@/lib/roamly/bookingLinks";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { getRoamlySupportEmail, isEmailConfigured, sendRoamlyEmail } from "@/lib/roamly/email";
-import { ROAMLY_EMAIL_FOOTER_COPY, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
+import { ROAMLY_EMAIL_FOOTER_COPY, ROAMLY_PUBLIC_DOMAIN, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
 import { requireUser } from "@/lib/roamly/auth";
 import {
   getTripBudgetAmount,
@@ -376,7 +376,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const title = full.trip_title || preview.trip_title || trip.title || getTripDestinationLabel(trip) || "Roamly trip";
   const destination = getTripDestinationLabel(trip) || full.destination_summary || "Your trip";
   const dates = formatDateRange(trip.start_date, trip.end_date);
-  const tripUrl = `${request.nextUrl.origin}/trip/${id}`;
+  const tripUrl = toRoamlyAbsoluteUrl(`/trip/${id}`);
   const currency = getTripBudgetCurrency(trip);
   const tripBudgetAmount = getTripBudgetAmount(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(full);
@@ -409,7 +409,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     text: rendered.text,
     userId: auth.user.id,
     tripId: id,
-    metadata: { type: "trip_itinerary_share", source: "trip_page" }
+    metadata: { type: "itinerary_email", template: "itinerary_email", source: "trip_page" }
   });
 
   const message =

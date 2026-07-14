@@ -319,6 +319,46 @@ function paymentRequiredResponse(tripId: string, message?: string) {
   );
 }
 
+function activeGenerationResponse(params: {
+  tripId: string;
+  trip: Record<string, unknown>;
+  requestId: string;
+  requestOrigin: string;
+}) {
+  const progress = publicStagedGenerationProgress(params.trip.metadata);
+  logGenerationDiagnostic("generation_active_job_resumed", {
+    requestId: params.requestId,
+    route: "/api/trips/generate",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    status: 202,
+    completedDayCount: progress?.completedDayCount ?? 0,
+    totalDayCount: progress?.totalDayCount ?? 0
+  });
+  scheduleStagedGenerationAdvance({
+    tripId: params.tripId,
+    origin: params.requestOrigin,
+    reason: "duplicate_generate_resume",
+    requestId: params.requestId
+  });
+  return NextResponse.json(
+    {
+      ok: true,
+      status: "generating",
+      error: null,
+      code: "ITINERARY_GENERATING",
+      tripId: params.tripId,
+      previewUrl: `/trip/${params.tripId}?generating=1`,
+      message: "This itinerary is already being generated. Resuming the existing job.",
+      staged: true,
+      aiUsed: false,
+      locked: false,
+      progress
+    },
+    { status: 202 }
+  );
+}
+
 async function finalizeItinerary(params: {
   supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
   userId: string;
@@ -356,6 +396,15 @@ async function finalizeItinerary(params: {
   const canGenerate = await canGenerateFinalItinerary(params.supabase, params.userId, params.tripId, params.userEmail);
 
   if (!canGenerate.ok) {
+    if (canGenerate.error === "ITINERARY_GENERATING" && canGenerate.trip?.id) {
+      return activeGenerationResponse({
+        tripId: params.tripId,
+        trip: canGenerate.trip as Record<string, unknown>,
+        requestId: params.requestId,
+        requestOrigin: params.requestOrigin
+      });
+    }
+
     await recordAppEvent(params.supabase, {
       userId: params.userId,
       eventType: "itinerary_generation_failed",

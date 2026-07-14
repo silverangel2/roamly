@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     html: template.html,
     text: template.text,
     replyTo: getRoamlyReplyToEmail() || guard.user.email || null,
-    metadata: { sentBy: guard.user.email, template: templateType, source: "admin_composer" }
+    metadata: { sentBy: guard.user.email, template: templateType, type: templateType, source: "admin_composer" }
   });
 
   return NextResponse.json({ ok: result.ok, result }, { status: result.ok ? 200 : result.status === "skipped" ? 202 : 400 });

@@ -18,12 +18,13 @@ import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscove
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import { searchTripMarketPrices } from "@/lib/roamly/travelMarketSearch";
 import {
+  finalizeStagedGenerationNotification,
   getGenerationEmailStatus,
-  sendStagedGenerationEmail
 } from "@/lib/roamly/itineraryGenerationEmail";
 import { syncGeneratedItinerary, type RoamlyTripRecord } from "@/lib/trips";
 import {
   getPublicSupabaseHost,
+  classifyGenerationValidationErrors,
   logGenerationDiagnostic,
   summarizeItineraryShape
 } from "@/lib/roamly/generationDiagnostics";
@@ -132,6 +133,9 @@ export type StagedGenerationState = {
   aiInputTokens?: number;
   aiOutputTokens?: number;
   stageRuns?: StagedGenerationStageRun[];
+  finalValidationErrors?: string[];
+  finalValidationAttemptCount?: number;
+  finalValidationRepairedAt?: string | null;
   lastError?: string | null;
   lastErrorCode?: string | null;
   startedAt: string;
@@ -194,7 +198,7 @@ export class StagedGenerationError extends Error {
 const OUTLINE_TIMEOUT_MS = Number(process.env.OPENAI_OUTLINE_TIMEOUT_MS || 25_000);
 const DAY_TIMEOUT_MS = Number(process.env.OPENAI_DAY_TIMEOUT_MS || 35_000);
 const OUTLINE_MAX_TOKENS = Number(process.env.OPENAI_OUTLINE_MAX_TOKENS || 1200);
-const DAY_MAX_TOKENS = Number(process.env.OPENAI_DAY_BATCH_MAX_TOKENS || 4200);
+const DAY_MAX_TOKENS = Number(process.env.OPENAI_DAY_BATCH_MAX_TOKENS || 3200);
 const BATCH_ATTEMPT_LIMIT = Number(process.env.ROAMLY_STAGED_BATCH_ATTEMPT_LIMIT || 2);
 const MAX_AI_COST_USD = Number(process.env.ROAMLY_STAGED_MAX_AI_COST_USD || 0.05);
 const DEFAULT_INPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_INPUT_PRICE_PER_1M || 0.4);
@@ -270,6 +274,11 @@ export function getStagedGenerationState(metadata: unknown): StagedGenerationSta
     stageRuns: Array.isArray(generation.stageRuns)
       ? (generation.stageRuns as StagedGenerationStageRun[]).slice(-40)
       : [],
+    finalValidationErrors: Array.isArray(generation.finalValidationErrors)
+      ? generation.finalValidationErrors.filter((item): item is string => typeof item === "string")
+      : [],
+    finalValidationAttemptCount: getPositiveNumber(generation.finalValidationAttemptCount, 0),
+    finalValidationRepairedAt: getString(generation.finalValidationRepairedAt, "") || null,
     lastError: getString(generation.lastError, "") || null,
     lastErrorCode: getString(generation.lastErrorCode, "") || null,
     startedAt: getString(generation.startedAt, nowIso()),
@@ -511,7 +520,7 @@ async function sendGenerationEmailSafely(params: {
   kind: "completion" | "failure";
   requestId?: string;
 }) {
-  const result = await sendStagedGenerationEmail({ tripId: params.tripId, kind: params.kind }).catch((error) => ({
+  const result = await finalizeStagedGenerationNotification({ tripId: params.tripId, kind: params.kind }).catch((error) => ({
     ok: false,
     status: "failed" as const,
     error: error instanceof Error ? error.message : "Generation email failed."
@@ -735,19 +744,19 @@ function dayBatchPrompt(params: {
 }) {
   const { payload, outline, days, previousEndingLocation, nextStartRequirement, usedAttractions, state } = params;
   const dayNumbers = days.map((day) => day.dayNumber);
-  return `Generate a small batch of Roamly itinerary days as structured JSON. Do not include affiliate URLs or booking URLs.
+  return `Return compact JSON for this Roamly day batch. No URLs, markdown, prices-as-text, or extra prose.
 
-Trip summary: ${outline.tripSummary}
+Trip: ${outline.tripSummary}
 Route: ${routeText(payload)}
-Hotel base: ${outline.hotelAreaRecommendation}
-Day outlines: ${JSON.stringify(days)}
-Previous day ending location: ${previousEndingLocation || outline.hotelAreaRecommendation}
-Next day starting requirement: ${nextStartRequirement || "Return to hotel/base by evening when practical."}
-Already-used attractions: ${usedAttractions.slice(0, 16).join(" | ") || "none"}
-Relevant preferences: ${payload.travelStyle}; ${payload.pace}; ${payload.walkingTolerance}; ${(payload.interests || []).join(", ") || "balanced"}
-Budget and time constraints: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
+Base: ${outline.hotelAreaRecommendation}
+Days: ${JSON.stringify(days)}
+Prev end: ${previousEndingLocation || outline.hotelAreaRecommendation}
+Next start: ${nextStartRequirement || "hotel/base by evening when practical"}
+Avoid repeats: ${usedAttractions.slice(0, 12).join(" | ") || "none"}
+Prefs: ${payload.travelStyle}; ${payload.pace}; ${payload.walkingTolerance}; ${(payload.interests || []).join(", ") || "balanced"}
+Budget cues: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
 
-Return strict JSON:
+JSON shape:
 {
   "days": [
     {
@@ -762,7 +771,7 @@ Return strict JSON:
       "food": ["meal idea"],
       "estimated_cost": 0,
       "map_queries": ["map search"],
-      "live_timeline": [
+      "items": [
         {
           "id": "day-${dayNumbers[0]}-item-1",
           "time_label": "09:00",
@@ -781,9 +790,6 @@ Return strict JSON:
           "travelTimeMinutes": 0,
           "origin": "",
           "destination": "",
-          "booking_label": "",
-          "affiliate_category": "",
-          "booking": null,
           "map_query": "map search"
         }
       ]
@@ -794,15 +800,14 @@ Return strict JSON:
 Rules:
 - Generate exactly these day numbers only: ${dayNumbers.join(", ")}.
 - Return exactly ${days.length} day objects.
-- Use 4 to 7 ordered timeline items per day.
+- Use 4 to 6 ordered items per day.
 - Include meals or rest when realistic.
 - Include startTime/endTime in HH:mm, chronological and non-overlapping.
-- Keep descriptions one short sentence.
+- Titles and descriptions must be concise.
 - Use item_type only: travel, transfer, hotel, activity, meal, rest, booking, reminder.
-- Do not output URLs.
 - Do not repeat already-used attractions.
-- For Day 1, local activities must happen only after arrival/check-in requirements.
-- For final day, keep sightseeing limited around checkout/return-travel requirements.`;
+- For Day 1, local activities happen only after arrival/check-in.
+- For final day, keep local sightseeing brief before checkout/return travel.`;
 }
 
 function cleanOutline(raw: unknown, payload: TripPlannerPayload, totalDays: number): StagedTripOutline {
@@ -1010,10 +1015,18 @@ async function persistState(params: {
     ...params.state,
     updatedAt: nowIso()
   };
+  const current = await params.supabase
+    .from("roamly_trips")
+    .select("metadata")
+    .eq("id", params.trip.id)
+    .eq("user_id", params.trip.user_id)
+    .maybeSingle();
+  if (current.error) throw new StagedGenerationError(current.error.message, "GENERATION_STATE_LOAD_FAILED", 500);
+  const metadataBase = getRecord(current.data?.metadata) || getRecord(params.trip.metadata) || {};
   const update = await params.supabase
     .from("roamly_trips")
     .update({
-      metadata: generationMetadata(params.trip.metadata, state),
+      metadata: generationMetadata(metadataBase, state),
       status: state.status === "complete" ? "generated" : state.status === "failed" ? "draft" : "generating",
       itinerary_status: state.status === "complete" ? "generated" : state.status === "failed" ? "draft" : "generating"
     })
@@ -1212,6 +1225,23 @@ function allResolved(state: StagedGenerationState) {
   return Object.values(state.batches).every((batch) => batch.status === "complete" || batch.status === "failed");
 }
 
+function finalValidationFailureState(
+  state: StagedGenerationState,
+  validationErrors: string[],
+  attemptCount: number
+): StagedGenerationState {
+  return releaseLease({
+    ...state,
+    status: "failed",
+    currentStage: "failed",
+    finalValidationErrors: validationErrors,
+    finalValidationAttemptCount: attemptCount,
+    finalValidationRepairedAt: attemptCount > 1 ? nowIso() : state.finalValidationRepairedAt || null,
+    lastError: validationErrors.join(" | "),
+    lastErrorCode: "FINAL_VALIDATION_FAILED"
+  });
+}
+
 async function completeGeneration(params: {
   supabase: SupabaseClient;
   trip: RoamlyTripRecord;
@@ -1232,7 +1262,6 @@ async function completeGeneration(params: {
     updatedAt: nowIso()
   };
   await persistState({ supabase: params.supabase, trip: params.trip, state });
-  const itinerary = assembleItinerary(state);
   const payload: TripPlannerPayload = {
     ...state.payload,
     priceDiscoveryId: state.priceDiscoveryId || null,
@@ -1240,18 +1269,38 @@ async function completeGeneration(params: {
     budgetConstraint: state.budgetConstraint || undefined,
     confirmedBookings: state.confirmedBookings || undefined
   };
-  const validation = validateItineraryForProduction(itinerary, payload);
+  let itinerary = assembleItinerary(state);
+  let validation = validateItineraryForProduction(itinerary, payload);
+  let validationAttemptCount = 1;
   if (!validation.ok) {
-    const failed = releaseLease({
-      ...state,
-      status: "failed",
-      currentStage: "failed",
-      lastError: validation.errors.slice(0, 4).join(" | "),
-      lastErrorCode: "FINAL_VALIDATION_FAILED"
+    itinerary = enrichItineraryBookingSuggestions(repairItineraryForTravelRequirements(itinerary, payload), payload);
+    validation = validateItineraryForProduction(itinerary, payload);
+    validationAttemptCount = 2;
+    logGenerationDiagnostic("staged_generation_final_validation_repaired", {
+      requestId: params.requestId,
+      route: "stagedItineraryGeneration",
+      tripId: params.trip.id,
+      supabaseHost: getPublicSupabaseHost(),
+      validationAttemptCount,
+      finalValidationStillFailing: !validation.ok,
+      failedCategories: classifyGenerationValidationErrors(validation.errors)
     });
+  }
+  if (!validation.ok) {
+    const failed = finalValidationFailureState(state, validation.errors, validationAttemptCount);
+    await persistItinerary({ supabase: params.supabase, trip: params.trip, state: failed, final: false, requestId: params.requestId });
     await persistState({ supabase: params.supabase, trip: params.trip, state: failed });
+    logGenerationDiagnostic("staged_generation_final_validation_failed", {
+      requestId: params.requestId,
+      route: "stagedItineraryGeneration",
+      tripId: params.trip.id,
+      supabaseHost: getPublicSupabaseHost(),
+      validationAttemptCount,
+      failedRuleCount: validation.errors.length,
+      failedCategories: classifyGenerationValidationErrors(validation.errors)
+    });
     await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "failure", requestId: params.requestId });
-    throw new StagedGenerationError("Final itinerary validation failed.", "FINAL_VALIDATION_FAILED", 502);
+    return { state: failed, itinerary, validationFailed: true as const, validationErrors: validation.errors };
   }
 
   const completed = releaseLease({
@@ -1260,6 +1309,9 @@ async function completeGeneration(params: {
     currentStage: "complete",
     completedDayCount: state.totalDayCount,
     completedAt: nowIso(),
+    finalValidationErrors: [],
+    finalValidationAttemptCount: validationAttemptCount,
+    finalValidationRepairedAt: validationAttemptCount > 1 ? nowIso() : state.finalValidationRepairedAt || null,
     lastError: null,
     lastErrorCode: null
   });
@@ -1297,7 +1349,7 @@ async function completeGeneration(params: {
     }
   });
   await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "completion", requestId: params.requestId });
-  return { state: completed, itinerary };
+  return { state: completed, itinerary, validationFailed: false as const, validationErrors: [] };
 }
 
 export async function advanceStagedItineraryGeneration(params: {
@@ -1309,7 +1361,12 @@ export async function advanceStagedItineraryGeneration(params: {
   const initialTrip = await loadTrip(params.supabase, params.tripId, params.userId);
   const initialState = getStagedGenerationState(initialTrip.metadata);
   if (!initialState) throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
-  if (initialState.status === "complete" || initialState.status === "failed") {
+  if (initialState.status === "complete" || initialState.status === "failed" || initialState.status === "partially_failed") {
+    await sendGenerationEmailSafely({
+      tripId: params.tripId,
+      kind: initialState.status === "complete" ? "completion" : "failure",
+      requestId: params.requestId
+    });
     return { ok: true, status: initialState.status, state: initialState, advanced: false };
   }
 
@@ -1573,6 +1630,16 @@ export async function advanceStagedItineraryGeneration(params: {
     }
 
     const completed = await completeGeneration({ supabase: params.supabase, trip: claimedTrip, state, requestId: params.requestId });
+    if (completed.validationFailed) {
+      return {
+        ok: false,
+        status: completed.state.status,
+        state: completed.state,
+        advanced: false,
+        stage: "complete",
+        error: "FINAL_VALIDATION_FAILED"
+      };
+    }
     return { ok: true, status: completed.state.status, state: completed.state, advanced: true, stage: "complete" };
   } catch (error) {
     const generationError = error instanceof StagedGenerationError
@@ -1779,6 +1846,8 @@ export function publicStagedGenerationProgress(metadata: unknown) {
     aiInputTokens: state.aiInputTokens || 0,
     aiOutputTokens: state.aiOutputTokens || 0,
     lastErrorCode: state.lastErrorCode || null,
+    finalValidationErrors: state.finalValidationErrors || [],
+    finalValidationAttemptCount: state.finalValidationAttemptCount || 0,
     provider: state.provider || null,
     model: state.model || null,
     stageRuns: (state.stageRuns || []).map((run) => ({

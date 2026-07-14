@@ -63,6 +63,12 @@ export function GenerateLockedItineraryButton({
         return;
       }
 
+      if (response.status === 409 && data?.error === "ITINERARY_GENERATING") {
+        setConfirming(false);
+        router.refresh();
+        return;
+      }
+
       if (!response.ok) {
         const message = data?.message || data?.error || GENERATION_ERROR_MESSAGE;
         if (message === AI_NOT_CONFIGURED_MESSAGE) {

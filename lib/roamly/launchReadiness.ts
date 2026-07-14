@@ -87,7 +87,7 @@ export function getRoamlyLaunchReadiness(access?: RoamlyAccess): RoamlyReadiness
       group: "Support",
       label: "Email provider configured",
       status: requiredStatus(email.configured),
-      detail: email.configured ? "Resend email delivery is available." : email.reason
+      detail: email.configured ? `${email.activeProviderLabel} email delivery is selected.` : email.reason
     },
     {
       group: "Payments",

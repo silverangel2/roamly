@@ -511,6 +511,17 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
     },
     {
       time_label: "10:00 AM",
+      title: "Luggage handling and departure documents",
+      description: "Store or collect luggage, confirm baggage rules, keep passports or IDs ready, and keep booking confirmations offline.",
+      location_name: "Hotel or accommodation",
+      estimated_cost: 0,
+      category: "Reminder",
+      map_query: `${destination} hotel luggage storage`,
+      item_type: "reminder",
+      duration: "30-45 min"
+    },
+    {
+      time_label: "10:45 AM",
       title: "Transfer to departure point",
       description: "Leave for the airport, train station, bus terminal, ferry port, or road departure point with a practical buffer.",
       location_name: destination,
@@ -526,7 +537,7 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
       affiliate_category: "transport"
     },
     {
-      time_label: "11:30 AM",
+      time_label: "12:00 PM",
       title: `Recommended ${mode} departure buffer`,
       description: mode === "flight" ? "Arrive early enough for check-in, bags, security, and any passport or border checks." : "Arrive early enough for tickets, platform/terminal changes, bags, and route checks.",
       location_name: `${destination} departure point`,
@@ -538,7 +549,7 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
       duration: mode === "flight" ? "2-3 hr airport buffer" : "30-90 min buffer"
     },
     {
-      time_label: "1:30 PM",
+      time_label: "2:00 PM",
       title: `Return travel to ${origin}`,
       description: `Main return ${mode} segment. Verify live schedule, transfer points, baggage rules, and final arrival time before booking.`,
       location_name: `${destination} to ${origin}`,
@@ -552,8 +563,38 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
       destination: origin,
       booking_label: travelBookingLabel(mode),
       affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
+    },
+    {
+      time_label: "6:00 PM",
+      title: `Estimated arrival back in ${origin}`,
+      description: "End the return journey with a realistic arrival buffer for baggage, border checks, local transport, and getting home.",
+      location_name: origin,
+      estimated_cost: 0,
+      category: "Travel",
+      map_query: `${origin} arrivals ground transport`,
+      item_type: "travel",
+      travel_mode: mode,
+      duration: "30-90 min arrival buffer",
+      origin: `${origin} arrival point`,
+      destination: origin
     }
   ];
+}
+
+function hasCompleteDepartureStructure(day: RoamlyDayPlan) {
+  const text = day.live_timeline
+    .map((item) => `${item.item_type || ""} ${item.category || ""} ${item.title} ${item.description}`)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    /\bcheck[- ]?out|hotel checkout\b/.test(text) &&
+    /\bluggage|bags?|baggage\b/.test(text) &&
+    /\btransfer|airport|station|terminal|ferry port|departure point\b/.test(text) &&
+    /\bbuffer|security|passport|platform|check[- ]?in|border checks?\b/.test(text) &&
+    /\breturn travel|return flight|flight from|fly back|train.*to|bus.*to|ferry.*to|drive.*to|back to\b/.test(text) &&
+    /\bestimated arrival|arrive back|arrival back\b/.test(text)
+  );
 }
 
 function localTransferItem(from: RoamlyActivitySeed, to: RoamlyActivitySeed): RoamlyActivitySeed {
@@ -654,7 +695,7 @@ function withChronologicalTimes(items: RoamlyActivitySeed[]) {
   let cursor = parseTimeToMinutes(items[0]?.startTime || items[0]?.time_label) ?? 8 * 60;
   return items.map((item) => {
     const explicitStart = parseTimeToMinutes(item.startTime || item.time_label);
-    const start = explicitStart != null && explicitStart >= cursor - 10 ? explicitStart : cursor;
+    const start = explicitStart != null && explicitStart >= cursor ? explicitStart : cursor;
     const durationMinutes = defaultDurationMinutes(item);
     const end = Math.min(start + durationMinutes, 23 * 60 + 45);
     const type = timelineType(item);
@@ -712,8 +753,16 @@ export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary,
       const local = timeline.filter((item) => !["travel", "transfer", "hotel"].includes(timelineType(item)));
       timeline = [...arrivalTravelItems(payload), ...retimeLocalItems(local, ["3:30 PM", "5:30 PM", "7:30 PM"])];
     }
-    if (index === allDays.length - 1 && returnTravelRequired(payload) && !hasDepartureTravel({ ...day, live_timeline: timeline })) {
-      const local = timeline.filter((item) => !["travel", "transfer", "hotel"].includes(timelineType(item))).slice(0, 1);
+    if (index === allDays.length - 1 && returnTravelRequired(payload) && !hasCompleteDepartureStructure({ ...day, live_timeline: timeline })) {
+      const local = timeline
+        .filter((item) => {
+          const text = `${item.title} ${item.description} ${item.location_name}`.toLowerCase();
+          return (
+            !["travel", "transfer", "hotel"].includes(timelineType(item)) &&
+            !/\bcheck[- ]?out|luggage|bags?|baggage|departure|return|airport|station|terminal|arrival\b/.test(text)
+          );
+        })
+        .slice(0, 1);
       timeline = [...retimeLocalItems(local, ["8:00 AM"]), ...departureTravelItems(payload)];
     }
     timeline = withTransfersBetweenMajorItems(timeline);
@@ -1217,7 +1266,10 @@ function buildStarterBookingSuggestions(payload: TripPlannerPayload): RoamlyBook
 
   if (transportOptions.length) {
     for (const option of transportOptions.slice(0, 8)) {
-      const category: RoamlyBookingCategory = option.mode === "flight" ? "flight" : "transport";
+      if ((option.mode === "train" || option.mode === "bus") && (option.availability === "not_available" || !option.realistic)) {
+        continue;
+      }
+      const category: RoamlyBookingCategory = option.mode === "flight" || option.mode === "mixed" ? "flight" : "transport";
       suggestions.push(
         buildSuggestion({
           category,

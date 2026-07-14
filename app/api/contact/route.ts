@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       html: supportTemplate.html,
       text: supportTemplate.text,
       replyTo: email,
-      metadata: { type: "contact_support_notification", supportMessageId, category, saved }
+      metadata: { type: "support_notification", template: "support_notification", supportMessageId, category, saved }
     });
     delivery.supportNotification = supportResult.ok ? "sent" : supportResult.status === "skipped" ? "skipped" : "failed";
 
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       html: autoReply.html,
       text: autoReply.text,
       replyTo: supportEmail,
-      metadata: { type: "contact_auto_reply", supportMessageId, category, saved }
+      metadata: { type: "contact_confirmation", template: "contact_confirmation", supportMessageId, category, saved }
     });
     delivery.autoReply = autoReplyResult.ok ? "sent" : autoReplyResult.status === "skipped" ? "skipped" : "failed";
   }

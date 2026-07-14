@@ -109,12 +109,52 @@ const checks = [
     expected: "support@roamlyhq.com"
   },
   {
-    label: "Email provider",
+    label: "From name",
     required: OPTIONAL,
-    keys: ["ROAMLY_EMAIL_PROVIDER"]
+    keys: ["ROAMLY_FROM_NAME"]
   },
   {
-    label: "Resend API key",
+    label: "Email provider",
+    required: REQUIRED,
+    keys: ["ROAMLY_EMAIL_PROVIDER"],
+    expected: "smtp"
+  },
+  {
+    label: "SMTP host",
+    required: REQUIRED,
+    keys: ["SMTP_HOST"],
+    expected: "smtp.gmail.com"
+  },
+  {
+    label: "SMTP port",
+    required: REQUIRED,
+    keys: ["SMTP_PORT"],
+    expected: "465"
+  },
+  {
+    label: "SMTP secure",
+    required: REQUIRED,
+    keys: ["SMTP_SECURE"],
+    expected: "true"
+  },
+  {
+    label: "SMTP user",
+    required: REQUIRED,
+    keys: ["SMTP_USER"],
+    expected: "support@roamlyhq.com"
+  },
+  {
+    label: "SMTP app password",
+    required: REQUIRED,
+    keys: ["SMTP_PASSWORD"]
+  },
+  {
+    label: "Email capture mode",
+    required: OPTIONAL,
+    keys: ["ROAMLY_EMAIL_CAPTURE_ENABLED"]
+  },
+  {
+    label: "Optional Resend fallback API key",
     required: OPTIONAL,
     keys: ["RESEND_API_KEY"]
   },

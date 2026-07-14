@@ -1,10 +1,16 @@
 export const ROAMLY_PUBLIC_DOMAIN = "https://roamlyhq.com";
+export const ROAMLY_LOGO_URL = `${ROAMLY_PUBLIC_DOMAIN}/roamly-wordmark@2x.png`;
 
 export const ROAMLY_EMAIL_FOOTER_COPY =
   "Roamly helps travelers plan smarter trips with AI-powered itineraries, budget checks, booking organization, and Live Trip Companion.";
 
 export const ROAMLY_AFFILIATE_DISCLOSURE =
   "Roamly may earn a commission when you book or shop through partner links. This does not change your price.";
+
+export type RoamlyEmailSummaryItem = {
+  label: string;
+  value: string | number | null | undefined;
+};
 
 export type RoamlyEmailShellInput = {
   subject: string;
@@ -16,6 +22,7 @@ export type RoamlyEmailShellInput = {
   bodyText?: string;
   ctaLabel?: string;
   ctaUrl?: string;
+  summaryItems?: RoamlyEmailSummaryItem[];
   supportEmail: string;
   footerUrl?: string;
   includeAffiliateDisclosure?: boolean;
@@ -28,91 +35,211 @@ export type RoamlyRenderedEmail = {
   text: string;
 };
 
-export function escapeEmailHtml(value?: string | null) {
-  return (value || "")
+export function escapeEmailHtml(value?: string | number | null) {
+  return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
 
-function absoluteUrl(url?: string | null, footerUrl = ROAMLY_PUBLIC_DOMAIN) {
+export function toRoamlyAbsoluteUrl(url?: string | null, baseUrl = ROAMLY_PUBLIC_DOMAIN) {
   const value = (url || "").trim();
   if (!value) return "";
-  if (/^https?:\/\//i.test(value)) return value;
-  return `${footerUrl.replace(/\/$/, "")}/${value.replace(/^\//, "")}`;
+
+  const safeBase = baseUrl.startsWith("https://") && !/localhost|127\.0\.0\.1|\[::1\]|vercel\.app/i.test(baseUrl)
+    ? baseUrl.replace(/\/$/, "")
+    : ROAMLY_PUBLIC_DOMAIN;
+
+  try {
+    const parsed = /^https?:\/\//i.test(value) ? new URL(value) : new URL(value.startsWith("/") ? value : `/${value}`, safeBase);
+    const unsafeHost = /localhost|127\.0\.0\.1|\[::1\]|vercel\.app/i.test(parsed.host);
+    const unsafeProtocol = parsed.protocol !== "https:";
+    if (unsafeHost || unsafeProtocol) {
+      return `${ROAMLY_PUBLIC_DOMAIN}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    return parsed.toString();
+  } catch {
+    return safeBase;
+  }
 }
 
-function paragraphs(text: string) {
+export function renderEmailBodyCopy(text: string) {
   return text
     .split(/\n{2,}/)
     .map((part) => part.trim())
     .filter(Boolean)
     .map(
       (part) =>
-        `<p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#42526a;">${escapeEmailHtml(part).replace(/\n/g, "<br />")}</p>`
+        `<p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#344054;">${escapeEmailHtml(part).replace(/\n/g, "<br>")}</p>`
     )
     .join("");
 }
 
-export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRenderedEmail {
-  const footerUrl = input.footerUrl || ROAMLY_PUBLIC_DOMAIN;
-  const preheader = input.preheader || input.intro || ROAMLY_EMAIL_FOOTER_COPY;
-  const title = input.title || input.subject;
-  const ctaUrl = absoluteUrl(input.ctaUrl, footerUrl);
-  const bodyHtml = input.bodyHtml || (input.intro ? paragraphs(input.intro) : "");
-  const bodyText = input.bodyText || input.intro || "";
+export function renderEmailHeading(title: string) {
+  return `<h1 style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:28px;line-height:34px;font-weight:700;color:#101828;">${escapeEmailHtml(title)}</h1>`;
+}
+
+export function renderEmailCta(label?: string, url?: string) {
+  const ctaUrl = toRoamlyAbsoluteUrl(url);
+  if (!label || !ctaUrl) return "";
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="Margin:22px 0 0 0;border-collapse:separate;">
+      <tr>
+        <td bgcolor="#0f766e" style="border-radius:8px;text-align:center;">
+          <a href="${escapeEmailHtml(ctaUrl)}" style="display:inline-block;padding:14px 20px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;">${escapeEmailHtml(label)}</a>
+        </td>
+      </tr>
+    </table>`;
+}
+
+export function renderEmailSummary(items?: RoamlyEmailSummaryItem[]) {
+  const rows = (items || [])
+    .map((item) => ({ label: item.label, value: item.value == null ? "" : String(item.value).trim() }))
+    .filter((item) => item.label && item.value)
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #e4e7ec;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#101828;width:38%;">${escapeEmailHtml(item.label)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e4e7ec;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#475467;">${escapeEmailHtml(item.value)}</td>
+        </tr>`
+    )
+    .join("");
+
+  if (!rows) return "";
+
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="Margin:18px 0;border-collapse:collapse;border:1px solid #e4e7ec;border-radius:8px;background:#f9fafb;">
+      ${rows}
+    </table>`;
+}
+
+export function renderRoamlyEmailHeader(footerUrl = ROAMLY_PUBLIC_DOMAIN) {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td align="center" style="padding:0 0 20px 0;">
+          <a href="${escapeEmailHtml(footerUrl)}" style="text-decoration:none;">
+            <img src="${ROAMLY_LOGO_URL}" width="148" alt="Roamly" style="display:block;width:148px;max-width:148px;height:auto;border:0;outline:none;text-decoration:none;">
+          </a>
+        </td>
+      </tr>
+    </table>`;
+}
+
+export function renderRoamlyEmailFooter({
+  supportEmail,
+  footerUrl = ROAMLY_PUBLIC_DOMAIN
+}: {
+  supportEmail: string;
+  footerUrl?: string;
+}) {
+  return `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+      <tr>
+        <td align="left" style="padding:20px 0 0 0;">
+          <p style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">${escapeEmailHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
+          <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">Need help? Reply to this email or contact <a href="mailto:${escapeEmailHtml(supportEmail)}" style="color:#0f766e;font-weight:700;text-decoration:none;">${escapeEmailHtml(supportEmail)}</a>.</p>
+          <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">Roamly · <a href="${escapeEmailHtml(footerUrl)}" style="color:#0f766e;font-weight:700;text-decoration:none;">roamlyhq.com</a></p>
+        </td>
+      </tr>
+    </table>`;
+}
+
+function renderPlainText(input: RoamlyEmailShellInput, ctaUrl: string, title: string, bodyText: string) {
+  const summary = (input.summaryItems || [])
+    .map((item) => ({ label: item.label, value: item.value == null ? "" : String(item.value).trim() }))
+    .filter((item) => item.label && item.value)
+    .map((item) => `${item.label}: ${item.value}`)
+    .join("\n");
   const disclosure = input.includeAffiliateDisclosure ? ROAMLY_AFFILIATE_DISCLOSURE : "";
   const supportLine = `Need help? Reply to this email or contact ${input.supportEmail}.`;
-  const footerText = `${ROAMLY_EMAIL_FOOTER_COPY}\n${supportLine}\n${footerUrl}`;
 
-  const html = `<!doctype html>
-<html>
-  <body style="margin:0;background:#f7fbf8;font-family:Arial,sans-serif;color:#102033;">
-    <div style="display:none;max-height:0;overflow:hidden;">${escapeEmailHtml(preheader)}</div>
-    <main style="max-width:680px;margin:0 auto;padding:28px 18px;">
-      <header style="padding:8px 8px 18px;">
-        <a href="${escapeEmailHtml(footerUrl)}" style="display:inline-flex;align-items:center;gap:10px;color:#102033;text-decoration:none;">
-          <span style="display:inline-grid;width:40px;height:40px;place-items:center;border-radius:14px;background:#54d6c6;color:#102033;font-size:21px;font-weight:900;">R</span>
-          <span style="font-size:24px;font-weight:900;letter-spacing:0;color:#102033;">Roamly</span>
-        </a>
-      </header>
-      <section style="background:#ffffff;border:1px solid #dce8f2;border-radius:24px;padding:28px;box-shadow:0 18px 45px rgba(16,32,51,0.10);">
-        ${input.eyebrow ? `<p style="margin:0 0 14px;font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:#1b9aaa;">${escapeEmailHtml(input.eyebrow)}</p>` : ""}
-        <h1 style="margin:0;font-size:30px;line-height:1.08;color:#102033;">${escapeEmailHtml(title)}</h1>
-        ${input.intro ? `<p style="margin:16px 0 0;font-size:16px;line-height:1.65;color:#42526a;">${escapeEmailHtml(input.intro)}</p>` : ""}
-        <div style="margin-top:20px;">${bodyHtml}</div>
-        ${
-          ctaUrl
-            ? `<a href="${escapeEmailHtml(ctaUrl)}" style="display:inline-block;margin-top:10px;background:#1b9aaa;color:#ffffff;text-decoration:none;border-radius:999px;padding:14px 19px;font-weight:900;">${escapeEmailHtml(input.ctaLabel || "Open Roamly")}</a>`
-            : ""
-        }
-        ${
-          disclosure
-            ? `<p style="margin:22px 0 0;border-top:1px solid #e5edf3;padding-top:14px;font-size:12px;line-height:1.6;color:#6d7a8c;">${escapeEmailHtml(disclosure)}</p>`
-            : ""
-        }
-      </section>
-      <footer style="padding:18px 8px 0;">
-        <p style="margin:0;font-size:12px;line-height:1.65;color:#6d7a8c;">${escapeEmailHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
-        <p style="margin:10px 0 0;font-size:12px;line-height:1.65;color:#6d7a8c;">Need help? Reply to this email or contact <a href="mailto:${escapeEmailHtml(input.supportEmail)}" style="color:#1b9aaa;font-weight:900;text-decoration:none;">${escapeEmailHtml(input.supportEmail)}</a>.</p>
-        <p style="margin:10px 0 0;font-size:12px;line-height:1.65;color:#6d7a8c;"><a href="${escapeEmailHtml(footerUrl)}" style="color:#1b9aaa;font-weight:900;text-decoration:none;">roamlyhq.com</a></p>
-      </footer>
-    </main>
-  </body>
-</html>`;
-
-  const text = [
+  return [
     title,
+    input.intro,
     bodyText,
+    summary,
     ctaUrl ? `${input.ctaLabel || "Open Roamly"}: ${ctaUrl}` : "",
     disclosure,
-    footerText
+    ROAMLY_EMAIL_FOOTER_COPY,
+    supportLine,
+    input.footerUrl || ROAMLY_PUBLIC_DOMAIN
   ]
     .filter(Boolean)
     .join("\n\n");
+}
 
-  return { subject: input.subject, preheader, html, text };
+export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRenderedEmail {
+  const footerUrl = toRoamlyAbsoluteUrl(input.footerUrl || ROAMLY_PUBLIC_DOMAIN);
+  const preheader = input.preheader || input.intro || ROAMLY_EMAIL_FOOTER_COPY;
+  const title = input.title || input.subject;
+  const ctaUrl = input.ctaUrl ? toRoamlyAbsoluteUrl(input.ctaUrl, footerUrl) : "";
+  const bodyHtml = input.bodyHtml || (input.intro ? renderEmailBodyCopy(input.intro) : "");
+  const bodyText = input.bodyText || input.intro || "";
+  const disclosure = input.includeAffiliateDisclosure ? ROAMLY_AFFILIATE_DISCLOSURE : "";
+
+  const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>${escapeEmailHtml(input.subject)}</title>
+    <style>
+      @media only screen and (max-width: 620px) {
+        .roamly-email-container { width: 100% !important; }
+        .roamly-email-pad { padding-left: 18px !important; padding-right: 18px !important; }
+        .roamly-email-card { padding: 24px 20px !important; }
+      }
+    </style>
+  </head>
+  <body style="Margin:0;padding:0;background:#eef7f5;color:#101828;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeEmailHtml(preheader)}</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#eef7f5" style="border-collapse:collapse;background:#eef7f5;">
+      <tr>
+        <td align="center" class="roamly-email-pad" style="padding:28px 16px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="roamly-email-container" style="width:600px;max-width:600px;border-collapse:collapse;">
+            <tr>
+              <td>${renderRoamlyEmailHeader(footerUrl)}</td>
+            </tr>
+            <tr>
+              <td bgcolor="#ffffff" class="roamly-email-card" style="padding:32px;border:1px solid #d0d5dd;border-radius:10px;background:#ffffff;">
+                ${
+                  input.eyebrow
+                    ? `<p style="Margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#0f766e;">${escapeEmailHtml(input.eyebrow)}</p>`
+                    : ""
+                }
+                ${renderEmailHeading(title)}
+                ${input.intro ? `<div style="Margin:16px 0 0 0;">${renderEmailBodyCopy(input.intro)}</div>` : ""}
+                ${bodyHtml ? `<div style="Margin:18px 0 0 0;">${bodyHtml}</div>` : ""}
+                ${renderEmailSummary(input.summaryItems)}
+                ${renderEmailCta(input.ctaLabel, ctaUrl)}
+                ${
+                  disclosure
+                    ? `<p style="Margin:22px 0 0 0;padding-top:14px;border-top:1px solid #e4e7ec;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">${escapeEmailHtml(disclosure)}</p>`
+                    : ""
+                }
+              </td>
+            </tr>
+            <tr>
+              <td>${renderRoamlyEmailFooter({ supportEmail: input.supportEmail, footerUrl })}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return {
+    subject: input.subject,
+    preheader,
+    html,
+    text: renderPlainText(input, ctaUrl, title, bodyText)
+  };
 }
 
 export function renderSupportAutoReplyTemplate({
@@ -127,18 +254,14 @@ export function renderSupportAutoReplyTemplate({
 
 Thanks for contacting Roamly. We received your message and will review it as soon as possible.
 
-If your question is about a trip, itinerary, booking, payment, or Live Companion, please reply with any extra details or screenshots.
-
-Roamly Support
-${supportEmail}
-${ROAMLY_PUBLIC_DOMAIN}`;
+If your question is about a trip, itinerary, booking, payment, or Live Companion, please reply with any extra details or screenshots.`;
 
   return renderRoamlyEmailShell({
     subject: "We received your Roamly message",
     preheader: "Thanks for contacting Roamly. We received your message.",
     eyebrow: "Support",
     title: "We received your Roamly message",
-    bodyHtml: paragraphs(bodyText),
+    bodyHtml: renderEmailBodyCopy(bodyText),
     bodyText,
     ctaLabel: "Open Roamly",
     ctaUrl: ROAMLY_PUBLIC_DOMAIN,
@@ -160,7 +283,7 @@ export function renderGenericSupportResponseTemplate({
     preheader: message.slice(0, 140),
     eyebrow: "Roamly Support",
     title: subject,
-    bodyHtml: paragraphs(message),
+    bodyHtml: renderEmailBodyCopy(message),
     bodyText: message,
     ctaLabel: "Open Roamly",
     ctaUrl: ROAMLY_PUBLIC_DOMAIN,
@@ -175,13 +298,17 @@ export function renderLaunchContactConfirmationTemplate({
   name: string;
   supportEmail: string;
 }) {
+  const bodyText = `Hi ${name || "there"},
+
+Thanks for contacting Roamly. We received your note and will review it as soon as possible.`;
+
   return renderRoamlyEmailShell({
     subject: "Thanks for contacting Roamly",
     preheader: "Roamly received your launch message.",
     eyebrow: "Contact",
     title: "Thanks for reaching out.",
-    bodyHtml: paragraphs(`Hi ${name || "there"},\n\nThanks for contacting Roamly. We received your note and will review it as soon as possible.`),
-    bodyText: `Hi ${name || "there"},\n\nThanks for contacting Roamly. We received your note and will review it as soon as possible.`,
+    bodyHtml: renderEmailBodyCopy(bodyText),
+    bodyText,
     supportEmail
   });
 }
@@ -204,7 +331,7 @@ export function renderBookingShareEmailTemplate({
     preheader: "A Roamly booking or trip share is ready.",
     eyebrow: "Booking organization",
     title,
-    bodyHtml: paragraphs(message),
+    bodyHtml: renderEmailBodyCopy(message),
     bodyText: message,
     ctaLabel: "Open trip",
     ctaUrl,
@@ -231,9 +358,9 @@ export function renderItineraryEmailTemplate({
     preheader: "Your Roamly itinerary is ready to review.",
     eyebrow: "Roamly itinerary",
     title,
-    bodyHtml: paragraphs(message),
+    bodyHtml: renderEmailBodyCopy(message),
     bodyText: message,
-    ctaLabel: "Open trip in Roamly",
+    ctaLabel: "View your itinerary",
     ctaUrl,
     supportEmail,
     includeAffiliateDisclosure

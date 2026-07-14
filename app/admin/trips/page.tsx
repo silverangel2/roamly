@@ -4,6 +4,32 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function itineraryCompletionStatus(metadata: unknown) {
+  const root = getRecord(metadata);
+  const generation = getRecord(root.generation);
+  return getString(generation.status) === "complete" || getString(generation.currentStage) === "complete";
+}
+
+function completionEmailLabel(metadata: unknown) {
+  const email = getRecord(getRecord(metadata).generationEmail);
+  const status = getString(email.completion_email_status || email.delivery_status) || "pending";
+  const nextRetry = getString(email.completion_email_next_retry_at);
+  if (status === "sent") return "email sent";
+  if (status === "captured") return "email captured";
+  if (status === "sending") return "email sending";
+  if (status === "failed" && nextRetry) return "retry scheduled";
+  if (status === "failed") return "email failed";
+  return "email pending";
+}
+
 export default async function AdminTripsPage() {
   const state = await getRoamlyAdminPageState();
   if (!state.isAdmin || !state.admin) return <AdminAccessCard />;
@@ -55,6 +81,10 @@ export default async function AdminTripsPage() {
                   </span>
                   <span className="rounded-full bg-mist px-3 py-2">bookings {bookingsByTrip.get(trip.id) || 0}</span>
                   <span className="rounded-full bg-mist px-3 py-2">events {eventsByTrip.get(trip.id) || 0}</span>
+                  <span className="rounded-full bg-mist px-3 py-2">
+                    {itineraryCompletionStatus(trip.metadata) ? "itinerary completed" : "itinerary not complete"}
+                  </span>
+                  <span className="rounded-full bg-mist px-3 py-2">{completionEmailLabel(trip.metadata)}</span>
                 </div>
               </div>
               <div className="text-sm font-black text-slate-500">

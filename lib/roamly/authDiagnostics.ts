@@ -23,20 +23,24 @@ export function getExpectedSupabaseAuthCookiePrefix() {
   return projectRef ? `sb-${projectRef}-auth-token` : "";
 }
 
-export function isSupabaseAuthCookieName(name: string) {
+export function isExpectedSupabaseAuthCookieName(name: string) {
   const expectedPrefix = getExpectedSupabaseAuthCookiePrefix();
+  return Boolean(expectedPrefix && (name === expectedPrefix || name.startsWith(`${expectedPrefix}.`)));
+}
 
-  if (expectedPrefix && (name === expectedPrefix || name.startsWith(`${expectedPrefix}.`))) {
-    return true;
-  }
+export function isStaleSupabaseAuthCookieName(name: string) {
+  return name.startsWith("sb-") && name.includes("auth-token") && !isExpectedSupabaseAuthCookieName(name);
+}
 
-  return name.startsWith("sb-") && name.includes("auth-token");
+export function isSupabaseAuthCookieName(name: string) {
+  return isExpectedSupabaseAuthCookieName(name) || isStaleSupabaseAuthCookieName(name);
 }
 
 export function getSupabaseAuthCookieDiagnostics(cookieHeader: string) {
   const names = cookieNames(cookieHeader);
   const expectedPrefix = getExpectedSupabaseAuthCookiePrefix();
   const authCookieNames = names.filter(isSupabaseAuthCookieName);
+  const staleAuthCookieNames = names.filter(isStaleSupabaseAuthCookieName);
 
   return {
     authCookiePresent: authCookieNames.length > 0,
@@ -44,6 +48,7 @@ export function getSupabaseAuthCookieDiagnostics(cookieHeader: string) {
     expectedAuthCookiePresent: expectedPrefix
       ? authCookieNames.some((name) => name === expectedPrefix || name.startsWith(`${expectedPrefix}.`))
       : false,
+    staleAuthCookieCount: staleAuthCookieNames.length,
     codeVerifierPresent: expectedPrefix ? names.includes(`${expectedPrefix}-code-verifier`) : false
   };
 }

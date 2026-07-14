@@ -108,7 +108,7 @@ const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
   "enrichItineraryBookingSuggestions",
   "persistItinerary",
   "resetFailedStagedBatch",
-  "sendStagedGenerationEmail",
+  "finalizeStagedGenerationNotification",
   "generationEmail",
   "maxRetries: 0",
   "staged_ai_call_start",
@@ -192,9 +192,13 @@ assert.ok(progressComponent.includes("Email me when ready"), "generation progres
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
 [
+  "finalizeStagedGenerationNotification",
   "sendStagedGenerationEmail",
   "sendPendingStagedGenerationEmail",
+  "completion_email_status",
   "completion_email_sent_at",
+  "completion_email_attempt_count",
+  "completion_email_next_retry_at",
   "failure_email_sent_at",
   "email_provider_message_id",
   "delivery_status",
@@ -203,6 +207,79 @@ const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
   "transactional: true",
   "idempotencyKey"
 ].forEach((needle) => assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`));
+assert.ok(generationEmail.includes("toRoamlyAbsoluteUrl(`/trip/${tripId}?from=generation-email`"), "itinerary completion email CTA must use a production-safe absolute trip URL");
+assert.ok(!generationEmail.includes("if (process.env.VERCEL_URL) return"), "itinerary completion email must not point at Vercel preview domains");
+assert.ok(generationEmail.includes("View your itinerary"), "itinerary completion email CTA copy must match the production template");
+assert.ok(generationEmail.includes("same Roamly account"), "itinerary completion email must tell users to sign into the correct account");
+
+const emailAdapter = read("lib/roamly/email.ts");
+[
+  "nodemailer",
+  "SMTP_HOST",
+  "SMTP_PORT",
+  "SMTP_SECURE",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+  "EXPECTED_SMTP_USER = \"support@roamlyhq.com\"",
+  "verifyRoamlyEmailProvider",
+  "dns.lookup",
+  "createSmtpTransporter",
+  "messageId",
+  "provider_message_id",
+  "template",
+  "attempt_count",
+  "last_error",
+  "EMAIL_PROVIDER_NOT_CONFIGURED",
+  "preference === \"resend\"",
+  "fetch(\"https://api.resend.com/emails\""
+].forEach((needle) => assert.ok(emailAdapter.includes(needle), `email adapter missing ${needle}`));
+assert.ok(emailAdapter.includes('readEnv("ROAMLY_EMAIL_PROVIDER").toLowerCase() || "smtp"'), "SMTP must be the default provider preference, not Resend");
+assert.ok(!emailAdapter.includes('|| "resend"'), "Resend must not be the default Roamly email provider");
+assert.ok(emailAdapter.includes('config.provider === "smtp"') && emailAdapter.includes("sendSmtpEmail"), "SMTP sends must use the SMTP sender path");
+assert.ok(emailAdapter.includes('config.provider === "smtp"') && emailAdapter.includes("sendResendEmail"), "Resend must remain optional and provider-gated");
+
+const emailTemplates = read("lib/roamly/emailTemplates.ts");
+[
+  "ROAMLY_LOGO_URL",
+  "roamly-wordmark@2x.png",
+  "renderRoamlyEmailHeader",
+  "renderEmailHeading",
+  "renderEmailBodyCopy",
+  "renderEmailCta",
+  "renderEmailSummary",
+  "renderRoamlyEmailFooter",
+  "renderPlainText",
+  "role=\"presentation\"",
+  "alt=\"Roamly\"",
+  "View your itinerary"
+].forEach((needle) => assert.ok(emailTemplates.includes(needle), `shared email layout missing ${needle}`));
+assert.ok(!emailTemplates.includes("display:inline-flex"), "email layout must avoid flex-only logo/header markup");
+
+const adminEmailPage = read("app/admin/email/page.tsx");
+["Active provider", "activeProviderLabel", "Last successful send", "Retry queue", "completion_email_status"].forEach((needle) =>
+  assert.ok(adminEmailPage.includes(needle), `admin email page missing ${needle}`)
+);
+
+const adminEmailConsole = read("components/admin/AdminEmailConsole.tsx");
+[
+  "Verify SMTP connection",
+  "Send test email to admin",
+  "Preview itinerary-ready email",
+  "Preview welcome email",
+  "Preview support email",
+  "Desktop preview",
+  "Mobile preview",
+  "HTML preview",
+  "Plain-text preview",
+  "Retry failed email",
+  "provider_message_id"
+].forEach((needle) => assert.ok(adminEmailConsole.includes(needle), `admin email console missing ${needle}`));
+
+const emailPreviewRoute = read("app/api/admin/roamly/email/preview/route.ts");
+assert.ok(emailPreviewRoute.includes("renderSampleItineraryGenerationEmail") && emailPreviewRoute.includes("renderEmailTemplate"), "admin previews must use production renderers");
+
+const emailTestRoute = read("app/api/admin/roamly/email/test/route.ts");
+assert.ok(emailTestRoute.includes("getRoamlySupportEmail"), "admin test email must send to configured support/admin email");
 
 const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("/api/cron/roamly-itinerary-generation"), "Vercel cron must resume staged itinerary generation");

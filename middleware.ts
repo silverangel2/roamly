@@ -6,6 +6,8 @@ import { applyCookieHeaders, normalizeSupabaseCookieOptions } from "@/lib/supaba
 import {
   getSupabaseAuthCookieDiagnostics,
   getSupabaseProjectHost,
+  isExpectedSupabaseAuthCookieName,
+  isStaleSupabaseAuthCookieName,
   isSupabaseAuthCookieName,
   logAuthDiagnostic
 } from "@/lib/roamly/authDiagnostics";
@@ -16,6 +18,19 @@ function hasSupabaseAuthCookie(request: NextRequest) {
   return request.cookies
     .getAll()
     .some((cookie) => isSupabaseAuthCookieName(cookie.name) && cookie.value.length > 0);
+}
+
+function hasExpectedSupabaseAuthCookie(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .some((cookie) => isExpectedSupabaseAuthCookieName(cookie.name) && cookie.value.length > 0);
+}
+
+function staleSupabaseAuthCookieNames(request: NextRequest) {
+  return request.cookies
+    .getAll()
+    .filter((cookie) => isStaleSupabaseAuthCookieName(cookie.name) && cookie.value.length > 0)
+    .map((cookie) => cookie.name);
 }
 
 function isProtectedPage(pathname: string) {
@@ -156,6 +171,20 @@ export async function middleware(request: NextRequest) {
     data: { user },
     error: userError
   } = await supabase.auth.getUser();
+  const staleAuthCookies = staleSupabaseAuthCookieNames(request);
+  const shouldClearStaleAuthCookies = !user && staleAuthCookies.length > 0 && !hasExpectedSupabaseAuthCookie(request);
+
+  function clearStaleAuthCookies(target: NextResponse) {
+    if (!shouldClearStaleAuthCookies) return target;
+    staleAuthCookies.forEach((name) => {
+      target.cookies.set(name, "", { path: "/", maxAge: 0 });
+    });
+    return target;
+  }
+
+  if (shouldClearStaleAuthCookies) {
+    response = clearStaleAuthCookies(response);
+  }
 
   if (isAdminRequest) {
     logAuthDiagnostic("middleware_admin_auth", {
@@ -188,18 +217,20 @@ export async function middleware(request: NextRequest) {
   }
 
   if (isProtectedPage(request.nextUrl.pathname) && !user && !hasSupabaseAuthCookie(request)) {
-    return redirectWithAuthCookies(loginRedirectUrl(request), "missing_auth_cookie", user);
+    return clearStaleAuthCookies(redirectWithAuthCookies(loginRedirectUrl(request), "missing_auth_cookie", user));
   }
 
   if (isProtectedPage(request.nextUrl.pathname) && !user) {
-    return redirectWithAuthCookies(
-      loginRedirectUrl(request, hasSupabaseAuthCookie(request) ? "session_expired" : undefined),
-      hasSupabaseAuthCookie(request) ? "get_user_failed_with_auth_cookie" : "missing_user",
-      user
+    return clearStaleAuthCookies(
+      redirectWithAuthCookies(
+        loginRedirectUrl(request, hasSupabaseAuthCookie(request) ? "session_expired" : undefined),
+        hasSupabaseAuthCookie(request) ? "get_user_failed_with_auth_cookie" : "missing_user",
+        user
+      )
     );
   }
 
-  return response;
+  return clearStaleAuthCookies(response);
 }
 
 export const config = {

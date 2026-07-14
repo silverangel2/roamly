@@ -51,7 +51,8 @@ export const affiliateDisclosure =
   ROAMLY_AFFILIATE_DISCLOSURE;
 
 function enabled() {
-  return process.env.ROAMLY_AFFILIATES_ENABLED === "true";
+  const value = clean(process.env.ROAMLY_AFFILIATES_ENABLED).toLowerCase();
+  return value !== "false" && value !== "0" && value !== "disabled";
 }
 
 function clean(value?: string | null) {
@@ -358,6 +359,21 @@ function pickMarketResult(
   );
 }
 
+function unavailableTrainOrBusSuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const category = suggestion.booking_category || suggestion.category;
+  if (category !== "transport") return false;
+  const text = `${suggestion.title} ${suggestion.description} ${suggestion.why_recommended || ""} ${suggestion.provider || ""}`.toLowerCase();
+  if (!/\b(train|rail|bus)\b/.test(text)) return false;
+  return /\b(not available|not recommended|did not find|unverified|too long|route not available)\b/.test(text);
+}
+
+function affiliateCategoryForSuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number]): RoamlyBookingCategory {
+  const category = suggestion.booking_category || suggestion.category;
+  const text = `${suggestion.title} ${suggestion.description}`.toLowerCase();
+  if (category === "transport" && /\b(then fly|flight option|flight search|round-trip flight)\b/.test(text)) return "flight";
+  return category;
+}
+
 function marketPriceRange(result: Record<string, unknown>) {
   const amount = cleanNumber(result.price_amount);
   const min = cleanNumber(result.price_min);
@@ -406,12 +422,96 @@ function timelineAffiliateCategory(item: RoamlyItinerary["daily_itinerary"][numb
 function ctaLabelForTimeline(category: AffiliateCategory, label?: string | null) {
   const cleaned = cleanStringValue(label);
   if (cleaned) return cleaned;
-  if (category === "flight") return "Check flights";
+  if (category === "flight") return "Compare flights";
   if (category === "hotel") return "Find a hotel";
   if (category === "transport") return "Book transfer";
   if (category === "esim") return "Get an eSIM";
   if (category === "product") return "Shop travel gear";
   return "Book activity";
+}
+
+type ItineraryTransportOption = NonNullable<RoamlyItinerary["estimated_budget_breakdown"]["transport_options"]>[number];
+
+function transportFlightOrigin(option: ItineraryTransportOption) {
+  const title = cleanStringValue(option.title);
+  const mixed = title.match(/drive to\s+(.+?),\s+then fly/i);
+  return cleanStringValue(mixed?.[1]) || option.origin;
+}
+
+function affiliateFlightHrefForTransport(option: ItineraryTransportOption, payload: TripPlannerPayload) {
+  return safeBookingHref(
+    resolveAffiliateLink({
+      category: "flight",
+      origin: transportFlightOrigin(option),
+      destination: option.destination || payload.destination,
+      title: option.title,
+      startDate: option.departure_date || payload.startDate,
+      endDate: option.return_date || payload.endDate,
+      travelers: payload.travelers || payload.travelersCount || 1,
+      adults: payload.travelers?.adults || payload.travelersCount || 1,
+      currency: option.currency || payload.budgetCurrency,
+      locale: payload.language
+    }).finalUrl
+  );
+}
+
+function directionsHrefForTransport(option: ItineraryTransportOption) {
+  return safeBookingHref(option.booking_url) || safeBookingHref(option.search_url) || safeBookingHref(
+    buildTransportSearchUrl({
+      origin: option.origin,
+      destination: option.destination,
+      date: option.departure_date
+    })
+  );
+}
+
+function enrichTransportOption(option: ItineraryTransportOption, payload: TripPlannerPayload): ItineraryTransportOption {
+  if (option.mode === "flight" || option.mode === "mixed") {
+    const href = affiliateFlightHrefForTransport(option, payload);
+    return {
+      ...option,
+      search_url: href || undefined,
+      booking_url: href || undefined,
+      source: href ? "Travelpayouts flight search" : option.source || "Roamly flight estimate"
+    };
+  }
+
+  if (option.mode === "drive") {
+    const href = directionsHrefForTransport(option);
+    return {
+      ...option,
+      search_url: href || undefined,
+      booking_url: href || undefined
+    };
+  }
+
+  if ((option.mode === "train" || option.mode === "bus") && (option.availability === "not_available" || !option.realistic)) {
+    return {
+      ...option,
+      search_url: undefined,
+      booking_url: undefined
+    };
+  }
+
+  return {
+    ...option,
+    search_url: safeBookingHref(option.search_url) || undefined,
+    booking_url: safeBookingHref(option.booking_url) || undefined
+  };
+}
+
+function enrichTransportOptions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary["estimated_budget_breakdown"] {
+  const budget = itinerary.estimated_budget_breakdown;
+  const options = (budget.transport_options || []).map((option) => enrichTransportOption(option, payload));
+  const recommended = budget.recommended_transport_option
+    ? enrichTransportOption(budget.recommended_transport_option, payload)
+    : options.find((option) => option.budget_fit === "best") || null;
+
+  return {
+    ...budget,
+    recommended_transport_option: recommended,
+    transport_options: options
+  };
 }
 
 function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary["daily_itinerary"] {
@@ -440,13 +540,22 @@ function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPay
         currency: payload.budgetCurrency,
         locale: payload.language
       });
+      const href = safeBookingHref(resolved.finalUrl);
+      if (!href) {
+        return {
+          ...item,
+          affiliate_category: category === "activity" || category === "ticket" ? "attraction" : category === "esim" || category === "product" ? category : (category as typeof item.affiliate_category),
+          booking_label: undefined,
+          booking: undefined
+        };
+      }
       return {
         ...item,
         affiliate_category: category === "activity" || category === "ticket" ? "attraction" : category === "esim" || category === "product" ? category : (category as typeof item.affiliate_category),
         booking_label: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel),
         booking: {
           provider: resolved.provider,
-          url: resolved.finalUrl,
+          url: href,
           ctaLabel: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel),
           disclosureRequired: resolved.disclosureRequired
         }
@@ -456,19 +565,22 @@ function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPay
 }
 
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
+  const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   return {
     ...itinerary,
+    estimated_budget_breakdown: estimatedBudgetBreakdown,
     daily_itinerary: enrichTimelineItems(itinerary, payload),
-    booking_suggestions: itinerary.booking_suggestions.map((suggestion) => {
+    booking_suggestions: itinerary.booking_suggestions.filter((suggestion) => !unavailableTrainOrBusSuggestion(suggestion)).map((suggestion) => {
       const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
       const market = pickMarketResult(suggestion, payload);
       const marketRange = market ? marketPriceRange(market) : { min: null, max: null };
+      const linkCategory = affiliateCategoryForSuggestion(suggestion);
       const link = buildRoamlyAffiliateUrl({
-        category: suggestion.booking_category,
+        category: linkCategory,
         destination: suggestion.destination || suggestion.city || payload.destination,
         origin: suggestion.origin || payload.origin,
         title: suggestion.title || suggestion.booking_label,
-        query: suggestion.booking_category === "flight" ? undefined : suggestion.title || suggestion.booking_label,
+        query: linkCategory === "flight" ? undefined : suggestion.title || suggestion.booking_label,
         startDate: suggestion.departure_date || suggestion.date || payload.startDate,
         endDate: suggestion.return_date || payload.endDate,
         travelers: payload.travelers || payload.travelersCount || 1,
@@ -520,14 +632,15 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
 }
 
 export function getAffiliateReadiness() {
-  const hotelProvider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase();
-  const attractionsProvider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase();
+  const hotelProvider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "stay22").toLowerCase();
+  const flightProvider = clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER || "travelpayouts").toLowerCase();
+  const attractionsProvider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase();
   const linkTest = testAffiliateLinks();
 
   return {
     affiliatesEnabled: enabled(),
     hotelProviderConfigured: hasConfiguredHotelAffiliateProvider(hotelProvider),
-    flightProviderConfigured: clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER).toLowerCase() === "travelpayouts" && Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
+    flightProviderConfigured: flightProvider === "travelpayouts" && Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     attractionsProviderConfigured: hasConfiguredAttractionsAffiliateProvider(attractionsProvider),
     stay22PartnerConfigured: Boolean(stay22PartnerId() || stay22ReferralUrl()),
     travelpayoutsMarkerConfigured: Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),

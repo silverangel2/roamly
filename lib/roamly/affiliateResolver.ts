@@ -115,7 +115,13 @@ function result(
     trackingMetadata: {
       provider: isAffiliate ? provider : providerNameForCategory(input.category),
       category: input.category,
-      affiliate: isAffiliate
+      affiliate: isAffiliate,
+      origin: clean(input.origin),
+      destination: clean(input.destination),
+      startDate: clean(input.startDate),
+      endDate: clean(input.endDate),
+      currency: clean(input.currency),
+      locale: clean(input.locale)
     },
     fallbackBehavior: isAffiliate ? "affiliate" : "hidden",
     configured,
@@ -181,20 +187,20 @@ function klookSearchUrl(input: AffiliateResolverInput) {
 
 export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLinkResolution {
   if (input.category === "flight") {
-    const provider = clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER).toLowerCase();
+    const provider = clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER || "travelpayouts").toLowerCase();
     const configured = provider === "travelpayouts" && travelpayoutsConfigured();
     return result(
       input,
       "travelpayouts",
       configured ? travelpayoutsUrl(input) : "",
-      "Check flights",
+      "Compare flights",
       configured,
       configured ? [] : ["ROAMLY_FLIGHT_AFFILIATE_PROVIDER=travelpayouts", "ROAMLY_TRAVELPAYOUTS_MARKER"]
     );
   }
 
   if (input.category === "hotel") {
-    const provider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER).toLowerCase();
+    const provider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "stay22").toLowerCase();
     const configured = provider === "stay22" && stay22Configured();
     return result(
       input,
@@ -207,7 +213,7 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
   }
 
   if (input.category === "activity" || input.category === "attraction" || input.category === "ticket" || input.category === "tour") {
-    const provider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER).toLowerCase();
+    const provider = clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase();
     const configured = provider === "klook" && klookConfigured();
     return result(
       input,

@@ -46,7 +46,7 @@ export default async function AdminLaunchPage() {
     ["Google login", configured(hasSupabaseConfig()), "Confirm Google provider redirect includes https://roamlyhq.com/auth/callback."],
     ["Admin session persistence", configured(hasSupabaseConfig()), "Use Supabase refresh sessions; do not create permanent sessions."],
     ["Admin authorization", getRoamlyAdminEmails().includes("support@roamlyhq.com") ? "Ready" : "Needs attention", "Include support@roamlyhq.com in ROAMLY_ADMIN_EMAILS."],
-    ["Email provider", configured(email.configured), "Add RESEND_API_KEY or review provider settings."],
+    ["Email provider", configured(email.configured), email.configured ? `${email.activeProviderLabel} is selected.` : email.reason],
     ["Support email", email.supportEmail === "support@roamlyhq.com" ? "Ready" : "Needs attention", "Set ROAMLY_SUPPORT_EMAIL to support@roamlyhq.com."],
     ["Contact form", contactMessages.error ? "Needs attention" : "Ready", "Confirm support messages are saved and confirmation email is sent."],
     ["Meta connection", social.env.facebookConnected ? "Ready" : "Not configured", "Set the Facebook Page ID and Page access token."],

@@ -1,4 +1,5 @@
-import { buildFlightSearchUrl, safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
 import { detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
 import { recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
@@ -156,13 +157,11 @@ function clean(value?: string | null) {
 }
 
 function internalTransportDiscoveryUrl(category: string, origin: string, destination: string, date?: string | null) {
-  const url = new URL("/plan", "https://roamlyhq.com");
-  url.searchParams.set("source", "transport_fallback");
-  url.searchParams.set("category", category);
-  if (origin) url.searchParams.set("origin", origin);
-  if (destination) url.searchParams.set("destination", destination);
-  if (date) url.searchParams.set("startDate", date);
-  return `${url.pathname}${url.search}`;
+  void category;
+  void origin;
+  void destination;
+  void date;
+  return "";
 }
 
 function cleanCurrency(value?: string | null) {
@@ -493,6 +492,21 @@ function flightMarketPrice(marketResults: TravelMarketResult[] | null | undefine
   };
 }
 
+function flightAffiliateSearchUrl(input: TransportBuildInput, origin: string, destination: string) {
+  return safeExternalUrl(
+    resolveAffiliateLink({
+      category: "flight",
+      origin,
+      destination,
+      startDate: input.startDate,
+      endDate: input.returnToOrigin === false ? undefined : input.endDate,
+      travelers: input.travelers || travelersCount(input),
+      adults: travelersCount(input),
+      currency: input.budgetCurrency
+    }).finalUrl
+  );
+}
+
 function flightOption(input: TransportBuildInput, origin: string, destination: string, config: BuildOptionsConfig, distanceKm: number | null): TransportOption {
   const currency = cleanCurrency(input.budgetCurrency);
   const market = flightMarketPrice(config.marketResults);
@@ -506,13 +520,7 @@ function flightOption(input: TransportBuildInput, origin: string, destination: s
   const roamingEsim = routeCrossesBorder ? 35 : 0;
   const min = baseMin == null ? null : baseMin + Math.round(20 * travelers) + roamingEsim;
   const max = baseMax == null ? null : baseMax + (baggage || 0) + (transfer || 0) + roamingEsim;
-  const normalSearchUrl = buildFlightSearchUrl({
-    origin,
-    destination,
-    departureDate: input.startDate,
-    returnDate: input.returnToOrigin === false ? undefined : input.endDate,
-    travelers: input.travelers || travelers
-  });
+  const flightSearchUrl = flightAffiliateSearchUrl(input, origin, destination);
   const availability: TransportAvailability = market?.confidence === "live_partner" || market?.confidence === "cached_recent" ? "verified" : "search_ready";
   const warning =
     availability === "verified"
@@ -541,11 +549,11 @@ function flightOption(input: TransportBuildInput, origin: string, destination: s
       roaming_esim: roamingEsim || undefined
     },
     price_confidence: market?.confidence || (fallback ? "estimated" : "unknown"),
-    search_url: normalSearchUrl || undefined,
-    booking_url: market?.bookingUrl || normalSearchUrl || undefined,
+    search_url: flightSearchUrl || undefined,
+    booking_url: market?.bookingUrl || flightSearchUrl || undefined,
     reason,
     warning,
-    source: market?.source || "Travelpayouts/Roamly flight discovery",
+    source: market?.source || (flightSearchUrl ? "Travelpayouts flight search" : "Roamly flight estimate"),
     why_recommended: "Faster but more expensive. Use this when time matters more than keeping transport cost low.",
     budget_fit: "unknown"
   };
@@ -826,13 +834,7 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
   const high = Math.max(low, Math.round((gas + airportParking + flight + transfer + roamingEsim) * 1.18));
   const airportDriveHours = driveHoursFromDistance(airport.driveKm) || 0;
   const estimatedDurationHours = Math.max(4, airportDriveHours + 3.5);
-  const flightSearch = buildFlightSearchUrl({
-    origin: `${airport.airportCode} ${airport.airportName}`,
-    destination: destinationLabel,
-    departureDate: input.startDate,
-    returnDate: input.returnToOrigin === false ? undefined : input.endDate,
-    travelers: input.travelers || travelers
-  });
+  const flightSearch = flightAffiliateSearchUrl(input, `${airport.airportCode} ${airport.airportName}`, destinationLabel);
 
   return {
     mode: "mixed",
@@ -857,8 +859,8 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
       roaming_esim: roamingEsim || undefined
     },
     price_confidence: "estimated",
-    search_url: flightSearch || internalTransportDiscoveryUrl("flight", airport.airportName, destinationLabel, cleanDate(input.startDate)),
-    booking_url: flightSearch || internalTransportDiscoveryUrl("flight", airport.airportName, destinationLabel, cleanDate(input.startDate)),
+    search_url: flightSearch || undefined,
+    booking_url: flightSearch || undefined,
     reason: "Mixed route can be practical when the nearest airport is costly or poorly connected.",
     warning: `Conservative mixed-route estimate — refresh live flight, parking, and transfer prices before booking.${routeCrossesBorder ? " Estimate includes a roaming/eSIM planning buffer; check coverage and device compatibility before buying." : ""}`,
     source: "Regional airport route estimate",

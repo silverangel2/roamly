@@ -2,6 +2,17 @@
 
 Roamly must use its own Supabase project. Do not run these steps against the old shared ReviewIntel project.
 
+## Current project mismatch
+
+Local development and production are intentionally different right now:
+
+```text
+local:      iqakizejitdhcwbnsxpj.supabase.co
+production: ikrfkpnbtkdohoxnbphu.supabase.co
+```
+
+Do not describe this as “no mismatch.” When switching a browser between these projects, clear stale Supabase cookies for the old project if authentication starts failing. The app middleware also clears stale `sb-*-auth-token` cookies only when they do not match the currently configured project and there is no authenticated current-project session, so it should not force repeated login after the user has authenticated to the active project.
+
 ## 1. Create the Supabase project
 
 1. In Supabase, create a new project for Roamly.

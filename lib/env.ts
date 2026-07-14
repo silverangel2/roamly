@@ -45,7 +45,7 @@ export const roamlyConfig = {
   vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
   notificationCronSecret: process.env.ROAMLY_NOTIFICATION_CRON_SECRET || "",
   affiliates: {
-    enabled: process.env.ROAMLY_AFFILIATES_ENABLED === "true",
+    enabled: !/^(false|0|disabled)$/i.test(process.env.ROAMLY_AFFILIATES_ENABLED || ""),
     hotelProvider: process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "",
     flightProvider: process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER || "",
     attractionsProvider: process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || ""

@@ -767,7 +767,11 @@ create table if not exists public.roamly_email_logs (
   provider text,
   status text not null default 'pending',
   provider_message_id text,
+  idempotency_key text,
+  template text,
+  attempt_count integer not null default 1,
   error text,
+  last_error text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   sent_at timestamptz
@@ -782,7 +786,11 @@ alter table public.roamly_email_logs
   add column if not exists provider text,
   add column if not exists status text not null default 'pending',
   add column if not exists provider_message_id text,
+  add column if not exists idempotency_key text,
+  add column if not exists template text,
+  add column if not exists attempt_count integer not null default 1,
   add column if not exists error text,
+  add column if not exists last_error text,
   add column if not exists metadata jsonb not null default '{}'::jsonb,
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists sent_at timestamptz;
@@ -1091,7 +1099,10 @@ alter table public.roamly_notifications
 alter table public.roamly_email_logs
   drop constraint if exists roamly_email_logs_status_check;
 alter table public.roamly_email_logs
-  add constraint roamly_email_logs_status_check check (status in ('pending', 'sent', 'failed', 'skipped'));
+  drop constraint if exists roamly_email_logs_attempt_count_check;
+alter table public.roamly_email_logs
+  add constraint roamly_email_logs_status_check check (status in ('pending', 'sent', 'failed', 'skipped', 'captured')),
+  add constraint roamly_email_logs_attempt_count_check check (attempt_count >= 0);
 
 alter table public.roamly_market_prices
   drop constraint if exists roamly_market_prices_category_check,
@@ -1179,7 +1190,11 @@ create index if not exists roamly_email_logs_user_idx on public.roamly_email_log
 create index if not exists roamly_email_logs_trip_idx on public.roamly_email_logs (trip_id);
 create index if not exists roamly_email_logs_notification_idx on public.roamly_email_logs (notification_id);
 create index if not exists roamly_email_logs_status_idx on public.roamly_email_logs (status);
+create index if not exists roamly_email_logs_provider_idx on public.roamly_email_logs (provider);
+create index if not exists roamly_email_logs_template_idx on public.roamly_email_logs (template);
 create index if not exists roamly_email_logs_created_idx on public.roamly_email_logs (created_at desc);
+create index if not exists roamly_email_logs_sent_idx on public.roamly_email_logs (sent_at desc) where sent_at is not null;
+create index if not exists roamly_email_logs_idempotency_idx on public.roamly_email_logs (idempotency_key) where idempotency_key is not null;
 create index if not exists roamly_market_prices_search_key_idx on public.roamly_market_prices (search_key);
 create index if not exists roamly_market_prices_category_idx on public.roamly_market_prices (category);
 create index if not exists roamly_market_prices_expires_at_idx on public.roamly_market_prices (expires_at);
