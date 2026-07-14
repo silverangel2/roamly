@@ -54,6 +54,7 @@ function exists(file) {
   "lib/roamly/travelerMemory.ts",
   "lib/roamly/transportationIntelligence.ts",
   "lib/roamly/accommodationIntelligence.ts",
+  "lib/roamly/affiliateNeutrality.ts",
   "app/api/account/traveler-memory/route.ts",
   "components/account/TravelerMemorySettings.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
@@ -169,6 +170,17 @@ const transportationIntelligence = read("lib/roamly/transportationIntelligence.t
 
 const transportStages = read("lib/roamly/brain/transportStages.ts");
 assert.ok(transportStages.includes("buildTransportDecisionLayer"), "Brain must expose a transport decision layer helper");
+
+const affiliateNeutrality = read("lib/roamly/affiliateNeutrality.ts");
+["TRANSPORT_SCORE_WEIGHTS", "ACCOMMODATION_SCORE_WEIGHTS", "affiliate_value: 0", "rankAffiliateNeutralOptions"].forEach((needle) =>
+  assert.ok(affiliateNeutrality.includes(needle), `affiliate neutrality helper missing ${needle}`)
+);
+
+const emailTemplatesSource = read("lib/roamly/emailTemplates.ts");
+assert.ok(
+  emailTemplatesSource.includes("Recommendations are ranked according to your trip needs, not commission."),
+  "affiliate disclosure must state recommendations are not commission-ranked"
+);
 
 const accommodationIntelligence = read("lib/roamly/accommodationIntelligence.ts");
 [

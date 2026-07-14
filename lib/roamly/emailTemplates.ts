@@ -5,7 +5,7 @@ export const ROAMLY_EMAIL_FOOTER_COPY =
   "Roamly helps travelers plan smarter trips with AI-powered itineraries, budget checks, booking organization, and Live Trip Companion.";
 
 export const ROAMLY_AFFILIATE_DISCLOSURE =
-  "Roamly may earn a commission when you book or shop through partner links. This does not change your price.";
+  "Roamly may earn a commission from some booking links. Recommendations are ranked according to your trip needs, not commission.";
 
 export type RoamlyEmailSummaryItem = {
   label: string;

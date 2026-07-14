@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
+import ts from "typescript";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 
@@ -59,6 +61,29 @@ assert.ok(affiliateLinks.includes("enrichTimelineItems"), "timeline booking CTAs
 assert.ok(affiliateLinks.includes("resolveAffiliateLink"), "affiliate links must use the centralized resolver");
 assert.ok(affiliateLinks.includes("booking: {"), "timeline items must receive structured booking objects");
 assert.ok(affiliateLinks.includes('if (raw.startsWith("/")) return "";'), "generated booking links must reject internal /plan fallbacks");
+
+const affiliateNeutrality = read("lib/roamly/affiliateNeutrality.ts");
+[
+  "ROAMLY_AFFILIATE_NEUTRAL_DISCLOSURE",
+  "TRANSPORT_SCORE_WEIGHTS",
+  "ACCOMMODATION_SCORE_WEIGHTS",
+  "affiliate_value: 0",
+  "rankAffiliateNeutralOptions",
+  "NEAR_TIE_POINTS"
+].forEach((needle) => assert.ok(affiliateNeutrality.includes(needle), `affiliate neutrality helper missing ${needle}`));
+const compiledAffiliateNeutrality = ts.transpileModule(affiliateNeutrality, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020
+  }
+}).outputText;
+const affiliateNeutralityExports = {};
+vm.runInNewContext(compiledAffiliateNeutrality, { exports: affiliateNeutralityExports, module: { exports: affiliateNeutralityExports } });
+const neutralRanked = affiliateNeutralityExports.rankAffiliateNeutralOptions([
+  { id: "better-customer-option", customerScore: 90, affiliateAvailable: false, affiliateValue: 0 },
+  { id: "high-commission-inferior-option", customerScore: 82, affiliateAvailable: true, affiliateValue: 1000 }
+]);
+assert.equal(neutralRanked[0].id, "better-customer-option", "high-commission inferior option must not outrank a better customer option");
 
 const itinerary = read("lib/itinerary.ts");
 [
