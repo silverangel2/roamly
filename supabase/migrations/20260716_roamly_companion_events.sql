@@ -2,7 +2,7 @@
 
 create table if not exists public.booking_change_events (
   id uuid primary key default gen_random_uuid(),
-  booking_id uuid not null references public.trip_bookings(id) on delete cascade,
+  booking_id uuid not null references public.roamly_bookings(id) on delete cascade,
   trip_id uuid not null references public.roamly_trips(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   event_type text not null,
@@ -21,7 +21,7 @@ create table if not exists public.companion_events (
   id uuid primary key default gen_random_uuid(),
   trip_id uuid not null references public.roamly_trips(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
-  source_booking_id uuid references public.trip_bookings(id) on delete set null,
+  source_booking_id uuid references public.roamly_bookings(id) on delete set null,
   event_type text not null,
   severity text not null default 'minor',
   status text not null default 'new',
