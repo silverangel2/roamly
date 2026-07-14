@@ -173,6 +173,23 @@ export async function extractBookingFromScreenshot(file: File): Promise<{ bookin
   };
 }
 
+function combineBookingDateTime(
+  dateValue: string | null | undefined,
+  timeValue: string | null | undefined
+) {
+  if (!dateValue) return null;
+
+  const time = timeValue?.trim() || "00:00:00";
+  const normalizedTime =
+    /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : time;
+
+  const value = new Date(`${dateValue}T${normalizedTime}Z`);
+
+  return Number.isNaN(value.getTime())
+    ? null
+    : value.toISOString();
+}
+
 export async function saveConfirmedBooking(
   supabase: SupabaseClient,
   params: {
@@ -198,6 +215,37 @@ export async function saveConfirmedBooking(
       end_date: booking.end_date || null,
       start_time: booking.start_time || null,
       end_time: booking.end_time || null,
+
+      source_type: "screenshot",
+      traveler_confirmed: true,
+      start_at: combineBookingDateTime(
+        booking.start_date,
+        booking.start_time
+      ),
+      end_at: combineBookingDateTime(
+        booking.end_date,
+        booking.end_time
+      ),
+      check_in_at:
+        booking.booking_type === "hotel"
+          ? combineBookingDateTime(
+              booking.start_date,
+              booking.start_time
+            )
+          : null,
+      check_out_at:
+        booking.booking_type === "hotel"
+          ? combineBookingDateTime(
+              booking.end_date,
+              booking.end_time
+            )
+          : null,
+      total_price:
+        typeof booking.amount_cents === "number"
+          ? booking.amount_cents / 100
+          : null,
+      last_synced_at: new Date().toISOString(),
+
       address: booking.address || null,
       city: booking.city || null,
       region: booking.region || null,

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { stableBookingKey, type TripBookingRecord } from "@/lib/roamly/bookingWallet";
+import { stableBookingKey } from "@/lib/roamly/bookingWallet";
 import { ROAMLY_BRAIN_VERSION, type BrainStageDefinition, type RoamlyBrainStageType } from "@/lib/roamly/brain/stages";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 
@@ -26,25 +26,23 @@ export const BOOKING_RECONCILIATION_STAGE = {
   }
 } as const satisfies BrainStageDefinition;
 
-type ReconciliationBooking = Pick<
-  TripBookingRecord,
-  | "id"
-  | "booking_type"
-  | "booking_status"
-  | "provider"
-  | "provider_booking_id"
-  | "confirmation_code"
-  | "recommendation_id"
-  | "source_type"
-  | "source_reference"
-  | "title"
-  | "start_time"
-  | "origin"
-  | "destination"
-  | "flight_number"
-  | "traveler_confirmed"
-  | "updated_at"
->;
+type ReconciliationBooking = {
+  id: string;
+  booking_type: string;
+  booking_status: string;
+  provider_name: string | null;
+  provider_booking_id: string | null;
+  confirmation_number: string | null;
+  recommendation_id: string | null;
+  source_type: string | null;
+  title: string | null;
+  start_at: string | null;
+  origin: string | null;
+  destination: string | null;
+  flight_number: string | null;
+  traveler_confirmed: boolean;
+  updated_at: string | null;
+};
 
 const statusRank: Record<string, number> = {
   confirmed: 100,
@@ -65,12 +63,12 @@ function clean(value: unknown) {
 function keyForBooking(userId: string, booking: ReconciliationBooking) {
   return stableBookingKey({
     userId,
-    provider: booking.provider,
+    provider: booking.provider_name,
     providerBookingId: booking.provider_booking_id,
-    confirmationCode: booking.confirmation_code,
+    confirmationCode: booking.confirmation_number,
     bookingType: booking.booking_type,
     flightNumber: booking.flight_number,
-    startTime: booking.start_time,
+    startTime: booking.start_at,
     origin: booking.origin,
     destination: booking.destination,
     title: booking.title
@@ -194,7 +192,7 @@ export async function reconcileTripBookings(params: {
 
   const { data, error } = await writer
     .from("roamly_bookings")
-    .select("id,booking_type,booking_status,provider,provider_booking_id,confirmation_code,recommendation_id,source_type,source_reference,title,start_time,origin,destination,flight_number,traveler_confirmed,updated_at")
+    .select("id,booking_type,booking_status,provider_name,provider_booking_id,confirmation_number,recommendation_id,source_type,title,start_at,origin,destination,flight_number,traveler_confirmed,updated_at")
     .eq("user_id", params.userId)
     .eq("trip_id", params.tripId);
   if (error) return { ok: false as const, error: error.message };
@@ -232,7 +230,7 @@ export async function reconcileTripBookings(params: {
       const bookingLabel =
         sourceBooking.title ||
         sourceBooking.flight_number ||
-        sourceBooking.provider ||
+        sourceBooking.provider_name ||
         "Travel booking";
 
       const bookingStatus =
@@ -270,9 +268,9 @@ export async function reconcileTripBookings(params: {
         newValue: {
           bookingStatus,
           bookingType: sourceBooking.booking_type,
-          provider: sourceBooking.provider,
-          confirmationCode: sourceBooking.confirmation_code,
-          startTime: sourceBooking.start_time,
+          provider: sourceBooking.provider_name,
+          confirmationCode: sourceBooking.confirmation_number,
+          startTime: sourceBooking.start_at,
           origin: sourceBooking.origin,
           destination: sourceBooking.destination,
           flightNumber: sourceBooking.flight_number,
