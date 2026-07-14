@@ -92,10 +92,6 @@ function currency(payload: TripPlannerPayload) {
   return clean(payload.budgetCurrency).toUpperCase() || "CAD";
 }
 
-function nights(payload: TripPlannerPayload) {
-  return Math.max(1, Math.round((payload.daysCount || 3) - 1));
-}
-
 function roomType(payload: TripPlannerPayload) {
   const text = `${payload.bedPreference || ""} ${payload.accommodationPreference || ""}`.toLowerCase();
   if (text.includes("hostel")) return "Hostel or simple private room";
