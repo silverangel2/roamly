@@ -263,7 +263,7 @@ export async function middleware(request: NextRequest) {
       authenticatedEmail: null
     });
 
-    return clearStaleAuthCookies(response);
+    return attachRefreshedCookies(response);
   }
 
   return clearStaleAuthCookies(response);
