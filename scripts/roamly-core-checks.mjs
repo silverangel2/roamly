@@ -179,21 +179,56 @@ assert.ok(statusRoute.includes("queue: queueProgress"), "generation status route
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
+  "generationIdempotencyKey",
+  "createOrResumeGenerationJob",
+  "ensureGenerationLayers",
+  "markQueueFromLegacyState",
+  "queueTableMissing",
+  "invalidateGenerationLayers",
+  "requeueInvalidatedGenerationLayers"
+].forEach((needle) => assert.ok(generationQueue.includes(needle), `generation queue helper missing ${needle}`));
+
+const brainStages = read("lib/roamly/brain/stages.ts");
+[
+  "ROAMLY_BRAIN_VERSION",
   "ROAMLY_BRAIN_STAGES",
   "traveler_profile",
   "trip_requirements",
   "destination_research",
   "transport_search",
   "transport_decision",
+  "destination_structure",
   "accommodation_area_selection",
+  "accommodation_search",
+  "accommodation_decision",
   "daily_itinerary_generation",
+  "itinerary_logistics_validation",
+  "budget_validation",
+  "schedule_validation",
+  "backup_plan_generation",
   "final_assembly",
-  "generationIdempotencyKey",
-  "createOrResumeGenerationJob",
-  "ensureGenerationLayers",
-  "markQueueFromLegacyState",
-  "queueTableMissing"
-].forEach((needle) => assert.ok(generationQueue.includes(needle), `generation queue helper missing ${needle}`));
+  "completion_notification",
+  "dependencies",
+  "retryClass",
+  "providerRequirements",
+  "evidenceRequirements",
+  "invalidatedBy",
+  "inputSchema",
+  "outputSchema",
+  "dependentStagesForRegeneration",
+  "stagesInvalidatedBy"
+].forEach((needle) => assert.ok(brainStages.includes(needle), `Brain stage framework missing ${needle}`));
+
+const brainOrchestrator = read("lib/roamly/brain/orchestrator.ts");
+[
+  "buildBrainStageInput",
+  "validateBrainStageInput",
+  "validateBrainStageOutput",
+  "dependencyVersionSnapshot",
+  "invalidateBrainLayersForChange",
+  "invalidateGenerationLayers",
+  "requeueInvalidatedGenerationLayers"
+].forEach((needle) => assert.ok(brainOrchestrator.includes(needle), `Brain orchestrator missing ${needle}`));
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [

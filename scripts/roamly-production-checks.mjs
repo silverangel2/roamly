@@ -46,6 +46,9 @@ function exists(file) {
   "lib/roamly/itineraryGenerationEmail.ts",
   "lib/roamly/generationWorker.ts",
   "lib/roamly/generationQueue.ts",
+  "lib/roamly/brain/stages.ts",
+  "lib/roamly/brain/orchestrator.ts",
+  "lib/roamly/brain/index.ts",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
   "supabase/migrations/20260715_roamly_generation_worker.sql",
   "app/api/cron/roamly-notifications/route.ts",
@@ -93,6 +96,34 @@ assert.ok(generationQueue.includes("ROAMLY_BRAIN_STAGES"), "generation queue mus
 assert.ok(generationQueue.includes("generationIdempotencyKey"), "generation queue must use stable idempotency keys");
 assert.ok(generationQueue.includes("createSupabaseAdminClient() || client"), "generation queue writes must prefer the service-role server client");
 assert.ok(generationQueue.includes("publicQueueProgress"), "generation queue must expose safe public progress");
+
+const brainStages = read("lib/roamly/brain/stages.ts");
+[
+  "traveler_profile",
+  "trip_requirements",
+  "destination_research",
+  "transport_search",
+  "transport_decision",
+  "destination_structure",
+  "accommodation_area_selection",
+  "accommodation_search",
+  "accommodation_decision",
+  "daily_itinerary_generation",
+  "itinerary_logistics_validation",
+  "budget_validation",
+  "schedule_validation",
+  "backup_plan_generation",
+  "final_assembly",
+  "completion_notification",
+  "providerRequirements",
+  "evidenceRequirements",
+  "invalidatedBy"
+].forEach((needle) => assert.ok(brainStages.includes(needle), `Brain stage definitions missing ${needle}`));
+
+const brainOrchestrator = read("lib/roamly/brain/orchestrator.ts");
+["buildBrainStageInput", "dependencyVersionSnapshot", "validateBrainStageOutput", "invalidateBrainLayersForChange"].forEach((needle) =>
+  assert.ok(brainOrchestrator.includes(needle), `Brain orchestrator missing ${needle}`)
+);
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [

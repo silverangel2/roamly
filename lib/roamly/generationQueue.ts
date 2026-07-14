@@ -1,30 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStagedGenerationState, publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
+import {
+  ROAMLY_BRAIN_STAGES,
+  ROAMLY_BRAIN_VERSION,
+  stageLabel as brainStageLabel,
+  type RoamlyBrainStageType
+} from "@/lib/roamly/brain/stages";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
-export const ROAMLY_BRAIN_VERSION = "roamly-brain-v1";
-
-export const ROAMLY_BRAIN_STAGES = [
-  { type: "traveler_profile", sequence: 1, label: "Learning your preferences" },
-  { type: "trip_requirements", sequence: 2, label: "Understanding your trip" },
-  { type: "destination_research", sequence: 3, label: "Researching your destination" },
-  { type: "transport_search", sequence: 4, label: "Comparing transportation" },
-  { type: "transport_decision", sequence: 5, label: "Choosing the best way to travel" },
-  { type: "destination_structure", sequence: 6, label: "Structuring your destination" },
-  { type: "accommodation_area_selection", sequence: 7, label: "Finding the best area to stay" },
-  { type: "accommodation_search", sequence: 8, label: "Comparing accommodations" },
-  { type: "accommodation_decision", sequence: 9, label: "Choosing where to stay" },
-  { type: "daily_itinerary_generation", sequence: 10, label: "Building your itinerary" },
-  { type: "itinerary_logistics_validation", sequence: 11, label: "Checking travel times" },
-  { type: "budget_validation", sequence: 12, label: "Checking your budget" },
-  { type: "schedule_validation", sequence: 13, label: "Checking your schedule" },
-  { type: "backup_plan_generation", sequence: 14, label: "Creating backup plans" },
-  { type: "final_assembly", sequence: 15, label: "Finalizing your trip" },
-  { type: "completion_notification", sequence: 16, label: "Completed" }
-] as const;
-
-export type RoamlyBrainStageType = (typeof ROAMLY_BRAIN_STAGES)[number]["type"];
+export { ROAMLY_BRAIN_STAGES, ROAMLY_BRAIN_VERSION, type RoamlyBrainStageType };
 export type GenerationJobStatus = "queued" | "running" | "waiting" | "completed" | "failed" | "cancelled";
 export type GenerationLayerStatus = "pending" | "running" | "completed" | "failed" | "skipped" | "invalidated";
 
@@ -139,7 +124,7 @@ export function generationIdempotencyKey(tripId: string, version = ROAMLY_BRAIN_
 }
 
 export function stageLabel(stageType?: string | null) {
-  return ROAMLY_BRAIN_STAGES.find((stage) => stage.type === stageType)?.label || "Preparing your trip";
+  return brainStageLabel(stageType);
 }
 
 function modelVersion() {
@@ -650,4 +635,32 @@ export async function skipRemainingGenerationLayers(params: {
   });
   if (error) return { ok: false as const, error: rpcError(error), skipped: 0 };
   return { ok: true as const, skipped: typeof data === "number" ? data : 0 };
+}
+
+export async function invalidateGenerationLayers(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  fromSequence: number;
+  reason?: string;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_invalidate_generation_layers", {
+    p_job_id: params.jobId,
+    p_from_sequence: params.fromSequence,
+    p_reason: params.reason || "DEPENDENCY_INVALIDATED"
+  });
+  if (error) return { ok: false as const, error: rpcError(error), invalidated: 0 };
+  return { ok: true as const, invalidated: typeof data === "number" ? data : 0 };
+}
+
+export async function requeueInvalidatedGenerationLayers(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  generationVersion?: string;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_requeue_invalidated_layers", {
+    p_job_id: params.jobId,
+    p_generation_version: params.generationVersion || ROAMLY_BRAIN_VERSION
+  });
+  if (error) return { ok: false as const, error: rpcError(error), requeued: 0 };
+  return { ok: true as const, requeued: typeof data === "number" ? data : 0 };
 }
