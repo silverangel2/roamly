@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
+const require = createRequire(import.meta.url);
 
 function read(file) {
   return fs.readFileSync(path.join(root, file), "utf8");
@@ -817,5 +819,97 @@ assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itiner
 
 const travelMarketSearch = read("lib/roamly/travelMarketSearch.ts");
 assert.ok(travelMarketSearch.includes('return value !== "false" && value !== "0" && value !== "disabled";'), "market and affiliate gates should default on unless explicitly disabled");
+
+const bookingWalletMigration = read("supabase/migrations/20260716_roamly_booking_wallet.sql");
+[
+  "trip_bookings",
+  "booking_segments",
+  "recommended",
+  "clicked",
+  "detected",
+  "needs_confirmation",
+  "confirmed",
+  "modified",
+  "cancelled",
+  "refunded",
+  "completed",
+  "enable row level security",
+  "user_id = auth.uid()",
+  "trip_bookings_provider_booking_uidx",
+  "booking_segments_booking_sequence_uidx"
+].forEach((needle) =>
+  assert.ok(bookingWalletMigration.toLowerCase().includes(needle.toLowerCase()), `booking wallet migration missing ${needle}`)
+);
+
+const bookingWallet = read("lib/roamly/bookingWallet.ts");
+[
+  "TRIP_BOOKING_TYPES",
+  "TRIP_BOOKING_STATUSES",
+  "TRIP_BOOKING_SOURCE_TYPES",
+  "normalizeTripBookingInput",
+  "normalizeBookingSegments",
+  "isConfirmedBooking",
+  "isBookingClickOnly",
+  "stableBookingKey",
+  "confirmedBookingsForItinerary",
+  "bookingWalletSummary"
+].forEach((needle) => assert.ok(bookingWallet.includes(needle), `booking wallet helper missing ${needle}`));
+
+const compiledBookingWallet = ts.transpileModule(bookingWallet, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020
+  }
+}).outputText;
+const bookingWalletSandbox = {
+  exports: {},
+  module: { exports: {} },
+  require(id) {
+    if (id === "@/lib/roamly/events") return { recordTripEvent: async () => ({ ok: true }) };
+    return require(id);
+  }
+};
+bookingWalletSandbox.exports = bookingWalletSandbox.module.exports;
+vm.runInNewContext(compiledBookingWallet, bookingWalletSandbox);
+const wallet = bookingWalletSandbox.module.exports;
+const clickedBooking = {
+  booking_status: "clicked",
+  source_type: "affiliate_click",
+  traveler_confirmed: false
+};
+assert.equal(wallet.isBookingClickOnly(clickedBooking), true, "affiliate clicks must remain click-only wallet records");
+assert.equal(wallet.isConfirmedBooking(clickedBooking), false, "affiliate clicks must not become confirmed bookings");
+const confirmedBooking = {
+  booking_status: "confirmed",
+  traveler_confirmed: true
+};
+assert.equal(wallet.isConfirmedBooking(confirmedBooking), true, "traveler-confirmed bookings must count as confirmed");
+const normalizedFlight = wallet.normalizeTripBookingInput({
+  bookingType: "flight",
+  bookingStatus: "confirmed",
+  travelerConfirmed: true,
+  provider: "Air Canada",
+  title: "AC 870",
+  startTime: "2026-08-01T20:30:00-04:00",
+  totalPrice: 1200.126,
+  currency: "cad"
+});
+assert.equal(normalizedFlight.booking_type, "flight", "flight bookings must normalize");
+assert.equal(normalizedFlight.currency, "CAD", "booking currencies must normalize to ISO uppercase");
+assert.equal(normalizedFlight.total_price, 1200.13, "booking prices must be rounded, not converted from cents");
+assert.ok(
+  wallet.stableBookingKey({
+    userId: "user-1",
+    provider: "Air Canada",
+    providerBookingId: "ABC123",
+    bookingType: "flight"
+  }).startsWith("provider:user-1:air canada:abc123"),
+  "stable booking keys must dedupe provider confirmations"
+);
+
+const bookingWalletRoute = read("app/api/trips/[id]/bookings/route.ts");
+["requireUser", "listTripBookings", "createTripBooking", "bookingInput", "segmentInput"].forEach((needle) =>
+  assert.ok(bookingWalletRoute.includes(needle), `trip booking wallet route missing ${needle}`)
+);
 
 console.log("Roamly core checks passed.");

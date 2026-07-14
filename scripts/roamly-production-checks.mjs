@@ -74,6 +74,9 @@ function exists(file) {
   "supabase/migrations/20260715_roamly_traveler_memory.sql",
   "supabase/migrations/20260715_roamly_trip_feedback.sql",
   "supabase/migrations/20260715_roamly_generation_scalability.sql",
+  "supabase/migrations/20260716_roamly_booking_wallet.sql",
+  "lib/roamly/bookingWallet.ts",
+  "app/api/trips/[id]/bookings/route.ts",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -100,6 +103,32 @@ const liveMigration = read("supabase/migrations/20260707_roamly_live_test_affili
   "push_status",
   "roamly_trip_activities_status_live_check"
 ].forEach((needle) => assert.ok(liveMigration.includes(needle), `live migration missing ${needle}`));
+
+const bookingWalletMigration = read("supabase/migrations/20260716_roamly_booking_wallet.sql");
+[
+  "trip_bookings",
+  "booking_segments",
+  "recommended",
+  "clicked",
+  "detected",
+  "needs_confirmation",
+  "confirmed",
+  "affiliate_click_id",
+  "affiliate_conversion_id",
+  "enable row level security",
+  "user_id = auth.uid()"
+].forEach((needle) =>
+  assert.ok(bookingWalletMigration.toLowerCase().includes(needle.toLowerCase()), `booking wallet migration missing ${needle}`)
+);
+
+const bookingWallet = read("lib/roamly/bookingWallet.ts");
+["isBookingClickOnly", "isConfirmedBooking", "confirmedBookingsForItinerary", "stableBookingKey", "createTripBooking"].forEach((needle) =>
+  assert.ok(bookingWallet.includes(needle), `booking wallet helper missing ${needle}`)
+);
+
+const tripBookingsRoute = read("app/api/trips/[id]/bookings/route.ts");
+assert.ok(tripBookingsRoute.includes("requireUser"), "trip booking wallet route must require authenticated users");
+assert.ok(tripBookingsRoute.includes("createTripBooking") && tripBookingsRoute.includes("listTripBookings"), "trip booking wallet route must use centralized wallet helpers");
 
 const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.ts").includes("ROAMLY_STRIPE_FEATURES_PRICE_ID"));
