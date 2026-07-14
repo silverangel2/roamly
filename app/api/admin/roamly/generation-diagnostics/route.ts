@@ -51,7 +51,7 @@ export async function GET() {
     return NextResponse.json({ ok: true, trips: [], message: "No trips found." });
   }
 
-  const [jobs, layers, queue, itineraries] = await Promise.all([
+  const [jobs, layers, itineraries] = await Promise.all([
     supabase
       .from("roamly_trip_generation_jobs")
       .select("*")
@@ -65,14 +65,8 @@ export async function GET() {
       .order("created_at", { ascending: true })
       .limit(40),
     supabase
-      .from("roamly_generation_queue")
-      .select("*")
-      .eq("trip_id", tripId)
-      .order("created_at", { ascending: false })
-      .limit(20),
-    supabase
       .from("roamly_itineraries")
-      .select("id,trip_id,status,created_at,updated_at")
+      .select("*")
       .eq("trip_id", tripId)
       .order("created_at", { ascending: false })
       .limit(5)
@@ -88,9 +82,6 @@ export async function GET() {
     layers: layers.error
       ? { error: layers.error.message }
       : layers.data?.map((item) => cleanRecord(item as Record<string, unknown>)),
-    queue: queue.error
-      ? { error: queue.error.message }
-      : queue.data?.map((item) => cleanRecord(item as Record<string, unknown>)),
     itineraries: itineraries.error
       ? { error: itineraries.error.message }
       : itineraries.data?.map((item) => cleanRecord(item as Record<string, unknown>))

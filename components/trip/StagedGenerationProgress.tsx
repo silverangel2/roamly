@@ -48,7 +48,7 @@ type GenerationProgress = {
   completedAt: string | null;
 };
 
-type QueueProgress = {
+type Queued = {
   job: {
     status: string;
     next_attempt_at: string | null;
@@ -77,7 +77,7 @@ type QueueProgress = {
 
 type ProgressApiData = {
   progress?: GenerationProgress | null;
-  queue?: QueueProgress | null;
+  queue?: Queued | null;
   message?: string;
   error?: string;
 } | null;
@@ -89,6 +89,7 @@ const STALE_PROGRESS_MS = 2 * 60 * 1000;
 
 const SAVED_STAGE_LABELS = [
   "QueueProgress",
+"Queued",
   "SAVED_QUEUE_MESSAGE",
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
   "Saved stages",
@@ -146,11 +147,11 @@ function visibleStatus(progress: GenerationProgress) {
   return "Your itinerary is being built.";
 }
 
-function advanceProgress(progress: GenerationProgress, queue: QueueProgress | null) {
+function advanceProgress(progress: GenerationProgress, queue: Queued | null) {
   return queueVisibleStatus(queue, progress);
 }
 
-function trackPollMovement(progress: GenerationProgress | null | undefined, queue: QueueProgress | null | undefined) {
+function trackPollMovement(progress: GenerationProgress | null | undefined, queue: Queued | null | undefined) {
   if (!progress) return "Queued";
   return advanceProgress(progress, queue ?? null);
 }
@@ -162,7 +163,7 @@ function readableQueueStage(value: unknown) {
   const raw = String(value || "").trim();
 
   const labels: Record<string, string> = {
-    QueueProgress: "Queued",
+    Queued: "Queued",
     queue_progress: "Queued",
     queued: "Queued",
     running: "Building your itinerary",
@@ -177,7 +178,7 @@ function readableQueueStage(value: unknown) {
   return labels[raw] || labels[raw.toLowerCase()] || SAVED_STAGE_LABELS[0];
 }
 
-function queueVisibleStatus(queue: QueueProgress | null, progress: GenerationProgress) {
+function queueVisibleStatus(queue: Queued | null, progress: GenerationProgress) {
   if (!queue) return visibleStatus(progress);
   if (queue.job.status === "completed" || progress.status === "complete") return "Your itinerary is ready";
   if (queue.job.status === "failed" || progress.status === "failed" || progress.status === "partially_failed") return "Generation needs attention";
@@ -202,7 +203,7 @@ export function StagedGenerationProgress({
 }) {
   const router = useRouter();
   const [progress, setProgress] = useState(initialProgress);
-  const [queueProgress, setQueueProgress] = useState<QueueProgress | null>(null);
+  const [queueProgress, setQueued] = useState<Queued | null>(null);
   const [busyRetryId, setBusyRetryId] = useState("");
   const [message, setMessage] = useState("");
   const inFlight = useRef(false);
@@ -249,9 +250,9 @@ export function StagedGenerationProgress({
     }
   }, [router]);
 
-  const applyQueue = useCallback((next: QueueProgress | null | undefined) => {
+  const applyQueue = useCallback((next: Queued | null | undefined) => {
     if (!next) return;
-    setQueueProgress(next);
+    setQueued(next);
   }, []);
 
   const authHeaders = useCallback((contentType = false) => {
@@ -261,7 +262,7 @@ export function StagedGenerationProgress({
     return headers;
   }, [apiAuthToken]);
 
-  const trackPollMovement = useCallback((next: GenerationProgress | null | undefined, queue: QueueProgress | null | undefined) => {
+  const trackPollMovement = useCallback((next: GenerationProgress | null | undefined, queue: Queued | null | undefined) => {
     if (!next && !queue) return false;
     const activeBatch = next ? currentBatch(next) : null;
     const activeLayer = queue?.layers.find((layer) => layer.status === "running") || queue?.layers.find((layer) => layer.status === "pending") || null;
