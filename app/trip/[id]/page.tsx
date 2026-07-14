@@ -1568,6 +1568,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   emailConfigured={emailConfigured}
                   maskedEmail={maskedEmail}
                   backgroundWorkerConfigured={backgroundWorkerConfigured}
+                  apiAuthToken={apiAuthToken}
                 />
               ) : null}
             </div>
