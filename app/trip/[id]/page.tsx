@@ -1313,7 +1313,37 @@ function TransportComparison({ itinerary, tripId }: { itinerary: RoamlyItinerary
 }
 
 function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string }) {
-  const suggestions = itinerary.booking_suggestions || [];
+  const rawSuggestions = itinerary.booking_suggestions || [];
+  const hasHotelSuggestion = rawSuggestions.some(
+    (suggestion) => bookingCategory(suggestion) === "hotel"
+  );
+  const budget = itinerary.estimated_budget_breakdown;
+  const shouldAddHotelFallback =
+    !hasHotelSuggestion &&
+    trip.budget_includes_hotel !== false &&
+    Boolean(
+      budget?.selected_hotel_estimate_amount ||
+        budget?.hotel_nightly_estimate_amount ||
+        budget?.hotel_estimate_note
+    );
+
+  const hotelFallbackSuggestion = {
+    booking_category: "hotel",
+    category: "hotel",
+    title: "Find hotels for this trip",
+    description:
+      budget?.hotel_estimate_note ||
+      "Compare available stays for your destination and dates.",
+    destination: getTripDestinationLabel(trip),
+    url_type: "affiliate",
+    provider: "Stay22",
+    has_affiliate_url: true
+  } as unknown as RoamlyItinerary["booking_suggestions"][number];
+
+  const suggestions = shouldAddHotelFallback
+    ? [...rawSuggestions, hotelFallbackSuggestion]
+    : rawSuggestions;
+
   const groups = [
     { title: "Flights", categories: ["flight"] },
     { title: "Stays", categories: ["hotel"] },
