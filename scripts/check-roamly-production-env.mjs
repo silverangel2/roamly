@@ -252,6 +252,56 @@ const checks = [
     keys: ["ROAMLY_OUTLOOK_WEBHOOK_SECRET"]
   },
   {
+    label: "Live flight status API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_FLIGHT_STATUS_API_KEY"]
+  },
+  {
+    label: "Live flight status API URL",
+    required: OPTIONAL,
+    keys: ["ROAMLY_FLIGHT_STATUS_API_URL"]
+  },
+  {
+    label: "Train status API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TRAIN_STATUS_API_KEY"]
+  },
+  {
+    label: "Train status API URL",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TRAIN_STATUS_API_URL"]
+  },
+  {
+    label: "Transit status API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TRANSIT_STATUS_API_KEY"]
+  },
+  {
+    label: "Transit status API URL",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TRANSIT_STATUS_API_URL"]
+  },
+  {
+    label: "Weather status API URL",
+    required: OPTIONAL,
+    keys: ["ROAMLY_WEATHER_API_URL"]
+  },
+  {
+    label: "Traffic status API URL",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TRAFFIC_STATUS_API_URL"]
+  },
+  {
+    label: "Attraction status API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_ATTRACTION_STATUS_API_KEY"]
+  },
+  {
+    label: "Attraction status API URL",
+    required: OPTIONAL,
+    keys: ["ROAMLY_ATTRACTION_STATUS_API_URL"]
+  },
+  {
     label: "Generation retry budget",
     required: OPTIONAL,
     keys: ["ROAMLY_GENERATION_RETRY_BUDGET"]

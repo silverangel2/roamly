@@ -49,6 +49,7 @@ function exists(file) {
   "lib/roamly/generationScalability.ts",
   "lib/roamly/providers/adapters.ts",
   "lib/roamly/providers/index.ts",
+  "lib/roamly/liveProviderAdapters.ts",
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
@@ -104,6 +105,7 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_email_connections.sql",
   "supabase/migrations/20260716_roamly_travel_email_filtering.sql",
   "supabase/migrations/20260716_roamly_booking_extraction_matching.sql",
+  "supabase/migrations/20260716_roamly_live_provider_status.sql",
   "app/api/webhooks/gmail/route.ts",
   "app/api/webhooks/outlook/route.ts",
   "lib/roamly/travelEmailFiltering.ts",
@@ -617,6 +619,19 @@ const providerAdapters = read("lib/roamly/providers/adapters.ts");
   "affiliateProviderAdapter",
   "ROAMLY_PROVIDER_ADAPTERS"
 ].forEach((needle) => assert.ok(providerAdapters.includes(needle), `provider adapter missing ${needle}`));
+
+const liveProviderMigration = read("supabase/migrations/20260716_roamly_live_provider_status.sql");
+["live_provider_status_snapshots", "live_flight_status", "airport_gate", "train_status", "local_transit_disruption", "attraction_closure", "enable row level security"].forEach((needle) =>
+  assert.ok(liveProviderMigration.toLowerCase().includes(needle.toLowerCase()), `live provider migration missing ${needle}`)
+);
+
+const liveProviderAdapters = read("lib/roamly/liveProviderAdapters.ts");
+["LiveProviderResult", "liveProviderDiagnostics", "liveFlightStatusAdapter", "airportGateAdapter", "trainStatusAdapter", "weatherStatusAdapter", "trafficDrivingConditionsAdapter", "attractionClosureAdapter", "recordLiveProviderSnapshot", "Roamly will not fabricate live delays"].forEach((needle) =>
+  assert.ok(liveProviderAdapters.includes(needle), `live provider adapter missing ${needle}`)
+);
+
+const providerIndex = read("lib/roamly/providers/index.ts");
+assert.ok(providerIndex.includes("liveProviderAdapters"), "live provider adapters must be exported through provider index");
 
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
 ["roamly_claim_generation_job_by_trip", "roamly_release_generation_layer", "roamly_skip_remaining_generation_layers", "for update skip locked"].forEach((needle) =>
