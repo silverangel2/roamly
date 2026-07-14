@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createTripBooking, stableBookingKey, type TripBookingInput } from "@/lib/roamly/bookingWallet";
+import { reconcileTripBookings } from "@/lib/roamly/brain/bookingReconciliation";
 import type { EmailConnectionRecord } from "@/lib/roamly/emailConnections";
 import type { TravelEmailFilterResult, TravelEmailMetadata } from "@/lib/roamly/travelEmailFiltering";
 
@@ -437,5 +438,13 @@ export async function extractAndMatchTravelEmailBooking(params: {
     matchStatus: "attached",
     matchReasons: [...extraction.matchReasons, "high_confidence_match"]
   });
+  if (bookingId) {
+    await reconcileTripBookings({
+      supabase: writer,
+      userId: params.connection.user_id,
+      tripId: match.trip.id,
+      sourceBookingId: bookingId
+    }).catch(() => null);
+  }
   return { attached: Boolean(bookingId), status: "attached" as const, tripId: match.trip.id, bookingId, extraction };
 }

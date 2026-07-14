@@ -855,6 +855,27 @@ const bookingWallet = read("lib/roamly/bookingWallet.ts");
   "bookingWalletSummary"
 ].forEach((needle) => assert.ok(bookingWallet.includes(needle), `booking wallet helper missing ${needle}`));
 
+const bookingReconciliationMigration = read("supabase/migrations/20260716_roamly_booking_reconciliation.sql");
+["booking_reconciliation_runs", "source_booking_id", "affected_layers", "enable row level security", "user_id = auth.uid()"].forEach((needle) =>
+  assert.ok(bookingReconciliationMigration.toLowerCase().includes(needle.toLowerCase()), `booking reconciliation migration missing ${needle}`)
+);
+
+const bookingReconciliationStage = read("lib/roamly/brain/bookingReconciliation.ts");
+[
+  "BOOKING_RECONCILIATION_STAGE",
+  "booking_reconciliation",
+  "reconcileTripBookings",
+  "reconcileBookingRecords",
+  "stableBookingKey",
+  "affectedLayersForBooking",
+  "transport_decision",
+  "accommodation_decision",
+  "recommendationHistoryPreserved"
+].forEach((needle) => assert.ok(bookingReconciliationStage.includes(needle), `booking reconciliation stage missing ${needle}`));
+
+const brainIndexWithReconciliation = read("lib/roamly/brain/index.ts");
+assert.ok(brainIndexWithReconciliation.includes("bookingReconciliation"), "booking reconciliation stage must be exported from the Brain package");
+
 const compiledBookingWallet = ts.transpileModule(bookingWallet, {
   compilerOptions: {
     module: ts.ModuleKind.CommonJS,
@@ -911,6 +932,10 @@ const bookingWalletRoute = read("app/api/trips/[id]/bookings/route.ts");
 ["requireUser", "listTripBookings", "createTripBooking", "bookingInput", "segmentInput"].forEach((needle) =>
   assert.ok(bookingWalletRoute.includes(needle), `trip booking wallet route missing ${needle}`)
 );
+assert.ok(bookingWalletRoute.includes("reconcileTripBookings"), "manual booking saves must trigger booking reconciliation");
+
+const bookingReconcileRoute = read("app/api/trips/[id]/bookings/reconcile/route.ts");
+assert.ok(bookingReconcileRoute.includes("requireUser") && bookingReconcileRoute.includes("reconcileTripBookings"), "booking reconciliation route must be authenticated");
 
 const bookingWalletPage = read("app/trip/[id]/bookings/page.tsx");
 [
@@ -989,6 +1014,7 @@ const affiliateTracking = read("lib/roamly/affiliateTracking.ts");
   "recordAffiliateConversion",
   "verifyAffiliateWebhookSignature",
   "normalizeAffiliateConversionEvent",
+  "reconcileTripBookings",
   "We found your booking. Add the confirmation details to activate live tracking."
 ].forEach((needle) => assert.ok(affiliateTracking.includes(needle), `affiliate tracking helper missing ${needle}`));
 const compiledAffiliateTracking = ts.transpileModule(affiliateTracking, {
@@ -1003,6 +1029,7 @@ const affiliateTrackingSandbox = {
   require(id) {
     if (id === "@/lib/roamly/bookingLinks") return { safeExternalUrl: (value) => new URL(value).toString() };
     if (id === "@/lib/roamly/bookingWallet") return { createTripBooking: async () => ({ booking: null, error: null }) };
+    if (id === "@/lib/roamly/brain/bookingReconciliation") return { reconcileTripBookings: async () => ({ ok: true, output: {} }) };
     return require(id);
   },
   URL,
@@ -1135,6 +1162,7 @@ const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
   "bestTripMatch",
   "needs_confirmation",
   "high_confidence_match",
+  "reconcileTripBookings",
   "Do not infer missing booking facts"
 ].forEach((needle) => assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`));
 

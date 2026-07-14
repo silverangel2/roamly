@@ -80,7 +80,9 @@ function exists(file) {
   "supabase/migrations/20260715_roamly_trip_feedback.sql",
   "supabase/migrations/20260715_roamly_generation_scalability.sql",
   "supabase/migrations/20260716_roamly_booking_wallet.sql",
+  "supabase/migrations/20260716_roamly_booking_reconciliation.sql",
   "lib/roamly/bookingWallet.ts",
+  "lib/roamly/brain/bookingReconciliation.ts",
   "lib/roamly/affiliateTracking.ts",
   "lib/roamly/emailConnections.ts",
   "lib/roamly/emailProviderAdapters.ts",
@@ -94,6 +96,7 @@ function exists(file) {
   "app/api/integrations/outlook/disconnect/route.ts",
   "app/api/integrations/outlook/sync/route.ts",
   "app/api/trips/[id]/bookings/route.ts",
+  "app/api/trips/[id]/bookings/reconcile/route.ts",
   "app/api/trips/[id]/bookings/extract/route.ts",
   "app/api/roamly/affiliate/click/route.ts",
   "app/api/webhooks/affiliate/route.ts",
@@ -154,9 +157,23 @@ const bookingWallet = read("lib/roamly/bookingWallet.ts");
   assert.ok(bookingWallet.includes(needle), `booking wallet helper missing ${needle}`)
 );
 
+const bookingReconciliationMigration = read("supabase/migrations/20260716_roamly_booking_reconciliation.sql");
+["booking_reconciliation_runs", "source_booking_id", "affected_layers", "enable row level security"].forEach((needle) =>
+  assert.ok(bookingReconciliationMigration.toLowerCase().includes(needle.toLowerCase()), `booking reconciliation migration missing ${needle}`)
+);
+
+const bookingReconciliationStage = read("lib/roamly/brain/bookingReconciliation.ts");
+["BOOKING_RECONCILIATION_STAGE", "booking_reconciliation", "reconcileTripBookings", "stableBookingKey", "transport_decision", "accommodation_decision", "recommendationHistoryPreserved"].forEach((needle) =>
+  assert.ok(bookingReconciliationStage.includes(needle), `booking reconciliation stage missing ${needle}`)
+);
+
 const tripBookingsRoute = read("app/api/trips/[id]/bookings/route.ts");
 assert.ok(tripBookingsRoute.includes("requireUser"), "trip booking wallet route must require authenticated users");
 assert.ok(tripBookingsRoute.includes("createTripBooking") && tripBookingsRoute.includes("listTripBookings"), "trip booking wallet route must use centralized wallet helpers");
+assert.ok(tripBookingsRoute.includes("reconcileTripBookings"), "manual booking saves must trigger booking reconciliation");
+
+const tripBookingsReconcileRoute = read("app/api/trips/[id]/bookings/reconcile/route.ts");
+assert.ok(tripBookingsReconcileRoute.includes("requireUser") && tripBookingsReconcileRoute.includes("reconcileTripBookings"), "booking reconciliation route must be authenticated");
 
 const tripBookingsPage = read("app/trip/[id]/bookings/page.tsx");
 assert.ok(tripBookingsPage.includes("BookingWalletTimeline"), "trip booking wallet page must render the premium wallet timeline");
@@ -189,6 +206,7 @@ const affiliateTracking = read("lib/roamly/affiliateTracking.ts");
 ["createAffiliateClick", "recordAffiliateConversion", "appendAffiliateSubId", "verifyAffiliateWebhookSignature"].forEach((needle) =>
   assert.ok(affiliateTracking.includes(needle), `affiliate tracking helper missing ${needle}`)
 );
+assert.ok(affiliateTracking.includes("reconcileTripBookings"), "affiliate conversions must trigger booking reconciliation");
 
 const bookingRecommendationButton = read("components/trip/BookingRecommendationButton.tsx");
 assert.ok(bookingRecommendationButton.includes("/api/roamly/affiliate/click"), "affiliate CTAs must go through server-side click tracking");
@@ -230,7 +248,7 @@ const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
 );
 
 const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
-["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "stableBookingKey", "createTripBooking", "high_confidence_match"].forEach((needle) =>
+["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "stableBookingKey", "createTripBooking", "high_confidence_match", "reconcileTripBookings"].forEach((needle) =>
   assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`)
 );
 

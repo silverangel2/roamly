@@ -5,3 +5,4 @@ export * from "@/lib/roamly/brain/accommodationStages";
 export * from "@/lib/roamly/brain/dailyItineraryStage";
 export * from "@/lib/roamly/brain/validationStages";
 export * from "@/lib/roamly/brain/finalAssembly";
+export * from "@/lib/roamly/brain/bookingReconciliation";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
 import { createTripBooking, listTripBookings, type BookingSegmentInput, type TripBookingInput } from "@/lib/roamly/bookingWallet";
+import { reconcileTripBookings } from "@/lib/roamly/brain/bookingReconciliation";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -124,5 +125,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
-  return NextResponse.json({ ok: true, booking: result.booking });
+  const reconciliation = result.booking?.id
+    ? await reconcileTripBookings({
+        supabase: auth.supabase,
+        userId: auth.user.id,
+        tripId: id,
+        sourceBookingId: result.booking.id
+      }).catch(() => null)
+    : null;
+
+  return NextResponse.json({ ok: true, booking: result.booking, reconciliation: reconciliation?.ok ? reconciliation.output : null });
 }

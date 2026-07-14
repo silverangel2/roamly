@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { safeExternalUrl } from "@/lib/roamly/bookingLinks";
 import { createTripBooking, type TripBookingInput, type TripBookingType } from "@/lib/roamly/bookingWallet";
+import { reconcileTripBookings } from "@/lib/roamly/brain/bookingReconciliation";
 
 export type AffiliatePartner = "travelpayouts" | "stay22" | "klook" | "amazon" | "airalo" | "other";
 
@@ -270,6 +271,12 @@ export async function recordAffiliateConversion(params: {
     .eq("user_id", click.user_id)
     .maybeSingle();
   if (existingBooking.data) {
+    await reconcileTripBookings({
+      supabase: params.supabase,
+      userId: click.user_id,
+      tripId: click.trip_id,
+      sourceBookingId: String((existingBooking.data as { id: string }).id)
+    }).catch(() => null);
     return {
       conversion,
       booking: existingBooking.data,
@@ -292,6 +299,14 @@ export async function recordAffiliateConversion(params: {
       status
     })
   });
+  if (savedBooking.booking?.id) {
+    await reconcileTripBookings({
+      supabase: params.supabase,
+      userId: click.user_id,
+      tripId: click.trip_id,
+      sourceBookingId: savedBooking.booking.id
+    }).catch(() => null);
+  }
 
   return {
     conversion,
