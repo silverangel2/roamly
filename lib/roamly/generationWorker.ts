@@ -211,6 +211,27 @@ async function finishTerminalJob(params: {
       reason: "STAGED_GENERATION_COMPLETED"
     });
     await completeGenerationJob({ supabase: params.admin, jobId: params.job.id, workerId: params.workerId });
+
+    const completedAt = new Date().toISOString();
+
+    await params.admin
+      .from("roamly_trip_generation_jobs")
+      .update({
+        status: "completed",
+        completed_at: completedAt,
+        updated_at: completedAt
+      })
+      .eq("id", params.job.id);
+
+    await params.admin
+      .from("roamly_trips")
+      .update({
+        status: "completed",
+        itinerary_status: "completed",
+        updated_at: completedAt
+      })
+      .eq("id", params.job.trip_id)
+      .eq("user_id", params.job.user_id);
   } else {
     await scheduleGenerationJobRetry({
       supabase: params.admin,
