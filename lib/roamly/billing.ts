@@ -392,40 +392,162 @@ export async function getUserItineraryEntitlement(supabase: SupabaseClient, user
   return { entitlement: inserted.data as { free_itinerary_used_at: string | null; free_itinerary_trip_id: string | null }, error: null };
 }
 
-export async function hasUsedFreeItinerary(supabase: SupabaseClient, userId: string) {
-  const result = await getUserItineraryEntitlement(supabase, userId);
+export async function hasUsedFreeItinerary(
+  supabase: SupabaseClient,
+  userId: string
+) {
+  const writer =
+    createSupabaseAdminClient() || supabase;
+
+  const { data, error } = await writer
+    .from("roamly_user_entitlements")
+    .select("free_itinerary_used_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      used: false,
+      error: error.message
+    };
+  }
+
+  const usedAt =
+    data?.free_itinerary_used_at
+      ? new Date(
+          data.free_itinerary_used_at
+        )
+      : null;
+
+  if (
+    !usedAt ||
+    Number.isNaN(usedAt.getTime())
+  ) {
+    return {
+      used: false,
+      error: null
+    };
+  }
+
+  const now = new Date();
+
+  const usedToday =
+    usedAt.getUTCFullYear() ===
+      now.getUTCFullYear() &&
+    usedAt.getUTCMonth() ===
+      now.getUTCMonth() &&
+    usedAt.getUTCDate() ===
+      now.getUTCDate();
+
   return {
-    used: Boolean(result.entitlement?.free_itinerary_used_at),
-    entitlement: result.entitlement,
-    error: result.error
+    used: usedToday,
+    error: null
   };
 }
 
-export async function markFreeItineraryUsed(supabase: SupabaseClient, userId: string, tripId: string) {
-  const entitlement = await getUserItineraryEntitlement(supabase, userId);
-  if (entitlement.error) return { ok: false, error: entitlement.error };
+export async function claimFreeItinerary(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string
+) {
+  const writer =
+    createSupabaseAdminClient() || supabase;
+
+  const current =
+    await hasUsedFreeItinerary(
+      writer,
+      userId
+    );
+
+  if (current.error) {
+    return {
+      ok: false as const,
+      error: current.error
+    };
+  }
+
+  if (current.used) {
+    return {
+      ok: false as const,
+      error:
+        "FREE_ITINERARY_ALREADY_USED_TODAY"
+    };
+  }
 
   const now = new Date().toISOString();
-  const writer = createSupabaseAdminClient() || supabase;
-  const { data, error } = await writer
-    .from("roamly_user_entitlements")
-    .update({
-      free_itinerary_used_at: now,
-      free_itinerary_trip_id: tripId
-    })
-    .eq("user_id", userId)
-    .is("free_itinerary_used_at", null)
-    .select("id")
-    .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
-  if (!data) return { ok: false, error: "FREE_ITINERARY_ALREADY_USED" };
+  const { data: existing, error: readError } =
+    await writer
+      .from("roamly_user_entitlements")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+  if (readError) {
+    return {
+      ok: false as const,
+      error: readError.message
+    };
+  }
+
+  const writeResult = existing
+    ? await writer
+        .from("roamly_user_entitlements")
+        .update({
+          free_itinerary_used_at: now,
+          free_itinerary_trip_id:
+            tripId,
+          updated_at: now
+        })
+        .eq("id", existing.id)
+        .select("id")
+        .single()
+    : await writer
+        .from("roamly_user_entitlements")
+        .insert({
+          user_id: userId,
+          free_itinerary_used_at: now,
+          free_itinerary_trip_id:
+            tripId,
+          updated_at: now
+        })
+        .select("id")
+        .single();
+
+  if (writeResult.error) {
+    return {
+      ok: false as const,
+      error:
+        writeResult.error.message
+    };
+  }
+
   await recordAppEvent(writer, {
     userId,
-    eventType: "free_itinerary_used",
-    metadata: { tripId }
+    eventType:
+      "free_itinerary_used",
+    metadata: {
+      tripId,
+      allowance: "daily",
+      timezone: "UTC"
+    }
   });
-  return { ok: true };
+
+  return {
+    ok: true as const
+  };
+}
+
+export async function markFreeItineraryUsed(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string
+) {
+  return claimFreeItinerary(
+    supabase,
+    userId,
+    tripId
+  );
 }
 
 export async function canGenerateFinalItinerary(
@@ -487,7 +609,7 @@ export async function canGenerateFinalItinerary(
     ok: false as const,
     status: 402,
     error: "PAYMENT_REQUIRED",
-    message: "You’ve used your free itinerary. Unlock this trip to generate a new full itinerary.",
+    message: "You’ve used today’s free itinerary. You can generate another free itinerary tomorrow, or unlock this trip now.",
     trip
   };
 }
