@@ -48,6 +48,334 @@ export type LiveFlightStatusRequest = {
   destination?: string | null;
 };
 
+export type NormalizedLiveFlightStatus = {
+  flightNumber: string | null;
+  status:
+    | "scheduled"
+    | "boarding"
+    | "departed"
+    | "landed"
+    | "delayed"
+    | "cancelled"
+    | "diverted"
+    | "unknown";
+  scheduledDeparture: string | null;
+  estimatedDeparture: string | null;
+  actualDeparture: string | null;
+  scheduledArrival: string | null;
+  estimatedArrival: string | null;
+  actualArrival: string | null;
+  departureGate: string | null;
+  departureTerminal: string | null;
+  arrivalGate: string | null;
+  arrivalTerminal: string | null;
+  delayMinutes: number | null;
+  cancelled: boolean;
+};
+
+function providerObject(
+  value: unknown
+): Record<string, unknown> | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value)
+  ) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function nestedProviderObject(
+  value: Record<string, unknown>,
+  keys: string[]
+) {
+  for (const key of keys) {
+    const nested = providerObject(value[key]);
+
+    if (nested) return nested;
+  }
+
+  return null;
+}
+
+function providerText(
+  ...values: unknown[]
+): string | null {
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      value.trim()
+    ) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function providerNumber(
+  ...values: unknown[]
+): number | null {
+  for (const value of values) {
+    if (
+      typeof value === "number" &&
+      Number.isFinite(value)
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value === "string" &&
+      value.trim()
+    ) {
+      const parsed = Number(value);
+
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+function providerTimestamp(
+  ...values: unknown[]
+): string | null {
+  const value = providerText(...values);
+
+  if (!value) return null;
+
+  const parsed = new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString();
+}
+
+function normalizedFlightStatus(
+  value: unknown
+): NormalizedLiveFlightStatus["status"] {
+  const status =
+    providerText(value)?.toLowerCase() || "";
+
+  if (
+    status.includes("cancel")
+  ) {
+    return "cancelled";
+  }
+
+  if (
+    status.includes("delay")
+  ) {
+    return "delayed";
+  }
+
+  if (
+    status.includes("divert")
+  ) {
+    return "diverted";
+  }
+
+  if (
+    status.includes("board")
+  ) {
+    return "boarding";
+  }
+
+  if (
+    status.includes("depart") ||
+    status.includes("airborne") ||
+    status.includes("en route") ||
+    status.includes("en-route")
+  ) {
+    return "departed";
+  }
+
+  if (
+    status.includes("land") ||
+    status.includes("arriv")
+  ) {
+    return "landed";
+  }
+
+  if (
+    status.includes("schedule") ||
+    status.includes("active") ||
+    status.includes("on time") ||
+    status.includes("on-time")
+  ) {
+    return "scheduled";
+  }
+
+  return "unknown";
+}
+
+export function normalizeLiveFlightStatus(
+  raw: unknown
+): NormalizedLiveFlightStatus | null {
+  const root = providerObject(raw);
+
+  if (!root) return null;
+
+  const candidate =
+    nestedProviderObject(root, [
+      "data",
+      "result",
+      "flight",
+      "flight_status"
+    ]) || root;
+
+  const departure =
+    nestedProviderObject(candidate, [
+      "departure",
+      "departure_airport"
+    ]) || {};
+
+  const arrival =
+    nestedProviderObject(candidate, [
+      "arrival",
+      "arrival_airport"
+    ]) || {};
+
+  const status = normalizedFlightStatus(
+    candidate.status ??
+      candidate.flight_status ??
+      candidate.state
+  );
+
+  const scheduledDeparture = providerTimestamp(
+    candidate.scheduledDeparture,
+    candidate.scheduled_departure,
+    departure.scheduled,
+    departure.scheduled_time,
+    departure.scheduledTime
+  );
+
+  const estimatedDeparture = providerTimestamp(
+    candidate.estimatedDeparture,
+    candidate.estimated_departure,
+    departure.estimated,
+    departure.estimated_time,
+    departure.estimatedTime
+  );
+
+  const actualDeparture = providerTimestamp(
+    candidate.actualDeparture,
+    candidate.actual_departure,
+    departure.actual,
+    departure.actual_time,
+    departure.actualTime
+  );
+
+  const scheduledArrival = providerTimestamp(
+    candidate.scheduledArrival,
+    candidate.scheduled_arrival,
+    arrival.scheduled,
+    arrival.scheduled_time,
+    arrival.scheduledTime
+  );
+
+  const estimatedArrival = providerTimestamp(
+    candidate.estimatedArrival,
+    candidate.estimated_arrival,
+    arrival.estimated,
+    arrival.estimated_time,
+    arrival.estimatedTime
+  );
+
+  const actualArrival = providerTimestamp(
+    candidate.actualArrival,
+    candidate.actual_arrival,
+    arrival.actual,
+    arrival.actual_time,
+    arrival.actualTime
+  );
+
+  let delayMinutes = providerNumber(
+    candidate.delayMinutes,
+    candidate.delay_minutes,
+    candidate.delay,
+    departure.delay,
+    departure.delay_minutes
+  );
+
+  if (
+    delayMinutes === null &&
+    scheduledDeparture &&
+    estimatedDeparture
+  ) {
+    delayMinutes = Math.max(
+      0,
+      Math.round(
+        (
+          new Date(estimatedDeparture).getTime() -
+          new Date(scheduledDeparture).getTime()
+        ) / 60000
+      )
+    );
+  }
+
+  const cancelled =
+    status === "cancelled" ||
+    candidate.cancelled === true ||
+    candidate.is_cancelled === true;
+
+  const normalized: NormalizedLiveFlightStatus = {
+    flightNumber: providerText(
+      candidate.flightNumber,
+      candidate.flight_number,
+      candidate.number,
+      candidate.ident
+    ),
+    status: cancelled ? "cancelled" : status,
+    scheduledDeparture,
+    estimatedDeparture,
+    actualDeparture,
+    scheduledArrival,
+    estimatedArrival,
+    actualArrival,
+    departureGate: providerText(
+      candidate.departureGate,
+      candidate.departure_gate,
+      departure.gate
+    ),
+    departureTerminal: providerText(
+      candidate.departureTerminal,
+      candidate.departure_terminal,
+      departure.terminal
+    ),
+    arrivalGate: providerText(
+      candidate.arrivalGate,
+      candidate.arrival_gate,
+      arrival.gate
+    ),
+    arrivalTerminal: providerText(
+      candidate.arrivalTerminal,
+      candidate.arrival_terminal,
+      arrival.terminal
+    ),
+    delayMinutes,
+    cancelled
+  };
+
+  const hasMeaningfulFlightData =
+    normalized.status !== "unknown" ||
+    normalized.scheduledDeparture !== null ||
+    normalized.estimatedDeparture !== null ||
+    normalized.actualDeparture !== null ||
+    normalized.departureGate !== null ||
+    normalized.departureTerminal !== null;
+
+  return hasMeaningfulFlightData
+    ? normalized
+    : null;
+}
+
 export type LocationStatusRequest = {
   latitude?: number | null;
   longitude?: number | null;
@@ -203,23 +531,105 @@ export function liveProviderDiagnostics() {
   }));
 }
 
-export function liveFlightStatusAdapter(request: LiveFlightStatusRequest) {
-  return fetchConfiguredEndpoint(LIVE_ADAPTERS.live_flight_status, {
-    flight_number: clean(request.flightNumber),
-    departure_date: clean(request.departureDate),
-    origin: clean(request.origin),
-    destination: clean(request.destination)
-  });
+export async function liveFlightStatusAdapter(
+  request: LiveFlightStatusRequest
+) {
+  const result = await fetchConfiguredEndpoint(
+    LIVE_ADAPTERS.live_flight_status,
+    {
+      flight_number: clean(request.flightNumber),
+      departure_date: clean(request.departureDate),
+      origin: clean(request.origin),
+      destination: clean(request.destination)
+    }
+  );
+
+  if (result.status !== "available") {
+    return result;
+  }
+
+  const normalized =
+    normalizeLiveFlightStatus(
+      result.raw_result ??
+      result.normalized_result
+    );
+
+  if (!normalized) {
+    return {
+      ...result,
+      status: "degraded" as const,
+      confidence: Math.min(
+        result.confidence,
+        0.25
+      ),
+      normalized_result: null,
+      errors: [
+        ...result.errors,
+        {
+          code: "UNRECOGNIZED_FLIGHT_RESPONSE",
+          message:
+            "The configured provider response could not be safely normalized.",
+          retryable: false
+        }
+      ]
+    };
+  }
+
+  return {
+    ...result,
+    normalized_result: normalized
+  };
 }
 
-export function airportGateAdapter(request: LiveFlightStatusRequest) {
-  return fetchConfiguredEndpoint(LIVE_ADAPTERS.airport_gate, {
-    flight_number: clean(request.flightNumber),
-    departure_date: clean(request.departureDate),
-    origin: clean(request.origin),
-    destination: clean(request.destination),
-    data: "gate_terminal"
-  });
+export async function airportGateAdapter(
+  request: LiveFlightStatusRequest
+) {
+  const result = await fetchConfiguredEndpoint(
+    LIVE_ADAPTERS.airport_gate,
+    {
+      flight_number: clean(request.flightNumber),
+      departure_date: clean(request.departureDate),
+      origin: clean(request.origin),
+      destination: clean(request.destination),
+      data: "gate_terminal"
+    }
+  );
+
+  if (result.status !== "available") {
+    return result;
+  }
+
+  const normalized =
+    normalizeLiveFlightStatus(
+      result.raw_result ??
+      result.normalized_result
+    );
+
+  if (!normalized) {
+    return {
+      ...result,
+      status: "degraded" as const,
+      confidence: Math.min(
+        result.confidence,
+        0.25
+      ),
+      normalized_result: null,
+      errors: [
+        ...result.errors,
+        {
+          code: "UNRECOGNIZED_GATE_RESPONSE",
+          message:
+            "The configured gate response could not be safely normalized.",
+          retryable: false
+        }
+      ]
+    };
+  }
+
+  return {
+    ...result,
+    normalized_result: normalized
+  };
 }
 
 export function trainStatusAdapter(request: { serviceNumber: string; date?: string | null; origin?: string | null; destination?: string | null }) {

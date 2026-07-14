@@ -1021,32 +1021,50 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
     source_type: nullableText(record.screenshot_url) ? "upload" : "manual",
     source_reference: "roamly_bookings",
     title: nullableText(record.title) || "Imported booking",
-    start_time: startDate ? nullableTimestamp(`${startDate}${startTime ? `T${startTime}` : "T00:00:00"}`) : null,
-    end_time: endDate ? nullableTimestamp(`${endDate}${endTime ? `T${endTime}` : "T00:00:00"}`) : null,
+    start_time:
+      nullableText(record.start_at) ||
+      (startDate
+        ? nullableTimestamp(
+            `${startDate}${startTime ? `T${startTime}` : "T00:00:00"}`
+          )
+        : null),
+    end_time:
+      nullableText(record.end_at) ||
+      (endDate
+        ? nullableTimestamp(
+            `${endDate}${endTime ? `T${endTime}` : "T00:00:00"}`
+          )
+        : null),
     timezone: null,
-    origin: null,
-    destination: null,
+    origin: nullableText(record.origin),
+    destination: nullableText(record.destination),
     location_name: nullableText(record.title),
     address: nullableText(record.address),
     coordinates:
       typeof record.latitude === "number" && typeof record.longitude === "number"
         ? { latitude: record.latitude, longitude: record.longitude }
         : null,
-    flight_number: null,
+    flight_number: nullableText(record.flight_number),
     airline_code: null,
-    terminal: null,
-    gate: null,
-    room_type: null,
-    check_in_time: null,
-    check_out_time: null,
+    terminal: nullableText(record.terminal),
+    gate: nullableText(record.gate),
+    room_type: nullableText(record.room_type),
+    check_in_time: nullableText(record.check_in_at),
+    check_out_time: nullableText(record.check_out_at),
     reservation_requirements: {},
     total_price: amountCents == null ? null : Math.round(amountCents) / 100,
     currency: normalizedCurrency(record.currency),
-    taxes_and_fees: null,
-    cancellation_deadline: null,
-    cancellation_terms: null,
+    taxes_and_fees:
+      typeof record.taxes_and_fees === "number"
+        ? record.taxes_and_fees
+        : null,
+    cancellation_deadline:
+      nullableText(record.cancellation_deadline),
+    cancellation_terms:
+      nullableText(record.cancellation_terms),
     traveler_confirmed: confirmedStatuses.has(status),
-    last_synced_at: null,
+    last_synced_at:
+      nullableText(record.last_synced_at),
     created_at: nullableText(record.created_at) || now,
     updated_at: nullableText(record.updated_at) || now,
     booking_segments: []
