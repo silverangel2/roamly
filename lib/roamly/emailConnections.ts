@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordTravelEmailFilterResult } from "@/lib/roamly/travelEmailFiltering";
 
 export const GMAIL_PROVIDER = "gmail" as const;
 export const OUTLOOK_PROVIDER = "outlook" as const;
@@ -42,6 +43,40 @@ type MicrosoftTokenResponse = {
   token_type?: string;
   error?: string;
   error_description?: string;
+};
+
+type GmailHistoryResponse = {
+  historyId?: string;
+  messages?: Array<{ id?: string }>;
+  history?: Array<{
+    messagesAdded?: Array<{ message?: { id?: string } }>;
+    messages?: Array<{ id?: string }>;
+  }>;
+};
+
+type GmailMessageMetadataResponse = {
+  id?: string;
+  snippet?: string;
+  internalDate?: string;
+  payload?: {
+    headers?: Array<{ name?: string; value?: string }>;
+  };
+};
+
+type OutlookDeltaResponse = {
+  value?: Array<{
+    id?: string;
+    subject?: string | null;
+    receivedDateTime?: string | null;
+    from?: {
+      emailAddress?: {
+        name?: string | null;
+        address?: string | null;
+      };
+    };
+  }>;
+  "@odata.deltaLink"?: string;
+  "@odata.nextLink"?: string;
 };
 
 function clean(value?: string | null) {
@@ -229,6 +264,87 @@ export async function getOutlookProfile(accessToken: string) {
 function expiryFromSeconds(seconds?: number) {
   const expiresIn = typeof seconds === "number" && Number.isFinite(seconds) ? seconds : 3600;
   return new Date(Date.now() + Math.max(60, expiresIn - 60) * 1000).toISOString();
+}
+
+function gmailMessageIds(result: GmailHistoryResponse) {
+  const ids = new Set<string>();
+  for (const message of result.messages || []) {
+    if (message.id) ids.add(message.id);
+  }
+  for (const history of result.history || []) {
+    for (const added of history.messagesAdded || []) {
+      if (added.message?.id) ids.add(added.message.id);
+    }
+    for (const message of history.messages || []) {
+      if (message.id) ids.add(message.id);
+    }
+  }
+  return [...ids].slice(0, 10);
+}
+
+function gmailHeader(message: GmailMessageMetadataResponse, name: string) {
+  return clean(message.payload?.headers?.find((header) => clean(header.name).toLowerCase() === name.toLowerCase())?.value);
+}
+
+function gmailReceivedAt(message: GmailMessageMetadataResponse) {
+  const dateHeader = gmailHeader(message, "Date");
+  const parsed = dateHeader ? new Date(dateHeader) : null;
+  if (parsed && !Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  const internalDate = Number(message.internalDate || 0);
+  return internalDate > 0 ? new Date(internalDate).toISOString() : null;
+}
+
+async function recordGmailTravelMessage(params: {
+  supabase: SupabaseClient;
+  connection: EmailConnectionRecord;
+  accessToken: string;
+  messageId: string;
+}) {
+  const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(params.messageId)}`);
+  url.searchParams.set("format", "metadata");
+  ["From", "Subject", "Date"].forEach((header) => url.searchParams.append("metadataHeaders", header));
+  const response = await fetch(url, { headers: { authorization: `Bearer ${params.accessToken}` } });
+  const message = (await response.json().catch(() => ({}))) as GmailMessageMetadataResponse;
+  if (!response.ok) return { saved: false, error: "GMAIL_MESSAGE_METADATA_FAILED" };
+  return recordTravelEmailFilterResult({
+    supabase: params.supabase,
+    connection: params.connection,
+    metadata: {
+      provider: GMAIL_PROVIDER,
+      messageId: message.id || params.messageId,
+      sender: gmailHeader(message, "From"),
+      subject: gmailHeader(message, "Subject"),
+      receivedAt: gmailReceivedAt(message),
+      snippet: message.snippet || null
+    }
+  });
+}
+
+async function recordOutlookTravelMessages(params: {
+  supabase: SupabaseClient;
+  connection: EmailConnectionRecord;
+  messages: OutlookDeltaResponse["value"];
+}) {
+  const results = [];
+  for (const message of params.messages || []) {
+    if (!message.id) continue;
+    const address = clean(message.from?.emailAddress?.address);
+    const name = clean(message.from?.emailAddress?.name);
+    results.push(
+      await recordTravelEmailFilterResult({
+        supabase: params.supabase,
+        connection: params.connection,
+        metadata: {
+          provider: OUTLOOK_PROVIDER,
+          messageId: message.id,
+          sender: address ? `${name ? `${name} ` : ""}<${address}>` : name,
+          subject: message.subject || "",
+          receivedAt: message.receivedDateTime || null
+        }
+      })
+    );
+  }
+  return results;
 }
 
 export async function upsertGmailConnection(params: {
@@ -511,8 +627,12 @@ export async function syncGmailConnection(params: {
     url.searchParams.set("maxResults", "10");
   }
   const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
-  const result = (await response.json().catch(() => ({}))) as { historyId?: string; messages?: unknown[]; history?: unknown[] };
+  const result = (await response.json().catch(() => ({}))) as GmailHistoryResponse;
   if (!response.ok) return { ok: false, error: "GMAIL_SYNC_FAILED", processed: 0 };
+  const messageIds = gmailMessageIds(result);
+  for (const messageId of messageIds) {
+    await recordGmailTravelMessage({ supabase: writer, connection, accessToken, messageId }).catch(() => null);
+  }
   const nextCursor = result.historyId || historyId;
   await writer.from("email_sync_cursors").upsert(
     {
@@ -531,7 +651,7 @@ export async function syncGmailConnection(params: {
   return {
     ok: true,
     error: null,
-    processed: Array.isArray(result.history) ? result.history.length : Array.isArray(result.messages) ? result.messages.length : 0
+    processed: messageIds.length || (Array.isArray(result.history) ? result.history.length : 0)
   };
 }
 
@@ -564,12 +684,9 @@ export async function syncOutlookConnection(params: {
     : "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$select=id,subject,from,receivedDateTime&$top=10";
 
   const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
-  const result = (await response.json().catch(() => ({}))) as {
-    value?: unknown[];
-    "@odata.deltaLink"?: string;
-    "@odata.nextLink"?: string;
-  };
+  const result = (await response.json().catch(() => ({}))) as OutlookDeltaResponse;
   if (!response.ok) return { ok: false, error: "OUTLOOK_SYNC_FAILED", processed: 0 };
+  await recordOutlookTravelMessages({ supabase: writer, connection, messages: result.value }).catch(() => null);
   const nextCursor = result["@odata.deltaLink"] || result["@odata.nextLink"] || deltaCursor || null;
   await writer.from("email_sync_cursors").upsert(
     {

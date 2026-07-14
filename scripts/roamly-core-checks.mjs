@@ -1050,6 +1050,21 @@ const emailConnectionsMigration = read("supabase/migrations/20260716_roamly_emai
   assert.ok(emailConnectionsMigration.toLowerCase().includes(needle.toLowerCase()), `email connections migration missing ${needle}`)
 );
 
+const travelEmailFilteringMigration = read("supabase/migrations/20260716_roamly_travel_email_filtering.sql");
+[
+  "travel_email_messages",
+  "provider_message_id",
+  "extracted_booking_facts",
+  "parser_confidence",
+  "processing_result",
+  "raw_body_retained boolean not null default false",
+  "travel_email_messages_no_raw_body_check",
+  "enable row level security",
+  "user_id = auth.uid()"
+].forEach((needle) =>
+  assert.ok(travelEmailFilteringMigration.toLowerCase().includes(needle.toLowerCase()), `travel email filtering migration missing ${needle}`)
+);
+
 const emailConnections = read("lib/roamly/emailConnections.ts");
 [
   "GMAIL_READONLY_SCOPE",
@@ -1065,12 +1080,31 @@ const emailConnections = read("lib/roamly/emailConnections.ts");
   "renewOutlookSubscription",
   "syncGmailConnection",
   "syncOutlookConnection",
+  "recordTravelEmailFilterResult",
+  "format\", \"metadata",
+  "metadataHeaders",
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta",
   "q\", \"newer_than:30d"
 ].forEach((needle) => assert.ok(emailConnections.includes(needle), `email connections helper missing ${needle}`));
 assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must not request write mailbox scopes");
 assert.ok(!emailConnections.includes("Mail.ReadWrite"), "Outlook integration must not request write mailbox scopes");
+assert.ok(!emailConnections.includes("format\", \"full"), "Gmail sync must not fetch full message bodies during filtering");
+
+const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
+[
+  "KNOWN_TRAVEL_DOMAINS",
+  "TRAVEL_SUBJECT_PATTERNS",
+  "BOOKING_REFERENCE_PATTERN",
+  "FLIGHT_NUMBER_PATTERN",
+  "filterTravelEmail",
+  "recordTravelEmailFilterResult",
+  "bodyStored: false",
+  "raw_body_retained: false"
+].forEach((needle) => assert.ok(travelEmailFiltering.includes(needle), `travel email filtering helper missing ${needle}`));
+["full_body", "body_html", "raw_email_body"].forEach((needle) =>
+  assert.ok(!travelEmailFilteringMigration.includes(needle), `travel email filtering must not store ${needle}`)
+);
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsIncrementalSync", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>
