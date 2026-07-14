@@ -353,6 +353,30 @@ const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
   "buildAccommodationIntelligence"
 ].forEach((needle) => assert.ok(accommodationStages.includes(needle), `accommodation Brain stage helper missing ${needle}`));
 
+const dailyItineraryStage = read("lib/roamly/brain/dailyItineraryStage.ts");
+[
+  "generateDailyItineraryBatch",
+  "buildDailyItineraryBatches",
+  "validateDailyItineraryBatch",
+  "normalizeDailyItineraryDay",
+  "response_format",
+  "OPENAI_API_KEY_MISSING",
+  "verified_live",
+  "recently_retrieved",
+  "estimated",
+  "unknown",
+  "reservation_requirements",
+  "opening_hour_considerations",
+  "weather_considerations",
+  "accessibility_considerations",
+  "backup_plan",
+  "optional_flexible_activity",
+  "Use only supplied evidence"
+].forEach((needle) => assert.ok(dailyItineraryStage.includes(needle), `daily itinerary stage missing ${needle}`));
+
+const brainIndex = read("lib/roamly/brain/index.ts");
+assert.ok(brainIndex.includes("dailyItineraryStage"), "Brain index must export the daily itinerary stage");
+
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
   "roamly_trip_generation_jobs",

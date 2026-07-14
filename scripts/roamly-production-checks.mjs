@@ -51,6 +51,7 @@ function exists(file) {
   "lib/roamly/brain/index.ts",
   "lib/roamly/brain/transportStages.ts",
   "lib/roamly/brain/accommodationStages.ts",
+  "lib/roamly/brain/dailyItineraryStage.ts",
   "lib/roamly/travelerMemory.ts",
   "lib/roamly/transportationIntelligence.ts",
   "lib/roamly/accommodationIntelligence.ts",
@@ -195,6 +196,27 @@ const accommodationIntelligence = read("lib/roamly/accommodationIntelligence.ts"
 
 const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
 assert.ok(accommodationStages.includes("buildAccommodationDecisionLayer"), "Brain must expose an accommodation decision layer helper");
+
+const dailyItineraryStage = read("lib/roamly/brain/dailyItineraryStage.ts");
+[
+  "generateDailyItineraryBatch",
+  "buildDailyItineraryBatches",
+  "validateDailyItineraryBatch",
+  "normalizeDailyItineraryDay",
+  "response_format",
+  "OPENAI_API_KEY_MISSING",
+  "verified_live",
+  "recently_retrieved",
+  "estimated",
+  "unknown",
+  "reservation_requirements",
+  "opening_hour_considerations",
+  "weather_considerations",
+  "accessibility_considerations",
+  "backup_plan",
+  "optional_flexible_activity",
+  "Use only supplied evidence"
+].forEach((needle) => assert.ok(dailyItineraryStage.includes(needle), `daily itinerary stage missing ${needle}`));
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
