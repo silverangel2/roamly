@@ -729,7 +729,7 @@ function BudgetTable({
     <div className="grid gap-3">
       {crossBorderBadges.length ? (
         <div className="flex flex-wrap gap-2 rounded-[1.15rem] border border-sun/30 bg-sun/10 px-4 py-3">
-          {crossBorderBadges.map((label) => (
+          {crossBorderBadges.filter(Boolean).map((label) => (
             <span key={label} className="rounded-full border border-sun/30 bg-white/75 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">
               {label}
             </span>
@@ -1193,7 +1193,7 @@ function BookingRecommendationCard({
           <div className="flex flex-wrap gap-2">
             {[bookingStatusLabel(suggestion.booking_status), confidence, suggestion.free_or_paid && suggestion.free_or_paid !== "unknown" ? suggestion.free_or_paid : ""]
               .filter((label): label is string => Boolean(label))
-              .map((label) => (
+              .filter(Boolean).map((label) => (
                 <span key={label} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
                   {label}
                 </span>
@@ -1676,7 +1676,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Badge tone={itineraryLocked ? "ocean" : paidForItinerary || freeAvailable ? "sun" : "coral"}>
-                  {itineraryLocked ? "Locked itinerary" : paidForItinerary ? "Ready to generate" : freeAvailable ? "Free itinerary available" : "Payment required"}
+                  {itineraryLocked ? "Locked itinerary" : paidForItinerary ? generationProgress ? "" : "Ready to generate" : freeAvailable ? "Free itinerary available" : "Payment required"}
                 </Badge>
                 {access.hasQaAccess ? <Badge tone="sun">Tester access</Badge> : null}
                 {trackingUnlocked ? <Badge tone="ocean">Live Companion</Badge> : null}

@@ -130,8 +130,10 @@ export function TripAuthSessionCheck({ tripId, nextPath }: TripAuthSessionCheckP
 
       if (cancelled) return;
 
-      setAuthState("unauthenticated");
-      redirectToLoginOnce();
+      setMessage("Restoring your login session...");
+      window.setTimeout(() => {
+        if (!cancelled) redirectToLoginOnce();
+      }, 2500);
     }
 
     if (!started.current) {

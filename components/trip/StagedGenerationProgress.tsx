@@ -158,6 +158,25 @@ function trackPollMovement(progress: GenerationProgress | null | undefined, queu
 // Retained for Roamly core polling checks.
 void trackPollMovement;
 
+function readableQueueStage(value: unknown) {
+  const raw = String(value || "").trim();
+
+  const labels: Record<string, string> = {
+    QueueProgress: "Queued",
+    queue_progress: "Queued",
+    queued: "Queued",
+    running: "Building your itinerary",
+    processing: "Building your itinerary",
+    generating: "Building your itinerary",
+    generating_day: "Creating your days",
+    complete: "Completed",
+    completed: "Completed",
+    failed: "Needs attention"
+  };
+
+  return labels[raw] || labels[raw.toLowerCase()] || SAVED_STAGE_LABELS[0];
+}
+
 function queueVisibleStatus(queue: QueueProgress | null, progress: GenerationProgress) {
   if (!queue) return visibleStatus(progress);
   if (queue.job.status === "completed" || progress.status === "complete") return "Your itinerary is ready";
@@ -361,6 +380,8 @@ export function StagedGenerationProgress({
     !isTerminalStatus(progress.status) &&
     Date.now() - lastProgressMovementAt > STALE_PROGRESS_MS;
 
+  const readableStageLabel = readableQueueStage(visibleStatus);
+
   return (
     <section
       role="status"
@@ -407,15 +428,7 @@ export function StagedGenerationProgress({
             {(queueProgress?.completedLayerCount ?? 0) > 0 ||
             progress.status === "complete" ? (
               <p className="mt-2 text-xs font-bold text-slate-500">
-                Saved stages ·{" "}
-                {progress.status === "complete"
-                  ? SAVED_STAGE_LABELS[SAVED_STAGE_LABELS.length - 1]
-                  : SAVED_STAGE_LABELS[
-                      Math.min(
-                        (queueProgress?.completedLayerCount ?? 1) - 1,
-                        SAVED_STAGE_LABELS.length - 2
-                      )
-                    ]}
+                Saved stage · {readableStageLabel}
               </p>
             ) : null}
           </div>
