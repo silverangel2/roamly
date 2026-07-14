@@ -196,7 +196,7 @@ export class StagedGenerationError extends Error {
 }
 
 const OUTLINE_TIMEOUT_MS = Number(process.env.OPENAI_OUTLINE_TIMEOUT_MS || 25_000);
-const DAY_TIMEOUT_MS = Number(process.env.OPENAI_DAY_TIMEOUT_MS || 35_000);
+const DAY_TIMEOUT_MS = Number(process.env.OPENAI_DAY_TIMEOUT_MS || 60_000);
 const OUTLINE_MAX_TOKENS = Number(process.env.OPENAI_OUTLINE_MAX_TOKENS || 1200);
 const DAY_MAX_TOKENS = Number(process.env.OPENAI_DAY_BATCH_MAX_TOKENS || 3200);
 const BATCH_ATTEMPT_LIMIT = Number(process.env.ROAMLY_STAGED_BATCH_ATTEMPT_LIMIT || 2);
@@ -330,20 +330,10 @@ function buildInitialDayStates(payload: TripPlannerPayload, totalDayCount: numbe
 }
 
 function plannedDayBatches(totalDayCount: number) {
-  if (totalDayCount <= 3) return [[1, 2, 3].filter((day) => day <= totalDayCount)];
-  if (totalDayCount === 4) return [[1, 2], [3, 4]];
-  if (totalDayCount === 5) return [[1, 2, 3], [4, 5]];
-  if (totalDayCount === 6) return [[1, 2, 3], [4, 5, 6]];
-  if (totalDayCount === 7) return [[1, 2, 3], [4, 5], [6, 7]];
-  if (totalDayCount === 8) return [[1, 2, 3], [4, 5, 6], [7, 8]];
-  if (totalDayCount === 9) return [[1, 2, 3], [4, 5, 6], [7, 8, 9]];
-  if (totalDayCount === 10) return [[1, 2, 3], [4, 5, 6], [7, 8], [9, 10]];
-
-  const batches: number[][] = [];
-  for (let day = 1; day <= totalDayCount; day += 3) {
-    batches.push(Array.from({ length: Math.min(3, totalDayCount - day + 1) }, (_, index) => day + index));
-  }
-  return batches;
+  return Array.from(
+    { length: totalDayCount },
+    (_, index) => [index + 1]
+  );
 }
 
 function buildInitialBatchStates(totalDayCount: number) {
@@ -1714,8 +1704,8 @@ export async function advanceStagedItineraryGeneration(params: {
       : {};
     const updatedState = releaseLease(appendStageRun({
       ...state,
-      status: exhausted && failedBatchState ? "generating_day" : state.status,
-      currentStage: failedBatchState ? "generating_day" : "failed",
+      status: exhausted ? "failed" : state.status,
+      currentStage: exhausted ? "failed" : "generating_day",
       batches: failedBatchState
         ? {
             ...state.batches,
