@@ -979,7 +979,21 @@ const bookingWalletSandbox = {
   exports: {},
   module: { exports: {} },
   require(id) {
-    if (id === "@/lib/roamly/events") return { recordTripEvent: async () => ({ ok: true }) };
+    if (id === "@/lib/roamly/events") {
+      return {
+        recordTripEvent: async () => ({ ok: true })
+      };
+    }
+
+    if (id === "@/lib/roamly/companionOrchestrator") {
+      return {
+        processCompanionBookingChange: async () => ({
+          ok: true,
+          test: true
+        })
+      };
+    }
+
     return require(id);
   }
 };

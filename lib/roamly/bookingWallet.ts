@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 
 export const TRIP_BOOKING_TYPES = [
   "flight",
@@ -505,46 +506,379 @@ export async function listTripBookings(params: {
   };
 }
 
+
+type MeaningfulBookingChange = {
+  eventType:
+    | "flight_delayed"
+    | "flight_cancelled"
+    | "flight_time_changed"
+    | "hotel_changed"
+    | "booking_confirmed"
+    | "booking_cancelled"
+    | "booking_updated";
+  severity: "minor" | "routine" | "important" | "critical";
+  title: string;
+  summary: string;
+  requiresUserApproval: boolean;
+};
+
+function textValue(value: unknown) {
+  return typeof value === "string" && value.trim()
+    ? value.trim()
+    : null;
+}
+
+function activeCanonicalStatus(value: unknown) {
+  return ["booked", "paid", "reserved"].includes(
+    textValue(value) || ""
+  );
+}
+
+function timestampValue(value: unknown) {
+  const text = textValue(value);
+  if (!text) return null;
+
+  const timestamp = new Date(text).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function detectMeaningfulBookingChange(
+  previous: Record<string, unknown> | null,
+  incoming: Record<string, unknown>
+): MeaningfulBookingChange | null {
+  const title =
+    textValue(incoming.title) ||
+    textValue(previous?.title) ||
+    "Travel booking";
+
+  const type =
+    textValue(incoming.booking_type) ||
+    textValue(previous?.booking_type) ||
+    "other";
+
+  const previousStatus =
+    textValue(previous?.booking_status) || "unknown";
+
+  const incomingStatus =
+    textValue(incoming.booking_status) || "unknown";
+
+  if (!previous) {
+    if (activeCanonicalStatus(incomingStatus)) {
+      return {
+        eventType: "booking_confirmed",
+        severity: "routine",
+        title: `${title} is confirmed`,
+        summary:
+          "Roamly added the confirmed booking and checked it against the current itinerary.",
+        requiresUserApproval: false
+      };
+    }
+
+    return null;
+  }
+
+  if (
+    previousStatus !== "cancelled" &&
+    incomingStatus === "cancelled"
+  ) {
+    return {
+      eventType:
+        type === "flight"
+          ? "flight_cancelled"
+          : "booking_cancelled",
+      severity: "critical",
+      title: `${title} was cancelled`,
+      summary:
+        "Roamly detected a cancellation and checked the itinerary for affected plans.",
+      requiresUserApproval: true
+    };
+  }
+
+  if (
+    !activeCanonicalStatus(previousStatus) &&
+    activeCanonicalStatus(incomingStatus)
+  ) {
+    return {
+      eventType: "booking_confirmed",
+      severity: "routine",
+      title: `${title} is confirmed`,
+      summary:
+        "Roamly detected that this booking is now confirmed and checked it against the itinerary.",
+      requiresUserApproval: false
+    };
+  }
+
+  const previousStart = timestampValue(previous.start_at);
+  const incomingStart = timestampValue(incoming.start_at);
+
+  if (
+    type === "flight" &&
+    previousStart !== null &&
+    incomingStart !== null &&
+    previousStart !== incomingStart
+  ) {
+    const delayMinutes = Math.round(
+      (incomingStart - previousStart) / 60000
+    );
+
+    if (delayMinutes >= 15) {
+      return {
+        eventType: "flight_delayed",
+        severity:
+          delayMinutes >= 180 ? "critical" : "important",
+        title: `${title} is delayed`,
+        summary:
+          `Roamly detected a ${delayMinutes}-minute flight delay and checked the itinerary for timing conflicts.`,
+        requiresUserApproval: delayMinutes >= 60
+      };
+    }
+
+    return {
+      eventType: "flight_time_changed",
+      severity: "important",
+      title: `${title} schedule changed`,
+      summary:
+        "Roamly detected a flight-time change and checked the itinerary for timing conflicts.",
+      requiresUserApproval: true
+    };
+  }
+
+  if (type === "hotel") {
+    const hotelFields = [
+      "start_at",
+      "end_at",
+      "check_in_at",
+      "check_out_at"
+    ];
+
+    const changed = hotelFields.some(
+      (field) =>
+        textValue(previous[field]) !==
+        textValue(incoming[field])
+    );
+
+    if (changed) {
+      return {
+        eventType: "hotel_changed",
+        severity: "important",
+        title: `${title} dates changed`,
+        summary:
+          "Roamly detected a hotel date or check-in change and checked the itinerary for affected plans.",
+        requiresUserApproval: true
+      };
+    }
+  }
+
+  const identityChanged =
+    textValue(previous.provider_name) !==
+      textValue(incoming.provider_name) ||
+    textValue(previous.confirmation_number) !==
+      textValue(incoming.confirmation_number);
+
+  if (identityChanged) {
+    return {
+      eventType: "booking_updated",
+      severity: "routine",
+      title: `${title} was updated`,
+      summary:
+        "Roamly detected a provider or confirmation update.",
+      requiresUserApproval: false
+    };
+  }
+
+  return null;
+}
+
+async function findMatchingCanonicalBooking(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  booking: Record<string, unknown>;
+}) {
+  const base = () =>
+    params.supabase
+      .from("roamly_bookings")
+      .select("*")
+      .eq("user_id", params.userId)
+      .eq("trip_id", params.tripId);
+
+  const providerBookingId = textValue(
+    params.booking.provider_booking_id
+  );
+
+  if (providerBookingId) {
+    const result = await base()
+      .eq("provider_booking_id", providerBookingId)
+      .maybeSingle();
+
+    if (result.error) {
+      return {
+        booking: null,
+        error: result.error.message
+      };
+    }
+
+    if (result.data) {
+      return {
+        booking: result.data as Record<string, unknown>,
+        error: null
+      };
+    }
+  }
+
+  const confirmationNumber = textValue(
+    params.booking.confirmation_number
+  );
+
+  if (confirmationNumber) {
+    const result = await base()
+      .eq("confirmation_number", confirmationNumber)
+      .maybeSingle();
+
+    if (result.error) {
+      return {
+        booking: null,
+        error: result.error.message
+      };
+    }
+
+    if (result.data) {
+      return {
+        booking: result.data as Record<string, unknown>,
+        error: null
+      };
+    }
+  }
+
+  const title = textValue(params.booking.title);
+  const startAt = textValue(params.booking.start_at);
+
+  if (title && startAt) {
+    const result = await base()
+      .eq("title", title)
+      .eq("start_at", startAt)
+      .maybeSingle();
+
+    if (result.error) {
+      return {
+        booking: null,
+        error: result.error.message
+      };
+    }
+
+    if (result.data) {
+      return {
+        booking: result.data as Record<string, unknown>,
+        error: null
+      };
+    }
+  }
+
+  return {
+    booking: null,
+    error: null
+  };
+}
+
 export async function createTripBooking(params: {
   supabase: SupabaseClient;
   userId: string;
   tripId: string;
   input: TripBookingInput;
 }) {
-  const ownership = await assertTripOwnership(params.supabase, params.userId, params.tripId);
-  if (!ownership.ok) return { booking: null, error: ownership.error };
+  const ownership = await assertTripOwnership(
+    params.supabase,
+    params.userId,
+    params.tripId
+  );
 
-  const booking = normalizeTripBookingInput(params.input);
-  const { data, error } = await params.supabase
-    .from("roamly_bookings")
-    .insert({
-      ...booking,
-      user_id: params.userId,
-      trip_id: params.tripId
-    })
-    .select("*")
-    .single();
-
-  if (error) {
+  if (!ownership.ok) {
     return {
       booking: null,
-      error: error.message
+      error: ownership.error
     };
   }
 
-  const createdBooking =
-    canonicalRowToTripBookingRecord(
-      data as Record<string, unknown>
-    );
+  const booking = normalizeTripBookingInput(params.input);
 
-  const segments = normalizeBookingSegments(params.input.segments);
+  const match = await findMatchingCanonicalBooking({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId,
+    booking
+  });
+
+  if (match.error) {
+    return {
+      booking: null,
+      error: match.error
+    };
+  }
+
+  const previousBooking = match.booking;
+
+  const writeResult = previousBooking
+    ? await params.supabase
+        .from("roamly_bookings")
+        .update({
+          ...booking,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", String(previousBooking.id))
+        .eq("user_id", params.userId)
+        .select("*")
+        .single()
+    : await params.supabase
+        .from("roamly_bookings")
+        .insert({
+          ...booking,
+          user_id: params.userId,
+          trip_id: params.tripId
+        })
+        .select("*")
+        .single();
+
+  if (writeResult.error) {
+    return {
+      booking: null,
+      error: writeResult.error.message
+    };
+  }
+
+  const savedRow =
+    writeResult.data as unknown as Record<string, unknown>;
+
+  const createdBooking =
+    canonicalRowToTripBookingRecord(savedRow);
+
+  const segments = normalizeBookingSegments(
+    params.input.segments
+  );
+
+  if (previousBooking) {
+    const deleteSegments = await params.supabase
+      .from("booking_segments")
+      .delete()
+      .eq("booking_id", String(savedRow.id));
+
+    if (deleteSegments.error) {
+      return {
+        booking: createdBooking,
+        error: deleteSegments.error.message
+      };
+    }
+  }
+
   if (segments.length) {
-    const segmentInsert = await params.supabase.from("booking_segments").insert(
-      segments.map((segment) => ({
-        ...segment,
-        booking_id: data.id
-      }))
-    );
+    const segmentInsert = await params.supabase
+      .from("booking_segments")
+      .insert(
+        segments.map((segment) => ({
+          ...segment,
+          booking_id: savedRow.id
+        }))
+      );
+
     if (segmentInsert.error) {
       return {
         booking: createdBooking,
@@ -553,22 +887,81 @@ export async function createTripBooking(params: {
     }
   }
 
+  const change = detectMeaningfulBookingChange(
+    previousBooking,
+    savedRow
+  );
+
+  let companionWorkflow = null;
+
+  if (change) {
+    companionWorkflow =
+      await processCompanionBookingChange({
+        supabase: params.supabase,
+        userId: params.userId,
+        tripId: params.tripId,
+        bookingId: String(savedRow.id),
+        eventType: change.eventType,
+        severity: change.severity,
+        title: change.title,
+        summary: change.summary,
+        oldValue: previousBooking || {},
+        newValue: savedRow,
+        source:
+          textValue(savedRow.source_type) ||
+          "booking_wallet",
+        effectiveAt:
+          textValue(savedRow.updated_at) ||
+          new Date().toISOString(),
+        affectedLayers: [
+          "booking_wallet",
+          "itinerary",
+          "live_companion"
+        ],
+        requiresUserApproval:
+          change.requiresUserApproval,
+        fingerprintParts: [
+          textValue(previousBooking?.updated_at),
+          textValue(savedRow.updated_at),
+          change.eventType
+        ]
+      }).catch((error) => ({
+        ok: false as const,
+        stage: "orchestrator_exception" as const,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Companion orchestration failed."
+      }));
+  }
+
   await recordTripEvent(params.supabase, {
     userId: params.userId,
     tripId: params.tripId,
     eventType: "booking_wallet_updated",
-    eventTitle: booking.traveler_confirmed ? "Booking confirmed" : "Booking added",
-    eventBody: `${booking.title} was added to the Booking Wallet.`,
+    eventTitle: previousBooking
+      ? "Booking updated"
+      : booking.traveler_confirmed
+        ? "Booking confirmed"
+        : "Booking added",
+    eventBody: previousBooking
+      ? `${booking.title} was updated in the Booking Wallet.`
+      : `${booking.title} was added to the Booking Wallet.`,
     metadata: {
-      bookingId: data.id,
+      bookingId: savedRow.id,
       bookingType: booking.booking_type,
       bookingStatus: booking.booking_status,
-      sourceType: booking.source_type
+      sourceType: booking.source_type,
+      meaningfulChange: change?.eventType || null,
+      companionTriggered: Boolean(change)
     }
   });
 
   return {
     booking: createdBooking,
+    companionWorkflow,
+    meaningfulChange: change?.eventType || null,
+    created: !previousBooking,
     error: null
   };
 }
