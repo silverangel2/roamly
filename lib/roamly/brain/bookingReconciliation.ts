@@ -140,7 +140,7 @@ async function updatePrimaryFromDuplicates(params: {
 }) {
   const update = params.duplicates.reduce((acc, duplicate) => ({ ...acc, ...mergeMissingFields(params.primary, duplicate) }), {});
   if (Object.keys(update).length === 0) return false;
-  await params.supabase.from("trip_bookings").update({ ...update, last_synced_at: new Date().toISOString() }).eq("id", params.primary.id);
+  await params.supabase.from("roamly_bookings").update({ ...update, last_synced_at: new Date().toISOString() }).eq("id", params.primary.id);
   return true;
 }
 
@@ -192,7 +192,7 @@ export async function reconcileTripBookings(params: {
   if (!trip) return { ok: false as const, error: "TRIP_NOT_FOUND" };
 
   const { data, error } = await writer
-    .from("trip_bookings")
+    .from("roamly_bookings")
     .select("id,booking_type,booking_status,provider,provider_booking_id,confirmation_code,recommendation_id,source_type,source_reference,title,start_time,origin,destination,flight_number,traveler_confirmed,updated_at")
     .eq("user_id", params.userId)
     .eq("trip_id", params.tripId);
