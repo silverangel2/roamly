@@ -227,6 +227,12 @@ export default async function AdminSystemPage() {
     },
     {
       group: "AI",
+      label: "Generation cron secret",
+      status: requiredStatus(Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET)),
+      detail: "Protects the itinerary generation worker and scheduled fallback."
+    },
+    {
+      group: "AI",
       label: "OpenAI model",
       status: process.env.OPENAI_MODEL ? "Ready" : "Optional",
       detail: "Falls back to the default itinerary model when unset."

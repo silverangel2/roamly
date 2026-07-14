@@ -109,6 +109,7 @@ export async function GET() {
         stripeCompleteTripConfigured: Boolean(process.env.ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID || process.env.ROAMLY_STRIPE_TRIP_BUNDLE_PRICE_ID),
         openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
         notificationCronConfigured: Boolean(process.env.ROAMLY_NOTIFICATION_CRON_SECRET),
+        generationCronConfigured: Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET),
         supportEmailConfigured: Boolean(process.env.ROAMLY_SUPPORT_EMAIL),
         fromEmailConfigured: Boolean(process.env.ROAMLY_FROM_EMAIL),
         socialCronConfigured: Boolean(process.env.ROAMLY_SOCIAL_CRON_SECRET)

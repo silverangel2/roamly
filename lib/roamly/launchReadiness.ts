@@ -102,6 +102,12 @@ export function getRoamlyLaunchReadiness(access?: RoamlyAccess): RoamlyReadiness
       detail: "Required for itinerary generation and AI social draft generation."
     },
     {
+      group: "AI",
+      label: "Generation cron secret configured",
+      status: requiredStatus(Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET)),
+      detail: "Protects the itinerary generation worker and Vercel scheduled fallback."
+    },
+    {
       group: "Access",
       label: "Admin/tester emails configured",
       status: requiredStatus(adminEmailsConfigured && testerEmailsConfigured),
