@@ -1767,7 +1767,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </div>
             </div>
           </>
-        ) : (
+        ) : generationPanelVisible ? null : (
           <>
             <section className="mt-7 rounded-[1.15rem] border border-[#e8dfd0] bg-white p-5 shadow-[0_16px_42px_rgba(16,32,51,0.07)]">
               {preview ? (
