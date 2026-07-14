@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { stableBookingKey, type TripBookingRecord } from "@/lib/roamly/bookingWallet";
 import { ROAMLY_BRAIN_VERSION, type BrainStageDefinition, type RoamlyBrainStageType } from "@/lib/roamly/brain/stages";
+import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 
 export const BOOKING_RECONCILIATION_STAGE = {
   type: "booking_reconciliation",
@@ -220,5 +221,88 @@ export async function reconcileTripBookings(params: {
     affected_layers: output.affectedLayers
   });
 
-  return { ok: true as const, output };
+  let companionWorkflow = null;
+
+  if (params.sourceBookingId) {
+    const sourceBooking = bookings.find(
+      (booking) => booking.id === params.sourceBookingId
+    );
+
+    if (sourceBooking) {
+      const bookingLabel =
+        sourceBooking.title ||
+        sourceBooking.flight_number ||
+        sourceBooking.provider ||
+        "Travel booking";
+
+      const bookingStatus =
+        sourceBooking.booking_status || "updated";
+
+      companionWorkflow = await processCompanionBookingChange({
+        supabase: writer,
+        userId: params.userId,
+        tripId: params.tripId,
+        bookingId: sourceBooking.id,
+        eventType:
+          bookingStatus === "cancelled"
+            ? "booking_cancelled"
+            : bookingStatus === "confirmed"
+              ? "booking_confirmed"
+              : "booking_updated",
+        severity:
+          bookingStatus === "cancelled"
+            ? "critical"
+            : bookingStatus === "confirmed"
+              ? "routine"
+              : "important",
+        title:
+          bookingStatus === "cancelled"
+            ? `${bookingLabel} was cancelled`
+            : bookingStatus === "confirmed"
+              ? `${bookingLabel} is confirmed`
+              : `${bookingLabel} was updated`,
+        summary:
+          bookingStatus === "cancelled"
+            ? "Roamly detected a cancelled booking and checked the itinerary for affected plans."
+            : bookingStatus === "confirmed"
+              ? "Roamly confirmed this booking and checked it against the current itinerary."
+              : "Roamly detected a booking update and checked the itinerary for timing or planning conflicts.",
+        newValue: {
+          bookingStatus,
+          bookingType: sourceBooking.booking_type,
+          provider: sourceBooking.provider,
+          confirmationCode: sourceBooking.confirmation_code,
+          startTime: sourceBooking.start_time,
+          origin: sourceBooking.origin,
+          destination: sourceBooking.destination,
+          flightNumber: sourceBooking.flight_number,
+          travelerConfirmed: sourceBooking.traveler_confirmed
+        },
+        source: sourceBooking.source_type || "booking_reconciliation",
+        effectiveAt: sourceBooking.updated_at || new Date().toISOString(),
+        affectedLayers: output.affectedLayers,
+        requiresUserApproval:
+          bookingStatus === "cancelled" ||
+          output.duplicateGroups.length > 0,
+        fingerprintParts: [
+          sourceBooking.updated_at || null,
+          bookingStatus,
+          output.duplicateGroups.length
+        ]
+      }).catch((error) => ({
+        ok: false as const,
+        stage: "orchestrator_exception" as const,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Companion orchestration failed."
+      }));
+    }
+  }
+
+  return {
+    ok: true as const,
+    output,
+    companionWorkflow
+  };
 }
