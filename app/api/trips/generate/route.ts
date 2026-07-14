@@ -25,6 +25,13 @@ import {
   getPublicSupabaseHost,
   logGenerationDiagnostic,
 } from "@/lib/roamly/generationDiagnostics";
+import {
+  createOrResumeGenerationJob,
+  getGenerationQueueForTripAdmin,
+  markQueueFromLegacyState,
+  publicQueueProgress,
+  queueTableMissing
+} from "@/lib/roamly/generationQueue";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
 export const runtime = "nodejs";
@@ -319,13 +326,42 @@ function paymentRequiredResponse(tripId: string, message?: string) {
   );
 }
 
-function activeGenerationResponse(params: {
+async function activeGenerationResponse(params: {
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+  userId: string;
   tripId: string;
   trip: Record<string, unknown>;
+  payload: TripPlannerPayload;
   requestId: string;
   requestOrigin: string;
 }) {
   const progress = publicStagedGenerationProgress(params.trip.metadata);
+  const queueResult = await createOrResumeGenerationJob({
+    supabase: params.supabase,
+    tripId: params.tripId,
+    userId: params.userId,
+    payload: params.payload,
+    reason: "duplicate_generate_resume"
+  });
+  if (queueResult.ok) {
+    await markQueueFromLegacyState({
+      supabase: params.supabase,
+      tripId: params.tripId,
+      userId: params.userId,
+      metadata: params.trip.metadata
+    });
+  } else {
+    logGenerationDiagnostic("generation_queue_resume_failed", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: queueResult.error
+    });
+  }
+  const queueState = queueResult.ok
+    ? publicQueueProgress(await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }), params.trip.metadata)
+    : null;
   logGenerationDiagnostic("generation_active_job_resumed", {
     requestId: params.requestId,
     route: "/api/trips/generate",
@@ -353,10 +389,42 @@ function activeGenerationResponse(params: {
       staged: true,
       aiUsed: false,
       locked: false,
-      progress
+      progress,
+      queue: queueState
     },
     { status: 202 }
   );
+}
+
+async function ensureDurableGenerationQueue(params: {
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+  userId: string;
+  tripId: string;
+  payload: TripPlannerPayload;
+  requestId: string;
+  priority?: number;
+}) {
+  const result = await createOrResumeGenerationJob({
+    supabase: params.supabase,
+    tripId: params.tripId,
+    userId: params.userId,
+    payload: params.payload,
+    priority: params.priority,
+    reason: "generate_route"
+  });
+
+  if (result.ok) return result;
+
+  logGenerationDiagnostic("generation_queue_create_failed", {
+    requestId: params.requestId,
+    route: "/api/trips/generate",
+    tripId: params.tripId,
+    supabaseHost: getPublicSupabaseHost(),
+    status: queueTableMissing(result.error) ? 503 : 500,
+    errorCode: result.error
+  });
+
+  return result;
 }
 
 async function finalizeItinerary(params: {
@@ -398,8 +466,11 @@ async function finalizeItinerary(params: {
   if (!canGenerate.ok) {
     if (canGenerate.error === "ITINERARY_GENERATING" && canGenerate.trip?.id) {
       return activeGenerationResponse({
+        supabase: params.supabase,
+        userId: params.userId,
         tripId: params.tripId,
         trip: canGenerate.trip as Record<string, unknown>,
+        payload,
         requestId: params.requestId,
         requestOrigin: params.requestOrigin
       });
@@ -467,6 +538,33 @@ async function finalizeItinerary(params: {
       qa_tester: qaTester
     }
   });
+
+  const queueResult = await ensureDurableGenerationQueue({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId,
+    payload,
+    requestId: params.requestId,
+    priority: qaTester ? 100 : 10
+  });
+  if (!queueResult.ok) {
+    await params.supabase
+      .from("roamly_trips")
+      .update({ status: "draft", itinerary_status: "draft" })
+      .eq("id", params.tripId)
+      .eq("user_id", params.userId);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: queueResult.error,
+        code: queueTableMissing(queueResult.error) ? "ROAMLY_GENERATION_QUEUE_MISSING" : "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
+        message: queueTableMissing(queueResult.error)
+          ? "Roamly generation queue migrations must be applied before starting a new itinerary."
+          : "Roamly could not safely queue this itinerary. Please try again in a moment."
+      },
+      { status: queueTableMissing(queueResult.error) ? 503 : 500 }
+    );
+  }
 
   let state: Awaited<ReturnType<typeof startStagedItineraryGeneration>>;
   try {
@@ -544,6 +642,17 @@ async function finalizeItinerary(params: {
     progress: publicStagedGenerationProgress({ generation: state })
   });
 
+  await markQueueFromLegacyState({
+    supabase: params.supabase,
+    tripId: params.tripId,
+    userId: params.userId,
+    metadata: { generation: state }
+  });
+  const queueState = publicQueueProgress(
+    await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }),
+    { generation: state }
+  );
+
   await recordTripEvent(params.supabase, {
     userId: params.userId,
     tripId: params.tripId,
@@ -592,7 +701,8 @@ async function finalizeItinerary(params: {
       locked: false,
       unlockSource: canGenerate.source,
       qaTester,
-      progress: publicStagedGenerationProgress({ generation: state })
+      progress: publicStagedGenerationProgress({ generation: state }),
+      queue: queueState
     },
     { status: 202 }
   );

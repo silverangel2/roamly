@@ -44,6 +44,8 @@ function exists(file) {
   "lib/roamly/stagedItineraryGeneration.ts",
   "lib/roamly/stagedGenerationBackground.ts",
   "lib/roamly/itineraryGenerationEmail.ts",
+  "lib/roamly/generationQueue.ts",
+  "supabase/migrations/20260715_roamly_generation_queue.sql",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -78,9 +80,32 @@ assert.ok(billing.includes("Live Trip Companion"), "billing copy should use Live
 const generateRoute = read("app/api/trips/generate/route.ts");
 assert.ok(generateRoute.includes("startStagedItineraryGeneration"), "generation route must create a staged generation job");
 assert.ok(generateRoute.includes("prepareStagedGenerationContext"), "generation route must prepare staged price/booking context");
+assert.ok(generateRoute.includes("createOrResumeGenerationJob"), "generation route must create or resume a durable queue job");
+assert.ok(generateRoute.includes("queue: queueState"), "generation route must return durable queue state");
 assert.ok(generateRoute.includes("status: \"queued\""), "generation route must return a queued staged job");
 assert.ok(generateRoute.includes("buildTripPlanningMetadata"), "generation must persist planner details in metadata");
 assert.ok(!generateRoute.includes("is_activated: false"), "generation insert must not require legacy is_activated column");
+
+const generationQueue = read("lib/roamly/generationQueue.ts");
+assert.ok(generationQueue.includes("ROAMLY_BRAIN_STAGES"), "generation queue must know the persisted Brain layer list");
+assert.ok(generationQueue.includes("generationIdempotencyKey"), "generation queue must use stable idempotency keys");
+assert.ok(generationQueue.includes("createSupabaseAdminClient() || client"), "generation queue writes must prefer the service-role server client");
+assert.ok(generationQueue.includes("publicQueueProgress"), "generation queue must expose safe public progress");
+
+const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
+[
+  "roamly_trip_generation_jobs",
+  "roamly_trip_generation_layers",
+  "roamly_claim_generation_jobs",
+  "roamly_claim_generation_layer",
+  "for update skip locked",
+  "lease_expires_at",
+  "idempotency_key",
+  "enable row level security",
+  "user_id = auth.uid()",
+  "grant execute on function public.roamly_claim_generation_jobs",
+  "shared anonymous market cache"
+].forEach((needle) => assert.ok(generationQueueMigration.toLowerCase().includes(needle.toLowerCase()), `queue migration missing ${needle}`));
 
 const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
 assert.ok(stagedGenerator.includes("markFreeItineraryUsed"), "free itinerary must be consumed only after staged generation completes");
@@ -99,6 +124,8 @@ assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "
 
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
+assert.ok(generationStatusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose saved queue progress");
+assert.ok(generationStatusRoute.includes("queue: queueProgress"), "generation status route must return queue progress");
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("getGenerationWorkerSecret"), "generation cron must require a bearer secret");

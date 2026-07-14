@@ -157,6 +157,8 @@ const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
   "generation_route_auth_failed",
   "prepareStagedGenerationContext",
   "startStagedItineraryGeneration",
+  "createOrResumeGenerationJob",
+  "ROAMLY_GENERATION_QUEUE_MISSING",
   "generation_staged_job_started",
   "generation_route_response"
 ].forEach((needle) => assert.ok(generateRouteDiagnostics.includes(needle), `generation route trace missing ${needle}`));
@@ -171,6 +173,50 @@ assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation wo
 
 const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
+assert.ok(statusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose durable queue progress");
+assert.ok(statusRoute.includes("queue: queueProgress"), "generation status route must return saved queue progress");
+
+const generationQueue = read("lib/roamly/generationQueue.ts");
+[
+  "ROAMLY_BRAIN_STAGES",
+  "traveler_profile",
+  "trip_requirements",
+  "destination_research",
+  "transport_search",
+  "transport_decision",
+  "accommodation_area_selection",
+  "daily_itinerary_generation",
+  "final_assembly",
+  "generationIdempotencyKey",
+  "createOrResumeGenerationJob",
+  "ensureGenerationLayers",
+  "markQueueFromLegacyState",
+  "queueTableMissing"
+].forEach((needle) => assert.ok(generationQueue.includes(needle), `generation queue helper missing ${needle}`));
+
+const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
+[
+  "roamly_trip_generation_jobs",
+  "roamly_trip_generation_layers",
+  "idempotency_key",
+  "lease_expires_at",
+  "roamly_claim_generation_jobs",
+  "roamly_claim_generation_layer",
+  "roamly_renew_generation_lease",
+  "roamly_release_generation_job",
+  "roamly_complete_generation_layer",
+  "roamly_schedule_generation_layer_retry",
+  "roamly_schedule_generation_job_retry",
+  "roamly_cancel_generation_job",
+  "roamly_invalidate_generation_layers",
+  "for update skip locked",
+  "enable row level security",
+  "to service_role",
+  "user_id = auth.uid()",
+  "shared anonymous market cache"
+].forEach((needle) => assert.ok(generationQueueMigration.toLowerCase().includes(needle.toLowerCase()), `generation queue migration missing ${needle}`));
+assert.ok(generationQueueMigration.includes("status in ('queued', 'running', 'waiting', 'completed', 'failed', 'cancelled')"), "generation job statuses must be constrained");
+assert.ok(generationQueueMigration.includes("status in ('pending', 'running', 'completed', 'failed', 'skipped', 'invalidated')"), "generation layer statuses must be constrained");
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume staged jobs without a browser tab");
