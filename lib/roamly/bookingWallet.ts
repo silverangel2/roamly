@@ -261,6 +261,110 @@ export function stableBookingKey(input: {
   return `loose:${clean(input.userId)}:${type}:${clean(input.title).toLowerCase()}:${clean(input.startTime).slice(0, 10)}`;
 }
 
+function canonicalBookingStatus(
+  status: TripBookingStatus,
+  travelerConfirmed: boolean
+) {
+  if (status === "cancelled") return "cancelled";
+  if (status === "confirmed" || travelerConfirmed) return "booked";
+  return "unknown";
+}
+
+function canonicalBookingType(type: TripBookingType) {
+  if (type === "activity") return "attraction";
+  if (type === "rental_car") return "car_rental";
+  if (type === "transfer") return "transport";
+  return type;
+}
+
+function canonicalRowToTripBookingRecord(
+  row: Record<string, unknown>
+): TripBookingRecord {
+  const metadata =
+    row.metadata &&
+    typeof row.metadata === "object" &&
+    !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : {};
+
+  return {
+    ...row,
+    booking_type: legacyBookingType(row.booking_type),
+    booking_status: legacyBookingStatus(row.booking_status),
+
+    provider:
+      typeof row.provider_name === "string"
+        ? row.provider_name
+        : null,
+
+    confirmation_code:
+      typeof row.confirmation_number === "string"
+        ? row.confirmation_number
+        : null,
+
+    recommendation_id:
+      typeof metadata.recommendationId === "string"
+        ? metadata.recommendationId
+        : null,
+
+    affiliate_click_id:
+      typeof metadata.affiliateClickId === "string"
+        ? metadata.affiliateClickId
+        : null,
+
+    affiliate_conversion_id:
+      typeof metadata.affiliateConversionId === "string"
+        ? metadata.affiliateConversionId
+        : null,
+
+    source_reference:
+      typeof metadata.sourceReference === "string"
+        ? metadata.sourceReference
+        : null,
+
+    start_time:
+      typeof row.start_at === "string"
+        ? row.start_at
+        : null,
+
+    end_time:
+      typeof row.end_at === "string"
+        ? row.end_at
+        : null,
+
+    timezone:
+      typeof metadata.timezone === "string"
+        ? metadata.timezone
+        : null,
+
+    location_name:
+      typeof metadata.locationName === "string"
+        ? metadata.locationName
+        : null,
+
+    coordinates:
+      metadata.coordinates &&
+      typeof metadata.coordinates === "object"
+        ? metadata.coordinates
+        : null,
+
+    airline_code:
+      typeof metadata.airlineCode === "string"
+        ? metadata.airlineCode
+        : null,
+
+    check_in_time:
+      typeof row.check_in_at === "string"
+        ? row.check_in_at
+        : null,
+
+    check_out_time:
+      typeof row.check_out_at === "string"
+        ? row.check_out_at
+        : null
+  } as TripBookingRecord;
+}
+
 export function normalizeTripBookingInput(input: TripBookingInput) {
   const travelerConfirmed = input.travelerConfirmed === true;
   const bookingStatus = normalizedBookingStatus(input.bookingStatus, travelerConfirmed);
@@ -270,41 +374,77 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     nullableText(input.provider) ||
     (bookingType === "flight" ? "Flight booking" : bookingType === "hotel" ? "Hotel booking" : "Trip booking");
 
+  const confirmed =
+    travelerConfirmed ||
+    confirmedStatuses.has(bookingStatus);
+
   return {
-    booking_type: bookingType,
-    booking_status: bookingStatus,
-    provider: nullableText(input.provider),
+    booking_type: canonicalBookingType(bookingType),
+    booking_status: canonicalBookingStatus(
+      bookingStatus,
+      confirmed
+    ),
+
+    provider_name: nullableText(input.provider),
     provider_booking_id: nullableText(input.providerBookingId),
-    confirmation_code: nullableText(input.confirmationCode),
-    recommendation_id: nullableText(input.recommendationId),
-    affiliate_click_id: nullableText(input.affiliateClickId),
-    affiliate_conversion_id: nullableText(input.affiliateConversionId),
+    confirmation_number: nullableText(input.confirmationCode),
+
     source_type: normalizedSourceType(input.sourceType),
-    source_reference: nullableText(input.sourceReference),
     title,
-    start_time: nullableTimestamp(input.startTime),
-    end_time: nullableTimestamp(input.endTime),
-    timezone: nullableText(input.timezone),
+
+    start_at: nullableTimestamp(input.startTime),
+    end_at: nullableTimestamp(input.endTime),
+
     origin: nullableText(input.origin),
     destination: nullableText(input.destination),
-    location_name: nullableText(input.locationName),
     address: nullableText(input.address),
-    coordinates: input.coordinates && typeof input.coordinates === "object" ? input.coordinates : null,
+
     flight_number: nullableText(input.flightNumber),
-    airline_code: nullableText(input.airlineCode)?.toUpperCase() || null,
     terminal: nullableText(input.terminal),
     gate: nullableText(input.gate),
+
     room_type: nullableText(input.roomType),
-    check_in_time: nullableTimestamp(input.checkInTime),
-    check_out_time: nullableTimestamp(input.checkOutTime),
-    reservation_requirements: safeJson(input.reservationRequirements),
+    check_in_at: nullableTimestamp(input.checkInTime),
+    check_out_at: nullableTimestamp(input.checkOutTime),
+
+    reservation_requirements: safeJson(
+      input.reservationRequirements
+    ),
+
     total_price: nullableMoney(input.totalPrice),
     currency: normalizedCurrency(input.currency),
     taxes_and_fees: nullableMoney(input.taxesAndFees),
-    cancellation_deadline: nullableTimestamp(input.cancellationDeadline),
-    cancellation_terms: nullableText(input.cancellationTerms),
-    traveler_confirmed: travelerConfirmed || confirmedStatuses.has(bookingStatus),
-    last_synced_at: nullableTimestamp(input.lastSyncedAt)
+
+    cancellation_deadline: nullableTimestamp(
+      input.cancellationDeadline
+    ),
+    cancellation_terms: nullableText(
+      input.cancellationTerms
+    ),
+
+    traveler_confirmed: confirmed,
+    last_synced_at:
+      nullableTimestamp(input.lastSyncedAt) ||
+      new Date().toISOString(),
+
+    metadata: {
+      recommendationId: nullableText(input.recommendationId),
+      affiliateClickId: nullableText(input.affiliateClickId),
+      affiliateConversionId: nullableText(
+        input.affiliateConversionId
+      ),
+      sourceReference: nullableText(input.sourceReference),
+      timezone: nullableText(input.timezone),
+      locationName: nullableText(input.locationName),
+      coordinates:
+        input.coordinates &&
+        typeof input.coordinates === "object"
+          ? input.coordinates
+          : null,
+      airlineCode:
+        nullableText(input.airlineCode)?.toUpperCase() ||
+        null
+    }
   };
 }
 
@@ -339,17 +479,30 @@ export async function listTripBookings(params: {
   tripId: string;
   includeSegments?: boolean;
 }) {
-  const select = params.includeSegments ? "*, booking_segments(*)" : "*";
+  const select = params.includeSegments ? "*,booking_segments(*)" : "*";
   const { data, error } = await params.supabase
     .from("roamly_bookings")
     .select(select)
     .eq("user_id", params.userId)
     .eq("trip_id", params.tripId)
-    .order("start_time", { ascending: true, nullsFirst: false })
+    .order("start_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
-  if (error) return { bookings: [] as TripBookingRecord[], error: error.message };
-  return { bookings: (data || []) as unknown as TripBookingRecord[], error: null };
+  if (error) {
+    return {
+      bookings: [] as TripBookingRecord[],
+      error: error.message
+    };
+  }
+
+  return {
+    bookings: (data || []).map((row) =>
+      canonicalRowToTripBookingRecord(
+        row as unknown as Record<string, unknown>
+      )
+    ),
+    error: null
+  };
 }
 
 export async function createTripBooking(params: {
@@ -372,7 +525,17 @@ export async function createTripBooking(params: {
     .select("*")
     .single();
 
-  if (error) return { booking: null, error: error.message };
+  if (error) {
+    return {
+      booking: null,
+      error: error.message
+    };
+  }
+
+  const createdBooking =
+    canonicalRowToTripBookingRecord(
+      data as Record<string, unknown>
+    );
 
   const segments = normalizeBookingSegments(params.input.segments);
   if (segments.length) {
@@ -382,7 +545,12 @@ export async function createTripBooking(params: {
         booking_id: data.id
       }))
     );
-    if (segmentInsert.error) return { booking: data as TripBookingRecord, error: segmentInsert.error.message };
+    if (segmentInsert.error) {
+      return {
+        booking: createdBooking,
+        error: segmentInsert.error.message
+      };
+    }
   }
 
   await recordTripEvent(params.supabase, {
@@ -399,7 +567,10 @@ export async function createTripBooking(params: {
     }
   });
 
-  return { booking: data as TripBookingRecord, error: null };
+  return {
+    booking: createdBooking,
+    error: null
+  };
 }
 
 export function confirmedBookingsForItinerary(bookings: TripBookingRecord[]) {
