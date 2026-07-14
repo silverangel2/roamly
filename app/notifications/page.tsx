@@ -38,22 +38,60 @@ export default async function NotificationsPage() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) redirect("/dashboard");
 
-  const [tripResult, notifications] = await Promise.all([
-    getActiveOrUpcomingTrip(supabase, current.user.id),
-    supabase
-      .from("roamly_notifications")
-      .select("id,title,body,type,status,action_url,created_at")
-      .eq("user_id", current.user.id)
-      .order("created_at", { ascending: false })
-      .limit(20)
-  ]);
+  const [tripResult, notifications, companionDeliveries] =
+    await Promise.all([
+      getActiveOrUpcomingTrip(supabase, current.user.id),
+      supabase
+        .from("roamly_notifications")
+        .select("id,title,body,type,status,action_url,created_at")
+        .eq("user_id", current.user.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      supabase
+        .from("roamly_companion_notification_deliveries")
+        .select("notification_id,status,created_at")
+        .eq("user_id", current.user.id)
+        .not("notification_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(100)
+    ]);
+
+  const latestDeliveryByNotification = new Map<
+    string,
+    string
+  >();
+
+  for (const delivery of companionDeliveries.data || []) {
+    if (
+      delivery.notification_id &&
+      !latestDeliveryByNotification.has(
+        delivery.notification_id
+      )
+    ) {
+      latestDeliveryByNotification.set(
+        delivery.notification_id,
+        delivery.status
+      );
+    }
+  }
+
+  const notificationItems = (
+    notifications.data || []
+  ).map((notification) => ({
+    ...notification,
+    delivery_status:
+      latestDeliveryByNotification.get(
+        notification.id
+      ) || null
+  }));
+
   const trip = tripResult.trip;
 
   if (!trip) {
     return (
       <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
         <section className="mb-6">
-          <NotificationTimelineCard initialItems={notifications.data || []} />
+          <NotificationTimelineCard initialItems={notificationItems} />
         </section>
         <Card>
           <h1 className="text-3xl font-black text-ink">No active trip notifications yet.</h1>
@@ -105,7 +143,7 @@ export default async function NotificationsPage() {
       <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} />
 
       <section className="mt-6">
-        <NotificationTimelineCard initialItems={notifications.data || []} />
+        <NotificationTimelineCard initialItems={notificationItems} />
       </section>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
