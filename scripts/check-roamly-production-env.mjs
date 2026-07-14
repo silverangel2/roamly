@@ -192,6 +192,36 @@ const checks = [
     keys: ["ROAMLY_AFFILIATE_WEBHOOK_SECRET"]
   },
   {
+    label: "Token encryption key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TOKEN_ENCRYPTION_KEY"]
+  },
+  {
+    label: "Gmail OAuth client ID",
+    required: OPTIONAL,
+    keys: ["GOOGLE_GMAIL_CLIENT_ID"]
+  },
+  {
+    label: "Gmail OAuth client secret",
+    required: OPTIONAL,
+    keys: ["GOOGLE_GMAIL_CLIENT_SECRET"]
+  },
+  {
+    label: "Gmail redirect URI",
+    required: OPTIONAL,
+    keys: ["GOOGLE_GMAIL_REDIRECT_URI"]
+  },
+  {
+    label: "Gmail Pub/Sub topic",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GMAIL_PUBSUB_TOPIC"]
+  },
+  {
+    label: "Gmail webhook secret",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GMAIL_WEBHOOK_SECRET"]
+  },
+  {
     label: "Generation retry budget",
     required: OPTIONAL,
     keys: ["ROAMLY_GENERATION_RETRY_BUDGET"]

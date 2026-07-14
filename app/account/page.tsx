@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AccountProfileForm } from "@/components/account/AccountProfileForm";
+import { EmailConnectionSettings } from "@/components/account/EmailConnectionSettings";
 import { LocationTrackingSettings } from "@/components/account/LocationTrackingSettings";
 import { TravelerMemorySettings } from "@/components/account/TravelerMemorySettings";
 import { Badge } from "@/components/ui/Badge";
@@ -90,6 +91,14 @@ export default async function AccountPage() {
             <h2 className="mt-2 text-2xl font-black text-ink">Trip privacy and reminders</h2>
             <div className="mt-5">
               <LocationTrackingSettings />
+            </div>
+          </Card>
+
+          <Card>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Email import</p>
+            <h2 className="mt-2 text-2xl font-black text-ink">Travel confirmations</h2>
+            <div className="mt-5">
+              <EmailConnectionSettings />
             </div>
           </Card>
 

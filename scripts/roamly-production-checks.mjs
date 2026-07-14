@@ -70,6 +70,7 @@ function exists(file) {
   "app/trip/[id]/bookings/page.tsx",
   "app/trip/[id]/bookings/add/page.tsx",
   "components/account/TravelerMemorySettings.tsx",
+  "components/account/EmailConnectionSettings.tsx",
   "components/companion/BookingWalletTimeline.tsx",
   "components/companion/ManualBookingForm.tsx",
   "components/trip/TripFeedbackForm.tsx",
@@ -81,11 +82,19 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_booking_wallet.sql",
   "lib/roamly/bookingWallet.ts",
   "lib/roamly/affiliateTracking.ts",
+  "lib/roamly/emailConnections.ts",
+  "app/api/account/email-connections/route.ts",
+  "app/api/integrations/gmail/connect/route.ts",
+  "app/api/integrations/gmail/callback/route.ts",
+  "app/api/integrations/gmail/disconnect/route.ts",
+  "app/api/integrations/gmail/sync/route.ts",
   "app/api/trips/[id]/bookings/route.ts",
   "app/api/trips/[id]/bookings/extract/route.ts",
   "app/api/roamly/affiliate/click/route.ts",
   "app/api/webhooks/affiliate/route.ts",
   "supabase/migrations/20260716_roamly_affiliate_tracking.sql",
+  "supabase/migrations/20260716_roamly_email_connections.sql",
+  "app/api/webhooks/gmail/route.ts",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -180,6 +189,29 @@ assert.ok(affiliateClickRoute.includes("requireUser") && affiliateClickRoute.inc
 const affiliateWebhookRoute = read("app/api/webhooks/affiliate/route.ts");
 assert.ok(affiliateWebhookRoute.includes("ROAMLY_AFFILIATE_WEBHOOK_SECRET"), "affiliate conversion webhook must require a server-side secret");
 assert.ok(affiliateWebhookRoute.includes("verifyAffiliateWebhookSignature"), "affiliate conversion webhook must verify signatures");
+
+const emailConnectionsMigration = read("supabase/migrations/20260716_roamly_email_connections.sql");
+["email_connections", "email_watch_subscriptions", "email_sync_cursors", "encrypted_access_token", "enable row level security"].forEach((needle) =>
+  assert.ok(emailConnectionsMigration.toLowerCase().includes(needle.toLowerCase()), `email connections migration missing ${needle}`)
+);
+
+const emailConnections = read("lib/roamly/emailConnections.ts");
+["ROAMLY_TOKEN_ENCRYPTION_KEY", "GMAIL_READONLY_SCOPE", "encryptToken", "decryptToken", "syncGmailConnection"].forEach((needle) =>
+  assert.ok(emailConnections.includes(needle), `email connections helper missing ${needle}`)
+);
+assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must not request write mailbox scopes");
+
+const gmailConnectRoute = read("app/api/integrations/gmail/connect/route.ts");
+assert.ok(gmailConnectRoute.includes("requireUser") && gmailConnectRoute.includes("gmailAuthorizationUrl"), "Gmail connect route must be authenticated and use the Gmail OAuth helper");
+
+const gmailCallbackRoute = read("app/api/integrations/gmail/callback/route.ts");
+assert.ok(gmailCallbackRoute.includes("GMAIL_OAUTH_STATE_COOKIE") && gmailCallbackRoute.includes("upsertGmailConnection"), "Gmail callback must validate state and store encrypted tokens");
+
+const gmailWebhookRoute = read("app/api/webhooks/gmail/route.ts");
+assert.ok(gmailWebhookRoute.includes("ROAMLY_GMAIL_WEBHOOK_SECRET") && gmailWebhookRoute.includes("syncGmailConnection"), "Gmail webhook route must verify and trigger cursor sync");
+
+const emailConnectionSettings = read("components/account/EmailConnectionSettings.tsx");
+assert.ok(emailConnectionSettings.includes("Connect Gmail") && emailConnectionSettings.includes("Personal emails are not saved"), "account page must expose clear Gmail privacy controls");
 
 const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.ts").includes("ROAMLY_STRIPE_FEATURES_PRICE_ID"));
