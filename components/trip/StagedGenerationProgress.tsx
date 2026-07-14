@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
@@ -85,6 +85,8 @@ type ProgressApiData = {
 const SAVED_QUEUE_MESSAGE =
   "Your trip is safely saved. Roamly will continue building it even if you close this page.";
 
+const STALE_PROGRESS_MS = 2 * 60 * 1000;
+
 const SAVED_STAGE_LABELS = [
   "QueueProgress",
   "SAVED_QUEUE_MESSAGE",
@@ -121,34 +123,7 @@ function currentBatch(progress: GenerationProgress) {
   );
 }
 
-function approximateProgress(progress: GenerationProgress) {
-  if (progress.status === "complete") return 100;
-  const totalDays = Math.max(1, progress.totalDayCount || progress.days.length || 1);
-  const completedDays = Math.min(totalDays, Math.max(0, progress.completedDayCount || 0));
-  const activeBatch = progress.batches.find((batch) => batch.status === "generating" || batch.status === "validating");
-  const activeDayCredit = activeBatch ? Math.min(activeBatch.dayNumbers.length, totalDays - completedDays) * 0.35 : 0;
-  const dayRatio = Math.min(1, (completedDays + activeDayCredit) / totalDays);
 
-  let estimate = 5;
-  if (progress.currentStage === "generating_outline" || progress.status === "queued") estimate = 12;
-  if (progress.currentStage === "generating_day") estimate = 18 + dayRatio * 60;
-  if (progress.currentStage === "validating_day") estimate = 82;
-  if (progress.currentStage === "enriching_transport") estimate = 86;
-  if (progress.currentStage === "enriching_affiliates") estimate = 92;
-  if (progress.status === "partially_failed" || progress.status === "failed") estimate = Math.max(estimate, 18 + dayRatio * 60);
-  if (completedDays >= totalDays && progress.currentStage === "generating_day") estimate = 84;
-
-  return Math.max(1, Math.min(99, Math.round(estimate)));
-}
-
-function queueProgressPercent(queue: QueueProgress | null) {
-  if (!queue) return null;
-  if (queue.job.status === "completed") return 100;
-  const total = Math.max(1, queue.totalLayerCount || queue.layers.length || 1);
-  const completed = Math.min(total, Math.max(0, queue.completedLayerCount || 0));
-  const runningCredit = queue.layers.some((layer) => layer.status === "running") ? 0.35 : 0;
-  return Math.max(1, Math.min(99, Math.round(((completed + runningCredit) / total) * 100)));
-}
 
 function statusClass(status: DayProgress["status"]) {
   if (status === "complete") return "border-ocean/20 bg-ocean/10 text-ocean";
@@ -221,7 +196,18 @@ export function StagedGenerationProgress({
     emailConfigured &&
     progress.emailNotification?.email_me_when_ready !== false &&
     Boolean(maskedEmail);
-  const percent = useMemo(() => queueProgressPercent(queueProgress) ?? approximateProgress(progress), [progress, queueProgress]);
+  const totalLayerCount = Math.max(queueProgress?.totalLayerCount ?? progress.totalDayCount ?? 4, 1);
+  const completedLayerCount = queueProgress?.completedLayerCount ?? progress.completedDayCount ?? 0;
+  const percent =
+    progress.status === "complete"
+      ? 100
+      : Math.max(
+          0,
+          Math.min(
+            99,
+            Math.round((completedLayerCount / totalLayerCount) * 100)
+          )
+        );
   const completedDaysLabel = `${progress.completedDayCount} of ${progress.totalDayCount || progress.days.length || 0} days ready`;
   const completedLayerLabel = queueProgress
     ? `${queueProgress.completedLayerCount} of ${queueProgress.totalLayerCount} saved stages complete`
@@ -369,6 +355,12 @@ export function StagedGenerationProgress({
     return () => window.clearTimeout(timer);
   }, [pollProgress, progress.completedDayCount, progress.currentStage, progress.status, stopped]);
 
+  const [lastProgressMovementAt] = useState<number>(Date.now());
+
+  const isTakingLonger =
+    !isTerminalStatus(progress.status) &&
+    Date.now() - lastProgressMovementAt > STALE_PROGRESS_MS;
+
   return (
     <section
       role="status"
@@ -513,6 +505,12 @@ export function StagedGenerationProgress({
             </div>
           ))}
         </div>
+
+        {isTakingLonger ? (
+          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
+            Taking longer than expected. Roamly is still checking for saved progress.
+          </p>
+        ) : null}
 
         {progress.completedDayCount > 0 ? (
           <div className="flex flex-wrap gap-2">
