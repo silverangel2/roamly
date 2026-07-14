@@ -417,3 +417,74 @@ export function bookingWalletSummary(bookings: TripBookingRecord[]) {
     clickOnly: bookings.filter(isBookingClickOnly).length
   };
 }
+
+function legacyBookingType(value: unknown): TripBookingType {
+  const text = clean(value);
+  if (text === "attraction" || text === "event") return "activity";
+  if (text === "car_rental") return "rental_car";
+  if (text === "transport") return "transfer";
+  return normalizedBookingType(text);
+}
+
+function legacyBookingStatus(value: unknown): TripBookingStatus {
+  const text = clean(value);
+  if (text === "cancelled") return "cancelled";
+  if (text === "booked" || text === "paid" || text === "reserved") return "confirmed";
+  return "needs_confirmation";
+}
+
+export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fallback: { userId: string; tripId: string }): TripBookingRecord {
+  const status = legacyBookingStatus(record.booking_status);
+  const startDate = nullableText(record.start_date);
+  const startTime = nullableText(record.start_time);
+  const endDate = nullableText(record.end_date);
+  const endTime = nullableText(record.end_time);
+  const now = new Date().toISOString();
+  const amountCents = typeof record.amount_cents === "number" && Number.isFinite(record.amount_cents) ? record.amount_cents : null;
+
+  return {
+    id: nullableText(record.id) || stableBookingKey({ userId: fallback.userId, title: nullableText(record.title), startTime: startDate }),
+    trip_id: nullableText(record.trip_id) || fallback.tripId,
+    user_id: nullableText(record.user_id) || fallback.userId,
+    booking_type: legacyBookingType(record.booking_type),
+    booking_status: status,
+    provider: nullableText(record.provider_name),
+    provider_booking_id: null,
+    confirmation_code: nullableText(record.confirmation_number),
+    recommendation_id: null,
+    affiliate_click_id: null,
+    affiliate_conversion_id: null,
+    source_type: nullableText(record.screenshot_url) ? "upload" : "manual",
+    source_reference: "roamly_bookings",
+    title: nullableText(record.title) || "Imported booking",
+    start_time: startDate ? nullableTimestamp(`${startDate}${startTime ? `T${startTime}` : "T00:00:00"}`) : null,
+    end_time: endDate ? nullableTimestamp(`${endDate}${endTime ? `T${endTime}` : "T00:00:00"}`) : null,
+    timezone: null,
+    origin: null,
+    destination: null,
+    location_name: nullableText(record.title),
+    address: nullableText(record.address),
+    coordinates:
+      typeof record.latitude === "number" && typeof record.longitude === "number"
+        ? { latitude: record.latitude, longitude: record.longitude }
+        : null,
+    flight_number: null,
+    airline_code: null,
+    terminal: null,
+    gate: null,
+    room_type: null,
+    check_in_time: null,
+    check_out_time: null,
+    reservation_requirements: {},
+    total_price: amountCents == null ? null : Math.round(amountCents) / 100,
+    currency: normalizedCurrency(record.currency),
+    taxes_and_fees: null,
+    cancellation_deadline: null,
+    cancellation_terms: null,
+    traveler_confirmed: confirmedStatuses.has(status),
+    last_synced_at: null,
+    created_at: nullableText(record.created_at) || now,
+    updated_at: nullableText(record.updated_at) || now,
+    booking_segments: []
+  };
+}

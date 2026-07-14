@@ -912,4 +912,30 @@ const bookingWalletRoute = read("app/api/trips/[id]/bookings/route.ts");
   assert.ok(bookingWalletRoute.includes(needle), `trip booking wallet route missing ${needle}`)
 );
 
+const bookingWalletPage = read("app/trip/[id]/bookings/page.tsx");
+[
+  "BookingWalletTimeline",
+  "legacyRoamlyBookingToWallet",
+  "listTripBookings",
+  "mergeBookings",
+  "tripHasTrackingUnlock",
+  "login?next"
+].forEach((needle) => assert.ok(bookingWalletPage.includes(needle), `booking wallet page missing ${needle}`));
+
+const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.tsx");
+[
+  "Add booking",
+  "View details",
+  "Trip status",
+  "Next",
+  "Today",
+  "Trip",
+  "Bookings",
+  "Companion",
+  "No bookings yet",
+  "statusCopy",
+  "BookingIcon"
+].forEach((needle) => assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline UI missing ${needle}`));
+assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are wired");
+
 console.log("Roamly core checks passed.");

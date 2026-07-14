@@ -67,7 +67,9 @@ function exists(file) {
   "app/api/trips/[id]/feedback/route.ts",
   "app/api/admin/roamly/generation-queue/route.ts",
   "app/trip/[id]/feedback/page.tsx",
+  "app/trip/[id]/bookings/page.tsx",
   "components/account/TravelerMemorySettings.tsx",
+  "components/companion/BookingWalletTimeline.tsx",
   "components/trip/TripFeedbackForm.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
   "supabase/migrations/20260715_roamly_generation_worker.sql",
@@ -129,6 +131,16 @@ const bookingWallet = read("lib/roamly/bookingWallet.ts");
 const tripBookingsRoute = read("app/api/trips/[id]/bookings/route.ts");
 assert.ok(tripBookingsRoute.includes("requireUser"), "trip booking wallet route must require authenticated users");
 assert.ok(tripBookingsRoute.includes("createTripBooking") && tripBookingsRoute.includes("listTripBookings"), "trip booking wallet route must use centralized wallet helpers");
+
+const tripBookingsPage = read("app/trip/[id]/bookings/page.tsx");
+assert.ok(tripBookingsPage.includes("BookingWalletTimeline"), "trip booking wallet page must render the premium wallet timeline");
+assert.ok(tripBookingsPage.includes("legacyRoamlyBookingToWallet"), "trip booking wallet page must preserve existing imported booking compatibility");
+
+const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.tsx");
+["Add booking", "View details", "Today", "Trip", "Bookings", "Companion"].forEach((needle) =>
+  assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline missing ${needle}`)
+);
+assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are configured");
 
 const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.ts").includes("ROAMLY_STRIPE_FEATURES_PRICE_ID"));
