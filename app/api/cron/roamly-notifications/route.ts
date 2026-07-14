@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processQueuedCompanionNotifications } from "@/lib/roamly/companionNotifications";
 import { sendScheduledTripNotifications } from "@/lib/roamly/pushServer";
+import { scheduleCompanionBriefings } from "@/lib/roamly/companionBriefings";
 
 export async function GET(request: NextRequest) {
   const secret = (
@@ -41,6 +42,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const briefingResult =
+    await Promise.resolve(
+      scheduleCompanionBriefings()
+    ).catch((error) => ({
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Companion briefing scheduling failed."
+    }));
+
   const [scheduledResult, companionResult] =
     await Promise.allSettled([
       sendScheduledTripNotifications(),
@@ -72,12 +84,14 @@ export async function GET(request: NextRequest) {
         };
 
   const ok =
+    briefingResult.ok === true &&
     scheduled.ok === true &&
     companion.ok === true;
 
   return NextResponse.json(
     {
       ok,
+      briefings: briefingResult,
       scheduled,
       companion,
       processedAt: new Date().toISOString()
