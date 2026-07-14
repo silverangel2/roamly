@@ -20,3 +20,5 @@ dist
 node_modules
 tsconfig.tsbuildinfo
 .env*
+
+supabase/.temp/
