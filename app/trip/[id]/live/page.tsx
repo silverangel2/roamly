@@ -20,6 +20,7 @@ import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay, type ActivityRecord } from "@/lib/trips";
 import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
+import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
 
 function formatMoney(cents: number | null, currency = "CAD") {
   if (cents == null) return "Not set";
@@ -261,6 +262,10 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
 
       <section className="mb-5">
         <CompanionControlCard tripId={id} />
+      </section>
+
+      <section className="mb-5">
+        <CompanionRepairCenter tripId={id} />
       </section>
 
       <section className="mb-5">

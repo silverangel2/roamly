@@ -6,6 +6,37 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+
+export async function GET(_request: Request, context: RouteContext) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const { id } = await context.params;
+
+  const result = await auth.supabase
+    .from("companion_repair_proposals")
+    .select("*")
+    .eq("user_id", auth.user.id)
+    .eq("trip_id", id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (result.error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: result.error.message
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    repairs: result.data || []
+  });
+}
+
 export async function POST(request: Request, context: RouteContext) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
