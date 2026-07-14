@@ -73,6 +73,7 @@ const itinerary = read("lib/itinerary.ts");
 ].forEach((needle) => assert.ok(itinerary.includes(needle), `itinerary validation missing ${needle}`));
 assert.ok(itinerary.includes("startTime") && itinerary.includes("endTime") && itinerary.includes("durationMinutes"), "structured timeline fields must be normalized");
 assert.ok(itinerary.includes('if (raw.startsWith("/")) return false;'), "itinerary production validation must reject internal booking CTA URLs");
+assert.ok(itinerary.includes("Roamly recommends this option for your trip."), "itinerary must confidently label the recommended transport option");
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("BookingRecommendationButton") && tripPage.includes("item.booking"), "timeline CTAs must render as real booking buttons");
@@ -278,6 +279,30 @@ const travelerMemoryComponent = read("components/account/TravelerMemorySettings.
   "Delete all travel memory",
   "personalization"
 ].forEach((needle) => assert.ok(travelerMemoryComponent.includes(needle), `traveler memory UI missing ${needle}`));
+
+const transportationIntelligence = read("lib/roamly/transportationIntelligence.ts");
+[
+  "buildTransportationIntelligence",
+  "drivingDaysRequired",
+  "drivingOvernightStops",
+  "door_to_door_minutes",
+  "overnight_stops",
+  "estimated_additional_costs",
+  "score_components",
+  "affiliate_value: 0",
+  "rental_car",
+  "ferry",
+  "No ferry provider is configured",
+  "Roamly recommends this option for your trip.",
+  "user_override_supported",
+  "maximumComfortableDrivingHours",
+  "transportationPreferences"
+].forEach((needle) => assert.ok(transportationIntelligence.includes(needle), `transportation intelligence missing ${needle}`));
+
+const transportStages = read("lib/roamly/brain/transportStages.ts");
+["buildTransportSearchLayer", "buildTransportDecisionLayer", "buildTransportationIntelligence"].forEach((needle) =>
+  assert.ok(transportStages.includes(needle), `transport Brain stage helper missing ${needle}`)
+);
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [

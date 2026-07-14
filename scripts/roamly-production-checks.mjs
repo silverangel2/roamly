@@ -49,7 +49,9 @@ function exists(file) {
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
+  "lib/roamly/brain/transportStages.ts",
   "lib/roamly/travelerMemory.ts",
+  "lib/roamly/transportationIntelligence.ts",
   "app/api/account/traveler-memory/route.ts",
   "components/account/TravelerMemorySettings.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
@@ -150,6 +152,22 @@ const travelerMemoryComponent = read("components/account/TravelerMemorySettings.
   assert.ok(travelerMemoryComponent.includes(needle), `traveler memory UI missing ${needle}`)
 );
 
+const transportationIntelligence = read("lib/roamly/transportationIntelligence.ts");
+[
+  "buildTransportationIntelligence",
+  "door_to_door_minutes",
+  "drivingDaysRequired",
+  "overnight_stops",
+  "rental_car",
+  "ferry",
+  "affiliate_value: 0",
+  "user_override_supported",
+  "Roamly recommends this option for your trip."
+].forEach((needle) => assert.ok(transportationIntelligence.includes(needle), `transportation intelligence missing ${needle}`));
+
+const transportStages = read("lib/roamly/brain/transportStages.ts");
+assert.ok(transportStages.includes("buildTransportDecisionLayer"), "Brain must expose a transport decision layer helper");
+
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
   "roamly_trip_generation_jobs",
@@ -176,6 +194,9 @@ assert.ok(stagedGenerator.includes("generatedDays"), "staged generation must pre
 assert.ok(stagedGenerator.includes("finalizeStagedGenerationNotification"), "staged generation must finalize terminal transactional emails");
 assert.ok(stagedGenerator.includes("generationEmail"), "staged generation must persist email notification state");
 assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not silently save template fallback itineraries");
+
+const itinerarySource = read("lib/itinerary.ts");
+assert.ok(itinerarySource.includes("Roamly recommends this option for your trip."), "final itinerary must confidently state the transport recommendation");
 
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");

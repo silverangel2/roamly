@@ -1659,7 +1659,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
     : [];
   const documentReminders = crossBorderTravelDocumentReminders(recommendedTransportOption?.mode === "drive");
   const recommendedTransportSummary = recommendedTransportOption
-    ? `${recommendedTransportOption.title}: ${formatRange(recommendedTransportOption.estimated_cost_min, recommendedTransportOption.estimated_cost_max, recommendedTransportOption.currency)}. ${recommendedTransportOption.why_recommended}`
+    ? `Roamly recommends this option for your trip. ${recommendedTransportOption.title}: ${formatRange(recommendedTransportOption.estimated_cost_min, recommendedTransportOption.estimated_cost_max, recommendedTransportOption.currency)}. ${recommendedTransportOption.why_recommended}`
     : `${payload.transportationPreference} is the preferred transport style.`;
 
   return {
