@@ -50,8 +50,10 @@ function exists(file) {
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
   "lib/roamly/brain/transportStages.ts",
+  "lib/roamly/brain/accommodationStages.ts",
   "lib/roamly/travelerMemory.ts",
   "lib/roamly/transportationIntelligence.ts",
+  "lib/roamly/accommodationIntelligence.ts",
   "app/api/account/traveler-memory/route.ts",
   "components/account/TravelerMemorySettings.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
@@ -167,6 +169,20 @@ const transportationIntelligence = read("lib/roamly/transportationIntelligence.t
 
 const transportStages = read("lib/roamly/brain/transportStages.ts");
 assert.ok(transportStages.includes("buildTransportDecisionLayer"), "Brain must expose a transport decision layer helper");
+
+const accommodationIntelligence = read("lib/roamly/accommodationIntelligence.ts");
+[
+  "buildAccommodationIntelligence",
+  "selectAccommodationArea",
+  "review_evidence",
+  "booking_conditions",
+  "affiliate_value: 0",
+  "requires_route_revalidation",
+  "Search-ready accommodation option only"
+].forEach((needle) => assert.ok(accommodationIntelligence.includes(needle), `accommodation intelligence missing ${needle}`));
+
+const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
+assert.ok(accommodationStages.includes("buildAccommodationDecisionLayer"), "Brain must expose an accommodation decision layer helper");
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [

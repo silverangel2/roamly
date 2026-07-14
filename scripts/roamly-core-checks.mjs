@@ -304,6 +304,30 @@ const transportStages = read("lib/roamly/brain/transportStages.ts");
   assert.ok(transportStages.includes(needle), `transport Brain stage helper missing ${needle}`)
 );
 
+const accommodationIntelligence = read("lib/roamly/accommodationIntelligence.ts");
+[
+  "buildAccommodationIntelligence",
+  "selectAccommodationArea",
+  "activity_access",
+  "arrival_access",
+  "transit_access",
+  "walking_fit",
+  "review_evidence",
+  "booking_conditions",
+  "affiliate_value: 0",
+  "requires_route_revalidation",
+  "Search-ready accommodation option only",
+  "Recommendations are ranked according to your trip needs, not commission."
+].forEach((needle) => assert.ok(accommodationIntelligence.includes(needle), `accommodation intelligence missing ${needle}`));
+
+const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
+[
+  "buildAccommodationAreaSelectionLayer",
+  "buildAccommodationSearchLayer",
+  "buildAccommodationDecisionLayer",
+  "buildAccommodationIntelligence"
+].forEach((needle) => assert.ok(accommodationStages.includes(needle), `accommodation Brain stage helper missing ${needle}`));
+
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
   "roamly_trip_generation_jobs",
