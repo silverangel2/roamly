@@ -21,6 +21,7 @@ import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/serve
 import { getTripBundle, groupActivitiesByDay, type ActivityRecord } from "@/lib/trips";
 import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
 import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
+import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
 
 function formatMoney(cents: number | null, currency = "CAD") {
   if (cents == null) return "Not set";
@@ -264,8 +265,15 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         <CompanionControlCard tripId={id} />
       </section>
 
-      <section className="mb-5">
+      <section
+        id="companion-repairs"
+        className="mb-5"
+      >
         <CompanionRepairCenter tripId={id} />
+      </section>
+
+      <section className="mb-5">
+        <CompanionEventTimeline tripId={id} />
       </section>
 
       <section className="mb-5">
