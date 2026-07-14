@@ -54,12 +54,25 @@ export async function POST(request: NextRequest) {
   })();
 
   if (!checkout.ok) {
+    console.error("[Roamly] Checkout unavailable", {
+      userId: auth.user.id,
+      tripId,
+      checkoutKind: kind,
+      code: checkout.error,
+      status: checkout.status || 500,
+      technicalMessage:
+        "message" in checkout && typeof checkout.message === "string"
+          ? checkout.message
+          : undefined
+    });
+
     return NextResponse.json(
       {
         ok: false,
         error: checkout.error,
         code: checkout.error,
-        message: "message" in checkout ? checkout.message : undefined
+        message:
+          "This purchase option is temporarily unavailable. You have not been charged."
       },
       { status: checkout.status || 500 }
     );

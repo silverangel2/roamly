@@ -976,6 +976,48 @@ async function recordInvoiceWebhook(supabase: SupabaseClient, event: Stripe.Even
   return { ok: true as const };
 }
 
+async function recordPaymentIntentWebhook(
+  supabase: SupabaseClient,
+  event: Stripe.Event
+) {
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+  await recordAppEvent(supabase, {
+    userId:
+      typeof paymentIntent.metadata?.user_id === "string"
+        ? paymentIntent.metadata.user_id
+        : null,
+    eventType:
+      event.type === "payment_intent.succeeded"
+        ? "stripe_payment_succeeded"
+        : "stripe_payment_failed",
+    metadata: {
+      stripe_event_id: event.id,
+      stripe_event_type: event.type,
+      stripe_payment_intent_id: paymentIntent.id,
+      stripe_customer_id:
+        typeof paymentIntent.customer === "string"
+          ? paymentIntent.customer
+          : paymentIntent.customer?.id || null,
+      trip_id:
+        paymentIntent.metadata?.trip_id ||
+        paymentIntent.metadata?.tripId ||
+        null,
+      purchase_type:
+        paymentIntent.metadata?.purchase_type ||
+        paymentIntent.metadata?.purchaseType ||
+        null,
+      amount: paymentIntent.amount,
+      amount_received: paymentIntent.amount_received,
+      currency: paymentIntent.currency,
+      status: paymentIntent.status,
+      failure_code: paymentIntent.last_payment_error?.code || null
+    }
+  });
+
+  return { ok: true as const };
+}
+
 export async function handleStripeWebhookEvent(supabase: SupabaseClient, event: Stripe.Event) {
   if (await hasProcessedStripeEvent(supabase, event.id)) {
     return { ok: true as const, duplicate: true as const };
@@ -1002,8 +1044,27 @@ export async function handleStripeWebhookEvent(supabase: SupabaseClient, event: 
     event.type === "customer.subscription.deleted"
   ) {
     result = await recordSubscriptionWebhook(supabase, event);
-  } else if (event.type === "invoice.payment_succeeded" || event.type === "invoice.payment_failed") {
+  } else if (
+    event.type === "invoice.payment_succeeded" ||
+    event.type === "invoice.payment_failed"
+  ) {
     result = await recordInvoiceWebhook(supabase, event);
+  } else if (
+    event.type === "payment_intent.succeeded" ||
+    event.type === "payment_intent.payment_failed"
+  ) {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    metadata.paymentIntentId = paymentIntent.id;
+    metadata.userId =
+      paymentIntent.metadata?.user_id ||
+      paymentIntent.metadata?.userId ||
+      null;
+    metadata.tripId =
+      paymentIntent.metadata?.trip_id ||
+      paymentIntent.metadata?.tripId ||
+      null;
+
+    result = await recordPaymentIntentWebhook(supabase, event);
   }
 
   if (!result.ok) return result;

@@ -194,17 +194,61 @@ export async function syncSupabaseServerSession({ refresh = false }: { refresh?:
   }
 }
 
-export async function fetchWithSupabaseAuth(input: RequestInfo | URL, init: AuthenticatedFetchInit = {}) {
+export async function fetchWithSupabaseAuth(
+  input: RequestInfo | URL,
+  init: AuthenticatedFetchInit = {}
+) {
   const { retryOnUnauthorized = true, ...requestInit } = init;
   const auth = await resolveBrowserAuthState();
   const accessToken = auth.session?.access_token || null;
-  const response = await fetch(input, buildRequestInit(input, requestInit, accessToken));
 
-  if (!retryOnUnauthorized || response.status !== 401) return response;
+  let response = await fetch(
+    input,
+    buildRequestInit(input, requestInit, accessToken)
+  );
 
+  if (!retryOnUnauthorized || response.status !== 401) {
+    return response;
+  }
+
+  // The browser can have a valid Supabase session while the server-side
+  // auth cookies are missing or stale. Synchronize the current browser
+  // session to the server before treating the user as unauthenticated.
+  if (auth.session?.access_token && auth.session?.refresh_token) {
+    const synced = await syncSupabaseServerSession();
+
+    if (synced.ok) {
+      response = await fetch(
+        input,
+        buildRequestInit(input, requestInit, auth.session.access_token)
+      );
+
+      if (response.status !== 401) {
+        return response;
+      }
+    }
+  }
+
+  // Refresh once only after the current session has been synchronized and
+  // the protected request is still unauthorized.
   const refreshedAuth = await refreshBrowserAuthState();
   const refreshedToken = refreshedAuth.session?.access_token || null;
-  if (!refreshedToken || refreshedToken === accessToken) return response;
 
-  return fetch(input, buildRequestInit(input, requestInit, refreshedToken));
+  if (
+    !refreshedToken ||
+    !refreshedAuth.session?.refresh_token
+  ) {
+    return response;
+  }
+
+  const refreshedSync = await syncSupabaseServerSession();
+
+  if (!refreshedSync.ok) {
+    return response;
+  }
+
+  return fetch(
+    input,
+    buildRequestInit(input, requestInit, refreshedToken)
+  );
 }

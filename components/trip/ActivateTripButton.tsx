@@ -51,7 +51,15 @@ export function ActivateTripButton({
         return;
       }
 
-      if (!response.ok) throw new Error(data?.message || data?.error || "Stripe checkout could not be opened.");
+      if (!response.ok) {
+        const safeMessage =
+          typeof data?.message === "string" &&
+          !/stripe|price id|key mode|product state|configuration/i.test(data.message)
+            ? data.message
+            : "This purchase option is temporarily unavailable. You have not been charged.";
+
+        throw new Error(safeMessage);
+      }
       if (data?.alreadyActivated || data?.alreadyUnlocked) {
         window.location.href = checkoutKind === "tracking" ? `/trip/${tripId}/live` : `/trip/${tripId}`;
         return;
@@ -69,13 +77,13 @@ export function ActivateTripButton({
   const testerKind: CheckoutKind = itineraryLocked ? "tracking" : "complete";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {testerAccess ? (
         <button
           type="button"
           onClick={() => startCheckout(testerKind)}
           disabled={Boolean(busy)}
-          className="w-full rounded-2xl border border-ocean/25 bg-ocean/10 px-5 py-4 text-sm font-black text-ocean transition hover:-translate-y-0.5 hover:bg-ocean/15 disabled:translate-y-0 disabled:opacity-60"
+          className="w-full rounded-xl border border-ocean/25 bg-ocean/10 px-4 py-3 text-sm font-bold text-ocean transition hover:bg-ocean/15 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
         >
           {busy === testerKind ? "Continuing..." : "Continue as tester"}
         </button>
@@ -86,7 +94,7 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("complete")}
             disabled={Boolean(busy)}
-            className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-rose-400 px-5 py-4 text-sm font-black text-white shadow-lg shadow-orange-400/20 transition hover:-translate-y-0.5 hover:from-orange-300 hover:to-rose-300 disabled:translate-y-0 disabled:opacity-60"
+            className="w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-400 px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-400/20 transition hover:from-orange-300 hover:to-rose-300 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
             {busy === "complete" ? "Opening secure checkout..." : "Complete Trip Pack — $7.99 CAD"}
           </button>
@@ -94,12 +102,12 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("itinerary")}
             disabled={Boolean(busy)}
-            className="w-full rounded-2xl bg-white px-5 py-4 text-sm font-black text-ink ring-1 ring-cloud transition hover:-translate-y-0.5 hover:ring-ocean disabled:translate-y-0 disabled:opacity-60"
+            className="w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-ink ring-1 ring-cloud transition hover:ring-ocean disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
             {busy === "itinerary" ? "Opening secure checkout..." : "Unlock itinerary — $4.99 CAD"}
           </button>
-          <p className="text-xs font-bold leading-5 text-slate-500">
-            One custom itinerary for one trip. No subscription. Add Live Trip Companion later for $3.99 CAD.
+          <p className="px-1 text-xs font-medium leading-4 text-slate-500">
+            One-time payment. No subscription.
           </p>
         </>
       ) : (
@@ -108,16 +116,23 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("tracking")}
             disabled={Boolean(busy)}
-            className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
+            className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
             {busy === "tracking" ? "Opening secure checkout..." : "Add Live Companion — $3.99 CAD"}
           </button>
-          <p className="text-xs font-bold leading-5 text-slate-500">
-            Adds reminders, booking timeline, Day 1 activation, nearby activities, and up-next help for this locked itinerary only.
+          <p className="px-1 text-xs font-medium leading-4 text-slate-500">
+            Adds live reminders and trip guidance.
           </p>
         </>
       )}
-      {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-xl bg-coral/10 px-3 py-2.5 text-sm font-semibold leading-5 text-coral sm:rounded-2xl sm:px-4 sm:py-3"
+        >
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

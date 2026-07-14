@@ -44,10 +44,6 @@ function isProtectedPage(pathname: string) {
   ].some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-function isTripPage(pathname: string) {
-  return pathname === "/trip" || pathname.startsWith("/trip/");
-}
-
 function loginRedirectUrl(request: NextRequest, error?: string) {
   const next = safeAuthNextPath(`${request.nextUrl.pathname}${request.nextUrl.search}`, "/plan");
   const url = new URL("/login", request.url);
@@ -212,22 +208,62 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (isTripPage(request.nextUrl.pathname) && !user) {
-    return response;
+  const isProtectedApiRequest =
+    request.nextUrl.pathname.startsWith("/api/admin/") ||
+    request.nextUrl.pathname.startsWith("/api/account/") ||
+    request.nextUrl.pathname.startsWith("/api/roamly/") ||
+    request.nextUrl.pathname.startsWith("/api/trips/") ||
+    request.nextUrl.pathname.startsWith("/api/stripe/checkout/") ||
+    request.nextUrl.pathname === "/api/stripe/create-trip-checkout";
+
+  // API routes must return their own structured 401 response. Never redirect an
+  // API request to the HTML login page.
+  if (isProtectedApiRequest && !user) {
+    logMiddlewareAuth("middleware_api_auth_deferred", {
+      reasonCode: hasSupabaseAuthCookie(request)
+        ? "auth_cookie_present_user_pending"
+        : "api_route_handles_missing_session",
+      getUserOk: false,
+      getUserError: userError ? userError.name || "auth_error" : null,
+      authenticatedUserId: null,
+      authenticatedEmail: null
+    });
+
+    return clearStaleAuthCookies(response);
   }
 
-  if (isProtectedPage(request.nextUrl.pathname) && !user && !hasSupabaseAuthCookie(request)) {
-    return clearStaleAuthCookies(redirectWithAuthCookies(loginRedirectUrl(request), "missing_auth_cookie", user));
-  }
-
-  if (isProtectedPage(request.nextUrl.pathname) && !user) {
+  // A genuine absence of both user and auth cookie can redirect immediately.
+  if (
+    isProtectedPage(request.nextUrl.pathname) &&
+    !user &&
+    !hasSupabaseAuthCookie(request)
+  ) {
     return clearStaleAuthCookies(
       redirectWithAuthCookies(
-        loginRedirectUrl(request, hasSupabaseAuthCookie(request) ? "session_expired" : undefined),
-        hasSupabaseAuthCookie(request) ? "get_user_failed_with_auth_cookie" : "missing_user",
-        user
+        loginRedirectUrl(request),
+        "missing_auth_cookie",
+        null
       )
     );
+  }
+
+  // When an auth cookie exists, getUser() can briefly return null while
+  // Supabase refreshes or the browser/server session is being synchronized.
+  // Do not turn that temporary state into another OAuth login.
+  if (
+    isProtectedPage(request.nextUrl.pathname) &&
+    !user &&
+    hasSupabaseAuthCookie(request)
+  ) {
+    logMiddlewareAuth("middleware_auth_cookie_user_pending", {
+      reasonCode: "auth_cookie_present_user_pending",
+      getUserOk: false,
+      getUserError: userError ? userError.name || "auth_error" : null,
+      authenticatedUserId: null,
+      authenticatedEmail: null
+    });
+
+    return clearStaleAuthCookies(response);
   }
 
   return clearStaleAuthCookies(response);

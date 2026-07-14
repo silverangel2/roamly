@@ -201,12 +201,14 @@ function AppShellContent({
           </div>
         </header>
 
-        {children}
+        <main className="pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0">
+          {children}
+        </main>
 
         <RoamlyLocationTracker />
 
         <nav
-          className={`fixed inset-x-2 bottom-3 z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
+          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
             authenticated ? "grid-cols-5" : "grid-cols-4"
           }`}
         >
