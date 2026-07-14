@@ -305,6 +305,74 @@ const travelerMemoryComponent = read("components/account/TravelerMemorySettings.
   "personalization"
 ].forEach((needle) => assert.ok(travelerMemoryComponent.includes(needle), `traveler memory UI missing ${needle}`));
 
+const tripFeedback = read("lib/roamly/tripFeedback.ts");
+[
+  "submitTripFeedback",
+  "getTripFeedback",
+  "proposePreferenceUpdatesFromFeedback",
+  "overallSatisfaction",
+  "itineraryPace",
+  "transportationSatisfaction",
+  "hotelLocationSatisfaction",
+  "hotelQualitySatisfaction",
+  "budgetAccuracy",
+  "scheduleRealism",
+  "favouriteActivities",
+  "disappointingActivities",
+  "skippedActivities",
+  "reasonsForSkipping",
+  "wouldUseRoamlyAgain",
+  "freeTextFeedback",
+  "transportationDifficult",
+  "adjustTomorrow",
+  "recommendationUsefulness",
+  "traveler_preference_events",
+  "status: \"proposed\"",
+  "Here is what Roamly learned from your trip."
+].forEach((needle) => assert.ok(tripFeedback.includes(needle), `trip feedback helper missing ${needle}`));
+
+const tripFeedbackRoute = read("app/api/trips/[id]/feedback/route.ts");
+["requireUser", "getTripFeedback", "submitTripFeedback", "feedbackType", "proposedPreferences"].forEach((needle) =>
+  assert.ok(tripFeedbackRoute.includes(needle), `trip feedback route missing ${needle}`)
+);
+
+const tripFeedbackComponent = read("components/trip/TripFeedbackForm.tsx");
+[
+  "fetchWithSupabaseAuth",
+  "Trip feedback",
+  "Today",
+  "Transportation was difficult",
+  "Adjust tomorrow",
+  "Would use Roamly again",
+  "Here is what Roamly learned from your trip."
+].forEach((needle) => assert.ok(tripFeedbackComponent.includes(needle), `trip feedback UI missing ${needle}`));
+
+const tripFeedbackMigration = read("supabase/migrations/20260715_roamly_trip_feedback.sql");
+[
+  "trip_feedback",
+  "overall_satisfaction",
+  "itinerary_pace",
+  "transportation_satisfaction",
+  "hotel_location_satisfaction",
+  "hotel_quality_satisfaction",
+  "budget_accuracy",
+  "schedule_realism",
+  "favourite_activities",
+  "disappointing_activities",
+  "skipped_activities",
+  "reasons_for_skipping",
+  "would_use_roamly_again",
+  "free_text_feedback",
+  "transportation_difficult",
+  "adjust_tomorrow",
+  "recommendation_usefulness",
+  "learned_preferences_json",
+  "traveler_preference_events_source_feedback_id_fkey",
+  "enable row level security",
+  "user_id = auth.uid()",
+  "to service_role"
+].forEach((needle) => assert.ok(tripFeedbackMigration.toLowerCase().includes(needle.toLowerCase()), `trip feedback migration missing ${needle}`));
+
 const transportationIntelligence = read("lib/roamly/transportationIntelligence.ts");
 [
   "buildTransportationIntelligence",

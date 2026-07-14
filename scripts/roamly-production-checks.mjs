@@ -59,11 +59,16 @@ function exists(file) {
   "lib/roamly/accommodationIntelligence.ts",
   "lib/roamly/affiliateNeutrality.ts",
   "lib/roamly/itineraryValidation.ts",
+  "lib/roamly/tripFeedback.ts",
   "app/api/account/traveler-memory/route.ts",
+  "app/api/trips/[id]/feedback/route.ts",
+  "app/trip/[id]/feedback/page.tsx",
   "components/account/TravelerMemorySettings.tsx",
+  "components/trip/TripFeedbackForm.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
   "supabase/migrations/20260715_roamly_generation_worker.sql",
   "supabase/migrations/20260715_roamly_traveler_memory.sql",
+  "supabase/migrations/20260715_roamly_trip_feedback.sql",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -157,6 +162,30 @@ const travelerMemoryRoute = read("app/api/account/traveler-memory/route.ts");
 const travelerMemoryComponent = read("components/account/TravelerMemorySettings.tsx");
 ["Here is what Roamly remembers", "Delete all travel memory", "/api/account/traveler-memory"].forEach((needle) =>
   assert.ok(travelerMemoryComponent.includes(needle), `traveler memory UI missing ${needle}`)
+);
+
+const tripFeedback = read("lib/roamly/tripFeedback.ts");
+[
+  "submitTripFeedback",
+  "proposePreferenceUpdatesFromFeedback",
+  "traveler_preference_events",
+  "status: \"proposed\"",
+  "Here is what Roamly learned from your trip."
+].forEach((needle) => assert.ok(tripFeedback.includes(needle), `trip feedback helper missing ${needle}`));
+
+const tripFeedbackRoute = read("app/api/trips/[id]/feedback/route.ts");
+["requireUser", "getTripFeedback", "submitTripFeedback", "proposedPreferences"].forEach((needle) =>
+  assert.ok(tripFeedbackRoute.includes(needle), `trip feedback route missing ${needle}`)
+);
+
+const tripFeedbackComponent = read("components/trip/TripFeedbackForm.tsx");
+["fetchWithSupabaseAuth", "Trip feedback", "Today", "Here is what Roamly learned from your trip."].forEach((needle) =>
+  assert.ok(tripFeedbackComponent.includes(needle), `trip feedback UI missing ${needle}`)
+);
+
+const tripFeedbackMigration = read("supabase/migrations/20260715_roamly_trip_feedback.sql");
+["trip_feedback", "enable row level security", "user_id = auth.uid()", "traveler_preference_events_source_feedback_id_fkey"].forEach((needle) =>
+  assert.ok(tripFeedbackMigration.toLowerCase().includes(needle.toLowerCase()), `trip feedback migration missing ${needle}`)
 );
 
 const transportationIntelligence = read("lib/roamly/transportationIntelligence.ts");
