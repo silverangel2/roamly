@@ -329,11 +329,34 @@ assert.ok(itinerarySource.includes("Roamly recommends this option for your trip.
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");
 assert.ok(!generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must not bypass queue locking");
+assert.ok(generationAdvanceRoute.includes("queueSnapshot") && generationAdvanceRoute.includes("queue: await queueSnapshot"), "generation advance route must return queue state");
 
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
 assert.ok(generationStatusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose saved queue progress");
 assert.ok(generationStatusRoute.includes("queue: queueProgress"), "generation status route must return queue progress");
+
+const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
+[
+  "QueueProgress",
+  "Your trip is safely saved. Roamly will continue building it even if you close this page.",
+  "Saved stages",
+  "Queued",
+  "Understanding your trip",
+  "Learning your preferences",
+  "Researching your destination",
+  "Comparing transportation",
+  "Choosing the best way to travel",
+  "Finding the best area to stay",
+  "Comparing accommodations",
+  "Building your itinerary",
+  "Checking travel times",
+  "Checking your budget",
+  "Creating backup plans",
+  "Finalizing your trip",
+  "Completed",
+  "trackPollMovement(data?.progress, data?.queue)"
+].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must require an accepted bearer secret");

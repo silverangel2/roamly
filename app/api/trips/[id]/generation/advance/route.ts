@@ -7,9 +7,20 @@ import {
   StagedGenerationError
 } from "@/lib/roamly/stagedItineraryGeneration";
 import { processGenerationQueue } from "@/lib/roamly/generationWorker";
+import { getGenerationQueueForTrip, publicQueueProgress, queueTableMissing } from "@/lib/roamly/generationQueue";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+async function queueSnapshot(supabase: SupabaseClient, tripId: string, userId: string) {
+  const [trip, queue] = await Promise.all([
+    supabase.from("roamly_trips").select("metadata").eq("id", tripId).eq("user_id", userId).maybeSingle(),
+    getGenerationQueueForTrip({ supabase, tripId, userId })
+  ]);
+  if (queue.error && !queueTableMissing(queue.error)) return null;
+  return publicQueueProgress(queue, trip.data?.metadata);
+}
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -46,7 +57,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         tripId: id,
         action,
         worker: summary,
-        progress: summary.results[0]?.progress || publicStagedGenerationProgress({ generation: state })
+        progress: summary.results[0]?.progress || publicStagedGenerationProgress({ generation: state }),
+        queue: await queueSnapshot(auth.supabase, id, auth.user.id)
       });
     }
 
@@ -69,6 +81,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       advanced: result?.advanced === true,
       stage: result?.layerType || null,
       progress: result?.progress || null,
+      queue: await queueSnapshot(auth.supabase, id, auth.user.id),
       worker: summary,
       error: result?.error || summary.error || null
     });

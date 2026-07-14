@@ -197,6 +197,7 @@ const advanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(advanceRoute.includes("processGenerationQueue"), "client generation worker route must advance through the durable queue worker");
 assert.ok(!advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must not bypass queue locking");
 assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
+assert.ok(advanceRoute.includes("queueSnapshot") && advanceRoute.includes("queue: await queueSnapshot"), "client generation worker route must return durable queue progress");
 
 const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
@@ -595,6 +596,28 @@ assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progr
 assert.ok(progressComponent.includes("retryLimit"), "generation progress UI must respect the retry ceiling");
 assert.ok(progressComponent.includes("estimatedAiCostUsd"), "generation progress UI must show estimated AI cost");
 assert.ok(progressComponent.includes("Email me when ready"), "generation progress UI must show transactional email status");
+[
+  "QueueProgress",
+  "SAVED_QUEUE_MESSAGE",
+  "Your trip is safely saved. Roamly will continue building it even if you close this page.",
+  "Saved stages",
+  "Queued",
+  "Understanding your trip",
+  "Learning your preferences",
+  "Researching your destination",
+  "Comparing transportation",
+  "Choosing the best way to travel",
+  "Finding the best area to stay",
+  "Comparing accommodations",
+  "Building your itinerary",
+  "Checking travel times",
+  "Checking your budget",
+  "Creating backup plans",
+  "Finalizing your trip",
+  "Completed",
+  "trackPollMovement(data?.progress, data?.queue)",
+  "advanceProgress"
+].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
 [

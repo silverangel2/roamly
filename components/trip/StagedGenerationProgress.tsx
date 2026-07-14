@@ -48,6 +48,63 @@ type GenerationProgress = {
   completedAt: string | null;
 };
 
+type QueueProgress = {
+  job: {
+    status: string;
+    next_attempt_at: string | null;
+    lease_expires_at: string | null;
+    last_error_code: string | null;
+    last_error_message: string | null;
+    updated_at: string;
+    completed_at: string | null;
+  };
+  currentStage: string;
+  currentStageLabel: string;
+  completedLayerCount: number;
+  totalLayerCount: number;
+  layers: Array<{
+    id: string;
+    layerType: string;
+    layerSequence: number;
+    label: string;
+    status: "pending" | "running" | "completed" | "failed" | "skipped" | "invalidated";
+    retryCount: number;
+    lastErrorCode: string | null;
+    updatedAt: string;
+    completedAt: string | null;
+  }>;
+};
+
+type ProgressApiData = {
+  progress?: GenerationProgress | null;
+  queue?: QueueProgress | null;
+  message?: string;
+  error?: string;
+} | null;
+
+const SAVED_QUEUE_MESSAGE = "Your trip is safely saved. Roamly will continue building it even if you close this page.";
+
+const QUEUE_STAGE_LABELS: Record<string, string> = {
+  queued: "Queued",
+  traveler_profile: "Learning your preferences",
+  trip_requirements: "Understanding your trip",
+  destination_research: "Researching your destination",
+  transport_search: "Comparing transportation",
+  transport_decision: "Choosing the best way to travel",
+  destination_structure: "Structuring your destination",
+  accommodation_area_selection: "Finding the best area to stay",
+  accommodation_search: "Comparing accommodations",
+  accommodation_decision: "Choosing where to stay",
+  daily_itinerary_generation: "Building your itinerary",
+  itinerary_logistics_validation: "Checking travel times",
+  budget_validation: "Checking your budget",
+  schedule_validation: "Checking your schedule",
+  backup_plan_generation: "Creating backup plans",
+  final_assembly: "Finalizing your trip",
+  completion_notification: "Completed",
+  completed: "Completed"
+};
+
 function isTerminalStatus(status: string) {
   return status === "complete" || status === "failed" || status === "partially_failed";
 }
@@ -88,6 +145,13 @@ function stageLabel(progress: GenerationProgress) {
   return "Preparing your trip";
 }
 
+function queueStageLabel(queue: QueueProgress | null) {
+  if (!queue) return "";
+  if (queue.job.status === "queued") return QUEUE_STAGE_LABELS.queued;
+  if (queue.job.status === "completed") return QUEUE_STAGE_LABELS.completed;
+  return QUEUE_STAGE_LABELS[queue.currentStage] || queue.currentStageLabel || "Preparing your trip";
+}
+
 function approximateProgress(progress: GenerationProgress) {
   if (progress.status === "complete") return 100;
   const totalDays = Math.max(1, progress.totalDayCount || progress.days.length || 1);
@@ -106,6 +170,15 @@ function approximateProgress(progress: GenerationProgress) {
   if (completedDays >= totalDays && progress.currentStage === "generating_day") estimate = 84;
 
   return Math.max(1, Math.min(99, Math.round(estimate)));
+}
+
+function queueProgressPercent(queue: QueueProgress | null) {
+  if (!queue) return null;
+  if (queue.job.status === "completed") return 100;
+  const total = Math.max(1, queue.totalLayerCount || queue.layers.length || 1);
+  const completed = Math.min(total, Math.max(0, queue.completedLayerCount || 0));
+  const runningCredit = queue.layers.some((layer) => layer.status === "running") ? 0.35 : 0;
+  return Math.max(1, Math.min(99, Math.round(((completed + runningCredit) / total) * 100)));
 }
 
 function formatUpdatedAt(value: string | null | undefined) {
@@ -136,34 +209,50 @@ function visibleStatus(progress: GenerationProgress) {
   return "Your itinerary is being built.";
 }
 
+function queueVisibleStatus(queue: QueueProgress | null, progress: GenerationProgress) {
+  if (!queue) return visibleStatus(progress);
+  if (queue.job.status === "completed" || progress.status === "complete") return "Your itinerary is ready";
+  if (queue.job.status === "failed" || progress.status === "failed" || progress.status === "partially_failed") return "Generation needs attention";
+  if (queue.job.status === "queued") return "Your trip is queued.";
+  return "Your itinerary is being built.";
+}
+
 export function StagedGenerationProgress({
   tripId,
   initialProgress,
   emailConfigured,
   maskedEmail,
-  backgroundWorkerConfigured
+  backgroundWorkerConfigured,
+  apiAuthToken = ""
 }: {
   tripId: string;
   initialProgress: GenerationProgress;
   emailConfigured: boolean;
   maskedEmail: string | null;
   backgroundWorkerConfigured: boolean;
+  apiAuthToken?: string;
 }) {
   const router = useRouter();
   const [progress, setProgress] = useState(initialProgress);
+  const [queueProgress, setQueueProgress] = useState<QueueProgress | null>(null);
   const [busyRetryId, setBusyRetryId] = useState("");
   const [message, setMessage] = useState("");
   const inFlight = useRef(false);
   const refreshedDayCount = useRef(initialProgress.completedDayCount);
+  const unchangedPollCount = useRef(0);
+  const lastProgressSignature = useRef("");
   const stopped = isTerminalStatus(progress.status);
   const failedBatches = progress.batches.filter((batch) => batch.status === "failed");
   const canEmail =
     emailConfigured &&
     progress.emailNotification?.email_me_when_ready !== false &&
     Boolean(maskedEmail);
-  const percent = useMemo(() => approximateProgress(progress), [progress]);
-  const currentStage = useMemo(() => stageLabel(progress), [progress]);
+  const percent = useMemo(() => queueProgressPercent(queueProgress) ?? approximateProgress(progress), [progress, queueProgress]);
+  const currentStage = useMemo(() => queueStageLabel(queueProgress) || stageLabel(progress), [progress, queueProgress]);
   const completedDaysLabel = `${progress.completedDayCount} of ${progress.totalDayCount || progress.days.length || 0} days ready`;
+  const completedLayerLabel = queueProgress
+    ? `${queueProgress.completedLayerCount} of ${queueProgress.totalLayerCount} saved stages complete`
+    : completedDaysLabel;
 
   const applyProgress = useCallback((next: GenerationProgress | null | undefined) => {
     if (!next) return;
@@ -182,30 +271,95 @@ export function StagedGenerationProgress({
     }
   }, [router]);
 
+  const applyQueue = useCallback((next: QueueProgress | null | undefined) => {
+    if (!next) return;
+    setQueueProgress(next);
+  }, []);
+
+  const authHeaders = useCallback((contentType = false) => {
+    const headers: Record<string, string> = {};
+    if (contentType) headers["content-type"] = "application/json";
+    if (apiAuthToken) headers["x-roamly-session-token"] = apiAuthToken;
+    return headers;
+  }, [apiAuthToken]);
+
+  const trackPollMovement = useCallback((next: GenerationProgress | null | undefined, queue: QueueProgress | null | undefined) => {
+    if (!next && !queue) return false;
+    const activeBatch = next ? currentBatch(next) : null;
+    const activeLayer = queue?.layers.find((layer) => layer.status === "running") || queue?.layers.find((layer) => layer.status === "pending") || null;
+    const signature = [
+      next?.status || "",
+      next?.currentStage || "",
+      next?.completedDayCount || 0,
+      next?.updatedAt || "",
+      queue?.job.status || "",
+      queue?.currentStage || "",
+      queue?.completedLayerCount || 0,
+      queue?.job.updated_at || "",
+      activeLayer?.id || "",
+      activeLayer?.status || "",
+      activeBatch?.id || "",
+      activeBatch?.status || "",
+      activeBatch?.attemptCount || 0
+    ].join(":");
+
+    if (signature === lastProgressSignature.current) {
+      unchangedPollCount.current += 1;
+    } else {
+      unchangedPollCount.current = 0;
+      lastProgressSignature.current = signature;
+    }
+
+    return unchangedPollCount.current >= 2 && !isTerminalStatus(next?.status || "") && queue?.job.status !== "completed";
+  }, []);
+
+  const advanceProgress = useCallback(async () => {
+    const response = await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/advance`, {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({ action: "advance" }),
+      cache: "no-store"
+    });
+    const data = await response.json().catch(() => null);
+    if (data?.progress) applyProgress(data.progress);
+    if (data?.queue) applyQueue(data.queue);
+    return { response, data };
+  }, [applyProgress, applyQueue, authHeaders, tripId]);
+
   const pollProgress = useCallback(async () => {
     if (inFlight.current || stopped) return;
     inFlight.current = true;
     setMessage("");
     try {
-      const response = backgroundWorkerConfigured
-        ? await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/status`, { cache: "no-store" })
-        : await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/advance`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ action: "advance" }),
-            cache: "no-store"
-          });
-      const data = await response.json().catch(() => null);
+      const result = backgroundWorkerConfigured
+        ? {
+            response: await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/status`, {
+              headers: authHeaders(),
+              cache: "no-store"
+            }),
+            data: null as ProgressApiData
+          }
+        : await advanceProgress();
+      const response = result.response;
+      const data: ProgressApiData = backgroundWorkerConfigured ? await response.json().catch(() => null) : result.data;
       if (data?.progress) applyProgress(data.progress);
+      if (data?.queue) applyQueue(data.queue);
       if (response.status === 401) {
         setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
       } else if (!response.ok) {
         setMessage(data?.message || data?.error || "Progress could not be refreshed. Completed days remain saved.");
+      } else if (backgroundWorkerConfigured && trackPollMovement(data?.progress, data?.queue)) {
+        const rescue = await advanceProgress();
+        if (rescue.response.status === 401) {
+          setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
+        } else if (!rescue.response.ok) {
+          setMessage(rescue.data?.message || rescue.data?.error || "Progress could not be refreshed. Completed days remain saved.");
+        }
       }
     } finally {
       inFlight.current = false;
     }
-  }, [applyProgress, backgroundWorkerConfigured, stopped, tripId]);
+  }, [advanceProgress, applyProgress, applyQueue, authHeaders, backgroundWorkerConfigured, stopped, trackPollMovement, tripId]);
 
   const retryFailedBatch = useCallback(async (batchId: string) => {
     if (inFlight.current) return;
@@ -215,18 +369,19 @@ export function StagedGenerationProgress({
     try {
       const response = await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/advance`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: authHeaders(true),
         body: JSON.stringify({ action: "retry_batch", batchId }),
         cache: "no-store"
       });
       const data = await response.json().catch(() => null);
       if (data?.progress) applyProgress(data.progress);
+      if (data?.queue) applyQueue(data.queue);
       if (!response.ok) setMessage(data?.message || "The failed stage could not be retried. Completed days remain saved.");
     } finally {
       inFlight.current = false;
       setBusyRetryId("");
     }
-  }, [applyProgress, tripId]);
+  }, [applyProgress, applyQueue, authHeaders, tripId]);
 
   useEffect(() => {
     setProgress(initialProgress);
@@ -250,7 +405,7 @@ export function StagedGenerationProgress({
       <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{currentStage}</p>
-          <h2 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">{visibleStatus(progress)}</h2>
+          <h2 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">{queueVisibleStatus(queueProgress, progress)}</h2>
           {progress.status === "complete" ? (
             <p className="mt-3 max-w-2xl text-base font-black leading-7 text-slate-700">
               The full itinerary is ready to view.
@@ -265,7 +420,7 @@ export function StagedGenerationProgress({
             </p>
           ) : (
             <p className="mt-3 max-w-2xl text-base font-black leading-7 text-slate-700">
-              Your itinerary will continue building in the background. Return to this trip later to view it.
+              {SAVED_QUEUE_MESSAGE}
             </p>
           )}
 
@@ -277,7 +432,7 @@ export function StagedGenerationProgress({
                   <p className="mt-1 text-ocean/80">We’ll send it to {maskedEmail}</p>
                 </>
               ) : (
-                <p>Your itinerary will continue building in the background. Return to this trip later to view it.</p>
+                <p>{SAVED_QUEUE_MESSAGE}</p>
               )}
               {backgroundWorkerConfigured ? (
                 <p className="mt-2 text-ocean/80">You do not need to keep this tab open.</p>
@@ -294,7 +449,7 @@ export function StagedGenerationProgress({
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Approx. progress</p>
               <p className="mt-1 text-3xl font-black text-ink">{percent}%</p>
             </div>
-            <p className="text-right text-sm font-black text-ocean">{completedDaysLabel}</p>
+            <p className="text-right text-sm font-black text-ocean">{completedLayerLabel}</p>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
             <div className="h-full rounded-full bg-ocean transition-all" style={{ width: `${percent}%` }} />
@@ -322,6 +477,34 @@ export function StagedGenerationProgress({
         <p className="mt-4 rounded-2xl border border-ocean/20 bg-white px-4 py-3 text-sm font-black text-ocean">
           {completedDaysLabel}. You can view ready days now while the rest continues.
         </p>
+      ) : null}
+
+      {queueProgress ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Saved stages</p>
+            <p className="text-sm font-black text-ocean">{completedLayerLabel}</p>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {queueProgress.layers.map((layer) => (
+              <div
+                key={layer.id}
+                className={`rounded-xl border px-3 py-2 text-sm font-black ${
+                  layer.status === "completed" || layer.status === "skipped"
+                    ? "border-ocean/20 bg-ocean/10 text-ocean"
+                    : layer.status === "running"
+                      ? "border-sun/30 bg-sun/20 text-amber-800"
+                      : layer.status === "failed" || layer.status === "invalidated"
+                        ? "border-coral/25 bg-coral/10 text-coral"
+                        : "border-slate-200 bg-slate-50 text-slate-500"
+                }`}
+              >
+                <span>{QUEUE_STAGE_LABELS[layer.layerType] || layer.label}</span>
+                <span className="ml-2 text-xs uppercase opacity-70">{layer.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
