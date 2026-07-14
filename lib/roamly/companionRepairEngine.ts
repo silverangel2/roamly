@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  canAutomaticallyApplyCompanionAction,
+  getCompanionPreferences
+} from "@/lib/roamly/companionPreferences";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -348,7 +352,32 @@ export async function createCompanionRepairProposal(params: {
 
   let appliedAutomatically = false;
 
-  if (!requiresApproval && safeActions.length > 0) {
+  const companionPreferences = await getCompanionPreferences({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId
+  });
+
+  const costChange =
+    typeof impactResult.data.cost_impact_json?.amount === "number"
+      ? impactResult.data.cost_impact_json.amount
+      : 0;
+
+  const everySafeActionMayAutoApply =
+    safeActions.length > 0 &&
+    safeActions.every((action) =>
+      canAutomaticallyApplyCompanionAction({
+        preferences: companionPreferences,
+        actionType: action.actionType,
+        requiresApproval: action.requiresApproval,
+        costChange
+      })
+    );
+
+  if (
+    !requiresApproval &&
+    everySafeActionMayAutoApply
+  ) {
     try {
       appliedAutomatically = await applySafeActions({
         supabase: params.supabase,
