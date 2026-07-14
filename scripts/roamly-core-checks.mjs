@@ -377,6 +377,49 @@ const dailyItineraryStage = read("lib/roamly/brain/dailyItineraryStage.ts");
 const brainIndex = read("lib/roamly/brain/index.ts");
 assert.ok(brainIndex.includes("dailyItineraryStage"), "Brain index must export the daily itinerary stage");
 
+const itineraryValidation = read("lib/roamly/itineraryValidation.ts");
+[
+  "validateItineraryDeterministically",
+  "repairLowRiskItineraryIssues",
+  "validateAndRepairItinerary",
+  "buildItineraryLogisticsValidationLayer",
+  "buildBudgetValidationLayer",
+  "buildScheduleValidationLayer",
+  "overlapping_activities",
+  "impossible_travel_time",
+  "closed_attraction",
+  "insufficient_transfer_time",
+  "missed_check_in_window",
+  "departure_conflict",
+  "budget_overrun",
+  "duplicate_activity",
+  "excessive_walking",
+  "excessive_driving",
+  "missing_meal_time",
+  "missing_rest",
+  "timezone_error",
+  "date_error",
+  "stale_market_data",
+  "missing_reservation_warning",
+  "mixed_currencies",
+  "dependency_mismatch",
+  "hotel_route_inconsistency",
+  "transport_itinerary_inconsistency",
+  "repairItineraryForTravelRequirements",
+  "validationFindingsToInvalidatedStages"
+].forEach((needle) => assert.ok(itineraryValidation.includes(needle), `itinerary validation missing ${needle}`));
+
+const validationStages = read("lib/roamly/brain/validationStages.ts");
+[
+  "buildBrainValidationLayer",
+  "itinerary_logistics_validation",
+  "budget_validation",
+  "schedule_validation",
+  "validationRequiresTargetedRegeneration",
+  "invalidate and rerun only the relevant Brain layer"
+].forEach((needle) => assert.ok(validationStages.includes(needle), `validation Brain stage helper missing ${needle}`));
+assert.ok(brainIndex.includes("validationStages"), "Brain index must export validation stages");
+
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
   "roamly_trip_generation_jobs",

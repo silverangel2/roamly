@@ -52,10 +52,12 @@ function exists(file) {
   "lib/roamly/brain/transportStages.ts",
   "lib/roamly/brain/accommodationStages.ts",
   "lib/roamly/brain/dailyItineraryStage.ts",
+  "lib/roamly/brain/validationStages.ts",
   "lib/roamly/travelerMemory.ts",
   "lib/roamly/transportationIntelligence.ts",
   "lib/roamly/accommodationIntelligence.ts",
   "lib/roamly/affiliateNeutrality.ts",
+  "lib/roamly/itineraryValidation.ts",
   "app/api/account/traveler-memory/route.ts",
   "components/account/TravelerMemorySettings.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
@@ -217,6 +219,31 @@ const dailyItineraryStage = read("lib/roamly/brain/dailyItineraryStage.ts");
   "optional_flexible_activity",
   "Use only supplied evidence"
 ].forEach((needle) => assert.ok(dailyItineraryStage.includes(needle), `daily itinerary stage missing ${needle}`));
+
+const itineraryValidation = read("lib/roamly/itineraryValidation.ts");
+[
+  "validateItineraryDeterministically",
+  "repairLowRiskItineraryIssues",
+  "buildItineraryLogisticsValidationLayer",
+  "buildBudgetValidationLayer",
+  "buildScheduleValidationLayer",
+  "overlapping_activities",
+  "impossible_travel_time",
+  "closed_attraction",
+  "budget_overrun",
+  "stale_market_data",
+  "missing_reservation_warning",
+  "mixed_currencies",
+  "dependency_mismatch",
+  "hotel_route_inconsistency",
+  "transport_itinerary_inconsistency",
+  "repairItineraryForTravelRequirements"
+].forEach((needle) => assert.ok(itineraryValidation.includes(needle), `itinerary validation missing ${needle}`));
+
+const validationStages = read("lib/roamly/brain/validationStages.ts");
+["buildBrainValidationLayer", "validationRequiresTargetedRegeneration", "invalidate and rerun only the relevant Brain layer"].forEach((needle) =>
+  assert.ok(validationStages.includes(needle), `validation Brain stage helper missing ${needle}`)
+);
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
