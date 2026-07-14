@@ -312,7 +312,7 @@ async function existingBookingByStableKey(params: {
     title: params.booking.title
   });
   const { data: bookings } = await params.supabase
-    .from("trip_bookings")
+    .from("roamly_bookings")
     .select("id,provider,confirmation_code,booking_type,flight_number,start_time,origin,destination,title")
     .eq("user_id", params.userId)
     .eq("trip_id", params.tripId)

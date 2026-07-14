@@ -265,7 +265,7 @@ export async function recordAffiliateConversion(params: {
   const conversion = saved.data as AffiliateConversionRecord;
   const hasTravelDetails = Boolean(params.input.booking?.title || params.input.booking?.startTime || params.input.booking?.checkInTime);
   const existingBooking = await params.supabase
-    .from("trip_bookings")
+    .from("roamly_bookings")
     .select("*")
     .eq("affiliate_conversion_id", conversion.id)
     .eq("user_id", click.user_id)

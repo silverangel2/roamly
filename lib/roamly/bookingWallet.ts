@@ -341,7 +341,7 @@ export async function listTripBookings(params: {
 }) {
   const select = params.includeSegments ? "*, booking_segments(*)" : "*";
   const { data, error } = await params.supabase
-    .from("trip_bookings")
+    .from("roamly_bookings")
     .select(select)
     .eq("user_id", params.userId)
     .eq("trip_id", params.tripId)
@@ -363,7 +363,7 @@ export async function createTripBooking(params: {
 
   const booking = normalizeTripBookingInput(params.input);
   const { data, error } = await params.supabase
-    .from("trip_bookings")
+    .from("roamly_bookings")
     .insert({
       ...booking,
       user_id: params.userId,
