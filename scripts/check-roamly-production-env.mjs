@@ -222,6 +222,36 @@ const checks = [
     keys: ["ROAMLY_GMAIL_WEBHOOK_SECRET"]
   },
   {
+    label: "Microsoft Outlook client ID",
+    required: OPTIONAL,
+    keys: ["MICROSOFT_OUTLOOK_CLIENT_ID"]
+  },
+  {
+    label: "Microsoft Outlook client secret",
+    required: OPTIONAL,
+    keys: ["MICROSOFT_OUTLOOK_CLIENT_SECRET"]
+  },
+  {
+    label: "Microsoft Outlook tenant ID",
+    required: OPTIONAL,
+    keys: ["MICROSOFT_OUTLOOK_TENANT_ID"]
+  },
+  {
+    label: "Microsoft Outlook redirect URI",
+    required: OPTIONAL,
+    keys: ["MICROSOFT_OUTLOOK_REDIRECT_URI"]
+  },
+  {
+    label: "Microsoft Outlook webhook URL",
+    required: OPTIONAL,
+    keys: ["MICROSOFT_OUTLOOK_WEBHOOK_URL"]
+  },
+  {
+    label: "Outlook webhook secret",
+    required: OPTIONAL,
+    keys: ["ROAMLY_OUTLOOK_WEBHOOK_SECRET"]
+  },
+  {
     label: "Generation retry budget",
     required: OPTIONAL,
     keys: ["ROAMLY_GENERATION_RETRY_BUDGET"]

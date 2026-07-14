@@ -1053,17 +1053,29 @@ const emailConnectionsMigration = read("supabase/migrations/20260716_roamly_emai
 const emailConnections = read("lib/roamly/emailConnections.ts");
 [
   "GMAIL_READONLY_SCOPE",
+  "OUTLOOK_READONLY_SCOPES",
   "ROAMLY_TOKEN_ENCRYPTION_KEY",
   "encryptToken",
   "decryptToken",
   "gmailAuthorizationUrl",
+  "outlookAuthorizationUrl",
   "exchangeGmailCodeForTokens",
+  "exchangeOutlookCodeForTokens",
   "renewGmailWatch",
+  "renewOutlookSubscription",
   "syncGmailConnection",
+  "syncOutlookConnection",
   "https://www.googleapis.com/auth/gmail.readonly",
+  "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta",
   "q\", \"newer_than:30d"
 ].forEach((needle) => assert.ok(emailConnections.includes(needle), `email connections helper missing ${needle}`));
 assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must not request write mailbox scopes");
+assert.ok(!emailConnections.includes("Mail.ReadWrite"), "Outlook integration must not request write mailbox scopes");
+
+const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
+["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsIncrementalSync", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>
+  assert.ok(emailProviderAdapters.includes(needle), `email provider adapter registry missing ${needle}`)
+);
 
 [
   "app/api/integrations/gmail/connect/route.ts",
@@ -1071,6 +1083,12 @@ assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must no
   "app/api/integrations/gmail/disconnect/route.ts",
   "app/api/integrations/gmail/sync/route.ts",
   "app/api/webhooks/gmail/route.ts",
+  "app/api/integrations/outlook/connect/route.ts",
+  "app/api/integrations/outlook/callback/route.ts",
+  "app/api/integrations/outlook/disconnect/route.ts",
+  "app/api/integrations/outlook/sync/route.ts",
+  "app/api/webhooks/outlook/route.ts",
+  "lib/roamly/emailProviderAdapters.ts",
   "app/api/account/email-connections/route.ts"
 ].forEach((file) => assert.ok(fs.existsSync(path.join(root, file)), `${file} is missing`));
 
@@ -1089,12 +1107,27 @@ const gmailWebhookRoute = read("app/api/webhooks/gmail/route.ts");
   assert.ok(gmailWebhookRoute.includes(needle), `Gmail webhook route missing ${needle}`)
 );
 
+const outlookConnectRoute = read("app/api/integrations/outlook/connect/route.ts");
+["OUTLOOK_OAUTH_STATE_COOKIE", "outlookAuthorizationUrl", "requireUser"].forEach((needle) =>
+  assert.ok(outlookConnectRoute.includes(needle), `Outlook connect route missing ${needle}`)
+);
+
+const outlookCallbackRoute = read("app/api/integrations/outlook/callback/route.ts");
+["exchangeOutlookCodeForTokens", "getOutlookProfile", "upsertOutlookConnection", "renewOutlookSubscription"].forEach((needle) =>
+  assert.ok(outlookCallbackRoute.includes(needle), `Outlook callback route missing ${needle}`)
+);
+
+const outlookWebhookRoute = read("app/api/webhooks/outlook/route.ts");
+["ROAMLY_OUTLOOK_WEBHOOK_SECRET", "validationToken", "syncOutlookConnection"].forEach((needle) =>
+  assert.ok(outlookWebhookRoute.includes(needle), `Outlook webhook route missing ${needle}`)
+);
+
 const emailConnectionSettings = read("components/account/EmailConnectionSettings.tsx");
-["Connect Gmail", "Disconnect Gmail", "Sync Gmail", "Personal emails are not saved or used for advertising."].forEach((needle) =>
+["Connect Gmail", "Disconnect Gmail", "Sync Gmail", "Connect Outlook", "Disconnect Outlook", "Sync Outlook", "Personal emails are not saved or used for advertising."].forEach((needle) =>
   assert.ok(emailConnectionSettings.includes(needle), `email connection settings missing ${needle}`)
 );
 
 const accountPageWithEmailImport = read("app/account/page.tsx");
-assert.ok(accountPageWithEmailImport.includes("EmailConnectionSettings"), "account page must expose Gmail mailbox controls separately from Google login");
+assert.ok(accountPageWithEmailImport.includes("EmailConnectionSettings"), "account page must expose mailbox controls separately from Google login");
 
 console.log("Roamly core checks passed.");
