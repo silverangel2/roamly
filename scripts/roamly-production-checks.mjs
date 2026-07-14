@@ -49,8 +49,12 @@ function exists(file) {
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
+  "lib/roamly/travelerMemory.ts",
+  "app/api/account/traveler-memory/route.ts",
+  "components/account/TravelerMemorySettings.tsx",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
   "supabase/migrations/20260715_roamly_generation_worker.sql",
+  "supabase/migrations/20260715_roamly_traveler_memory.sql",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -123,6 +127,27 @@ const brainStages = read("lib/roamly/brain/stages.ts");
 const brainOrchestrator = read("lib/roamly/brain/orchestrator.ts");
 ["buildBrainStageInput", "dependencyVersionSnapshot", "validateBrainStageOutput", "invalidateBrainLayersForChange"].forEach((needle) =>
   assert.ok(brainOrchestrator.includes(needle), `Brain orchestrator missing ${needle}`)
+);
+
+const travelerMemory = read("lib/roamly/travelerMemory.ts");
+["TRAVELER_PREFERENCE_KEYS", "confirmed_preferences", "inferred_preferences", "personalization_enabled", "preferenceInfluenceSummary"].forEach((needle) =>
+  assert.ok(travelerMemory.includes(needle), `traveler memory helper missing ${needle}`)
+);
+assert.ok(generationQueue.includes("travelerMemory"), "generation queue layers must load traveler memory");
+
+const travelerMemoryMigration = read("supabase/migrations/20260715_roamly_traveler_memory.sql");
+["traveler_profiles", "traveler_preference_events", "enable row level security", "user_id = auth.uid()", "personalization_enabled"].forEach((needle) =>
+  assert.ok(travelerMemoryMigration.toLowerCase().includes(needle.toLowerCase()), `traveler memory migration missing ${needle}`)
+);
+
+const travelerMemoryRoute = read("app/api/account/traveler-memory/route.ts");
+["getTravelerMemory", "upsertTravelerProfile", "deleteTravelerMemory", "updatePreferenceEventStatus"].forEach((needle) =>
+  assert.ok(travelerMemoryRoute.includes(needle), `traveler memory route missing ${needle}`)
+);
+
+const travelerMemoryComponent = read("components/account/TravelerMemorySettings.tsx");
+["Here is what Roamly remembers", "Delete all travel memory", "/api/account/traveler-memory"].forEach((needle) =>
+  assert.ok(travelerMemoryComponent.includes(needle), `traveler memory UI missing ${needle}`)
 );
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
@@ -220,6 +245,9 @@ const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("checkoutSyncError"), "trip page must surface checkout sync failures");
 assert.ok(tripPage.includes("checkout_sync_failed"), "checkout sync failures must be observable");
 assert.ok(tripPage.includes("CheckoutUrlCleanup") && tripPage.includes("checkoutNeedsAttention"), "checkout success URL must be retained while sync needs attention");
+
+const accountPage = read("app/account/page.tsx");
+assert.ok(accountPage.includes("TravelerMemorySettings"), "account page must expose traveler memory controls");
 
 const activateTripButton = read("components/trip/ActivateTripButton.tsx");
 assert.ok(activateTripButton.includes("fetchWithSupabaseAuth"), "trip checkout buttons must forward Supabase auth");

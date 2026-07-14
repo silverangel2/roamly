@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AccountProfileForm } from "@/components/account/AccountProfileForm";
 import { LocationTrackingSettings } from "@/components/account/LocationTrackingSettings";
+import { TravelerMemorySettings } from "@/components/account/TravelerMemorySettings";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -89,6 +90,14 @@ export default async function AccountPage() {
             <h2 className="mt-2 text-2xl font-black text-ink">Trip privacy and reminders</h2>
             <div className="mt-5">
               <LocationTrackingSettings />
+            </div>
+          </Card>
+
+          <Card>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Traveler memory</p>
+            <h2 className="mt-2 text-2xl font-black text-ink">Preferences Roamly can use</h2>
+            <div className="mt-5">
+              <TravelerMemorySettings />
             </div>
           </Card>
 

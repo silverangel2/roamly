@@ -7,6 +7,7 @@ import {
   stageLabel as brainStageLabel,
   type RoamlyBrainStageType
 } from "@/lib/roamly/brain/stages";
+import { getTravelerMemory, preferenceInfluenceSummary } from "@/lib/roamly/travelerMemory";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export { ROAMLY_BRAIN_STAGES, ROAMLY_BRAIN_VERSION, type RoamlyBrainStageType };
@@ -136,16 +137,35 @@ async function ensureGenerationLayers(params: {
   job: RoamlyGenerationJob;
   payload?: TripPlannerPayload | null;
 }) {
+  const travelerMemory = await getTravelerMemory(params.supabase, params.job.user_id)
+    .then((memory) =>
+      memory.profile && memory.profile.personalization_enabled !== false
+        ? {
+            personalizationEnabled: true,
+            confirmedPreferences: memory.profile.confirmed_preferences,
+            inferredPreferences: memory.profile.inferred_preferences,
+            preferenceInfluence: preferenceInfluenceSummary(memory.profile)
+          }
+        : {
+            personalizationEnabled: false,
+            confirmedPreferences: {},
+            inferredPreferences: {},
+            preferenceInfluence: []
+          }
+    )
+    .catch(() => null);
   const input = params.payload
     ? {
         tripId: params.job.trip_id,
         userId: params.job.user_id,
         payload: params.payload,
+        travelerMemory,
         generationVersion: params.job.generation_version
       }
     : {
         tripId: params.job.trip_id,
         userId: params.job.user_id,
+        travelerMemory,
         generationVersion: params.job.generation_version
       };
 

@@ -230,6 +230,55 @@ const brainOrchestrator = read("lib/roamly/brain/orchestrator.ts");
   "requeueInvalidatedGenerationLayers"
 ].forEach((needle) => assert.ok(brainOrchestrator.includes(needle), `Brain orchestrator missing ${needle}`));
 
+const travelerMemory = read("lib/roamly/travelerMemory.ts");
+[
+  "TRAVELER_PREFERENCE_KEYS",
+  "preferred_travel_pace",
+  "maximum_comfortable_driving_hours",
+  "transportation_preferences",
+  "accommodation_types",
+  "hotel_priorities",
+  "confirmed_preferences",
+  "inferred_preferences",
+  "personalization_enabled",
+  "getTravelerMemory",
+  "upsertTravelerProfile",
+  "deleteTravelerPreference",
+  "deleteTravelerMemory",
+  "updatePreferenceEventStatus",
+  "preferenceInfluenceSummary"
+].forEach((needle) => assert.ok(travelerMemory.includes(needle), `traveler memory helper missing ${needle}`));
+assert.ok(generationQueue.includes("travelerMemory"), "generation layers must receive traveler memory input");
+
+const travelerMemoryMigration = read("supabase/migrations/20260715_roamly_traveler_memory.sql");
+[
+  "traveler_profiles",
+  "traveler_preference_events",
+  "preferred_travel_pace",
+  "maximum_comfortable_driving_hours",
+  "confirmed_preferences",
+  "inferred_preferences",
+  "personalization_enabled",
+  "enable row level security",
+  "user_id = auth.uid()",
+  "source_trip_id",
+  "source_feedback_id"
+].forEach((needle) => assert.ok(travelerMemoryMigration.toLowerCase().includes(needle.toLowerCase()), `traveler memory migration missing ${needle}`));
+
+const travelerMemoryRoute = read("app/api/account/traveler-memory/route.ts");
+["requireUser", "getTravelerMemory", "upsertTravelerProfile", "deleteTravelerPreference", "updatePreferenceEventStatus", "deleteTravelerMemory"].forEach((needle) =>
+  assert.ok(travelerMemoryRoute.includes(needle), `traveler memory route missing ${needle}`)
+);
+
+const travelerMemoryComponent = read("components/account/TravelerMemorySettings.tsx");
+[
+  "/api/account/traveler-memory",
+  "Here is what Roamly remembers",
+  "Here is what Roamly learned from your trip.",
+  "Delete all travel memory",
+  "personalization"
+].forEach((needle) => assert.ok(travelerMemoryComponent.includes(needle), `traveler memory UI missing ${needle}`));
+
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
   "roamly_trip_generation_jobs",
