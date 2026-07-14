@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { analyzeCompanionImpact } from "@/lib/roamly/companionImpactAnalysis";
 import type { LiveProviderResult } from "@/lib/roamly/liveProviderAdapters";
 
 export type CompanionSeverity = "minor" | "routine" | "important" | "critical";
@@ -169,6 +170,10 @@ export async function processBookingChangeEvent(params: {
   if (bookingChange.error) return { ok: false as const, error: bookingChange.error };
   const companion = await recordCompanionEvent({ supabase: params.supabase, bookingChange: params.input });
   if (companion.error) return { ok: false as const, error: companion.error };
+  const companionEventId = (companion.event as { id?: string } | null)?.id || "";
+  const impact = companionEventId
+    ? await analyzeCompanionImpact({ supabase: params.supabase, companionEventId }).catch(() => null)
+    : null;
   await (createSupabaseAdminClient() || params.supabase)
     .from("booking_change_events")
     .update({ processed_at: new Date().toISOString() })
@@ -178,6 +183,7 @@ export async function processBookingChangeEvent(params: {
     ok: true as const,
     bookingChangeEvent: bookingChange.event,
     companionEvent: companion.event,
+    impact: impact?.ok ? impact.impact : null,
     deduplicated: bookingChange.deduplicated,
     affectedLayers: affectedLayersForCompanionEvent(params.input.eventType)
   };

@@ -51,6 +51,7 @@ function exists(file) {
   "lib/roamly/providers/index.ts",
   "lib/roamly/liveProviderAdapters.ts",
   "lib/roamly/companionEventEngine.ts",
+  "lib/roamly/companionImpactAnalysis.ts",
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
@@ -108,6 +109,7 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_booking_extraction_matching.sql",
   "supabase/migrations/20260716_roamly_live_provider_status.sql",
   "supabase/migrations/20260716_roamly_companion_events.sql",
+  "supabase/migrations/20260716_roamly_companion_impact_analysis.sql",
   "app/api/webhooks/gmail/route.ts",
   "app/api/webhooks/outlook/route.ts",
   "lib/roamly/travelEmailFiltering.ts",
@@ -641,8 +643,18 @@ const companionEventsMigration = read("supabase/migrations/20260716_roamly_compa
 );
 
 const companionEventEngine = read("lib/roamly/companionEventEngine.ts");
-["companionEventFingerprint", "recordBookingChangeEvent", "recordCompanionEvent", "processBookingChangeEvent", "eventFromLiveProviderResult", "affectedLayersForCompanionEvent", "approvalRequiredForEvent", "flight_delayed", "flight_cancelled", "gate_changed", "onConflict: \"user_id,event_fingerprint\""].forEach((needle) =>
+["companionEventFingerprint", "recordBookingChangeEvent", "recordCompanionEvent", "processBookingChangeEvent", "eventFromLiveProviderResult", "affectedLayersForCompanionEvent", "approvalRequiredForEvent", "flight_delayed", "flight_cancelled", "gate_changed", "analyzeCompanionImpact", "onConflict: \"user_id,event_fingerprint\""].forEach((needle) =>
   assert.ok(companionEventEngine.includes(needle), `companion event engine missing ${needle}`)
+);
+
+const companionImpactMigration = read("supabase/migrations/20260716_roamly_companion_impact_analysis.sql");
+["companion_impact_results", "affected_items_json", "timing_impact_json", "cost_impact_json", "safe_automatic_actions", "approval_required_actions", "enable row level security"].forEach((needle) =>
+  assert.ok(companionImpactMigration.toLowerCase().includes(needle.toLowerCase()), `companion impact migration missing ${needle}`)
+);
+
+const companionImpactAnalysis = read("lib/roamly/companionImpactAnalysis.ts");
+["COMPANION_IMPACT_SCHEMA", "analyzeCompanionImpact", "deterministicImpact", "aiImpactReview", "json_schema", "strict: true", "paid_commitment_allowed: false", "Do not book, cancel, purchase"].forEach((needle) =>
+  assert.ok(companionImpactAnalysis.includes(needle), `companion impact analysis missing ${needle}`)
 );
 
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
