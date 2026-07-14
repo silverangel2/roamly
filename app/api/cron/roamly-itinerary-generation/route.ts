@@ -29,8 +29,9 @@ export async function POST(request: NextRequest) {
     reason,
     config: tripId
       ? {
-          batchSize: 1,
-          concurrency: 1
+          batchSize: 3,
+          concurrency: 1,
+          maxLayersPerRun: 4
         }
       : undefined
   });

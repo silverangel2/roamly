@@ -73,7 +73,7 @@ const DEFAULT_CONFIG: RoamlyGenerationWorkerConfig = {
   concurrency: 3,
   maxRetries: 3,
   leaseSeconds: 240,
-  maxLayersPerRun: 1,
+  maxLayersPerRun: 4,
   retryBaseSeconds: 60,
   retryMaxSeconds: 1800
 };
