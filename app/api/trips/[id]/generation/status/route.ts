@@ -27,6 +27,48 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: false, error: queue.error }, { status: 500 });
   }
   const queueProgress = publicQueueProgress(queue, data.metadata);
+  const metadataProgress =
+    publicStagedGenerationProgress(data.metadata) || {
+      status: "queued",
+      completedDayCount: 0,
+      totalDayCount: 1,
+      percent: 0
+    };
+  const queueRecord = queueProgress as Record<string, unknown> | null;
+
+  const completedLayerCount =
+    typeof queueRecord?.completedLayerCount === "number"
+      ? queueRecord.completedLayerCount
+      : metadataProgress.completedDayCount;
+
+  const totalLayerCount =
+    typeof queueRecord?.totalLayerCount === "number" && queueRecord.totalLayerCount > 0
+      ? queueRecord.totalLayerCount
+      : Math.max(metadataProgress.totalDayCount, 1);
+
+  const queueStatus =
+    typeof queueRecord?.status === "string" ? queueRecord.status : "";
+
+  const isComplete =
+    queueStatus === "complete" ||
+    queueStatus === "completed" ||
+    completedLayerCount >= totalLayerCount;
+
+  const isFailed =
+    queueStatus === "failed" || metadataProgress.status === "failed";
+
+  const progress = {
+    ...metadataProgress,
+    status: isComplete ? "complete" : isFailed ? "failed" : metadataProgress.status,
+    completedDayCount: completedLayerCount,
+    totalDayCount: totalLayerCount,
+    percent: isComplete
+      ? 100
+      : Math.max(
+          0,
+          Math.min(99, Math.round((completedLayerCount / totalLayerCount) * 100))
+        )
+  };
 
   return NextResponse.json({
     ok: true,
@@ -34,7 +76,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     status: data.status,
     itineraryStatus: data.itinerary_status,
     itineraryLocked: data.itinerary_locked === true,
-    progress: publicStagedGenerationProgress(data.metadata),
+    progress,
     queue: queueProgress
   });
 }
