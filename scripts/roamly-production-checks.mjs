@@ -53,6 +53,7 @@ function exists(file) {
   "lib/roamly/brain/accommodationStages.ts",
   "lib/roamly/brain/dailyItineraryStage.ts",
   "lib/roamly/brain/validationStages.ts",
+  "lib/roamly/brain/finalAssembly.ts",
   "lib/roamly/travelerMemory.ts",
   "lib/roamly/transportationIntelligence.ts",
   "lib/roamly/accommodationIntelligence.ts",
@@ -244,6 +245,27 @@ const validationStages = read("lib/roamly/brain/validationStages.ts");
 ["buildBrainValidationLayer", "validationRequiresTargetedRegeneration", "invalidate and rerun only the relevant Brain layer"].forEach((needle) =>
   assert.ok(validationStages.includes(needle), `validation Brain stage helper missing ${needle}`)
 );
+
+const finalAssembly = read("lib/roamly/brain/finalAssembly.ts");
+[
+  "assembleFinalItinerary",
+  "buildFinalAssemblyLayer",
+  "targetedItineraryChangePlan",
+  "recommended_transportation",
+  "recommended_accommodation",
+  "affiliate_disclosure",
+  "source_timestamps",
+  "structured_layers",
+  "legacy_itinerary",
+  "replace_activity",
+  "regenerate_day",
+  "change_transport",
+  "change_hotel",
+  "change_budget",
+  "change_pace",
+  "change_dates",
+  "Only dependent layers are invalidated"
+].forEach((needle) => assert.ok(finalAssembly.includes(needle), `final assembly missing ${needle}`));
 
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [

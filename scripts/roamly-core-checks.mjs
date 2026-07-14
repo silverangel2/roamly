@@ -420,6 +420,43 @@ const validationStages = read("lib/roamly/brain/validationStages.ts");
 ].forEach((needle) => assert.ok(validationStages.includes(needle), `validation Brain stage helper missing ${needle}`));
 assert.ok(brainIndex.includes("validationStages"), "Brain index must export validation stages");
 
+const finalAssembly = read("lib/roamly/brain/finalAssembly.ts");
+[
+  "ROAMLY_FINAL_ASSEMBLY_VERSION",
+  "assembleFinalItinerary",
+  "buildFinalAssemblyLayer",
+  "targetedItineraryChangePlan",
+  "trip_overview",
+  "traveler_fit_summary",
+  "recommended_transportation",
+  "transportation_alternatives",
+  "recommended_accommodation",
+  "accommodation_alternatives",
+  "area_rationale",
+  "daily_itinerary",
+  "travel_times",
+  "estimated_total_cost",
+  "cost_breakdown",
+  "reservations",
+  "warnings",
+  "backup_options",
+  "booking_links",
+  "affiliate_disclosure",
+  "source_timestamps",
+  "why_trip_fits_traveler",
+  "legacy_itinerary",
+  "structured_layers",
+  "replace_activity",
+  "regenerate_day",
+  "change_transport",
+  "change_hotel",
+  "change_budget",
+  "change_pace",
+  "change_dates",
+  "Only dependent layers are invalidated"
+].forEach((needle) => assert.ok(finalAssembly.includes(needle), `final assembly missing ${needle}`));
+assert.ok(brainIndex.includes("finalAssembly"), "Brain index must export final assembly helpers");
+
 const generationQueueMigration = read("supabase/migrations/20260715_roamly_generation_queue.sql");
 [
   "roamly_trip_generation_jobs",
