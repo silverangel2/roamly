@@ -681,7 +681,7 @@ export async function recordLiveProviderSnapshot(params: {
   tripId?: string | null;
   userId?: string | null;
   bookingId?: string | null;
-  result: LiveProviderResult;
+  result: LiveProviderResult<unknown>;
 }) {
   const writer = createSupabaseAdminClient() || params.supabase;
   const { error } = await writer.from("live_provider_status_snapshots").insert({
