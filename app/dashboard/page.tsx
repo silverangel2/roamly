@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { DeleteTripButton } from "@/components/trip/DeleteTripButton";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
@@ -60,6 +61,10 @@ function TripCard({ trip }: { trip: DashboardTrip }) {
         <Button href={href} className="w-full">
           {hasTracking ? "Open companion" : locked ? "Open itinerary" : "Open trip"}
         </Button>
+        <DeleteTripButton
+          tripId={trip.id}
+          tripTitle={trip.title || destination}
+        />
       </div>
     </article>
   );
@@ -95,6 +100,7 @@ export default async function DashboardPage() {
           .from("roamly_trips")
           .select("id,title,destination_name,start_date,end_date,status,itinerary_status,itinerary_locked,itinerary_generated_at,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,metadata,created_at")
           .eq("user_id", current.user.id)
+          .neq("status", "archived")
           .order("created_at", { ascending: false })
           .limit(20)
       : { data: [] },
