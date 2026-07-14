@@ -113,6 +113,19 @@ export type QueueProgress = {
   }>;
 };
 
+export type GenerationClaimConfig = {
+  workerId: string;
+  batchSize?: number;
+  leaseSeconds?: number;
+  maxRetries?: number;
+};
+
+export type GenerationRetryConfig = {
+  maxRetries?: number;
+  retryBaseSeconds?: number;
+  retryMaxSeconds?: number;
+};
+
 function adminOrClient(client?: SupabaseClient | null) {
   return createSupabaseAdminClient() || client || null;
 }
@@ -453,4 +466,188 @@ export function queueTableMissing(message?: string | null) {
 
 export function safeJsonRecord(value: unknown) {
   return getRecord(value);
+}
+
+function rpcError(error: { message?: string } | null | undefined) {
+  return error?.message || "GENERATION_QUEUE_RPC_FAILED";
+}
+
+export async function claimGenerationJobs(params: {
+  supabase: SupabaseClient;
+  config: GenerationClaimConfig;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_claim_generation_jobs", {
+    p_worker_id: params.config.workerId,
+    p_batch_size: params.config.batchSize ?? 5,
+    p_lease_seconds: params.config.leaseSeconds ?? 240,
+    p_max_retries: params.config.maxRetries ?? 3
+  });
+  if (error) return { ok: false as const, error: rpcError(error), jobs: [] as RoamlyGenerationJob[] };
+  return { ok: true as const, jobs: (data || []) as RoamlyGenerationJob[] };
+}
+
+export async function claimGenerationJobByTrip(params: {
+  supabase: SupabaseClient;
+  tripId: string;
+  config: GenerationClaimConfig;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_claim_generation_job_by_trip", {
+    p_trip_id: params.tripId,
+    p_worker_id: params.config.workerId,
+    p_lease_seconds: params.config.leaseSeconds ?? 240,
+    p_max_retries: params.config.maxRetries ?? 3
+  });
+  if (error) return { ok: false as const, error: rpcError(error), job: null as RoamlyGenerationJob | null };
+  return { ok: true as const, job: (data || null) as RoamlyGenerationJob | null };
+}
+
+export async function claimGenerationLayer(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  config: GenerationClaimConfig;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_claim_generation_layer", {
+    p_job_id: params.jobId,
+    p_worker_id: params.config.workerId,
+    p_lease_seconds: params.config.leaseSeconds ?? 240,
+    p_max_retries: params.config.maxRetries ?? 3
+  });
+  if (error) return { ok: false as const, error: rpcError(error), layer: null as RoamlyGenerationLayer | null };
+  return { ok: true as const, layer: (data || null) as RoamlyGenerationLayer | null };
+}
+
+export async function renewGenerationLease(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  workerId: string;
+  leaseSeconds?: number;
+  layerId?: string | null;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_renew_generation_lease", {
+    p_job_id: params.jobId,
+    p_worker_id: params.workerId,
+    p_lease_seconds: params.leaseSeconds ?? 240,
+    p_layer_id: params.layerId || null
+  });
+  if (error) return { ok: false as const, error: rpcError(error), renewed: false };
+  return { ok: true as const, renewed: data === true };
+}
+
+export async function releaseGenerationJob(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  workerId: string;
+  nextStatus?: "queued" | "waiting" | "failed";
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_release_generation_job", {
+    p_job_id: params.jobId,
+    p_worker_id: params.workerId,
+    p_next_status: params.nextStatus || "waiting"
+  });
+  if (error) return { ok: false as const, error: rpcError(error), released: false };
+  return { ok: true as const, released: data === true };
+}
+
+export async function releaseGenerationLayer(params: {
+  supabase: SupabaseClient;
+  layerId: string;
+  workerId: string;
+  nextStatus?: "pending" | "failed" | "skipped";
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_release_generation_layer", {
+    p_layer_id: params.layerId,
+    p_worker_id: params.workerId,
+    p_next_status: params.nextStatus || "pending"
+  });
+  if (error) return { ok: false as const, error: rpcError(error), released: false };
+  return { ok: true as const, released: data === true };
+}
+
+export async function completeGenerationLayer(params: {
+  supabase: SupabaseClient;
+  layerId: string;
+  workerId: string;
+  outputJson?: Record<string, unknown>;
+  evidenceJson?: Record<string, unknown>;
+  dependencyVersionsJson?: Record<string, unknown>;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_complete_generation_layer", {
+    p_layer_id: params.layerId,
+    p_worker_id: params.workerId,
+    p_output_json: params.outputJson || {},
+    p_evidence_json: params.evidenceJson || {},
+    p_dependency_versions_json: params.dependencyVersionsJson || {}
+  });
+  if (error) return { ok: false as const, error: rpcError(error), layer: null as RoamlyGenerationLayer | null };
+  return { ok: true as const, layer: (data || null) as RoamlyGenerationLayer | null };
+}
+
+export async function scheduleGenerationLayerRetry(params: {
+  supabase: SupabaseClient;
+  layerId: string;
+  workerId: string;
+  errorCode: string;
+  errorMessage: string;
+  retry: GenerationRetryConfig;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_schedule_generation_layer_retry", {
+    p_layer_id: params.layerId,
+    p_worker_id: params.workerId,
+    p_error_code: params.errorCode,
+    p_error_message: params.errorMessage,
+    p_max_retries: params.retry.maxRetries ?? 3,
+    p_retry_base_seconds: params.retry.retryBaseSeconds ?? 60,
+    p_retry_max_seconds: params.retry.retryMaxSeconds ?? 1800
+  });
+  if (error) return { ok: false as const, error: rpcError(error), layer: null as RoamlyGenerationLayer | null };
+  return { ok: true as const, layer: (data || null) as RoamlyGenerationLayer | null };
+}
+
+export async function completeGenerationJob(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  workerId: string;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_complete_generation_job", {
+    p_job_id: params.jobId,
+    p_worker_id: params.workerId
+  });
+  if (error) return { ok: false as const, error: rpcError(error), job: null as RoamlyGenerationJob | null };
+  return { ok: true as const, job: (data || null) as RoamlyGenerationJob | null };
+}
+
+export async function scheduleGenerationJobRetry(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  workerId: string;
+  errorCode: string;
+  errorMessage: string;
+  retry: GenerationRetryConfig;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_schedule_generation_job_retry", {
+    p_job_id: params.jobId,
+    p_worker_id: params.workerId,
+    p_error_code: params.errorCode,
+    p_error_message: params.errorMessage,
+    p_max_retries: params.retry.maxRetries ?? 3,
+    p_retry_base_seconds: params.retry.retryBaseSeconds ?? 60,
+    p_retry_max_seconds: params.retry.retryMaxSeconds ?? 1800
+  });
+  if (error) return { ok: false as const, error: rpcError(error), job: null as RoamlyGenerationJob | null };
+  return { ok: true as const, job: (data || null) as RoamlyGenerationJob | null };
+}
+
+export async function skipRemainingGenerationLayers(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  workerId: string;
+  reason?: string;
+}) {
+  const { data, error } = await params.supabase.rpc("roamly_skip_remaining_generation_layers", {
+    p_job_id: params.jobId,
+    p_worker_id: params.workerId,
+    p_reason: params.reason || "JOB_COMPLETED"
+  });
+  if (error) return { ok: false as const, error: rpcError(error), skipped: 0 };
+  return { ok: true as const, skipped: typeof data === "number" ? data : 0 };
 }

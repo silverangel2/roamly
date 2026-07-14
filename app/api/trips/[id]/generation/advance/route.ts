@@ -2,11 +2,11 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
 import {
-  advanceStagedItineraryGeneration,
   publicStagedGenerationProgress,
   resetFailedStagedBatch,
   StagedGenerationError
 } from "@/lib/roamly/stagedItineraryGeneration";
+import { processGenerationQueue } from "@/lib/roamly/generationWorker";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,28 +30,47 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId: auth.user.id,
         batchId
       });
+      const summary = await processGenerationQueue({
+        tripId: id,
+        userId: auth.user.id,
+        requestId,
+        reason: "browser_retry_batch",
+        config: {
+          batchSize: 1,
+          concurrency: 1,
+          maxLayersPerRun: 1
+        }
+      });
       return NextResponse.json({
-        ok: true,
+        ok: summary.ok,
         tripId: id,
         action,
-        progress: publicStagedGenerationProgress({ generation: state })
+        worker: summary,
+        progress: summary.results[0]?.progress || publicStagedGenerationProgress({ generation: state })
       });
     }
 
-    const result = await advanceStagedItineraryGeneration({
-      supabase: auth.supabase,
+    const summary = await processGenerationQueue({
       tripId: id,
       userId: auth.user.id,
-      requestId
+      requestId,
+      reason: "browser_generation_fallback",
+      config: {
+        batchSize: 1,
+        concurrency: 1,
+        maxLayersPerRun: 1
+      }
     });
+    const result = summary.results[0];
     return NextResponse.json({
-      ok: result.ok,
+      ok: summary.ok,
       tripId: id,
-      busy: "busy" in result ? result.busy === true : false,
-      advanced: result.advanced,
-      stage: "stage" in result ? result.stage : null,
-      progress: publicStagedGenerationProgress({ generation: result.state }),
-      error: "error" in result ? result.error : null
+      busy: result?.busy === true || !result?.claimed,
+      advanced: result?.advanced === true,
+      stage: result?.layerType || null,
+      progress: result?.progress || null,
+      worker: summary,
+      error: result?.error || summary.error || null
     });
   } catch (error) {
     const generationError = error instanceof StagedGenerationError

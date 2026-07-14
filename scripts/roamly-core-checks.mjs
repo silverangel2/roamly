@@ -168,7 +168,8 @@ assert.ok(generateRouteDiagnostics.includes("status: \"queued\""), "generate rou
 assert.ok(tripPage.includes("itinerary_render_full_loaded"), "trip page must log safe structure diagnostics when rendering saved itineraries");
 
 const advanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
-assert.ok(advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must advance one persisted stage");
+assert.ok(advanceRoute.includes("processGenerationQueue"), "client generation worker route must advance through the durable queue worker");
+assert.ok(!advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must not bypass queue locking");
 assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
 
 const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
@@ -219,11 +220,40 @@ assert.ok(generationQueueMigration.includes("status in ('queued', 'running', 'wa
 assert.ok(generationQueueMigration.includes("status in ('pending', 'running', 'completed', 'failed', 'skipped', 'invalidated')"), "generation layer statuses must be constrained");
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
-assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume staged jobs without a browser tab");
-assert.ok(generationCron.includes("getGenerationWorkerSecret"), "generation cron must be protected by bearer secret");
+assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
+assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must be protected by accepted bearer secrets");
 assert.ok(generationCron.includes("export async function POST"), "generation worker must support protected background POST triggers");
-assert.ok(generationCron.includes("sendPendingStagedGenerationEmail"), "generation worker must retry terminal email delivery without regenerating");
-assert.ok(generationCron.includes("terminalStatus(state.status)"), "terminal jobs must not be advanced with duplicate AI work");
+
+const generationWorker = read("lib/roamly/generationWorker.ts");
+[
+  "processGenerationQueue",
+  "getGenerationWorkerConfig",
+  "ROAMLY_GENERATION_BATCH_SIZE",
+  "ROAMLY_GENERATION_CONCURRENCY",
+  "ROAMLY_GENERATION_MAX_RETRIES",
+  "ROAMLY_GENERATION_LEASE_SECONDS",
+  "ROAMLY_GENERATION_MAX_LAYERS_PER_RUN",
+  "ROAMLY_GENERATION_RETRY_BASE_SECONDS",
+  "ROAMLY_GENERATION_RETRY_MAX_SECONDS",
+  "claimGenerationJobs",
+  "claimGenerationJobByTrip",
+  "claimGenerationLayer",
+  "advanceStagedItineraryGeneration",
+  "sendPendingStagedGenerationEmail",
+  "terminalStatus(state.status)",
+  "releaseGenerationJob",
+  "scheduleGenerationLayerRetry",
+  "scheduleGenerationJobRetry"
+].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
+
+const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
+[
+  "roamly_claim_generation_job_by_trip",
+  "roamly_release_generation_layer",
+  "roamly_skip_remaining_generation_layers",
+  "for update skip locked",
+  "grant execute"
+].forEach((needle) => assert.ok(generationWorkerMigration.toLowerCase().includes(needle.toLowerCase()), `generation worker migration missing ${needle}`));
 
 const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must continue after the response");
@@ -329,6 +359,7 @@ assert.ok(emailTestRoute.includes("getRoamlySupportEmail"), "admin test email mu
 
 const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("/api/cron/roamly-itinerary-generation"), "Vercel cron must resume staged itinerary generation");
+assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");
 
 const travelMarketSearch = read("lib/roamly/travelMarketSearch.ts");
 assert.ok(travelMarketSearch.includes('return value !== "false" && value !== "0" && value !== "disabled";'), "market and affiliate gates should default on unless explicitly disabled");

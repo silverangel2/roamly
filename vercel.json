@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/roamly-itinerary-generation",
-      "schedule": "0 9 * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

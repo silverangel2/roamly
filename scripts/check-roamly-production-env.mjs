@@ -87,6 +87,46 @@ const checks = [
     keys: ["ROAMLY_NOTIFICATION_CRON_SECRET"]
   },
   {
+    label: "Itinerary generation cron secret",
+    required: REQUIRED,
+    keys: ["ROAMLY_GENERATION_CRON_SECRET", "CRON_SECRET"]
+  },
+  {
+    label: "Itinerary generation batch size",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_BATCH_SIZE"]
+  },
+  {
+    label: "Itinerary generation concurrency",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_CONCURRENCY"]
+  },
+  {
+    label: "Itinerary generation max retries",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_MAX_RETRIES"]
+  },
+  {
+    label: "Itinerary generation lease seconds",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_LEASE_SECONDS"]
+  },
+  {
+    label: "Itinerary generation max layers per run",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_MAX_LAYERS_PER_RUN"]
+  },
+  {
+    label: "Itinerary generation retry base seconds",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_RETRY_BASE_SECONDS"]
+  },
+  {
+    label: "Itinerary generation retry max seconds",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_RETRY_MAX_SECONDS"]
+  },
+  {
     label: "Admin emails",
     required: REQUIRED,
     keys: ["ROAMLY_ADMIN_EMAILS"]

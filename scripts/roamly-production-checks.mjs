@@ -44,8 +44,10 @@ function exists(file) {
   "lib/roamly/stagedItineraryGeneration.ts",
   "lib/roamly/stagedGenerationBackground.ts",
   "lib/roamly/itineraryGenerationEmail.ts",
+  "lib/roamly/generationWorker.ts",
   "lib/roamly/generationQueue.ts",
   "supabase/migrations/20260715_roamly_generation_queue.sql",
+  "supabase/migrations/20260715_roamly_generation_worker.sql",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -120,7 +122,8 @@ assert.ok(stagedGenerator.includes("generationEmail"), "staged generation must p
 assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not silently save template fallback itineraries");
 
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
-assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must execute the next persisted stage");
+assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");
+assert.ok(!generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must not bypass queue locking");
 
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
@@ -128,14 +131,35 @@ assert.ok(generationStatusRoute.includes("getGenerationQueueForTrip"), "generati
 assert.ok(generationStatusRoute.includes("queue: queueProgress"), "generation status route must return queue progress");
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
-assert.ok(generationCron.includes("getGenerationWorkerSecret"), "generation cron must require a bearer secret");
-assert.ok(generationCron.includes("advanceStagedItineraryGeneration"), "generation cron must resume jobs when the browser is closed");
+assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must require an accepted bearer secret");
+assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("export async function POST"), "generation cron route must support immediate background worker triggers");
-assert.ok(generationCron.includes("sendPendingStagedGenerationEmail"), "generation cron route must retry email delivery without regenerating");
+
+const generationWorker = read("lib/roamly/generationWorker.ts");
+[
+  "ROAMLY_GENERATION_BATCH_SIZE",
+  "ROAMLY_GENERATION_CONCURRENCY",
+  "ROAMLY_GENERATION_MAX_RETRIES",
+  "ROAMLY_GENERATION_LEASE_SECONDS",
+  "ROAMLY_GENERATION_MAX_LAYERS_PER_RUN",
+  "claimGenerationJobs",
+  "claimGenerationJobByTrip",
+  "advanceStagedItineraryGeneration",
+  "sendPendingStagedGenerationEmail",
+  "scheduleGenerationLayerRetry"
+].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
+
+const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
+["roamly_claim_generation_job_by_trip", "roamly_release_generation_layer", "roamly_skip_remaining_generation_layers", "for update skip locked"].forEach((needle) =>
+  assert.ok(generationWorkerMigration.toLowerCase().includes(needle.toLowerCase()), `worker migration missing ${needle}`)
+);
 
 const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must run after the response");
 assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "generation background trigger must call the protected worker");
+
+const vercelConfig = read("vercel.json");
+assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
 ["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail"].forEach((needle) =>

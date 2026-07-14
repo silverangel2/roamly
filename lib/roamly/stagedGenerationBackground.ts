@@ -2,7 +2,16 @@ import { after } from "next/server";
 import { logGenerationDiagnostic, getPublicSupabaseHost } from "@/lib/roamly/generationDiagnostics";
 
 export function getGenerationWorkerSecret() {
-  return (process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET || "").trim();
+  return getGenerationWorkerSecrets()[0] || "";
+}
+
+export function getGenerationWorkerSecrets() {
+  return [
+    process.env.ROAMLY_GENERATION_CRON_SECRET,
+    process.env.CRON_SECRET
+  ]
+    .map((value) => value?.trim() || "")
+    .filter((value, index, values) => value && values.indexOf(value) === index);
 }
 
 function siteUrl(origin?: string | null) {
