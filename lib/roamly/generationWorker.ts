@@ -25,6 +25,7 @@ import {
   type RoamlyGenerationJob,
   type RoamlyGenerationLayer
 } from "@/lib/roamly/generationQueue";
+import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
 
 export type RoamlyGenerationWorkerConfig = {
   batchSize: number;
@@ -368,6 +369,41 @@ async function processClaimedJob(params: {
           stagedStatus: result.state.status
         }
       });
+      await Promise.all([
+        recordGenerationCostEvent({
+          supabase: params.admin,
+          tripId: params.job.trip_id,
+          jobId: params.job.id,
+          layerId: currentLayer.id,
+          userId: params.job.user_id,
+          costCategory: "worker_execution",
+          unitCount: 1,
+          estimatedCostUsd: 0,
+          metadata: {
+            layerType: currentLayer.layer_type,
+            workerId: params.workerId,
+            requestId: params.requestId
+          }
+        }),
+        recordGenerationCostEvent({
+          supabase: params.admin,
+          tripId: params.job.trip_id,
+          jobId: params.job.id,
+          layerId: currentLayer.id,
+          userId: params.job.user_id,
+          costCategory: "model_tokens",
+          provider: result.state.provider || "openai",
+          model: result.state.model || null,
+          unitCount: (result.state.aiInputTokens || 0) + (result.state.aiOutputTokens || 0),
+          estimatedCostUsd: result.state.estimatedAiCostUsd || 0,
+          metadata: {
+            cumulative: true,
+            aiCallCount: result.state.aiCallCount || 0,
+            inputTokens: result.state.aiInputTokens || 0,
+            outputTokens: result.state.aiOutputTokens || 0
+          }
+        })
+      ]).catch(() => null);
       await markQueueFromLegacyState({
         supabase: params.admin,
         tripId: params.job.trip_id,

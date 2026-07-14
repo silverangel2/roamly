@@ -127,6 +127,46 @@ const checks = [
     keys: ["ROAMLY_GENERATION_RETRY_MAX_SECONDS"]
   },
   {
+    label: "Paid queue priority",
+    required: OPTIONAL,
+    keys: ["ROAMLY_PAID_QUEUE_PRIORITY"]
+  },
+  {
+    label: "Free queue priority",
+    required: OPTIONAL,
+    keys: ["ROAMLY_FREE_QUEUE_PRIORITY"]
+  },
+  {
+    label: "Free generation daily limit",
+    required: OPTIONAL,
+    keys: ["ROAMLY_FREE_GENERATION_DAILY_LIMIT"]
+  },
+  {
+    label: "Paid generation daily limit",
+    required: OPTIONAL,
+    keys: ["ROAMLY_PAID_GENERATION_DAILY_LIMIT"]
+  },
+  {
+    label: "OpenAI daily token limit",
+    required: OPTIONAL,
+    keys: ["ROAMLY_OPENAI_DAILY_TOKEN_LIMIT"]
+  },
+  {
+    label: "Provider rate limits JSON",
+    required: OPTIONAL,
+    keys: ["ROAMLY_PROVIDER_RATE_LIMITS_JSON"]
+  },
+  {
+    label: "Generation retry budget",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_RETRY_BUDGET"]
+  },
+  {
+    label: "Generation cost budget",
+    required: OPTIONAL,
+    keys: ["ROAMLY_GENERATION_COST_BUDGET_USD"]
+  },
+  {
     label: "Admin emails",
     required: REQUIRED,
     keys: ["ROAMLY_ADMIN_EMAILS"]

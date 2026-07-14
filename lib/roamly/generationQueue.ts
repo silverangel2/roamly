@@ -35,6 +35,18 @@ export type RoamlyGenerationJob = {
   started_at: string | null;
   completed_at: string | null;
   updated_at: string;
+  user_plan?: string | null;
+  paid_priority?: boolean | null;
+  queue_priority_reason?: string | null;
+  duplicate_request_key?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  dead_lettered_at?: string | null;
+  dead_letter_reason?: string | null;
+  estimated_cost_json?: Record<string, unknown> | null;
+  provider_usage_json?: Record<string, unknown> | null;
+  worker_metrics_json?: Record<string, unknown> | null;
+  rate_limit_bucket?: string | null;
 };
 
 export type RoamlyGenerationLayer = {
@@ -61,6 +73,10 @@ export type RoamlyGenerationLayer = {
   generation_version: string;
   created_at: string;
   updated_at: string;
+  duration_ms?: number | null;
+  worker_execution_ms?: number | null;
+  estimated_cost_json?: Record<string, unknown> | null;
+  provider_usage_json?: Record<string, unknown> | null;
 };
 
 export type QueueProgress = {
@@ -200,6 +216,10 @@ export async function createOrResumeGenerationJob(params: {
   userId: string;
   payload?: TripPlannerPayload | null;
   priority?: number;
+  userPlan?: string | null;
+  paidPriority?: boolean;
+  queuePriorityReason?: string | null;
+  duplicateRequestKey?: string | null;
   reason?: string;
 }) {
   const supabase = adminOrClient(params.supabase);
@@ -220,6 +240,16 @@ export async function createOrResumeGenerationJob(params: {
   if (existing.data) {
     const job = existing.data as RoamlyGenerationJob;
     if (!["completed", "cancelled"].includes(job.status)) {
+      await supabase
+        .from("roamly_trip_generation_jobs")
+        .update({
+          priority: Math.max(job.priority || 0, Math.max(0, Math.round(params.priority || 0))),
+          user_plan: params.userPlan || job.user_plan || "free",
+          paid_priority: params.paidPriority === true || job.paid_priority === true,
+          queue_priority_reason: params.queuePriorityReason || job.queue_priority_reason || params.reason || null,
+          duplicate_request_key: params.duplicateRequestKey || job.duplicate_request_key || null
+        })
+        .eq("id", job.id);
       await ensureGenerationLayers({ supabase, job, payload: params.payload });
       return { ok: true as const, job, resumed: true };
     }
@@ -232,6 +262,10 @@ export async function createOrResumeGenerationJob(params: {
       user_id: params.userId,
       status: "queued",
       priority: Math.max(0, Math.round(params.priority || 0)),
+      user_plan: params.userPlan || "free",
+      paid_priority: params.paidPriority === true,
+      queue_priority_reason: params.queuePriorityReason || params.reason || null,
+      duplicate_request_key: params.duplicateRequestKey || null,
       current_stage: ROAMLY_BRAIN_STAGES[0].type,
       generation_version: ROAMLY_BRAIN_VERSION,
       model_version: modelVersion(),

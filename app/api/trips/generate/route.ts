@@ -30,8 +30,13 @@ import {
   getGenerationQueueForTripAdmin,
   markQueueFromLegacyState,
   publicQueueProgress,
-  queueTableMissing
+  queueTableMissing,
+  ROAMLY_BRAIN_VERSION
 } from "@/lib/roamly/generationQueue";
+import {
+  duplicateGenerationRequestKey,
+  generationPriorityForEntitlement
+} from "@/lib/roamly/generationScalability";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
 
 export const runtime = "nodejs";
@@ -403,6 +408,10 @@ async function ensureDurableGenerationQueue(params: {
   payload: TripPlannerPayload;
   requestId: string;
   priority?: number;
+  userPlan?: string | null;
+  paidPriority?: boolean;
+  queuePriorityReason?: string | null;
+  duplicateRequestKey?: string | null;
 }) {
   const result = await createOrResumeGenerationJob({
     supabase: params.supabase,
@@ -410,6 +419,10 @@ async function ensureDurableGenerationQueue(params: {
     userId: params.userId,
     payload: params.payload,
     priority: params.priority,
+    userPlan: params.userPlan,
+    paidPriority: params.paidPriority,
+    queuePriorityReason: params.queuePriorityReason,
+    duplicateRequestKey: params.duplicateRequestKey,
     reason: "generate_route"
   });
 
@@ -539,13 +552,37 @@ async function finalizeItinerary(params: {
     }
   });
 
+  const priority = generationPriorityForEntitlement({
+    unlockSource: "source" in canGenerate ? canGenerate.source : null,
+    qaTester
+  });
+  const duplicateRequestKey = duplicateGenerationRequestKey({
+    tripId: params.tripId,
+    generationVersion: ROAMLY_BRAIN_VERSION,
+    payloadFingerprint: [
+      payload.origin,
+      payload.destination,
+      payload.startDate,
+      payload.endDate,
+      payload.budgetAmount,
+      payload.budgetCurrency,
+      payload.pace,
+      payload.transportationPreference,
+      payload.accommodationPreference
+    ].join("|")
+  });
+
   const queueResult = await ensureDurableGenerationQueue({
     supabase: params.supabase,
     userId: params.userId,
     tripId: params.tripId,
     payload,
     requestId: params.requestId,
-    priority: qaTester ? 100 : 10
+    priority: priority.priority,
+    userPlan: priority.userPlan,
+    paidPriority: priority.paidPriority,
+    queuePriorityReason: priority.queuePriorityReason,
+    duplicateRequestKey
   });
   if (!queueResult.ok) {
     await params.supabase

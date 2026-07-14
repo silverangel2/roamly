@@ -46,6 +46,7 @@ function exists(file) {
   "lib/roamly/itineraryGenerationEmail.ts",
   "lib/roamly/generationWorker.ts",
   "lib/roamly/generationQueue.ts",
+  "lib/roamly/generationScalability.ts",
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
@@ -62,6 +63,7 @@ function exists(file) {
   "lib/roamly/tripFeedback.ts",
   "app/api/account/traveler-memory/route.ts",
   "app/api/trips/[id]/feedback/route.ts",
+  "app/api/admin/roamly/generation-queue/route.ts",
   "app/trip/[id]/feedback/page.tsx",
   "components/account/TravelerMemorySettings.tsx",
   "components/trip/TripFeedbackForm.tsx",
@@ -69,6 +71,7 @@ function exists(file) {
   "supabase/migrations/20260715_roamly_generation_worker.sql",
   "supabase/migrations/20260715_roamly_traveler_memory.sql",
   "supabase/migrations/20260715_roamly_trip_feedback.sql",
+  "supabase/migrations/20260715_roamly_generation_scalability.sql",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -104,6 +107,8 @@ const generateRoute = read("app/api/trips/generate/route.ts");
 assert.ok(generateRoute.includes("startStagedItineraryGeneration"), "generation route must create a staged generation job");
 assert.ok(generateRoute.includes("prepareStagedGenerationContext"), "generation route must prepare staged price/booking context");
 assert.ok(generateRoute.includes("createOrResumeGenerationJob"), "generation route must create or resume a durable queue job");
+assert.ok(generateRoute.includes("generationPriorityForEntitlement"), "generation route must apply paid/free queue priority");
+assert.ok(generateRoute.includes("duplicateGenerationRequestKey"), "generation route must prevent duplicate generation requests");
 assert.ok(generateRoute.includes("queue: queueState"), "generation route must return durable queue state");
 assert.ok(generateRoute.includes("status: \"queued\""), "generation route must return a queued staged job");
 assert.ok(generateRoute.includes("buildTripPlanningMetadata"), "generation must persist planner details in metadata");
@@ -114,6 +119,19 @@ assert.ok(generationQueue.includes("ROAMLY_BRAIN_STAGES"), "generation queue mus
 assert.ok(generationQueue.includes("generationIdempotencyKey"), "generation queue must use stable idempotency keys");
 assert.ok(generationQueue.includes("createSupabaseAdminClient() || client"), "generation queue writes must prefer the service-role server client");
 assert.ok(generationQueue.includes("publicQueueProgress"), "generation queue must expose safe public progress");
+assert.ok(generationQueue.includes("paid_priority") && generationQueue.includes("duplicate_request_key"), "generation queue must support paid priority and duplicate prevention");
+
+const generationScalability = read("lib/roamly/generationScalability.ts");
+[
+  "getGenerationScalabilityConfig",
+  "generationPriorityForEntitlement",
+  "duplicateGenerationRequestKey",
+  "recordGenerationCostEvent",
+  "checkUserGenerationRateLimit",
+  "getGenerationQueueHealth",
+  "adminRetryGenerationJob",
+  "adminCancelGenerationJob"
+].forEach((needle) => assert.ok(generationScalability.includes(needle), `generation scalability helper missing ${needle}`));
 
 const brainStages = read("lib/roamly/brain/stages.ts");
 [
@@ -374,8 +392,28 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "claimGenerationJobByTrip",
   "advanceStagedItineraryGeneration",
   "sendPendingStagedGenerationEmail",
-  "scheduleGenerationLayerRetry"
+  "scheduleGenerationLayerRetry",
+  "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
+
+const generationScalabilityMigration = read("supabase/migrations/20260715_roamly_generation_scalability.sql");
+[
+  "roamly_generation_cost_events",
+  "roamly_generation_rate_limits",
+  "roamly_generation_provider_limits",
+  "paid_priority",
+  "dead_lettered_at",
+  "roamly_generation_queue_health",
+  "roamly_generation_queue_admin",
+  "roamly_retry_generation_job_admin",
+  "roamly_cancel_generation_job_admin",
+  "enable row level security"
+].forEach((needle) => assert.ok(generationScalabilityMigration.toLowerCase().includes(needle.toLowerCase()), `generation scalability migration missing ${needle}`));
+
+const generationQueueAdminRoute = read("app/api/admin/roamly/generation-queue/route.ts");
+["requireRoamlyAdmin", "getGenerationQueueHealth", "listAdminGenerationQueue", "adminRetryGenerationJob", "adminCancelGenerationJob"].forEach((needle) =>
+  assert.ok(generationQueueAdminRoute.includes(needle), `generation queue admin route missing ${needle}`)
+);
 
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
 ["roamly_claim_generation_job_by_trip", "roamly_release_generation_layer", "roamly_skip_remaining_generation_layers", "for update skip locked"].forEach((needle) =>
