@@ -638,6 +638,46 @@ const generationQueueAdminRoute = read("app/api/admin/roamly/generation-queue/ro
   assert.ok(generationQueueAdminRoute.includes(needle), `generation queue admin route missing ${needle}`)
 );
 
+const providerAdapters = read("lib/roamly/providers/adapters.ts");
+[
+  "RoamlyProviderResponse",
+  "provider_identifier",
+  "retrieved_at",
+  "availability_at",
+  "raw_result",
+  "normalized_result",
+  "confidence",
+  "stale_status",
+  "rate_limit",
+  "PROVIDER_CREDENTIALS_MISSING",
+  "Roamly will not fabricate live availability, schedules, ratings, reviews, prices, or distances.",
+  "providerDiagnostics",
+  "validateProviderEnvironment",
+  "flightProviderAdapter",
+  "railProviderAdapter",
+  "busProviderAdapter",
+  "ferryProviderAdapter",
+  "drivingDistanceProviderAdapter",
+  "mapsProviderAdapter",
+  "hotelProviderAdapter",
+  "activitiesProviderAdapter",
+  "reviewsProviderAdapter",
+  "weatherProviderAdapter",
+  "currencyConversionProviderAdapter",
+  "affiliateProviderAdapter",
+  "TRAVELPAYOUTS_API_TOKEN",
+  "ROAMLY_RAIL_PROVIDER_API_KEY",
+  "ROAMLY_BUS_PROVIDER_API_KEY",
+  "ROAMLY_FERRY_PROVIDER_API_KEY",
+  "GOOGLE_MAPS_API_KEY",
+  "ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_REFERRAL_URL",
+  "KLOOK_API_KEY",
+  "ROAMLY_REVIEWS_PROVIDER_API_KEY",
+  "ROAMLY_WEATHER_API_KEY",
+  "ROAMLY_CURRENCY_API_KEY",
+  "ROAMLY_PROVIDER_ADAPTERS"
+].forEach((needle) => assert.ok(providerAdapters.includes(needle), `provider adapter missing ${needle}`));
+
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
 [
   "roamly_claim_generation_job_by_trip",

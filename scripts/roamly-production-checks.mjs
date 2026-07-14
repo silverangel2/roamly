@@ -47,6 +47,8 @@ function exists(file) {
   "lib/roamly/generationWorker.ts",
   "lib/roamly/generationQueue.ts",
   "lib/roamly/generationScalability.ts",
+  "lib/roamly/providers/adapters.ts",
+  "lib/roamly/providers/index.ts",
   "lib/roamly/brain/stages.ts",
   "lib/roamly/brain/orchestrator.ts",
   "lib/roamly/brain/index.ts",
@@ -414,6 +416,33 @@ const generationQueueAdminRoute = read("app/api/admin/roamly/generation-queue/ro
 ["requireRoamlyAdmin", "getGenerationQueueHealth", "listAdminGenerationQueue", "adminRetryGenerationJob", "adminCancelGenerationJob"].forEach((needle) =>
   assert.ok(generationQueueAdminRoute.includes(needle), `generation queue admin route missing ${needle}`)
 );
+
+const providerAdapters = read("lib/roamly/providers/adapters.ts");
+[
+  "RoamlyProviderResponse",
+  "provider_identifier",
+  "retrieved_at",
+  "availability_at",
+  "raw_result",
+  "normalized_result",
+  "confidence",
+  "stale_status",
+  "rate_limit",
+  "PROVIDER_CREDENTIALS_MISSING",
+  "flightProviderAdapter",
+  "railProviderAdapter",
+  "busProviderAdapter",
+  "ferryProviderAdapter",
+  "drivingDistanceProviderAdapter",
+  "mapsProviderAdapter",
+  "hotelProviderAdapter",
+  "activitiesProviderAdapter",
+  "reviewsProviderAdapter",
+  "weatherProviderAdapter",
+  "currencyConversionProviderAdapter",
+  "affiliateProviderAdapter",
+  "ROAMLY_PROVIDER_ADAPTERS"
+].forEach((needle) => assert.ok(providerAdapters.includes(needle), `provider adapter missing ${needle}`));
 
 const generationWorkerMigration = read("supabase/migrations/20260715_roamly_generation_worker.sql");
 ["roamly_claim_generation_job_by_trip", "roamly_release_generation_layer", "roamly_skip_remaining_generation_layers", "for update skip locked"].forEach((needle) =>

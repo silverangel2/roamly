@@ -157,6 +157,36 @@ const checks = [
     keys: ["ROAMLY_PROVIDER_RATE_LIMITS_JSON"]
   },
   {
+    label: "Rail provider API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_RAIL_PROVIDER_API_KEY"]
+  },
+  {
+    label: "Bus provider API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_BUS_PROVIDER_API_KEY"]
+  },
+  {
+    label: "Ferry provider API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_FERRY_PROVIDER_API_KEY"]
+  },
+  {
+    label: "Reviews provider API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_REVIEWS_PROVIDER_API_KEY"]
+  },
+  {
+    label: "Weather provider API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_WEATHER_API_KEY"]
+  },
+  {
+    label: "Currency provider API key",
+    required: OPTIONAL,
+    keys: ["ROAMLY_CURRENCY_API_KEY"]
+  },
+  {
     label: "Generation retry budget",
     required: OPTIONAL,
     keys: ["ROAMLY_GENERATION_RETRY_BUDGET"]
