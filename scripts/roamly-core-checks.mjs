@@ -938,4 +938,73 @@ const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.t
 ].forEach((needle) => assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline UI missing ${needle}`));
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are wired");
 
+const affiliateTrackingMigration = read("supabase/migrations/20260716_roamly_affiliate_tracking.sql");
+[
+  "affiliate_clicks",
+  "affiliate_conversions",
+  "sub_id",
+  "affiliate_clicks_sub_id_uidx",
+  "affiliate_conversions_partner_order_uidx",
+  "affiliate_conversions_raw_event_uidx",
+  "trip_bookings_affiliate_click_id_fkey",
+  "enable row level security",
+  "user_id = auth.uid()"
+].forEach((needle) =>
+  assert.ok(affiliateTrackingMigration.toLowerCase().includes(needle.toLowerCase()), `affiliate tracking migration missing ${needle}`)
+);
+
+const affiliateTracking = read("lib/roamly/affiliateTracking.ts");
+[
+  "createAffiliateSubId",
+  "appendAffiliateSubId",
+  "createAffiliateClick",
+  "recordAffiliateConversion",
+  "verifyAffiliateWebhookSignature",
+  "normalizeAffiliateConversionEvent",
+  "We found your booking. Add the confirmation details to activate live tracking."
+].forEach((needle) => assert.ok(affiliateTracking.includes(needle), `affiliate tracking helper missing ${needle}`));
+const compiledAffiliateTracking = ts.transpileModule(affiliateTracking, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    target: ts.ScriptTarget.ES2020
+  }
+}).outputText;
+const affiliateTrackingSandbox = {
+  exports: {},
+  module: { exports: {} },
+  require(id) {
+    if (id === "@/lib/roamly/bookingLinks") return { safeExternalUrl: (value) => new URL(value).toString() };
+    if (id === "@/lib/roamly/bookingWallet") return { createTripBooking: async () => ({ booking: null, error: null }) };
+    return require(id);
+  },
+  URL,
+  Buffer
+};
+affiliateTrackingSandbox.exports = affiliateTrackingSandbox.module.exports;
+vm.runInNewContext(compiledAffiliateTracking, affiliateTrackingSandbox);
+const affiliateTrackingExports = affiliateTrackingSandbox.module.exports;
+assert.ok(/^rc_/.test(affiliateTrackingExports.createAffiliateSubId()), "affiliate sub IDs must be opaque Roamly click IDs");
+assert.ok(
+  affiliateTrackingExports.appendAffiliateSubId("https://www.stay22.com/search?aid=partner", "stay22", "rc_safeopaque1234567890").includes("sid=rc_safeopaque"),
+  "Stay22 affiliate redirects must use opaque sid values"
+);
+assert.ok(
+  !affiliateTrackingExports.appendAffiliateSubId("https://www.aviasales.com/search", "travelpayouts", "rc_safeopaque1234567890").includes("user"),
+  "affiliate redirect params must not expose raw user identifiers"
+);
+
+const bookingRecommendationButton = read("components/trip/BookingRecommendationButton.tsx");
+assert.ok(bookingRecommendationButton.includes("/api/roamly/affiliate/click"), "affiliate booking CTAs must use tracked server redirects");
+assert.ok(bookingRecommendationButton.includes("destinationUrl") && bookingRecommendationButton.includes("affiliateUrl"), "tracked affiliate CTAs must pass only internal redirect metadata");
+
+const affiliateClickRoute = read("app/api/roamly/affiliate/click/route.ts");
+["requireUser", "createAffiliateClick", "NextResponse.redirect"].forEach((needle) =>
+  assert.ok(affiliateClickRoute.includes(needle), `affiliate click route missing ${needle}`)
+);
+
+const affiliateWebhookRoute = read("app/api/webhooks/affiliate/route.ts");
+["request.text()", "verifyAffiliateWebhookSignature", "ROAMLY_AFFILIATE_WEBHOOK_SECRET", "recordAffiliateConversion"].forEach((needle) =>
+  assert.ok(affiliateWebhookRoute.includes(needle), `affiliate webhook route missing ${needle}`)
+);
+
 console.log("Roamly core checks passed.");

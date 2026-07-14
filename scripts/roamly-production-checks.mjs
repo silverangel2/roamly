@@ -78,7 +78,11 @@ function exists(file) {
   "supabase/migrations/20260715_roamly_generation_scalability.sql",
   "supabase/migrations/20260716_roamly_booking_wallet.sql",
   "lib/roamly/bookingWallet.ts",
+  "lib/roamly/affiliateTracking.ts",
   "app/api/trips/[id]/bookings/route.ts",
+  "app/api/roamly/affiliate/click/route.ts",
+  "app/api/webhooks/affiliate/route.ts",
+  "supabase/migrations/20260716_roamly_affiliate_tracking.sql",
   "app/api/cron/roamly-notifications/route.ts",
   "public/sw.js",
   "public/icon.svg",
@@ -141,6 +145,26 @@ const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.t
   assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline missing ${needle}`)
 );
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are configured");
+
+const affiliateTrackingMigration = read("supabase/migrations/20260716_roamly_affiliate_tracking.sql");
+["affiliate_clicks", "affiliate_conversions", "sub_id", "enable row level security", "trip_bookings_affiliate_click_id_fkey"].forEach((needle) =>
+  assert.ok(affiliateTrackingMigration.toLowerCase().includes(needle.toLowerCase()), `affiliate tracking migration missing ${needle}`)
+);
+
+const affiliateTracking = read("lib/roamly/affiliateTracking.ts");
+["createAffiliateClick", "recordAffiliateConversion", "appendAffiliateSubId", "verifyAffiliateWebhookSignature"].forEach((needle) =>
+  assert.ok(affiliateTracking.includes(needle), `affiliate tracking helper missing ${needle}`)
+);
+
+const bookingRecommendationButton = read("components/trip/BookingRecommendationButton.tsx");
+assert.ok(bookingRecommendationButton.includes("/api/roamly/affiliate/click"), "affiliate CTAs must go through server-side click tracking");
+
+const affiliateClickRoute = read("app/api/roamly/affiliate/click/route.ts");
+assert.ok(affiliateClickRoute.includes("requireUser") && affiliateClickRoute.includes("createAffiliateClick"), "affiliate click route must authenticate and create click records");
+
+const affiliateWebhookRoute = read("app/api/webhooks/affiliate/route.ts");
+assert.ok(affiliateWebhookRoute.includes("ROAMLY_AFFILIATE_WEBHOOK_SECRET"), "affiliate conversion webhook must require a server-side secret");
+assert.ok(affiliateWebhookRoute.includes("verifyAffiliateWebhookSignature"), "affiliate conversion webhook must verify signatures");
 
 const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.ts").includes("ROAMLY_STRIPE_FEATURES_PRICE_ID"));

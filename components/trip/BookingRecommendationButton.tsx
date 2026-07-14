@@ -41,6 +41,29 @@ function trackBookingClick(metadata: Record<string, unknown>) {
   }).catch(() => undefined);
 }
 
+function trackedAffiliateHref(params: {
+  href: string;
+  tripId: string;
+  category: string;
+  title: string;
+  provider: string;
+  hasAffiliateUrl: boolean;
+  urlType: BookingUrlType;
+}) {
+  if (!params.hasAffiliateUrl || params.urlType !== "affiliate" || !/^https?:\/\//i.test(params.href)) return params.href;
+  const query = new URLSearchParams({
+    tripId: params.tripId,
+    recommendationId: `${params.category}:${params.title}`.slice(0, 180),
+    provider: params.provider,
+    affiliatePartner: params.provider,
+    category: params.category,
+    urlType: params.urlType,
+    destinationUrl: params.href,
+    affiliateUrl: params.href
+  });
+  return `/api/roamly/affiliate/click?${query.toString()}`;
+}
+
 export function BookingRecommendationButton({
   href,
   label,
@@ -54,10 +77,11 @@ export function BookingRecommendationButton({
   if (!href) return null;
 
   const isExternal = /^https?:\/\//i.test(href);
+  const trackedHref = trackedAffiliateHref({ href, tripId, category, title, provider, hasAffiliateUrl, urlType });
 
   return (
     <a
-      href={href}
+      href={trackedHref}
       target={isExternal ? "_blank" : undefined}
       rel={isExternal ? "noopener noreferrer sponsored" : undefined}
       onClick={() =>

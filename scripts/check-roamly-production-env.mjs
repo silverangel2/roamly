@@ -187,6 +187,11 @@ const checks = [
     keys: ["ROAMLY_CURRENCY_API_KEY"]
   },
   {
+    label: "Affiliate webhook secret",
+    required: OPTIONAL,
+    keys: ["ROAMLY_AFFILIATE_WEBHOOK_SECRET"]
+  },
+  {
     label: "Generation retry budget",
     required: OPTIONAL,
     keys: ["ROAMLY_GENERATION_RETRY_BUDGET"]
