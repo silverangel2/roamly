@@ -68,9 +68,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       requestId,
       reason: "browser_generation_fallback",
       config: {
-        batchSize: 1,
+        batchSize: 3,
         concurrency: 1,
-        maxLayersPerRun: 1
+        maxLayersPerRun: 6
       }
     });
     const result = summary.results[0];
