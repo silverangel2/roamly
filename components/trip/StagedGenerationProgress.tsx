@@ -87,30 +87,6 @@ const SAVED_QUEUE_MESSAGE =
 
 const STALE_PROGRESS_MS = 2 * 60 * 1000;
 
-const SAVED_STAGE_LABELS = [
-  "QueueProgress",
-"Queued",
-  "SAVED_QUEUE_MESSAGE",
-  "Your trip is safely saved. Roamly will continue building it even if you close this page.",
-  "Saved stages",
-  "Queued",
-  "Understanding your trip",
-  "Learning your preferences",
-  "Researching your destination",
-  "Comparing transportation",
-  "Choosing the best way to travel",
-  "Finding the best area to stay",
-  "Comparing accommodations",
-  "Building your itinerary",
-  "Checking travel times",
-  "Checking your budget",
-  "Creating backup plans",
-  "Finalizing your trip",
-  "Completed",
-  "trackPollMovement(data?.progress, data?.queue)",
-  "advanceProgress",
-] as const;
-
 function isTerminalStatus(status: string) {
   return status === "complete" || status === "failed" || status === "partially_failed";
 }
@@ -175,7 +151,7 @@ function readableQueueStage(value: unknown) {
     failed: "Needs attention"
   };
 
-  return labels[raw] || labels[raw.toLowerCase()] || SAVED_STAGE_LABELS[0];
+  return labels[raw] || labels[raw.toLowerCase()] || "Queued";
 }
 
 function queueVisibleStatus(queue: Queued | null, progress: GenerationProgress) {
@@ -210,6 +186,9 @@ export function StagedGenerationProgress({
   const refreshedDayCount = useRef(initialProgress.completedDayCount);
   const unchangedPollCount = useRef(0);
   const lastProgressSignature = useRef("");
+  const lastProgressMovementAtRef = useRef(Date.now());
+  const [lastProgressMovementAt, setLastProgressMovementAt] = useState<number>(Date.now());
+  const [staleProgress, setStaleProgress] = useState(false);
   const stopped = isTerminalStatus(progress.status);
   const failedBatches = progress.batches.filter((batch) => batch.status === "failed");
   const canEmail =
@@ -287,9 +266,15 @@ export function StagedGenerationProgress({
     } else {
       unchangedPollCount.current = 0;
       lastProgressSignature.current = signature;
+      const now = Date.now();
+      lastProgressMovementAtRef.current = now;
+      setLastProgressMovementAt(now);
+      setStaleProgress(false);
     }
 
-    return unchangedPollCount.current >= 2 && !isTerminalStatus(next?.status || "") && queue?.job.status !== "completed";
+    const unchanged = unchangedPollCount.current >= 2 && !isTerminalStatus(next?.status || "") && queue?.job.status !== "completed";
+    if (unchanged && Date.now() - lastProgressMovementAtRef.current > STALE_PROGRESS_MS) setStaleProgress(true);
+    return unchanged;
   }, []);
 
   const advanceProgress = useCallback(async () => {
@@ -375,13 +360,16 @@ export function StagedGenerationProgress({
     return () => window.clearTimeout(timer);
   }, [pollProgress, progress.completedDayCount, progress.currentStage, progress.status, stopped]);
 
-  const [lastProgressMovementAt] = useState<number>(Date.now());
-
   const isTakingLonger =
     !isTerminalStatus(progress.status) &&
-    Date.now() - lastProgressMovementAt > STALE_PROGRESS_MS;
+    (Date.now() - lastProgressMovementAt > STALE_PROGRESS_MS || staleProgress);
 
-  const readableStageLabel = readableQueueStage(visibleStatus);
+  const readableStageLabel = readableQueueStage(
+    queueProgress?.currentStageLabel ||
+      queueProgress?.currentStage ||
+      progress.currentStage ||
+      progress.status
+  );
 
   return (
     <section
@@ -429,7 +417,7 @@ export function StagedGenerationProgress({
             {(queueProgress?.completedLayerCount ?? 0) > 0 ||
             progress.status === "complete" ? (
               <p className="mt-2 text-xs font-bold text-slate-500">
-                Saved stage · {readableStageLabel}
+                Current step: {readableStageLabel}
               </p>
             ) : null}
           </div>
@@ -522,7 +510,7 @@ export function StagedGenerationProgress({
 
         {isTakingLonger ? (
           <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
-            Taking longer than expected. Roamly is still checking for saved progress.
+            Progress has not changed recently. Roamly is checking the saved job state; retry appears if a step fails.
           </p>
         ) : null}
 
@@ -557,14 +545,14 @@ export function StagedGenerationProgress({
           {progress.status === "complete" ? (
             <Link
               href={`/trip/${tripId}`}
-              className="inline-flex justify-center rounded-full bg-ink px-5 py-3 text-sm font-black text-white"
+              className="inline-flex justify-center rounded-full bg-ocean px-5 py-3 text-sm font-black text-white"
             >
               View itinerary
             </Link>
           ) : progress.completedDayCount > 0 ? (
             <a
               href="#day-by-day"
-              className="inline-flex justify-center rounded-full bg-ink px-5 py-3 text-sm font-black text-white"
+              className="inline-flex justify-center rounded-full bg-ocean px-5 py-3 text-sm font-black text-white"
             >
               View ready days
             </a>

@@ -35,7 +35,7 @@ import { recordAppEvent } from "@/lib/roamly/events";
 import { publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
-import { isLegacyBookingUrl, resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
+import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
 import {
   getPublicSupabaseHost,
   logGenerationDiagnostic,
@@ -46,6 +46,7 @@ import {
   safeExternalUrl,
   type BookingUrlType
 } from "@/lib/roamly/bookingLinks";
+import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import {
   getTripBudgetAmount,
@@ -321,80 +322,19 @@ function NavigationChipList({ query }: { query: string }) {
   );
 }
 
-function shouldShowInlineTimelineBooking(params: {
-  category: string;
-  type: string;
-  title: string;
-  provider: string;
-  href: string;
-}) {
-  const category = params.category.toLowerCase();
-  const type = params.type.toLowerCase();
-  const title = params.title.toLowerCase();
-  const provider = params.provider.toLowerCase();
-  const href = params.href.trim();
-
-  if (!href) return false;
-
-  // Keep major shopping actions in the Bookings section only.
-  if (["flight", "hotel", "stay", "lodging", "transport", "car_rental"].includes(category)) {
-    return false;
-  }
-
-  // Never put booking buttons on routine movement/rest/check-in items.
-  if (["travel", "transfer", "hotel", "rest", "meal"].includes(type)) {
-    return false;
-  }
-
-  if (/\b(airport|flight|train|bus|transfer|station|terminal|hotel|check[- ]?in|check[- ]?out|rest|luggage|drive|car)\b/.test(title)) {
-    return false;
-  }
-
-  // Klook generic/search links are not good enough for unsupported cities.
-  if (provider.includes("klook") && /search|things-to-do|activity-search|discovery/i.test(href)) {
-    return false;
-  }
-
-  return true;
-}
-
 function TimelineItemCard({
-  item,
-  tripId
+  item
 }: {
   item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number] & {
     booking?: Record<string, unknown> | null;
   };
-  tripId: string;
 }) {
   const entry =
     item as unknown as Record<string, unknown>;
 
-  const booking =
-    item.booking &&
-    typeof item.booking === "object" &&
-    !Array.isArray(item.booking)
-      ? item.booking
-      : null;
-
   const stringValue = (...keys: string[]) => {
     for (const key of keys) {
       const value = entry[key];
-
-      if (
-        typeof value === "string" &&
-        value.trim()
-      ) {
-        return value.trim();
-      }
-    }
-
-    return "";
-  };
-
-  const bookingStringValue = (...keys: string[]) => {
-    for (const key of keys) {
-      const value = booking?.[key];
 
       if (
         typeof value === "string" &&
@@ -468,77 +408,6 @@ function TimelineItemCard({
       "travelMinutes"
     );
 
-  const bookingHref =
-    bookingStringValue(
-      "destination_url",
-      "destinationUrl",
-      "url",
-      "href",
-      "booking_url",
-      "booking_href",
-      "bookingUrl",
-      "affiliate_url",
-      "direct_url"
-    ) ||
-    stringValue(
-      "booking_url",
-      "booking_href",
-      "bookingUrl",
-      "url"
-    );
-
-  const bookingLabel =
-    bookingStringValue(
-      "label",
-      "booking_label",
-      "bookingLabel",
-      "action_label"
-    ) ||
-    stringValue(
-      "booking_label",
-      "bookingLabel",
-      "action_label"
-    ) ||
-    "Reserve";
-
-  const provider =
-    bookingStringValue(
-      "provider",
-      "provider_name",
-      "booking_provider"
-    ) ||
-    stringValue(
-      "booking_provider",
-      "provider",
-      "provider_name"
-    ) ||
-    "Booking partner";
-
-  const bookingUrlType =
-    bookingStringValue(
-      "url_type",
-      "urlType"
-    );
-
-  const urlType = (
-    (bookingUrlType ||
-      stringValue(
-        "url_type",
-        "urlType"
-      )) === "affiliate"
-      ? "affiliate"
-      : "direct"
-  ) as React.ComponentProps<
-    typeof BookingRecommendationButton
-  >["urlType"];
-
-  const hasAffiliateUrl =
-    booking?.has_affiliate_url === true ||
-    booking?.hasAffiliateUrl === true ||
-    entry.has_affiliate_url === true ||
-    entry.hasAffiliateUrl === true ||
-    urlType === "affiliate";
-
   const meta = [
     duration
       ? `${duration} min`
@@ -587,27 +456,6 @@ function TimelineItemCard({
             </details>
           ) : null}
 
-          {bookingHref &&
-          shouldShowInlineTimelineBooking({
-            category: category || "activity",
-            type: stringValue("type", "item_type", "activity_type"),
-            title,
-            provider,
-            href: bookingHref
-          }) ? (
-            <div className="mt-4 flex">
-              <BookingRecommendationButton
-                href={bookingHref}
-                label={bookingLabel}
-                tripId={tripId}
-                category={category || "activity"}
-                title={title}
-                provider={provider}
-                hasAffiliateUrl={hasAffiliateUrl}
-                urlType={urlType}
-              />
-            </div>
-          ) : null}
         </div>
       </div>
     </article>
@@ -616,12 +464,10 @@ function TimelineItemCard({
 
 function DayTimelineCard({
   day,
-  currency,
-  tripId
+  currency
 }: {
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
-  tripId: string;
 }) {
   const places = day.map_queries.slice(0, 5);
 
@@ -653,7 +499,7 @@ function DayTimelineCard({
         <div className="grid gap-2">
           {day.live_timeline.length ? (
             day.live_timeline.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time_label}-${item.title}-${index}`} item={item} tripId={tripId} />
+              <TimelineItemCard key={`${day.day_number}-${item.time_label}-${item.title}-${index}`} item={item} />
             ))
           ) : (
             <>
@@ -801,6 +647,7 @@ function isAllowedBookingHost(url: URL) {
   if (/^amazon\.[a-z.]+$/.test(host)) return true;
   if (host === "airalo.com" || host.endsWith(".airalo.com")) return true;
   if ((host === "google.com" || host === "maps.google.com") && /^\/maps\//.test(url.pathname)) return true;
+  if (host === "google.com" && url.pathname === "/search") return true;
   return false;
 }
 
@@ -815,6 +662,7 @@ function safeBookingUrl(value?: string | null) {
   try {
     const url = new URL(external);
     if (/^(www\.)?roamlyhq\.com$/i.test(url.hostname) && url.pathname === "/plan") return "";
+    if (url.hostname.toLowerCase().includes("stay22.com") && !isTravelerSafeStay22Url(external)) return "";
     if (!isAllowedBookingHost(url)) return "";
   } catch {
     return "";
@@ -918,7 +766,9 @@ function savedTripPayload(trip: RoamlyTripRecord, locale: string): TripPlannerPa
 }
 
 function googleActivitySearchUrl(title: string, destination: string) {
-  const query = [title, destination, "official tickets OR things to do"]
+  const place = destination ? resolveCityPlace(destination)?.searchLabel || "" : "";
+  if (destination && !place) return "";
+  const query = [title, place, "official site details"]
     .filter(Boolean)
     .join(" ");
 
@@ -1895,7 +1745,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   const day = canonicalDayByNumber.get(dayNumber);
                   const progressDay = generationDayProgress.find((item) => item.dayNumber === dayNumber);
                   return day ? (
-                    <DayTimelineCard key={day.day_number} day={day} currency={currency} tripId={id} />
+                    <DayTimelineCard key={day.day_number} day={day} currency={currency} />
                   ) : (
                     <BuildingDayCard
                       key={dayNumber}

@@ -1,7 +1,8 @@
 import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
-import { safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { buildAviasalesDeepLink, safeExternalUrl } from "@/lib/roamly/bookingLinks";
 import { buildAiraloEsimUrl, getEsimProviderConfig } from "@/lib/roamly/esim";
 import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
+import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export type AffiliateCategory =
@@ -130,7 +131,7 @@ function result(
 }
 
 function stay22Configured() {
-  return Boolean(clean(process.env.ROAMLY_STAY22_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL));
+  return Boolean(clean(process.env.ROAMLY_STAY22_PARTNER_ID) || stay22SmartLinkUrl() || stay22TravelerUrl(process.env.ROAMLY_STAY22_REFERRAL_URL));
 }
 
 function klookConfigured() {
@@ -141,29 +142,68 @@ function travelpayoutsConfigured() {
   return Boolean(clean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER));
 }
 
-function stay22Url(input: AffiliateResolverInput) {
-  const referral = safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
-  const partnerId = clean(process.env.ROAMLY_STAY22_PARTNER_ID);
-  if (partnerId) {
-    return withParams("https://www.stay22.com/search", {
-      address: [clean(input.neighborhood), primaryPlace(input)].filter(Boolean).join(", "),
-      checkin: input.startDate || undefined,
-      checkout: input.endDate || undefined,
-      guests: input.adults || travelersCount(input.travelers),
-      aid: partnerId
-    });
+export function isTravelerSafeStay22Url(value?: string | null) {
+  const safe = safeExternalUrl(value);
+  if (!safe) return false;
+
+  try {
+    const url = new URL(safe);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const pathname = url.pathname.toLowerCase();
+
+    if (host === "app.stay22.com") return false;
+    if (host !== "stay22.com" && !host.endsWith(".stay22.com")) return false;
+    if (/\b(app|admin|partner|partners|dashboard|login|signin|sign-in|account)\b/.test(host)) return false;
+    if (/\/(?:app|admin|partner|partners|dashboard|login|signin|sign-in|account)(?:\/|$)/i.test(url.pathname)) return false;
+    if (/\b(?:dashboard|login|signin|sign-in|account|admin|partner|partners)\b/.test(pathname)) return false;
+
+    return true;
+  } catch {
+    return false;
   }
-  return referral;
+}
+
+function stay22TravelerUrl(value?: string | null) {
+  const safe = safeExternalUrl(value);
+  return isTravelerSafeStay22Url(safe) ? safe : "";
+}
+
+function stay22SmartLinkUrl() {
+  return stay22TravelerUrl(process.env.ROAMLY_STAY22_SMART_LINK_URL);
+}
+
+function stay22Url(input: AffiliateResolverInput) {
+  const smartLink = stay22SmartLinkUrl();
+  const referral = stay22TravelerUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
+  const partnerId = clean(process.env.ROAMLY_STAY22_PARTNER_ID);
+  const base = smartLink || referral || (partnerId ? "https://www.stay22.com/search" : "");
+  if (!base) return "";
+
+  const resolvedPlace = resolveCityPlace(input.destination || input.query || input.title);
+  if (!resolvedPlace) return "";
+
+  const url = new URL(base);
+  const address = [clean(input.neighborhood), resolvedPlace.searchLabel].filter(Boolean).join(", ");
+
+  if (address && !url.searchParams.has("address")) url.searchParams.set("address", address);
+  if (input.startDate && !url.searchParams.has("checkin")) url.searchParams.set("checkin", input.startDate);
+  if (input.endDate && !url.searchParams.has("checkout")) url.searchParams.set("checkout", input.endDate);
+  if (!url.searchParams.has("guests")) url.searchParams.set("guests", String(input.adults || travelersCount(input.travelers)));
+  if (partnerId) {
+    if (!url.searchParams.has("aid")) url.searchParams.set("aid", partnerId);
+  }
+
+  return isTravelerSafeStay22Url(url.toString()) ? url.toString() : "";
 }
 
 function travelpayoutsUrl(input: AffiliateResolverInput) {
-  return withParams("https://www.aviasales.com/search", {
+  return buildAviasalesDeepLink({
     marker: clean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     origin: clean(input.origin),
     destination: clean(input.destination) || clean(input.route),
-    depart_date: input.startDate || undefined,
-    return_date: input.endDate || undefined,
-    adults: input.adults || travelersCount(input.travelers)
+    departureDate: input.startDate || undefined,
+    returnDate: input.endDate || undefined,
+    travelers: input.travelers || input.adults || 1
   });
 }
 
@@ -208,7 +248,7 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
       configured ? stay22Url(input) : "",
       "Find a hotel",
       configured,
-      configured ? [] : ["ROAMLY_HOTEL_AFFILIATE_PROVIDER=stay22", "ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_REFERRAL_URL"]
+      configured ? [] : ["ROAMLY_HOTEL_AFFILIATE_PROVIDER=stay22", "ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL"]
     );
   }
 

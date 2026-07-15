@@ -1,5 +1,6 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
+import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -75,7 +76,8 @@ export function getTripDestinationLabel(trip: {
   metadata?: unknown;
 }) {
   const planning = getTripPlanningMetadata(trip.metadata);
-  return getString(trip.destination) || getString(trip.destination_name) || getString(planning.destination);
+  const raw = getString(trip.destination) || getString(trip.destination_name) || getString(planning.destination);
+  return resolveCityPlace(raw)?.searchLabel || raw;
 }
 
 export function getTripOriginLabel(trip: { origin?: unknown; metadata?: unknown }) {

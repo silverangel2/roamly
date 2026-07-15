@@ -96,7 +96,7 @@ export function BookingRecommendationButton({
           url_type: urlType
         })
       }
-      className="roamly-no-print inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-5 py-2.5 text-sm font-black text-white transition hover:opacity-90"
+      className="roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-ocean/20 bg-ocean px-5 py-2.5 text-sm font-black text-white transition hover:bg-ocean/90 sm:w-auto"
     >
       {label}
     </a>

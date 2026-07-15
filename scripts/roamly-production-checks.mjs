@@ -543,24 +543,14 @@ assert.ok(generationStatusRoute.includes("getGenerationQueueForTrip"), "generati
 assert.ok(generationStatusRoute.includes("queue: queueProgress"), "generation status route must return queue progress");
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
+assert.ok(!progressComponent.includes("QueueProgress"), "generation progress UI must not expose internal QueueProgress labels");
 [
-  "QueueProgress",
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
-  "Saved stages",
   "Queued",
-  "Understanding your trip",
-  "Learning your preferences",
-  "Researching your destination",
-  "Comparing transportation",
-  "Choosing the best way to travel",
-  "Finding the best area to stay",
-  "Comparing accommodations",
-  "Building your itinerary",
-  "Checking travel times",
-  "Checking your budget",
-  "Creating backup plans",
-  "Finalizing your trip",
-  "Completed",
+  "Trip understood",
+  "Creating your days",
+  "Checking your plan",
+  "Finalizing",
   "trackPollMovement(data?.progress, data?.queue)"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
 

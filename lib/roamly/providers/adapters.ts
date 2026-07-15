@@ -104,7 +104,7 @@ const ADAPTERS: Record<RoamlyProviderKind, AdapterConfig> = {
   hotels: {
     kind: "hotels",
     provider: "stay22",
-    requiredEnv: ["ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_REFERRAL_URL"],
+    requiredEnv: ["ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL"],
     source: "Stay22 hotel links"
   },
   activities: {
@@ -134,7 +134,7 @@ const ADAPTERS: Record<RoamlyProviderKind, AdapterConfig> = {
   affiliates: {
     kind: "affiliates",
     provider: "roamly_affiliate_resolver",
-    requiredEnv: ["ROAMLY_AFFILIATES_ENABLED", "ROAMLY_STAY22_PARTNER_ID or ROAMLY_KLOOK_PARTNER_ID or ROAMLY_TRAVELPAYOUTS_MARKER"],
+    requiredEnv: ["ROAMLY_AFFILIATES_ENABLED", "ROAMLY_STAY22_SMART_LINK_URL or ROAMLY_KLOOK_PARTNER_ID or ROAMLY_TRAVELPAYOUTS_MARKER"],
     source: "Roamly affiliate resolver"
   }
 };
@@ -362,4 +362,3 @@ export const ROAMLY_PROVIDER_ADAPTERS = {
   currency_conversion: currencyConversionProviderAdapter,
   affiliates: affiliateProviderAdapter
 };
-

@@ -6,33 +6,11 @@ import {
   publicQueueProgress,
   queueTableMissing
 } from "@/lib/roamly/generationQueue";
-
-type StagedJobRow = {
-  status?: string | null;
-  error_message?: string | null;
-  completed_at?: string | null;
-  updated_at?: string | null;
-};
-
-type StagedLayerRow = {
-  status?: string | null;
-  updated_at?: string | null;
-  completed_at?: string | null;
-};
-
-function normalizedStatus(value: unknown) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function isCompletedStatus(value: unknown) {
-  return ["complete", "completed", "succeeded", "success", "skipped"].includes(
-    normalizedStatus(value)
-  );
-}
-
-function isFailedStatus(value: unknown) {
-  return ["failed", "error", "timeout"].includes(normalizedStatus(value));
-}
+import {
+  deriveTripGenerationStatus,
+  type StagedGenerationStatusJobRow,
+  type StagedGenerationStatusLayerRow
+} from "@/lib/roamly/generationStatus";
 
 export async function GET(
   _request: Request,
@@ -89,78 +67,46 @@ export async function GET(
     return NextResponse.json({ ok: false, error: queue.error }, { status: 500 });
   }
 
-  const latestJob = (jobsResult.data?.[0] || null) as StagedJobRow | null;
-  const layers = (layersResult.data || []) as StagedLayerRow[];
+  const latestJob = (jobsResult.data?.[0] || null) as StagedGenerationStatusJobRow | null;
+  const layers = (layersResult.data || []) as StagedGenerationStatusLayerRow[];
 
   const queueProgress = publicQueueProgress(queue, data.metadata);
   const queueRecord = queueProgress as Record<string, unknown> | null;
-
-  const totalLayerCount =
-    layers.length ||
-    (typeof queueRecord?.totalLayerCount === "number" && queueRecord.totalLayerCount > 0
-      ? queueRecord.totalLayerCount
-      : Math.max(metadataProgress.totalDayCount, 1));
-
-  const completedLayerCount = layers.length
-    ? layers.filter((layer) => isCompletedStatus(layer.status)).length
-    : typeof queueRecord?.completedLayerCount === "number"
-      ? queueRecord.completedLayerCount
-      : metadataProgress.completedDayCount;
-
-  const jobStatus = normalizedStatus(latestJob?.status);
-  const jobMarkedComplete =
-    isCompletedStatus(jobStatus) ||
-    latestJob?.error_message === "STAGED_GENERATION_COMPLETED";
-
-  const jobMarkedFailed =
-    isFailedStatus(jobStatus) ||
-    layers.some((layer) => isFailedStatus(layer.status));
-
-  const isComplete =
-    jobMarkedComplete ||
-    (totalLayerCount > 0 && completedLayerCount >= totalLayerCount);
-
-  const progressStatus = isComplete
-    ? "complete"
-    : jobMarkedFailed
-      ? "failed"
-      : metadataProgress.status === "complete"
-        ? "generating_day"
-        : metadataProgress.status;
-
-  const percent = isComplete
-    ? 100
-    : Math.max(
-        0,
-        Math.min(99, Math.round((completedLayerCount / Math.max(totalLayerCount, 1)) * 100))
-      );
+  const derived = deriveTripGenerationStatus({
+    tripStatus: data.status,
+    itineraryStatus: data.itinerary_status,
+    metadataProgress,
+    latestJob,
+    layers,
+    queueProgress: queueRecord
+  });
 
   return NextResponse.json({
     ok: true,
     tripId: id,
-    status: isComplete ? "completed" : data.status,
-    itineraryStatus: isComplete ? "completed" : data.itinerary_status,
+    status: derived.status,
+    itineraryStatus: derived.itineraryStatus,
     itineraryLocked: data.itinerary_locked === true,
     progress: {
       ...metadataProgress,
-      status: progressStatus,
-      completedDayCount: completedLayerCount,
-      totalDayCount: totalLayerCount,
-      percent
+      status: derived.progressStatus,
+      completedDayCount: derived.completedLayerCount,
+      totalDayCount: derived.totalLayerCount,
+      percent: derived.percent
     },
     queue: queueProgress,
     queueProgress: {
       ...(queueRecord || {}),
-      status: isComplete ? "completed" : jobMarkedFailed ? "failed" : queueRecord?.status,
-      completedLayerCount,
-      totalLayerCount
+      status: derived.isComplete ? "completed" : derived.isFailed ? "failed" : queueRecord?.status,
+      completedLayerCount: derived.completedLayerCount,
+      totalLayerCount: derived.totalLayerCount
     },
     stagedGeneration: {
       jobStatus: latestJob?.status || null,
       jobCompletedAt: latestJob?.completed_at || null,
       jobErrorMessage: latestJob?.error_message || null,
       layerCount: layers.length,
-      completedLayerCount
+      completedLayerCount: derived.completedLayerCount
     }
   });
 }

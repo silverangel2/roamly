@@ -1,3 +1,6 @@
+import { resolveTravelIataCode } from "@/lib/roamly/airportResolver";
+import { resolveCityPlace } from "@/lib/roamly/placeResolver";
+
 export type BookingUrlType = "affiliate" | "normal_search" | "fallback";
 
 export type TravelersInput =
@@ -103,31 +106,87 @@ function withParams(base: string, params: Record<string, string | number | null 
   return url.toString();
 }
 
-const airportHints: Array<[RegExp, string]> = [
-  [/\bst\.?\s+john'?s\b/i, "YYT"],
-  [/\bsaint john\b/i, "YSJ"],
-  [/\bmontreal\b|\bmontr[eé]al\b/i, "YUL"],
-  [/\btoronto\b/i, "YYZ"],
-  [/\bvancouver\b/i, "YVR"],
-  [/\bcalgary\b/i, "YYC"],
-  [/\bhalifax\b/i, "YHZ"],
-  [/\bottawa\b/i, "YOW"],
-  [/\bquebec city\b|\bqu[eé]bec\b/i, "YQB"],
-  [/\bnew york\b/i, "NYC"],
-  [/\blos angeles\b/i, "LAX"],
-  [/\blondon\b/i, "LON"],
-  [/\bparis\b/i, "PAR"],
-  [/\btokyo\b/i, "TYO"],
-  [/\bseoul\b/i, "SEL"],
-  [/\bsingapore\b/i, "SIN"]
-];
+export function resolveAviasalesCode(value?: string | null) {
+  return resolveTravelIataCode(value);
+}
+
+export function formatAviasalesDate(value?: string | null) {
+  const raw = clean(value);
+  if (!raw) return "";
+
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}${iso[2]}`;
+
+  const parsed = new Date(raw);
+  if (!Number.isFinite(parsed.getTime())) return "";
+
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  return `${day}${month}`;
+}
+
+export function buildAviasalesSearchPath({
+  origin,
+  destination,
+  departureDate,
+  returnDate,
+  travelers
+}: {
+  origin?: string | null;
+  destination?: string | null;
+  departureDate?: string | null;
+  returnDate?: string | null;
+  travelers?: TravelersInput;
+}) {
+  const originCode = resolveAviasalesCode(origin);
+  const destinationCode = resolveAviasalesCode(destination);
+  const departure = formatAviasalesDate(departureDate);
+  const returning = formatAviasalesDate(returnDate);
+  const passengerCount = typeof travelers === "number"
+    ? positiveInteger(travelers, 1)
+    : positiveInteger(travelers?.adults, 1);
+
+  if (!originCode || !destinationCode || !departure || !returning) return "";
+
+  return `${originCode}${departure}${destinationCode}${returning}${Math.max(1, Math.min(9, passengerCount))}`;
+}
+
+export function buildAviasalesDeepLink({
+  origin,
+  destination,
+  departureDate,
+  returnDate,
+  travelers,
+  marker
+}: {
+  origin?: string | null;
+  destination?: string | null;
+  departureDate?: string | null;
+  returnDate?: string | null;
+  travelers?: TravelersInput;
+  marker?: string | null;
+}) {
+  const path = buildAviasalesSearchPath({ origin, destination, departureDate, returnDate, travelers });
+  if (!path) return "";
+
+  const url = new URL(`https://www.aviasales.com/search/${path}`);
+  const affiliateMarker = clean(marker);
+  if (affiliateMarker) url.searchParams.set("marker", affiliateMarker);
+  return url.toString();
+}
 
 function withAirportHint(value?: string | null) {
   const label = clean(value);
   if (!label) return "";
   if (/\b[A-Z]{3}\b/.test(label)) return label;
-  const match = airportHints.find(([pattern]) => pattern.test(label));
-  return match ? `${label} ${match[1]}` : label;
+  const code = resolveTravelIataCode(label);
+  return code ? `${label} ${code}` : label;
+}
+
+function resolvedPlaceLabel(value?: string | null) {
+  const raw = clean(value);
+  if (!raw) return "";
+  return resolveCityPlace(raw)?.searchLabel || "";
 }
 
 function travelersText(travelers: TravelersInput) {
@@ -199,7 +258,8 @@ export function buildHotelSearchUrl({
   const adultCount = positiveInteger(adults, 1);
   const childCount = positiveInteger(children, 0);
   const area = clean(neighborhood);
-  const city = clean(destination);
+  const city = resolvedPlaceLabel(destination);
+  if (clean(destination) && !city) return "";
   const destinationPart = area && city && !area.toLowerCase().includes(city.toLowerCase()) ? city : "";
   const query = compact([
     area || city,
@@ -232,9 +292,13 @@ export function buildAttractionTicketSearchUrl({
   date?: string | null;
 }) {
   const name = clean(attractionName);
-  const ticketPhrase = /ticket|admission|entry/i.test(name) ? "" : "admission ticket";
-  const query = compact([name, destination, ticketPhrase, formatDate(date, "long"), "official"]);
-  return roamlyDiscoveryUrl("activity", destination || name || query, { query });
+  const place = destination ? resolvedPlaceLabel(destination) : "";
+  if (clean(destination) && !place) return "";
+  const query = compact([name, place, formatDate(date, "long"), "official site details"]);
+  if (!query) return "";
+  const url = new URL("https://www.google.com/search");
+  url.searchParams.set("q", query);
+  return url.toString();
 }
 
 export function buildTourSearchUrl({
@@ -246,9 +310,11 @@ export function buildTourSearchUrl({
   destination?: string | null;
   date?: string | null;
 }) {
-  const query = compact([tourName, destination, formatDate(date, "long")]);
+  const place = destination ? resolvedPlaceLabel(destination) : "";
+  if (clean(destination) && !place) return "";
+  const query = compact([tourName, place, formatDate(date, "long")]);
   if (!query) return "";
-  return roamlyDiscoveryUrl("tour", destination || tourName || query, { query });
+  return roamlyDiscoveryUrl("tour", place || tourName || query, { query });
 }
 
 export function buildTransportSearchUrl({

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { NavigationButtons } from "@/components/roamly/NavigationButtons";
-import { buildRoamlyAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 
 type Booking = {
   id?: string;
@@ -36,22 +35,6 @@ function formatMoney(cents?: number | null, currency = "CAD") {
     currency: (currency || "CAD").toUpperCase(),
     maximumFractionDigits: 0
   }).format(cents / 100);
-}
-
-function categoryForBooking(type: string) {
-  if (type === "hotel") return "hotel" as const;
-  if (type === "flight") return "flight" as const;
-  if (type === "attraction" || type === "event") return "ticket" as const;
-  if (type === "transport" || type === "car_rental") return "transport" as const;
-  return "tour" as const;
-}
-
-function labelForBooking(type: string) {
-  if (type === "hotel") return "Find nearby hotels";
-  if (type === "flight") return "Find flights";
-  if (type === "attraction" || type === "event") return "View tickets";
-  if (type === "transport" || type === "car_rental") return "Open transport";
-  return "Find tours";
 }
 
 export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
@@ -128,23 +111,6 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
             longitude={booking.longitude}
             className="mt-3"
           />
-          <a
-            href={
-              buildRoamlyAffiliateUrl({
-                category: categoryForBooking(booking.booking_type),
-                title: booking.title,
-                destination: [booking.city, booking.region, booking.country].filter(Boolean).join(", "),
-                address: booking.address,
-                latitude: booking.latitude,
-                longitude: booking.longitude
-              }).href
-            }
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean ring-1 ring-ocean/15"
-          >
-            {labelForBooking(booking.booking_type)}
-          </a>
         </article>
       ))}
     </div>

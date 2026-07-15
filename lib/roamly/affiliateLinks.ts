@@ -3,6 +3,7 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
 import {
   buildAttractionTicketSearchUrl,
+  buildAviasalesDeepLink,
   buildFlightSearchUrl,
   buildHotelSearchUrl,
   buildTourSearchUrl,
@@ -10,8 +11,9 @@ import {
   roamlyDiscoveryUrl,
   safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
-import { isLegacyBookingUrl, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
-import { calculateRoamlyBudgetBrain } from "@/lib/roamly/budgetBrain";
+import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
+import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
+import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 
 export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
 
@@ -64,12 +66,18 @@ function stay22PartnerId() {
   return clean(process.env.ROAMLY_STAY22_PARTNER_ID);
 }
 
+function stay22SmartLinkUrl() {
+  const url = safeExternalUrl(process.env.ROAMLY_STAY22_SMART_LINK_URL);
+  return isTravelerSafeStay22Url(url) ? url : "";
+}
+
 function stay22ReferralUrl() {
-  return safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
+  const url = safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
+  return isTravelerSafeStay22Url(url) ? url : "";
 }
 
 function hasConfiguredHotelAffiliateProvider(provider: string) {
-  if (provider === "stay22") return Boolean(stay22PartnerId() || stay22ReferralUrl());
+  if (provider === "stay22") return Boolean(stay22PartnerId() || stay22SmartLinkUrl() || stay22ReferralUrl());
   return false;
 }
 
@@ -307,7 +315,15 @@ function safeBookingHref(value: unknown) {
   const raw = cleanStringValue(value);
   if (!raw || isLegacyBookingUrl(raw)) return "";
   if (raw.startsWith("/")) return "";
-  return safeExternalUrl(raw);
+  const external = safeExternalUrl(raw);
+  if (!external) return "";
+  try {
+    const host = new URL(external).hostname.toLowerCase();
+    if (host.includes("stay22.com") && !isTravelerSafeStay22Url(external)) return "";
+  } catch {
+    return "";
+  }
+  return external;
 }
 
 function approvedMarketAffiliateUrl(market: Record<string, unknown> | null, link: ReturnType<typeof buildRoamlyAffiliateUrl>) {
@@ -433,98 +449,6 @@ function ctaLabelForTimeline(category: AffiliateCategory, label?: string | null)
 
 type ItineraryTransportOption = NonNullable<RoamlyItinerary["estimated_budget_breakdown"]["transport_options"]>[number];
 
-function normalizeAirportCode(value: unknown) {
-  const cleaned = cleanStringValue(value).trim().toUpperCase();
-
-  if (/^[A-Z]{3}$/.test(cleaned)) {
-    return cleaned;
-  }
-
-  const compact = cleaned
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/[^A-Z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const known: Record<string, string> = {
-    "SAINT JOHN": "YSJ",
-    "SAINT JOHN CANADA": "YSJ",
-    "SAINT JOHN NB": "YSJ",
-    "ST JOHN": "YSJ",
-    "ST JOHN CANADA": "YSJ",
-    "YSJ SAINT JOHN": "YSJ",
-    "MONCTON": "YQM",
-    "MONCTON CANADA": "YQM",
-    "MONCTON NB": "YQM",
-    "MONTREAL": "YMQ",
-    "MONTREAL CANADA": "YMQ",
-    "MONTRÉAL": "YMQ",
-    "MONTRÉAL CANADA": "YMQ",
-    "YUL": "YMQ",
-    "TORONTO": "YTO",
-    "TORONTO CANADA": "YTO",
-    "NEW YORK": "NYC",
-    "NEW YORK UNITED STATES": "NYC",
-    "PARIS": "PAR",
-    "LONDON": "LON"
-  };
-
-  return known[compact] || "";
-}
-
-function formatAviasalesDate(value: unknown) {
-  const raw = cleanStringValue(value);
-
-  if (!raw) return "";
-
-  const date = new Date(raw);
-
-  if (Number.isNaN(date.getTime())) {
-    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (!match) return "";
-    return `${match[3]}${match[2]}`;
-  }
-
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-
-  return `${day}${month}`;
-}
-
-function buildAviasalesDeepLink(params: {
-  origin: unknown;
-  destination: unknown;
-  departureDate: unknown;
-  returnDate: unknown;
-  travelers: unknown;
-}) {
-  const originCode = normalizeAirportCode(params.origin);
-  const destinationCode = normalizeAirportCode(params.destination);
-  const departure = formatAviasalesDate(params.departureDate);
-  const returning = formatAviasalesDate(params.returnDate);
-  const travelers = Math.max(
-    1,
-    Math.min(9, Math.round(cleanNumber(params.travelers) || 1))
-  );
-
-  if (!originCode || !destinationCode || !departure) {
-    return "";
-  }
-
-  const path = returning
-    ? `${originCode}${departure}${destinationCode}${returning}${travelers}`
-    : `${originCode}${departure}${destinationCode}${travelers}`;
-
-  const url = new URL(`https://www.aviasales.com/search/${path}`);
-  const marker = cleanStringValue(process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
-
-  if (marker) {
-    url.searchParams.set("marker", marker);
-  }
-
-  return url.toString();
-}
-
 function transportFlightOrigin(option: ItineraryTransportOption) {
   const title = cleanStringValue(option.title);
   const mixed = title.match(/drive to\s+(.+?),\s+then fly/i);
@@ -541,7 +465,8 @@ function affiliateFlightHrefForTransport(option: ItineraryTransportOption, paylo
     destination,
     departureDate: option.departure_date || payload.startDate,
     returnDate: option.return_date || payload.endDate,
-    travelers
+    travelers,
+    marker: process.env.ROAMLY_TRAVELPAYOUTS_MARKER
   });
 
   if (aviasalesDeepLink) {
@@ -698,11 +623,11 @@ function recommendedStayCandidate(params: {
   if (destination.includes("montreal") || destination.includes("montréal")) {
     if (nightlyTarget && nightlyTarget < 150) {
       return {
-        name: "M Montreal",
+        name: "M Montreal or similar private/budget room near the Village",
         neighborhood: "the Village / Berri-UQAM area",
-        roomType: "private room or budget hostel-private room",
+        roomType: "private room / 1 bed / non-smoking when requested",
         reason:
-          "strong fit for Pride access, metro connections, nightlife, food, and a tighter budget",
+          "close to Gay Village, Pride events, metro, nightlife, and budget-friendly food",
         searchQuery:
           "M Montreal private room Berri-UQAM Montreal Village budget hotel"
       };
@@ -711,9 +636,9 @@ function recommendedStayCandidate(params: {
     return {
       name: "Hotel St-Denis or a similar central 3-star hotel",
       neighborhood: "Downtown Montreal / Berri-UQAM",
-      roomType: "private queen room or well-rated central hotel room",
+      roomType: "private room / 1 bed / non-smoking when requested",
       reason:
-        "central location, metro access, walkable food, and easier movement around Pride events",
+        "central location, metro access, walkable food, nightlife, and easier movement around Pride events",
       searchQuery:
         "Hotel St-Denis Montreal private queen room Downtown Berri-UQAM"
     };
@@ -724,8 +649,8 @@ function recommendedStayCandidate(params: {
     neighborhood: `central ${params.destination}`,
     roomType:
       nightlyTarget && nightlyTarget < 150
-        ? "private room or budget hotel room"
-        : "well-rated private hotel room",
+        ? "private room / 1 bed / budget hotel or hostel-private room"
+        : "well-rated private room / 1 bed",
     reason:
       "best fit for location, budget, transit access, and the trip plan",
     searchQuery: `${params.destination} best private room budget hotel central`
@@ -736,12 +661,15 @@ function buildBrainBookingSuggestions(params: {
   itinerary: RoamlyItinerary;
   payload: TripPlannerPayload;
   estimatedBudgetBreakdown: RoamlyItinerary["estimated_budget_breakdown"];
+  budgetBrain: RoamlyBudgetBrainPlan;
 }) {
-  const { itinerary, payload, estimatedBudgetBreakdown } = params;
+  const { itinerary, payload, estimatedBudgetBreakdown, budgetBrain } = params;
   const suggestions = itinerary.booking_suggestions || [];
   const generated: RoamlyItinerary["booking_suggestions"] = [];
 
-  const destination = cleanStringValue(payload.destination);
+  const rawDestination = cleanStringValue(payload.destination);
+  const resolvedDestination = resolveCityPlace(rawDestination);
+  const destination = resolvedDestination?.searchLabel || rawDestination;
   const origin = cleanStringValue(payload.origin);
   const currency = cleanStringValue(payload.budgetCurrency) || "CAD";
 
@@ -779,13 +707,16 @@ function buildBrainBookingSuggestions(params: {
 
   const budget = estimatedBudgetBreakdown;
   const nightlyTarget =
-    budget.selected_hotel_estimate_amount ||
+    budgetBrain.hotelNightlyTarget ||
+    budget.hotel_nightly_target_amount ||
     budget.hotel_nightly_estimate_amount ||
+    budget.selected_hotel_estimate_amount ||
     null;
 
   if (
     !hasSuggestionCategory(suggestions, "hotel") &&
     payload.budgetIncludesHotel !== false &&
+    Boolean(resolvedDestination) &&
     (nightlyTarget || budget.hotel_estimate_note)
   ) {
     const stayCandidate = recommendedStayCandidate({
@@ -796,22 +727,29 @@ function buildBrainBookingSuggestions(params: {
     const budgetLabel = nightlyTarget
       ? `${Math.round(nightlyTarget)} ${currency} per night target`
       : "budget-matched nightly target";
+    const reserveLabel = budgetBrain.hotelReserve
+      ? `${budgetBrain.hotelReserve} ${currency} stay reserve`
+      : "hotel reserve set before transport and extras";
 
     generated.push({
       booking_category: "hotel",
       category: "hotel",
       title: `Recommended stay: ${stayCandidate.name}`,
       description:
-        budget.hotel_estimate_note ||
-        `${budgetLabel}. Choose a ${stayCandidate.roomType} around ${stayCandidate.neighborhood}. This is recommended because it is a ${stayCandidate.reason}.`,
+        `${budgetLabel}. ${reserveLabel}. Choose ${stayCandidate.roomType} around ${stayCandidate.neighborhood}.`,
       destination,
+      recommended_stay_name: stayCandidate.name,
+      stay_profile: stayCandidate.name,
       neighborhood: stayCandidate.neighborhood,
       room_type: stayCandidate.roomType,
+      budget_target: budgetLabel,
       search_query: `${stayCandidate.searchQuery} ${budgetLabel}`,
+      why_recommended: stayCandidate.reason,
       recommendation_reason: stayCandidate.reason,
-      provider: "Stay22",
+      provider: "Recommended stay",
+      provider_or_search_source: "Roamly recommendation",
       url_type: "affiliate",
-      has_affiliate_url: true,
+      has_affiliate_url: false,
       booking_label: "Find this stay"
     } as unknown as RoamlyItinerary["booking_suggestions"][number]);
   }
@@ -845,9 +783,11 @@ function buildBrainBookingSuggestions(params: {
         provider: "Official or local search",
         url_type: "direct",
         booking_label: "Open details",
-        normal_search_url: `https://www.google.com/search?q=${encodeURIComponent(
-          `${title} ${destination} official tickets details`
-        )}`
+        normal_search_url: destination
+          ? `https://www.google.com/search?q=${encodeURIComponent(
+              `${title} ${destination} official site details`
+            )}`
+          : ""
       } as unknown as RoamlyItinerary["booking_suggestions"][number]);
     }
   }
@@ -885,7 +825,8 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
     booking_suggestions: buildBrainBookingSuggestions({
       itinerary,
       payload,
-      estimatedBudgetBreakdown
+      estimatedBudgetBreakdown,
+      budgetBrain
     }).filter((suggestion) => !unavailableTrainOrBusSuggestion(suggestion)).map((suggestion) => {
       const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
       const market = pickMarketResult(suggestion, payload);
@@ -924,6 +865,8 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         affiliate_url: approvedMarketAffiliateUrl(market, link),
         affiliate_provider: link.affiliate_enabled ? link.affiliate_provider : "roamly_internal",
         affiliate_disclosure: link.affiliate_enabled ? affiliateDisclosure : "",
+        has_affiliate_url: link.affiliate_enabled,
+        url_type: link.affiliate_enabled ? "affiliate" : "normal_search",
         booking_status:
           market?.metadata && typeof market.metadata === "object" && (market.metadata as Record<string, unknown>).source === "user_uploaded_confirmation"
             ? "user_uploaded"
@@ -958,7 +901,7 @@ export function getAffiliateReadiness() {
     hotelProviderConfigured: hasConfiguredHotelAffiliateProvider(hotelProvider),
     flightProviderConfigured: flightProvider === "travelpayouts" && Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     attractionsProviderConfigured: hasConfiguredAttractionsAffiliateProvider(attractionsProvider),
-    stay22PartnerConfigured: Boolean(stay22PartnerId() || stay22ReferralUrl()),
+    stay22PartnerConfigured: Boolean(stay22PartnerId() || stay22SmartLinkUrl() || stay22ReferralUrl()),
     travelpayoutsMarkerConfigured: Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     klookPartnerConfigured: Boolean(klookPartnerId() || klookReferralUrl()),
     amazonPartnerConfigured: process.env.ROAMLY_AMAZON_ENABLED === "true" && Boolean(process.env.ROAMLY_AMAZON_ASSOCIATE_TAG),

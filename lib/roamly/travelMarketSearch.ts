@@ -9,6 +9,7 @@ import {
   safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
 import { buildRoamlyAffiliateUrl } from "@/lib/roamly/affiliateLinks";
+import { isTravelerSafeStay22Url } from "@/lib/roamly/affiliateResolver";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import { compareTransportOptions, transportOptionsToMarketResults } from "@/lib/roamly/transportOptions";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
@@ -428,7 +429,11 @@ function stay22AffiliateConfigured() {
   return (
     affiliateGateEnabled() &&
     clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "stay22").toLowerCase() === "stay22" &&
-    Boolean(clean(process.env.ROAMLY_STAY22_PARTNER_ID) || safeExternalUrl(process.env.ROAMLY_STAY22_REFERRAL_URL))
+    Boolean(
+      clean(process.env.ROAMLY_STAY22_PARTNER_ID) ||
+      isTravelerSafeStay22Url(process.env.ROAMLY_STAY22_SMART_LINK_URL) ||
+      isTravelerSafeStay22Url(process.env.ROAMLY_STAY22_REFERRAL_URL)
+    )
   );
 }
 

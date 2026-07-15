@@ -12,6 +12,53 @@ function read(file) {
   return fs.readFileSync(path.join(root, file), "utf8");
 }
 
+function loadTsModule(entryFile) {
+  const cache = new Map();
+
+  function load(file) {
+    const absolute = path.join(root, file);
+    if (cache.has(absolute)) return cache.get(absolute).module.exports;
+
+    const ext = path.extname(absolute);
+    if (ext === ".json") return JSON.parse(fs.readFileSync(absolute, "utf8"));
+
+    const source = fs.readFileSync(absolute, "utf8");
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2020,
+        esModuleInterop: true,
+        resolveJsonModule: true
+      }
+    }).outputText;
+
+    const sandbox = {
+      exports: {},
+      module: { exports: {} },
+      require(id) {
+        if (id.startsWith("@/")) {
+          const local = id.slice(2);
+          return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
+        }
+        if (id.startsWith(".")) {
+          const resolved = path.join(path.dirname(file), id);
+          return load(resolved.match(/\.(ts|tsx|json)$/) ? resolved : `${resolved}.ts`);
+        }
+        return require(id);
+      },
+      URL,
+      process
+    };
+
+    cache.set(absolute, sandbox);
+    sandbox.exports = sandbox.module.exports;
+    vm.runInNewContext(compiled, sandbox, { filename: file });
+    return sandbox.module.exports;
+  }
+
+  return load(entryFile);
+}
+
 const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("validateStripePriceForPurchase"), "checkout must validate Stripe Prices server-side");
 assert.ok(billing.includes("STRIPE_PRICE_MISSING"), "missing Stripe Price IDs must return a specific safe error");
@@ -58,11 +105,103 @@ const affiliateResolver = read("lib/roamly/affiliateResolver.ts");
 assert.ok(!affiliateResolver.includes("source\", \"affiliate_fallback\""), "affiliate resolver must not send booking CTAs back to /plan");
 assert.ok(affiliateResolver.includes('fallbackBehavior: isAffiliate ? "affiliate" : "hidden"'), "missing affiliate providers must hide CTAs, not create internal fallbacks");
 
+const iataDataset = JSON.parse(read("lib/roamly/data/iata-airports.json"));
+const cityDataset = JSON.parse(read("lib/roamly/data/geonames-cities15000.json"));
+assert.ok(iataDataset.airports.length > 9000, "IATA resolver must use a broad airport dataset");
+assert.ok(cityDataset.cities.length > 30000, "city resolver must use a broad global city dataset");
+
+const placeResolverExports = loadTsModule("lib/roamly/placeResolver.ts");
+const airportResolverExports = loadTsModule("lib/roamly/airportResolver.ts");
+const bookingLinksExports = loadTsModule("lib/roamly/bookingLinks.ts");
+const affiliateResolverExports = loadTsModule("lib/roamly/affiliateResolver.ts");
+
+[
+  ["Montreal", "Montreal, Canada"],
+  ["Montréal", "Montreal, Canada"],
+  ["Montreal, Canada", "Montreal, Canada"],
+  ["New York City", "New York City, United States"],
+  ["NYC", "New York City, United States"],
+  ["New York, NY", "New York City, United States"],
+  ["Saint John, Canada", "Saint John, New Brunswick, Canada"],
+  ["Saint John, NB", "Saint John, New Brunswick, Canada"],
+  ["Paris, France", "Paris, France"],
+  ["London, United Kingdom", "London, United Kingdom"]
+].forEach(([input, expected]) => {
+  assert.equal(placeResolverExports.resolveCityPlace(input)?.searchLabel, expected, `city resolver failed for ${input}`);
+});
+assert.equal(placeResolverExports.resolveCityPlace("Definitely Not A Real Roamly Place"), null, "unknown city must fail safely");
+
+[
+  ["YSJ", "YSJ"],
+  ["YUL", "YUL"],
+  ["JFK", "JFK"],
+  ["Saint John, Canada", "YSJ"],
+  ["Montreal, Canada", "YMQ"],
+  ["New York City, United States", "NYC"],
+  ["Toronto, Canada", "YTO"],
+  ["Paris, France", "PAR"],
+  ["London, United Kingdom", "LON"]
+].forEach(([input, expected]) => {
+  assert.equal(airportResolverExports.resolveTravelIataCode(input), expected, `IATA resolver failed for ${input}`);
+});
+assert.equal(airportResolverExports.resolveTravelIataCode("Definitely Not A Real Roamly Place"), "", "unknown airport/city must not resolve to a fake code");
+
+assert.equal(
+  new URL(bookingLinksExports.buildAviasalesDeepLink({
+    origin: "Saint John, Canada",
+    destination: "New York City, United States",
+    departureDate: "2026-08-05",
+    returnDate: "2026-08-08",
+    travelers: 1
+  })).pathname,
+  "/search/YSJ0508NYC08081",
+  "Saint John to New York Aviasales deep link path is wrong"
+);
+assert.equal(
+  new URL(bookingLinksExports.buildAviasalesDeepLink({
+    origin: "Saint John, Canada",
+    destination: "Montreal, Canada",
+    departureDate: "2026-08-05",
+    returnDate: "2026-08-08",
+    travelers: 1
+  })).pathname,
+  "/search/YSJ0508YMQ08081",
+  "Saint John to Montreal Aviasales deep link path is wrong"
+);
+assert.equal(
+  bookingLinksExports.buildAviasalesDeepLink({
+    origin: "Unknown City",
+    destination: "Montreal, Canada",
+    departureDate: "2026-08-05",
+    returnDate: "2026-08-08",
+    travelers: 1
+  }),
+  "",
+  "unknown city must not produce a broken Aviasales URL"
+);
+[
+  "https://app.stay22.com/dashboard",
+  "https://www.stay22.com/login",
+  "https://www.stay22.com/account",
+  "https://partners.stay22.com/admin"
+].forEach((href) => {
+  assert.equal(affiliateResolverExports.isTravelerSafeStay22Url(href), false, `Stay22 traveler safety failed for ${href}`);
+});
+assert.equal(
+  affiliateResolverExports.isTravelerSafeStay22Url("https://www.stay22.com/search?aid=partner"),
+  true,
+  "Stay22 traveler search links should be allowed"
+);
+
 const affiliateLinks = read("lib/roamly/affiliateLinks.ts");
 assert.ok(affiliateLinks.includes("enrichTimelineItems"), "timeline booking CTAs must be resolved server-side");
 assert.ok(affiliateLinks.includes("resolveAffiliateLink"), "affiliate links must use the centralized resolver");
 assert.ok(affiliateLinks.includes("booking: {"), "timeline items must receive structured booking objects");
 assert.ok(affiliateLinks.includes('if (raw.startsWith("/")) return "";'), "generated booking links must reject internal /plan fallbacks");
+["recommended_stay_name", "stay_profile", "neighborhood", "room_type", "budget_target", "why_recommended", "Find this stay"].forEach((needle) =>
+  assert.ok(affiliateLinks.includes(needle), `hotel recommendation missing ${needle}`)
+);
+assert.ok(affiliateLinks.includes("payload.budgetIncludesHotel !== false") && affiliateLinks.includes("Boolean(resolvedDestination)"), "hotel recommendations must respect included hotel budget and resolved places");
 
 const affiliateNeutrality = read("lib/roamly/affiliateNeutrality.ts");
 [
@@ -103,9 +242,12 @@ assert.ok(itinerary.includes('if (raw.startsWith("/")) return false;'), "itinera
 assert.ok(itinerary.includes("Roamly recommends this option for your trip."), "itinerary must confidently label the recommended transport option");
 
 const tripPage = read("app/trip/[id]/page.tsx");
-assert.ok(tripPage.includes("BookingRecommendationButton") && tripPage.includes("item.booking"), "timeline CTAs must render as real booking buttons");
+assert.ok(tripPage.includes("BookingPlan") && tripPage.includes("BookingRecommendationCard"), "booking recommendations must render in a dedicated section");
+assert.ok(!tripPage.includes("shouldShowInlineTimelineBooking") && !tripPage.includes("item.booking"), "timeline must not render booking spam inside itinerary cards");
 assert.ok(tripPage.includes("isLegacyBookingUrl(raw)"), "trip rendering must reject legacy booking links");
 assert.ok(tripPage.includes("enrichItineraryBookingSuggestions"), "saved trips must reconstruct missing affiliate links on load");
+assert.ok(tripPage.includes("const generationPanelVisible = !full &&"), "trip page must not show generation/loading UI when a full itinerary exists");
+assert.ok(tripPage.includes("canShowFull && full && !generationPanelVisible"), "trip page must render the itinerary automatically after generation completes");
 
 const planPage = read("app/plan/page.tsx");
 assert.ok(planPage.includes("hidden gap-2 lg:grid"), "mobile plan page must not render the desktop info rail");
@@ -208,6 +350,20 @@ const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
 assert.ok(statusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose durable queue progress");
 assert.ok(statusRoute.includes("queue: queueProgress"), "generation status route must return saved queue progress");
+const generationStatusExports = loadTsModule("lib/roamly/generationStatus.ts");
+const completedGenerationState = generationStatusExports.deriveTripGenerationStatus({
+  tripStatus: "generated",
+  itineraryStatus: "generated",
+  metadataProgress: { status: "generating_day", completedDayCount: 1, totalDayCount: 4 },
+  latestJob: { status: "completed", completed_at: "2026-08-05T00:00:00.000Z" },
+  layers: [
+    { status: "completed" },
+    { status: "completed" }
+  ],
+  queueProgress: { completedLayerCount: 2, totalLayerCount: 2 }
+});
+assert.equal(completedGenerationState.progressStatus, "complete", "completed staged generation must return complete progress");
+assert.equal(completedGenerationState.status, "generated", "completed staged generation must return generated trip state");
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
@@ -672,7 +828,7 @@ const providerAdapters = read("lib/roamly/providers/adapters.ts");
   "ROAMLY_BUS_PROVIDER_API_KEY",
   "ROAMLY_FERRY_PROVIDER_API_KEY",
   "GOOGLE_MAPS_API_KEY",
-  "ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_REFERRAL_URL",
+  "ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL",
   "KLOOK_API_KEY",
   "ROAMLY_REVIEWS_PROVIDER_API_KEY",
   "ROAMLY_WEATHER_API_KEY",
@@ -792,25 +948,15 @@ assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progr
 assert.ok(progressComponent.includes("retryLimit"), "generation progress UI must respect the retry ceiling");
 assert.ok(progressComponent.includes("estimatedAiCostUsd"), "generation progress UI must show estimated AI cost");
 assert.ok(progressComponent.includes("Email me when ready"), "generation progress UI must show transactional email status");
+assert.ok(!progressComponent.includes("QueueProgress"), "generation progress UI must not show internal QueueProgress labels");
 [
-  "QueueProgress",
   "SAVED_QUEUE_MESSAGE",
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
-  "Saved stages",
   "Queued",
-  "Understanding your trip",
-  "Learning your preferences",
-  "Researching your destination",
-  "Comparing transportation",
-  "Choosing the best way to travel",
-  "Finding the best area to stay",
-  "Comparing accommodations",
-  "Building your itinerary",
-  "Checking travel times",
-  "Checking your budget",
-  "Creating backup plans",
-  "Finalizing your trip",
-  "Completed",
+  "Trip understood",
+  "Creating your days",
+  "Checking your plan",
+  "Finalizing",
   "trackPollMovement(data?.progress, data?.queue)",
   "advanceProgress"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));

@@ -1,3 +1,5 @@
+import { resolveCityPlace } from "@/lib/roamly/placeResolver";
+
 type AnyRecord = Record<string, unknown>;
 
 function text(value: unknown) {
@@ -31,6 +33,12 @@ function money(amount: number | null, currency: string) {
   return `${Math.round(amount)} ${currency}`;
 }
 
+function nestedNumber(record: AnyRecord, key: string) {
+  const value = record[key];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return firstNumber((value as AnyRecord)[key], (value as AnyRecord).hotelNightlyTarget);
+}
+
 export function buildRecommendedStaySuggestion(params: {
   trip: AnyRecord;
   itinerary: AnyRecord;
@@ -39,13 +47,16 @@ export function buildRecommendedStaySuggestion(params: {
   const itinerary = params.itinerary;
   const budget = (itinerary.estimated_budget_breakdown || {}) as AnyRecord;
 
-  const destination = firstText(
+  const rawDestination = firstText(
     trip.destination,
     itinerary.destination,
     trip.city,
     trip.location,
     "your destination"
   );
+  const resolvedDestination = resolveCityPlace(rawDestination);
+  if (!resolvedDestination) return null;
+  const destination = resolvedDestination.searchLabel;
 
   const currency = firstText(
     itinerary.budget_currency,
@@ -55,6 +66,9 @@ export function buildRecommendedStaySuggestion(params: {
   );
 
   const nightlyTarget = firstNumber(
+    budget.hotel_nightly_target_amount,
+    nestedNumber(budget, "budget_brain"),
+    (budget.budget_brain as AnyRecord | undefined)?.hotelNightlyTarget,
     budget.selected_hotel_estimate_amount,
     budget.hotel_nightly_estimate_amount,
     budget.hotel_estimate_amount
@@ -64,42 +78,53 @@ export function buildRecommendedStaySuggestion(params: {
 
   if (!includesHotel) return null;
 
-  const destinationLower = destination.toLowerCase();
+  const destinationLower = `${destination} ${resolvedDestination.asciiName} ${resolvedDestination.name}`.toLowerCase();
   const isMontreal =
     destinationLower.includes("montreal") || destinationLower.includes("montréal");
 
   const neighborhood = isMontreal
-    ? "Downtown Montreal or the Village"
+    ? "the Village / Berri-UQAM area"
     : `central ${destination}`;
 
   const roomType =
-    nightlyTarget && nightlyTarget < 130
-      ? "private room, hostel private room, or budget hotel room"
-      : "well-rated private hotel room";
+    nightlyTarget && nightlyTarget < 150
+      ? "private room / 1 bed / non-smoking when requested"
+      : "well-rated private room / 1 bed / non-smoking when requested";
 
   const budgetLabel = nightlyTarget
     ? `${money(nightlyTarget, currency)} per night target`
     : "budget-matched nightly target";
 
+  const stayName = isMontreal
+    ? nightlyTarget && nightlyTarget < 150
+      ? "M Montreal or similar private/budget room near the Village"
+      : "Hotel St-Denis or similar central private room"
+    : `budget-matched stay near ${neighborhood}`;
+
   const reason = isMontreal
-    ? "close to Pride events, metro access, nightlife, and walkable food options"
+    ? "close to Gay Village, Pride events, metro, nightlife, and budget-friendly food"
     : "close to the main trip area, transit, food, and planned activities";
 
   return {
     booking_category: "hotel",
     category: "hotel",
-    title: `Recommended stay: ${neighborhood}`,
+    title: `Recommended stay: ${stayName}`,
     description:
-      firstText(budget.hotel_estimate_note) ||
-      `${budgetLabel}. Look for a ${roomType} because it is ${reason}.`,
+      `${budgetLabel}. Choose ${roomType} around ${neighborhood}.`,
     destination,
+    recommended_stay_name: stayName,
+    stay_profile: stayName,
     neighborhood,
     room_type: roomType,
+    budget_target: budgetLabel,
     search_query: `${destination} ${neighborhood} ${roomType} ${budgetLabel}`,
+    why_recommended: reason,
     recommendation_reason: reason,
     url_type: "affiliate",
-    provider: "Stay22",
-    has_affiliate_url: true
+    provider: "Recommended stay",
+    provider_or_search_source: "Roamly recommendation",
+    booking_label: "Find this stay",
+    has_affiliate_url: false
   };
 }
 
