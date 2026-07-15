@@ -24,6 +24,18 @@ import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource 
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 
 export type BudgetBreakdown = {
+  budget_brain?: unknown;
+  hotel_budget_reserve_amount?: number;
+  transport_budget_reserve_amount?: number;
+  food_budget_reserve_amount?: number;
+  activities_budget_reserve_amount?: number;
+  nightlife_budget_reserve_amount?: number;
+  buffer_budget_reserve_amount?: number;
+  hotel_nightly_target_amount?: number;
+  daily_spend_target_amount?: number;
+  budget_verdict?: "comfortable" | "tight" | "too_low" | "unknown";
+  budget_recommendation?: string;
+  transport_mode_recommendation?: "flight" | "drive" | "train_or_bus" | "mixed" | "unknown";
   lodging: string;
   food: string;
   activities: string;

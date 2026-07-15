@@ -11,6 +11,7 @@ import {
   safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
 import { isLegacyBookingUrl, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
+import { calculateRoamlyBudgetBrain } from "@/lib/roamly/budgetBrain";
 
 export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
 
@@ -857,9 +858,29 @@ function buildBrainBookingSuggestions(params: {
 
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
+  const budgetBrain = calculateRoamlyBudgetBrain({
+    trip: payload as unknown as Record<string, unknown>,
+    itinerary: itinerary as unknown as Record<string, unknown>,
+    budgetBreakdown: estimatedBudgetBreakdown as unknown as Record<string, unknown>,
+    payload: payload as unknown as Record<string, unknown>
+  });
   return {
     ...itinerary,
-    estimated_budget_breakdown: estimatedBudgetBreakdown,
+    estimated_budget_breakdown: {
+      ...estimatedBudgetBreakdown,
+      budget_brain: budgetBrain,
+      hotel_budget_reserve_amount: budgetBrain.hotelReserve,
+      transport_budget_reserve_amount: budgetBrain.transportReserve,
+      food_budget_reserve_amount: budgetBrain.foodReserve,
+      activities_budget_reserve_amount: budgetBrain.activitiesReserve,
+      nightlife_budget_reserve_amount: budgetBrain.nightlifeReserve,
+      buffer_budget_reserve_amount: budgetBrain.bufferReserve,
+      hotel_nightly_target_amount: budgetBrain.hotelNightlyTarget,
+      daily_spend_target_amount: budgetBrain.dailySpendTarget,
+      budget_verdict: budgetBrain.budgetVerdict,
+      budget_recommendation: budgetBrain.recommendation,
+      transport_mode_recommendation: budgetBrain.transportModeRecommendation
+    },
     daily_itinerary: enrichTimelineItems(itinerary, payload),
     booking_suggestions: buildBrainBookingSuggestions({
       itinerary,
