@@ -672,13 +672,161 @@ function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPay
   }));
 }
 
+function suggestionCategoryValue(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  return cleanStringValue(
+    suggestion.booking_category || suggestion.category
+  ).toLowerCase();
+}
+
+function hasSuggestionCategory(
+  suggestions: RoamlyItinerary["booking_suggestions"],
+  category: string
+) {
+  return suggestions.some(
+    (suggestion) => suggestionCategoryValue(suggestion) === category
+  );
+}
+
+function buildBrainBookingSuggestions(params: {
+  itinerary: RoamlyItinerary;
+  payload: TripPlannerPayload;
+  estimatedBudgetBreakdown: RoamlyItinerary["estimated_budget_breakdown"];
+}) {
+  const { itinerary, payload, estimatedBudgetBreakdown } = params;
+  const suggestions = itinerary.booking_suggestions || [];
+  const generated: RoamlyItinerary["booking_suggestions"] = [];
+
+  const destination = cleanStringValue(payload.destination);
+  const origin = cleanStringValue(payload.origin);
+  const currency = cleanStringValue(payload.budgetCurrency) || "CAD";
+
+  const recommendedTransport =
+    estimatedBudgetBreakdown.recommended_transport_option ||
+    estimatedBudgetBreakdown.transport_options?.find(
+      (option) => option.budget_fit === "best"
+    ) ||
+    estimatedBudgetBreakdown.transport_options?.[0];
+
+  if (
+    recommendedTransport &&
+    !hasSuggestionCategory(suggestions, "flight") &&
+    (recommendedTransport.mode === "flight" || recommendedTransport.mode === "mixed")
+  ) {
+    generated.push({
+      booking_category: "flight",
+      category: "flight",
+      title: `Recommended route: ${origin || "Origin"} to ${destination}`,
+      description:
+        recommendedTransport.reason ||
+        "Best route for your dates, budget, and travel time.",
+      origin: recommendedTransport.origin || origin,
+      destination: recommendedTransport.destination || destination,
+      departure_date: recommendedTransport.departure_date || payload.startDate,
+      return_date: recommendedTransport.return_date || payload.endDate,
+      provider: "Travelpayouts",
+      url_type: "affiliate",
+      has_affiliate_url: true,
+      normal_search_url: recommendedTransport.search_url,
+      affiliate_url: recommendedTransport.booking_url,
+      booking_label: "Compare this route"
+    } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+  }
+
+  const budget = estimatedBudgetBreakdown;
+  const nightlyTarget =
+    budget.selected_hotel_estimate_amount ||
+    budget.hotel_nightly_estimate_amount ||
+    null;
+
+  if (
+    !hasSuggestionCategory(suggestions, "hotel") &&
+    payload.budgetIncludesHotel !== false &&
+    (nightlyTarget || budget.hotel_estimate_note)
+  ) {
+    const destinationLower = destination.toLowerCase();
+    const neighborhood =
+      destinationLower.includes("montreal") || destinationLower.includes("montréal")
+        ? "Downtown Montreal or the Village"
+        : `central ${destination}`;
+
+    const roomType =
+      nightlyTarget && nightlyTarget < 130
+        ? "private room, hostel private room, or budget hotel room"
+        : "well-rated private hotel room";
+
+    const budgetLabel = nightlyTarget
+      ? `${Math.round(nightlyTarget)} ${currency} per night target`
+      : "budget-matched nightly target";
+
+    generated.push({
+      booking_category: "hotel",
+      category: "hotel",
+      title: `Recommended stay: ${neighborhood}`,
+      description:
+        budget.hotel_estimate_note ||
+        `${budgetLabel}. Look for a ${roomType} close to transit, food, and the main trip area.`,
+      destination,
+      neighborhood,
+      room_type: roomType,
+      search_query: `${destination} ${neighborhood} ${roomType} ${budgetLabel}`,
+      provider: "Stay22",
+      url_type: "affiliate",
+      has_affiliate_url: true,
+      booking_label: "Find this stay"
+    } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+  }
+
+  if (!hasSuggestionCategory(suggestions, "activity")) {
+    const activities = itinerary.daily_itinerary
+      .flatMap((day) => day.live_timeline || [])
+      .filter((item) => {
+        const title = cleanStringValue(item.title);
+        const type = cleanStringValue(item.item_type).toLowerCase();
+
+        if (!title) return false;
+
+        return !/travel|transfer|flight|hotel|check|rest|meal|airport|station|luggage/.test(
+          `${type} ${title}`.toLowerCase()
+        );
+      })
+      .slice(0, 3);
+
+    for (const activity of activities) {
+      const title = cleanStringValue(activity.title);
+
+      generated.push({
+        booking_category: "activity",
+        category: "activity",
+        title: `Recommended activity: ${title}`,
+        description:
+          cleanStringValue(activity.description) ||
+          "Chosen because it fits the trip route, timing, and destination.",
+        destination: cleanStringValue(activity.location_name || destination),
+        provider: "Official or local search",
+        url_type: "direct",
+        booking_label: "Open details",
+        normal_search_url: `https://www.google.com/search?q=${encodeURIComponent(
+          `${title} ${destination} official tickets details`
+        )}`
+      } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+    }
+  }
+
+  return [...suggestions, ...generated];
+}
+
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   return {
     ...itinerary,
     estimated_budget_breakdown: estimatedBudgetBreakdown,
     daily_itinerary: enrichTimelineItems(itinerary, payload),
-    booking_suggestions: itinerary.booking_suggestions.filter((suggestion) => !unavailableTrainOrBusSuggestion(suggestion)).map((suggestion) => {
+    booking_suggestions: buildBrainBookingSuggestions({
+      itinerary,
+      payload,
+      estimatedBudgetBreakdown
+    }).filter((suggestion) => !unavailableTrainOrBusSuggestion(suggestion)).map((suggestion) => {
       const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
       const market = pickMarketResult(suggestion, payload);
       const marketRange = market ? marketPriceRange(market) : { min: null, max: null };
