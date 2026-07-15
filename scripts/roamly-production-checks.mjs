@@ -532,6 +532,7 @@ assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generatio
 
 const itinerarySource = read("lib/itinerary.ts");
 assert.ok(itinerarySource.includes("Roamly recommends this option for your trip."), "final itinerary must confidently state the transport recommendation");
+assert.ok(!itinerarySource.includes("google\\.com\\/search"), "production validation must allow safe Google official/activity searches");
 
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");

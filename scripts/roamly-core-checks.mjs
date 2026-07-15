@@ -240,6 +240,7 @@ const itinerary = read("lib/itinerary.ts");
 assert.ok(itinerary.includes("startTime") && itinerary.includes("endTime") && itinerary.includes("durationMinutes"), "structured timeline fields must be normalized");
 assert.ok(itinerary.includes('if (raw.startsWith("/")) return false;'), "itinerary production validation must reject internal booking CTA URLs");
 assert.ok(itinerary.includes("Roamly recommends this option for your trip."), "itinerary must confidently label the recommended transport option");
+assert.ok(!itinerary.includes("google\\.com\\/search"), "itinerary validation must allow safe Google official/activity searches");
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("BookingPlan") && tripPage.includes("BookingRecommendationCard"), "booking recommendations must render in a dedicated section");

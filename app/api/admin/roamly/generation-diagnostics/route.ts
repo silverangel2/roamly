@@ -59,13 +59,11 @@ function completionEmailDiagnostics(trip: Record<string, unknown>) {
   const email = getRecord(getRecord(trip.metadata).generationEmail);
   const status =
     getString(trip.completion_email_status) ||
-    getString(email.completion_email_status) ||
-    getString(email.delivery_status);
+    getString(email.completion_email_status);
   const sentAt = getString(trip.completion_email_sent_at) || getString(email.completion_email_sent_at);
   const error =
     getString(trip.completion_email_last_error) ||
-    getString(email.completion_email_last_error) ||
-    getString(email.last_email_error);
+    getString(email.completion_email_last_error);
   const attempts = getNumber(trip.completion_email_attempt_count) || getNumber(email.completion_email_attempt_count);
   const sent = Boolean(sentAt || status === "sent" || status === "captured");
 
@@ -79,7 +77,9 @@ function completionEmailDiagnostics(trip: Record<string, unknown>) {
     completion_email_next_retry_at:
       getString(trip.completion_email_next_retry_at) ||
       getString(email.completion_email_next_retry_at) ||
-      null
+      null,
+    delivery_status: getString(email.delivery_status) || null,
+    last_email_error: getString(email.last_email_error) || null
   };
 }
 

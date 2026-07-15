@@ -823,7 +823,7 @@ function legacyBookingLinkPresent(itinerary: RoamlyItinerary) {
     booking_suggestions: itinerary.booking_suggestions || [],
     daily_itinerary: itinerary.daily_itinerary.map((day) => day.live_timeline.map((item) => item.booking || null))
   });
-  return /(?:google\.com\/travel\/flights|booking\.com|google\.com\/search|getyourguide|viator)/i.test(text);
+  return /(?:google\.com\/travel\/flights|booking\.com|getyourguide|viator)/i.test(text);
 }
 
 function isValidBookingHref(value?: string | null) {
