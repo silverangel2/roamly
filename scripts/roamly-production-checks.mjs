@@ -522,6 +522,7 @@ assert.ok(stagedGenerator.includes("markFreeItineraryUsed"), "free itinerary mus
 assert.ok(stagedGenerator.includes("getConfirmedBookingCostCents"), "staged generation must include committed booking costs");
 assert.ok(stagedGenerator.includes("lockGeneratedItinerary"), "staged generation must lock itinerary after final validation");
 assert.ok(stagedGenerator.includes("MAX_AI_COST_USD"), "staged generation must enforce a per-itinerary cost ceiling");
+assert.ok(stagedGenerator.includes("45_000"), "staged day generation timeout must leave room for worker cleanup");
 assert.ok(stagedGenerator.includes("plannedDayBatches"), "staged generation must batch days instead of generating one item per request");
 assert.ok(stagedGenerator.includes("BATCH_ATTEMPT_LIMIT"), "staged generation must cap failed-stage retries");
 assert.ok(stagedGenerator.includes("generatedDays"), "staged generation must preserve completed days across failures");
@@ -541,23 +542,33 @@ const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.t
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
 assert.ok(generationStatusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose saved queue progress");
 assert.ok(generationStatusRoute.includes("queue: queueProgress"), "generation status route must return queue progress");
+assert.ok(generationStatusRoute.includes("isFinalStoredItinerary"), "generation status route must recognize final stored itineraries");
+assert.ok(generationStatusRoute.includes("hasFullItinerary"), "generation status route must finish stale completed generations");
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(!progressComponent.includes("QueueProgress"), "generation progress UI must not expose internal QueueProgress labels");
+assert.ok(!progressComponent.includes("percent"), "generation progress UI must not compute or render percentages");
+assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progress UI must not render a progress bar");
 [
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
   "Queued",
-  "Trip understood",
-  "Creating your days",
-  "Checking your plan",
-  "Finalizing",
+  "Building your trip",
+  "Saving your itinerary",
+  "Trip ready",
+  "Taking longer than expected. You can leave this page.",
+  "Generation failed — Retry",
+  "simpleGenerationState",
   "trackPollMovement(data?.progress, data?.queue)"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
+["Trip understood", "Creating your days", "Checking your plan", "Finalizing", "Current step"].forEach((needle) =>
+  assert.ok(!progressComponent.includes(needle), `generation progress UI must not render old progress label ${needle}`)
+);
 
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must require an accepted bearer secret");
 assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("export async function POST"), "generation cron route must support immediate background worker triggers");
+assert.ok(generationCron.includes("maxLayersPerRun: 1"), "protected worker wake must process one layer per run");
 
 const generationWorker = read("lib/roamly/generationWorker.ts");
 [
@@ -566,10 +577,13 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "ROAMLY_GENERATION_MAX_RETRIES",
   "ROAMLY_GENERATION_LEASE_SECONDS",
   "ROAMLY_GENERATION_MAX_LAYERS_PER_RUN",
+  "maxLayersPerRun: 1",
   "claimGenerationJobs",
   "claimGenerationJobByTrip",
   "advanceStagedItineraryGeneration",
-  "sendPendingStagedGenerationEmail",
+  "sendStagedGenerationEmail",
+  "finalizeStoredFullItinerary",
+  "STORED_ITINERARY_COMPLETED",
   "scheduleGenerationLayerRetry",
   "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
@@ -661,6 +675,11 @@ const generationWorkerMigration = read("supabase/migrations/20260715_roamly_gene
 const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must run after the response");
 assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "generation background trigger must call the protected worker");
+
+const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnostics/route.ts");
+["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
+  assert.ok(generationDiagnosticsRoute.includes(needle), `generation diagnostics route missing ${needle}`)
+);
 
 const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");

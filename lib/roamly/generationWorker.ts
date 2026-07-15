@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { sendPendingStagedGenerationEmail } from "@/lib/roamly/itineraryGenerationEmail";
+import { sendStagedGenerationEmail } from "@/lib/roamly/itineraryGenerationEmail";
 import {
   advanceStagedItineraryGeneration,
   getStagedGenerationState,
@@ -26,6 +26,8 @@ import {
   type RoamlyGenerationLayer
 } from "@/lib/roamly/generationQueue";
 import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
+import { lockGeneratedItinerary, markFreeItineraryUsed } from "@/lib/roamly/billing";
+import { isMissingTableError } from "@/lib/trips";
 
 export type RoamlyGenerationWorkerConfig = {
   batchSize: number;
@@ -73,7 +75,7 @@ const DEFAULT_CONFIG: RoamlyGenerationWorkerConfig = {
   concurrency: 3,
   maxRetries: 3,
   leaseSeconds: 240,
-  maxLayersPerRun: 4,
+  maxLayersPerRun: 1,
   retryBaseSeconds: 60,
   retryMaxSeconds: 1800
 };
@@ -129,6 +131,50 @@ function errorCode(error: unknown) {
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Generation worker failed.";
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function loadStoredFullItinerary(params: {
+  admin: SupabaseClient;
+  tripId: string;
+  userId: string;
+}) {
+  const { data, error } = await params.admin
+    .from("roamly_itineraries")
+    .select("id,full_json,updated_at")
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingTableError(error.message)) {
+      return { exists: false as const, dayCount: 0, itineraryId: null, updatedAt: null };
+    }
+    throw new Error(error.message);
+  }
+
+  const full = getRecord(data?.full_json);
+  const dayCount = Array.isArray(full?.daily_itinerary) ? full.daily_itinerary.length : 0;
+  const finalGenerationNote = /generated through roamly staged ai generation/i.test(
+    getString(full?.generation_note)
+  );
+  return {
+    exists: dayCount > 0 && finalGenerationNote,
+    dayCount,
+    itineraryId: typeof data?.id === "string" ? data.id : null,
+    updatedAt: typeof data?.updated_at === "string" ? data.updated_at : null
+  };
 }
 
 async function loadTrip(admin: SupabaseClient, tripId: string, userId?: string | null) {
@@ -189,6 +235,112 @@ async function ensureTripJob(params: {
   return { ok: true as const, trip, jobReady: true };
 }
 
+async function finalizeStoredFullItinerary(params: {
+  admin: SupabaseClient;
+  job: RoamlyGenerationJob;
+  state?: ReturnType<typeof getStagedGenerationState> | null;
+  source: "stored_itinerary_recovery" | "terminal_state_cleanup";
+}) {
+  const stored = await loadStoredFullItinerary({
+    admin: params.admin,
+    tripId: params.job.trip_id,
+    userId: params.job.user_id
+  });
+  if (!stored.exists) return null;
+
+  const completedAt = new Date().toISOString();
+  const completedState = params.state
+    ? {
+        ...params.state,
+        status: "complete" as const,
+        currentStage: "complete" as const,
+        completedDayCount: Math.max(params.state.completedDayCount, stored.dayCount),
+        totalDayCount: Math.max(params.state.totalDayCount, stored.dayCount),
+        completedAt,
+        updatedAt: completedAt,
+        worker: null,
+        lastError: null,
+        lastErrorCode: null
+      }
+    : null;
+  const currentTrip = await params.admin
+    .from("roamly_trips")
+    .select("metadata")
+    .eq("id", params.job.trip_id)
+    .eq("user_id", params.job.user_id)
+    .maybeSingle();
+  const currentMetadata = getRecord(currentTrip.data?.metadata) || {};
+
+  if (params.state?.unlockSource === "free") {
+    await markFreeItineraryUsed(params.admin, params.job.user_id, params.job.trip_id).catch(() => null);
+  }
+
+  await lockGeneratedItinerary(
+    params.admin,
+    params.job.user_id,
+    params.job.trip_id,
+    params.state?.unlockSource || "paid"
+  ).catch(() => null);
+
+  await Promise.all([
+    params.admin
+      .from("roamly_trip_generation_layers")
+      .update({
+        status: "skipped",
+        locked_at: null,
+        locked_by: null,
+        lease_expires_at: null,
+        completed_at: completedAt,
+        error_code: null,
+        error_message: "STORED_ITINERARY_COMPLETED",
+        updated_at: completedAt
+      })
+      .eq("job_id", params.job.id)
+      .in("status", ["pending", "running", "failed", "invalidated"]),
+    params.admin
+      .from("roamly_trip_generation_jobs")
+      .update({
+        status: "completed",
+        current_stage: "completion_notification",
+        locked_at: null,
+        locked_by: null,
+        lease_expires_at: null,
+        completed_at: completedAt,
+        updated_at: completedAt,
+        last_error_code: null,
+        last_error_message: null
+      })
+      .eq("id", params.job.id),
+    params.admin
+      .from("roamly_trips")
+      .update({
+        status: "generated",
+        itinerary_status: "generated",
+        ...(completedState ? { metadata: { ...currentMetadata, generation: completedState } } : {}),
+        updated_at: completedAt
+      })
+      .eq("id", params.job.trip_id)
+      .eq("user_id", params.job.user_id)
+  ]);
+
+  const email = await sendStagedGenerationEmail({
+    tripId: params.job.trip_id,
+    kind: "completion"
+  });
+
+  return {
+    tripId: params.job.trip_id,
+    jobId: params.job.id,
+    ok: true,
+    claimed: true,
+    advanced: false,
+    terminal: true,
+    progress: completedState ? publicStagedGenerationProgress({ generation: completedState }) : null,
+    email,
+    error: params.source
+  } satisfies RoamlyGenerationWorkerResult;
+}
+
 async function finishTerminalJob(params: {
   admin: SupabaseClient;
   job: RoamlyGenerationJob;
@@ -202,7 +354,7 @@ async function finishTerminalJob(params: {
     metadata: { generation: params.state }
   });
 
-  const email = await sendPendingStagedGenerationEmail(params.job.trip_id);
+  let email: unknown = null;
   if (params.state.status === "complete") {
     await skipRemainingGenerationLayers({
       supabase: params.admin,
@@ -232,6 +384,11 @@ async function finishTerminalJob(params: {
       })
       .eq("id", params.job.trip_id)
       .eq("user_id", params.job.user_id);
+
+    email = await sendStagedGenerationEmail({
+      tripId: params.job.trip_id,
+      kind: "completion"
+    });
   } else {
     await scheduleGenerationJobRetry({
       supabase: params.admin,
@@ -240,6 +397,10 @@ async function finishTerminalJob(params: {
       errorCode: params.state.lastErrorCode || "STAGED_GENERATION_TERMINAL_FAILURE",
       errorMessage: params.state.lastError || "Staged generation reached a terminal failure state.",
       retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }
+    });
+    email = await sendStagedGenerationEmail({
+      tripId: params.job.trip_id,
+      kind: "failure"
     });
   }
   return email;
@@ -295,6 +456,15 @@ async function processClaimedJob(params: {
 
       const state = getStagedGenerationState(trip.metadata);
       if (state && terminalStatus(state.status)) {
+        if (state.status === "complete") {
+          const recovered = await finalizeStoredFullItinerary({
+            admin: params.admin,
+            job: params.job,
+            state,
+            source: "terminal_state_cleanup"
+          });
+          if (recovered) return recovered;
+        }
         const email = await finishTerminalJob({
           admin: params.admin,
           job: params.job,
@@ -312,6 +482,14 @@ async function processClaimedJob(params: {
           email
         } satisfies RoamlyGenerationWorkerResult;
       }
+
+      const recovered = await finalizeStoredFullItinerary({
+        admin: params.admin,
+        job: params.job,
+        state,
+        source: "stored_itinerary_recovery"
+      });
+      if (recovered) return recovered;
 
       const claimedLayer = await claimGenerationLayer({
         supabase: params.admin,

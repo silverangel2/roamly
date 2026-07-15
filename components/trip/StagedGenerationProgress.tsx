@@ -100,66 +100,76 @@ function currentBatch(progress: GenerationProgress) {
   );
 }
 
-
-
-function statusClass(status: DayProgress["status"]) {
-  if (status === "complete") return "border-ocean/20 bg-ocean/10 text-ocean";
-  if (status === "generating" || status === "validating") return "border-sun/30 bg-sun/20 text-amber-800";
-  if (status === "failed") return "border-coral/25 bg-coral/10 text-coral";
-  return "border-slate-200 bg-white text-slate-500";
-}
-
-function dayStatusLabel(day: DayProgress) {
-  if (day.status === "complete") return "ready";
-  if (day.status === "generating") return "building";
-  if (day.status === "validating") return "checking";
-  if (day.status === "failed") return "failed";
-  return "waiting";
-}
-
-function visibleStatus(progress: GenerationProgress) {
-  if (progress.status === "complete") return "Your itinerary is ready";
-  if (progress.status === "failed" || progress.status === "partially_failed") return "Generation needs attention";
-  return "Your itinerary is being built.";
-}
-
-function advanceProgress(progress: GenerationProgress, queue: Queued | null) {
-  return queueVisibleStatus(queue, progress);
-}
-
 function trackPollMovement(progress: GenerationProgress | null | undefined, queue: Queued | null | undefined) {
   if (!progress) return "Queued";
-  return advanceProgress(progress, queue ?? null);
+  return simpleGenerationState(progress, queue ?? null, false).title;
 }
 
 // Retained for Roamly core polling checks.
 void trackPollMovement;
 
-function readableQueueStage(value: unknown) {
-  const raw = String(value || "").trim();
+function simpleGenerationState(
+  progress: GenerationProgress,
+  queue: Queued | null,
+  stale: boolean
+) {
+  const failed =
+    queue?.job.status === "failed" ||
+    progress.status === "failed" ||
+    progress.status === "partially_failed";
 
-  const labels: Record<string, string> = {
-    Queued: "Queued",
-    queue_progress: "Queued",
-    queued: "Queued",
-    running: "Building your itinerary",
-    processing: "Building your itinerary",
-    generating: "Building your itinerary",
-    generating_day: "Creating your days",
-    complete: "Completed",
-    completed: "Completed",
-    failed: "Needs attention"
+  if (queue?.job.status === "completed" || progress.status === "complete") {
+    return {
+      title: "Trip ready",
+      body: "Open your finished itinerary.",
+      tone: "ready" as const,
+      spinning: false
+    };
+  }
+
+  if (failed) {
+    return {
+      title: "Generation failed — Retry",
+      body: "Your saved work is still available. Retry the failed step.",
+      tone: "failed" as const,
+      spinning: false
+    };
+  }
+
+  if (stale) {
+    return {
+      title: "Taking longer than expected",
+      body: "Taking longer than expected. You can leave this page.",
+      tone: "stale" as const,
+      spinning: false
+    };
+  }
+
+  const stage = `${queue?.currentStage || progress.currentStage || progress.status}`.toLowerCase();
+  if (queue?.job.status === "queued" || progress.status === "queued") {
+    return {
+      title: "Queued",
+      body: "Your trip is saved and waiting for Roamly to start.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  if (/final|complete|saving|affiliates/.test(stage)) {
+    return {
+      title: "Saving your itinerary",
+      body: "Roamly is saving the finished trip to your account.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  return {
+    title: "Building your trip",
+    body: "Roamly is building the itinerary and saving progress as it goes.",
+    tone: "running" as const,
+    spinning: true
   };
-
-  return labels[raw] || labels[raw.toLowerCase()] || "Queued";
-}
-
-function queueVisibleStatus(queue: Queued | null, progress: GenerationProgress) {
-  if (!queue) return visibleStatus(progress);
-  if (queue.job.status === "completed" || progress.status === "complete") return "Your itinerary is ready";
-  if (queue.job.status === "failed" || progress.status === "failed" || progress.status === "partially_failed") return "Generation needs attention";
-  if (queue.job.status === "queued") return "Your trip is queued.";
-  return "Your itinerary is being built.";
 }
 
 export function StagedGenerationProgress({
@@ -195,22 +205,6 @@ export function StagedGenerationProgress({
     emailConfigured &&
     progress.emailNotification?.email_me_when_ready !== false &&
     Boolean(maskedEmail);
-  const totalLayerCount = Math.max(queueProgress?.totalLayerCount ?? progress.totalDayCount ?? 4, 1);
-  const completedLayerCount = queueProgress?.completedLayerCount ?? progress.completedDayCount ?? 0;
-  const percent =
-    progress.status === "complete"
-      ? 100
-      : Math.max(
-          0,
-          Math.min(
-            99,
-            Math.round((completedLayerCount / totalLayerCount) * 100)
-          )
-        );
-  const completedDaysLabel = `${progress.completedDayCount} of ${progress.totalDayCount || progress.days.length || 0} days ready`;
-  const completedLayerLabel = queueProgress
-    ? `${queueProgress.completedLayerCount} of ${queueProgress.totalLayerCount} saved stages complete`
-    : completedDaysLabel;
 
   const applyProgress = useCallback((next: GenerationProgress | null | undefined) => {
     if (!next) return;
@@ -347,6 +341,23 @@ export function StagedGenerationProgress({
     }
   }, [applyProgress, applyQueue, authHeaders, tripId]);
 
+  const retryGeneration = useCallback(async () => {
+    const retryableBatch = failedBatches.find((batch) => batch.attemptCount < progress.retryLimit);
+    if (retryableBatch) {
+      await retryFailedBatch(retryableBatch.id);
+      return;
+    }
+    setBusyRetryId("generation");
+    try {
+      const rescue = await advanceProgress();
+      if (!rescue.response.ok) {
+        setMessage(rescue.data?.message || rescue.data?.error || "The itinerary could not be retried yet.");
+      }
+    } finally {
+      setBusyRetryId("");
+    }
+  }, [advanceProgress, failedBatches, progress.retryLimit, retryFailedBatch]);
+
   useEffect(() => {
     setProgress(initialProgress);
     refreshedDayCount.current = initialProgress.completedDayCount;
@@ -364,12 +375,8 @@ export function StagedGenerationProgress({
     !isTerminalStatus(progress.status) &&
     (Date.now() - lastProgressMovementAt > STALE_PROGRESS_MS || staleProgress);
 
-  const readableStageLabel = readableQueueStage(
-    queueProgress?.currentStageLabel ||
-      queueProgress?.currentStage ||
-      progress.currentStage ||
-      progress.status
-  );
+  const viewState = simpleGenerationState(progress, queueProgress, isTakingLonger);
+  const failed = viewState.tone === "failed";
 
   return (
     <section
@@ -378,162 +385,63 @@ export function StagedGenerationProgress({
       className="roamly-no-print mt-4 w-full overflow-hidden rounded-[1.75rem] border border-cloud bg-white p-5 shadow-soft sm:p-7"
     >
       <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div className="min-w-0">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 gap-4">
+            <div
+              aria-hidden="true"
+              className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                viewState.tone === "failed"
+                  ? "bg-coral/10 text-coral"
+                  : viewState.tone === "stale"
+                    ? "bg-amber-100 text-amber-800"
+                    : viewState.tone === "ready"
+                      ? "bg-ocean/10 text-ocean"
+                      : "bg-ocean/10 text-ocean"
+              }`}
+            >
+              {viewState.spinning ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : viewState.tone === "ready" ? (
+                <span className="text-lg font-black">✓</span>
+              ) : viewState.tone === "failed" ? (
+                <span className="text-lg font-black">!</span>
+              ) : (
+                <span className="h-2.5 w-2.5 rounded-full bg-current" />
+              )}
+            </div>
+            <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
               Building your itinerary
             </p>
 
             <h2 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">
-              {progress.status === "complete"
-                ? "Your trip is ready"
-                : progress.status === "failed" ||
-                    progress.status === "partially_failed"
-                  ? "Generation needs attention"
-                  : queueVisibleStatus(queueProgress, progress)}
+              {viewState.title}
             </h2>
 
             <p className="mt-2 text-sm font-bold text-slate-500">
-              {progress.status === "complete"
-                ? "Open your finished itinerary."
-                : progress.status === "failed" ||
-                    progress.status === "partially_failed"
-                  ? "Your completed work is saved. Retry the failed part."
-                  : backgroundWorkerConfigured
-                    ? canEmail
-                      ? `${SAVED_QUEUE_MESSAGE} We’ll email ${maskedEmail} when it’s ready.`
-                      : SAVED_QUEUE_MESSAGE
-                    : canEmail
-                      ? `You can leave this page. We’ll email ${maskedEmail} when it’s ready.`
-                      : "Keep this page open while Roamly finishes."}
+              {viewState.body}
             </p>
 
-            {canEmail ? (
+            {viewState.tone === "running" ? (
+              <p className="mt-2 text-sm font-bold text-slate-500">
+                {backgroundWorkerConfigured
+                  ? canEmail
+                    ? `${SAVED_QUEUE_MESSAGE} We’ll email ${maskedEmail} when it’s ready.`
+                    : SAVED_QUEUE_MESSAGE
+                  : canEmail
+                    ? `You can leave this page. We’ll email ${maskedEmail} when it’s ready.`
+                    : "Keep this page open while Roamly finishes."}
+              </p>
+            ) : null}
+
+            {canEmail && viewState.tone === "running" ? (
               <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-ocean">
                 Email me when ready · On
               </p>
             ) : null}
-
-            {(queueProgress?.completedLayerCount ?? 0) > 0 ||
-            progress.status === "complete" ? (
-              <p className="mt-2 text-xs font-bold text-slate-500">
-                Current step: {readableStageLabel}
-              </p>
-            ) : null}
           </div>
-
-          <div className="flex shrink-0 items-end gap-3 md:flex-col md:items-end">
-            <span className="text-4xl font-black text-ink">
-              {percent}%
-            </span>
-
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-              {completedLayerLabel}
-            </span>
           </div>
         </div>
-
-        <div className="relative py-4">
-          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-ocean transition-[width] duration-[1800ms] ease-out"
-              style={{ width: `${Math.max(percent, 3)}%` }}
-            />
-          </div>
-
-          <div
-            aria-hidden="true"
-            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-[left] duration-[1800ms] ease-out"
-            style={{
-              left: `clamp(14px, ${Math.max(percent, 3)}%, calc(100% - 14px))`
-            }}
-          >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-ocean shadow-[0_6px_18px_rgba(15,118,150,0.24)] ring-1 ring-ocean/15">
-              <svg
-                viewBox="0 0 24 24"
-                className="h-5 w-5 rotate-90"
-                fill="currentColor"
-              >
-                <path d="M21.8 15.6 14 12.7V7.2c0-1.7-.8-4.7-2-4.7s-2 3-2 4.7v5.5l-7.8 2.9v2l7.8-1.2v3.4l-2.2 1.5V23l4.2-.8 4.2.8v-1.7L14 19.8v-3.4l7.8 1.2v-2Z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-4">
-          {[
-            {
-              label: "Trip understood",
-              active: percent < 25,
-              complete: percent >= 25
-            },
-            {
-              label: "Creating your days",
-              active: percent >= 25 && percent < 70,
-              complete: percent >= 70
-            },
-            {
-              label: "Checking your plan",
-              active: percent >= 70 && percent < 90,
-              complete: percent >= 90
-            },
-            {
-              label: "Finalizing",
-              active:
-                percent >= 90 &&
-                progress.status !== "complete",
-              complete:
-                progress.status === "complete"
-            }
-          ].map((phase) => (
-            <div
-              key={phase.label}
-              className={`rounded-2xl border px-4 py-3 text-sm font-black ${
-                phase.complete
-                  ? "border-ocean/20 bg-ocean/10 text-ocean"
-                  : phase.active
-                    ? "border-sun/30 bg-sun/20 text-amber-800"
-                    : "border-slate-200 bg-slate-50 text-slate-400"
-              }`}
-            >
-              <span className="mr-2">
-                {phase.complete
-                  ? "✓"
-                  : phase.active
-                    ? "●"
-                    : "○"}
-              </span>
-              {phase.label}
-            </div>
-          ))}
-        </div>
-
-        {isTakingLonger ? (
-          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800">
-            Progress has not changed recently. Roamly is checking the saved job state; retry appears if a step fails.
-          </p>
-        ) : null}
-
-        {progress.completedDayCount > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {progress.days
-              .filter(
-                (day) =>
-                  day.status === "complete" ||
-                  day.status === "failed"
-              )
-              .map((day) => (
-                <span
-                  key={day.dayNumber}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-black ${statusClass(
-                    day.status
-                  )}`}
-                >
-                  Day {day.dayNumber} {dayStatusLabel(day)}
-                </span>
-              ))}
-          </div>
-        ) : null}
 
         {message ? (
           <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
@@ -549,34 +457,18 @@ export function StagedGenerationProgress({
             >
               View itinerary
             </Link>
-          ) : progress.completedDayCount > 0 ? (
-            <a
-              href="#day-by-day"
-              className="inline-flex justify-center rounded-full bg-ocean px-5 py-3 text-sm font-black text-white"
-            >
-              View ready days
-            </a>
           ) : null}
 
-          {(progress.status === "failed" ||
-            progress.status === "partially_failed") &&
-            failedBatches.map((batch) =>
-              batch.attemptCount < progress.retryLimit ? (
-                <button
-                  key={batch.id}
-                  type="button"
-                  onClick={() =>
-                    void retryFailedBatch(batch.id)
-                  }
-                  disabled={busyRetryId === batch.id}
-                  className="inline-flex justify-center rounded-full bg-coral px-5 py-3 text-sm font-black text-white disabled:opacity-60"
-                >
-                  {busyRetryId === batch.id
-                    ? "Retrying…"
-                    : "Retry generation"}
-                </button>
-              ) : null
-            )}
+          {failed ? (
+            <button
+              type="button"
+              onClick={() => void retryGeneration()}
+              disabled={Boolean(busyRetryId)}
+              className="inline-flex justify-center rounded-full bg-coral px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+            >
+              {busyRetryId ? "Retrying..." : "Retry"}
+            </button>
+          ) : null}
 
           <Link
             href="/dashboard"

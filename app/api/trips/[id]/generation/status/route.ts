@@ -12,6 +12,17 @@ import {
   type StagedGenerationStatusLayerRow
 } from "@/lib/roamly/generationStatus";
 
+function isFinalStoredItinerary(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    Array.isArray(record.daily_itinerary) &&
+    record.daily_itinerary.length > 0 &&
+    typeof record.generation_note === "string" &&
+    /generated through roamly staged ai generation/i.test(record.generation_note)
+  );
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -44,7 +55,7 @@ export async function GET(
       percent: 0
     };
 
-  const [jobsResult, layersResult, queue] = await Promise.all([
+  const [jobsResult, layersResult, queue, itineraryResult] = await Promise.all([
     auth.supabase
       .from("roamly_trip_generation_jobs")
       .select("status,error_message,completed_at,updated_at")
@@ -60,7 +71,15 @@ export async function GET(
       supabase: auth.supabase,
       tripId: id,
       userId: auth.user.id
-    })
+    }),
+    auth.supabase
+      .from("roamly_itineraries")
+      .select("id,full_json")
+      .eq("trip_id", id)
+      .eq("user_id", auth.user.id)
+      .not("full_json", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
   ]);
 
   if (queue.error && !queueTableMissing(queue.error)) {
@@ -69,6 +88,9 @@ export async function GET(
 
   const latestJob = (jobsResult.data?.[0] || null) as StagedGenerationStatusJobRow | null;
   const layers = (layersResult.data || []) as StagedGenerationStatusLayerRow[];
+  const hasFullItinerary = Boolean(
+    itineraryResult.data?.some((item) => isFinalStoredItinerary((item as { full_json?: unknown }).full_json))
+  );
 
   const queueProgress = publicQueueProgress(queue, data.metadata);
   const queueRecord = queueProgress as Record<string, unknown> | null;
@@ -78,7 +100,8 @@ export async function GET(
     metadataProgress,
     latestJob,
     layers,
-    queueProgress: queueRecord
+    queueProgress: queueRecord,
+    hasFullItinerary
   });
 
   return NextResponse.json({
@@ -106,7 +129,8 @@ export async function GET(
       jobCompletedAt: latestJob?.completed_at || null,
       jobErrorMessage: latestJob?.error_message || null,
       layerCount: layers.length,
-      completedLayerCount: derived.completedLayerCount
+      completedLayerCount: derived.completedLayerCount,
+      hasFullItinerary
     }
   });
 }

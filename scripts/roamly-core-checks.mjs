@@ -246,7 +246,7 @@ assert.ok(tripPage.includes("BookingPlan") && tripPage.includes("BookingRecommen
 assert.ok(!tripPage.includes("shouldShowInlineTimelineBooking") && !tripPage.includes("item.booking"), "timeline must not render booking spam inside itinerary cards");
 assert.ok(tripPage.includes("isLegacyBookingUrl(raw)"), "trip rendering must reject legacy booking links");
 assert.ok(tripPage.includes("enrichItineraryBookingSuggestions"), "saved trips must reconstruct missing affiliate links on load");
-assert.ok(tripPage.includes("const generationPanelVisible = !full &&"), "trip page must not show generation/loading UI when a full itinerary exists");
+assert.ok(tripPage.includes("const generationPanelVisible = !canShowFull &&"), "trip page must not show generation/loading UI when a full itinerary exists");
 assert.ok(tripPage.includes("canShowFull && full && !generationPanelVisible"), "trip page must render the itinerary automatically after generation completes");
 
 const planPage = read("app/plan/page.tsx");
@@ -268,6 +268,7 @@ const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
   "dayBatchPrompt",
   "plannedDayBatches",
   "MAX_AI_COST_USD",
+  "45_000",
   "BATCH_ATTEMPT_LIMIT",
   "assertCostBudget",
   "estimatedStageCost",
@@ -350,6 +351,8 @@ const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
 assert.ok(statusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose durable queue progress");
 assert.ok(statusRoute.includes("queue: queueProgress"), "generation status route must return saved queue progress");
+assert.ok(statusRoute.includes("isFinalStoredItinerary"), "generation status route must recognize final stored itineraries");
+assert.ok(statusRoute.includes("hasFullItinerary"), "generation status route must mark validated stored itineraries as complete");
 const generationStatusExports = loadTsModule("lib/roamly/generationStatus.ts");
 const completedGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generated",
@@ -364,6 +367,17 @@ const completedGenerationState = generationStatusExports.deriveTripGenerationSta
 });
 assert.equal(completedGenerationState.progressStatus, "complete", "completed staged generation must return complete progress");
 assert.equal(completedGenerationState.status, "generated", "completed staged generation must return generated trip state");
+const storedFullGenerationState = generationStatusExports.deriveTripGenerationStatus({
+  tripStatus: "generating",
+  itineraryStatus: "generating",
+  metadataProgress: { status: "generating_day", completedDayCount: 2, totalDayCount: 4 },
+  latestJob: { status: "waiting", completed_at: null },
+  layers: [{ status: "running" }],
+  queueProgress: { completedLayerCount: 2, totalLayerCount: 4 },
+  hasFullItinerary: true
+});
+assert.equal(storedFullGenerationState.progressStatus, "complete", "stored final itinerary must return complete progress");
+assert.equal(storedFullGenerationState.status, "generated", "stored final itinerary must return generated trip state");
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
@@ -741,6 +755,7 @@ const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts")
 assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must be protected by accepted bearer secrets");
 assert.ok(generationCron.includes("export async function POST"), "generation worker must support protected background POST triggers");
+assert.ok(generationCron.includes("maxLayersPerRun: 1"), "protected worker wake must process one layer per run to avoid serverless timeout leases");
 
 const generationWorker = read("lib/roamly/generationWorker.ts");
 [
@@ -751,13 +766,16 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "ROAMLY_GENERATION_MAX_RETRIES",
   "ROAMLY_GENERATION_LEASE_SECONDS",
   "ROAMLY_GENERATION_MAX_LAYERS_PER_RUN",
+  "maxLayersPerRun: 1",
   "ROAMLY_GENERATION_RETRY_BASE_SECONDS",
   "ROAMLY_GENERATION_RETRY_MAX_SECONDS",
   "claimGenerationJobs",
   "claimGenerationJobByTrip",
   "claimGenerationLayer",
   "advanceStagedItineraryGeneration",
-  "sendPendingStagedGenerationEmail",
+  "sendStagedGenerationEmail",
+  "finalizeStoredFullItinerary",
+  "STORED_ITINERARY_COMPLETED",
   "recordGenerationCostEvent",
   "worker_execution",
   "model_tokens",
@@ -946,20 +964,32 @@ assert.ok(generationBackground.includes("ROAMLY_GENERATION_CRON_SECRET") && gene
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");
 assert.ok(progressComponent.includes("retryLimit"), "generation progress UI must respect the retry ceiling");
-assert.ok(progressComponent.includes("estimatedAiCostUsd"), "generation progress UI must show estimated AI cost");
+assert.ok(progressComponent.includes("estimatedAiCostUsd"), "generation progress payload must keep estimated AI cost available for diagnostics");
 assert.ok(progressComponent.includes("Email me when ready"), "generation progress UI must show transactional email status");
 assert.ok(!progressComponent.includes("QueueProgress"), "generation progress UI must not show internal QueueProgress labels");
+assert.ok(!progressComponent.includes("percent"), "generation progress UI must not compute a display percentage");
+assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progress UI must not render a progress bar");
 [
   "SAVED_QUEUE_MESSAGE",
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
   "Queued",
-  "Trip understood",
-  "Creating your days",
-  "Checking your plan",
-  "Finalizing",
+  "Building your trip",
+  "Saving your itinerary",
+  "Trip ready",
+  "Taking longer than expected. You can leave this page.",
+  "Generation failed — Retry",
+  "simpleGenerationState",
   "trackPollMovement(data?.progress, data?.queue)",
   "advanceProgress"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
+["Trip understood", "Creating your days", "Checking your plan", "Finalizing", "Current step"].forEach((needle) =>
+  assert.ok(!progressComponent.includes(needle), `generation progress UI must not render old progress label ${needle}`)
+);
+
+const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnostics/route.ts");
+["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
+  assert.ok(generationDiagnosticsRoute.includes(needle), `generation diagnostics route missing ${needle}`)
+);
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
 [

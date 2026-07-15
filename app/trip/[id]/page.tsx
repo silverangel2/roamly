@@ -1513,13 +1513,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const itineraryLocked = isTripLocked(trip);
   const generationProgress = publicStagedGenerationProgress(trip.metadata);
   const generationStatus = generationProgress?.status || "";
+  const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
+  const canonicalDays = full?.daily_itinerary || [];
+  const canShowFull = canonicalDays.length > 0;
   const generationInProgress = Boolean(
-    generationProgress &&
+    !canShowFull &&
+      generationProgress &&
       generationStatus !== "complete" &&
       generationStatus !== "failed" &&
       generationStatus !== "partially_failed"
   );
-  const generationPanelVisible = !full && (Boolean(generationProgress && generationStatus !== "complete"));
+  const generationPanelVisible = !canShowFull && (Boolean(generationProgress && generationStatus !== "complete"));
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
@@ -1528,9 +1532,6 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention && !checkoutProcessing);
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
-  const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
-  const canonicalDays = full?.daily_itinerary || [];
-  const canShowFull = canonicalDays.length > 0;
   const canonicalDayByNumber = new Map(canonicalDays.map((day) => [day.day_number, day]));
   const generationDayProgress = generationProgress?.days || [];
   const dayNumbersToRender = generationDayProgress.length

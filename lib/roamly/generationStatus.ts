@@ -45,7 +45,8 @@ export function deriveTripGenerationStatus({
   metadataProgress,
   latestJob,
   layers,
-  queueProgress
+  queueProgress,
+  hasFullItinerary
 }: {
   tripStatus?: string | null;
   itineraryStatus?: string | null;
@@ -53,6 +54,7 @@ export function deriveTripGenerationStatus({
   latestJob?: StagedGenerationStatusJobRow | null;
   layers: StagedGenerationStatusLayerRow[];
   queueProgress?: Record<string, unknown> | null;
+  hasFullItinerary?: boolean;
 }) {
   const queueTotal = positiveInteger(queueProgress?.totalLayerCount, 0);
   const queueCompleted = positiveInteger(queueProgress?.completedLayerCount, 0);
@@ -64,6 +66,7 @@ export function deriveTripGenerationStatus({
     : queueCompleted || metadataCompleted;
 
   const tripAlreadyGenerated =
+    hasFullItinerary === true ||
     normalizedStatus(tripStatus) === "generated" ||
     normalizedStatus(itineraryStatus) === "generated" ||
     normalizedStatus(itineraryStatus) === "locked";

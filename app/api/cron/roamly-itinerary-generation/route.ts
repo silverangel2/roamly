@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       ? {
           batchSize: 3,
           concurrency: 1,
-          maxLayersPerRun: 4
+          maxLayersPerRun: 1
         }
       : undefined
   });

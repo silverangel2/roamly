@@ -196,7 +196,7 @@ export class StagedGenerationError extends Error {
 }
 
 const OUTLINE_TIMEOUT_MS = Number(process.env.OPENAI_OUTLINE_TIMEOUT_MS || 25_000);
-const DAY_TIMEOUT_MS = Number(process.env.OPENAI_DAY_TIMEOUT_MS || 60_000);
+const DAY_TIMEOUT_MS = Number(process.env.OPENAI_DAY_TIMEOUT_MS || 45_000);
 const OUTLINE_MAX_TOKENS = Number(process.env.OPENAI_OUTLINE_MAX_TOKENS || 1200);
 const DAY_MAX_TOKENS = Number(process.env.OPENAI_DAY_BATCH_MAX_TOKENS || 3200);
 const BATCH_ATTEMPT_LIMIT = Number(process.env.ROAMLY_STAGED_BATCH_ATTEMPT_LIMIT || 2);
