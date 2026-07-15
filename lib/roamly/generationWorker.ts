@@ -226,8 +226,8 @@ async function finishTerminalJob(params: {
     await params.admin
       .from("roamly_trips")
       .update({
-        status: "completed",
-        itinerary_status: "completed",
+        status: "generated",
+        itinerary_status: "generated",
         updated_at: completedAt
       })
       .eq("id", params.job.trip_id)
