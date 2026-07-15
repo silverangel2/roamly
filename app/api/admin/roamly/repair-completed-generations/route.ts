@@ -8,14 +8,12 @@ type GenerationJob = {
   status: string | null;
   completed_at: string | null;
   updated_at: string | null;
-  error_message?: string | null;
   last_error_message?: string | null;
 };
 
 function isCompletedJob(job: GenerationJob) {
   return (
     job.status === "completed" ||
-    job.error_message === "STAGED_GENERATION_COMPLETED" ||
     job.last_error_message === "STAGED_GENERATION_COMPLETED"
   );
 }
@@ -41,7 +39,7 @@ export async function POST(request: Request) {
 
   const { data: jobs, error: jobsError } = await supabase
     .from("roamly_trip_generation_jobs")
-    .select("id,trip_id,user_id,status,completed_at,updated_at,error_message,last_error_message")
+    .select("id,trip_id,user_id,status,completed_at,updated_at,last_error_message")
     .eq("status", "completed")
     .is("completed_at", null)
     .order("updated_at", { ascending: false })
@@ -78,8 +76,8 @@ export async function POST(request: Request) {
     const { error: tripError } = await supabase
       .from("roamly_trips")
       .update({
-        status: "completed",
-        itinerary_status: "completed",
+        status: "generated",
+        itinerary_status: "generated",
         updated_at: completedAt
       })
       .eq("id", job.trip_id)
