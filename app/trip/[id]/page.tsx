@@ -1631,7 +1631,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       generationStatus !== "failed" &&
       generationStatus !== "partially_failed"
   );
-  const generationPanelVisible = Boolean(generationProgress && generationStatus !== "complete");
+  const generationPanelVisible = !full && (Boolean(generationProgress && generationStatus !== "complete"));
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
@@ -1706,7 +1706,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </div>
               <div className="mt-5 flex flex-wrap gap-2">
                 <Badge tone={itineraryLocked ? "ocean" : paidForItinerary || freeAvailable ? "sun" : "coral"}>
-                  {itineraryLocked ? "Locked itinerary" : paidForItinerary ? generationProgress ? "" : generationProgress ? "" : "Ready to generate" : freeAvailable ? "Free itinerary available" : "Payment required"}
+                  {canShowFull
+                    ? "Generated itinerary"
+                    : itineraryLocked
+                      ? "Locked itinerary"
+                      : generationPanelVisible
+                        ? "Generating itinerary"
+                        : paidForItinerary
+                          ? "Ready to generate"
+                          : freeAvailable
+                            ? "Free itinerary available"
+                            : "Payment required"}
                 </Badge>
                 {access.hasQaAccess ? <Badge tone="sun">Tester access</Badge> : null}
                 {trackingUnlocked ? <Badge tone="ocean">Live Companion</Badge> : null}
