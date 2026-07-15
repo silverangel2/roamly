@@ -106,7 +106,6 @@ export type EmailVerificationResult = {
   message: string;
 };
 
-const EXPECTED_SMTP_USER = "support@roamlyhq.com";
 
 function readEnv(key: string) {
   return (process.env[key] || "").trim();
@@ -461,7 +460,7 @@ export async function verifyRoamlyEmailProvider(): Promise<EmailVerificationResu
     };
   }
 
-  if (!validEmail(config.fromAddress) || !validEmail(smtp.user) || smtp.user.toLowerCase() !== EXPECTED_SMTP_USER) {
+  if (!validEmail(config.fromAddress) || !validEmail(smtp.user)) {
     set("Sender address", "Sender configuration invalid", "Sender configuration invalid");
     set("Provider readiness", "Sender configuration invalid", "Sender configuration invalid");
     return {

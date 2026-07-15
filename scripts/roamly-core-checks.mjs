@@ -1022,7 +1022,7 @@ const emailAdapter = read("lib/roamly/email.ts");
   "SMTP_SECURE",
   "SMTP_USER",
   "SMTP_PASSWORD",
-  "EXPECTED_SMTP_USER = \"support@roamlyhq.com\"",
+
   "verifyRoamlyEmailProvider",
   "dns.lookup",
   "createSmtpTransporter",
