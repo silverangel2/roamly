@@ -320,6 +320,43 @@ function NavigationChipList({ query }: { query: string }) {
   );
 }
 
+function shouldShowInlineTimelineBooking(params: {
+  category: string;
+  type: string;
+  title: string;
+  provider: string;
+  href: string;
+}) {
+  const category = params.category.toLowerCase();
+  const type = params.type.toLowerCase();
+  const title = params.title.toLowerCase();
+  const provider = params.provider.toLowerCase();
+  const href = params.href.trim();
+
+  if (!href) return false;
+
+  // Keep major shopping actions in the Bookings section only.
+  if (["flight", "hotel", "stay", "lodging", "transport", "car_rental"].includes(category)) {
+    return false;
+  }
+
+  // Never put booking buttons on routine movement/rest/check-in items.
+  if (["travel", "transfer", "hotel", "rest", "meal"].includes(type)) {
+    return false;
+  }
+
+  if (/\b(airport|flight|train|bus|transfer|station|terminal|hotel|check[- ]?in|check[- ]?out|rest|luggage|drive|car)\b/.test(title)) {
+    return false;
+  }
+
+  // Klook generic/search links are not good enough for unsupported cities.
+  if (provider.includes("klook") && /search|things-to-do|activity-search|discovery/i.test(href)) {
+    return false;
+  }
+
+  return true;
+}
+
 function TimelineItemCard({
   item,
   tripId
@@ -549,7 +586,14 @@ function TimelineItemCard({
             </details>
           ) : null}
 
-          {bookingHref ? (
+          {bookingHref &&
+          shouldShowInlineTimelineBooking({
+            category: category || "activity",
+            type: stringValue("type", "item_type", "activity_type"),
+            title,
+            provider,
+            href: bookingHref
+          }) ? (
             <div className="mt-4 flex">
               <BookingRecommendationButton
                 href={bookingHref}
@@ -872,6 +916,14 @@ function savedTripPayload(trip: RoamlyTripRecord, locale: string): TripPlannerPa
   };
 }
 
+function googleActivitySearchUrl(title: string, destination: string) {
+  const query = [title, destination, "official tickets OR things to do"]
+    .filter(Boolean)
+    .join(" ");
+
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
 function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
   const category = bookingCategory(suggestion);
   const title = bookingTitle(suggestion);
@@ -935,6 +987,10 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
 
   if (category === "restaurant") {
     return "";
+  }
+
+  if (["activity", "attraction", "tour", "experience"].includes(category)) {
+    return googleActivitySearchUrl(title, destination);
   }
 
   return "";
