@@ -687,6 +687,50 @@ function hasSuggestionCategory(
   );
 }
 
+function recommendedStayCandidate(params: {
+  destination: string;
+  nightlyTarget: number | null;
+}) {
+  const destination = params.destination.toLowerCase();
+  const nightlyTarget = params.nightlyTarget;
+
+  if (destination.includes("montreal") || destination.includes("montréal")) {
+    if (nightlyTarget && nightlyTarget < 150) {
+      return {
+        name: "M Montreal",
+        neighborhood: "the Village / Berri-UQAM area",
+        roomType: "private room or budget hostel-private room",
+        reason:
+          "strong fit for Pride access, metro connections, nightlife, food, and a tighter budget",
+        searchQuery:
+          "M Montreal private room Berri-UQAM Montreal Village budget hotel"
+      };
+    }
+
+    return {
+      name: "Hotel St-Denis or a similar central 3-star hotel",
+      neighborhood: "Downtown Montreal / Berri-UQAM",
+      roomType: "private queen room or well-rated central hotel room",
+      reason:
+        "central location, metro access, walkable food, and easier movement around Pride events",
+      searchQuery:
+        "Hotel St-Denis Montreal private queen room Downtown Berri-UQAM"
+    };
+  }
+
+  return {
+    name: `best-rated stay in ${params.destination}`,
+    neighborhood: `central ${params.destination}`,
+    roomType:
+      nightlyTarget && nightlyTarget < 150
+        ? "private room or budget hotel room"
+        : "well-rated private hotel room",
+    reason:
+      "best fit for location, budget, transit access, and the trip plan",
+    searchQuery: `${params.destination} best private room budget hotel central`
+  };
+}
+
 function buildBrainBookingSuggestions(params: {
   itinerary: RoamlyItinerary;
   payload: TripPlannerPayload;
@@ -743,16 +787,10 @@ function buildBrainBookingSuggestions(params: {
     payload.budgetIncludesHotel !== false &&
     (nightlyTarget || budget.hotel_estimate_note)
   ) {
-    const destinationLower = destination.toLowerCase();
-    const neighborhood =
-      destinationLower.includes("montreal") || destinationLower.includes("montréal")
-        ? "Downtown Montreal or the Village"
-        : `central ${destination}`;
-
-    const roomType =
-      nightlyTarget && nightlyTarget < 130
-        ? "private room, hostel private room, or budget hotel room"
-        : "well-rated private hotel room";
+    const stayCandidate = recommendedStayCandidate({
+      destination,
+      nightlyTarget
+    });
 
     const budgetLabel = nightlyTarget
       ? `${Math.round(nightlyTarget)} ${currency} per night target`
@@ -761,14 +799,15 @@ function buildBrainBookingSuggestions(params: {
     generated.push({
       booking_category: "hotel",
       category: "hotel",
-      title: `Recommended stay: ${neighborhood}`,
+      title: `Recommended stay: ${stayCandidate.name}`,
       description:
         budget.hotel_estimate_note ||
-        `${budgetLabel}. Look for a ${roomType} close to transit, food, and the main trip area.`,
+        `${budgetLabel}. Choose a ${stayCandidate.roomType} around ${stayCandidate.neighborhood}. This is recommended because it is a ${stayCandidate.reason}.`,
       destination,
-      neighborhood,
-      room_type: roomType,
-      search_query: `${destination} ${neighborhood} ${roomType} ${budgetLabel}`,
+      neighborhood: stayCandidate.neighborhood,
+      room_type: stayCandidate.roomType,
+      search_query: `${stayCandidate.searchQuery} ${budgetLabel}`,
+      recommendation_reason: stayCandidate.reason,
       provider: "Stay22",
       url_type: "affiliate",
       has_affiliate_url: true,
