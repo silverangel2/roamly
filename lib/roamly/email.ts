@@ -165,17 +165,17 @@ function parseBoolean(value: string, fallback = false) {
 }
 
 function getSmtpEnvironment() {
-  const host = readEnv("SMTP_HOST");
-  const portRaw = readEnv("SMTP_PORT");
+  const host = readEnv("ROAMLY_SMTP_HOST") || readEnv("SMTP_HOST");
+  const portRaw = readEnv("ROAMLY_SMTP_PORT") || readEnv("SMTP_PORT");
   const port = parsePort(portRaw);
-  const user = readEnv("SMTP_USER");
-  const password = readEnv("SMTP_PASSWORD");
-  const secure = parseBoolean(readEnv("SMTP_SECURE"), port === 465);
+  const user = readEnv("ROAMLY_SMTP_USER") || readEnv("SMTP_USER");
+  const password = readEnv("ROAMLY_SMTP_PASSWORD") || readEnv("SMTP_PASSWORD");
+  const secure = parseBoolean(readEnv("ROAMLY_SMTP_SECURE") || readEnv("SMTP_SECURE"), port === 465);
   const missingVariables = [
-    ["SMTP_HOST", host],
-    ["SMTP_PORT", portRaw],
-    ["SMTP_USER", user],
-    ["SMTP_PASSWORD", password]
+    ["ROAMLY_SMTP_HOST", host],
+    ["ROAMLY_SMTP_PORT", portRaw],
+    ["ROAMLY_SMTP_USER", user],
+    ["ROAMLY_SMTP_PASSWORD", password]
   ]
     .filter(([, value]) => !value)
     .map(([key]) => key);
@@ -358,25 +358,24 @@ export function isEmailConfigured() {
   const replyToEmail = getRoamlyReplyToEmail();
   const missingVariables = [...smtp.missingVariables];
   const smtpUserValid = validEmail(smtp.user);
-  const smtpUserExpected = smtp.user.toLowerCase() === EXPECTED_SMTP_USER;
   const fromAddressValid = validEmail(fromAddress);
 
   let configured = false;
-  let reason = "EMAIL_PROVIDER_NOT_CONFIGURED: Set ROAMLY_EMAIL_PROVIDER=smtp and configure Google Workspace SMTP.";
+  let reason = "EMAIL_PROVIDER_NOT_CONFIGURED: Set ROAMLY_EMAIL_PROVIDER=smtp and configure Roamly SMTP.";
 
   if (currentProvider === "capture") {
     configured = true;
     reason = "";
   } else if (currentProvider === "smtp") {
-    if (!missingVariables.length && smtpUserValid && smtpUserExpected && fromAddressValid) {
+    if (!missingVariables.length && smtpUserValid && fromAddressValid) {
       configured = true;
       reason = "";
     } else if (missingVariables.length) {
       reason = `EMAIL_PROVIDER_NOT_CONFIGURED: Missing ${missingVariables.join(", ")}.`;
-    } else if (!smtpUserValid || !smtpUserExpected) {
-      reason = "EMAIL_PROVIDER_NOT_CONFIGURED: SMTP_USER must be support@roamlyhq.com.";
+    } else if (!smtpUserValid) {
+      reason = "EMAIL_PROVIDER_NOT_CONFIGURED: ROAMLY_SMTP_USER must be a valid email address.";
     } else {
-      reason = "EMAIL_PROVIDER_NOT_CONFIGURED: Sender configuration invalid.";
+      reason = "EMAIL_PROVIDER_NOT_CONFIGURED: ROAMLY_FROM_EMAIL must be a valid sender email address.";
     }
   } else if (currentProvider === "resend") {
     configured = Boolean(readEnv("RESEND_API_KEY"));
