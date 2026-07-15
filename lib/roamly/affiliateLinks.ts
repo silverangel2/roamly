@@ -432,6 +432,98 @@ function ctaLabelForTimeline(category: AffiliateCategory, label?: string | null)
 
 type ItineraryTransportOption = NonNullable<RoamlyItinerary["estimated_budget_breakdown"]["transport_options"]>[number];
 
+function normalizeAirportCode(value: unknown) {
+  const cleaned = cleanStringValue(value).trim().toUpperCase();
+
+  if (/^[A-Z]{3}$/.test(cleaned)) {
+    return cleaned;
+  }
+
+  const compact = cleaned
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const known: Record<string, string> = {
+    "SAINT JOHN": "YSJ",
+    "SAINT JOHN CANADA": "YSJ",
+    "SAINT JOHN NB": "YSJ",
+    "ST JOHN": "YSJ",
+    "ST JOHN CANADA": "YSJ",
+    "YSJ SAINT JOHN": "YSJ",
+    "MONCTON": "YQM",
+    "MONCTON CANADA": "YQM",
+    "MONCTON NB": "YQM",
+    "MONTREAL": "YMQ",
+    "MONTREAL CANADA": "YMQ",
+    "MONTRÉAL": "YMQ",
+    "MONTRÉAL CANADA": "YMQ",
+    "YUL": "YMQ",
+    "TORONTO": "YTO",
+    "TORONTO CANADA": "YTO",
+    "NEW YORK": "NYC",
+    "NEW YORK UNITED STATES": "NYC",
+    "PARIS": "PAR",
+    "LONDON": "LON"
+  };
+
+  return known[compact] || "";
+}
+
+function formatAviasalesDate(value: unknown) {
+  const raw = cleanStringValue(value);
+
+  if (!raw) return "";
+
+  const date = new Date(raw);
+
+  if (Number.isNaN(date.getTime())) {
+    const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!match) return "";
+    return `${match[3]}${match[2]}`;
+  }
+
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+
+  return `${day}${month}`;
+}
+
+function buildAviasalesDeepLink(params: {
+  origin: unknown;
+  destination: unknown;
+  departureDate: unknown;
+  returnDate: unknown;
+  travelers: unknown;
+}) {
+  const originCode = normalizeAirportCode(params.origin);
+  const destinationCode = normalizeAirportCode(params.destination);
+  const departure = formatAviasalesDate(params.departureDate);
+  const returning = formatAviasalesDate(params.returnDate);
+  const travelers = Math.max(
+    1,
+    Math.min(9, Math.round(cleanNumber(params.travelers) || 1))
+  );
+
+  if (!originCode || !destinationCode || !departure) {
+    return "";
+  }
+
+  const path = returning
+    ? `${originCode}${departure}${destinationCode}${returning}${travelers}`
+    : `${originCode}${departure}${destinationCode}${travelers}`;
+
+  const url = new URL(`https://www.aviasales.com/search/${path}`);
+  const marker = cleanStringValue(process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
+
+  if (marker) {
+    url.searchParams.set("marker", marker);
+  }
+
+  return url.toString();
+}
+
 function transportFlightOrigin(option: ItineraryTransportOption) {
   const title = cleanStringValue(option.title);
   const mixed = title.match(/drive to\s+(.+?),\s+then fly/i);
@@ -439,16 +531,32 @@ function transportFlightOrigin(option: ItineraryTransportOption) {
 }
 
 function affiliateFlightHrefForTransport(option: ItineraryTransportOption, payload: TripPlannerPayload) {
+  const origin = transportFlightOrigin(option);
+  const destination = option.destination || payload.destination;
+  const travelers = payload.travelers?.adults || payload.travelersCount || 1;
+
+  const aviasalesDeepLink = buildAviasalesDeepLink({
+    origin,
+    destination,
+    departureDate: option.departure_date || payload.startDate,
+    returnDate: option.return_date || payload.endDate,
+    travelers
+  });
+
+  if (aviasalesDeepLink) {
+    return safeBookingHref(aviasalesDeepLink);
+  }
+
   return safeBookingHref(
     resolveAffiliateLink({
       category: "flight",
-      origin: transportFlightOrigin(option),
-      destination: option.destination || payload.destination,
+      origin,
+      destination,
       title: option.title,
       startDate: option.departure_date || payload.startDate,
       endDate: option.return_date || payload.endDate,
       travelers: payload.travelers || payload.travelersCount || 1,
-      adults: payload.travelers?.adults || payload.travelersCount || 1,
+      adults: travelers,
       currency: option.currency || payload.budgetCurrency,
       locale: payload.language
     }).finalUrl
