@@ -64,7 +64,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                   <p className="mt-1 break-words text-sm font-black text-ink">{value}</p>
                 </div>
               ))}
-              <Button href="/auth/logout" tone="secondary">Sign out</Button>
+              <form action="/auth/logout" method="post">
+                <button
+                  type="submit"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+                >
+                  Sign out
+                </button>
+              </form>
             </div>
           </details>
         </div>
