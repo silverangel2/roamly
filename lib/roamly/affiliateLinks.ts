@@ -823,6 +823,64 @@ function safeHotelAffiliateUrl(value: unknown) {
   return href;
 }
 
+function bookingDotComHotelSearchUrl(params: {
+  destination?: unknown;
+  neighborhood?: unknown;
+  roomType?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+  travelers?: unknown;
+  rooms?: unknown;
+  currency?: unknown;
+}) {
+  const clean = (value: unknown) => String(value || "").trim();
+  const search = [
+    clean(params.destination),
+    clean(params.neighborhood),
+    clean(params.roomType),
+    "hotel"
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const query = new URLSearchParams();
+
+  if (search) query.set("ss", search);
+  if (clean(params.startDate)) query.set("checkin", clean(params.startDate));
+  if (clean(params.endDate)) query.set("checkout", clean(params.endDate));
+  query.set("group_adults", clean(params.travelers) || "1");
+  query.set("no_rooms", clean(params.rooms) || "1");
+  query.set("group_children", "0");
+  query.set("selected_currency", clean(params.currency) || "CAD");
+
+  return `https://www.booking.com/searchresults.html?${query.toString()}`;
+}
+
+function unsafeStay22Url(value: unknown) {
+  const url = String(value || "").toLowerCase();
+
+  return (
+    url.includes("hub.stay22.com") ||
+    url.includes("app.stay22.com") ||
+    url.includes("dashboard") ||
+    url.includes("signin") ||
+    url.includes("sign-in") ||
+    url.includes("login") ||
+    url.includes("account") ||
+    url.includes("partner")
+  );
+}
+
+function safeHotelSearchUrl(value: unknown, params: Parameters<typeof bookingDotComHotelSearchUrl>[0]) {
+  const href = safeBookingHref(value);
+
+  if (!href || unsafeStay22Url(href)) {
+    return bookingDotComHotelSearchUrl(params);
+  }
+
+  return href;
+}
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   const budgetBrain = calculateRoamlyBudgetBrain({
@@ -855,7 +913,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       estimatedBudgetBreakdown,
       budgetBrain
     }).filter((suggestion) => !unavailableTrainOrBusSuggestion(suggestion)).map((suggestion) => {
-      const normalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
+      const originalNormalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
       const market = pickMarketResult(suggestion, payload);
       const marketRange = market ? marketPriceRange(market) : { min: null, max: null };
       const linkCategory = affiliateCategoryForSuggestion(suggestion);
@@ -878,10 +936,26 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       });
 
       const isHotelSuggestion = linkCategory === "hotel";
+      const hotelSearchParams = {
+        destination: suggestion.destination || suggestion.city || payload.destination,
+        neighborhood: suggestion.neighborhood || suggestion.location,
+        roomType: suggestion.room_type,
+        startDate: suggestion.departure_date || suggestion.date || payload.startDate,
+        endDate: suggestion.return_date || payload.endDate,
+        travelers: payload.travelers?.adults || payload.travelersCount || 1,
+        rooms: payload.rooms || 1,
+        currency: payload.budgetCurrency
+      };
       const affiliateUrl = isHotelSuggestion
         ? safeHotelAffiliateUrl(approvedMarketAffiliateUrl(market, link))
         : approvedMarketAffiliateUrl(market, link);
-      const hasAffiliateUrl = Boolean(affiliateUrl);
+      const hasAffiliateUrl = Boolean(affiliateUrl) && !unsafeStay22Url(affiliateUrl);
+      const normalSearchUrl = isHotelSuggestion
+        ? safeHotelSearchUrl(
+            originalNormalSearchUrl || link.href,
+            hotelSearchParams
+          )
+        : originalNormalSearchUrl || link.href || "";
       const affiliateProvider = hasAffiliateUrl
         ? link.affiliate_provider
         : "roamly_internal";
