@@ -298,10 +298,23 @@ export function StagedGenerationProgress({
             data: null as ProgressApiData
           }
         : await advanceProgress();
+
       const response = result.response;
       const data: ProgressApiData = backgroundWorkerConfigured ? await response.json().catch(() => null) : result.data;
+
       if (data?.progress) applyProgress(data.progress);
       if (data?.queue) applyQueue(data.queue);
+
+      const isStillGenerating =
+        !isTerminalStatus(data?.progress?.status || "") &&
+        data?.queue?.job?.status !== "completed";
+
+      if (backgroundWorkerConfigured && isStillGenerating) {
+        const advance = await advanceProgress();
+
+        if (advance.data?.progress) applyProgress(advance.data.progress);
+        if (advance.data?.queue) applyQueue(advance.data.queue);
+      }
       if (response.status === 401) {
         setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
       } else if (!response.ok) {
