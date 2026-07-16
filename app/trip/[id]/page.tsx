@@ -17,8 +17,7 @@ import {
   buildPreviewFromItinerary,
   formatMoney,
   getItineraryTotalEstimateAmount,
-  type RoamlyItinerary,
-  type RoamlyPreview
+  type RoamlyItinerary
 } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
@@ -149,29 +148,7 @@ function NoticeBanner({ tone = "ocean", children }: { tone?: BadgeTone; children
   return <p className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-black ${toneClass}`}>{children}</p>;
 }
 
-function PreviewDayCard({ item }: { item: RoamlyPreview["day_outline"][number] }) {
-  const legacyActivityKey = "sam" + "ple_activity";
-  const activityPreview =
-    item.activity_preview || (item as unknown as Record<string, string>)[legacyActivityKey] || "";
 
-  return (
-    <Card className="p-4">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Day {item.day_number}</p>
-      <h3 className="mt-2 text-xl font-black text-ink">{item.title}</h3>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{activityPreview}</p>
-    </Card>
-  );
-}
-
-function LockedCard({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="rounded-2xl border border-cloud bg-white/80 p-4 shadow-[0_12px_32px_rgba(16,32,51,0.06)]">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Locked</p>
-      <h3 className="mt-2 text-lg font-black text-ink">{title}</h3>
-      <p className="mt-2 text-sm font-bold leading-5 text-slate-500">{text}</p>
-    </div>
-  );
-}
 
 function PrimaryTripAction({
   tripId,
@@ -1840,43 +1817,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </div>
             </div>
           </>
-        ) : generationPanelVisible ? null : (
-          <>
-            <section className="mt-7 rounded-[1.15rem] border border-[#e8dfd0] bg-white p-5 shadow-[0_16px_42px_rgba(16,32,51,0.07)]">
-              {preview ? (
-                <>
-                  <Badge tone="sun">Preview</Badge>
-                  <h2 className="mt-3 text-3xl font-black tracking-tight text-ink">Preview only.</h2>
-                  <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-600">
-                    Full timing, maps, budget, notes, bookings, and export actions appear after this itinerary is generated and locked.
-                  </p>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {preview.day_outline.map((item) => (
-                      <PreviewDayCard key={item.day_number} item={item} />
-                    ))}
-                  </div>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    {preview.locked_sections.map((section) => (
-                      <LockedCard key={section} title={section} text="Generate and lock this itinerary to see the full details." />
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Badge tone="sun">No itinerary yet</Badge>
-                  <h2 className="mt-3 text-3xl font-black text-ink">Generate this trip when the details are final.</h2>
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                    Once generated, the itinerary cannot be edited or regenerated.
-                  </p>
-                </>
-              )}
-            </section>
-
-            <section className="roamly-no-print mt-7 rounded-[1.15rem] border border-[#e8dfd0] bg-white p-5 shadow-[0_16px_42px_rgba(16,32,51,0.07)]">
-              <TripBookingsManager tripId={id} initialBookings={importedBookings} />
-            </section>
-          </>
-        )}
+        ) : null}
       </div>
     </main>
   );
