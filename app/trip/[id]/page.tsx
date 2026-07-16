@@ -1701,8 +1701,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             <section id="day-by-day" className="mt-8 scroll-mt-32">
               <SectionHeading
                 eyebrow="Day-by-day"
-                title="Your travel timeline"
-                summary="Jump by day, expand one section, and open details only when needed."
+                title="Your itinerary"
+                summary="Clean daily plan with timing, travel, and key notes."
               />
               <nav className="roamly-no-print sticky top-[8.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:top-[9.2rem] sm:mx-0 sm:rounded-full sm:border">
                 <div className="flex min-w-max gap-2">
@@ -1718,7 +1718,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   ))}
                 </div>
               </nav>
-              <div className="grid gap-3 sm:gap-5">
+              <div className="grid gap-4 md:gap-5">
                 {dayNumbersToRender.map((dayNumber) => {
                   const day = canonicalDayByNumber.get(dayNumber);
                   const progressDay = generationDayProgress.find((item) => item.dayNumber === dayNumber);
@@ -1737,41 +1737,29 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             </section>
 
             <section id="overview" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Overview" title="Trip summary" summary="Short planning notes to keep the document easy to scan." />
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                <SummaryTile label="Best for" value={full.best_for.slice(0, 4).join(" · ") || travelStyle} />
-                <SummaryTile label="Budget fit" value={compact(full.budget_fit_summary, "Verify current prices before booking.", 170)} />
-                <SummaryTile label="Route logic" value={compact(full.route_reasoning, "The route keeps each day focused and realistic.", 170)} />
-                <SummaryTile label="Booking status" value={compact(full.booking_status_summary, "No bookings are assumed until you upload or save them.", 170)} />
-                <SummaryTile label="Transport" value={compact(full.transport_overview, "Use clustered routes to reduce travel time.", 170)} />
-                <SummaryTile
-                  label="Important reminders"
-                  value={compact(full.free_or_low_cost_notes[0] || full.generation_note || "Save offline maps and verify opening hours before each day.", "Save offline maps and verify opening hours before each day.", 170)}
-                />
+              <SectionHeading eyebrow="Overview" title="Trip summary" summary="Only the essentials." />
+              <div className="grid gap-3 md:grid-cols-3">
+                <SummaryTile label="Best for" value={full.best_for.slice(0, 3).join(" · ") || travelStyle} />
+                <SummaryTile label="Budget" value={compact(full.budget_fit_summary, "Verify prices before booking.", 130)} />
+                <SummaryTile label="Transport" value={compact(full.transport_overview, "Travel time is included in the plan.", 130)} />
               </div>
             </section>
 
             <section id="budget" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Budget" title="Budget status" summary={full.estimated_budget_breakdown.notes} />
+              <SectionHeading eyebrow="Budget" title="Budget" summary="Hotel, transport, food, activities, nightlife, and buffer." />
               <BudgetTable trip={trip} itinerary={full} currency={currency} />
             </section>
 
             <section id="bookings" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Bookings" title="What to reserve" summary="Roamly uses configured partner links when available and internal discovery when a provider is missing." />
+              <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary="One clean place for flights, stays, and activities." />
               <div className="mb-4">
                 <MarketPriceRefreshButton tripId={id} />
               </div>
               <BookingPlan itinerary={full} trip={trip} tripId={id} />
-              <div className="mt-5 grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
-                <div>
-                  <h3 className="text-lg font-black text-ink">Confirmed bookings</h3>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Saved flights, stays, tickets, and reservations appear here.</p>
-                </div>
-                <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} />
-              </div>
               <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
-                <summary className="cursor-pointer text-sm font-black text-ocean">Manage confirmed bookings</summary>
-                <div className="mt-4">
+                <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
+                <div className="mt-4 grid gap-4">
+                  <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} />
                   <TripBookingsManager tripId={id} initialBookings={importedBookings} />
                 </div>
               </details>
@@ -1780,24 +1768,29 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             <PreTripEssentialsSection essentials={full.pre_trip_essentials || []} tripId={id} />
 
             <section id="travel-notes" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Travel notes" title="Checklist and local notes" />
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <SectionHeading eyebrow="Notes" title="Travel notes" />
+              <div className="grid gap-4 md:grid-cols-2">
                 <ChecklistGroup
-                  title="Packing checklist"
-                  items={packingChecklistItems(checklist, full)}
+                  title="Packing"
+                  items={packingChecklistItems(checklist, full).slice(0, 8)}
                 />
-                <ChecklistGroup title="Local tips" items={full.local_tips.slice(0, 8)} />
-                <ChecklistGroup title="Safety" items={full.safety_notes.slice(0, 8)} />
-                <ChecklistGroup
-                  title="Documents"
-                  items={getStringList(trip.document_checklist, ["Passport/ID", "Booking confirmations", "Travel insurance details"], 8)}
-                />
-                <ChecklistGroup title="Emergency info" items={full.emergency_notes.slice(0, 8)} />
-                <ChecklistGroup
-                  title="Low-cost reminders"
-                  items={full.free_or_low_cost_notes.length ? full.free_or_low_cost_notes.slice(0, 6) : ["Keep a buffer for weather, taxis, and spontaneous stops."]}
-                />
+                <ChecklistGroup title="Local tips" items={full.local_tips.slice(0, 6)} />
               </div>
+              <details className="mt-4 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
+                <summary className="cursor-pointer text-sm font-black text-ocean">More notes</summary>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <ChecklistGroup title="Safety" items={full.safety_notes.slice(0, 6)} />
+                  <ChecklistGroup
+                    title="Documents"
+                    items={getStringList(trip.document_checklist, ["Passport/ID", "Booking confirmations", "Travel insurance details"], 6)}
+                  />
+                  <ChecklistGroup title="Emergency" items={full.emergency_notes.slice(0, 6)} />
+                  <ChecklistGroup
+                    title="Low-cost reminders"
+                    items={full.free_or_low_cost_notes.length ? full.free_or_low_cost_notes.slice(0, 5) : ["Keep a buffer for weather, taxis, and spontaneous stops."]}
+                  />
+                </div>
+              </details>
             </section>
 
             <footer className="mt-10 border-t border-[#e8dfd0] py-6 text-sm font-bold text-slate-500">
