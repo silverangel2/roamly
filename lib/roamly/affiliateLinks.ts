@@ -796,6 +796,33 @@ function buildBrainBookingSuggestions(params: {
 }
 
 
+function isUnsafeStay22TravelerUrl(value: unknown) {
+  const url = cleanStringValue(value).toLowerCase();
+
+  if (!url) return false;
+
+  return (
+    url.includes("hub.stay22.com") ||
+    url.includes("app.stay22.com") ||
+    url.includes("dashboard") ||
+    url.includes("signin") ||
+    url.includes("sign-in") ||
+    url.includes("login") ||
+    url.includes("account") ||
+    url.includes("partner")
+  );
+}
+
+function safeHotelAffiliateUrl(value: unknown) {
+  const href = safeBookingHref(value);
+
+  if (!href || isUnsafeStay22TravelerUrl(href)) {
+    return "";
+  }
+
+  return href;
+}
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   const budgetBrain = calculateRoamlyBudgetBrain({
@@ -849,6 +876,16 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         date: suggestion.date || suggestion.departure_date || payload.startDate,
         url: suggestion.normal_search_url
       });
+
+      const isHotelSuggestion = linkCategory === "hotel";
+      const affiliateUrl = isHotelSuggestion
+        ? safeHotelAffiliateUrl(approvedMarketAffiliateUrl(market, link))
+        : approvedMarketAffiliateUrl(market, link);
+      const hasAffiliateUrl = Boolean(affiliateUrl);
+      const affiliateProvider = hasAffiliateUrl
+        ? link.affiliate_provider
+        : "roamly_internal";
+
       return {
         ...suggestion,
         provider: approvedProviderLabel(market?.provider) || approvedProviderLabel(suggestion.provider) || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Roamly discovery"),
@@ -862,11 +899,11 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
           safeBookingHref(suggestion.normal_search_url) ||
           safeBookingHref(normalSearchUrl) ||
           (!link.affiliate_enabled ? link.href : ""),
-        affiliate_url: approvedMarketAffiliateUrl(market, link),
-        affiliate_provider: link.affiliate_enabled ? link.affiliate_provider : "roamly_internal",
-        affiliate_disclosure: link.affiliate_enabled ? affiliateDisclosure : "",
-        has_affiliate_url: link.affiliate_enabled,
-        url_type: link.affiliate_enabled ? "affiliate" : "normal_search",
+        affiliate_url: affiliateUrl,
+        affiliate_provider: affiliateProvider,
+        affiliate_disclosure: hasAffiliateUrl ? affiliateDisclosure : "",
+        has_affiliate_url: hasAffiliateUrl,
+        url_type: hasAffiliateUrl ? "affiliate" : "normal_search",
         booking_status:
           market?.metadata && typeof market.metadata === "object" && (market.metadata as Record<string, unknown>).source === "user_uploaded_confirmation"
             ? "user_uploaded"
