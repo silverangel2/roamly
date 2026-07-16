@@ -309,3 +309,87 @@ export function resolveCityPlace(value?: string | null): ResolvedPlace | null {
 export function requireResolvedPlaceLabel(value?: string | null) {
   return resolveCityPlace(value)?.searchLabel || "";
 }
+
+export function searchCityPlaces(value?: string | null, limit = 12): ResolvedPlace[] {
+  const input = splitInput(value);
+  const key = normalizePlaceText(input.main);
+
+  if (!key || key.length < 2) return [];
+
+  const countryHints = countryHintCodes(input.hints);
+  const regionHintPresent = hasRegionHint(input.hints);
+  const seen = new Set<string>();
+
+  const direct = (names().get(key) || []).map((city) => ({
+    city,
+    alias: undefined as PlaceAlias | undefined,
+    matchScore: 160
+  }));
+
+  const aliases = aliasCandidates(key).map(({ city, alias }) => ({
+    city,
+    alias,
+    matchScore: 155
+  }));
+
+  const fuzzy = records()
+    .map((city) => {
+      const normalizedName = normalizePlaceText(city.name);
+      const normalizedAscii = normalizePlaceText(city.asciiName);
+      const normalizedCountry = normalizePlaceText(city.countryName);
+      const normalizedAdmin = normalizePlaceText(city.admin1Name || city.admin1AsciiName);
+
+      let matchScore = 0;
+
+      if (normalizedName === key || normalizedAscii === key) matchScore = 150;
+      else if (normalizedName.startsWith(key) || normalizedAscii.startsWith(key)) matchScore = 120;
+      else if (normalizedName.includes(key) || normalizedAscii.includes(key)) matchScore = 75;
+      else if (`${normalizedName} ${normalizedAdmin} ${normalizedCountry}`.includes(key)) matchScore = 45;
+
+      if (!matchScore) return null;
+
+      return {
+        city,
+        alias: undefined as PlaceAlias | undefined,
+        matchScore
+      };
+    })
+    .filter((item): item is { city: CityRecord; alias: PlaceAlias | undefined; matchScore: number } => Boolean(item));
+
+  return [...direct, ...aliases, ...fuzzy]
+    .map(({ city, alias, matchScore }) => ({
+      city,
+      alias,
+      score:
+        matchScore +
+        scoreCity({
+          city,
+          key,
+          hints: input.hints,
+          alias,
+          countryHints,
+          regionHintPresent
+        })
+    }))
+    .sort((left, right) => right.score - left.score || right.city.population - left.city.population)
+    .filter(({ city }) => {
+      const id = [
+        city.name,
+        city.asciiName,
+        city.countryCode,
+        city.admin1Code,
+        city.latitude,
+        city.longitude
+      ].join(":");
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    })
+    .slice(0, Math.max(1, Math.min(25, limit)))
+    .map(({ city }) => ({
+      ...city,
+      label: labelFor(city, key),
+      searchLabel: labelFor(city, key),
+      travelCode: travelCodeFor(city, key)
+    }));
+}
