@@ -7,6 +7,7 @@ function hasValidServerSecret(request: NextRequest) {
   const token = header.replace(/^Bearer\s+/i, "").trim();
 
   const allowed = [
+    process.env.ROAMLY_EMAIL_VERIFY_SECRET,
     process.env.ROAMLY_GENERATION_CRON_SECRET,
     process.env.ROAMLY_NOTIFICATION_CRON_SECRET,
     process.env.CRON_SECRET

@@ -384,6 +384,37 @@ export function StagedGenerationProgress({
       aria-live="polite"
       className="roamly-no-print mt-4 w-full overflow-hidden rounded-[1.75rem] border border-cloud bg-white p-5 shadow-soft sm:p-7"
     >
+      <style>{`
+        @keyframes roamlyPlaneFlight {
+          0% {
+            transform: translateX(-2.5rem) translateY(-50%) rotate(-6deg);
+            opacity: 0;
+          }
+          12% {
+            opacity: 1;
+          }
+          52% {
+            transform: translateX(calc(100% - 2rem)) translateY(-58%) rotate(3deg);
+            opacity: 1;
+          }
+          88% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(calc(100% + 2.5rem)) translateY(-50%) rotate(-2deg);
+            opacity: 0;
+          }
+        }
+
+        @keyframes roamlySoftShimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+      `}</style>
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 gap-4">
@@ -442,6 +473,30 @@ export function StagedGenerationProgress({
           </div>
           </div>
         </div>
+
+        {!failed && progress.status !== "complete" ? (
+          <div className="relative overflow-hidden rounded-full border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-4 py-3 shadow-sm">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-sky-100/70 to-transparent"
+              style={{ animation: "roamlySoftShimmer 2.8s ease-in-out infinite" }}
+            />
+            <div className="relative h-8 overflow-hidden rounded-full">
+              <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-transparent via-sky-200 to-transparent" />
+              <div
+                className="absolute left-0 top-1/2"
+                style={{ animation: "roamlyPlaneFlight 4.8s cubic-bezier(0.45, 0, 0.25, 1) infinite" }}
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-base shadow-md ring-1 ring-sky-100">
+                  ✈️
+                </span>
+              </div>
+            </div>
+            <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+              Roamly is preparing your trip
+            </p>
+          </div>
+        ) : null}
 
         {message ? (
           <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
