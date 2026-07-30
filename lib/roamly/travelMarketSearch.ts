@@ -586,7 +586,7 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
     ...request,
     title: clean(request.title) || categoryDefaultTitle(request)
   });
-  const maxQueries = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_QUERIES, 2);
+  const maxQueries = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_QUERIES, 1);
   const limitPerQuery = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_LIMIT_PER_QUERY, 2);
   const results: TravelMarketResult[] = [];
   const seen = new Set<string>();
@@ -603,7 +603,7 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
           limit: limitPerQuery,
           scrapeOptions: { formats: ["markdown"] }
         }),
-        signal: AbortSignal.timeout(8_000)
+        signal: AbortSignal.timeout(5_000)
       });
       if (!response.ok) throw new Error(`Firecrawl returned ${response.status}`);
       const json = (await response.json()) as Record<string, unknown>;
@@ -654,7 +654,7 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
         );
       }
     } catch (error) {
-      console.error("[Roamly market] scraper discovery failed", error);
+      console.warn("[Roamly market] scraper discovery failed", error);
     }
   }
   return results.slice(0, 4);

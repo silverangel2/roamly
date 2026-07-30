@@ -145,11 +145,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const generationError = error instanceof StagedGenerationError
       ? error
       : new StagedGenerationError("Generation stage failed.", "GENERATION_STAGE_FAILED", 502);
+    let progress: ReturnType<typeof publicStagedGenerationProgress> = null;
+    try {
+      const savedTrip = await auth.supabase
+        .from("roamly_trips")
+        .select("metadata")
+        .eq("id", id)
+        .eq("user_id", auth.user.id)
+        .maybeSingle();
+      progress = publicStagedGenerationProgress(savedTrip.data?.metadata);
+    } catch {
+      progress = null;
+    }
     return NextResponse.json(
       {
         ok: false,
         error: generationError.code,
-        message: "Roamly could not complete this generation step. Completed progress was preserved."
+        message: "Roamly could not complete this generation step. Completed progress was preserved.",
+        progress,
+        queue: await queueSnapshot(auth.supabase, id, auth.user.id)
       },
       { status: generationError.status }
     );

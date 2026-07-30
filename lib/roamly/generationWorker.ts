@@ -653,6 +653,63 @@ async function processClaimedJob(params: {
       progress: state ? publicStagedGenerationProgress({ generation: state }) : null
     } satisfies RoamlyGenerationWorkerResult;
   } catch (error) {
+    const terminalTrip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id).catch(() => null);
+    const terminalState = terminalTrip ? getStagedGenerationState(terminalTrip.metadata) : null;
+    if (terminalState && terminalStatus(terminalState.status)) {
+      const code = terminalState.lastErrorCode || errorCode(error);
+      const message = terminalState.lastError || errorMessage(error);
+      if (currentLayer) {
+        if (terminalState.status === "complete") {
+          await completeGenerationLayer({
+            supabase: params.admin,
+            layerId: currentLayer.id,
+            workerId: params.workerId,
+            outputJson: {
+              recoveredAfterThrow: true,
+              progress: publicStagedGenerationProgress({ generation: terminalState })
+            },
+            evidenceJson: {
+              source: "terminal_state_after_generator_throw",
+              processedAt: new Date().toISOString(),
+              requestId: params.requestId
+            },
+            dependencyVersionsJson: {
+              stagedGenerationVersion: terminalState.version,
+              stagedStatus: terminalState.status
+            }
+          });
+        } else {
+          await scheduleGenerationLayerRetry({
+            supabase: params.admin,
+            layerId: currentLayer.id,
+            workerId: params.workerId,
+            errorCode: code,
+            errorMessage: message,
+            retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }
+          });
+        }
+      }
+      const email = await finishTerminalJob({
+        admin: params.admin,
+        job: params.job,
+        workerId: params.workerId,
+        state: terminalState
+      });
+      return {
+        tripId: params.job.trip_id,
+        jobId: params.job.id,
+        ok: terminalState.status === "complete",
+        claimed: true,
+        advanced,
+        terminal: true,
+        layerType: currentLayer?.layer_type || null,
+        layerSequence: currentLayer?.layer_sequence || null,
+        progress: publicStagedGenerationProgress({ generation: terminalState }),
+        error: terminalState.status === "complete" ? null : code,
+        email
+      } satisfies RoamlyGenerationWorkerResult;
+    }
+
     const failure = await handleLayerFailure({
       admin: params.admin,
       job: params.job,

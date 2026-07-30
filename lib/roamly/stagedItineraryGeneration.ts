@@ -302,6 +302,12 @@ function generationMetadata(metadata: unknown, state: StagedGenerationState) {
   };
 }
 
+function persistedTripStatusForGeneration(status: StagedGenerationStatus) {
+  if (status === "complete") return "generated";
+  if (status === "failed" || status === "partially_failed") return "draft";
+  return "generating";
+}
+
 function dateForDay(payload: TripPlannerPayload, dayNumber: number) {
   if (!payload.startDate) return "";
   const date = new Date(`${payload.startDate}T00:00:00`);
@@ -473,8 +479,14 @@ function safeAiError(error: unknown) {
         : error instanceof Error
           ? error.name
           : "UNKNOWN_AI_ERROR";
+  const normalizedCode = String(code).toLowerCase();
   const category =
-    status === 401 || status === 403
+    normalizedCode.includes("credit_balance_exhausted") ||
+    normalizedCode.includes("insufficient_quota") ||
+    message.includes("credit_balance_exhausted") ||
+    message.includes("insufficient quota")
+      ? "quota_exhausted"
+      : status === 401 || status === 403
       ? "auth"
       : status === 404
         ? "model_or_endpoint"
@@ -639,12 +651,14 @@ async function callJsonStage(params: {
     const code =
       safe.errorCategory === "timeout"
         ? "AI_PROVIDER_TIMEOUT"
+        : safe.errorCategory === "quota_exhausted"
+          ? "AI_QUOTA_EXHAUSTED"
         : safe.errorCategory === "rate_limit"
           ? "AI_RATE_LIMITED"
           : safe.errorCategory === "provider_server_error"
             ? "AI_PROVIDER_SERVER_ERROR"
             : safe.errorCode || "AI_PROVIDER_FAILED";
-    const permanent = safe.errorCategory === "auth" || safe.errorCategory === "model_or_endpoint";
+    const permanent = safe.errorCategory === "auth" || safe.errorCategory === "model_or_endpoint" || safe.errorCategory === "quota_exhausted";
     throw new StagedGenerationError("Roamly AI could not complete this generation stage. No template itinerary was saved.", code, 502, permanent, {
       failureCategory: safe.errorCategory,
       provider: params.provider.provider,
@@ -679,12 +693,10 @@ function compactTravelSearchBrief(value: unknown) {
   const brief = getRecord(value);
   if (!brief) return null;
   return {
-    intent: brief.intent,
-    exact_match_terms: Array.isArray(brief.exact_match_terms) ? brief.exact_match_terms.slice(0, 8) : [],
+    exact_match_terms: Array.isArray(brief.exact_match_terms) ? brief.exact_match_terms.slice(0, 5) : [],
     must_match: getRecord(brief.must_match) || {},
-    search_queries: Array.isArray(brief.search_queries) ? brief.search_queries.slice(0, 4) : [],
-    detail_fields: Array.isArray(brief.detail_fields) ? brief.detail_fields.slice(0, 12) : [],
-    disambiguation_rules: Array.isArray(brief.disambiguation_rules) ? brief.disambiguation_rules.slice(0, 3) : []
+    search_queries: Array.isArray(brief.search_queries) ? brief.search_queries.slice(0, 2) : [],
+    detail_fields: Array.isArray(brief.detail_fields) ? brief.detail_fields.slice(0, 6) : []
   };
 }
 
@@ -716,8 +728,8 @@ function compactPriceSummary(value: Record<string, unknown> | null | undefined) 
     recommendedTransportOption: value.recommendedTransportOption,
     selectedTransportEstimateCents: value.selectedTransportEstimateCents,
     transportOptions: Array.isArray(value.transportOptions) ? value.transportOptions.slice(0, 4) : [],
-    selectedMarketPrices: Array.isArray(value.selectedMarketPrices) ? value.selectedMarketPrices.slice(0, 4).map(compactMarketResult) : [],
-    marketResults: Array.isArray(value.marketResults) ? value.marketResults.slice(0, 6).map(compactMarketResult) : [],
+    selectedMarketPrices: Array.isArray(value.selectedMarketPrices) ? value.selectedMarketPrices.slice(0, 3).map(compactMarketResult) : [],
+    marketResults: Array.isArray(value.marketResults) ? value.marketResults.slice(0, 4).map(compactMarketResult) : [],
     cityEstimates: Array.isArray(value.cityEstimates) ? value.cityEstimates.slice(0, 5) : [],
     budgetCategoryConfidence: Array.isArray(value.budgetCategoryConfidence) ? value.budgetCategoryConfidence.slice(0, 6) : [],
     cross_border: value.cross_border,
@@ -1065,8 +1077,8 @@ async function persistState(params: {
     .from("roamly_trips")
     .update({
       metadata: generationMetadata(metadataBase, state),
-      status: state.status === "complete" ? "generated" : state.status === "failed" ? "draft" : "generating",
-      itinerary_status: state.status === "complete" ? "generated" : state.status === "failed" ? "draft" : "generating"
+      status: persistedTripStatusForGeneration(state.status),
+      itinerary_status: persistedTripStatusForGeneration(state.status)
     })
     .eq("id", params.trip.id)
     .eq("user_id", params.trip.user_id);

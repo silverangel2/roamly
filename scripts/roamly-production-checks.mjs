@@ -467,7 +467,8 @@ const travelMarketSearch = read("lib/roamly/travelMarketSearch.ts");
   "Firecrawl travel search",
   "exact_match_required",
   "travel_search_brief",
-  "ROAMLY_TRAVEL_DISCOVERY_QUERIES"
+  "ROAMLY_TRAVEL_DISCOVERY_QUERIES",
+  "AbortSignal.timeout(5_000)"
 ].forEach((needle) => assert.ok(travelMarketSearch.includes(needle), `travel market exact-match scraper missing ${needle}`));
 
 const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
@@ -560,6 +561,10 @@ assert.ok(stagedGenerator.includes("markFreeItineraryUsed"), "free itinerary mus
 assert.ok(stagedGenerator.includes("getConfirmedBookingCostCents"), "staged generation must include committed booking costs");
 assert.ok(stagedGenerator.includes("lockGeneratedItinerary"), "staged generation must lock itinerary after final validation");
 assert.ok(stagedGenerator.includes("MAX_AI_COST_USD"), "staged generation must enforce a per-itinerary cost ceiling");
+assert.ok(stagedGenerator.includes("persistedTripStatusForGeneration"), "staged generation must map terminal statuses before persisting trips");
+assert.ok(stagedGenerator.includes('status === "failed" || status === "partially_failed"'), "partially failed generations must persist as draft instead of staying generating");
+assert.ok(stagedGenerator.includes("credit_balance_exhausted"), "OpenAI quota exhaustion must be detected explicitly");
+assert.ok(stagedGenerator.includes("AI_QUOTA_EXHAUSTED"), "OpenAI quota exhaustion must use a distinct generation failure code");
 assert.ok(stagedGenerator.includes("45_000"), "staged day generation timeout must leave room for worker cleanup");
 assert.ok(stagedGenerator.includes("plannedDayBatches"), "staged generation must batch days instead of generating one item per request");
 assert.ok(stagedGenerator.includes("BATCH_ATTEMPT_LIMIT"), "staged generation must cap failed-stage retries");
@@ -578,6 +583,8 @@ assert.ok(generationAdvanceRoute.includes("workerQueueUnavailable"), "generation
 assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must direct-rescue staged jobs when queue infrastructure is unavailable");
 assert.ok(generationAdvanceRoute.includes('fallback: "direct_staged_generation"'), "generation advance route must expose direct fallback diagnostics");
 assert.ok(generationAdvanceRoute.includes("queueSnapshot") && generationAdvanceRoute.includes("queue: await queueSnapshot"), "generation advance route must return queue state");
+assert.ok(generationAdvanceRoute.includes("const savedTrip = await auth.supabase"), "generation advance route must reload saved progress after terminal generator errors");
+assert.ok(generationAdvanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.metadata)"), "generation advance route must return saved failed progress after direct fallback errors");
 
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
@@ -628,6 +635,12 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "scheduleGenerationLayerRetry",
   "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
+[
+  "terminal_state_after_generator_throw",
+  "terminalState && terminalStatus(terminalState.status)",
+  "recoveredAfterThrow",
+  "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
+].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
 
 const generationScalabilityMigration = read("supabase/migrations/20260715_roamly_generation_scalability.sql");
 [

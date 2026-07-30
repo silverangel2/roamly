@@ -84,8 +84,14 @@ function safeAiError(error: unknown) {
           ? error.name
           : "UNKNOWN_AI_ERROR";
   const message = error instanceof Error ? error.message.toLowerCase() : "";
+  const normalizedCode = String(code).toLowerCase();
   const category =
-    status === 401 || status === 403
+    normalizedCode.includes("credit_balance_exhausted") ||
+    normalizedCode.includes("insufficient_quota") ||
+    message.includes("credit_balance_exhausted") ||
+    message.includes("insufficient quota")
+      ? "quota_exhausted"
+      : status === 401 || status === 403
       ? "auth"
       : status === 404
         ? "model_or_endpoint"
@@ -128,18 +134,21 @@ function shouldTryNextAiModel(errorCategory: unknown) {
     errorCategory === "timeout" ||
     errorCategory === "connection" ||
     errorCategory === "provider_server_error" ||
-    errorCategory === "rate_limit" ||
     errorCategory === "unknown"
   );
 }
 
 function aiProviderFailureCode(errorCategory: unknown) {
+  if (errorCategory === "quota_exhausted") return "AI_QUOTA_EXHAUSTED";
   return errorCategory === "timeout" ? "AI_PROVIDER_TIMEOUT" : "AI_PROVIDER_FAILED";
 }
 
 function aiProviderFailureMessage(errorCategory: unknown) {
   if (errorCategory === "timeout") {
     return "Roamly AI timed out before returning itinerary content. No template itinerary was saved.";
+  }
+  if (errorCategory === "quota_exhausted") {
+    return "Roamly AI is configured, but the OpenAI project has no usable credit or quota. No template itinerary was saved.";
   }
   return "Roamly AI provider failed before returning itinerary content. No template itinerary was saved.";
 }
@@ -202,12 +211,10 @@ function summarizeTravelSearchBrief(value: unknown) {
   const brief = recordFromUnknown(value);
   if (!Object.keys(brief).length) return null;
   return {
-    intent: safeSummaryString(brief.intent),
-    exact_match_terms: arrayFromUnknown(brief.exact_match_terms).slice(0, 8),
+    exact_match_terms: arrayFromUnknown(brief.exact_match_terms).slice(0, 5),
     must_match: recordFromUnknown(brief.must_match),
-    search_queries: arrayFromUnknown(brief.search_queries).slice(0, 4),
-    detail_fields: arrayFromUnknown(brief.detail_fields).slice(0, 12),
-    disambiguation_rules: arrayFromUnknown(brief.disambiguation_rules).slice(0, 3)
+    search_queries: arrayFromUnknown(brief.search_queries).slice(0, 2),
+    detail_fields: arrayFromUnknown(brief.detail_fields).slice(0, 6)
   };
 }
 

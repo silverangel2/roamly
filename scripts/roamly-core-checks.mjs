@@ -192,6 +192,13 @@ assert.equal(
   true,
   "Stay22 traveler search links should be allowed"
 );
+assert.equal(
+  affiliateResolverExports.isTravelerSafeStay22Url("https://www.stay22.com/allez/roam?aid=partner&address=San%20Juan"),
+  true,
+  "Stay22 Allez traveler links should be allowed"
+);
+
+assert.ok(affiliateResolver.includes("https://www.stay22.com/allez/roam"), "Stay22 partner fallback must use the Allez traveler endpoint");
 
 const affiliateLinks = read("lib/roamly/affiliateLinks.ts");
 assert.ok(affiliateLinks.includes("enrichTimelineItems"), "timeline booking CTAs must be resolved server-side");
@@ -287,6 +294,11 @@ const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
   "staged_ai_call_result",
   "staged_ai_call_failed"
 ].forEach((needle) => assert.ok(stagedGenerator.includes(needle), `staged generation missing ${needle}`));
+assert.ok(stagedGenerator.includes("persistedTripStatusForGeneration"), "staged generation must map terminal statuses before persisting trips");
+assert.ok(stagedGenerator.includes('status === "failed" || status === "partially_failed"'), "partially failed generations must persist as draft instead of staying generating");
+assert.ok(stagedGenerator.includes("credit_balance_exhausted"), "OpenAI quota exhaustion must be detected explicitly");
+assert.ok(stagedGenerator.includes("AI_QUOTA_EXHAUSTED"), "OpenAI quota exhaustion must use a distinct generation failure code");
+assert.ok(stagedGenerator.includes("safe.errorCategory === \"quota_exhausted\""), "quota exhaustion must be treated as a terminal provider condition");
 assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not use template fallback itineraries");
 assert.ok(!stagedGenerator.includes("local-starter-itinerary"), "staged generation must not return a local starter itinerary");
 assert.ok(!stagedGenerator.includes("ROAMLY_SECONDARY_AI"), "secondary-provider fallback is paused until primary production acceptance passes");
@@ -349,6 +361,8 @@ assert.ok(advanceRoute.includes("advanceStagedItineraryGeneration"), "client gen
 assert.ok(advanceRoute.includes('fallback: "direct_staged_generation"'), "client generation worker route must expose direct fallback diagnostics");
 assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
 assert.ok(advanceRoute.includes("queueSnapshot") && advanceRoute.includes("queue: await queueSnapshot"), "client generation worker route must return durable queue progress");
+assert.ok(advanceRoute.includes("const savedTrip = await auth.supabase"), "client generation worker route must reload saved progress after terminal generator errors");
+assert.ok(advanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.metadata)"), "client generation worker route must return saved failed progress after direct fallback errors");
 
 const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
@@ -769,7 +783,8 @@ const travelMarketSearchExactMatch = read("lib/roamly/travelMarketSearch.ts");
   "travel_search_brief",
   "buildTravelSearchBrief",
   "discovery_source",
-  "ROAMLY_TRAVEL_DISCOVERY_QUERIES"
+  "ROAMLY_TRAVEL_DISCOVERY_QUERIES",
+  "AbortSignal.timeout(5_000)"
 ].forEach((needle) => assert.ok(travelMarketSearchExactMatch.includes(needle), `travel market exact-match scraper missing ${needle}`));
 
 const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
@@ -941,6 +956,12 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "scheduleGenerationLayerRetry",
   "scheduleGenerationJobRetry"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
+[
+  "terminal_state_after_generator_throw",
+  "terminalState && terminalStatus(terminalState.status)",
+  "recoveredAfterThrow",
+  "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
+].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
 
 const generationScalabilityMigration = read("supabase/migrations/20260715_roamly_generation_scalability.sql");
 [

@@ -176,7 +176,7 @@ function stay22Url(input: AffiliateResolverInput) {
   const smartLink = stay22SmartLinkUrl();
   const referral = stay22TravelerUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
   const partnerId = clean(process.env.ROAMLY_STAY22_PARTNER_ID);
-  const base = smartLink || referral || (partnerId ? "https://www.stay22.com/search" : "");
+  const base = smartLink || referral || (partnerId ? "https://www.stay22.com/allez/roam" : "");
   if (!base) return "";
 
   const resolvedPlace = resolveCityPlace(input.destination || input.query || input.title);
