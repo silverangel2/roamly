@@ -330,7 +330,7 @@ const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
   "prepareStagedGenerationContext",
   "startStagedItineraryGeneration",
   "createOrResumeGenerationJob",
-  "ROAMLY_GENERATION_QUEUE_MISSING",
+  "generation_queue_unavailable_direct_staged_start",
   "generationPriorityForEntitlement",
   "duplicateGenerationRequestKey",
   "paidPriority",
@@ -344,7 +344,9 @@ assert.ok(tripPage.includes("itinerary_render_full_loaded"), "trip page must log
 
 const advanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(advanceRoute.includes("processGenerationQueue"), "client generation worker route must advance through the durable queue worker");
-assert.ok(!advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must not bypass queue locking");
+assert.ok(advanceRoute.includes("workerQueueUnavailable"), "client generation worker route must detect unavailable queue infrastructure");
+assert.ok(advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must direct-rescue staged jobs when queue infrastructure is unavailable");
+assert.ok(advanceRoute.includes('fallback: "direct_staged_generation"'), "client generation worker route must expose direct fallback diagnostics");
 assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
 assert.ok(advanceRoute.includes("queueSnapshot") && advanceRoute.includes("queue: await queueSnapshot"), "client generation worker route must return durable queue progress");
 
@@ -392,7 +394,9 @@ const generationQueue = read("lib/roamly/generationQueue.ts");
   "paid_priority",
   "duplicate_request_key",
   "dead_lettered_at",
-  "estimated_cost_json"
+  "estimated_cost_json",
+  "could not find the (table|function)",
+  "roamly_(claim|release|complete|schedule|skip|renew|requeue|invalidate)_generation"
 ].forEach((needle) => assert.ok(generationQueue.includes(needle), `generation queue helper missing ${needle}`));
 
 const generationScalability = read("lib/roamly/generationScalability.ts");
@@ -961,6 +965,9 @@ const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must continue after the response");
 assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "background trigger must call the protected worker route");
 assert.ok(generationBackground.includes("ROAMLY_GENERATION_CRON_SECRET") && generationBackground.includes("CRON_SECRET"), "background trigger must use the existing cron secret");
+assert.ok(generationBackground.includes("runLocalWorkerFallback"), "background trigger must fall back to an in-process worker when HTTP wake is unavailable");
+assert.ok(generationBackground.includes("local_after_fallback"), "background trigger must tag local fallback diagnostics");
+assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");

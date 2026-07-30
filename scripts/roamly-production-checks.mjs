@@ -536,7 +536,9 @@ assert.ok(!itinerarySource.includes("google\\.com\\/search"), "production valida
 
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");
-assert.ok(!generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must not bypass queue locking");
+assert.ok(generationAdvanceRoute.includes("workerQueueUnavailable"), "generation advance route must detect unavailable queue infrastructure");
+assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must direct-rescue staged jobs when queue infrastructure is unavailable");
+assert.ok(generationAdvanceRoute.includes('fallback: "direct_staged_generation"'), "generation advance route must expose direct fallback diagnostics");
 assert.ok(generationAdvanceRoute.includes("queueSnapshot") && generationAdvanceRoute.includes("queue: await queueSnapshot"), "generation advance route must return queue state");
 
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
@@ -676,6 +678,9 @@ const generationWorkerMigration = read("supabase/migrations/20260715_roamly_gene
 const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must run after the response");
 assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "generation background trigger must call the protected worker");
+assert.ok(generationBackground.includes("runLocalWorkerFallback"), "generation background trigger must fall back to an in-process worker when HTTP wake is unavailable");
+assert.ok(generationBackground.includes("local_after_fallback"), "generation background trigger must tag local fallback diagnostics");
+assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "generation background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
 
 const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnostics/route.ts");
 ["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>

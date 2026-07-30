@@ -500,7 +500,12 @@ export async function markQueueFromLegacyState(params: {
 }
 
 export function queueTableMissing(message?: string | null) {
-  return Boolean(message && /roamly_trip_generation_(jobs|layers)|schema cache|does not exist/i.test(message));
+  return Boolean(
+    message &&
+      /roamly_trip_generation_(jobs|layers)|roamly_(claim|release|complete|schedule|skip|renew|requeue|invalidate)_generation|schema cache|does not exist|could not find the (table|function)/i.test(
+        message
+      )
+  );
 }
 
 export function safeJsonRecord(value: unknown) {

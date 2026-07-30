@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
 import {
+  advanceStagedItineraryGeneration,
   publicStagedGenerationProgress,
   resetFailedStagedBatch,
   StagedGenerationError
@@ -13,6 +14,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+function workerQueueUnavailable(summary: Awaited<ReturnType<typeof processGenerationQueue>>) {
+  const messages = [
+    summary.error,
+    ...summary.results.map((result) => result.error)
+  ].filter((message): message is string => Boolean(message));
+  return messages.some((message) => queueTableMissing(message));
+}
+
 async function queueSnapshot(supabase: SupabaseClient, tripId: string, userId: string) {
   const [trip, queue] = await Promise.all([
     supabase.from("roamly_trips").select("metadata").eq("id", tripId).eq("user_id", userId).maybeSingle(),
@@ -20,6 +29,35 @@ async function queueSnapshot(supabase: SupabaseClient, tripId: string, userId: s
   ]);
   if (queue.error && !queueTableMissing(queue.error)) return null;
   return publicQueueProgress(queue, trip.data?.metadata);
+}
+
+async function directStagedGenerationFallback(params: {
+  supabase: SupabaseClient;
+  tripId: string;
+  userId: string;
+  requestId: string;
+  worker: Awaited<ReturnType<typeof processGenerationQueue>>;
+}) {
+  const result = await advanceStagedItineraryGeneration({
+    supabase: params.supabase,
+    tripId: params.tripId,
+    userId: params.userId,
+    requestId: params.requestId
+  });
+  return NextResponse.json({
+    ok: result.ok,
+    tripId: params.tripId,
+    busy: "busy" in result ? result.busy === true : false,
+    advanced: result.advanced === true,
+    stage: "stage" in result ? result.stage || null : null,
+    progress: publicStagedGenerationProgress({ generation: result.state }),
+    queue: await queueSnapshot(params.supabase, params.tripId, params.userId),
+    worker: {
+      ...params.worker,
+      fallback: "direct_staged_generation"
+    },
+    error: "error" in result ? result.error || null : null
+  });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -52,6 +90,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           maxLayersPerRun: 1
         }
       });
+      if (!summary.ok && workerQueueUnavailable(summary)) {
+        return directStagedGenerationFallback({
+          supabase: auth.supabase,
+          tripId: id,
+          userId: auth.user.id,
+          requestId,
+          worker: summary
+        });
+      }
       return NextResponse.json({
         ok: summary.ok,
         tripId: id,
@@ -73,6 +120,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         maxLayersPerRun: 6
       }
     });
+    if (!summary.ok && workerQueueUnavailable(summary)) {
+      return directStagedGenerationFallback({
+        supabase: auth.supabase,
+        tripId: id,
+        userId: auth.user.id,
+        requestId,
+        worker: summary
+      });
+    }
     const result = summary.results[0];
     return NextResponse.json({
       ok: summary.ok,

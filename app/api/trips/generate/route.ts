@@ -584,23 +584,32 @@ async function finalizeItinerary(params: {
     queuePriorityReason: priority.queuePriorityReason,
     duplicateRequestKey
   });
+  const durableQueueUnavailable = !queueResult.ok && queueTableMissing(queueResult.error);
   if (!queueResult.ok) {
-    await params.supabase
-      .from("roamly_trips")
-      .update({ status: "draft", itinerary_status: "draft" })
-      .eq("id", params.tripId)
-      .eq("user_id", params.userId);
-    return NextResponse.json(
-      {
-        ok: false,
-        error: queueResult.error,
-        code: queueTableMissing(queueResult.error) ? "ROAMLY_GENERATION_QUEUE_MISSING" : "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
-        message: queueTableMissing(queueResult.error)
-          ? "Roamly generation queue migrations must be applied before starting a new itinerary."
-          : "Roamly could not safely queue this itinerary. Please try again in a moment."
-      },
-      { status: queueTableMissing(queueResult.error) ? 503 : 500 }
-    );
+    if (!durableQueueUnavailable) {
+      await params.supabase
+        .from("roamly_trips")
+        .update({ status: "draft", itinerary_status: "draft" })
+        .eq("id", params.tripId)
+        .eq("user_id", params.userId);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: queueResult.error,
+          code: "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
+          message: "Roamly could not safely queue this itinerary. Please try again in a moment."
+        },
+        { status: 500 }
+      );
+    }
+
+    logGenerationDiagnostic("generation_queue_unavailable_direct_staged_start", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: queueResult.error
+    });
   }
 
   let state: Awaited<ReturnType<typeof startStagedItineraryGeneration>>;
@@ -679,16 +688,19 @@ async function finalizeItinerary(params: {
     progress: publicStagedGenerationProgress({ generation: state })
   });
 
-  await markQueueFromLegacyState({
-    supabase: params.supabase,
-    tripId: params.tripId,
-    userId: params.userId,
-    metadata: { generation: state }
-  });
-  const queueState = publicQueueProgress(
-    await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }),
-    { generation: state }
-  );
+  let queueState = null;
+  if (!durableQueueUnavailable) {
+    await markQueueFromLegacyState({
+      supabase: params.supabase,
+      tripId: params.tripId,
+      userId: params.userId,
+      metadata: { generation: state }
+    });
+    queueState = publicQueueProgress(
+      await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }),
+      { generation: state }
+    );
+  }
 
   await recordTripEvent(params.supabase, {
     userId: params.userId,
