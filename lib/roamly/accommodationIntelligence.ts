@@ -2,6 +2,13 @@ import { buildHotelAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { buildHotelSearchUrl, safeExternalUrl } from "@/lib/roamly/bookingLinks";
 import type { TravelerProfile } from "@/lib/roamly/travelerMemory";
 import type { TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import {
+  buildSearchReadyTravelEvidence,
+  buildTravelEvidenceFromMarketMetadata,
+  type TravelEvidenceResult,
+  type TravelEvidenceTheme,
+  type TravelEvidenceVerdict
+} from "@/lib/roamly/travelEvidence";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export type AccommodationFreshness = "live" | "cached_recent" | "search_ready" | "estimated" | "unavailable";
@@ -39,6 +46,12 @@ export type AccommodationCandidate = {
     score: number | null;
     count: number | null;
     recent_complaints: string[];
+    confidence: TravelEvidenceResult["confidence"];
+    verdict: TravelEvidenceVerdict;
+    marketplace_rating: number | null;
+    repeated_praises: TravelEvidenceTheme[];
+    repeated_complaints: TravelEvidenceTheme[];
+    sources: Array<{ title: string; url: string | null }>;
   };
   booking_conditions: {
     cancellation_policy: string | null;
@@ -82,6 +95,10 @@ function clean(value?: string | null) {
 function list(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function destination(payload: TripPlannerPayload) {
@@ -183,6 +200,7 @@ function marketHotelCandidates(params: {
     .slice(0, 8)
     .map((result) => {
       const price = result.price_amount ?? result.price_max ?? result.price_min ?? null;
+      const travelEvidence = accommodationTravelEvidenceFromMarketResult(result);
       return {
         provider: result.provider || result.source || "Hotel market result",
         listing_identifier: result.id,
@@ -196,7 +214,7 @@ function marketHotelCandidates(params: {
         taxes_and_fees: null,
         neighbourhood: result.city || params.area,
         coordinates: null,
-        review_evidence: { score: null, count: null, recent_complaints: [] },
+        review_evidence: accommodationReviewEvidence(travelEvidence),
         booking_conditions: {
           cancellation_policy: null,
           payment_timing: null,
@@ -206,7 +224,10 @@ function marketHotelCandidates(params: {
         warnings: [
           result.price_type === "live_partner" || result.price_type === "cached_recent"
             ? "Verify taxes, fees, cancellation, reviews, and exact room details before booking."
-            : "Search-ready hotel result. Roamly does not treat this as live availability."
+            : "Search-ready hotel result. Roamly does not treat this as live availability.",
+          ...(travelEvidence.verdict === "risky"
+            ? ["Review evidence shows repeated severe complaints; compare safer alternatives before booking."]
+            : [])
         ],
         data_freshness:
           result.price_type === "live_partner"
@@ -218,6 +239,33 @@ function marketHotelCandidates(params: {
                 : "estimated"
       } satisfies Omit<AccommodationCandidate, "score_components">;
     });
+}
+
+function accommodationTravelEvidenceFromMarketResult(result: TravelMarketResult): TravelEvidenceResult {
+  const existing = record(result.metadata?.travel_evidence);
+  if (existing.verdict && Object.prototype.hasOwnProperty.call(existing, "score")) {
+    return existing as unknown as TravelEvidenceResult;
+  }
+  return buildTravelEvidenceFromMarketMetadata({
+    subject: "hotel",
+    title: result.title,
+    destination: result.destination || result.city || null,
+    metadata: result.metadata
+  });
+}
+
+function accommodationReviewEvidence(evidence: TravelEvidenceResult): AccommodationCandidate["review_evidence"] {
+  return {
+    score: evidence.score,
+    count: evidence.marketplace_review_count,
+    recent_complaints: evidence.recent_complaints,
+    confidence: evidence.confidence,
+    verdict: evidence.verdict,
+    marketplace_rating: evidence.marketplace_rating,
+    repeated_praises: evidence.repeated_praises,
+    repeated_complaints: evidence.repeated_complaints,
+    sources: evidence.sources
+  };
 }
 
 function searchReadyCandidate(payload: TripPlannerPayload, area: string, retrievedAt: string) {
@@ -254,7 +302,14 @@ function searchReadyCandidate(payload: TripPlannerPayload, area: string, retriev
     taxes_and_fees: null,
     neighbourhood: area,
     coordinates: null,
-    review_evidence: { score: null, count: null, recent_complaints: [] },
+    review_evidence: accommodationReviewEvidence(
+      buildSearchReadyTravelEvidence({
+        subject: "hotel",
+        title: `${roomType(payload)} near ${area}`,
+        destination: destination(payload),
+        warning: "Search-ready accommodation option only. Roamly will not invent review quality without written review evidence."
+      })
+    ),
     booking_conditions: {
       cancellation_policy: null,
       payment_timing: null,
@@ -266,12 +321,32 @@ function searchReadyCandidate(payload: TripPlannerPayload, area: string, retriev
   } satisfies Omit<AccommodationCandidate, "score_components">;
 }
 
+function reviewQualityScore(evidence: AccommodationCandidate["review_evidence"]) {
+  if (evidence.score == null || evidence.confidence === "none") return 55;
+  const score100 = evidence.score <= 5 ? evidence.score * 20 : evidence.score * 10;
+  const confidenceAdjusted =
+    evidence.confidence === "low"
+      ? score100 * 0.65 + 55 * 0.35
+      : evidence.confidence === "medium"
+        ? score100 * 0.82 + 55 * 0.18
+        : score100;
+  const repeatedCritical = evidence.repeated_complaints.some(
+    (complaint) => complaint.evidence_count >= 2 && complaint.severity === "critical"
+  );
+  const repeatedSevere = evidence.repeated_complaints.some(
+    (complaint) => complaint.evidence_count >= 2 && complaint.severity === "severe"
+  );
+  if (repeatedCritical) return Math.min(28, Math.round(confidenceAdjusted));
+  if (repeatedSevere) return Math.min(36, Math.round(confidenceAdjusted));
+  return Math.max(10, Math.min(100, Math.round(confidenceAdjusted)));
+}
+
 function scoreCandidate(candidate: Omit<AccommodationCandidate, "score_components">, area: AccommodationAreaCandidate, profile?: TravelerProfile | null) {
   const prefs = travelerPreferenceText(profile);
   const travelerFit = prefs && `${candidate.title} ${candidate.neighbourhood}`.toLowerCase().split(/\s+/).some((token) => prefs.includes(token)) ? 88 : 68;
   const location = area.score_components.total;
   const totalPrice = candidate.price == null ? 55 : Math.max(35, 95 - Math.min(60, candidate.price / 20));
-  const reviewQuality = candidate.review_evidence.score ? Math.min(100, Math.round(candidate.review_evidence.score * 20)) : 55;
+  const reviewQuality = reviewQualityScore(candidate.review_evidence);
   const convenience = candidate.booking_conditions.luggage_storage ? 82 : candidate.data_freshness === "live" ? 76 : 62;
   const cancellation = candidate.booking_conditions.cancellation_policy ? 78 : 55;
   const amenities = list(profile?.hotel_priorities).some((priority) => candidate.title.toLowerCase().includes(priority.toLowerCase())) ? 78 : 60;

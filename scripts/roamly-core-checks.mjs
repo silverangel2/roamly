@@ -613,12 +613,164 @@ const accommodationIntelligence = read("lib/roamly/accommodationIntelligence.ts"
   "transit_access",
   "walking_fit",
   "review_evidence",
+  "repeated_praises",
+  "repeated_complaints",
+  "reviewQualityScore",
   "booking_conditions",
   "affiliate_value: 0",
   "requires_route_revalidation",
   "Search-ready accommodation option only",
   "Recommendations are ranked according to your trip needs, not commission."
 ].forEach((needle) => assert.ok(accommodationIntelligence.includes(needle), `accommodation intelligence missing ${needle}`));
+
+const travelEvidence = read("lib/roamly/travelEvidence.ts");
+[
+  "scoreTravelEvidence",
+  "runTravelEvidenceSearchFallback",
+  "extractTravelReviewSnippets",
+  "marketplaceWeight",
+  "repetitionWeight",
+  "severityWeight",
+  "buildSearchReadyTravelEvidence",
+  "travelEvidenceScraperConfigured",
+  "ROAMLY_TRAVEL_EVIDENCE_PROVIDER",
+  "FIRECRAWL_API_KEY"
+].forEach((needle) => assert.ok(travelEvidence.includes(needle), `travel evidence missing ${needle}`));
+
+const travelSearchBrain = read("lib/roamly/travelSearchBrain.ts");
+[
+  "buildTravelSearchBrief",
+  "exact_match_terms",
+  "must_match",
+  "search_queries",
+  "detail_fields",
+  "disambiguation_rules",
+  "exact_property_name",
+  "flight_numbers",
+  "exact_activity_name",
+  "Never infer live price"
+].forEach((needle) => assert.ok(travelSearchBrain.includes(needle), `travel search brain missing ${needle}`));
+
+const travelEvidenceExports = loadTsModule("lib/roamly/travelEvidence.ts");
+const strongHotelEvidence = travelEvidenceExports.scoreTravelEvidence({
+  subject: "hotel",
+  title: "Casa Verde Hotel",
+  destination: "San Juan, Puerto Rico",
+  marketplaceRating: 4.8,
+  marketplaceReviewCount: 1800,
+  snippets: [
+    { text: "Guests repeatedly say the rooms are spotless and clean with a great location near transit." },
+    { text: "Friendly staff, clean rooms, safe area, and easy check in made the stay smooth." },
+    { text: "The hotel is central, walkable, comfortable, and worth it for families." },
+    { text: "Reviewers call it clean, convenient, quiet, and reliable for first-time visitors." }
+  ]
+});
+assert.ok(strongHotelEvidence.score >= 8 && strongHotelEvidence.score <= 10, "clearly strong travel evidence should score about 8-10");
+assert.equal(strongHotelEvidence.verdict, "recommended", "clearly strong travel evidence should be recommended");
+
+const moderateHotelEvidence = travelEvidenceExports.scoreTravelEvidence({
+  subject: "hotel",
+  title: "Harbor View Inn",
+  destination: "San Juan, Puerto Rico",
+  marketplaceRating: 4.4,
+  marketplaceReviewCount: 320,
+  snippets: [
+    { text: "Recent guests say the room was clean and the location was convenient." },
+    { text: "Clean rooms and friendly staff make this a good value stay." },
+    { text: "The location is walkable and convenient for restaurants and beaches." }
+  ]
+});
+assert.ok(moderateHotelEvidence.score >= 7 && moderateHotelEvidence.score <= 8, "moderately positive evidence should score about 7-8");
+assert.equal(moderateHotelEvidence.verdict, "recommended", "moderately positive evidence should still be recommended");
+
+const mixedHotelEvidence = travelEvidenceExports.scoreTravelEvidence({
+  subject: "hotel",
+  title: "Central Budget Rooms",
+  destination: "San Juan, Puerto Rico",
+  marketplaceRating: 4,
+  marketplaceReviewCount: 150,
+  snippets: [
+    { text: "The location is convenient and staff were friendly." },
+    { text: "Guests liked the walkable area and fair price." },
+    { text: "Several reviews mention noisy rooms and thin walls." },
+    { text: "Travelers also mention long check-in lines and confusing service." }
+  ]
+});
+assert.ok(mixedHotelEvidence.score >= 4 && mixedHotelEvidence.score <= 7, "genuinely mixed evidence should score about 4-7");
+assert.equal(mixedHotelEvidence.verdict, "mixed", "genuinely mixed evidence should stay mixed");
+
+const poorHotelEvidence = travelEvidenceExports.scoreTravelEvidence({
+  subject: "hotel",
+  title: "Beachfront Problem Stay",
+  destination: "San Juan, Puerto Rico",
+  marketplaceRating: 2.6,
+  marketplaceReviewCount: 90,
+  snippets: [
+    { text: "Multiple guests reported bed bugs and unsafe hallways." },
+    { text: "Recent reviews repeat bed bug complaints, theft concerns, and a dirty room." },
+    { text: "Travelers said the booking was overbooked and staff left them stranded." }
+  ]
+});
+assert.ok(poorHotelEvidence.score >= 1 && poorHotelEvidence.score <= 3, "clearly poor evidence should score about 1-3");
+assert.equal(poorHotelEvidence.verdict, "risky", "clearly poor evidence should be risky");
+
+const highRatedMinorComplaintEvidence = travelEvidenceExports.scoreTravelEvidence({
+  subject: "hotel",
+  title: "Old Town Reliable Hotel",
+  destination: "San Juan, Puerto Rico",
+  marketplaceRating: 4.8,
+  marketplaceReviewCount: 2200,
+  snippets: [
+    { text: "Reviewers repeatedly call the hotel clean, safe, and walkable." },
+    { text: "Clean rooms, great location, and helpful staff are consistent themes." },
+    { text: "Guests say it is convenient, comfortable, and worth it." },
+    { text: "One guest thought the room was small and dated, but still clean." }
+  ]
+});
+assert.equal(highRatedMinorComplaintEvidence.verdict, "recommended", "minor isolated complaints must not turn a high-rated hotel into mixed");
+assert.ok(highRatedMinorComplaintEvidence.score >= 8, "high-rated option with broad positive evidence should remain strong");
+
+const severeOverridesHighRatingEvidence = travelEvidenceExports.scoreTravelEvidence({
+  subject: "hotel",
+  title: "Rated But Risky Resort",
+  destination: "San Juan, Puerto Rico",
+  marketplaceRating: 4.7,
+  marketplaceReviewCount: 3000,
+  snippets: [
+    { text: "Many guests praise the beach and location." },
+    { text: "Recent reviews repeatedly report bed bugs in multiple rooms." },
+    { text: "Another guest reported bed bug bites, dirty bedding, and refund problems." }
+  ]
+});
+assert.ok(severeOverridesHighRatingEvidence.score >= 1 && severeOverridesHighRatingEvidence.score <= 3.2, "severe repeated complaints must override a high marketplace rating");
+assert.equal(severeOverridesHighRatingEvidence.verdict, "risky", "severe repeated complaints should be risky even with high ratings");
+
+const travelSearchBrainExports = loadTsModule("lib/roamly/travelSearchBrain.ts");
+const hotelSearchBrief = travelSearchBrainExports.buildTravelSearchBrief({
+  category: "hotel",
+  destination: "San Juan, Puerto Rico",
+  city: "San Juan",
+  start_date: "2026-11-20",
+  end_date: "2026-11-25",
+  travelers: 2,
+  rooms: 1,
+  room_type: "Standard queen room",
+  currency: "CAD"
+});
+assert.ok(hotelSearchBrief.search_queries.some((query) => query.includes("San Juan")), "hotel search brief must target the exact destination");
+assert.ok(hotelSearchBrief.detail_fields.includes("exact_property_name"), "hotel search brief must require exact property names");
+assert.equal(hotelSearchBrief.must_match.check_in, "2026-11-20", "hotel search brief must preserve check-in date");
+
+const travelMarketSearchExactMatch = read("lib/roamly/travelMarketSearch.ts");
+[
+  "searchScraperDiscovery",
+  "Firecrawl travel search",
+  "exact_match_required",
+  "travel_search_brief",
+  "buildTravelSearchBrief",
+  "discovery_source",
+  "ROAMLY_TRAVEL_DISCOVERY_QUERIES"
+].forEach((needle) => assert.ok(travelMarketSearchExactMatch.includes(needle), `travel market exact-match scraper missing ${needle}`));
 
 const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
 [

@@ -63,6 +63,8 @@ function exists(file) {
   "lib/roamly/travelerMemory.ts",
   "lib/roamly/transportationIntelligence.ts",
   "lib/roamly/accommodationIntelligence.ts",
+  "lib/roamly/travelEvidence.ts",
+  "lib/roamly/travelSearchBrain.ts",
   "lib/roamly/affiliateNeutrality.ts",
   "lib/roamly/itineraryValidation.ts",
   "lib/roamly/tripFeedback.ts",
@@ -426,11 +428,47 @@ const accommodationIntelligence = read("lib/roamly/accommodationIntelligence.ts"
   "buildAccommodationIntelligence",
   "selectAccommodationArea",
   "review_evidence",
+  "repeated_praises",
+  "repeated_complaints",
+  "reviewQualityScore",
   "booking_conditions",
   "affiliate_value: 0",
   "requires_route_revalidation",
   "Search-ready accommodation option only"
 ].forEach((needle) => assert.ok(accommodationIntelligence.includes(needle), `accommodation intelligence missing ${needle}`));
+
+const travelEvidence = read("lib/roamly/travelEvidence.ts");
+[
+  "scoreTravelEvidence",
+  "runTravelEvidenceSearchFallback",
+  "extractTravelReviewSnippets",
+  "marketplaceWeight",
+  "repetitionWeight",
+  "severityWeight",
+  "ROAMLY_TRAVEL_EVIDENCE_PROVIDER",
+  "FIRECRAWL_API_KEY"
+].forEach((needle) => assert.ok(travelEvidence.includes(needle), `travel evidence missing ${needle}`));
+
+const travelSearchBrain = read("lib/roamly/travelSearchBrain.ts");
+[
+  "buildTravelSearchBrief",
+  "exact_match_terms",
+  "must_match",
+  "search_queries",
+  "detail_fields",
+  "exact_property_name",
+  "flight_numbers",
+  "exact_activity_name"
+].forEach((needle) => assert.ok(travelSearchBrain.includes(needle), `travel search brain missing ${needle}`));
+
+const travelMarketSearch = read("lib/roamly/travelMarketSearch.ts");
+[
+  "searchScraperDiscovery",
+  "Firecrawl travel search",
+  "exact_match_required",
+  "travel_search_brief",
+  "ROAMLY_TRAVEL_DISCOVERY_QUERIES"
+].forEach((needle) => assert.ok(travelMarketSearch.includes(needle), `travel market exact-match scraper missing ${needle}`));
 
 const accommodationStages = read("lib/roamly/brain/accommodationStages.ts");
 assert.ok(accommodationStages.includes("buildAccommodationDecisionLayer"), "Brain must expose an accommodation decision layer helper");

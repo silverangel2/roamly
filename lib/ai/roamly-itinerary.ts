@@ -169,6 +169,10 @@ function arrayFromUnknown(value: unknown) {
   return Array.isArray(value) ? value : [];
 }
 
+function recordFromUnknown(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
 function safeSummaryString(value: unknown, fallback = "") {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
@@ -179,8 +183,37 @@ function safeSummaryNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function summarizeTravelEvidence(value: unknown) {
+  const evidence = recordFromUnknown(value);
+  if (!Object.keys(evidence).length) return null;
+  return {
+    score: safeSummaryNumber(evidence.score),
+    confidence: safeSummaryString(evidence.confidence),
+    verdict: safeSummaryString(evidence.verdict),
+    marketplace_rating: safeSummaryNumber(evidence.marketplace_rating),
+    marketplace_review_count: safeSummaryNumber(evidence.marketplace_review_count),
+    repeated_praises: arrayFromUnknown(evidence.repeated_praises).slice(0, 3),
+    repeated_complaints: arrayFromUnknown(evidence.repeated_complaints).slice(0, 3),
+    warnings: arrayFromUnknown(evidence.warnings).slice(0, 2)
+  };
+}
+
+function summarizeTravelSearchBrief(value: unknown) {
+  const brief = recordFromUnknown(value);
+  if (!Object.keys(brief).length) return null;
+  return {
+    intent: safeSummaryString(brief.intent),
+    exact_match_terms: arrayFromUnknown(brief.exact_match_terms).slice(0, 8),
+    must_match: recordFromUnknown(brief.must_match),
+    search_queries: arrayFromUnknown(brief.search_queries).slice(0, 4),
+    detail_fields: arrayFromUnknown(brief.detail_fields).slice(0, 12),
+    disambiguation_rules: arrayFromUnknown(brief.disambiguation_rules).slice(0, 3)
+  };
+}
+
 function summarizeMarketResult(value: unknown) {
-  const record = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const record = recordFromUnknown(value);
+  const metadata = recordFromUnknown(record.metadata);
   return {
     category: safeSummaryString(record.category),
     title: safeSummaryString(record.title),
@@ -197,6 +230,8 @@ function summarizeMarketResult(value: unknown) {
     city: safeSummaryString(record.city),
     start_date: safeSummaryString(record.start_date),
     end_date: safeSummaryString(record.end_date),
+    travel_search_brief: summarizeTravelSearchBrief(metadata.travel_search_brief),
+    travel_evidence: summarizeTravelEvidence(metadata.travel_evidence),
     booking_url_present: typeof record.booking_url === "string" && record.booking_url.length > 0,
     affiliate_url_present: typeof record.affiliate_url === "string" && record.affiliate_url.length > 0
   };

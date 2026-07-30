@@ -5,6 +5,7 @@ import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import type { TravelerDetails, TripType } from "@/lib/trip-planner";
 import type { TravelMarketCategory, TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
 import {
   compareTransportOptions,
   isTransportOptionMarketResult,
@@ -548,7 +549,23 @@ function fallbackMarketResult(params: {
     expires_at: new Date(new Date(params.searchedAt).getTime() + 60 * 60 * 1000).toISOString(),
     metadata: {
       warning: "Conservative market estimate used because no exact live price was available. Refresh live prices before booking.",
-      priceHierarchy: 5
+      priceHierarchy: 5,
+      exact_match_required: true,
+      travel_search_brief: buildTravelSearchBrief({
+        category: params.category,
+        origin: params.input.origin,
+        destination: params.input.destination,
+        city: params.input.destination,
+        country: undefined,
+        start_date: params.input.startDate,
+        end_date: params.input.endDate,
+        travelers: params.input.travelersCount || 1,
+        rooms: params.input.rooms || 1,
+        room_type: params.input.bedPreference || undefined,
+        title: params.title,
+        currency: params.currency,
+        interests: params.input.interests
+      })
     }
   } satisfies TravelMarketResult;
 }

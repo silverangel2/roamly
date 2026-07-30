@@ -660,6 +660,52 @@ function routeText(payload: TripPlannerPayload) {
   return route.join(" -> ");
 }
 
+function compactTravelEvidence(value: unknown) {
+  const evidence = getRecord(value);
+  if (!evidence) return null;
+  return {
+    score: evidence.score,
+    confidence: evidence.confidence,
+    verdict: evidence.verdict,
+    marketplace_rating: evidence.marketplace_rating,
+    marketplace_review_count: evidence.marketplace_review_count,
+    repeated_praises: Array.isArray(evidence.repeated_praises) ? evidence.repeated_praises.slice(0, 3) : [],
+    repeated_complaints: Array.isArray(evidence.repeated_complaints) ? evidence.repeated_complaints.slice(0, 3) : [],
+    warnings: Array.isArray(evidence.warnings) ? evidence.warnings.slice(0, 2) : []
+  };
+}
+
+function compactTravelSearchBrief(value: unknown) {
+  const brief = getRecord(value);
+  if (!brief) return null;
+  return {
+    intent: brief.intent,
+    exact_match_terms: Array.isArray(brief.exact_match_terms) ? brief.exact_match_terms.slice(0, 8) : [],
+    must_match: getRecord(brief.must_match) || {},
+    search_queries: Array.isArray(brief.search_queries) ? brief.search_queries.slice(0, 4) : [],
+    detail_fields: Array.isArray(brief.detail_fields) ? brief.detail_fields.slice(0, 12) : [],
+    disambiguation_rules: Array.isArray(brief.disambiguation_rules) ? brief.disambiguation_rules.slice(0, 3) : []
+  };
+}
+
+function compactMarketResult(value: unknown) {
+  const result = getRecord(value) || {};
+  const metadata = getRecord(result.metadata);
+  return {
+    category: result.category,
+    title: result.title,
+    provider: result.provider,
+    source: result.source,
+    price_type: result.price_type,
+    confidence: result.confidence,
+    price_amount: result.price_amount,
+    currency: result.currency,
+    destination: result.destination || result.city,
+    travel_search_brief: compactTravelSearchBrief(metadata?.travel_search_brief),
+    travel_evidence: compactTravelEvidence(metadata?.travel_evidence)
+  };
+}
+
 function compactPriceSummary(value: Record<string, unknown> | null | undefined) {
   if (!value) return {};
   return {
@@ -670,6 +716,8 @@ function compactPriceSummary(value: Record<string, unknown> | null | undefined) 
     recommendedTransportOption: value.recommendedTransportOption,
     selectedTransportEstimateCents: value.selectedTransportEstimateCents,
     transportOptions: Array.isArray(value.transportOptions) ? value.transportOptions.slice(0, 4) : [],
+    selectedMarketPrices: Array.isArray(value.selectedMarketPrices) ? value.selectedMarketPrices.slice(0, 4).map(compactMarketResult) : [],
+    marketResults: Array.isArray(value.marketResults) ? value.marketResults.slice(0, 6).map(compactMarketResult) : [],
     cityEstimates: Array.isArray(value.cityEstimates) ? value.cityEstimates.slice(0, 5) : [],
     budgetCategoryConfidence: Array.isArray(value.budgetCategoryConfidence) ? value.budgetCategoryConfidence.slice(0, 6) : [],
     cross_border: value.cross_border,

@@ -12,6 +12,16 @@ import { buildRoamlyAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { isTravelerSafeStay22Url } from "@/lib/roamly/affiliateResolver";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import { compareTransportOptions, transportOptionsToMarketResults } from "@/lib/roamly/transportOptions";
+import {
+  buildSearchReadyTravelEvidence,
+  buildTravelEvidenceFromMarketMetadata,
+  extractTravelReviewSnippets,
+  runTravelEvidenceSearchFallback,
+  scoreTravelEvidence,
+  travelEvidenceScraperConfigured,
+  type TravelEvidenceSubject
+} from "@/lib/roamly/travelEvidence";
+import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "transport";
@@ -181,6 +191,17 @@ function categoryDefaultTitle(request: TravelMarketSearchRequest) {
   return `${clean(request.origin) ? `${clean(request.origin)} to ` : ""}${destination} transport search`;
 }
 
+function evidenceSubject(category: TravelMarketCategory): TravelEvidenceSubject | null {
+  if (category === "hotel") return "hotel";
+  if (category === "attraction" || category === "tour") return "activity";
+  if (category === "transport") return "transport";
+  return null;
+}
+
+function travelEvidenceDestination(request: TravelMarketSearchRequest | TravelMarketResult) {
+  return clean(request.destination || request.city || request.country) || null;
+}
+
 function normalSearchUrl(request: TravelMarketSearchRequest) {
   if (request.category === "flight") {
     return buildFlightSearchUrl({
@@ -248,11 +269,12 @@ function baseResult(
   const normal = safeMarketHref(overrides.normal_search_url) || safeMarketHref(normalSearchUrl(request));
   const affiliate = safeMarketHref(overrides.affiliate_url) || safeMarketHref(affiliateUrl(request));
   const booking = safeMarketHref(overrides.booking_url) || affiliate || normal;
+  const title = overrides.title || clean(request.title) || categoryDefaultTitle(request);
 
   return {
     id: overrides.id || randomUUID(),
     category: request.category,
-    title: overrides.title || clean(request.title) || categoryDefaultTitle(request),
+    title,
     provider: overrides.provider || "Search",
     source: overrides.source || "roamly_internal",
     origin: clean(request.origin) || undefined,
@@ -277,6 +299,11 @@ function baseResult(
     expires_at: overrides.expires_at || expiresAt(request.category, new Date(searchedAt)),
     metadata: {
       travelersText: travelerText(request),
+      travel_search_brief: buildTravelSearchBrief({
+        ...request,
+        title,
+        currency: overrides.currency || request.currency
+      }),
       ...(overrides.metadata || {})
     }
   };
@@ -321,7 +348,7 @@ function databaseRow(result: TravelMarketResult, searchKey: string) {
   return {
     category: result.category,
     provider: result.provider,
-    source: result.source,
+    source: result.source === "roamly_internal" ? "google_search" : result.source,
     origin: result.origin || null,
     destination: result.destination || null,
     city: result.city || null,
@@ -546,6 +573,93 @@ async function searchKlook(request: TravelMarketSearchRequest) {
     .slice(0, 5);
 }
 
+function discoveryLimit(value: unknown, fallback: number) {
+  const parsed = positiveInteger(value, fallback);
+  return Math.max(1, Math.min(4, parsed || fallback));
+}
+
+async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
+  if (!marketEnabled() || !travelEvidenceScraperConfigured()) return [];
+  const apiKey = clean(process.env.FIRECRAWL_API_KEY);
+  if (!apiKey) return [];
+  const brief = buildTravelSearchBrief({
+    ...request,
+    title: clean(request.title) || categoryDefaultTitle(request)
+  });
+  const maxQueries = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_QUERIES, 2);
+  const limitPerQuery = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_LIMIT_PER_QUERY, 2);
+  const results: TravelMarketResult[] = [];
+  const seen = new Set<string>();
+  for (const query of brief.search_queries.slice(0, maxQueries)) {
+    try {
+      const response = await fetch("https://api.firecrawl.dev/v2/search", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${apiKey}`,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          query,
+          limit: limitPerQuery,
+          scrapeOptions: { formats: ["markdown"] }
+        }),
+        signal: AbortSignal.timeout(8_000)
+      });
+      if (!response.ok) throw new Error(`Firecrawl returned ${response.status}`);
+      const json = (await response.json()) as Record<string, unknown>;
+      for (const item of arrayFromUnknown(json.data || json.results).slice(0, limitPerQuery)) {
+        const url = safeMarketHref(item.url as string) || safeMarketHref(item.source_url as string);
+        const title = clean(item.title as string) || clean(item.name as string) || clean(request.title) || categoryDefaultTitle(request);
+        const key = `${title.toLowerCase()}|${url}`;
+        if (!url || seen.has(key)) continue;
+        seen.add(key);
+        const markdown = compact([
+          clean(item.markdown as string),
+          clean(item.content as string),
+          clean(item.description as string),
+          clean(item.snippet as string)
+        ]);
+        const subject = evidenceSubject(request.category);
+        const snippets = subject ? extractTravelReviewSnippets(markdown, { title, url }) : [];
+        const evidence = subject
+          ? scoreTravelEvidence({
+              subject,
+              title,
+              destination: travelEvidenceDestination(request),
+              snippets,
+              metadata: { discovery_source: "firecrawl", discovery_query: query },
+              warnings: [
+                "Scraper-discovered result. Verify exact match, price, availability, schedule, and booking terms before recommending."
+              ]
+            })
+          : null;
+        results.push(
+          baseResult(request, {
+            title,
+            provider: "Firecrawl travel search",
+            source: "roamly_internal",
+            price_type: "search_ready",
+            confidence: snippets.length >= 2 ? "medium" : "low",
+            normal_search_url: url,
+            booking_url: url,
+            metadata: {
+              discovery_source: "firecrawl",
+              discovery_query: query,
+              discovery_summary: markdown.slice(0, 700),
+              exact_match_required: true,
+              travel_search_brief: brief,
+              ...(evidence ? { travel_evidence: evidence } : {})
+            }
+          })
+        );
+      }
+    } catch (error) {
+      console.error("[Roamly market] scraper discovery failed", error);
+    }
+  }
+  return results.slice(0, 4);
+}
+
 async function liveProviderResults(request: TravelMarketSearchRequest) {
   if (request.category === "flight") return searchTravelpayouts(request);
   if (request.category === "attraction" || request.category === "tour") {
@@ -565,15 +679,118 @@ function searchReadyResult(request: TravelMarketSearchRequest, warning?: string)
 	      : klookAffiliateConfigured() && shouldUseKlookSearch(request)
 	        ? "klook"
 	        : "roamly_internal";
+  const title = clean(request.title) || categoryDefaultTitle(request);
+  const subject = evidenceSubject(request.category);
   return baseResult(request, {
     provider: source === "stay22" ? "Stay22 search" : source === "klook" ? "Klook search" : "Search-ready link",
     source,
+    title,
     price_type: "search_ready",
     confidence: "low",
     metadata: {
-      warning: warning || "No live provider price was returned. Verify price and availability before booking."
+      warning: warning || "No live provider price was returned. Verify price and availability before booking.",
+      ...(subject
+        ? {
+            travel_evidence: buildSearchReadyTravelEvidence({
+              subject,
+              title,
+              destination: travelEvidenceDestination(request),
+              warning: "Search-ready result only. Verify current reviews, ratings, price, and availability before booking."
+            })
+          }
+        : {})
     }
   });
+}
+
+function attachStaticTravelEvidence(result: TravelMarketResult) {
+  const withBrief = attachTravelSearchBrief(result);
+  const subject = evidenceSubject(withBrief.category);
+  if (!subject) return withBrief;
+  if (withBrief.metadata && typeof withBrief.metadata === "object" && withBrief.metadata.travel_evidence) return withBrief;
+  const evidence =
+    withBrief.price_type === "search_ready" || withBrief.price_type === "estimated_fallback"
+      ? buildSearchReadyTravelEvidence({
+          subject,
+          title: withBrief.title,
+          destination: travelEvidenceDestination(withBrief),
+          warning: "Search-ready result only. Verify current reviews, ratings, price, and availability before booking."
+        })
+      : buildTravelEvidenceFromMarketMetadata({
+          subject,
+          title: withBrief.title,
+          destination: travelEvidenceDestination(withBrief),
+          metadata: withBrief.metadata
+        });
+  return {
+    ...withBrief,
+    metadata: {
+      ...(withBrief.metadata || {}),
+      travel_evidence: evidence
+    }
+  };
+}
+
+function attachTravelSearchBrief(result: TravelMarketResult) {
+  if (result.metadata && typeof result.metadata === "object" && result.metadata.travel_search_brief) return result;
+  return {
+    ...result,
+    metadata: {
+      ...(result.metadata || {}),
+      travel_search_brief: buildTravelSearchBrief({
+        category: result.category,
+        origin: result.origin,
+        destination: result.destination,
+        city: result.city,
+        country: result.country,
+        start_date: result.start_date,
+        end_date: result.end_date,
+        travelers: result.travelers,
+        rooms: result.rooms,
+        room_type: result.room_type,
+        title: result.title,
+        currency: result.currency
+      })
+    }
+  };
+}
+
+async function enrichTravelMarketResultsWithReviewEvidence(results: TravelMarketResult[]) {
+  const withStaticEvidence = results.map(attachStaticTravelEvidence);
+  if (!travelEvidenceScraperConfigured()) return withStaticEvidence;
+
+  const scrapeable = new Set(
+    withStaticEvidence
+      .filter((result) => result.category === "hotel" || result.category === "attraction" || result.category === "tour")
+      .slice(0, 4)
+      .map((result) => result.id)
+  );
+  return Promise.all(
+    withStaticEvidence.map(async (result) => {
+      const subject = evidenceSubject(result.category);
+      if (!subject || !scrapeable.has(result.id)) return result;
+      const scraped = await runTravelEvidenceSearchFallback({
+        subject,
+        title: result.title,
+        destination: travelEvidenceDestination(result),
+        metadata: result.metadata,
+        maxQueries: 2,
+        limitPerQuery: 2
+      });
+      return {
+        ...result,
+        metadata: {
+          ...(result.metadata || {}),
+          travel_evidence: scraped.evidence,
+          travel_evidence_scrape: {
+            provider: scraped.provider,
+            attempted: scraped.attempted,
+            error: scraped.error || null
+          }
+        }
+      };
+    })
+  );
 }
 
 export async function searchTravelMarket(
@@ -598,7 +815,7 @@ export async function searchTravelMarket(
   if (!options.forceRefresh) {
     const cached = await cachedResults(options.supabase, searchKey);
     if (cached.length) {
-      return { results: cached, cacheHit: true, searchKey, providerConfigured: configured, providerAttempted: false };
+      return { results: cached.map(attachStaticTravelEvidence), cacheHit: true, searchKey, providerConfigured: configured, providerAttempted: false };
     }
   }
 
@@ -616,7 +833,8 @@ export async function searchTravelMarket(
   const warning = configured
     ? "Provider did not return a numeric live price. Verify the search result before booking."
     : "Provider credentials are not configured. Verify price and availability before booking.";
-  const results = providerResults.length ? providerResults : [searchReadyResult(normalized, warning)];
+  const discoveryResults = providerResults.length ? [] : await searchScraperDiscovery(normalized);
+  const results = (providerResults.length ? providerResults : discoveryResults.length ? discoveryResults : [searchReadyResult(normalized, warning)]).map(attachStaticTravelEvidence);
 
   if (options.store !== false) {
     await storeResults(options.supabase, searchKey, results);
@@ -742,7 +960,7 @@ export async function searchTripMarketPrices(
   const responses = await Promise.all(
     buildTripMarketSearchRequests(payload).map((request) => searchTravelMarket(request, options))
   );
-  const baseResults = responses.flatMap((response) => response.results);
+  const baseResults = await enrichTravelMarketResultsWithReviewEvidence(responses.flatMap((response) => response.results));
   const transportComparison = compareTransportOptions(payload, { marketResults: baseResults });
   const transportResults = transportOptionsToMarketResults(payload, transportComparison.options);
 
