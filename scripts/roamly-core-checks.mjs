@@ -976,6 +976,32 @@ const generationFinalizationMigration = read("supabase/migrations/20260731_roaml
   "notify pgrst, 'reload schema'"
 ].forEach((needle) => assert.ok(generationFinalizationMigration.includes(needle), `generation finalization migration missing ${needle}`));
 
+const generationQueueNonNullNextAttemptMigration = read("supabase/migrations/20260731_roamly_generation_queue_non_null_next_attempt.sql");
+[
+  "roamly_schedule_generation_layer_retry",
+  "roamly_schedule_generation_job_retry",
+  "roamly_finalize_generation_completion",
+  "next_attempt_at = coalesce(next_attempt_at, p_completed_at, now())",
+  "alter column next_attempt_at set default now()",
+  "alter column next_attempt_at set not null",
+  "notify pgrst, 'reload schema'"
+].forEach((needle) =>
+  assert.ok(
+    generationQueueNonNullNextAttemptMigration.includes(needle),
+    `generation queue non-null next_attempt_at migration missing ${needle}`
+  )
+);
+assert.ok(
+  !/roamly_trip_generation_jobs[\s\S]*?next_attempt_at\s*=\s*null/i.test(generationQueueNonNullNextAttemptMigration),
+  "generation job finalization/retry must not write NULL next_attempt_at"
+);
+assert.ok(
+  /next_attempt_at\s*=\s*case[\s\S]*?when next_retry < p_max_retries[\s\S]*?else now\(\)[\s\S]*?end/i.test(
+    generationQueueNonNullNextAttemptMigration
+  ),
+  "exhausted generation job retries must keep a non-null next_attempt_at"
+);
+
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must be protected by accepted bearer secrets");
