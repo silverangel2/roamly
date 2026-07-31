@@ -612,6 +612,26 @@ async function finalizeItinerary(params: {
     });
   }
 
+  if (queueResult.ok) {
+    logGenerationDiagnostic("generation_queued_returning_202", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      status: 202
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        queued: true,
+        tripId: params.tripId,
+        previewUrl: `/trip/${params.tripId}?generating=1`
+      },
+      { status: 202 }
+    );
+  }
+
   let state: Awaited<ReturnType<typeof startStagedItineraryGeneration>>;
   try {
     const context = await prepareStagedGenerationContext({
