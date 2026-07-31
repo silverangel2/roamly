@@ -7,6 +7,10 @@ import {
   publicStagedGenerationProgress,
   type StagedGenerationState
 } from "@/lib/roamly/stagedItineraryGeneration";
+import {
+  getPublicSupabaseHost,
+  logGenerationDiagnostic
+} from "@/lib/roamly/generationDiagnostics";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/trips";
 
@@ -17,6 +21,7 @@ type FinalizationTrip = {
   status?: string | null;
   itinerary_status?: string | null;
   itinerary_locked?: boolean | null;
+  itinerary_locked_at?: string | null;
   itinerary_generated_at?: string | null;
   itinerary_unlock_source?: string | null;
   itinerary_payment_status?: string | null;
@@ -27,6 +32,7 @@ type StoredFinalItinerary = {
   dayCount: number;
   itineraryId: string | null;
   updatedAt: string | null;
+  fullJson: Record<string, unknown> | null;
 };
 
 type GenerationJobLookup = {
@@ -86,7 +92,8 @@ function storedItinerarySummary(value: unknown, updatedAt: string | null, itiner
     exists: dayCount > 0 && isFinalStoredItinerary(full),
     dayCount,
     itineraryId,
-    updatedAt
+    updatedAt,
+    fullJson: dayCount > 0 ? full : null
   };
 }
 
@@ -97,7 +104,7 @@ async function loadTrip(params: {
 }) {
   let query = params.supabase
     .from("roamly_trips")
-    .select("id,user_id,metadata,status,itinerary_status,itinerary_locked,itinerary_generated_at,itinerary_unlock_source,itinerary_payment_status")
+    .select("id,user_id,metadata,status,itinerary_status,itinerary_locked,itinerary_locked_at,itinerary_generated_at,itinerary_unlock_source,itinerary_payment_status")
     .eq("id", params.tripId);
   if (params.userId) query = query.eq("user_id", params.userId);
   const { data, error } = await query.maybeSingle();
@@ -139,21 +146,122 @@ function normalizeUnlockSource(value: unknown): RoamlyItineraryUnlockSource {
   return value === "free" || value === "paid" || value === "bundle" || value === "admin" ? value : "paid";
 }
 
+function paymentStatusForUnlockSource(value: RoamlyItineraryUnlockSource) {
+  if (value === "free") return "free";
+  if (value === "bundle") return "bundled";
+  return "paid";
+}
+
+function storedDayRecords(stored: StoredFinalItinerary) {
+  const days = Array.isArray(stored.fullJson?.daily_itinerary) ? stored.fullJson.daily_itinerary : [];
+  return days
+    .map((day, index) => {
+      const record = getRecord(day);
+      const dayNumber = typeof record.day_number === "number" && Number.isFinite(record.day_number)
+        ? Math.max(1, Math.round(record.day_number))
+        : index + 1;
+      return {
+        dayNumber,
+        date: getString(record.date) || undefined,
+        day: record
+      };
+    })
+    .filter((day) => day.dayNumber > 0);
+}
+
+function completeDayStates(params: {
+  state: StagedGenerationState | null;
+  stored: StoredFinalItinerary;
+  completedAt: string;
+  totalDayCount: number;
+}) {
+  const existing = params.state?.days || {};
+  const days = { ...existing };
+  const storedDays = storedDayRecords(params.stored);
+  const fallbackDayNumbers = storedDays.length
+    ? storedDays.map((day) => day.dayNumber)
+    : Array.from({ length: params.totalDayCount }, (_, index) => index + 1);
+
+  for (const dayNumber of fallbackDayNumbers) {
+    const key = String(dayNumber);
+    const storedDay = storedDays.find((day) => day.dayNumber === dayNumber);
+    days[key] = {
+      ...(days[key] || {}),
+      dayNumber,
+      date: days[key]?.date || storedDay?.date,
+      status: "complete",
+      attemptCount: Math.max(days[key]?.attemptCount || 0, 1),
+      lastError: null,
+      completedAt: days[key]?.completedAt || params.completedAt,
+      updatedAt: params.completedAt
+    };
+  }
+
+  for (const [key, day] of Object.entries(days)) {
+    days[key] = {
+      ...day,
+      status: "complete",
+      lastError: null,
+      completedAt: day.completedAt || params.completedAt,
+      updatedAt: params.completedAt
+    };
+  }
+
+  return days;
+}
+
+function completeBatchStates(state: StagedGenerationState | null, completedAt: string) {
+  return Object.fromEntries(
+    Object.entries(state?.batches || {}).map(([id, batch]) => [
+      id,
+      {
+        ...batch,
+        status: "complete",
+        lastError: null,
+        completedAt: batch.completedAt || completedAt,
+        updatedAt: completedAt
+      }
+    ])
+  );
+}
+
+function generatedDaysFromStored(stored: StoredFinalItinerary) {
+  return Object.fromEntries(
+    storedDayRecords(stored).map((day) => [String(day.dayNumber), day.day])
+  );
+}
+
 function completedGenerationState(params: {
   state: StagedGenerationState | null;
   stored: StoredFinalItinerary;
   completedAt: string;
 }) {
-  if (!params.state) return null;
-  const totalDayCount = Math.max(params.state.totalDayCount || 0, params.stored.dayCount || 0);
-  const completedDayCount = Math.max(params.state.completedDayCount || 0, totalDayCount);
+  if (!params.state && !params.stored.exists) return null;
+  const totalDayCount = Math.max(params.state?.totalDayCount || 0, params.stored.dayCount || 0);
+  const completedDayCount = Math.max(params.state?.completedDayCount || 0, totalDayCount);
+  const days = completeDayStates({
+    state: params.state,
+    stored: params.stored,
+    completedAt: params.completedAt,
+    totalDayCount
+  });
+  const storedGeneratedDays = generatedDaysFromStored(params.stored);
   return {
-    ...params.state,
+    version: 2,
+    ...(params.state || {}),
     status: "complete" as const,
     currentStage: "complete" as const,
-    completedDayCount,
     totalDayCount,
-    completedAt: params.state.completedAt || params.completedAt,
+    completedDayCount,
+    days,
+    batches: completeBatchStates(params.state, params.completedAt),
+    generatedDays: {
+      ...(params.state?.generatedDays || {}),
+      ...storedGeneratedDays
+    },
+    payload: params.state?.payload || ({} as StagedGenerationState["payload"]),
+    completedAt: params.state?.completedAt || params.completedAt,
+    startedAt: params.state?.startedAt || params.completedAt,
     updatedAt: params.completedAt,
     worker: null,
     lastError: null,
@@ -175,7 +283,7 @@ async function findLatestGenerationJob(params: {
     .limit(1)
     .maybeSingle();
 
-  if (error) return { jobId: null, error: error.message };
+  if (error) return { jobId: null, error: [error.code, error.message].filter(Boolean).join(": ") };
   return { jobId: getString(data?.id) || null, error: null };
 }
 
@@ -202,17 +310,27 @@ async function finalizeQueueIfAvailable(params: {
   }
 
   if (lookupError && queueTableMissing(lookupError)) {
+    logGenerationDiagnostic("generation_queue_finalization_best_effort_failed", {
+      route: "generationFinalization",
+      source: "job_lookup",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: lookupError
+    });
     return { ok: true as const, jobId: null, skipped: true as const, error: lookupError };
   }
   if (lookupError) {
-    return params.requireQueueFinalization
-      ? { ok: false as const, jobId: null, skipped: true as const, error: lookupError }
-      : { ok: true as const, jobId: null, skipped: true as const, error: lookupError };
+    logGenerationDiagnostic("generation_queue_finalization_best_effort_failed", {
+      route: "generationFinalization",
+      source: "job_lookup",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: lookupError
+    });
+    return { ok: true as const, jobId: null, skipped: true as const, error: lookupError };
   }
   if (!jobId) {
-    return params.requireQueueFinalization
-      ? { ok: false as const, jobId: null, skipped: true as const, error: "GENERATION_JOB_NOT_FOUND" }
-      : { ok: true as const, jobId: null, skipped: true as const, error: "GENERATION_JOB_NOT_FOUND" };
+    return { ok: true as const, jobId: null, skipped: true as const, error: "GENERATION_JOB_NOT_FOUND" };
   }
 
   const finalized = await finalizeGenerationCompletion({
@@ -228,12 +346,60 @@ async function finalizeQueueIfAvailable(params: {
   }
 
   if (queueTableMissing(finalized.error)) {
+    logGenerationDiagnostic("generation_queue_finalization_best_effort_failed", {
+      route: "generationFinalization",
+      source: "queue_rpc",
+      tripId: params.tripId,
+      jobId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: finalized.error
+    });
     return { ok: true as const, jobId, skipped: true as const, error: finalized.error };
   }
 
-  return params.requireQueueFinalization
-    ? { ok: false as const, jobId, skipped: true as const, error: finalized.error }
-    : { ok: true as const, jobId, skipped: true as const, error: finalized.error };
+  logGenerationDiagnostic("generation_queue_finalization_best_effort_failed", {
+    route: "generationFinalization",
+    source: "queue_rpc",
+    tripId: params.tripId,
+    jobId,
+    supabaseHost: getPublicSupabaseHost(),
+    errorCode: finalized.error
+  });
+  return { ok: true as const, jobId, skipped: true as const, error: finalized.error };
+}
+
+function finalizedMetadata(params: {
+  metadata: unknown;
+  generationState: Record<string, unknown> | null;
+  completedAt: string;
+}) {
+  const metadata = getRecord(params.metadata);
+  const generatedItinerary = getOptionalRecord(metadata.generatedItinerary);
+  const itinerary = getOptionalRecord(metadata.itinerary);
+  return {
+    ...metadata,
+    ...(generatedItinerary
+      ? {
+          generatedItinerary: {
+            ...generatedItinerary,
+            status: "generated",
+            updated_at: getString(generatedItinerary.updated_at) || params.completedAt,
+            generated_at: getString(generatedItinerary.generated_at) || params.completedAt
+          }
+        }
+      : {}),
+    ...(itinerary
+      ? {
+          itinerary: {
+            ...itinerary,
+            status: "generated",
+            updated_at: getString(itinerary.updated_at) || params.completedAt,
+            generated_at: getString(itinerary.generated_at) || params.completedAt
+          }
+        }
+      : {}),
+    ...(params.generationState ? { generation: params.generationState } : {})
+  };
 }
 
 async function finalizeTripDirectly(params: {
@@ -241,20 +407,26 @@ async function finalizeTripDirectly(params: {
   trip: FinalizationTrip;
   generationState: Record<string, unknown> | null;
   completedAt: string;
+  unlockSource: RoamlyItineraryUnlockSource;
 }) {
-  const metadata = getRecord(params.trip.metadata);
   const { error } = await params.supabase
     .from("roamly_trips")
     .update({
       status: "generated",
       itinerary_status: "generated",
+      itinerary_locked: true,
+      itinerary_locked_at: params.trip.itinerary_locked_at || params.completedAt,
       itinerary_generated_at: params.trip.itinerary_generated_at || params.completedAt,
-      metadata: params.generationState
-        ? {
-            ...metadata,
-            generation: params.generationState
-          }
-        : metadata,
+      itinerary_unlock_source: params.trip.itinerary_unlock_source || params.unlockSource,
+      itinerary_payment_status:
+        params.trip.itinerary_payment_status && params.trip.itinerary_payment_status !== "unpaid"
+          ? params.trip.itinerary_payment_status
+          : paymentStatusForUnlockSource(params.unlockSource),
+      metadata: finalizedMetadata({
+        metadata: params.trip.metadata,
+        generationState: params.generationState,
+        completedAt: params.completedAt
+      }),
       updated_at: params.completedAt
     })
     .eq("id", params.trip.id)
@@ -296,10 +468,19 @@ export async function finalizeCompletedStagedGeneration(params: {
     await markFreeItineraryUsed(supabase, trip.user_id, trip.id).catch(() => null);
   }
 
-  if (!trip.itinerary_locked && trip.itinerary_status !== "locked" && !trip.itinerary_generated_at) {
+  if (!trip.itinerary_locked || !trip.itinerary_generated_at) {
     const lock = await lockGeneratedItinerary(supabase, trip.user_id, trip.id, unlockSource);
     if (lock.error) return { ok: false as const, error: lock.error.message };
   }
+
+  const direct = await finalizeTripDirectly({
+    supabase,
+    trip,
+    generationState,
+    completedAt,
+    unlockSource
+  });
+  if (!direct.ok) return direct;
 
   const queueFinalization = await finalizeQueueIfAvailable({
     supabase,
@@ -313,16 +494,6 @@ export async function finalizeCompletedStagedGeneration(params: {
 
   if (!queueFinalization.ok) {
     return { ok: false as const, error: queueFinalization.error || "GENERATION_QUEUE_FINALIZATION_FAILED" };
-  }
-
-  if (queueFinalization.skipped) {
-    const direct = await finalizeTripDirectly({
-      supabase,
-      trip,
-      generationState,
-      completedAt
-    });
-    if (!direct.ok) return direct;
   }
 
   const email =
@@ -353,6 +524,7 @@ export async function finalizeCompletedStagedGeneration(params: {
 export async function recoverCompletedStoredGenerations(params: {
   supabase?: SupabaseClient | null;
   limit?: number;
+  tripId?: string | null;
 }) {
   const supabase = adminOrClient(params.supabase);
   if (!supabase) {
@@ -365,12 +537,17 @@ export async function recoverCompletedStoredGenerations(params: {
   }
 
   const limit = Math.max(1, Math.min(200, Math.round(params.limit || 50)));
-  const { data, error } = await supabase
+  let query = supabase
     .from("roamly_trips")
     .select("id,user_id,metadata,status,itinerary_status,updated_at")
-    .or("status.eq.generating,itinerary_status.eq.generating")
     .order("updated_at", { ascending: false })
     .limit(limit);
+  if (params.tripId) {
+    query = query.eq("id", params.tripId);
+  } else {
+    query = query.or("status.eq.generating,itinerary_status.eq.generating");
+  }
+  const { data, error } = await query;
 
   if (error) {
     return {

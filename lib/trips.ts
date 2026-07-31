@@ -58,6 +58,17 @@ export type RoamlyTripRecord = {
   tracking_paid_at?: string | null;
   tracking_stripe_checkout_session_id?: string | null;
   tracking_stripe_payment_intent_id?: string | null;
+  completion_email_status?: string | null;
+  completion_email_sent_at?: string | null;
+  completion_email_provider_id?: string | null;
+  completion_email_attempt_count?: number | null;
+  completion_email_last_error?: string | null;
+  completion_email_next_retry_at?: string | null;
+  completion_email_idempotency_key?: string | null;
+  completion_email_recipient_source?: string | null;
+  completion_email_link?: string | null;
+  completion_email_permanent_failure?: boolean | null;
+  completion_email_last_attempt_at?: string | null;
   created_at: string;
   updated_at: string;
   metadata?: Record<string, unknown> | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
@@ -186,6 +187,7 @@ export function StagedGenerationProgress({
   backgroundWorkerConfigured: boolean;
   apiAuthToken?: string;
 }) {
+  const router = useRouter();
   const [progress, setProgress] = useState(initialProgress);
   const [queueProgress, setQueued] = useState<Queued | null>(null);
   const [busyRetryId, setBusyRetryId] = useState("");
@@ -195,6 +197,7 @@ export function StagedGenerationProgress({
   const unchangedPollCount = useRef(0);
   const lastProgressSignature = useRef("");
   const lastProgressMovementAtRef = useRef(Date.now());
+  const terminalRefreshQueued = useRef(false);
   const [lastProgressMovementAt, setLastProgressMovementAt] = useState<number>(Date.now());
   const [staleProgress, setStaleProgress] = useState(false);
   const stopped = isTerminalStatus(progress.status);
@@ -218,11 +221,15 @@ export function StagedGenerationProgress({
     if (shouldRefresh && (next.completedDayCount !== refreshedDayCount.current || isTerminalStatus(next.status))) {
       refreshedDayCount.current = next.completedDayCount;
       // Generation page polls the backend.
-      // Do not refresh the App Router here because it remounts
-      // the planner and interrupts generation.
+      // Refresh only after completion so the saved itinerary replaces
+      // the progress panel without interrupting active generation.
 
     }
-  }, []);
+    if (next.status === "complete" && !terminalRefreshQueued.current) {
+      terminalRefreshQueued.current = true;
+      window.setTimeout(() => router.refresh(), 50);
+    }
+  }, [router]);
 
   const applyQueue = useCallback((next: Queued | null | undefined) => {
     if (!next) return;

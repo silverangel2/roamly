@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const tripId = url.searchParams.get("tripId")?.trim() || null;
 
   if (!supabase) {
     return NextResponse.json(
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await reconcileCompletedGenerationJobs({ supabase, limit: 50 });
+  const result = tripId
+    ? { ok: true as const, repairedCount: 0, repaired: [], error: undefined }
+    : await reconcileCompletedGenerationJobs({ supabase, limit: 50 });
   if (!result.ok && !queueTableMissing(result.error)) {
     return NextResponse.json(
       { ok: false, step: "reconcile_completed_generation_jobs", error: result.error },
@@ -30,7 +33,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const recovered = await recoverCompletedStoredGenerations({ supabase, limit: 50 });
+  const recovered = await recoverCompletedStoredGenerations({ supabase, limit: tripId ? 1 : 50, tripId });
   if (!recovered.ok) {
     return NextResponse.json(
       {

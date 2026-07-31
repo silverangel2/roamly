@@ -547,7 +547,7 @@ export async function markQueueFromLegacyState(params: {
 export function queueTableMissing(message?: string | null) {
   return Boolean(
     message &&
-      /roamly_trip_generation_(jobs|layers)|roamly_(claim|release|complete|schedule|skip|renew|requeue|invalidate)_generation|schema cache|does not exist|could not find the (table|function)/i.test(
+      /PGRST20[25]|roamly_trip_generation_(jobs|layers)|roamly_(claim|release|complete|schedule|skip|renew|requeue|invalidate|finalize|reconcile)_generation|schema cache|does not exist|could not find (public\.)?roamly_trip_generation_jobs|could not find the (table|function)/i.test(
         message
       )
   );
@@ -557,8 +557,8 @@ export function safeJsonRecord(value: unknown) {
   return getRecord(value);
 }
 
-function rpcError(error: { message?: string } | null | undefined) {
-  return error?.message || "GENERATION_QUEUE_RPC_FAILED";
+function rpcError(error: { code?: string; message?: string } | null | undefined) {
+  return [error?.code, error?.message].filter(Boolean).join(": ") || "GENERATION_QUEUE_RPC_FAILED";
 }
 
 export async function claimGenerationJobs(params: {

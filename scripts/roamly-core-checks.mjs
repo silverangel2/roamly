@@ -374,6 +374,7 @@ assert.ok(statusRoute.includes("isFinalStoredItinerary"), "generation status rou
 assert.ok(statusRoute.includes("hasFullItinerary"), "generation status route must mark validated stored itineraries as complete");
 assert.ok(statusRoute.includes("hasFinalStoredItineraryInMetadata"), "generation status route must recover from metadata-saved final itineraries");
 assert.ok(statusRoute.includes("status_route_stored_itinerary_recovery"), "generation status route must run direct completion recovery for stale building trips");
+assert.ok(statusRoute.includes("getGenerationEmailStatus") && statusRoute.includes("completionEmailMissing"), "generation status route must recover missing completion emails for completed stored itineraries");
 assert.ok(statusRoute.includes("queueTableMissing(jobsResult.error.message)") && statusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
 const generationStatusExports = loadTsModule("lib/roamly/generationStatus.ts");
 const completedGenerationState = generationStatusExports.deriveTripGenerationStatus({
@@ -421,14 +422,20 @@ const generationFinalization = read("lib/roamly/generationFinalization.ts");
   "FINAL_ITINERARY_NOT_SAVED",
   "queueTableMissing(lookupError)",
   "queueTableMissing(finalized.error)",
+  "generation_queue_finalization_best_effort_failed",
   "finalizeTripDirectly",
   "status: \"generated\"",
   "itinerary_status: \"generated\"",
+  "itinerary_locked: true",
   "itinerary_generated_at",
+  "completeDayStates",
+  "completedGenerationState",
   "worker: null",
   "sendStagedGenerationEmail",
   "kind: \"completion\""
 ].forEach((needle) => assert.ok(generationFinalization.includes(needle), `generation finalization helper missing ${needle}`));
+assert.ok(!generationFinalization.includes("if (queueFinalization.skipped)"), "direct trip completion must not depend on skipped queue finalization");
+assert.ok(generationFinalization.includes("tripId?: string | null"), "stored generation recovery must support targeted trip repair without regenerating");
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
@@ -446,7 +453,8 @@ const generationQueue = read("lib/roamly/generationQueue.ts");
   "dead_lettered_at",
   "estimated_cost_json",
   "could not find the (table|function)",
-  "roamly_(claim|release|complete|schedule|skip|renew|requeue|invalidate)_generation"
+  "PGRST20[25]",
+  "roamly_(claim|release|complete|schedule|skip|renew|requeue|invalidate|finalize|reconcile)_generation"
 ].forEach((needle) => assert.ok(generationQueue.includes(needle), `generation queue helper missing ${needle}`));
 
 const generationScalability = read("lib/roamly/generationScalability.ts");
@@ -1253,6 +1261,8 @@ assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progr
   "Generation failed — Retry",
   "simpleGenerationState",
   "trackPollMovement(data?.progress, data?.queue)",
+  "terminalRefreshQueued",
+  "router.refresh()",
   "advanceProgress"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
 ["Trip understood", "Creating your days", "Checking your plan", "Finalizing", "Current step"].forEach((needle) =>
@@ -1263,6 +1273,9 @@ const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnos
 ["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
   assert.ok(generationDiagnosticsRoute.includes(needle), `generation diagnostics route missing ${needle}`)
 );
+
+const completedGenerationRepairRoute = read("app/api/admin/roamly/repair-completed-generations/route.ts");
+assert.ok(completedGenerationRepairRoute.includes("tripId") && completedGenerationRepairRoute.includes("recoverCompletedStoredGenerations"), "completed generation repair route must support targeted stored-itinerary recovery");
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
 [
@@ -1281,6 +1294,8 @@ const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
   "transactional: true",
   "idempotencyKey",
   "findDeliveredGenerationEmail",
+  "getGenerationEmailStatusForTrip",
+  "deliveredByColumn",
   "roamly_email_logs",
   ".eq(\"idempotency_key\", key)",
   "Generation email already sent."

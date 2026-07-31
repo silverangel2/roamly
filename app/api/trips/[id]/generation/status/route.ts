@@ -11,6 +11,7 @@ import {
   publicQueueProgress,
   queueTableMissing
 } from "@/lib/roamly/generationQueue";
+import { getGenerationEmailStatus } from "@/lib/roamly/itineraryGenerationEmail";
 import {
   deriveTripGenerationStatus,
   type StagedGenerationStatusJobRow,
@@ -102,11 +103,21 @@ export async function GET(
     hasFinalStoredItineraryInMetadata(data.metadata) ||
       itineraryResult.data?.some((item) => isFinalStoredItinerary((item as { full_json?: unknown }).full_json))
   );
+  const emailStatus = getGenerationEmailStatus(data.metadata);
+  const completionEmailMissing = Boolean(
+    emailStatus.email_me_when_ready !== false &&
+      !emailStatus.completion_email_sent_at &&
+      emailStatus.completion_email_status !== "sent" &&
+      emailStatus.completion_email_status !== "captured" &&
+      emailStatus.delivery_status !== "sent" &&
+      emailStatus.delivery_status !== "captured"
+  );
   const needsStoredItineraryRecovery = Boolean(
     hasFullItinerary &&
       (metadataProgress.status !== "complete" ||
         data.status === "generating" ||
-        data.itinerary_status === "generating")
+        data.itinerary_status === "generating" ||
+        completionEmailMissing)
   );
   const recovery = needsStoredItineraryRecovery
     ? await finalizeCompletedStagedGeneration({
@@ -127,8 +138,8 @@ export async function GET(
       : publicQueueProgress(queue, data.metadata);
   const queueRecord = queueProgress as Record<string, unknown> | null;
   const derived = deriveTripGenerationStatus({
-    tripStatus: data.status,
-    itineraryStatus: data.itinerary_status,
+    tripStatus: recovery?.ok ? "generated" : data.status,
+    itineraryStatus: recovery?.ok ? "generated" : data.itinerary_status,
     metadataProgress,
     latestJob,
     layers,

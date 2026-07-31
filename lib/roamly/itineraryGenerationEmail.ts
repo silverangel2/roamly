@@ -80,6 +80,50 @@ export function getGenerationEmailStatus(metadata: unknown): GenerationEmailStat
   };
 }
 
+function getGenerationEmailStatusForTrip(trip: RoamlyTripRecord) {
+  const metadataState = getGenerationEmailStatus(trip.metadata);
+  const columnStatus =
+    trip.completion_email_status === "pending" ||
+    trip.completion_email_status === "sending" ||
+    trip.completion_email_status === "sent" ||
+    trip.completion_email_status === "failed" ||
+    trip.completion_email_status === "skipped" ||
+    trip.completion_email_status === "captured"
+      ? trip.completion_email_status
+      : null;
+  const columnRecipientSource =
+    trip.completion_email_recipient_source === "auth" || trip.completion_email_recipient_source === "profile"
+      ? trip.completion_email_recipient_source
+      : null;
+  const deliveredByColumn = Boolean(
+    trip.completion_email_sent_at ||
+      columnStatus === "sent" ||
+      columnStatus === "captured"
+  );
+
+  return {
+    ...metadataState,
+    delivery_status: deliveredByColumn
+      ? columnStatus || metadataState.delivery_status || "sent"
+      : metadataState.delivery_status || columnStatus,
+    completion_email_status: deliveredByColumn
+      ? columnStatus || metadataState.completion_email_status || "sent"
+      : metadataState.completion_email_status || columnStatus,
+    completion_email_sent_at: metadataState.completion_email_sent_at || trip.completion_email_sent_at || null,
+    completion_email_provider_id: metadataState.completion_email_provider_id || trip.completion_email_provider_id || null,
+    completion_email_attempt_count:
+      metadataState.completion_email_attempt_count ?? trip.completion_email_attempt_count ?? null,
+    completion_email_last_error: metadataState.completion_email_last_error || trip.completion_email_last_error || null,
+    completion_email_next_retry_at: metadataState.completion_email_next_retry_at || trip.completion_email_next_retry_at || null,
+    completion_email_idempotency_key: metadataState.completion_email_idempotency_key || trip.completion_email_idempotency_key || null,
+    completion_email_recipient_source: metadataState.completion_email_recipient_source || columnRecipientSource,
+    completion_email_link: metadataState.completion_email_link || trip.completion_email_link || null,
+    completion_email_permanent_failure:
+      metadataState.completion_email_permanent_failure === true || trip.completion_email_permanent_failure === true,
+    last_email_attempt_at: metadataState.last_email_attempt_at || trip.completion_email_last_attempt_at || null
+  };
+}
+
 function siteUrl() {
   for (const value of [process.env.NEXT_PUBLIC_APP_URL, process.env.NEXT_PUBLIC_SITE_URL]) {
     const configured = (value || "").trim().replace(/\/$/, "");
@@ -346,7 +390,7 @@ async function updateGenerationEmailMetadata(
   patch: GenerationEmailState
 ) {
   const metadata = getMetadata(trip);
-  const current = getGenerationEmailStatus(metadata);
+  const current = getGenerationEmailStatusForTrip(trip);
   const generationEmail = {
     ...current,
     ...patch,
@@ -405,7 +449,7 @@ export async function sendStagedGenerationEmail(params: {
   const trip = await loadTrip(admin, params.tripId);
   if (!trip) return { ok: false, status: "skipped" as const, error: "Trip not found." };
 
-  const current = getGenerationEmailStatus(trip.metadata);
+  const current = getGenerationEmailStatusForTrip(trip);
   if (current.email_me_when_ready === false) return { ok: false, status: "skipped" as const, error: "Email notification disabled." };
   if (alreadySent(current, params.kind)) return { ok: true, status: "skipped" as const, error: "Generation email already sent." };
   if (recentlySending(current)) return { ok: true, status: "skipped" as const, error: "Generation email is already being sent." };
