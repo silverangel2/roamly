@@ -36,6 +36,10 @@ function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function numeric(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
 function summaryErrorMessages(summary: unknown) {
   const root = record(summary);
   const messages = typeof root.error === "string" ? [root.error] : [];
@@ -45,6 +49,32 @@ function summaryErrorMessages(summary: unknown) {
     if (typeof error === "string" && error) messages.push(error);
   }
   return messages;
+}
+
+export function outlineCompletedNeedsFirstDayContinuation(summary: unknown) {
+  const root = record(summary);
+  const results: unknown[] = Array.isArray(root.results) ? root.results : [];
+
+  return results.some((result) => {
+    const item = record(result);
+    const progress = record(item.progress);
+    const stageRuns = Array.isArray(progress.stageRuns)
+      ? progress.stageRuns.map((run) => record(run))
+      : [];
+    const latestStageRun = stageRuns.at(-1) || {};
+    const hasDayBatchRun = stageRuns.some((run) => run.stage === "day_batch");
+
+    return (
+      item.advanced === true &&
+      item.terminal !== true &&
+      progress.status === "generating_day" &&
+      numeric(progress.totalDayCount) > 0 &&
+      numeric(progress.completedDayCount) === 0 &&
+      latestStageRun.stage === "outline" &&
+      latestStageRun.status === "success" &&
+      !hasDayBatchRun
+    );
+  });
 }
 
 async function queueUnavailableFromSummary(summary: unknown) {
@@ -178,6 +208,7 @@ export function scheduleStagedGenerationAdvance(params: ScheduleStagedGeneration
 
   after(async () => {
     let shouldRunLocalFallback = params.directFallbackOnly || !secret;
+    let fallbackReason = params.reason;
 
     if (params.directFallbackOnly) {
       logGenerationDiagnostic("staged_generation_background_direct_fallback_selected", {
@@ -213,7 +244,18 @@ export function scheduleStagedGenerationAdvance(params: ScheduleStagedGeneration
           cache: "no-store"
         });
         const body = await response.json().catch(() => null);
-        shouldRunLocalFallback = response.status === 401 || (await queueUnavailableFromSummary(body));
+        const outlineToFirstDay = outlineCompletedNeedsFirstDayContinuation(body);
+        shouldRunLocalFallback = response.status === 401 || (await queueUnavailableFromSummary(body)) || outlineToFirstDay;
+        if (outlineToFirstDay) {
+          fallbackReason = `${params.reason}:outline_to_first_day`;
+          logGenerationDiagnostic("staged_generation_background_outline_to_first_day_continuation", {
+            requestId: params.requestId,
+            tripId: params.tripId,
+            route: "stagedGenerationBackground",
+            supabaseHost: getPublicSupabaseHost(),
+            reason: params.reason
+          });
+        }
 
         if (!response.ok) {
           logGenerationDiagnostic("staged_generation_background_trigger_non_ok", {
@@ -242,13 +284,13 @@ export function scheduleStagedGenerationAdvance(params: ScheduleStagedGeneration
 
     if (!shouldRunLocalFallback) return;
 
-    await runLocalWorkerFallback(params).catch((error) => {
+    await runLocalWorkerFallback({ ...params, reason: fallbackReason }).catch((error) => {
       logGenerationDiagnostic("staged_generation_background_trigger_failed", {
         requestId: params.requestId,
         tripId: params.tripId,
         route: "stagedGenerationBackground",
         supabaseHost: getPublicSupabaseHost(),
-        reason: params.reason,
+        reason: fallbackReason,
         errorCode: error instanceof Error ? error.name : "LOCAL_BACKGROUND_FALLBACK_FAILED"
       });
     });

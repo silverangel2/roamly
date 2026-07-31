@@ -1401,6 +1401,67 @@ assert.ok(generationBackground.includes("local_after_fallback"), "background tri
 assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
 assert.ok(generationBackground.includes("background_direct_fallback_completion"), "generation background direct fallback must finalize completed staged generations");
 assert.ok(generationBackground.includes("staged_generation_background_direct_fallback_finalized"), "generation background direct fallback must log finalization results");
+assert.ok(generationBackground.includes("outlineCompletedNeedsFirstDayContinuation"), "generation background must detect outline-only worker completions");
+assert.ok(generationBackground.includes("outline_to_first_day"), "generation background must immediately continue from outline to the first day batch");
+const generationBackgroundExports = loadTsModule("lib/roamly/stagedGenerationBackground.ts");
+assert.equal(
+  generationBackgroundExports.outlineCompletedNeedsFirstDayContinuation({
+    ok: true,
+    results: [
+      {
+        ok: true,
+        advanced: true,
+        terminal: false,
+        progress: {
+          status: "generating_day",
+          currentStage: "generating_day",
+          completedDayCount: 0,
+          totalDayCount: 3,
+          stageRuns: [
+            {
+              stage: "outline",
+              status: "success",
+              attemptNumber: 1
+            }
+          ],
+          batches: [
+            {
+              id: "batch-1",
+              dayNumbers: [1],
+              status: "queued"
+            }
+          ]
+        }
+      }
+    ]
+  }),
+  true,
+  "outline-only worker completion must automatically request the first day batch"
+);
+assert.equal(
+  generationBackgroundExports.outlineCompletedNeedsFirstDayContinuation({
+    ok: true,
+    results: [
+      {
+        ok: true,
+        advanced: true,
+        terminal: false,
+        progress: {
+          status: "generating_day",
+          currentStage: "generating_day",
+          completedDayCount: 1,
+          totalDayCount: 3,
+          stageRuns: [
+            { stage: "outline", status: "success", attemptNumber: 1 },
+            { stage: "day_batch", status: "success", attemptNumber: 1, dayNumbers: [1] }
+          ]
+        }
+      }
+    ]
+  }),
+  false,
+  "completed Day 1 worker progress must not request another outline-to-first-day continuation"
+);
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");

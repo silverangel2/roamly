@@ -839,6 +839,8 @@ assert.ok(generationBackground.includes("local_after_fallback"), "generation bac
 assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "generation background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
 assert.ok(generationBackground.includes("background_direct_fallback_completion"), "generation background direct fallback must finalize completed staged generations");
 assert.ok(generationBackground.includes("staged_generation_background_direct_fallback_finalized"), "generation background direct fallback must log finalization results");
+assert.ok(generationBackground.includes("outlineCompletedNeedsFirstDayContinuation"), "generation background must detect outline-only worker completions");
+assert.ok(generationBackground.includes("outline_to_first_day"), "generation background must immediately continue from outline to the first day batch");
 
 const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnostics/route.ts");
 ["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
