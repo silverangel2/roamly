@@ -469,6 +469,7 @@ export async function markQueueFromLegacyState(params: {
   tripId: string;
   userId: string;
   metadata: unknown;
+  preserveRunningStatus?: boolean;
 }) {
   const state = getStagedGenerationState(params.metadata);
   if (!state) return { ok: true as const, skipped: true };
@@ -490,6 +491,37 @@ export async function markQueueFromLegacyState(params: {
       : state.status === "failed" || state.status === "partially_failed"
         ? "failed"
         : "waiting";
+
+  if (params.preserveRunningStatus) {
+    const supabase = adminOrClient(params.supabase);
+    if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+    const runningUpdate = await supabase
+      .from("roamly_trip_generation_jobs")
+      .update({
+        current_stage: stageByLegacy[state.currentStage] || "daily_itinerary_generation"
+      })
+      .eq("trip_id", params.tripId)
+      .eq("user_id", params.userId)
+      .eq("status", "running");
+    if (runningUpdate.error && !/does not exist|schema cache/i.test(runningUpdate.error.message)) {
+      return { ok: false as const, error: runningUpdate.error.message };
+    }
+
+    const inactiveUpdate = await supabase
+      .from("roamly_trip_generation_jobs")
+      .update({
+        current_stage: stageByLegacy[state.currentStage] || "daily_itinerary_generation",
+        status
+      })
+      .eq("trip_id", params.tripId)
+      .eq("user_id", params.userId)
+      .in("status", ["queued", "waiting", "failed"]);
+    if (inactiveUpdate.error && !/does not exist|schema cache/i.test(inactiveUpdate.error.message)) {
+      return { ok: false as const, error: inactiveUpdate.error.message };
+    }
+    return { ok: true as const };
+  }
+
   return markQueueCurrentStage({
     supabase: params.supabase,
     tripId: params.tripId,

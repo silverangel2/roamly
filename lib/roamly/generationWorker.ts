@@ -356,13 +356,6 @@ async function finishTerminalJob(params: {
   workerId: string;
   state: NonNullable<ReturnType<typeof getStagedGenerationState>>;
 }) {
-  await markQueueFromLegacyState({
-    supabase: params.admin,
-    tripId: params.job.trip_id,
-    userId: params.job.user_id,
-    metadata: { generation: params.state }
-  });
-
   let email: unknown = null;
   if (params.state.status === "complete") {
     await skipRemainingGenerationLayers({
@@ -379,6 +372,9 @@ async function finishTerminalJob(params: {
       .from("roamly_trip_generation_jobs")
       .update({
         status: "completed",
+        locked_at: null,
+        locked_by: null,
+        lease_expires_at: null,
         completed_at: completedAt,
         updated_at: completedAt
       })
@@ -412,6 +408,12 @@ async function finishTerminalJob(params: {
       kind: "failure"
     });
   }
+  await markQueueFromLegacyState({
+    supabase: params.admin,
+    tripId: params.job.trip_id,
+    userId: params.job.user_id,
+    metadata: { generation: params.state }
+  });
   return email;
 }
 
@@ -646,7 +648,8 @@ async function processClaimedJob(params: {
         supabase: params.admin,
         tripId: params.job.trip_id,
         userId: params.job.user_id,
-        metadata: { generation: result.state }
+        metadata: { generation: result.state },
+        preserveRunningStatus: true
       });
 
       if (terminalStatus(result.state.status)) {
