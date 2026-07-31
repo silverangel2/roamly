@@ -1446,7 +1446,6 @@ async function completeGeneration(params: {
       model: completed.model || null
     }
   });
-  await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "completion", requestId: params.requestId });
   return { state: completed, itinerary, validationFailed: false as const, validationErrors: [] };
 }
 
@@ -1462,11 +1461,13 @@ export async function advanceStagedItineraryGeneration(params: {
   const initialState = getStagedGenerationState(initialTrip.metadata);
   if (!initialState) throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
   if (initialState.status === "complete" || initialState.status === "failed" || initialState.status === "partially_failed") {
-    await sendGenerationEmailSafely({
-      tripId: params.tripId,
-      kind: initialState.status === "complete" ? "completion" : "failure",
-      requestId: params.requestId
-    });
+    if (initialState.status !== "complete") {
+      await sendGenerationEmailSafely({
+        tripId: params.tripId,
+        kind: "failure",
+        requestId: params.requestId
+      });
+    }
     return { ok: true, status: initialState.status, state: initialState, advanced: false };
   }
 

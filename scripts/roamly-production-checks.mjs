@@ -569,7 +569,7 @@ assert.ok(stagedGenerator.includes("45_000"), "staged day generation timeout mus
 assert.ok(stagedGenerator.includes("plannedDayBatches"), "staged generation must batch days instead of generating one item per request");
 assert.ok(stagedGenerator.includes("BATCH_ATTEMPT_LIMIT"), "staged generation must cap failed-stage retries");
 assert.ok(stagedGenerator.includes("generatedDays"), "staged generation must preserve completed days across failures");
-assert.ok(stagedGenerator.includes("finalizeStagedGenerationNotification"), "staged generation must finalize terminal transactional emails");
+assert.ok(!stagedGenerator.includes('sendGenerationEmailSafely({ tripId: params.trip.id, kind: "completion"'), "staged generation must not email completion before durable finalization");
 assert.ok(stagedGenerator.includes("generationEmail"), "staged generation must persist email notification state");
 assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not silently save template fallback itineraries");
 
@@ -631,7 +631,7 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "advanceStagedItineraryGeneration",
   "sendStagedGenerationEmail",
   "finalizeStoredFullItinerary",
-  "STORED_ITINERARY_COMPLETED",
+  "finalizeGenerationCompletion",
   "scheduleGenerationLayerRetry",
   "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
@@ -641,6 +641,12 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "recoveredAfterThrow",
   "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
+assert.ok(
+  generationWorker.indexOf("const finalized = await finalizeGenerationCompletion") >= 0 &&
+    generationWorker.indexOf("sendStagedGenerationEmail({", generationWorker.indexOf("const finalized = await finalizeGenerationCompletion")) >
+      generationWorker.indexOf("const finalized = await finalizeGenerationCompletion"),
+  "completion email must be sent only after durable terminal finalization succeeds"
+);
 
 const generationScalabilityMigration = read("supabase/migrations/20260715_roamly_generation_scalability.sql");
 [
@@ -725,6 +731,16 @@ const generationWorkerMigration = read("supabase/migrations/20260715_roamly_gene
 ["roamly_claim_generation_job_by_trip", "roamly_release_generation_layer", "roamly_skip_remaining_generation_layers", "for update skip locked"].forEach((needle) =>
   assert.ok(generationWorkerMigration.toLowerCase().includes(needle.toLowerCase()), `worker migration missing ${needle}`)
 );
+const generationFinalizationMigration = read("supabase/migrations/20260731_roamly_generation_queue_postgrest_finalization.sql");
+[
+  "grant select on table public.roamly_trip_generation_jobs to anon, authenticated",
+  "grant all privileges on table public.roamly_trip_generation_jobs to service_role",
+  "grant select on table public.roamly_trip_generation_layers to anon, authenticated",
+  "grant all privileges on table public.roamly_trip_generation_layers to service_role",
+  "roamly_finalize_generation_completion",
+  "roamly_reconcile_completed_generation_jobs",
+  "notify pgrst, 'reload schema'"
+].forEach((needle) => assert.ok(generationFinalizationMigration.includes(needle), `generation finalization migration missing ${needle}`));
 
 const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must run after the response");

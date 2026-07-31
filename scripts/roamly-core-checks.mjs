@@ -383,7 +383,7 @@ const completedGenerationState = generationStatusExports.deriveTripGenerationSta
   queueProgress: { completedLayerCount: 2, totalLayerCount: 2 }
 });
 assert.equal(completedGenerationState.progressStatus, "complete", "completed staged generation must return complete progress");
-assert.equal(completedGenerationState.status, "generated", "completed staged generation must return generated trip state");
+assert.equal(completedGenerationState.status, "complete", "completed staged generation status endpoint must return complete");
 const storedFullGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
@@ -394,7 +394,7 @@ const storedFullGenerationState = generationStatusExports.deriveTripGenerationSt
   hasFullItinerary: true
 });
 assert.equal(storedFullGenerationState.progressStatus, "complete", "stored final itinerary must return complete progress");
-assert.equal(storedFullGenerationState.status, "generated", "stored final itinerary must return generated trip state");
+assert.equal(storedFullGenerationState.status, "complete", "stored final itinerary status endpoint must return complete");
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
@@ -405,6 +405,8 @@ const generationQueue = read("lib/roamly/generationQueue.ts");
   "queueTableMissing",
   "invalidateGenerationLayers",
   "requeueInvalidatedGenerationLayers",
+  "finalizeGenerationCompletion",
+  "reconcileCompletedGenerationJobs",
   "paid_priority",
   "duplicate_request_key",
   "dead_lettered_at",
@@ -923,6 +925,23 @@ const generationQueueMigration = read("supabase/migrations/20260715_roamly_gener
 assert.ok(generationQueueMigration.includes("status in ('queued', 'running', 'waiting', 'completed', 'failed', 'cancelled')"), "generation job statuses must be constrained");
 assert.ok(generationQueueMigration.includes("status in ('pending', 'running', 'completed', 'failed', 'skipped', 'invalidated')"), "generation layer statuses must be constrained");
 
+const generationFinalizationMigration = read("supabase/migrations/20260731_roamly_generation_queue_postgrest_finalization.sql");
+[
+  "grant select on table public.roamly_trip_generation_jobs to anon, authenticated",
+  "grant all privileges on table public.roamly_trip_generation_jobs to service_role",
+  "grant select on table public.roamly_trip_generation_layers to anon, authenticated",
+  "grant all privileges on table public.roamly_trip_generation_layers to service_role",
+  "create policy \"Roamly users read own generation jobs\"",
+  "create policy \"Roamly users read own generation layers\"",
+  "roamly_finalize_generation_completion",
+  "roamly_reconcile_completed_generation_jobs",
+  "status = 'completed'",
+  "locked_at = null",
+  "locked_by = null",
+  "lease_expires_at = null",
+  "notify pgrst, 'reload schema'"
+].forEach((needle) => assert.ok(generationFinalizationMigration.includes(needle), `generation finalization migration missing ${needle}`));
+
 const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts");
 assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must be protected by accepted bearer secrets");
@@ -947,7 +966,7 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "advanceStagedItineraryGeneration",
   "sendStagedGenerationEmail",
   "finalizeStoredFullItinerary",
-  "STORED_ITINERARY_COMPLETED",
+  "finalizeGenerationCompletion",
   "recordGenerationCostEvent",
   "worker_execution",
   "model_tokens",
@@ -962,6 +981,16 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "recoveredAfterThrow",
   "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
+assert.ok(
+  generationWorker.indexOf("const finalized = await finalizeGenerationCompletion") >= 0 &&
+    generationWorker.indexOf("sendStagedGenerationEmail({", generationWorker.indexOf("const finalized = await finalizeGenerationCompletion")) >
+      generationWorker.indexOf("const finalized = await finalizeGenerationCompletion"),
+  "completion email must be sent only after terminal queue finalization succeeds"
+);
+assert.ok(
+  !stagedGenerator.includes('sendGenerationEmailSafely({ tripId: params.trip.id, kind: "completion"'),
+  "staged generator must not send completion email before queue finalization"
+);
 
 const generationScalabilityMigration = read("supabase/migrations/20260715_roamly_generation_scalability.sql");
 [

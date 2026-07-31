@@ -107,8 +107,8 @@ export function deriveTripGenerationStatus({
   return {
     isComplete,
     isFailed,
-    status: isComplete ? "generated" : tripStatus || "draft",
-    itineraryStatus: isComplete ? "generated" : itineraryStatus || "draft",
+    status: isComplete ? "complete" : tripStatus || "draft",
+    itineraryStatus: isComplete ? "complete" : itineraryStatus || "draft",
     progressStatus,
     completedLayerCount,
     totalLayerCount,

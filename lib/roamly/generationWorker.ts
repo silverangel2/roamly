@@ -12,15 +12,14 @@ import {
   claimGenerationJobByTrip,
   claimGenerationJobs,
   claimGenerationLayer,
-  completeGenerationJob,
   completeGenerationLayer,
   createOrResumeGenerationJob,
+  finalizeGenerationCompletion,
   markQueueFromLegacyState,
   releaseGenerationJob,
   releaseGenerationLayer,
   scheduleGenerationJobRetry,
   scheduleGenerationLayerRetry,
-  skipRemainingGenerationLayers,
   type GenerationClaimConfig,
   type RoamlyGenerationJob,
   type RoamlyGenerationLayer
@@ -258,27 +257,18 @@ async function finalizeStoredFullItinerary(params: {
   if (!stored.exists) return null;
 
   const completedAt = new Date().toISOString();
-  const completedState = params.state
-    ? {
-        ...params.state,
-        status: "complete" as const,
-        currentStage: "complete" as const,
-        completedDayCount: Math.max(params.state.completedDayCount, stored.dayCount),
-        totalDayCount: Math.max(params.state.totalDayCount, stored.dayCount),
-        completedAt,
-        updatedAt: completedAt,
-        worker: null,
-        lastError: null,
-        lastErrorCode: null
-      }
-    : null;
-  const currentTrip = await params.admin
-    .from("roamly_trips")
-    .select("metadata")
-    .eq("id", params.job.trip_id)
-    .eq("user_id", params.job.user_id)
-    .maybeSingle();
-  const currentMetadata = getRecord(currentTrip.data?.metadata) || {};
+  const completedState = {
+    ...(params.state || {}),
+    status: "complete" as const,
+    currentStage: "complete" as const,
+    completedDayCount: Math.max(params.state?.completedDayCount || 0, stored.dayCount),
+    totalDayCount: Math.max(params.state?.totalDayCount || 0, stored.dayCount),
+    completedAt,
+    updatedAt: completedAt,
+    worker: null,
+    lastError: null,
+    lastErrorCode: null
+  };
 
   if (params.state?.unlockSource === "free") {
     await markFreeItineraryUsed(params.admin, params.job.user_id, params.job.trip_id).catch(() => null);
@@ -291,46 +281,14 @@ async function finalizeStoredFullItinerary(params: {
     params.state?.unlockSource || "paid"
   ).catch(() => null);
 
-  await Promise.all([
-    params.admin
-      .from("roamly_trip_generation_layers")
-      .update({
-        status: "skipped",
-        locked_at: null,
-        locked_by: null,
-        lease_expires_at: null,
-        completed_at: completedAt,
-        error_code: null,
-        error_message: "STORED_ITINERARY_COMPLETED",
-        updated_at: completedAt
-      })
-      .eq("job_id", params.job.id)
-      .in("status", ["pending", "running", "failed", "invalidated"]),
-    params.admin
-      .from("roamly_trip_generation_jobs")
-      .update({
-        status: "completed",
-        current_stage: "completion_notification",
-        locked_at: null,
-        locked_by: null,
-        lease_expires_at: null,
-        completed_at: completedAt,
-        updated_at: completedAt,
-        last_error_code: null,
-        last_error_message: null
-      })
-      .eq("id", params.job.id),
-    params.admin
-      .from("roamly_trips")
-      .update({
-        status: "generated",
-        itinerary_status: "generated",
-        ...(completedState ? { metadata: { ...currentMetadata, generation: completedState } } : {}),
-        updated_at: completedAt
-      })
-      .eq("id", params.job.trip_id)
-      .eq("user_id", params.job.user_id)
-  ]);
+  const finalized = await finalizeGenerationCompletion({
+    supabase: params.admin,
+    jobId: params.job.id,
+    userId: params.job.user_id,
+    generationState: completedState,
+    completedAt
+  });
+  if (!finalized.ok) throw new Error(finalized.error);
 
   const email = await sendStagedGenerationEmail({
     tripId: params.job.trip_id,
@@ -358,37 +316,14 @@ async function finishTerminalJob(params: {
 }) {
   let email: unknown = null;
   if (params.state.status === "complete") {
-    await skipRemainingGenerationLayers({
+    const finalized = await finalizeGenerationCompletion({
       supabase: params.admin,
       jobId: params.job.id,
-      workerId: params.workerId,
-      reason: "STAGED_GENERATION_COMPLETED"
+      userId: params.job.user_id,
+      generationState: params.state as unknown as Record<string, unknown>,
+      completedAt: params.state.completedAt || new Date().toISOString()
     });
-    await completeGenerationJob({ supabase: params.admin, jobId: params.job.id, workerId: params.workerId });
-
-    const completedAt = new Date().toISOString();
-
-    await params.admin
-      .from("roamly_trip_generation_jobs")
-      .update({
-        status: "completed",
-        locked_at: null,
-        locked_by: null,
-        lease_expires_at: null,
-        completed_at: completedAt,
-        updated_at: completedAt
-      })
-      .eq("id", params.job.id);
-
-    await params.admin
-      .from("roamly_trips")
-      .update({
-        status: "generated",
-        itinerary_status: "generated",
-        updated_at: completedAt
-      })
-      .eq("id", params.job.trip_id)
-      .eq("user_id", params.job.user_id);
+    if (!finalized.ok) throw new Error(finalized.error);
 
     email = await sendStagedGenerationEmail({
       tripId: params.job.trip_id,
@@ -408,12 +343,6 @@ async function finishTerminalJob(params: {
       kind: "failure"
     });
   }
-  await markQueueFromLegacyState({
-    supabase: params.admin,
-    tripId: params.job.trip_id,
-    userId: params.job.user_id,
-    metadata: { generation: params.state }
-  });
   return email;
 }
 

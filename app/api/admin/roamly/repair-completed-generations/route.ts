@@ -1,22 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-
-type GenerationJob = {
-  id: string;
-  trip_id: string;
-  user_id: string;
-  status: string | null;
-  completed_at: string | null;
-  updated_at: string | null;
-  last_error_message?: string | null;
-};
-
-function isCompletedJob(job: GenerationJob) {
-  return (
-    job.status === "completed" ||
-    job.last_error_message === "STAGED_GENERATION_COMPLETED"
-  );
-}
+import { reconcileCompletedGenerationJobs } from "@/lib/roamly/generationQueue";
 
 export async function POST(request: Request) {
   const url = new URL(request.url);
@@ -37,69 +21,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: jobs, error: jobsError } = await supabase
-    .from("roamly_trip_generation_jobs")
-    .select("id,trip_id,user_id,status,completed_at,updated_at,last_error_message")
-    .eq("status", "completed")
-    .is("completed_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(50);
-
-  if (jobsError) {
+  const result = await reconcileCompletedGenerationJobs({ supabase, limit: 50 });
+  if (!result.ok) {
     return NextResponse.json(
-      { ok: false, step: "read_jobs", error: jobsError.message },
+      { ok: false, step: "reconcile_completed_generation_jobs", error: result.error },
       { status: 500 }
     );
   }
 
-  const completedJobs = ((jobs || []) as GenerationJob[]).filter(isCompletedJob);
-  const repaired: Array<{ jobId: string; tripId: string; completedAt: string }> = [];
-
-  for (const job of completedJobs) {
-    const completedAt = job.updated_at || new Date().toISOString();
-
-    const { error: jobError } = await supabase
-      .from("roamly_trip_generation_jobs")
-      .update({
-        completed_at: completedAt,
-        updated_at: completedAt
-      })
-      .eq("id", job.id);
-
-    if (jobError) {
-      return NextResponse.json(
-        { ok: false, step: "update_job", jobId: job.id, error: jobError.message },
-        { status: 500 }
-      );
-    }
-
-    const { error: tripError } = await supabase
-      .from("roamly_trips")
-      .update({
-        status: "generated",
-        itinerary_status: "generated",
-        updated_at: completedAt
-      })
-      .eq("id", job.trip_id)
-      .eq("user_id", job.user_id);
-
-    if (tripError) {
-      return NextResponse.json(
-        { ok: false, step: "update_trip", tripId: job.trip_id, error: tripError.message },
-        { status: 500 }
-      );
-    }
-
-    repaired.push({
-      jobId: job.id,
-      tripId: job.trip_id,
-      completedAt
-    });
-  }
-
   return NextResponse.json({
     ok: true,
-    repairedCount: repaired.length,
-    repaired
+    repairedCount: result.repairedCount,
+    repaired: result.repaired
   });
 }

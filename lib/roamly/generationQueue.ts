@@ -128,12 +128,25 @@ export type GenerationRetryConfig = {
   retryMaxSeconds?: number;
 };
 
+export type GenerationFinalizationResult = {
+  ok: boolean;
+  jobId?: string | null;
+  tripId?: string | null;
+  completedAt?: string | null;
+  completedLayerCount?: number;
+  error?: string;
+};
+
 function adminOrClient(client?: SupabaseClient | null) {
   return createSupabaseAdminClient() || client || null;
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export function generationIdempotencyKey(tripId: string, version = ROAMLY_BRAIN_VERSION) {
@@ -690,6 +703,64 @@ export async function completeGenerationJob(params: {
   });
   if (error) return { ok: false as const, error: rpcError(error), job: null as RoamlyGenerationJob | null };
   return { ok: true as const, job: (data || null) as RoamlyGenerationJob | null };
+}
+
+export async function finalizeGenerationCompletion(params: {
+  supabase?: SupabaseClient | null;
+  jobId: string;
+  userId: string;
+  generationState?: Record<string, unknown> | null;
+  completedAt?: string | null;
+}) {
+  const supabase = adminOrClient(params.supabase);
+  if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+
+  const completedAt = params.completedAt || new Date().toISOString();
+  const { data, error } = await supabase.rpc("roamly_finalize_generation_completion", {
+    p_job_id: params.jobId,
+    p_user_id: params.userId,
+    p_generation_state: params.generationState || null,
+    p_completed_at: completedAt
+  });
+  if (error) return { ok: false as const, error: rpcError(error) };
+
+  const result = getRecord(data) as GenerationFinalizationResult;
+  if (result.ok !== true) {
+    return {
+      ok: false as const,
+      error: getString(result.error) || "GENERATION_FINALIZATION_FAILED"
+    };
+  }
+
+  return {
+    ok: true as const,
+    jobId: getString(result.jobId) || params.jobId,
+    tripId: getString(result.tripId) || null,
+    completedAt: getString(result.completedAt) || completedAt,
+    completedLayerCount: typeof result.completedLayerCount === "number" ? result.completedLayerCount : 0
+  };
+}
+
+export async function reconcileCompletedGenerationJobs(params: {
+  supabase?: SupabaseClient | null;
+  limit?: number;
+}) {
+  const supabase = adminOrClient(params.supabase);
+  if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING", repaired: [] as GenerationFinalizationResult[] };
+
+  const { data, error } = await supabase.rpc("roamly_reconcile_completed_generation_jobs", {
+    p_limit: Math.max(1, Math.min(200, Math.round(params.limit || 50)))
+  });
+  if (error) return { ok: false as const, error: rpcError(error), repaired: [] as GenerationFinalizationResult[] };
+
+  const result = getRecord(data);
+  const repaired = Array.isArray(result.repaired) ? (result.repaired as GenerationFinalizationResult[]) : [];
+  return {
+    ok: result.ok === true,
+    repairedCount: typeof result.repairedCount === "number" ? result.repairedCount : repaired.length,
+    repaired,
+    error: result.ok === true ? undefined : getString(result.error) || "GENERATION_RECONCILIATION_FAILED"
+  };
 }
 
 export async function scheduleGenerationJobRetry(params: {
