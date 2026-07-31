@@ -199,12 +199,28 @@ const OUTLINE_TIMEOUT_MS = Number(process.env.OPENAI_OUTLINE_TIMEOUT_MS || 25_00
 const DAY_TIMEOUT_MS = Number(process.env.OPENAI_DAY_TIMEOUT_MS || 45_000);
 const OUTLINE_MAX_TOKENS = Number(process.env.OPENAI_OUTLINE_MAX_TOKENS || 1200);
 const DAY_MAX_TOKENS = Number(process.env.OPENAI_DAY_BATCH_MAX_TOKENS || 3200);
-const BATCH_ATTEMPT_LIMIT = Number(process.env.ROAMLY_STAGED_BATCH_ATTEMPT_LIMIT || 2);
+const BATCH_ATTEMPT_LIMIT = Number(process.env.ROAMLY_STAGED_BATCH_ATTEMPT_LIMIT || 4);
+const VALIDATION_REPAIR_ATTEMPT_LIMIT = Math.max(
+  BATCH_ATTEMPT_LIMIT,
+  Number(process.env.ROAMLY_STAGED_VALIDATION_REPAIR_ATTEMPT_LIMIT || BATCH_ATTEMPT_LIMIT + 1)
+);
 const MAX_AI_COST_USD = Number(process.env.ROAMLY_STAGED_MAX_AI_COST_USD || 0.05);
 const DEFAULT_INPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_INPUT_PRICE_PER_1M || 0.4);
 const DEFAULT_OUTPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_OUTPUT_PRICE_PER_1M || 1.6);
 const STAGE_LEASE_MS = Number(process.env.ROAMLY_STAGED_GENERATION_LEASE_MS || 4 * 60_000);
 const AI_STAGE_CLEANUP_BUFFER_MS = Number(process.env.ROAMLY_AI_STAGE_CLEANUP_BUFFER_MS || 8_000);
+const MIN_VALID_DAY_ITEMS = 4;
+const MAX_REPAIRED_DAY_ITEMS = 6;
+const DAY_REPAIR_SLOTS_MINUTES = [9 * 60, 10 * 60 + 45, 12 * 60 + 30, 14 * 60 + 15, 16 * 60, 18 * 60 + 30];
+const NON_RESUMABLE_GENERATION_CODES = new Set([
+  "OPENAI_API_KEY_MISSING",
+  "AI_QUOTA_EXHAUSTED",
+  "AI_COST_CEILING_REACHED",
+  "PAYMENT_REQUIRED",
+  "TRIP_NOT_FOUND",
+  "GENERATION_JOB_NOT_FOUND",
+  "ITINERARY_LOCK_FAILED"
+]);
 
 function nowIso() {
   return new Date().toISOString();
@@ -397,12 +413,19 @@ function primaryAiProvider(): AiProviderConfig | null {
   };
 }
 
-function providerForAttempt(): AiProviderConfig {
+function providerForAttempt(attemptNumber = 1): AiProviderConfig {
   const primary = primaryAiProvider();
   if (!primary) {
     throw new StagedGenerationError("Roamly AI generation is not configured.", "OPENAI_API_KEY_MISSING", 503, true, {
       failureCategory: "configuration"
     });
+  }
+  const fallbackModel = (process.env.OPENAI_FALLBACK_MODEL || "").trim();
+  if (attemptNumber > 1 && fallbackModel && fallbackModel !== primary.model) {
+    return {
+      ...primary,
+      model: fallbackModel
+    };
   }
   return primary;
 }
@@ -987,12 +1010,240 @@ function cleanItem(raw: unknown, fallbackTitle: string): RoamlyActivitySeed {
   };
 }
 
+function normalizedTextKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function formatRepairTime24(totalMinutes: number) {
+  const minutes = Math.max(0, Math.min(Math.round(totalMinutes), 23 * 60 + 59));
+  const hours = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function formatRepairTimeLabel(totalMinutes: number) {
+  const minutes = Math.max(0, Math.min(Math.round(totalMinutes), 23 * 60 + 59));
+  const hours24 = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const meridiem = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 || 12;
+  return `${hours12}:${String(minute).padStart(2, "0")} ${meridiem}`;
+}
+
+function stagedItemType(item: RoamlyActivitySeed): NonNullable<RoamlyActivitySeed["item_type"]> {
+  const explicit = (item.item_type || "").toLowerCase();
+  if (["travel", "transfer", "hotel", "activity", "meal", "rest", "booking", "reminder"].includes(explicit)) {
+    return explicit as NonNullable<RoamlyActivitySeed["item_type"]>;
+  }
+  const text = `${item.category} ${item.title} ${item.description}`.toLowerCase();
+  if (/\b(flight|train|bus|ferry|drive|depart|arrive|arrival|return travel|journey|travel)\b/.test(text)) return "travel";
+  if (/\b(transfer|taxi|rideshare|transit|walk|metro|subway|tram|shuttle)\b/.test(text)) return "transfer";
+  if (/\b(check[- ]?in|check[- ]?out|hotel|luggage|accommodation)\b/.test(text)) return "hotel";
+  if (/\b(breakfast|brunch|lunch|dinner|cafe|restaurant|meal|food)\b/.test(text)) return "meal";
+  if (/\b(rest|recover|buffer|break|downtime)\b/.test(text)) return "rest";
+  if (/\b(book|ticket|reserve)\b/.test(text)) return "booking";
+  return "activity";
+}
+
+function durationMinutesForRepair(item: RoamlyActivitySeed) {
+  const explicit = item.durationMinutes || item.travelTimeMinutes;
+  if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
+    return Math.min(180, Math.max(15, Math.round(explicit)));
+  }
+  const durationText = getString(item.duration, "").toLowerCase();
+  const duration = durationText.match(/(\d{1,3})\s*(min|minute|minutes|hr|hour|hours)/);
+  if (duration) {
+    const amount = Number(duration[1]);
+    const minutes = duration[2].startsWith("h") ? amount * 60 : amount;
+    if (Number.isFinite(minutes) && minutes > 0) return Math.min(180, Math.max(15, Math.round(minutes)));
+  }
+  const type = stagedItemType(item);
+  if (type === "transfer") return 25;
+  if (type === "travel") return 90;
+  if (type === "hotel" || type === "rest") return 45;
+  if (type === "meal") return 75;
+  if (type === "reminder") return 30;
+  return 90;
+}
+
+function repairFillerItems(day: RoamlyDayPlan, outlineDay: StagedTripOutlineDay, payload: TripPlannerPayload): RoamlyActivitySeed[] {
+  const base = getString(outlineDay.geographicArea, getString(day.city, payload.destination));
+  const priorities = outlineDay.priorityActivities.filter((item) => item.trim());
+  const primary = priorities[0] || outlineDay.theme || `${payload.destination} orientation`;
+  const secondary = priorities[1] || `${base} neighborhood walk`;
+  const flexible = priorities[2] || `${payload.destination} local highlight`;
+  return [
+    {
+      time_label: "9:00 AM",
+      startTime: "09:00",
+      endTime: "10:30",
+      title: primary,
+      description: `Start with ${primary} in ${base}.`,
+      location_name: base,
+      estimated_cost: 0,
+      category: "Activity",
+      map_query: `${base} ${primary}`,
+      item_type: "activity",
+      duration: "90 min",
+      durationMinutes: 90
+    },
+    {
+      time_label: "12:30 PM",
+      startTime: "12:30",
+      endTime: "13:45",
+      title: `Lunch near ${base}`,
+      description: "Keep the meal close to the day's main area so the schedule stays practical.",
+      location_name: base,
+      estimated_cost: 25,
+      category: "Meal",
+      map_query: `${base} lunch restaurants`,
+      item_type: "meal",
+      duration: "75 min",
+      durationMinutes: 75
+    },
+    {
+      time_label: "2:15 PM",
+      startTime: "14:15",
+      endTime: "15:45",
+      title: secondary,
+      description: `Continue with ${secondary} without crossing too far from the day's base.`,
+      location_name: base,
+      estimated_cost: 0,
+      category: "Activity",
+      map_query: `${base} ${secondary}`,
+      item_type: "activity",
+      duration: "90 min",
+      durationMinutes: 90
+    },
+    {
+      time_label: "4:00 PM",
+      startTime: "16:00",
+      endTime: "16:45",
+      title: `${base} rest buffer`,
+      description: "Leave a buffer for transit, weather, crowds, or a quick recharge before evening.",
+      location_name: base,
+      estimated_cost: 0,
+      category: "Rest",
+      map_query: `${base} cafe`,
+      item_type: "rest",
+      duration: "45 min",
+      durationMinutes: 45
+    },
+    {
+      time_label: "6:30 PM",
+      startTime: "18:30",
+      endTime: "20:00",
+      title: flexible,
+      description: `End with a flexible ${outlineDay.theme.toLowerCase()} stop that can be swapped if timing changes.`,
+      location_name: base,
+      estimated_cost: 0,
+      category: "Activity",
+      map_query: `${base} ${flexible}`,
+      item_type: "activity",
+      duration: "90 min",
+      durationMinutes: 90
+    }
+  ];
+}
+
+function repairTimelineSchedule(items: RoamlyActivitySeed[]) {
+  const dayEnd = 23 * 60 + 45;
+  let cursor = 8 * 60;
+  return items.slice(0, MAX_REPAIRED_DAY_ITEMS).map((item, index) => {
+    const type = stagedItemType(item);
+    const slot = DAY_REPAIR_SLOTS_MINUTES[Math.min(index, DAY_REPAIR_SLOTS_MINUTES.length - 1)] || cursor;
+    const explicitStart = parseTime(item.startTime || item.time_label);
+    const duration = durationMinutesForRepair({ ...item, item_type: type });
+    let start = explicitStart != null && explicitStart >= cursor ? explicitStart : Math.max(cursor, slot);
+    let end = start + duration;
+    if (end > dayEnd) {
+      const compressedDuration = Math.max(15, Math.min(duration, dayEnd - start));
+      if (start + compressedDuration > dayEnd) start = Math.max(cursor, dayEnd - compressedDuration);
+      end = Math.max(start + 15, Math.min(dayEnd, start + compressedDuration));
+    }
+    cursor = end + (type === "transfer" || type === "travel" || type === "reminder" ? 0 : 15);
+    const scheduledDuration = Math.max(15, end - start);
+    return {
+      ...item,
+      item_type: type,
+      category: item.category || (type === "meal" ? "Meal" : type === "rest" ? "Rest" : "Activity"),
+      time_label: formatRepairTimeLabel(start),
+      startTime: formatRepairTime24(start),
+      endTime: formatRepairTime24(end),
+      duration: item.duration || `${scheduledDuration} min`,
+      durationMinutes: scheduledDuration,
+      transportMode: item.transportMode || item.travel_mode,
+      travelTimeMinutes: type === "travel" || type === "transfer" ? Math.min(item.travelTimeMinutes || scheduledDuration, scheduledDuration) : item.travelTimeMinutes
+    };
+  });
+}
+
+export function repairStagedDayForGenerationValidation(
+  day: RoamlyDayPlan,
+  outlineDay: StagedTripOutlineDay,
+  payload: TripPlannerPayload
+): RoamlyDayPlan {
+  const seen = new Set<string>();
+  const deduped = day.live_timeline
+    .map((item, index) => cleanItem(item, `${outlineDay.theme} stop ${index + 1}`))
+    .filter((item) => {
+      const key = normalizedTextKey(item.title || item.map_query || item.location_name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  const filler = repairFillerItems(day, outlineDay, payload).filter((item) => {
+    const key = normalizedTextKey(item.title);
+    return key && !seen.has(key);
+  });
+  const needsMeal = !deduped.some((item) => stagedItemType(item) === "meal");
+  const candidates = [...deduped];
+  if (needsMeal) {
+    const meal = filler.find((item) => stagedItemType(item) === "meal");
+    if (meal) candidates.push(meal);
+  }
+  for (const item of filler) {
+    const key = normalizedTextKey(item.title);
+    if (key && !candidates.some((current) => normalizedTextKey(current.title) === key)) {
+      candidates.push(item);
+    }
+  }
+  const repaired = candidates.slice(0, MAX_REPAIRED_DAY_ITEMS);
+  while (repaired.length < MIN_VALID_DAY_ITEMS) {
+    const next = filler.find((item) => !repaired.some((current) => normalizedTextKey(current.title) === normalizedTextKey(item.title)));
+    if (!next) break;
+    repaired.push(next);
+  }
+
+  const scheduled = repairTimelineSchedule(repaired.length ? repaired : filler);
+  const food = day.food.length
+    ? day.food
+    : [`Lunch near ${outlineDay.geographicArea || payload.destination}`, `Dinner near ${outlineDay.geographicArea || payload.destination}`];
+  return {
+    ...day,
+    title: day.title || outlineDay.theme,
+    morning: day.morning || `Start around ${outlineDay.geographicArea || payload.destination}.`,
+    afternoon: day.afternoon || `Keep the afternoon clustered near ${outlineDay.geographicArea || payload.destination}.`,
+    evening: day.evening || "Finish with a flexible nearby evening plan.",
+    food,
+    estimated_cost: day.estimated_cost || scheduled.reduce((sum, item) => sum + (item.estimated_cost || 0), 0),
+    map_queries: day.map_queries.length
+      ? day.map_queries
+      : scheduled.map((item) => item.map_query).filter(Boolean).slice(0, 6),
+    live_timeline: scheduled
+  };
+}
+
 function cleanDay(raw: unknown, outlineDay: StagedTripOutlineDay, payload: TripPlannerPayload): RoamlyDayPlan {
   const record = getRecord(raw) || {};
   const dayNumber = getPositiveNumber(record.dayNumber ?? record.day_number, outlineDay.dayNumber) || outlineDay.dayNumber;
   const timelineRaw = Array.isArray(record.live_timeline) ? record.live_timeline : Array.isArray(record.items) ? record.items : [];
   const title = getString(record.title, outlineDay.theme);
-  return {
+  return repairStagedDayForGenerationValidation({
     day_number: dayNumber,
     date: getString(record.date, outlineDay.date || dateForDay(payload, dayNumber)),
     city: getString(record.city, outlineDay.geographicArea),
@@ -1004,7 +1255,7 @@ function cleanDay(raw: unknown, outlineDay: StagedTripOutlineDay, payload: TripP
     estimated_cost: getPositiveNumber(record.estimated_cost ?? record.estimatedCost, 0),
     map_queries: getStringList(record.map_queries ?? record.mapQueries, [outlineDay.geographicArea], 6),
     live_timeline: timelineRaw.slice(0, 9).map((item, index) => cleanItem(item, `${title} stop ${index + 1}`))
-  };
+  }, outlineDay, payload);
 }
 
 function cleanBatchDays(raw: unknown, outlineDays: StagedTripOutlineDay[], payload: TripPlannerPayload) {
@@ -1316,11 +1567,39 @@ export async function startStagedItineraryGeneration(params: {
 function nextBatchToGenerate(state: StagedGenerationState) {
   return Object.values(state.batches)
     .sort((a, b) => a.dayNumbers[0] - b.dayNumbers[0])
-    .find((batch) => batch.status !== "complete" && batch.attemptCount < BATCH_ATTEMPT_LIMIT) || null;
+    .find((batch) => {
+      if (batch.status === "complete") return false;
+      if (batch.attemptCount < BATCH_ATTEMPT_LIMIT) return true;
+      return state.lastErrorCode === "DAY_BATCH_VALIDATION_FAILED" && batch.attemptCount < VALIDATION_REPAIR_ATTEMPT_LIMIT;
+    }) || null;
 }
 
 function allResolved(state: StagedGenerationState) {
   return Object.values(state.batches).every((batch) => batch.status === "complete" || batch.status === "failed");
+}
+
+function canRetryFinalValidation(state: StagedGenerationState) {
+  const batches = Object.values(state.batches);
+  return (
+    state.status === "failed" &&
+    state.lastErrorCode === "FINAL_VALIDATION_FAILED" &&
+    state.totalDayCount > 0 &&
+    state.completedDayCount >= state.totalDayCount &&
+    Object.keys(state.generatedDays).length >= state.totalDayCount &&
+    batches.length > 0 &&
+    batches.every((batch) => batch.status === "complete")
+  );
+}
+
+function canRetryFailedDayBatch(state: StagedGenerationState) {
+  if (state.status !== "failed" && state.status !== "partially_failed") return false;
+  if (!state.outline) return false;
+  if (NON_RESUMABLE_GENERATION_CODES.has(state.lastErrorCode || "")) return false;
+  return Boolean(nextBatchToGenerate(state));
+}
+
+export function canResumeStagedGeneration(state: StagedGenerationState) {
+  return canRetryFinalValidation(state) || canRetryFailedDayBatch(state);
 }
 
 function finalValidationFailureState(
@@ -1460,7 +1739,9 @@ export async function advanceStagedItineraryGeneration(params: {
   const initialTrip = await loadTrip(params.supabase, params.tripId, params.userId);
   const initialState = getStagedGenerationState(initialTrip.metadata);
   if (!initialState) throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
-  if (initialState.status === "complete" || initialState.status === "failed" || initialState.status === "partially_failed") {
+  const retryFinalValidation = canRetryFinalValidation(initialState);
+  const retryFailedDayBatch = canRetryFailedDayBatch(initialState);
+  if (initialState.status === "complete" || ((initialState.status === "failed" || initialState.status === "partially_failed") && !retryFinalValidation && !retryFailedDayBatch)) {
     if (initialState.status !== "complete") {
       await sendGenerationEmailSafely({
         tripId: params.tripId,
@@ -1469,6 +1750,31 @@ export async function advanceStagedItineraryGeneration(params: {
       });
     }
     return { ok: true, status: initialState.status, state: initialState, advanced: false };
+  }
+  if (retryFinalValidation) {
+    logGenerationDiagnostic("staged_generation_final_validation_retrying", {
+      requestId: params.requestId,
+      route: "stagedItineraryGeneration",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      completedDayCount: initialState.completedDayCount,
+      totalDayCount: initialState.totalDayCount,
+      failedCategories: classifyGenerationValidationErrors(initialState.finalValidationErrors || [])
+    });
+  }
+  if (retryFailedDayBatch) {
+    logGenerationDiagnostic("staged_generation_failed_day_batch_resuming", {
+      requestId: params.requestId,
+      route: "stagedItineraryGeneration",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      completedDayCount: initialState.completedDayCount,
+      totalDayCount: initialState.totalDayCount,
+      lastErrorCode: initialState.lastErrorCode,
+      failedBatches: Object.values(initialState.batches)
+        .filter((batch) => batch.status === "failed")
+        .map((batch) => ({ id: batch.id, dayNumbers: batch.dayNumbers, attemptCount: batch.attemptCount }))
+    });
   }
 
   const claimedTrip = await claimTrip(params.supabase, initialTrip, initialState, params.requestId);
@@ -1505,7 +1811,7 @@ export async function advanceStagedItineraryGeneration(params: {
         outlineAttemptCount
       };
       const prompt = outlinePrompt(state.payload, state);
-      const provider = providerForAttempt();
+      const provider = providerForAttempt(outlineAttemptCount);
       assertCostBudget(state, prompt, OUTLINE_MAX_TOKENS, provider);
       const ai = await callJsonStage({
         stage: "outline",
@@ -1629,7 +1935,7 @@ export async function advanceStagedItineraryGeneration(params: {
         usedAttractions: usedAttractions(state),
         state
       });
-      const provider = providerForAttempt();
+      const provider = providerForAttempt(attemptCount);
       assertCostBudget(state, prompt, DAY_MAX_TOKENS, provider);
       const ai = await callJsonStage({
         stage: "day_batch",
@@ -1896,7 +2202,8 @@ export async function resetFailedStagedBatch(params: {
   if (!state) throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
   const batch = state.batches[params.batchId];
   if (!batch) throw new StagedGenerationError("Generation batch not found.", "GENERATION_BATCH_NOT_FOUND", 404, true);
-  if (batch.attemptCount >= BATCH_ATTEMPT_LIMIT) {
+  const retryLimit = state.lastErrorCode === "DAY_BATCH_VALIDATION_FAILED" ? VALIDATION_REPAIR_ATTEMPT_LIMIT : BATCH_ATTEMPT_LIMIT;
+  if (batch.attemptCount >= retryLimit) {
     throw new StagedGenerationError("This batch has reached the retry ceiling.", "BATCH_RETRY_LIMIT_REACHED", 429, true);
   }
   const nextState = {

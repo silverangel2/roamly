@@ -6,6 +6,7 @@ type ScheduleStagedGenerationAdvanceParams = {
   origin?: string | null;
   reason: string;
   requestId?: string;
+  directFallbackOnly?: boolean;
 };
 
 const BACKGROUND_EXECUTION_BUDGET_MS = 55_000;
@@ -54,6 +55,11 @@ async function queueUnavailableFromSummary(summary: unknown) {
 async function runLocalWorkerFallback(params: ScheduleStagedGenerationAdvanceParams) {
   const requestId = params.requestId || `background:${params.tripId}`;
   const executionDeadlineMs = Date.now() + BACKGROUND_EXECUTION_BUDGET_MS;
+  if (params.directFallbackOnly) {
+    await runDirectStagedFallback(params, requestId, executionDeadlineMs);
+    return;
+  }
+
   const { processGenerationQueue } = await import("@/lib/roamly/generationWorker");
   const summary = await processGenerationQueue({
     tripId: params.tripId,
@@ -84,6 +90,14 @@ async function runLocalWorkerFallback(params: ScheduleStagedGenerationAdvancePar
 
   if (summary.ok || !(await queueUnavailableFromSummary(summary))) return;
 
+  await runDirectStagedFallback(params, requestId, executionDeadlineMs);
+}
+
+async function runDirectStagedFallback(
+  params: ScheduleStagedGenerationAdvanceParams,
+  requestId: string,
+  executionDeadlineMs: number
+) {
   const [{ createSupabaseAdminClient }, { advanceStagedItineraryGeneration, publicStagedGenerationProgress }] =
     await Promise.all([
       import("@/lib/supabase/admin"),
@@ -163,9 +177,18 @@ export function scheduleStagedGenerationAdvance(params: ScheduleStagedGeneration
   const url = `${siteUrl(params.origin)}/api/cron/roamly-itinerary-generation`;
 
   after(async () => {
-    let shouldRunLocalFallback = !secret;
+    let shouldRunLocalFallback = params.directFallbackOnly || !secret;
 
-    if (!secret) {
+    if (params.directFallbackOnly) {
+      logGenerationDiagnostic("staged_generation_background_direct_fallback_selected", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        errorCode: "DURABLE_QUEUE_UNAVAILABLE"
+      });
+    } else if (!secret) {
       logGenerationDiagnostic("staged_generation_background_secret_missing_local_fallback", {
         requestId: params.requestId,
         tripId: params.tripId,

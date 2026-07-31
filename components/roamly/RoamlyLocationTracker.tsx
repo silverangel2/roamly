@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LocationPermissionCard } from "@/components/roamly/LocationPermissionCard";
 
@@ -17,6 +17,10 @@ type SettingsResponse = {
     last_permission_state?: string | null;
   };
 };
+
+const LOCATION_PROMPT_DISMISSED_UNTIL_KEY = "roamly_location_prompt_dismissed_until";
+const LOCATION_PROMPT_DISMISS_MS = 7 * 24 * 60 * 60_000;
+const LOCATION_DENIED_DISMISS_MS = 30 * 24 * 60 * 60_000;
 
 function getVisitorKey() {
   const key = "roamly_visitor_key";
@@ -35,6 +39,31 @@ function shouldThrottle(key: string, ms: number) {
   return false;
 }
 
+function readLocationPromptDismissed() {
+  try {
+    const dismissedUntil = Number(localStorage.getItem(LOCATION_PROMPT_DISMISSED_UNTIL_KEY) || 0);
+    return Number.isFinite(dismissedUntil) && dismissedUntil > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function writeLocationPromptDismissal(ms: number) {
+  try {
+    localStorage.setItem(LOCATION_PROMPT_DISMISSED_UNTIL_KEY, String(Date.now() + ms));
+  } catch {
+    // Local storage is best-effort; state still suppresses the current prompt.
+  }
+}
+
+function clearLocationPromptDismissal() {
+  try {
+    localStorage.removeItem(LOCATION_PROMPT_DISMISSED_UNTIL_KEY);
+  } catch {
+    // Local storage is best-effort.
+  }
+}
+
 function hasActiveSimulatedLocation(pathname: string) {
   try {
     const raw = localStorage.getItem("roamly_live_simulated_location");
@@ -46,19 +75,39 @@ function hasActiveSimulatedLocation(pathname: string) {
   }
 }
 
+function isLocationPromptPath(pathname: string, activeTripId?: string | null) {
+  if (pathname.startsWith("/admin")) return false;
+  if (pathname === "/plan" || pathname.startsWith("/login") || pathname.startsWith("/signup")) return false;
+  if (activeTripId && pathname.includes(`/trip/${activeTripId}/live`)) return true;
+  if (activeTripId && pathname.includes(`/trip/${activeTripId}/companion`)) return true;
+  return pathname === "/dashboard" || pathname === "/notifications";
+}
+
 export function RoamlyLocationTracker() {
   const pathname = usePathname();
-  const router = useRouter();
   const [activeTrip, setActiveTrip] = useState<ActiveTripResponse["activeTrip"]>(null);
   const [enabled, setEnabled] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => readLocationPromptDismissed());
+  const [lastPermissionState, setLastPermissionState] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const shouldShowPermission = useMemo(
-    () => Boolean(activeTrip && !enabled && !dismissed && !pathname.startsWith("/admin")),
-    [activeTrip, dismissed, enabled, pathname]
+    () =>
+      Boolean(
+        activeTrip &&
+          !enabled &&
+          !dismissed &&
+          lastPermissionState !== "denied" &&
+          isLocationPromptPath(pathname, activeTrip.id)
+      ),
+    [activeTrip, dismissed, enabled, lastPermissionState, pathname]
   );
+
+  const dismissPrompt = useCallback((ms = LOCATION_PROMPT_DISMISS_MS) => {
+    writeLocationPromptDismissal(ms);
+    setDismissed(true);
+  }, []);
 
   useEffect(() => {
     const visitorKey = getVisitorKey();
@@ -113,6 +162,13 @@ export function RoamlyLocationTracker() {
       if (settingsResponse?.ok) {
         const data = (await settingsResponse.json().catch(() => null)) as SettingsResponse | null;
         setEnabled(Boolean(data?.settings?.location_tracking_enabled));
+        setLastPermissionState(data?.settings?.last_permission_state || null);
+        if (data?.settings?.last_permission_state === "denied") {
+          writeLocationPromptDismissal(LOCATION_DENIED_DISMISS_MS);
+          setDismissed(true);
+        } else {
+          setDismissed(readLocationPromptDismissed());
+        }
       }
     }
 
@@ -140,14 +196,15 @@ export function RoamlyLocationTracker() {
       const notificationKey = `roamly_notification_${data?.activeTrip?.id || "trip"}`;
       if (data?.notification && !shouldThrottle(notificationKey, 30 * 60_000)) {
         sessionStorage.setItem("roamly_last_notification", JSON.stringify(data.notification));
-        router.push("/notifications");
       }
     },
-    [router]
+    []
   );
 
   const requestLocation = useCallback(async () => {
     localStorage.removeItem("roamly_live_simulated_location");
+    clearLocationPromptDismissal();
+    setDismissed(false);
     setBusy(true);
     setError("");
 
@@ -165,12 +222,15 @@ export function RoamlyLocationTracker() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setEnabled(true);
+          setLastPermissionState("granted");
           setBusy(false);
           void sendLocation(position.coords);
         },
         async () => {
           setBusy(false);
           setEnabled(false);
+          setLastPermissionState("denied");
+          dismissPrompt(LOCATION_DENIED_DISMISS_MS);
           setError("Location permission was not granted.");
           await fetch("/api/roamly/location/update", {
             method: "POST",
@@ -184,7 +244,7 @@ export function RoamlyLocationTracker() {
       setBusy(false);
       setError(err instanceof Error ? err.message : "Location setup failed.");
     }
-  }, [sendLocation]);
+  }, [dismissPrompt, sendLocation]);
 
   useEffect(() => {
     if (!enabled || !activeTrip || !navigator.geolocation) return;
@@ -204,7 +264,7 @@ export function RoamlyLocationTracker() {
     <div className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-sm md:bottom-5 md:left-auto md:right-5 md:mx-0">
       <button
         type="button"
-        onClick={() => setDismissed(true)}
+        onClick={() => dismissPrompt()}
         className="mb-2 ml-auto block rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-500 shadow-soft"
       >
         Later

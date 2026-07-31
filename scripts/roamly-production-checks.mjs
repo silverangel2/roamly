@@ -302,6 +302,14 @@ assert.ok(generateRoute.includes("generationPriorityForEntitlement"), "generatio
 assert.ok(generateRoute.includes("duplicateGenerationRequestKey"), "generation route must prevent duplicate generation requests");
 assert.ok(generateRoute.includes("queue: queueState"), "generation route must return durable queue state");
 assert.ok(generateRoute.includes("status: \"queued\""), "generation route must return a queued staged job");
+const durableQueueCreatedIndex = generateRoute.indexOf("const queueResult = await ensureDurableGenerationQueue");
+const stagedStartIndex = generateRoute.indexOf("state = await startStagedItineraryGeneration", durableQueueCreatedIndex);
+const queuedResponseIndex = generateRoute.indexOf("status: \"queued\"", stagedStartIndex);
+assert.ok(
+  durableQueueCreatedIndex >= 0 && stagedStartIndex > durableQueueCreatedIndex && queuedResponseIndex > stagedStartIndex,
+  "durable queue responses must initialize staged generation metadata before returning queued"
+);
+assert.ok(!generateRoute.includes("generation_queued_returning_202"), "generation route must not return queued before staged metadata is initialized");
 assert.ok(generateRoute.includes("buildTripPlanningMetadata"), "generation must persist planner details in metadata");
 assert.ok(!generateRoute.includes("is_activated: false"), "generation insert must not require legacy is_activated column");
 
@@ -618,11 +626,31 @@ const generationFinalization = read("lib/roamly/generationFinalization.ts");
   "completeDayStates",
   "completedGenerationState",
   "worker: null",
+  "completeGenerationJob",
+  "finalizeGenerationCompletion",
+  "reconcileCompletedGenerationJobs",
+  "reconcileQueueCompletionIfRequired",
   "sendStagedGenerationEmail",
   "kind: \"completion\""
 ].forEach((needle) => assert.ok(generationFinalization.includes(needle), `generation finalization helper missing ${needle}`));
 assert.ok(!generationFinalization.includes("if (queueFinalization.skipped)"), "direct trip completion must not depend on skipped queue finalization");
 assert.ok(generationFinalization.includes("tripId?: string | null"), "stored generation recovery must support targeted trip repair without regenerating");
+const claimedJobCompletionIndex = generationFinalization.indexOf("const completedJob = await completeGenerationJob");
+const queueFinalizationIndex = generationFinalization.indexOf("const finalized = await finalizeGenerationCompletion");
+const completionEmailIndex = generationFinalization.indexOf("await sendStagedGenerationEmail", queueFinalizationIndex);
+assert.ok(claimedJobCompletionIndex >= 0, "terminal finalization must call completeGenerationJob for worker-locked queue jobs");
+assert.ok(
+  queueFinalizationIndex > claimedJobCompletionIndex,
+  "terminal finalization must complete the claimed job before atomic queue finalization"
+);
+assert.ok(
+  completionEmailIndex > queueFinalizationIndex,
+  "completion email must be sent only after queue finalization"
+);
+assert.ok(
+  generationFinalization.includes("return { ok: false as const, jobId, skipped: true as const, error: finalized.error }"),
+  "non-missing queue finalization errors must block completion email delivery"
+);
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(!progressComponent.includes("QueueProgress"), "generation progress UI must not expose internal QueueProgress labels");
@@ -666,6 +694,7 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "finalizeStoredFullItinerary",
   "finalizeCompletedStagedGeneration",
   "requireQueueFinalization: true",
+  "workerId: params.workerId",
   "scheduleGenerationLayerRetry",
   "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));

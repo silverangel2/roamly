@@ -5,6 +5,7 @@ import { finalizeCompletedStagedGeneration } from "@/lib/roamly/generationFinali
 import { sendStagedGenerationEmail } from "@/lib/roamly/itineraryGenerationEmail";
 import {
   advanceStagedItineraryGeneration,
+  canResumeStagedGeneration,
   getStagedGenerationState,
   publicStagedGenerationProgress,
   StagedGenerationError
@@ -195,6 +196,47 @@ async function loadTrip(admin: SupabaseClient, tripId: string, userId?: string |
   return data as { id: string; user_id: string; metadata: unknown; itinerary_status?: string | null; status?: string | null } | null;
 }
 
+async function reopenResumableFailedJob(params: {
+  admin: SupabaseClient;
+  job: RoamlyGenerationJob;
+  state: ReturnType<typeof getStagedGenerationState>;
+}) {
+  if (!params.state || !canResumeStagedGeneration(params.state) || params.job.status !== "failed") return;
+  const nextAttemptAt = new Date().toISOString();
+  await Promise.all([
+    params.admin
+      .from("roamly_trip_generation_jobs")
+      .update({
+        status: "waiting",
+        retry_count: 0,
+        next_attempt_at: nextAttemptAt,
+        locked_at: null,
+        locked_by: null,
+        lease_expires_at: null,
+        last_error_code: null,
+        last_error_message: null
+      })
+      .eq("id", params.job.id)
+      .eq("user_id", params.job.user_id)
+      .eq("status", "failed"),
+    params.admin
+      .from("roamly_trip_generation_layers")
+      .update({
+        status: "pending",
+        retry_count: 0,
+        next_attempt_at: nextAttemptAt,
+        locked_at: null,
+        locked_by: null,
+        lease_expires_at: null,
+        error_code: null,
+        error_message: null
+      })
+      .eq("job_id", params.job.id)
+      .eq("user_id", params.job.user_id)
+      .in("status", ["failed", "invalidated"])
+  ]);
+}
+
 async function enqueueLegacyTripJobs(admin: SupabaseClient, config: RoamlyGenerationWorkerConfig) {
   const { data, error } = await admin
     .from("roamly_trips")
@@ -239,12 +281,14 @@ async function ensureTripJob(params: {
     reason: "worker_trip_target"
   });
   if (!result.ok) return { ok: false as const, error: result.error, jobReady: false };
+  await reopenResumableFailedJob({ admin: params.admin, job: result.job, state });
   return { ok: true as const, trip, jobReady: true };
 }
 
 async function finalizeStoredFullItinerary(params: {
   admin: SupabaseClient;
   job: RoamlyGenerationJob;
+  workerId?: string | null;
   state?: ReturnType<typeof getStagedGenerationState> | null;
   source: "stored_itinerary_recovery" | "terminal_state_cleanup";
 }) {
@@ -260,6 +304,7 @@ async function finalizeStoredFullItinerary(params: {
     tripId: params.job.trip_id,
     userId: params.job.user_id,
     jobId: params.job.id,
+    workerId: params.workerId || null,
     state: params.state || null,
     source: params.source,
     requireQueueFinalization: true
@@ -292,6 +337,7 @@ async function finishTerminalJob(params: {
       tripId: params.job.trip_id,
       userId: params.job.user_id,
       jobId: params.job.id,
+      workerId: params.workerId,
       state: params.state,
       completedAt: params.state.completedAt || new Date().toISOString(),
       source: "durable_queue_worker",
@@ -366,11 +412,12 @@ async function processClaimedJob(params: {
       }
 
       const state = getStagedGenerationState(trip.metadata);
-      if (state && terminalStatus(state.status)) {
+      if (state && terminalStatus(state.status) && !canResumeStagedGeneration(state)) {
         if (state.status === "complete") {
           const recovered = await finalizeStoredFullItinerary({
             admin: params.admin,
             job: params.job,
+            workerId: params.workerId,
             state,
             source: "terminal_state_cleanup"
           });
@@ -397,6 +444,7 @@ async function processClaimedJob(params: {
       const recovered = await finalizeStoredFullItinerary({
         admin: params.admin,
         job: params.job,
+        workerId: params.workerId,
         state,
         source: "stored_itinerary_recovery"
       });
@@ -717,7 +765,12 @@ function summarize(params: {
   error?: string;
 }): RoamlyGenerationWorkerSummary {
   return {
-    ok: !params.error && params.results.every((result) => result.ok),
+    ok:
+      !params.error &&
+      (
+        params.results.some((result) => result.terminal && result.ok) ||
+        params.results.every((result) => result.ok)
+      ),
     workerId: params.workerId,
     requestId: params.requestId,
     config: params.config,

@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { lockGeneratedItinerary, markFreeItineraryUsed, type RoamlyItineraryUnlockSource } from "@/lib/roamly/billing";
-import { finalizeGenerationCompletion, queueTableMissing } from "@/lib/roamly/generationQueue";
+import {
+  completeGenerationJob,
+  finalizeGenerationCompletion,
+  queueTableMissing,
+  reconcileCompletedGenerationJobs
+} from "@/lib/roamly/generationQueue";
 import { sendStagedGenerationEmail } from "@/lib/roamly/itineraryGenerationEmail";
 import {
   getStagedGenerationState,
@@ -290,6 +295,7 @@ async function findLatestGenerationJob(params: {
 async function finalizeQueueIfAvailable(params: {
   supabase: SupabaseClient;
   jobId?: string | null;
+  workerId?: string | null;
   tripId: string;
   userId: string;
   generationState: Record<string, unknown> | null;
@@ -327,10 +333,35 @@ async function finalizeQueueIfAvailable(params: {
       supabaseHost: getPublicSupabaseHost(),
       errorCode: lookupError
     });
-    return { ok: true as const, jobId: null, skipped: true as const, error: lookupError };
+    return { ok: false as const, jobId: null, skipped: true as const, error: lookupError };
   }
   if (!jobId) {
+    if (params.requireQueueFinalization) {
+      return { ok: false as const, jobId: null, skipped: true as const, error: "GENERATION_JOB_NOT_FOUND" };
+    }
     return { ok: true as const, jobId: null, skipped: true as const, error: "GENERATION_JOB_NOT_FOUND" };
+  }
+
+  let claimedJobCompleted = false;
+  let claimedJobCompletionError: string | null = null;
+  if (params.workerId) {
+    const completedJob = await completeGenerationJob({
+      supabase: params.supabase,
+      jobId,
+      workerId: params.workerId
+    });
+    claimedJobCompleted = completedJob.ok && Boolean(completedJob.job);
+    if (!completedJob.ok) {
+      claimedJobCompletionError = completedJob.error;
+      logGenerationDiagnostic("generation_queue_finalization_best_effort_failed", {
+        route: "generationFinalization",
+        source: "complete_job_rpc",
+        tripId: params.tripId,
+        jobId,
+        supabaseHost: getPublicSupabaseHost(),
+        errorCode: completedJob.error
+      });
+    }
   }
 
   const finalized = await finalizeGenerationCompletion({
@@ -342,7 +373,15 @@ async function finalizeQueueIfAvailable(params: {
   });
 
   if (finalized.ok) {
-    return { ok: true as const, jobId, skipped: false as const, completedLayerCount: finalized.completedLayerCount, error: null };
+    return {
+      ok: true as const,
+      jobId,
+      skipped: false as const,
+      completedLayerCount: finalized.completedLayerCount,
+      claimedJobCompleted,
+      claimedJobCompletionError,
+      error: null
+    };
   }
 
   if (queueTableMissing(finalized.error)) {
@@ -365,7 +404,28 @@ async function finalizeQueueIfAvailable(params: {
     supabaseHost: getPublicSupabaseHost(),
     errorCode: finalized.error
   });
-  return { ok: true as const, jobId, skipped: true as const, error: finalized.error };
+  return { ok: false as const, jobId, skipped: true as const, error: finalized.error };
+}
+
+async function reconcileQueueCompletionIfRequired(params: {
+  supabase: SupabaseClient;
+  queueFinalization: Awaited<ReturnType<typeof finalizeQueueIfAvailable>>;
+}) {
+  if (!params.queueFinalization.skipped || !params.queueFinalization.jobId) return null;
+  const result = await reconcileCompletedGenerationJobs({
+    supabase: params.supabase,
+    limit: 10
+  });
+  if (!result.ok && !queueTableMissing(result.error)) {
+    logGenerationDiagnostic("generation_queue_finalization_best_effort_failed", {
+      route: "generationFinalization",
+      source: "queue_reconcile_rpc",
+      jobId: params.queueFinalization.jobId,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: result.error || "GENERATION_RECONCILIATION_FAILED"
+    });
+  }
+  return result;
 }
 
 function finalizedMetadata(params: {
@@ -441,6 +501,7 @@ export async function finalizeCompletedStagedGeneration(params: {
   tripId: string;
   userId?: string | null;
   jobId?: string | null;
+  workerId?: string | null;
   state?: StagedGenerationState | null;
   completedAt?: string | null;
   source: string;
@@ -485,6 +546,7 @@ export async function finalizeCompletedStagedGeneration(params: {
   const queueFinalization = await finalizeQueueIfAvailable({
     supabase,
     jobId: params.jobId || null,
+    workerId: params.workerId || null,
     tripId: trip.id,
     userId: trip.user_id,
     generationState,
@@ -503,6 +565,10 @@ export async function finalizeCompletedStagedGeneration(params: {
           tripId: trip.id,
           kind: "completion"
         });
+  const reconciliation = await reconcileQueueCompletionIfRequired({
+    supabase,
+    queueFinalization
+  });
 
   return {
     ok: true as const,
@@ -513,6 +579,10 @@ export async function finalizeCompletedStagedGeneration(params: {
     completedAt,
     queueFinalized: !queueFinalization.skipped,
     queueFinalizationError: queueFinalization.error || null,
+    claimedQueueJobCompleted: "claimedJobCompleted" in queueFinalization ? queueFinalization.claimedJobCompleted : false,
+    claimedQueueJobCompletionError:
+      "claimedJobCompletionError" in queueFinalization ? queueFinalization.claimedJobCompletionError : null,
+    queueReconciliation: reconciliation,
     storedItineraryId: stored.itineraryId,
     recoveredFromStoredItinerary: stored.exists,
     generationState,

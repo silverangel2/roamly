@@ -704,24 +704,36 @@ function defaultDurationMinutes(item: RoamlyActivitySeed) {
 }
 
 function withChronologicalTimes(items: RoamlyActivitySeed[]) {
+  const dayEnd = 23 * 60 + 59;
   let cursor = parseTimeToMinutes(items[0]?.startTime || items[0]?.time_label) ?? 8 * 60;
+  let previousEnd: number | null = null;
   return items.map((item) => {
     const explicitStart = parseTimeToMinutes(item.startTime || item.time_label);
-    const start = explicitStart != null && explicitStart >= cursor ? explicitStart : cursor;
     const durationMinutes = defaultDurationMinutes(item);
-    const end = Math.min(start + durationMinutes, 23 * 60 + 45);
+    const desiredStart = explicitStart != null && explicitStart >= cursor ? explicitStart : cursor;
+    let start = desiredStart;
+    let end = start + durationMinutes;
+    if (end > dayEnd) {
+      const minimumLateDuration = Math.max(1, Math.min(durationMinutes, 15));
+      const latestStart = dayEnd - minimumLateDuration;
+      start = Math.max(previousEnd ?? 0, Math.min(desiredStart, latestStart));
+      if (start >= dayEnd) start = dayEnd - 1;
+      end = dayEnd;
+    }
+    const scheduledDurationMinutes = Math.max(1, end - start);
     const type = timelineType(item);
+    previousEnd = end;
     cursor = end + (type === "transfer" || type === "travel" || type === "reminder" ? 0 : 15);
     return {
       ...item,
       time_label: formatTimeLabel(start),
       startTime: formatTime24(start),
       endTime: formatTime24(end),
-      durationMinutes,
+      durationMinutes: scheduledDurationMinutes,
       transportMode: item.transportMode || item.travel_mode,
       travelTimeMinutes:
         type === "travel" || type === "transfer"
-          ? item.travelTimeMinutes || durationMinutes
+          ? Math.min(item.travelTimeMinutes || durationMinutes, scheduledDurationMinutes)
           : item.travelTimeMinutes
     };
   });

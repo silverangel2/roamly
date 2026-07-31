@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
-import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
 import { fetchWithSupabaseAuth, getSupabaseBrowserSessionUser } from "@/lib/roamly/authenticatedFetch";
 
 type GenerateLockedItineraryButtonProps = {
@@ -33,6 +32,7 @@ export function GenerateLockedItineraryButton({
     if (generationInFlight.current) return;
     generationInFlight.current = true;
     setBusy(true);
+    setConfirming(false);
     setError("");
 
     try {
@@ -59,13 +59,13 @@ export function GenerateLockedItineraryButton({
 
       if (response.status === 402 && data?.previewUrl) {
         setConfirming(false);
-        window.location.href = data.previewUrl;
+        router.replace(data.previewUrl);
         return;
       }
 
       if (response.status === 409 && data?.error === "ITINERARY_GENERATING") {
         setConfirming(false);
-        router.refresh();
+        router.push(`/trip/${tripId}?generating=1`);
         return;
       }
 
@@ -80,7 +80,9 @@ export function GenerateLockedItineraryButton({
       }
 
       setConfirming(false);
-      router.refresh();
+
+      router.push(`/trip/${tripId}?generating=1`);
+      return;
     } catch (err) {
       console.warn("[Roamly trip] itinerary generation warning", err);
       setConfirming(false);
@@ -106,36 +108,32 @@ export function GenerateLockedItineraryButton({
 
       {confirming ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm">
-          {busy ? (
-            <RoamlyGeneratingLoader className="w-full max-w-xl" />
-          ) : (
-            <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Final step</p>
-              <h2 className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
-              <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-                Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates,
-                travelers, budget, and preferences are correct.
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  disabled={busy}
-                  className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-ocean/30 disabled:opacity-60"
-                >
-                  Go back and edit
-                </button>
-                <button
-                  type="button"
-                  onClick={generate}
-                  disabled={busy}
-                  className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
-                >
-                  Generate itinerary
-                </button>
-              </div>
+          <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Final step</p>
+            <h2 className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
+            <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
+              Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates,
+              travelers, budget, and preferences are correct.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={busy}
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-ocean/30 disabled:opacity-60"
+              >
+                Go back and edit
+              </button>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={busy}
+                className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
+              >
+                Generate itinerary
+              </button>
             </div>
-          )}
+          </div>
         </div>
       ) : null}
     </div>

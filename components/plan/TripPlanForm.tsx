@@ -20,7 +20,6 @@ import {
   type NormalizedPlace
 } from "@/lib/roamly/places";
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
-import { RoamlyGeneratingLoader } from "@/components/roamly/RoamlyGeneratingLoader";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import {
   fetchWithSupabaseAuth,
@@ -163,10 +162,16 @@ function sameOriginTripPath(previewUrl: unknown, tripIdValue: unknown) {
   }
 }
 
-async function openTripAfterSessionSync(previewUrl: unknown, tripId: unknown) {
+async function openTripAfterSessionSync(
+  router: ReturnType<typeof useRouter>,
+  previewUrl: unknown,
+  tripId: unknown
+) {
   const tripPath = sameOriginTripPath(previewUrl, tripId);
+
   await syncSupabaseServerSession({ refresh: true });
-  window.location.assign(tripPath);
+
+  router.replace(tripPath);
 }
 
 function defaultStops(): StopItem[] {
@@ -1277,6 +1282,7 @@ export function TripPlanForm({
 
     generationInFlight.current = true;
     setLoading(true);
+    setNotice("Starting itinerary generation...");
     trackPlanEvent("itinerary_generation_started", { tripType, destination: generationPayload.destination });
 
     try {
@@ -1300,8 +1306,9 @@ export function TripPlanForm({
 
       if (response.ok && data?.tripId) {
         trackPlanEvent("itinerary_generation_completed", { tripType, destination: generationPayload.destination, tripId: data.tripId });
+        setNotice("Opening your trip progress...");
         clearCurrentPlanDraft();
-        await openTripAfterSessionSync(data.previewUrl, data.tripId);
+        await openTripAfterSessionSync(router, data.previewUrl, data.tripId);
         return;
       }
 
@@ -1311,8 +1318,9 @@ export function TripPlanForm({
           destination: generationPayload.destination,
           error: "PAYMENT_REQUIRED"
         });
+        setNotice("Opening your saved trip...");
         clearCurrentPlanDraft();
-        await openTripAfterSessionSync(data.previewUrl, data?.tripId);
+        await openTripAfterSessionSync(router, data.previewUrl, data?.tripId);
         return;
       }
 
@@ -1322,8 +1330,9 @@ export function TripPlanForm({
           destination: generationPayload.destination,
           tripId: data.tripId
         });
+        setNotice("Opening your trip progress...");
         clearCurrentPlanDraft();
-        await openTripAfterSessionSync(data.previewUrl, data.tripId);
+        await openTripAfterSessionSync(router, data.previewUrl, data.tripId);
         return;
       }
 
@@ -1380,7 +1389,6 @@ export function TripPlanForm({
     ["Style", `${payload.travelStyle} style, ${payload.pace} pace, ${payload.walkingTolerance} walking`],
     ["Interests", payload.interests.join(", ") || "No interests selected"]
   ];
-  const finalGenerationLoading = loading && !requiresPaidUnlock;
   const priceBudgetBalance = priceDiscovery
     ? describeBudgetBalanceCents(priceDiscovery.remainingBudgetCents, priceDiscovery.budgetCurrency)
     : null;
@@ -1853,6 +1861,8 @@ export function TripPlanForm({
           >
             {loading && requiresPaidUnlock
               ? translateText("Opening checkout...")
+              : loading
+              ? translateText("Starting generation...")
               : priceChecking
               ? translateText("Checking costs...")
               : testerAccess && freeItineraryUsed
@@ -1874,23 +1884,6 @@ export function TripPlanForm({
         </p>
       ) : null}
 
-      {finalGenerationLoading ? (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-ink/60 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-2xl">
-            <RoamlyGeneratingLoader />
-            <div className="mt-3 rounded-[1.25rem] border border-white/70 bg-white/90 p-4 shadow-[0_18px_55px_rgba(15,23,42,0.18)] backdrop-blur">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{translateText("Trip brief")}</p>
-              <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
-                {summaryRows.slice(0, 5).map(([label, value]) => (
-                  <p key={label}>
-                    <span className="text-ink">{translateText(label)}:</span> {value}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
     </>
   );

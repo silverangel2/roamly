@@ -144,11 +144,13 @@ export function classifyGenerationValidationErrors(errors: string[]) {
   const categories = new Set<string>();
   for (const error of errors) {
     const text = error.toLowerCase();
-    if (text.includes("day 1")) categories.add("missing_day_1_travel");
-    else if (text.includes("final day")) categories.add("missing_final_return_travel");
-    else if (text.includes("overlap") || text.includes("ends before")) categories.add("invalid_timing");
-    else if (text.includes("transfer")) categories.add("missing_transfer");
+    if (text.includes("overlap") || text.includes("ends before") || text.includes("structured start/end")) categories.add("invalid_timing");
     else if (text.includes("booking") || text.includes("cta")) categories.add("invalid_booking_cta");
+    else if (text.includes("day 1") && (text.includes("missing travel") || text.includes("arrival before local activities"))) {
+      categories.add("missing_day_1_travel");
+    } else if (text.includes("final day") && (text.includes("missing checkout") || text.includes("return travel"))) {
+      categories.add("missing_final_return_travel");
+    } else if (text.includes("transfer")) categories.add("missing_transfer");
     else if (text.includes("legacy")) categories.add("legacy_booking_link");
     else if (text.includes("timeline")) categories.add("missing_timeline");
     else categories.add("other_validation_error");

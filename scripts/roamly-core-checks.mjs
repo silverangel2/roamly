@@ -302,6 +302,134 @@ assert.ok(stagedGenerator.includes("safe.errorCategory === \"quota_exhausted\"")
 assert.ok(!stagedGenerator.includes("buildFallbackItinerary"), "staged generation must not use template fallback itineraries");
 assert.ok(!stagedGenerator.includes("local-starter-itinerary"), "staged generation must not return a local starter itinerary");
 assert.ok(!stagedGenerator.includes("ROAMLY_SECONDARY_AI"), "secondary-provider fallback is paused until primary production acceptance passes");
+assert.ok(stagedGenerator.includes("repairStagedDayForGenerationValidation"), "staged generation must repair malformed day output before failing a day");
+assert.ok(stagedGenerator.includes("canResumeStagedGeneration"), "staged generation must resume repairable failed day batches");
+
+const stagedGeneratorExports = loadTsModule("lib/roamly/stagedItineraryGeneration.ts");
+const malformedDay3 = stagedGeneratorExports.repairStagedDayForGenerationValidation(
+  {
+    day_number: 3,
+    date: "2026-08-07",
+    city: "Montreal",
+    title: "Markets and museums",
+    morning: "",
+    afternoon: "",
+    evening: "",
+    food: [],
+    estimated_cost: 0,
+    map_queries: [],
+    live_timeline: [
+      {
+        time_label: "9:00 AM",
+        title: "Museum anchor",
+        description: "Visit the main museum stop.",
+        location_name: "Downtown Montreal",
+        estimated_cost: 20,
+        category: "Activity",
+        map_query: "Downtown Montreal museum"
+      },
+      {
+        time_label: "9:00 AM",
+        title: "Museum anchor",
+        description: "Duplicate malformed activity from the model.",
+        location_name: "Downtown Montreal",
+        estimated_cost: 20,
+        category: "Activity",
+        map_query: "Downtown Montreal museum"
+      }
+    ]
+  },
+  {
+    id: "day-3",
+    dayNumber: 3,
+    date: "2026-08-07",
+    theme: "Markets and museums",
+    geographicArea: "Downtown Montreal",
+    priorityActivities: ["Museum anchor", "Jean-Talon Market", "Old Montreal evening"],
+    arrivalRequirements: [],
+    departureRequirements: [],
+    nextStartRequirement: "Downtown Montreal"
+  },
+  {
+    destination: "Montreal",
+    startDate: "2026-08-05",
+    endDate: "2026-08-08",
+    daysCount: 4,
+    budgetAmount: 900,
+    budgetCurrency: "CAD",
+    travelStyle: "Balanced",
+    interests: ["Culture", "Food"],
+    pace: "Balanced",
+    walkingTolerance: "Medium",
+    accommodationPreference: "Mid-range",
+    transportationPreference: "Mixed",
+    specialNotes: ""
+  }
+);
+const toMinutes = (value) => {
+  const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+assert.ok(malformedDay3.live_timeline.length >= 4, "malformed Day 3 must be repaired to a full day timeline");
+assert.equal(
+  new Set(malformedDay3.live_timeline.map((item) => item.title.toLowerCase())).size,
+  malformedDay3.live_timeline.length,
+  "repaired Day 3 must not keep duplicate activity titles"
+);
+malformedDay3.live_timeline.forEach((item, index, items) => {
+  const start = toMinutes(item.startTime);
+  const end = toMinutes(item.endTime);
+  assert.ok(start != null && end != null && end > start, `repaired Day 3 item ${index + 1} must have valid start/end times`);
+  if (index > 0) {
+    const previousEnd = toMinutes(items[index - 1].endTime);
+    assert.ok(previousEnd == null || start >= previousEnd, `repaired Day 3 item ${index + 1} must not overlap`);
+  }
+});
+assert.equal(
+  stagedGeneratorExports.canResumeStagedGeneration({
+    version: 2,
+    status: "failed",
+    currentStage: "failed",
+    totalDayCount: 4,
+    completedDayCount: 2,
+    outline: {
+      tripSummary: "Montreal test trip",
+      hotelAreaRecommendation: "Downtown Montreal",
+      importantConstraints: [],
+      days: []
+    },
+    days: {},
+    batches: {
+      "batch-3": {
+        id: "batch-3",
+        dayNumbers: [3],
+        status: "failed",
+        attemptCount: 2,
+        lastError: "DAY_BATCH_VALIDATION_FAILED"
+      }
+    },
+    generatedDays: {},
+    payload: {
+      destination: "Montreal",
+      startDate: "2026-08-05",
+      endDate: "2026-08-08",
+      daysCount: 4,
+      budgetAmount: 900,
+      budgetCurrency: "CAD",
+      travelStyle: "Balanced",
+      interests: ["Culture"],
+      pace: "Balanced",
+      accommodationPreference: "Mid-range",
+      transportationPreference: "Mixed",
+      specialNotes: ""
+    },
+    lastErrorCode: "DAY_BATCH_VALIDATION_FAILED",
+    startedAt: "2026-08-05T00:00:00.000Z",
+    updatedAt: "2026-08-05T00:00:00.000Z"
+  }),
+  true,
+  "failed Day 3 validation states must be resumable"
+);
 
 const trips = read("lib/trips.ts");
 ["startTime", "endTime", "durationMinutes", "travelTimeMinutes", "booking", "affiliate_category"].forEach((needle) =>
@@ -351,6 +479,17 @@ const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
 ].forEach((needle) => assert.ok(generateRouteDiagnostics.includes(needle), `generation route trace missing ${needle}`));
 assert.ok(!generateRouteDiagnostics.includes("generateRoamlyItinerary"), "generate route must not call the old all-in-one AI generator");
 assert.ok(generateRouteDiagnostics.includes("status: \"queued\""), "generate route must return a queued staged job");
+const durableQueueCreatedIndex = generateRouteDiagnostics.indexOf("const queueResult = await ensureDurableGenerationQueue");
+const stagedStartIndex = generateRouteDiagnostics.indexOf("state = await startStagedItineraryGeneration", durableQueueCreatedIndex);
+const queuedResponseIndex = generateRouteDiagnostics.indexOf("status: \"queued\"", stagedStartIndex);
+assert.ok(
+  durableQueueCreatedIndex >= 0 && stagedStartIndex > durableQueueCreatedIndex && queuedResponseIndex > stagedStartIndex,
+  "durable queue responses must initialize staged generation metadata before returning queued"
+);
+assert.ok(
+  !generateRouteDiagnostics.includes("generation_queued_returning_202"),
+  "generation route must not return queued before staged metadata is initialized"
+);
 
 assert.ok(tripPage.includes("itinerary_render_full_loaded"), "trip page must log safe structure diagnostics when rendering saved itineraries");
 
@@ -431,11 +570,31 @@ const generationFinalization = read("lib/roamly/generationFinalization.ts");
   "completeDayStates",
   "completedGenerationState",
   "worker: null",
+  "completeGenerationJob",
+  "finalizeGenerationCompletion",
+  "reconcileCompletedGenerationJobs",
+  "reconcileQueueCompletionIfRequired",
   "sendStagedGenerationEmail",
   "kind: \"completion\""
 ].forEach((needle) => assert.ok(generationFinalization.includes(needle), `generation finalization helper missing ${needle}`));
 assert.ok(!generationFinalization.includes("if (queueFinalization.skipped)"), "direct trip completion must not depend on skipped queue finalization");
 assert.ok(generationFinalization.includes("tripId?: string | null"), "stored generation recovery must support targeted trip repair without regenerating");
+const claimedJobCompletionIndex = generationFinalization.indexOf("const completedJob = await completeGenerationJob");
+const queueFinalizationIndex = generationFinalization.indexOf("const finalized = await finalizeGenerationCompletion");
+const completionEmailIndex = generationFinalization.indexOf("await sendStagedGenerationEmail", queueFinalizationIndex);
+assert.ok(claimedJobCompletionIndex >= 0, "terminal finalization must call completeGenerationJob for worker-locked queue jobs");
+assert.ok(
+  queueFinalizationIndex > claimedJobCompletionIndex,
+  "terminal finalization must complete the claimed job before atomic queue finalization"
+);
+assert.ok(
+  completionEmailIndex > queueFinalizationIndex,
+  "completion email must be sent only after queue finalization"
+);
+assert.ok(
+  generationFinalization.includes("return { ok: false as const, jobId, skipped: true as const, error: finalized.error }"),
+  "non-missing queue finalization errors must block completion email delivery"
+);
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
@@ -1036,6 +1195,7 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "finalizeStoredFullItinerary",
   "finalizeCompletedStagedGeneration",
   "requireQueueFinalization: true",
+  "workerId: params.workerId",
   "recordGenerationCostEvent",
   "worker_execution",
   "model_tokens",
