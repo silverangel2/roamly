@@ -6,6 +6,8 @@ import { processGenerationQueue } from "@/lib/roamly/generationWorker";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const ROUTE_EXECUTION_BUDGET_MS = 55_000;
+
 function authorized(request: NextRequest) {
   const secrets = getGenerationWorkerSecrets();
   const header = request.headers.get("authorization") || "";
@@ -14,6 +16,7 @@ function authorized(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const executionDeadlineMs = Date.now() + ROUTE_EXECUTION_BUDGET_MS;
   if (!authorized(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
@@ -27,6 +30,7 @@ export async function POST(request: NextRequest) {
     tripId: tripId || null,
     requestId,
     reason,
+    executionDeadlineMs,
     config: tripId
       ? {
           batchSize: 3,
@@ -40,6 +44,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const executionDeadlineMs = Date.now() + ROUTE_EXECUTION_BUDGET_MS;
   if (!authorized(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
@@ -47,7 +52,8 @@ export async function GET(request: NextRequest) {
   const requestId = randomUUID();
   const summary = await processGenerationQueue({
     requestId,
-    reason: "vercel_cron_wake"
+    reason: "vercel_cron_wake",
+    executionDeadlineMs
   });
 
   return NextResponse.json(summary, { status: summary.ok ? 200 : 500 });

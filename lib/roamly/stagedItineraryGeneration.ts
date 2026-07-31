@@ -204,6 +204,7 @@ const MAX_AI_COST_USD = Number(process.env.ROAMLY_STAGED_MAX_AI_COST_USD || 0.05
 const DEFAULT_INPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_INPUT_PRICE_PER_1M || 0.4);
 const DEFAULT_OUTPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_OUTPUT_PRICE_PER_1M || 1.6);
 const STAGE_LEASE_MS = Number(process.env.ROAMLY_STAGED_GENERATION_LEASE_MS || 4 * 60_000);
+const AI_STAGE_CLEANUP_BUFFER_MS = Number(process.env.ROAMLY_AI_STAGE_CLEANUP_BUFFER_MS || 8_000);
 
 function nowIso() {
   return new Date().toISOString();
@@ -515,6 +516,53 @@ function traceStage(trace: StageTrace | undefined, event: string, details: Recor
     supabaseHost: getPublicSupabaseHost(),
     ...details
   });
+}
+
+function remainingExecutionMs(deadlineMs?: number | null) {
+  if (!deadlineMs || !Number.isFinite(deadlineMs)) return null;
+  return Math.max(0, Math.floor(deadlineMs - Date.now()));
+}
+
+async function deferAiStageIfTimeBudgetInsufficient(params: {
+  supabase: SupabaseClient;
+  trip: RoamlyTripRecord;
+  state: StagedGenerationState;
+  stage: "outline" | "day_batch";
+  timeoutMs: number;
+  executionDeadlineMs?: number | null;
+  cleanupBufferMs?: number | null;
+  trace?: StageTrace;
+}) {
+  const remainingMs = remainingExecutionMs(params.executionDeadlineMs);
+  const cleanupBufferMs = Math.max(1_000, params.cleanupBufferMs ?? AI_STAGE_CLEANUP_BUFFER_MS);
+  const requiredRemainingMs = params.timeoutMs + cleanupBufferMs;
+
+  if (remainingMs === null || remainingMs >= requiredRemainingMs) return null;
+
+  const deferredState = releaseLease({
+    ...params.state,
+    updatedAt: nowIso()
+  });
+
+  await persistState({ supabase: params.supabase, trip: params.trip, state: deferredState });
+  traceStage(params.trace, "staged_ai_call_deferred_for_time_budget", {
+    stage: params.stage,
+    remainingMs,
+    requiredRemainingMs,
+    timeoutMs: params.timeoutMs,
+    cleanupBufferMs
+  });
+
+  return {
+    ok: true,
+    status: deferredState.status,
+    state: deferredState,
+    advanced: false,
+    deferred: true as const,
+    stage: params.stage,
+    remainingMs,
+    requiredRemainingMs
+  };
 }
 
 async function sendGenerationEmailSafely(params: {
@@ -1407,6 +1455,8 @@ export async function advanceStagedItineraryGeneration(params: {
   tripId: string;
   userId?: string;
   requestId: string;
+  executionDeadlineMs?: number | null;
+  aiStageCleanupBufferMs?: number | null;
 }) {
   const initialTrip = await loadTrip(params.supabase, params.tripId, params.userId);
   const initialState = getStagedGenerationState(initialTrip.metadata);
@@ -1429,6 +1479,18 @@ export async function advanceStagedItineraryGeneration(params: {
 
   try {
     if (!state.outline) {
+      const deferred = await deferAiStageIfTimeBudgetInsufficient({
+        supabase: params.supabase,
+        trip: claimedTrip,
+        state,
+        stage: "outline",
+        timeoutMs: OUTLINE_TIMEOUT_MS,
+        executionDeadlineMs: params.executionDeadlineMs,
+        cleanupBufferMs: params.aiStageCleanupBufferMs,
+        trace
+      });
+      if (deferred) return deferred;
+
       state = {
         ...state,
         status: "generating_outline",
@@ -1511,6 +1573,18 @@ export async function advanceStagedItineraryGeneration(params: {
       if (outlineDays.length !== nextBatch.dayNumbers.length) {
         throw new StagedGenerationError("Outline is missing one or more requested batch days.", "OUTLINE_DAY_NOT_FOUND", 502);
       }
+      const deferred = await deferAiStageIfTimeBudgetInsufficient({
+        supabase: params.supabase,
+        trip: claimedTrip,
+        state,
+        stage: "day_batch",
+        timeoutMs: DAY_TIMEOUT_MS,
+        executionDeadlineMs: params.executionDeadlineMs,
+        cleanupBufferMs: params.aiStageCleanupBufferMs,
+        trace
+      });
+      if (deferred) return deferred;
+
       const attemptCount = nextBatch.attemptCount + 1;
       state = {
         ...state,

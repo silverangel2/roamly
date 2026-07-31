@@ -37,6 +37,8 @@ export type RoamlyGenerationWorkerConfig = {
   maxLayersPerRun: number;
   retryBaseSeconds: number;
   retryMaxSeconds: number;
+  executionBudgetMs: number;
+  aiStageCleanupBufferMs: number;
 };
 
 export type RoamlyGenerationWorkerResult = {
@@ -77,7 +79,9 @@ const DEFAULT_CONFIG: RoamlyGenerationWorkerConfig = {
   leaseSeconds: 240,
   maxLayersPerRun: 1,
   retryBaseSeconds: 60,
-  retryMaxSeconds: 1800
+  retryMaxSeconds: 1800,
+  executionBudgetMs: 55_000,
+  aiStageCleanupBufferMs: 8_000
 };
 
 function envInt(key: string, fallback: number, min: number, max: number) {
@@ -97,7 +101,12 @@ export function getGenerationWorkerConfig(overrides: Partial<RoamlyGenerationWor
     retryBaseSeconds:
       overrides.retryBaseSeconds ?? envInt("ROAMLY_GENERATION_RETRY_BASE_SECONDS", DEFAULT_CONFIG.retryBaseSeconds, 1, 3600),
     retryMaxSeconds:
-      overrides.retryMaxSeconds ?? envInt("ROAMLY_GENERATION_RETRY_MAX_SECONDS", DEFAULT_CONFIG.retryMaxSeconds, 1, 86_400)
+      overrides.retryMaxSeconds ?? envInt("ROAMLY_GENERATION_RETRY_MAX_SECONDS", DEFAULT_CONFIG.retryMaxSeconds, 1, 86_400),
+    executionBudgetMs:
+      overrides.executionBudgetMs ?? envInt("ROAMLY_GENERATION_EXECUTION_BUDGET_MS", DEFAULT_CONFIG.executionBudgetMs, 5_000, 300_000),
+    aiStageCleanupBufferMs:
+      overrides.aiStageCleanupBufferMs ??
+      envInt("ROAMLY_GENERATION_AI_STAGE_CLEANUP_BUFFER_MS", DEFAULT_CONFIG.aiStageCleanupBufferMs, 1_000, 60_000)
   };
 }
 
@@ -443,6 +452,7 @@ async function processClaimedJob(params: {
   workerId: string;
   requestId: string;
   config: RoamlyGenerationWorkerConfig;
+  executionDeadlineMs: number;
 }) {
   let advanced = false;
   let currentLayer: RoamlyGenerationLayer | null = null;
@@ -520,8 +530,37 @@ async function processClaimedJob(params: {
       const result = await advanceStagedItineraryGeneration({
         supabase: params.admin,
         tripId: params.job.trip_id,
-        requestId: params.requestId
+        requestId: params.requestId,
+        executionDeadlineMs: params.executionDeadlineMs,
+        aiStageCleanupBufferMs: params.config.aiStageCleanupBufferMs
       });
+
+      if ("deferred" in result && result.deferred) {
+        await releaseGenerationLayer({
+          supabase: params.admin,
+          layerId: currentLayer.id,
+          workerId: params.workerId,
+          nextStatus: "pending"
+        });
+        await releaseGenerationJob({
+          supabase: params.admin,
+          jobId: params.job.id,
+          workerId: params.workerId,
+          nextStatus: "waiting"
+        });
+        return {
+          tripId: params.job.trip_id,
+          jobId: params.job.id,
+          ok: true,
+          claimed: true,
+          advanced: false,
+          terminal: false,
+          skipped: true,
+          layerType: currentLayer.layer_type,
+          layerSequence: currentLayer.layer_sequence,
+          progress: publicStagedGenerationProgress({ generation: result.state })
+        } satisfies RoamlyGenerationWorkerResult;
+      }
 
       if ("busy" in result && result.busy) {
         await releaseGenerationLayer({
@@ -738,6 +777,7 @@ async function processJobsInPool(params: {
   workerId: string;
   requestId: string;
   config: RoamlyGenerationWorkerConfig;
+  executionDeadlineMs: number;
 }) {
   const results: RoamlyGenerationWorkerResult[] = [];
   let cursor = 0;
@@ -754,7 +794,8 @@ async function processJobsInPool(params: {
             job,
             workerId: params.workerId,
             requestId: params.requestId,
-            config: params.config
+            config: params.config,
+            executionDeadlineMs: params.executionDeadlineMs
           })
         );
       }
@@ -794,11 +835,13 @@ export async function processGenerationQueue(params: {
   requestId?: string | null;
   reason?: string | null;
   config?: Partial<RoamlyGenerationWorkerConfig>;
+  executionDeadlineMs?: number | null;
 } = {}) {
   const admin = createSupabaseAdminClient();
   const config = getGenerationWorkerConfig(params.config || {});
   const requestId = params.requestId || randomUUID();
   const workerId = `roamly-worker:${requestId}`;
+  const executionDeadlineMs = params.executionDeadlineMs || Date.now() + config.executionBudgetMs;
 
   if (!admin) {
     return summarize({
@@ -881,7 +924,8 @@ export async function processGenerationQueue(params: {
     jobs,
     workerId,
     requestId,
-    config
+    config,
+    executionDeadlineMs
   });
 
   return summarize({ workerId, requestId, config, claimed: jobs.length, results });

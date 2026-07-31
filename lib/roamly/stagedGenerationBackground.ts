@@ -8,6 +8,8 @@ type ScheduleStagedGenerationAdvanceParams = {
   requestId?: string;
 };
 
+const BACKGROUND_EXECUTION_BUDGET_MS = 55_000;
+
 export function getGenerationWorkerSecret() {
   return getGenerationWorkerSecrets()[0] || "";
 }
@@ -51,11 +53,13 @@ async function queueUnavailableFromSummary(summary: unknown) {
 
 async function runLocalWorkerFallback(params: ScheduleStagedGenerationAdvanceParams) {
   const requestId = params.requestId || `background:${params.tripId}`;
+  const executionDeadlineMs = Date.now() + BACKGROUND_EXECUTION_BUDGET_MS;
   const { processGenerationQueue } = await import("@/lib/roamly/generationWorker");
   const summary = await processGenerationQueue({
     tripId: params.tripId,
     requestId,
     reason: `${params.reason}:local_after_fallback`,
+    executionDeadlineMs,
     config: {
       batchSize: 1,
       concurrency: 1,
@@ -101,7 +105,8 @@ async function runLocalWorkerFallback(params: ScheduleStagedGenerationAdvancePar
   const direct = await advanceStagedItineraryGeneration({
     supabase: admin,
     tripId: params.tripId,
-    requestId
+    requestId,
+    executionDeadlineMs
   });
 
   logGenerationDiagnostic("staged_generation_background_direct_fallback_result", {

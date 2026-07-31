@@ -14,6 +14,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+const ROUTE_EXECUTION_BUDGET_MS = 55_000;
+
 function workerQueueUnavailable(summary: Awaited<ReturnType<typeof processGenerationQueue>>) {
   const messages = [
     summary.error,
@@ -36,13 +38,15 @@ async function directStagedGenerationFallback(params: {
   tripId: string;
   userId: string;
   requestId: string;
+  executionDeadlineMs: number;
   worker: Awaited<ReturnType<typeof processGenerationQueue>>;
 }) {
   const result = await advanceStagedItineraryGeneration({
     supabase: params.supabase,
     tripId: params.tripId,
     userId: params.userId,
-    requestId: params.requestId
+    requestId: params.requestId,
+    executionDeadlineMs: params.executionDeadlineMs
   });
   return NextResponse.json({
     ok: result.ok,
@@ -61,6 +65,7 @@ async function directStagedGenerationFallback(params: {
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const executionDeadlineMs = Date.now() + ROUTE_EXECUTION_BUDGET_MS;
   const { id } = await params;
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
@@ -84,6 +89,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         userId: auth.user.id,
         requestId,
         reason: "browser_retry_batch",
+        executionDeadlineMs,
         config: {
           batchSize: 1,
           concurrency: 1,
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           tripId: id,
           userId: auth.user.id,
           requestId,
+          executionDeadlineMs,
           worker: summary
         });
       }
@@ -114,6 +121,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       userId: auth.user.id,
       requestId,
       reason: "browser_generation_fallback",
+      executionDeadlineMs,
       config: {
         batchSize: 3,
         concurrency: 1,
@@ -126,6 +134,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         tripId: id,
         userId: auth.user.id,
         requestId,
+        executionDeadlineMs,
         worker: summary
       });
     }
