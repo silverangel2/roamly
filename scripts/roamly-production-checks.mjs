@@ -581,6 +581,8 @@ const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route
 assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");
 assert.ok(generationAdvanceRoute.includes("workerQueueUnavailable"), "generation advance route must detect unavailable queue infrastructure");
 assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must direct-rescue staged jobs when queue infrastructure is unavailable");
+assert.ok(generationAdvanceRoute.includes("finalizeCompletedStagedGeneration"), "generation advance direct rescue must finalize completed fallback generations");
+assert.ok(generationAdvanceRoute.includes("browser_direct_fallback_completion"), "generation advance direct rescue must tag fallback completion finalization");
 assert.ok(generationAdvanceRoute.includes('fallback: "direct_staged_generation"'), "generation advance route must expose direct fallback diagnostics");
 assert.ok(generationAdvanceRoute.includes("queueSnapshot") && generationAdvanceRoute.includes("queue: await queueSnapshot"), "generation advance route must return queue state");
 assert.ok(generationAdvanceRoute.includes("const savedTrip = await auth.supabase"), "generation advance route must reload saved progress after terminal generator errors");
@@ -589,9 +591,29 @@ assert.ok(generationAdvanceRoute.includes("publicStagedGenerationProgress(savedT
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
 assert.ok(generationStatusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose saved queue progress");
-assert.ok(generationStatusRoute.includes("queue: queueProgress"), "generation status route must return queue progress");
+assert.ok(generationStatusRoute.includes("queue: queueForResponse"), "generation status route must return completed-safe queue progress");
 assert.ok(generationStatusRoute.includes("isFinalStoredItinerary"), "generation status route must recognize final stored itineraries");
 assert.ok(generationStatusRoute.includes("hasFullItinerary"), "generation status route must finish stale completed generations");
+assert.ok(generationStatusRoute.includes("hasFinalStoredItineraryInMetadata"), "generation status route must recover from metadata-saved final itineraries");
+assert.ok(generationStatusRoute.includes("status_route_stored_itinerary_recovery"), "generation status route must recover stale completed generations without the queue");
+assert.ok(generationStatusRoute.includes("queueTableMissing(jobsResult.error.message)") && generationStatusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
+
+const generationFinalization = read("lib/roamly/generationFinalization.ts");
+[
+  "finalizeCompletedStagedGeneration",
+  "recoverCompletedStoredGenerations",
+  "hasFinalStoredItineraryInMetadata",
+  "FINAL_ITINERARY_NOT_SAVED",
+  "queueTableMissing(lookupError)",
+  "queueTableMissing(finalized.error)",
+  "finalizeTripDirectly",
+  "status: \"generated\"",
+  "itinerary_status: \"generated\"",
+  "itinerary_generated_at",
+  "worker: null",
+  "sendStagedGenerationEmail",
+  "kind: \"completion\""
+].forEach((needle) => assert.ok(generationFinalization.includes(needle), `generation finalization helper missing ${needle}`));
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(!progressComponent.includes("QueueProgress"), "generation progress UI must not expose internal QueueProgress labels");
@@ -631,7 +653,8 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "advanceStagedItineraryGeneration",
   "sendStagedGenerationEmail",
   "finalizeStoredFullItinerary",
-  "finalizeGenerationCompletion",
+  "finalizeCompletedStagedGeneration",
+  "requireQueueFinalization: true",
   "scheduleGenerationLayerRetry",
   "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
@@ -642,10 +665,10 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
 assert.ok(
-  generationWorker.indexOf("const finalized = await finalizeGenerationCompletion") >= 0 &&
-    generationWorker.indexOf("sendStagedGenerationEmail({", generationWorker.indexOf("const finalized = await finalizeGenerationCompletion")) >
-      generationWorker.indexOf("const finalized = await finalizeGenerationCompletion"),
-  "completion email must be sent only after durable terminal finalization succeeds"
+  generationWorker.indexOf("const finalized = await finalizeCompletedStagedGeneration") >= 0 &&
+    generationWorker.indexOf("email = finalized.email", generationWorker.indexOf("const finalized = await finalizeCompletedStagedGeneration")) >
+      generationWorker.indexOf("const finalized = await finalizeCompletedStagedGeneration"),
+  "completion email result must come only from shared terminal finalization"
 );
 
 const generationScalabilityMigration = read("supabase/migrations/20260715_roamly_generation_scalability.sql");
@@ -748,6 +771,8 @@ assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation")
 assert.ok(generationBackground.includes("runLocalWorkerFallback"), "generation background trigger must fall back to an in-process worker when HTTP wake is unavailable");
 assert.ok(generationBackground.includes("local_after_fallback"), "generation background trigger must tag local fallback diagnostics");
 assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "generation background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
+assert.ok(generationBackground.includes("background_direct_fallback_completion"), "generation background direct fallback must finalize completed staged generations");
+assert.ok(generationBackground.includes("staged_generation_background_direct_fallback_finalized"), "generation background direct fallback must log finalization results");
 
 const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnostics/route.ts");
 ["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
@@ -758,7 +783,7 @@ const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
-["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail"].forEach((needle) =>
+["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail", "findDeliveredGenerationEmail", "roamly_email_logs", ".eq(\"idempotency_key\", key)", "Generation email already sent."].forEach((needle) =>
   assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`)
 );
 assert.ok(generationEmail.includes("toRoamlyAbsoluteUrl(`/trip/${tripId}?from=generation-email`"), "completion email CTA must be a production-safe absolute trip URL");

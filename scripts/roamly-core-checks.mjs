@@ -358,6 +358,8 @@ const advanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(advanceRoute.includes("processGenerationQueue"), "client generation worker route must advance through the durable queue worker");
 assert.ok(advanceRoute.includes("workerQueueUnavailable"), "client generation worker route must detect unavailable queue infrastructure");
 assert.ok(advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must direct-rescue staged jobs when queue infrastructure is unavailable");
+assert.ok(advanceRoute.includes("finalizeCompletedStagedGeneration"), "client generation direct rescue must finalize completed fallback generations");
+assert.ok(advanceRoute.includes("browser_direct_fallback_completion"), "client generation direct rescue must tag fallback completion finalization");
 assert.ok(advanceRoute.includes('fallback: "direct_staged_generation"'), "client generation worker route must expose direct fallback diagnostics");
 assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
 assert.ok(advanceRoute.includes("queueSnapshot") && advanceRoute.includes("queue: await queueSnapshot"), "client generation worker route must return durable queue progress");
@@ -367,9 +369,12 @@ assert.ok(advanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.
 const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
 assert.ok(statusRoute.includes("getGenerationQueueForTrip"), "generation status route must expose durable queue progress");
-assert.ok(statusRoute.includes("queue: queueProgress"), "generation status route must return saved queue progress");
+assert.ok(statusRoute.includes("queue: queueForResponse"), "generation status route must return completed-safe queue progress");
 assert.ok(statusRoute.includes("isFinalStoredItinerary"), "generation status route must recognize final stored itineraries");
 assert.ok(statusRoute.includes("hasFullItinerary"), "generation status route must mark validated stored itineraries as complete");
+assert.ok(statusRoute.includes("hasFinalStoredItineraryInMetadata"), "generation status route must recover from metadata-saved final itineraries");
+assert.ok(statusRoute.includes("status_route_stored_itinerary_recovery"), "generation status route must run direct completion recovery for stale building trips");
+assert.ok(statusRoute.includes("queueTableMissing(jobsResult.error.message)") && statusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
 const generationStatusExports = loadTsModule("lib/roamly/generationStatus.ts");
 const completedGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generated",
@@ -395,6 +400,35 @@ const storedFullGenerationState = generationStatusExports.deriveTripGenerationSt
 });
 assert.equal(storedFullGenerationState.progressStatus, "complete", "stored final itinerary must return complete progress");
 assert.equal(storedFullGenerationState.status, "complete", "stored final itinerary status endpoint must return complete");
+const storedFullNoQueueGenerationState = generationStatusExports.deriveTripGenerationStatus({
+  tripStatus: "generating",
+  itineraryStatus: "generating",
+  metadataProgress: { status: "generating_day", completedDayCount: 6, totalDayCount: 6 },
+  latestJob: null,
+  layers: [],
+  queueProgress: null,
+  hasFullItinerary: true
+});
+assert.equal(storedFullNoQueueGenerationState.progressStatus, "complete", "stored final itinerary must complete when queue lookup is unavailable");
+assert.equal(storedFullNoQueueGenerationState.percent, 100, "stored final itinerary without queue must stop polling at 100 percent");
+
+const generationFinalization = read("lib/roamly/generationFinalization.ts");
+[
+  "finalizeCompletedStagedGeneration",
+  "recoverCompletedStoredGenerations",
+  "isFinalStoredItinerary",
+  "hasFinalStoredItineraryInMetadata",
+  "FINAL_ITINERARY_NOT_SAVED",
+  "queueTableMissing(lookupError)",
+  "queueTableMissing(finalized.error)",
+  "finalizeTripDirectly",
+  "status: \"generated\"",
+  "itinerary_status: \"generated\"",
+  "itinerary_generated_at",
+  "worker: null",
+  "sendStagedGenerationEmail",
+  "kind: \"completion\""
+].forEach((needle) => assert.ok(generationFinalization.includes(needle), `generation finalization helper missing ${needle}`));
 
 const generationQueue = read("lib/roamly/generationQueue.ts");
 [
@@ -966,7 +1000,8 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "advanceStagedItineraryGeneration",
   "sendStagedGenerationEmail",
   "finalizeStoredFullItinerary",
-  "finalizeGenerationCompletion",
+  "finalizeCompletedStagedGeneration",
+  "requireQueueFinalization: true",
   "recordGenerationCostEvent",
   "worker_execution",
   "model_tokens",
@@ -982,10 +1017,10 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
 assert.ok(
-  generationWorker.indexOf("const finalized = await finalizeGenerationCompletion") >= 0 &&
-    generationWorker.indexOf("sendStagedGenerationEmail({", generationWorker.indexOf("const finalized = await finalizeGenerationCompletion")) >
-      generationWorker.indexOf("const finalized = await finalizeGenerationCompletion"),
-  "completion email must be sent only after terminal queue finalization succeeds"
+  generationWorker.indexOf("const finalized = await finalizeCompletedStagedGeneration") >= 0 &&
+    generationWorker.indexOf("email = finalized.email", generationWorker.indexOf("const finalized = await finalizeCompletedStagedGeneration")) >
+      generationWorker.indexOf("const finalized = await finalizeCompletedStagedGeneration"),
+  "completion email result must come only from shared terminal finalization"
 );
 assert.ok(
   !stagedGenerator.includes('sendGenerationEmailSafely({ tripId: params.trip.id, kind: "completion"'),
@@ -1170,6 +1205,8 @@ assert.ok(generationBackground.includes("ROAMLY_GENERATION_CRON_SECRET") && gene
 assert.ok(generationBackground.includes("runLocalWorkerFallback"), "background trigger must fall back to an in-process worker when HTTP wake is unavailable");
 assert.ok(generationBackground.includes("local_after_fallback"), "background trigger must tag local fallback diagnostics");
 assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
+assert.ok(generationBackground.includes("background_direct_fallback_completion"), "generation background direct fallback must finalize completed staged generations");
+assert.ok(generationBackground.includes("staged_generation_background_direct_fallback_finalized"), "generation background direct fallback must log finalization results");
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");
@@ -1216,7 +1253,11 @@ const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
   "last_email_error",
   "sendRoamlyEmail",
   "transactional: true",
-  "idempotencyKey"
+  "idempotencyKey",
+  "findDeliveredGenerationEmail",
+  "roamly_email_logs",
+  ".eq(\"idempotency_key\", key)",
+  "Generation email already sent."
 ].forEach((needle) => assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`));
 assert.ok(generationEmail.includes("toRoamlyAbsoluteUrl(`/trip/${tripId}?from=generation-email`"), "itinerary completion email CTA must use a production-safe absolute trip URL");
 assert.ok(!generationEmail.includes("if (process.env.VERCEL_URL) return"), "itinerary completion email must not point at Vercel preview domains");

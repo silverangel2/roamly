@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { finalizeCompletedStagedGeneration } from "@/lib/roamly/generationFinalization";
 import { sendStagedGenerationEmail } from "@/lib/roamly/itineraryGenerationEmail";
 import {
   advanceStagedItineraryGeneration,
@@ -14,7 +15,6 @@ import {
   claimGenerationLayer,
   completeGenerationLayer,
   createOrResumeGenerationJob,
-  finalizeGenerationCompletion,
   markQueueFromLegacyState,
   releaseGenerationJob,
   releaseGenerationLayer,
@@ -25,7 +25,6 @@ import {
   type RoamlyGenerationLayer
 } from "@/lib/roamly/generationQueue";
 import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
-import { lockGeneratedItinerary, markFreeItineraryUsed } from "@/lib/roamly/billing";
 import { isMissingTableError } from "@/lib/trips";
 
 export type RoamlyGenerationWorkerConfig = {
@@ -256,44 +255,16 @@ async function finalizeStoredFullItinerary(params: {
   });
   if (!stored.exists) return null;
 
-  const completedAt = new Date().toISOString();
-  const completedState = {
-    ...(params.state || {}),
-    status: "complete" as const,
-    currentStage: "complete" as const,
-    completedDayCount: Math.max(params.state?.completedDayCount || 0, stored.dayCount),
-    totalDayCount: Math.max(params.state?.totalDayCount || 0, stored.dayCount),
-    completedAt,
-    updatedAt: completedAt,
-    worker: null,
-    lastError: null,
-    lastErrorCode: null
-  };
-
-  if (params.state?.unlockSource === "free") {
-    await markFreeItineraryUsed(params.admin, params.job.user_id, params.job.trip_id).catch(() => null);
-  }
-
-  await lockGeneratedItinerary(
-    params.admin,
-    params.job.user_id,
-    params.job.trip_id,
-    params.state?.unlockSource || "paid"
-  ).catch(() => null);
-
-  const finalized = await finalizeGenerationCompletion({
+  const finalized = await finalizeCompletedStagedGeneration({
     supabase: params.admin,
-    jobId: params.job.id,
+    tripId: params.job.trip_id,
     userId: params.job.user_id,
-    generationState: completedState,
-    completedAt
+    jobId: params.job.id,
+    state: params.state || null,
+    source: params.source,
+    requireQueueFinalization: true
   });
   if (!finalized.ok) throw new Error(finalized.error);
-
-  const email = await sendStagedGenerationEmail({
-    tripId: params.job.trip_id,
-    kind: "completion"
-  });
 
   return {
     tripId: params.job.trip_id,
@@ -302,8 +273,8 @@ async function finalizeStoredFullItinerary(params: {
     claimed: true,
     advanced: false,
     terminal: true,
-    progress: completedState ? publicStagedGenerationProgress({ generation: completedState }) : null,
-    email,
+    progress: finalized.progress,
+    email: finalized.email,
     error: params.source
   } satisfies RoamlyGenerationWorkerResult;
 }
@@ -316,19 +287,18 @@ async function finishTerminalJob(params: {
 }) {
   let email: unknown = null;
   if (params.state.status === "complete") {
-    const finalized = await finalizeGenerationCompletion({
+    const finalized = await finalizeCompletedStagedGeneration({
       supabase: params.admin,
-      jobId: params.job.id,
+      tripId: params.job.trip_id,
       userId: params.job.user_id,
-      generationState: params.state as unknown as Record<string, unknown>,
-      completedAt: params.state.completedAt || new Date().toISOString()
+      jobId: params.job.id,
+      state: params.state,
+      completedAt: params.state.completedAt || new Date().toISOString(),
+      source: "durable_queue_worker",
+      requireQueueFinalization: true
     });
     if (!finalized.ok) throw new Error(finalized.error);
-
-    email = await sendStagedGenerationEmail({
-      tripId: params.job.trip_id,
-      kind: "completion"
-    });
+    email = finalized.email;
   } else {
     await scheduleGenerationJobRetry({
       supabase: params.admin,
@@ -588,6 +558,7 @@ async function processClaimedJob(params: {
           workerId: params.workerId,
           state: result.state
         });
+
         return {
           tripId: params.job.trip_id,
           jobId: params.job.id,

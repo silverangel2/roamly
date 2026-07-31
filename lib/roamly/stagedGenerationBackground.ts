@@ -123,6 +123,39 @@ async function runLocalWorkerFallback(params: ScheduleStagedGenerationAdvancePar
     progress: publicStagedGenerationProgress({ generation: direct.state }),
     errorCode: "error" in direct ? direct.error || null : null
   });
+
+  if (direct.ok && direct.status === "complete") {
+    const { finalizeCompletedStagedGeneration } = await import("@/lib/roamly/generationFinalization");
+    const finalized = await finalizeCompletedStagedGeneration({
+      supabase: admin,
+      tripId: params.tripId,
+      state: direct.state,
+      source: "background_direct_fallback_completion"
+    });
+
+    logGenerationDiagnostic("staged_generation_background_direct_fallback_finalized", {
+      requestId,
+      tripId: params.tripId,
+      route: "stagedGenerationBackground",
+      supabaseHost: getPublicSupabaseHost(),
+      reason: params.reason,
+      ok: finalized.ok,
+      queueFinalized: finalized.ok ? finalized.queueFinalized : false,
+      email: finalized.ok ? finalized.email : null,
+      errorCode: finalized.ok ? finalized.queueFinalizationError : finalized.error
+    });
+  }
+
+  if (
+    direct.ok &&
+    direct.advanced &&
+    direct.status === "generating_day"
+  ) {
+    await runLocalWorkerFallback({
+      ...params,
+      reason: params.reason + ":continue"
+    });
+  }
 }
 
 export function scheduleStagedGenerationAdvance(params: ScheduleStagedGenerationAdvanceParams) {

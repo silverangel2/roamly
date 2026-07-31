@@ -7,6 +7,7 @@ import {
   resetFailedStagedBatch,
   StagedGenerationError
 } from "@/lib/roamly/stagedItineraryGeneration";
+import { finalizeCompletedStagedGeneration } from "@/lib/roamly/generationFinalization";
 import { processGenerationQueue } from "@/lib/roamly/generationWorker";
 import { getGenerationQueueForTrip, publicQueueProgress, queueTableMissing } from "@/lib/roamly/generationQueue";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -48,20 +49,37 @@ async function directStagedGenerationFallback(params: {
     requestId: params.requestId,
     executionDeadlineMs: params.executionDeadlineMs
   });
-  return NextResponse.json({
-    ok: result.ok,
-    tripId: params.tripId,
-    busy: "busy" in result ? result.busy === true : false,
-    advanced: result.advanced === true,
-    stage: "stage" in result ? result.stage || null : null,
-    progress: publicStagedGenerationProgress({ generation: result.state }),
-    queue: await queueSnapshot(params.supabase, params.tripId, params.userId),
-    worker: {
-      ...params.worker,
-      fallback: "direct_staged_generation"
+  const finalization =
+    result.ok && result.status === "complete"
+      ? await finalizeCompletedStagedGeneration({
+          supabase: params.supabase,
+          tripId: params.tripId,
+          userId: params.userId,
+          state: result.state,
+          source: "browser_direct_fallback_completion"
+        })
+      : null;
+  const progress = finalization?.ok && finalization.progress
+    ? finalization.progress
+    : publicStagedGenerationProgress({ generation: result.state });
+  return NextResponse.json(
+    {
+      ok: result.ok && (finalization?.ok ?? true),
+      tripId: params.tripId,
+      busy: "busy" in result ? result.busy === true : false,
+      advanced: result.advanced === true,
+      stage: "stage" in result ? result.stage || null : null,
+      progress,
+      queue: await queueSnapshot(params.supabase, params.tripId, params.userId),
+      worker: {
+        ...params.worker,
+        fallback: "direct_staged_generation",
+        finalization
+      },
+      error: finalization && !finalization.ok ? finalization.error : "error" in result ? result.error || null : null
     },
-    error: "error" in result ? result.error || null : null
-  });
+    finalization && !finalization.ok ? { status: 500 } : undefined
+  );
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

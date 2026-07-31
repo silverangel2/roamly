@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 type DayProgress = {
@@ -187,7 +186,6 @@ export function StagedGenerationProgress({
   backgroundWorkerConfigured: boolean;
   apiAuthToken?: string;
 }) {
-  const router = useRouter();
   const [progress, setProgress] = useState(initialProgress);
   const [queueProgress, setQueued] = useState<Queued | null>(null);
   const [busyRetryId, setBusyRetryId] = useState("");
@@ -219,9 +217,12 @@ export function StagedGenerationProgress({
     });
     if (shouldRefresh && (next.completedDayCount !== refreshedDayCount.current || isTerminalStatus(next.status))) {
       refreshedDayCount.current = next.completedDayCount;
-      router.refresh();
+      // Generation page polls the backend.
+      // Do not refresh the App Router here because it remounts
+      // the planner and interrupts generation.
+
     }
-  }, [router]);
+  }, []);
 
   const applyQueue = useCallback((next: Queued | null | undefined) => {
     if (!next) return;
@@ -305,9 +306,13 @@ export function StagedGenerationProgress({
       if (data?.progress) applyProgress(data.progress);
       if (data?.queue) applyQueue(data.queue);
 
+      const progressTerminal = isTerminalStatus(data?.progress?.status || "");
+      const queueTerminal =
+        data?.queue?.job?.status === "completed" ||
+        data?.queue?.job?.status === "complete";
+
       const isStillGenerating =
-        !isTerminalStatus(data?.progress?.status || "") &&
-        data?.queue?.job?.status !== "completed";
+        !(progressTerminal || queueTerminal);
 
       if (backgroundWorkerConfigured && isStillGenerating) {
         const advance = await advanceProgress();
@@ -378,9 +383,11 @@ export function StagedGenerationProgress({
 
   useEffect(() => {
     if (stopped) return;
+
     const timer = window.setTimeout(() => {
       void pollProgress();
     }, progress.completedDayCount > 0 ? 5000 : 1800);
+
     return () => window.clearTimeout(timer);
   }, [pollProgress, progress.completedDayCount, progress.currentStage, progress.status, stopped]);
 

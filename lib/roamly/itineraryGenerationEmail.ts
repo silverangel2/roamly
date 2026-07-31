@@ -183,6 +183,35 @@ function idempotencyKey(tripId: string, kind: GenerationEmailKind) {
     : `${tripId}:itinerary_failure_email:v1`;
 }
 
+async function findDeliveredGenerationEmail(admin: SupabaseClient, key: string) {
+  if (!key) return null;
+  const { data, error } = await admin
+    .from("roamly_email_logs")
+    .select("id,status,provider_message_id,sent_at,created_at")
+    .eq("idempotency_key", key)
+    .in("status", ["sent", "captured"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (!missingCompletionEmailColumns(error) && !/roamly_email_logs|does not exist/i.test(error.message || "")) {
+      console.error("[Roamly generation email] idempotency lookup failed", error.message);
+    }
+    return null;
+  }
+
+  const status: GenerationDeliveryStatus | null =
+    data?.status === "captured" ? "captured" : data?.status === "sent" ? "sent" : null;
+  if (!status) return null;
+  return {
+    id: getString(data?.id),
+    status,
+    providerMessageId: getString(data?.provider_message_id) || null,
+    sentAt: getString(data?.sent_at) || getString(data?.created_at) || new Date().toISOString()
+  };
+}
+
 function statusField(kind: GenerationEmailKind) {
   return kind === "completion" ? "completion_email_status" : "failure_email_status";
 }
@@ -394,6 +423,31 @@ export async function sendStagedGenerationEmail(params: {
   const nextAttemptCount = previousAttempts + 1;
   const key = idempotencyKey(trip.id, params.kind);
   const actionUrl = itineraryUrl(trip.id);
+  const delivered = await findDeliveredGenerationEmail(admin, key);
+  if (delivered) {
+    await updateGenerationEmailMetadata(admin, trip, {
+      delivery_status: delivered.status,
+      email_provider_message_id: delivered.providerMessageId,
+      last_email_error: null,
+      last_email_attempt_at: delivered.sentAt,
+      [statusField(params.kind)]: delivered.status,
+      [sentAtField(params.kind)]: delivered.sentAt,
+      [providerField(params.kind)]: delivered.providerMessageId,
+      [errorField(params.kind)]: null,
+      [retryField(params.kind)]: null,
+      [permanentFailureField(params.kind)]: null,
+      [idempotencyField(params.kind)]: key,
+      [linkField(params.kind)]: actionUrl
+    });
+    return {
+      ok: true,
+      status: "skipped" as const,
+      error: "Generation email already sent.",
+      logId: delivered.id || null,
+      providerMessageId: delivered.providerMessageId
+    };
+  }
+
   await updateGenerationEmailMetadata(admin, trip, {
     delivery_status: "sending",
     last_email_error: null,

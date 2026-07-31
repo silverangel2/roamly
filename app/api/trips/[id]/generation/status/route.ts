@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
 import { publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
 import {
+  finalizeCompletedStagedGeneration,
+  hasFinalStoredItineraryInMetadata,
+  isFinalStoredItinerary
+} from "@/lib/roamly/generationFinalization";
+import {
   getGenerationQueueForTrip,
   publicQueueProgress,
   queueTableMissing
@@ -11,17 +16,6 @@ import {
   type StagedGenerationStatusJobRow,
   type StagedGenerationStatusLayerRow
 } from "@/lib/roamly/generationStatus";
-
-function isFinalStoredItinerary(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const record = value as Record<string, unknown>;
-  return (
-    Array.isArray(record.daily_itinerary) &&
-    record.daily_itinerary.length > 0 &&
-    typeof record.generation_note === "string" &&
-    /generated through roamly staged ai generation/i.test(record.generation_note)
-  );
-}
 
 export async function GET(
   _request: Request,
@@ -47,12 +41,13 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
   }
 
-  const metadataProgress =
+  let metadataProgress =
     publicStagedGenerationProgress(data.metadata) || {
       status: "queued",
       completedDayCount: 0,
       totalDayCount: 1,
-      percent: 0
+      percent: 0,
+      completedAt: null
     };
 
   const [jobsResult, layersResult, queue, itineraryResult] = await Promise.all([
@@ -83,16 +78,53 @@ export async function GET(
   ]);
 
   if (queue.error && !queueTableMissing(queue.error)) {
-    return NextResponse.json({ ok: false, error: queue.error }, { status: 500 });
+    console.error(
+      "[Roamly] Queue unavailable during status lookup:",
+      queue.error
+    );
+  }
+  if (jobsResult.error && !queueTableMissing(jobsResult.error.message)) {
+    console.error("[Roamly] Generation jobs unavailable during status lookup:", jobsResult.error.message);
+  }
+  if (layersResult.error && !queueTableMissing(layersResult.error.message)) {
+    console.error("[Roamly] Generation layers unavailable during status lookup:", layersResult.error.message);
   }
 
-  const latestJob = (jobsResult.data?.[0] || null) as StagedGenerationStatusJobRow | null;
-  const layers = (layersResult.data || []) as StagedGenerationStatusLayerRow[];
+  const latestJob =
+    jobsResult.error && queueTableMissing(jobsResult.error.message)
+      ? null
+      : (jobsResult.data?.[0] || null) as StagedGenerationStatusJobRow | null;
+  const layers =
+    layersResult.error && queueTableMissing(layersResult.error.message)
+      ? []
+      : (layersResult.data || []) as StagedGenerationStatusLayerRow[];
   const hasFullItinerary = Boolean(
-    itineraryResult.data?.some((item) => isFinalStoredItinerary((item as { full_json?: unknown }).full_json))
+    hasFinalStoredItineraryInMetadata(data.metadata) ||
+      itineraryResult.data?.some((item) => isFinalStoredItinerary((item as { full_json?: unknown }).full_json))
   );
+  const needsStoredItineraryRecovery = Boolean(
+    hasFullItinerary &&
+      (metadataProgress.status !== "complete" ||
+        data.status === "generating" ||
+        data.itinerary_status === "generating")
+  );
+  const recovery = needsStoredItineraryRecovery
+    ? await finalizeCompletedStagedGeneration({
+        supabase: auth.supabase,
+        tripId: id,
+        userId: auth.user.id,
+        source: "status_route_stored_itinerary_recovery"
+      }).catch((error) => ({
+        ok: false as const,
+        error: error instanceof Error ? error.message : "STORED_ITINERARY_RECOVERY_FAILED"
+      }))
+    : null;
+  if (recovery?.ok && recovery.progress) metadataProgress = recovery.progress;
 
-  const queueProgress = publicQueueProgress(queue, data.metadata);
+  const queueProgress =
+    queue.error && !queueTableMissing(queue.error)
+      ? null
+      : publicQueueProgress(queue, data.metadata);
   const queueRecord = queueProgress as Record<string, unknown> | null;
   const derived = deriveTripGenerationStatus({
     tripStatus: data.status,
@@ -103,13 +135,27 @@ export async function GET(
     queueProgress: queueRecord,
     hasFullItinerary
   });
+  const queueForResponse =
+    queueProgress && derived.isComplete
+      ? {
+          ...queueProgress,
+          job: {
+            ...queueProgress.job,
+            status: "completed",
+            completed_at: queueProgress.job.completed_at || metadataProgress.completedAt || null
+          },
+          completedLayerCount: derived.completedLayerCount,
+          totalLayerCount: derived.totalLayerCount
+        }
+      : queueProgress;
+  const queueForResponseRecord = queueForResponse as Record<string, unknown> | null;
 
   return NextResponse.json({
     ok: true,
     tripId: id,
     status: derived.status,
     itineraryStatus: derived.itineraryStatus,
-    itineraryLocked: data.itinerary_locked === true,
+    itineraryLocked: data.itinerary_locked === true || recovery?.ok === true,
     progress: {
       ...metadataProgress,
       status: derived.progressStatus,
@@ -117,9 +163,9 @@ export async function GET(
       totalDayCount: derived.totalLayerCount,
       percent: derived.percent
     },
-    queue: queueProgress,
+    queue: queueForResponse,
     queueProgress: {
-      ...(queueRecord || {}),
+      ...(queueForResponseRecord || {}),
       status: derived.isComplete ? "completed" : derived.isFailed ? "failed" : queueRecord?.status,
       completedLayerCount: derived.completedLayerCount,
       totalLayerCount: derived.totalLayerCount
@@ -130,7 +176,8 @@ export async function GET(
       jobErrorMessage: latestJob?.error_message || null,
       layerCount: layers.length,
       completedLayerCount: derived.completedLayerCount,
-      hasFullItinerary
+      hasFullItinerary,
+      recovery
     }
   });
 }
