@@ -606,8 +606,12 @@ assert.ok(generationStatusRoute.includes("isFinalStoredItinerary"), "generation 
 assert.ok(generationStatusRoute.includes("hasFullItinerary"), "generation status route must finish stale completed generations");
 assert.ok(generationStatusRoute.includes("hasFinalStoredItineraryInMetadata"), "generation status route must recover from metadata-saved final itineraries");
 assert.ok(generationStatusRoute.includes("status_route_stored_itinerary_recovery"), "generation status route must recover stale completed generations without the queue");
+assert.ok(generationStatusRoute.includes("tripStatusStillBuilding") && generationStatusRoute.includes("itineraryStatusComplete"), "generation status route must repair existing trips stuck queued after a final itinerary is saved");
 assert.ok(generationStatusRoute.includes("getGenerationEmailStatus") && generationStatusRoute.includes("completionEmailMissing"), "generation status route must recover missing completion emails for completed stored itineraries");
 assert.ok(generationStatusRoute.includes("queueTableMissing(jobsResult.error.message)") && generationStatusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
+assert.ok(generationStatusRoute.includes("completedDayCount: derived.completedLayerCount") && generationStatusRoute.includes("totalDayCount: derived.totalLayerCount"), "generation status route must expose terminal day counts at the top level");
+const generationStatusHelper = read("lib/roamly/generationStatus.ts");
+assert.ok(generationStatusHelper.includes("hasFullItinerary === true") && generationStatusHelper.includes("completedLayerCount = isComplete ? totalLayerCount"), "completed itinerary status must override stale queued progress and return matching counts");
 
 const generationFinalization = read("lib/roamly/generationFinalization.ts");
 [
@@ -665,9 +669,11 @@ assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progr
   "Taking longer than expected. You can leave this page.",
   "Generation failed — Retry",
   "simpleGenerationState",
+  "progressFromApi",
+  "isTerminalStatus(data?.status || \"\")",
   "terminalRefreshQueued",
   "router.refresh()",
-  "trackPollMovement(data?.progress, data?.queue)"
+  "trackPollMovement(nextProgress || data?.progress, data?.queue)"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
 ["Trip understood", "Creating your days", "Checking your plan", "Finalizing", "Current step"].forEach((needle) =>
   assert.ok(!progressComponent.includes(needle), `generation progress UI must not render old progress label ${needle}`)
@@ -854,12 +860,14 @@ const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
-["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail", "findDeliveredGenerationEmail", "getGenerationEmailStatusForTrip", "deliveredByColumn", "roamly_email_logs", ".eq(\"idempotency_key\", key)", "Generation email already sent."].forEach((needle) =>
+["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail", "findDeliveredGenerationEmail", "resolveTripOwnerEmail", "claimGenerationEmailSend", "isBlockedProductionRecipientEmail", "productionEmailSafetyEnabled", "getGenerationEmailStatusForTrip", "deliveredByColumn", "roamly_email_logs", ".eq(\"idempotency_key\", key)", "Generation email already sent."].forEach((needle) =>
   assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`)
 );
 assert.ok(generationEmail.includes("toRoamlyAbsoluteUrl(`/trip/${tripId}?from=generation-email`"), "completion email CTA must be a production-safe absolute trip URL");
 assert.ok(generationEmail.includes("alreadySent(current, params.kind)"), "completion email duplicate prevention must remain in place");
 assert.ok(generationEmail.includes("retryDue(current, params.kind)") && generationEmail.includes("MAX_COMPLETION_EMAIL_ATTEMPTS"), "completion email retry limits must remain in place");
+assert.ok(generationEmail.includes("admin.auth.admin.getUserById") && !generationEmail.includes(".from(\"roamly_profiles\")"), "completion email must use the authenticated trip owner email only");
+assert.ok(generationEmail.includes("completion_email_status.in.(pending,failed,skipped)") && generationEmail.includes("Generation email already sending or sent."), "completion email must claim an idempotent send before provider delivery");
 
 const emailAdapter = read("lib/roamly/email.ts");
 ["nodemailer", "verifyRoamlyEmailProvider", "SMTP_HOST", "SMTP_PORT", "SMTP_SECURE", "SMTP_USER", "SMTP_PASSWORD", "messageId", "provider_message_id"].forEach((needle) =>
@@ -868,6 +876,10 @@ const emailAdapter = read("lib/roamly/email.ts");
 assert.ok(emailAdapter.includes('readEnv("ROAMLY_EMAIL_PROVIDER").toLowerCase() || "smtp"'), "Roamly email provider must default to SMTP preference");
 assert.ok(!emailAdapter.includes('|| "resend"'), "Resend must not be the default Roamly email provider");
 assert.ok(emailAdapter.includes('currentProvider === "resend"') && emailAdapter.includes("RESEND_API_KEY is missing for optional Resend provider"), "Resend must remain optional and explicitly provider-gated");
+assert.ok(emailAdapter.includes("isBlockedProductionRecipientEmail") && emailAdapter.includes("Production email recipient is blocked."), "production email adapter must block temporary test recipients");
+["codex", "smoke", "example.com", "temporary"].forEach((needle) =>
+  assert.ok(emailAdapter.includes(needle), `production recipient block missing ${needle}`)
+);
 
 const emailTemplates = read("lib/roamly/emailTemplates.ts");
 ["ROAMLY_LOGO_URL", "roamly-wordmark@2x.png", "renderPlainText", "role=\"presentation\"", "alt=\"Roamly\""].forEach((needle) =>

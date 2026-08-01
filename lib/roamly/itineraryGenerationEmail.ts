@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendRoamlyEmail } from "@/lib/roamly/email";
+import {
+  isBlockedProductionRecipientEmail,
+  productionEmailSafetyEnabled,
+  sendRoamlyEmail
+} from "@/lib/roamly/email";
 import {
   ROAMLY_PUBLIC_DOMAIN,
   escapeEmailHtml,
@@ -360,27 +364,10 @@ async function loadTrip(admin: SupabaseClient, tripId: string) {
   return data as RoamlyTripRecord;
 }
 
-async function resolveTripOwnerEmail(admin: SupabaseClient, trip: RoamlyTripRecord) {
+export async function resolveTripOwnerEmail(admin: SupabaseClient, trip: RoamlyTripRecord) {
   const userResult = await admin.auth.admin.getUserById(trip.user_id);
   const authEmail = getString(userResult.data.user?.email);
   if (authEmail) return { email: authEmail, source: "auth" as const };
-
-  const profileResult = await admin
-    .from("roamly_profiles")
-    .select("email")
-    .eq("user_id", trip.user_id)
-    .maybeSingle();
-  const currentProfileEmail = getString(profileResult.data?.email);
-  if (currentProfileEmail) return { email: currentProfileEmail, source: "profile" as const };
-
-  const legacyProfileResult = await admin
-    .from("roamly_profiles")
-    .select("email")
-    .eq("id", trip.user_id)
-    .maybeSingle();
-  const legacyProfileEmail = getString(legacyProfileResult.data?.email);
-  if (legacyProfileEmail) return { email: legacyProfileEmail, source: "profile" as const };
-
   return { email: "", source: null };
 }
 
@@ -419,6 +406,63 @@ async function updateGenerationEmailMetadata(
     return { error: fallback.error, generationEmail };
   }
   return { error, generationEmail };
+}
+
+async function claimGenerationEmailSend(
+  admin: SupabaseClient,
+  trip: RoamlyTripRecord,
+  patch: GenerationEmailState,
+  kind: GenerationEmailKind
+) {
+  if (kind !== "completion") {
+    const result = await updateGenerationEmailMetadata(admin, trip, patch);
+    return {
+      claimed: !result.error,
+      error: result.error?.message || null,
+      generationEmail: result.generationEmail
+    };
+  }
+
+  const metadata = getMetadata(trip);
+  const current = getGenerationEmailStatusForTrip(trip);
+  const generationEmail = {
+    ...current,
+    ...patch,
+    email_me_when_ready: current.email_me_when_ready !== false
+  };
+  const staleSendingCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
+  const payload = {
+    metadata: {
+      ...metadata,
+      generationEmail
+    },
+    ...completionEmailColumnPatch(generationEmail)
+  };
+  const result = await admin
+    .from("roamly_trips")
+    .update(payload)
+    .eq("id", trip.id)
+    .is("completion_email_sent_at", null)
+    .or(
+      `completion_email_status.is.null,completion_email_status.in.(pending,failed,skipped),and(completion_email_status.eq.sending,completion_email_last_attempt_at.lt.${staleSendingCutoff})`
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (result.error && missingCompletionEmailColumns(result.error)) {
+    const fallback = await updateGenerationEmailMetadata(admin, trip, patch);
+    return {
+      claimed: !fallback.error,
+      error: fallback.error?.message || null,
+      generationEmail: fallback.generationEmail
+    };
+  }
+
+  if (result.error) {
+    return { claimed: false, error: result.error.message, generationEmail };
+  }
+
+  return { claimed: Boolean(result.data), error: null, generationEmail };
 }
 
 function alreadySent(state: GenerationEmailState, kind: GenerationEmailKind) {
@@ -492,19 +536,6 @@ export async function sendStagedGenerationEmail(params: {
     };
   }
 
-  await updateGenerationEmailMetadata(admin, trip, {
-    delivery_status: "sending",
-    last_email_error: null,
-    last_email_attempt_at: now,
-    [statusField(params.kind)]: "sending",
-    [attemptField(params.kind)]: nextAttemptCount,
-    [errorField(params.kind)]: null,
-    [retryField(params.kind)]: null,
-    [permanentFailureField(params.kind)]: null,
-    [idempotencyField(params.kind)]: key,
-    [linkField(params.kind)]: actionUrl
-  });
-
   const owner = await resolveTripOwnerEmail(admin, trip);
   const to = owner.email;
   if (!to) {
@@ -518,6 +549,42 @@ export async function sendStagedGenerationEmail(params: {
       [permanentFailureField(params.kind)]: true
     });
     return { ok: false, status: "failed" as const, error: "Trip owner email is missing." };
+  }
+
+  if (productionEmailSafetyEnabled() && isBlockedProductionRecipientEmail(to)) {
+    const error = "Production email recipient is blocked.";
+    await updateGenerationEmailMetadata(admin, trip, {
+      delivery_status: "failed",
+      last_email_error: error,
+      last_email_attempt_at: now,
+      [statusField(params.kind)]: "failed",
+      [errorField(params.kind)]: error,
+      [retryField(params.kind)]: null,
+      [permanentFailureField(params.kind)]: true,
+      [idempotencyField(params.kind)]: key,
+      [recipientSourceField(params.kind)]: owner.source,
+      [linkField(params.kind)]: actionUrl
+    });
+    return { ok: false, status: "failed" as const, error };
+  }
+
+  const claim = await claimGenerationEmailSend(admin, trip, {
+    delivery_status: "sending",
+    last_email_error: null,
+    last_email_attempt_at: now,
+    [statusField(params.kind)]: "sending",
+    [attemptField(params.kind)]: nextAttemptCount,
+    [errorField(params.kind)]: null,
+    [retryField(params.kind)]: null,
+    [permanentFailureField(params.kind)]: null,
+    [idempotencyField(params.kind)]: key,
+    [recipientSourceField(params.kind)]: owner.source,
+    [linkField(params.kind)]: actionUrl
+  }, params.kind);
+
+  if (claim.error) return { ok: false, status: "failed" as const, error: claim.error };
+  if (!claim.claimed) {
+    return { ok: true, status: "skipped" as const, error: "Generation email already sending or sent." };
   }
 
   const template = buildEmail(params.kind, trip);

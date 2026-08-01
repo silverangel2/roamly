@@ -60,8 +60,8 @@ export function deriveTripGenerationStatus({
   const queueCompleted = positiveInteger(queueProgress?.completedLayerCount, 0);
   const metadataTotal = positiveInteger(metadataProgress.totalDayCount, 1);
   const metadataCompleted = positiveInteger(metadataProgress.completedDayCount, 0);
-  const totalLayerCount = layers.length || queueTotal || Math.max(metadataTotal, 1);
-  const completedLayerCount = layers.length
+  const rawTotalLayerCount = layers.length || queueTotal || Math.max(metadataTotal, 1);
+  const rawCompletedLayerCount = layers.length
     ? layers.filter((layer) => isCompletedStatus(layer.status)).length
     : queueCompleted || metadataCompleted;
 
@@ -77,8 +77,8 @@ export function deriveTripGenerationStatus({
   const layersMarkedComplete =
     layers.length > 0 && layers.every((layer) => isCompletedStatus(layer.status));
   const countsMarkedComplete =
-    totalLayerCount > 0 &&
-    completedLayerCount >= totalLayerCount &&
+    rawTotalLayerCount > 0 &&
+    rawCompletedLayerCount >= rawTotalLayerCount &&
     (layers.length > 0 || queueTotal > 0);
 
   const isComplete =
@@ -88,6 +88,17 @@ export function deriveTripGenerationStatus({
     (isFailedStatus(latestJob?.status) ||
       layers.some((layer) => isFailedStatus(layer.status)) ||
       isFailedStatus(metadataProgress.status));
+  const completedTotalCount = Math.max(
+    metadataTotal,
+    metadataCompleted,
+    queueTotal,
+    queueCompleted,
+    rawTotalLayerCount,
+    rawCompletedLayerCount,
+    1
+  );
+  const totalLayerCount = isComplete ? completedTotalCount : rawTotalLayerCount;
+  const completedLayerCount = isComplete ? totalLayerCount : rawCompletedLayerCount;
 
   const progressStatus = isComplete
     ? "complete"

@@ -76,6 +76,10 @@ type Queued = {
 };
 
 type ProgressApiData = {
+  status?: string;
+  itineraryStatus?: string;
+  completedDayCount?: number;
+  totalDayCount?: number;
   progress?: GenerationProgress | null;
   queue?: Queued | null;
   message?: string;
@@ -169,6 +173,28 @@ function simpleGenerationState(
     body: "Roamly is building the itinerary and saving progress as it goes.",
     tone: "running" as const,
     spinning: true
+  };
+}
+
+function progressFromApi(data: ProgressApiData) {
+  const next = data?.progress;
+  if (!next) return null;
+  if (data?.status !== "complete") return next;
+
+  const totalDayCount = Math.max(
+    next.totalDayCount || 0,
+    data.totalDayCount || 0,
+    next.completedDayCount || 0,
+    data.completedDayCount || 0,
+    1
+  );
+
+  return {
+    ...next,
+    status: "complete",
+    completedDayCount: totalDayCount,
+    totalDayCount,
+    completedAt: next.completedAt || new Date().toISOString()
   };
 }
 
@@ -286,8 +312,9 @@ export function StagedGenerationProgress({
       body: JSON.stringify({ action: "advance" }),
       cache: "no-store"
     });
-    const data = await response.json().catch(() => null);
-    if (data?.progress) applyProgress(data.progress);
+    const data = (await response.json().catch(() => null)) as ProgressApiData;
+    const nextProgress = progressFromApi(data);
+    if (nextProgress) applyProgress(nextProgress);
     if (data?.queue) applyQueue(data.queue);
     return { response, data };
   }, [applyProgress, applyQueue, authHeaders, tripId]);
@@ -310,10 +337,13 @@ export function StagedGenerationProgress({
       const response = result.response;
       const data: ProgressApiData = backgroundWorkerConfigured ? await response.json().catch(() => null) : result.data;
 
-      if (data?.progress) applyProgress(data.progress);
+      const nextProgress = progressFromApi(data);
+      if (nextProgress) applyProgress(nextProgress);
       if (data?.queue) applyQueue(data.queue);
 
-      const progressTerminal = isTerminalStatus(data?.progress?.status || "");
+      const progressTerminal =
+        isTerminalStatus(data?.status || "") ||
+        isTerminalStatus(nextProgress?.status || data?.progress?.status || "");
       const queueTerminal =
         data?.queue?.job?.status === "completed" ||
         data?.queue?.job?.status === "complete";
@@ -323,16 +353,23 @@ export function StagedGenerationProgress({
 
       if (backgroundWorkerConfigured && isStillGenerating) {
         const advance = await advanceProgress();
+        const advanceProgressData = progressFromApi(advance.data);
 
-        if (advance.data?.progress) applyProgress(advance.data.progress);
+        if (advanceProgressData) applyProgress(advanceProgressData);
         if (advance.data?.queue) applyQueue(advance.data.queue);
+      }
+      if (data?.status === "complete" && !terminalRefreshQueued.current) {
+        terminalRefreshQueued.current = true;
+        window.setTimeout(() => router.refresh(), 50);
       }
       if (response.status === 401) {
         setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
       } else if (!response.ok) {
         setMessage(data?.message || data?.error || "Progress could not be refreshed. Completed days remain saved.");
-      } else if (backgroundWorkerConfigured && trackPollMovement(data?.progress, data?.queue)) {
+      } else if (backgroundWorkerConfigured && trackPollMovement(nextProgress || data?.progress, data?.queue)) {
         const rescue = await advanceProgress();
+        const rescueProgress = progressFromApi(rescue.data);
+        if (rescueProgress) applyProgress(rescueProgress);
         if (rescue.response.status === 401) {
           setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
         } else if (!rescue.response.ok) {
@@ -342,7 +379,7 @@ export function StagedGenerationProgress({
     } finally {
       inFlight.current = false;
     }
-  }, [advanceProgress, applyProgress, applyQueue, authHeaders, backgroundWorkerConfigured, stopped, trackPollMovement, tripId]);
+  }, [advanceProgress, applyProgress, applyQueue, authHeaders, backgroundWorkerConfigured, router, stopped, trackPollMovement, tripId]);
 
   const retryFailedBatch = useCallback(async (batchId: string) => {
     if (inFlight.current) return;
@@ -356,8 +393,9 @@ export function StagedGenerationProgress({
         body: JSON.stringify({ action: "retry_batch", batchId }),
         cache: "no-store"
       });
-      const data = await response.json().catch(() => null);
-      if (data?.progress) applyProgress(data.progress);
+      const data = (await response.json().catch(() => null)) as ProgressApiData;
+      const nextProgress = progressFromApi(data);
+      if (nextProgress) applyProgress(nextProgress);
       if (data?.queue) applyQueue(data.queue);
       if (!response.ok) setMessage(data?.message || "The failed stage could not be retried. Completed days remain saved.");
     } finally {

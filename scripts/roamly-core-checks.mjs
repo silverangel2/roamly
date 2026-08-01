@@ -513,8 +513,10 @@ assert.ok(statusRoute.includes("isFinalStoredItinerary"), "generation status rou
 assert.ok(statusRoute.includes("hasFullItinerary"), "generation status route must mark validated stored itineraries as complete");
 assert.ok(statusRoute.includes("hasFinalStoredItineraryInMetadata"), "generation status route must recover from metadata-saved final itineraries");
 assert.ok(statusRoute.includes("status_route_stored_itinerary_recovery"), "generation status route must run direct completion recovery for stale building trips");
+assert.ok(statusRoute.includes("tripStatusStillBuilding") && statusRoute.includes("itineraryStatusComplete"), "generation status route must repair existing trips stuck queued after a final itinerary is saved");
 assert.ok(statusRoute.includes("getGenerationEmailStatus") && statusRoute.includes("completionEmailMissing"), "generation status route must recover missing completion emails for completed stored itineraries");
 assert.ok(statusRoute.includes("queueTableMissing(jobsResult.error.message)") && statusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
+assert.ok(statusRoute.includes("completedDayCount: derived.completedLayerCount") && statusRoute.includes("totalDayCount: derived.totalLayerCount"), "generation status route must expose terminal day counts at the top level");
 const generationStatusExports = loadTsModule("lib/roamly/generationStatus.ts");
 const completedGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generated",
@@ -540,6 +542,19 @@ const storedFullGenerationState = generationStatusExports.deriveTripGenerationSt
 });
 assert.equal(storedFullGenerationState.progressStatus, "complete", "stored final itinerary must return complete progress");
 assert.equal(storedFullGenerationState.status, "complete", "stored final itinerary status endpoint must return complete");
+assert.equal(storedFullGenerationState.completedLayerCount, storedFullGenerationState.totalLayerCount, "completed itinerary progress must report completedDayCount equal to totalDayCount");
+const staleQueuedCompletedState = generationStatusExports.deriveTripGenerationStatus({
+  tripStatus: "generating",
+  itineraryStatus: "generating",
+  metadataProgress: { status: "queued", completedDayCount: 0, totalDayCount: 5 },
+  latestJob: { status: "queued", completed_at: null },
+  layers: [{ status: "running" }],
+  queueProgress: { status: "queued", completedLayerCount: 0, totalLayerCount: 6 },
+  hasFullItinerary: true
+});
+assert.equal(staleQueuedCompletedState.status, "complete", "completed itinerary must override a stale queued job");
+assert.equal(staleQueuedCompletedState.progressStatus, "complete", "completed itinerary must override stale queued progress");
+assert.equal(staleQueuedCompletedState.completedLayerCount, staleQueuedCompletedState.totalLayerCount, "completed stale queued jobs must stop at matching terminal counts");
 const storedFullNoQueueGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
@@ -1481,7 +1496,9 @@ assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progr
   "Taking longer than expected. You can leave this page.",
   "Generation failed — Retry",
   "simpleGenerationState",
-  "trackPollMovement(data?.progress, data?.queue)",
+  "progressFromApi",
+  "isTerminalStatus(data?.status || \"\")",
+  "trackPollMovement(nextProgress || data?.progress, data?.queue)",
   "terminalRefreshQueued",
   "router.refresh()",
   "advanceProgress"
@@ -1515,6 +1532,10 @@ const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
   "transactional: true",
   "idempotencyKey",
   "findDeliveredGenerationEmail",
+  "resolveTripOwnerEmail",
+  "claimGenerationEmailSend",
+  "isBlockedProductionRecipientEmail",
+  "productionEmailSafetyEnabled",
   "getGenerationEmailStatusForTrip",
   "deliveredByColumn",
   "roamly_email_logs",
@@ -1525,6 +1546,25 @@ assert.ok(generationEmail.includes("toRoamlyAbsoluteUrl(`/trip/${tripId}?from=ge
 assert.ok(!generationEmail.includes("if (process.env.VERCEL_URL) return"), "itinerary completion email must not point at Vercel preview domains");
 assert.ok(generationEmail.includes("View your itinerary"), "itinerary completion email CTA copy must match the production template");
 assert.ok(generationEmail.includes("same Roamly account"), "itinerary completion email must tell users to sign into the correct account");
+assert.ok(generationEmail.includes("admin.auth.admin.getUserById") && !generationEmail.includes(".from(\"roamly_profiles\")"), "completion email must use the authenticated trip owner email only");
+assert.ok(generationEmail.includes("completion_email_status.in.(pending,failed,skipped)") && generationEmail.includes("Generation email already sending or sent."), "completion email must claim an idempotent send before provider delivery");
+
+const generationEmailExports = loadTsModule("lib/roamly/itineraryGenerationEmail.ts");
+const ownerEmail = await generationEmailExports.resolveTripOwnerEmail(
+  {
+    auth: {
+      admin: {
+        getUserById: async () => ({ data: { user: { email: "real.owner@roamlyhq.com" } } })
+      }
+    },
+    from() {
+      throw new Error("profile fallback must not be used for completion email recipients");
+    }
+  },
+  { user_id: "owner-user-id" }
+);
+assert.equal(ownerEmail.email, "real.owner@roamlyhq.com", "completion email must resolve the real auth owner email");
+assert.equal(ownerEmail.source, "auth", "completion email recipient source must be auth");
 
 const emailAdapter = read("lib/roamly/email.ts");
 [
@@ -1551,6 +1591,25 @@ assert.ok(emailAdapter.includes('readEnv("ROAMLY_EMAIL_PROVIDER").toLowerCase() 
 assert.ok(!emailAdapter.includes('|| "resend"'), "Resend must not be the default Roamly email provider");
 assert.ok(emailAdapter.includes('config.provider === "smtp"') && emailAdapter.includes("sendSmtpEmail"), "SMTP sends must use the SMTP sender path");
 assert.ok(emailAdapter.includes('config.provider === "smtp"') && emailAdapter.includes("sendResendEmail"), "Resend must remain optional and provider-gated");
+assert.ok(emailAdapter.includes("isBlockedProductionRecipientEmail") && emailAdapter.includes("Production email recipient is blocked."), "production email adapter must block temporary test recipients");
+const emailAdapterExports = loadTsModule("lib/roamly/email.ts");
+["codex-outline-day-1785541543519@roamlyhq.com", "smoke-test@roamlyhq.com", "traveler@example.com", "temporary-test@roamlyhq.com"].forEach((email) =>
+  assert.equal(emailAdapterExports.isBlockedProductionRecipientEmail(email), true, `${email} must be blocked in production email flows`)
+);
+assert.equal(emailAdapterExports.isBlockedProductionRecipientEmail("real.owner@roamlyhq.com"), false, "real owner email must not be blocked");
+const previousNodeEnv = process.env.NODE_ENV;
+process.env.NODE_ENV = "production";
+const blockedSend = await emailAdapterExports.sendRoamlyEmail({
+  to: "codex-outline-day-1785541543519@roamlyhq.com",
+  subject: "Blocked production recipient regression"
+});
+if (previousNodeEnv === undefined) {
+  delete process.env.NODE_ENV;
+} else {
+  process.env.NODE_ENV = previousNodeEnv;
+}
+assert.equal(blockedSend.ok, false, "codex production recipient must be rejected before delivery");
+assert.equal(blockedSend.error, "Production email recipient is blocked.", "codex production recipient must return the production block error");
 
 const emailTemplates = read("lib/roamly/emailTemplates.ts");
 [

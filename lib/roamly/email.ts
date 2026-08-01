@@ -147,6 +147,37 @@ function emailAddressFromHeader(value: string) {
   return (match?.[1] || value).trim();
 }
 
+export function isBlockedProductionRecipientEmail(value: string) {
+  const address = emailAddressFromHeader(value).toLowerCase();
+  if (!validEmail(address)) return false;
+  const [local, domain] = address.split("@");
+  if (!local || !domain) return false;
+
+  if (domain === "example.com" || domain.endsWith(".example.com")) return true;
+  if (/^codex[-_.+]/.test(local)) return true;
+  if (/(^|[._+-])smoke[-_.]?test([._+-]|$)/.test(local)) return true;
+  if (/^(temp|temporary|test|testing)[-_.+]/.test(local)) return true;
+  if (/[._+-](temp|temporary)[-_.+]/.test(local)) return true;
+
+  return false;
+}
+
+export function productionEmailSafetyEnabled() {
+  const appUrl = readEnv("NEXT_PUBLIC_APP_URL") || readEnv("NEXT_PUBLIC_SITE_URL");
+  let productionDomain = false;
+  try {
+    productionDomain = /(^|\.)roamlyhq\.com$/i.test(new URL(appUrl).hostname);
+  } catch {
+    productionDomain = false;
+  }
+
+  return (
+    process.env.NODE_ENV === "production" ||
+    readEnv("VERCEL_ENV") === "production" ||
+    productionDomain
+  );
+}
+
 function senderDomain(value: string) {
   const address = emailAddressFromHeader(value);
   return address.includes("@") ? address.split("@").pop()?.toLowerCase() || "" : "";
@@ -635,6 +666,13 @@ export async function sendRoamlyEmail(params: SendRoamlyEmailParams): Promise<Se
     const logId = await logEmail({ ...params, to, status: "failed", providerName: config.provider, error: "Invalid recipient email." });
     await markNotificationEmail(params.notificationId, "failed", "Invalid recipient email.");
     return { ok: false, status: "failed", provider: config.provider, error: "Invalid recipient email.", logId, permanent: true, retryable: false };
+  }
+
+  if (productionEmailSafetyEnabled() && isBlockedProductionRecipientEmail(to)) {
+    const error = "Production email recipient is blocked.";
+    const logId = await logEmail({ ...params, to, status: "failed", providerName: config.provider, error });
+    await markNotificationEmail(params.notificationId, "failed", error);
+    return { ok: false, status: "failed", provider: config.provider, error, logId, permanent: true, retryable: false };
   }
 
   if (!config.configured) {

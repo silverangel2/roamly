@@ -112,11 +112,17 @@ export async function GET(
       emailStatus.delivery_status !== "sent" &&
       emailStatus.delivery_status !== "captured"
   );
+  const tripStatusStillBuilding = ["draft", "preview", "generating", "queued"].includes(
+    String(data.status || "").toLowerCase()
+  );
+  const itineraryStatusComplete = ["generated", "locked"].includes(
+    String(data.itinerary_status || "").toLowerCase()
+  );
   const needsStoredItineraryRecovery = Boolean(
     hasFullItinerary &&
       (metadataProgress.status !== "complete" ||
-        data.status === "generating" ||
-        data.itinerary_status === "generating" ||
+        tripStatusStillBuilding ||
+        !itineraryStatusComplete ||
         completionEmailMissing)
   );
   const recovery = needsStoredItineraryRecovery
@@ -167,6 +173,8 @@ export async function GET(
     status: derived.status,
     itineraryStatus: derived.itineraryStatus,
     itineraryLocked: data.itinerary_locked === true || recovery?.ok === true,
+    completedDayCount: derived.completedLayerCount,
+    totalDayCount: derived.totalLayerCount,
     progress: {
       ...metadataProgress,
       status: derived.progressStatus,
