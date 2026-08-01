@@ -612,6 +612,7 @@ assert.ok(generationStatusRoute.includes("queueTableMissing(jobsResult.error.mes
 assert.ok(generationStatusRoute.includes("completedDayCount: derived.completedLayerCount") && generationStatusRoute.includes("totalDayCount: derived.totalLayerCount"), "generation status route must expose terminal day counts at the top level");
 const generationStatusHelper = read("lib/roamly/generationStatus.ts");
 assert.ok(generationStatusHelper.includes("hasFullItinerary === true") && generationStatusHelper.includes("completedLayerCount = isComplete ? totalLayerCount"), "completed itinerary status must override stale queued progress and return matching counts");
+assert.ok(generationStatusHelper.includes("completedTotalCount = Math.max(metadataTotal, metadataCompleted, 1)"), "completed itinerary status must use itinerary day totals instead of queue layer totals");
 
 const generationFinalization = read("lib/roamly/generationFinalization.ts");
 [

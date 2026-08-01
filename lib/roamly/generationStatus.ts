@@ -88,15 +88,7 @@ export function deriveTripGenerationStatus({
     (isFailedStatus(latestJob?.status) ||
       layers.some((layer) => isFailedStatus(layer.status)) ||
       isFailedStatus(metadataProgress.status));
-  const completedTotalCount = Math.max(
-    metadataTotal,
-    metadataCompleted,
-    queueTotal,
-    queueCompleted,
-    rawTotalLayerCount,
-    rawCompletedLayerCount,
-    1
-  );
+  const completedTotalCount = Math.max(metadataTotal, metadataCompleted, 1);
   const totalLayerCount = isComplete ? completedTotalCount : rawTotalLayerCount;
   const completedLayerCount = isComplete ? totalLayerCount : rawCompletedLayerCount;
 

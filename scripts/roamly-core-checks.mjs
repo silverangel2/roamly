@@ -543,6 +543,7 @@ const storedFullGenerationState = generationStatusExports.deriveTripGenerationSt
 assert.equal(storedFullGenerationState.progressStatus, "complete", "stored final itinerary must return complete progress");
 assert.equal(storedFullGenerationState.status, "complete", "stored final itinerary status endpoint must return complete");
 assert.equal(storedFullGenerationState.completedLayerCount, storedFullGenerationState.totalLayerCount, "completed itinerary progress must report completedDayCount equal to totalDayCount");
+assert.equal(storedFullGenerationState.totalLayerCount, 4, "completed itinerary progress must use the itinerary day total instead of stale queue layers");
 const staleQueuedCompletedState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
@@ -555,6 +556,7 @@ const staleQueuedCompletedState = generationStatusExports.deriveTripGenerationSt
 assert.equal(staleQueuedCompletedState.status, "complete", "completed itinerary must override a stale queued job");
 assert.equal(staleQueuedCompletedState.progressStatus, "complete", "completed itinerary must override stale queued progress");
 assert.equal(staleQueuedCompletedState.completedLayerCount, staleQueuedCompletedState.totalLayerCount, "completed stale queued jobs must stop at matching terminal counts");
+assert.equal(staleQueuedCompletedState.totalLayerCount, 5, "completed stale queued jobs must keep the saved itinerary day total");
 const storedFullNoQueueGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
