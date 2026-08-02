@@ -105,6 +105,31 @@ function formatTripDate(value?: string | null) {
   }).format(date);
 }
 
+function formatBookingTimestamp(value: unknown) {
+  const text = getString(value);
+  if (!text) return "";
+  const date = new Date(text);
+  if (!Number.isFinite(date.getTime())) return text;
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function bookingDetailText(booking: Record<string, unknown>) {
+  const timestamp = formatBookingTimestamp(booking.start_at);
+  const legacyDate = getString(booking.start_date);
+  const legacyTime = getString(booking.start_time);
+  const legacyTimestamp = [legacyDate, legacyTime].filter(Boolean).join(" ");
+  return [
+    getString(booking.provider_name) || getString(booking.provider),
+    getString(booking.flight_number),
+    timestamp || legacyTimestamp
+  ].filter(Boolean).join(" · ");
+}
+
 function formatDateRange(trip: RoamlyTripRecord) {
   const start = formatTripDate(trip.start_date);
   const end = formatTripDate(trip.end_date);
@@ -989,7 +1014,9 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
 }
 
 function bookingProvider(suggestion: RoamlyItinerary["booking_suggestions"][number], fallback: string) {
-  return suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || fallback;
+  const provider = suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || fallback;
+  if (/stay22/i.test(provider)) return "Hotel search";
+  return provider;
 }
 
 function isGoogleSearchFallbackUrl(value?: string | null) {
@@ -1008,7 +1035,7 @@ function providerForBookingHref(href: string, fallback: string) {
   try {
     const host = new URL(href).hostname.toLowerCase().replace(/^www\./, "");
     if (host === "aviasales.com") return "Travelpayouts";
-    if (host === "stay22.com" || host.endsWith(".stay22.com")) return "Stay22";
+    if (host === "stay22.com" || host.endsWith(".stay22.com")) return "Hotel search";
     if (host === "klook.com" || host.endsWith(".klook.com")) return "Klook";
     if (host === "google.com" && href.includes("/maps/")) return "Google Maps";
     if (host === "google.com") return "Google search";
@@ -1025,6 +1052,29 @@ function isAffiliateBookingHref(href: string) {
   } catch {
     return false;
   }
+}
+
+function bookingHrefHost(href: string) {
+  try {
+    return new URL(href).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function isActivityBookingCategory(category: unknown) {
+  const value = String(category || "").toLowerCase();
+  return value === "activity" || value === "attraction" || value === "tour" || value === "experience";
+}
+
+function isVerifiedKlookActivitySuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number], href: string) {
+  if (!isActivityBookingCategory(bookingCategory(suggestion))) return false;
+  const host = bookingHrefHost(href);
+  if (host !== "klook.com" && !host.endsWith(".klook.com")) return false;
+  return (
+    suggestion.market_source === "klook" &&
+    (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")
+  );
 }
 
 function normalizedSearchContext(value?: string | null) {
@@ -1066,7 +1116,10 @@ function isCompleteStay22HotelContext(href: string, suggestion: RoamlyItinerary[
 function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
   const category = bookingCategory(suggestion);
   const categoryValue = String(category);
-  const affiliate = safeBookingUrl(suggestion.affiliate_url);
+  const rawAffiliate = safeBookingUrl(suggestion.affiliate_url);
+  const affiliate = isActivityBookingCategory(category) && rawAffiliate && !isVerifiedKlookActivitySuggestion(suggestion, rawAffiliate)
+    ? ""
+    : rawAffiliate;
   if (category === "hotel") {
     const stay22Fallback = buildStay22HotelFallbackUrl(suggestion, trip);
     if (affiliate && isCompleteStay22HotelContext(affiliate, suggestion, trip)) {
@@ -1102,7 +1155,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   const shouldPreferAffiliateFallback =
     fallback &&
     isAffiliateBookingHref(fallback) &&
-    ["hotel", "activity", "attraction", "tour", "flight"].includes(categoryValue) &&
+    ["hotel", "flight"].includes(categoryValue) &&
     (category === "hotel" || !normal || isGoogleSearchFallbackUrl(normal));
 
   if (shouldPreferAffiliateFallback) {
@@ -1173,6 +1226,15 @@ function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][num
   return priceConfidenceLabel(suggestion.price_confidence);
 }
 
+function hasLiveFlightPrice(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  return (
+    suggestion.price_confidence === "partner" ||
+    suggestion.price_confidence === "user_uploaded" ||
+    suggestion.price_type === "live_partner" ||
+    suggestion.price_type === "cached_recent"
+  );
+}
+
 function formatRange(min: number | null | undefined, max: number | null | undefined, currency: string) {
   if (min == null && max == null) return "";
   if (min != null && max != null) return `${formatMoney(min, currency)}-${formatMoney(max, currency)}`;
@@ -1219,6 +1281,9 @@ function transportSourceLabel(option: TransportOption) {
 }
 
 function transportEstimate(option: TransportOption) {
+  if ((option.mode === "flight" || option.mode === "mixed") && option.price_confidence !== "live_partner" && option.price_confidence !== "cached_recent") {
+    return "Search live prices";
+  }
   const range = formatRange(option.estimated_cost_min, option.estimated_cost_max, option.currency || "CAD");
   return range || "Search-ready. Verify live price.";
 }
@@ -1276,6 +1341,9 @@ function transportBadges(option: TransportOption) {
 }
 
 function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (bookingCategory(suggestion) === "flight" && !hasLiveFlightPrice(suggestion)) {
+    return "Search live prices";
+  }
   const currency = suggestion.currency || "CAD";
   const nightly = formatRange(suggestion.estimated_nightly_cost_min, suggestion.estimated_nightly_cost_max, currency);
   const total = formatRange(
@@ -1294,8 +1362,9 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
 }
 
 function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const source = suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || "Search link";
   return [
-    `Source: ${suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || "Search link"}`,
+    `Source: ${/stay22/i.test(source) ? "Hotel search" : source}`,
     `Verification: ${priceSourceLabel(suggestion)}`,
     suggestion.market_source,
     suggestion.location || suggestion.neighborhood || suggestion.city,
@@ -1318,13 +1387,14 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
 function bookingActionLabel(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], link: ReturnType<typeof resolveBookingLink>) {
   if (category === "flight") return link?.hasAffiliateUrl ? "Compare flights" : "Search flights";
   if (category === "hotel") return "View hotel options";
-  if (category === "attraction" || category === "tour") return link?.hasAffiliateUrl ? "Book activity" : "Search activity";
+  if (category === "attraction" || category === "tour" || category === "activity") return link?.hasAffiliateUrl ? "Book activity" : "Open official search";
   if (category === "transport" || category === "car_rental") return link?.hasAffiliateUrl ? "Book transfer" : "Open route";
   if (category === "restaurant") return "View on Google Maps";
   return suggestion.booking_label || "View option";
 }
 
 function bookingStatusBadge(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (category === "flight" && !hasLiveFlightPrice(suggestion)) return "Estimate";
   const source = priceSourceLabel(suggestion);
   if (source) return source;
   if (category === "restaurant" && suggestion.advance_booking_recommended) return "Reservation recommended";
@@ -1446,6 +1516,8 @@ function isImpracticalBookingSuggestion(suggestion: RoamlyItinerary["booking_sug
 
 function bookingRank(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
   const link = resolveBookingLink(suggestion, trip);
+  const notePriority = getRecord(suggestion as unknown as Record<string, unknown>).note_priority === true;
+  if (notePriority) return -1;
   if (suggestion.price_type === "live_partner") return 0;
   if (suggestion.price_type === "cached_recent") return 1;
   if (link?.hasAffiliateUrl) return 2;
@@ -1480,6 +1552,7 @@ function bookingSuggestionsWithRecommendations(itinerary: RoamlyItinerary, trip:
   const rawSuggestions = itinerary.booking_suggestions || [];
   const recommendedStays = buildRecommendedStaySuggestions({ trip, itinerary }) as unknown as RoamlyItinerary["booking_suggestions"];
   const recommendedActivities = buildRecommendedActivitySuggestions({ trip, itinerary }) as unknown as RoamlyItinerary["booking_suggestions"];
+  const notePriorityActivities = recommendedActivities.filter((activity) => getRecord(activity as unknown as Record<string, unknown>).note_priority === true);
   const initialHotelItems = curatedBookingSuggestions(rawSuggestions, trip, ["hotel"], 3);
   const suggestions = !recommendedStays.length || initialHotelItems.length >= Math.min(3, recommendedStays.length)
     ? rawSuggestions
@@ -1491,14 +1564,27 @@ function bookingSuggestionsWithRecommendations(itinerary: RoamlyItinerary, trip:
         })
       ];
 
-  const initialActivityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
-  if (!recommendedActivities.length || initialActivityItems.length >= 2) return suggestions;
+  const withNotePriorityActivities = notePriorityActivities.length
+    ? [
+        ...notePriorityActivities.filter((activity) => {
+          const activityTitle = bookingTitle(activity).toLowerCase();
+          return !suggestions.some((suggestion) =>
+            ["activity", "attraction", "tour"].includes(String(bookingCategory(suggestion))) &&
+            bookingTitle(suggestion).toLowerCase() === activityTitle
+          );
+        }),
+        ...suggestions
+      ]
+    : suggestions;
+
+  const initialActivityItems = curatedBookingSuggestions(withNotePriorityActivities, trip, ["attraction", "tour", "activity"], 3);
+  if (!recommendedActivities.length || initialActivityItems.length >= 2) return withNotePriorityActivities;
 
   return [
-    ...suggestions,
+    ...withNotePriorityActivities,
     ...recommendedActivities.filter((activity) => {
       const activityTitle = bookingTitle(activity).toLowerCase();
-      return !suggestions.some((suggestion) =>
+      return !withNotePriorityActivities.some((suggestion) =>
         ["activity", "attraction", "tour"].includes(String(bookingCategory(suggestion))) &&
         bookingTitle(suggestion).toLowerCase() === activityTitle
       );
@@ -1608,7 +1694,7 @@ function BookingSearchFallbackCard({
   const href = safeBookingUrl(fallbackSearchHref(category, trip));
   if (!href) return null;
   const label = category === "flight" ? "Search flights" : category === "hotel" ? "Search hotels" : "Search activities";
-  const title = category === "flight" ? "Flight search" : category === "hotel" ? "Hotel search" : "Activity search";
+  const title = category === "flight" ? "Search Flights" : category === "hotel" ? "Hotel search" : "Activity search";
   const hasAffiliateUrl = isAffiliateBookingHref(href);
   const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : "Google search");
   return (
@@ -1617,9 +1703,11 @@ function BookingSearchFallbackCard({
         <div>
           <h3 className="text-lg font-black leading-6 text-ink">{title}</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-            Search current options for the trip dates and verify price, schedule, and availability.
+            {category === "flight"
+              ? "Estimate only. Search live prices for the trip dates, baggage, seats, schedule, and currency before booking."
+              : "Search current options for the trip dates and verify price, schedule, and availability."}
           </p>
-          <p className="mt-2 text-xs font-bold text-slate-500">{category === "flight" && href.includes("aviasales.com") ? "Travelpayouts / Aviasales search" : "Search only"}</p>
+          <p className="mt-2 text-xs font-bold text-slate-500">{category === "flight" ? "Estimate only" : "Search only"}</p>
         </div>
         <BookingRecommendationButton
           href={href}
@@ -1690,7 +1778,7 @@ function RecommendedTransportCard({ itinerary, tripId }: { itinerary: RoamlyItin
 
 function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string }) {
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
-  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 3);
+  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1);
   const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3);
   const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
   const transportItems = curatedBookingSuggestions(suggestions, trip, ["transport", "car_rental"], 2);
@@ -1701,7 +1789,7 @@ function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; 
       <p className="roamly-no-print rounded-[1rem] border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
         Recommended transport, stays, flights, and important activities. Live prices appear only when a connected provider returned them. {affiliateDisclosure}
       </p>
-      <RecommendedTransportCard itinerary={itinerary} tripId={tripId} />
+      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} />}
       {groups.map((group) => {
         return (
           <section key={group.title} className="roamly-print-section">
@@ -1842,10 +1930,7 @@ function BookingSummaryList({ bookings }: { bookings: Array<Record<string, unkno
     <div className="grid gap-2">
       {bookings.slice(0, 6).map((booking, index) => {
         const title = getString(booking.title) || "Saved booking";
-        const details = [booking.provider_name, booking.start_date, booking.start_time]
-          .map((item) => getString(item))
-          .filter(Boolean)
-          .join(" · ");
+        const details = bookingDetailText(booking);
         return (
           <div key={`${title}-${index}`} className="rounded-2xl border border-cloud bg-white px-4 py-3">
             <p className="text-sm font-black text-ink">{title}</p>
@@ -1941,7 +2026,7 @@ function CompactPrintItinerary({
   const recommendedTransport = recommendedTransportFromItinerary(itinerary);
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
   const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3);
-  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 2);
+  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1);
   const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
   const essentials = [
     ...packingChecklistItems([], itinerary).slice(0, 5),
@@ -2026,7 +2111,7 @@ function CompactPrintItinerary({
                 {bookings.slice(0, 8).map((booking, index) => (
                   <li key={`print-booking-${index}`}>
                     <strong>{getString(booking.title) || "Saved booking"}</strong>
-                    <span>{[booking.provider_name, booking.start_date, booking.start_time].map((item) => getString(item)).filter(Boolean).join(" · ")}</span>
+                    <span>{bookingDetailText(booking)}</span>
                   </li>
                 ))}
               </ul>
@@ -2190,7 +2275,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     .select("*")
     .eq("trip_id", id)
     .eq("user_id", current.user.id)
-    .order("start_date", { ascending: true, nullsFirst: false })
+    .order("start_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
   const importedBookings = bookingsResult.error && isMissingTableError(bookingsResult.error.message) ? [] : bookingsResult.data || [];
   const tripTitle = full?.trip_title || preview?.trip_title || trip.title || destinationLabel;

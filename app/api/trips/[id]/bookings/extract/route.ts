@@ -24,12 +24,36 @@ function isoDateHint(text: string) {
   return firstMatch(text, /\b(\d{4}-\d{2}-\d{2})\b/);
 }
 
+function dateHints(text: string) {
+  return [...text.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)].map((match) => match[1]);
+}
+
+function timeHints(text: string) {
+  return [...text.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g)].map((match) => `${match[1].padStart(2, "0")}:${match[2]}`);
+}
+
 function airportHints(text: string) {
   const matches = [...text.matchAll(/\b([A-Z]{3})\b/g)].map((match) => match[1]);
   return {
     origin: matches[0] || "",
     destination: matches[1] || ""
   };
+}
+
+function terminalHint(text: string) {
+  return firstMatch(text, /\bterminal\s*[:#-]?\s*([A-Z0-9]{1,4})\b/i);
+}
+
+function gateHint(text: string) {
+  return firstMatch(text, /\bgate\s*[:#-]?\s*([A-Z0-9]{1,5})\b/i);
+}
+
+function baggageHint(text: string) {
+  return firstMatch(text, /\b(\d+\s+(?:checked\s+)?bags?|carry-?on only|no checked baggage)\b/i);
+}
+
+function durationHint(text: string) {
+  return firstMatch(text, /\b(?:duration|flight time|travel time)\s*[:#-]?\s*(\d+\s*h(?:ours?)?\s*(?:\d+\s*m(?:in(?:utes?)?)?)?|\d+\s*hr\s*\d+\s*min)\b/i);
 }
 
 function pdfText(buffer: Buffer) {
@@ -47,6 +71,8 @@ async function extractPdfBooking(file: File) {
   const confirmationCode = firstMatch(text, /\b(?:confirmation|booking|reservation)\s*(?:code|number|#)?\s*[:#-]?\s*([A-Z0-9-]{5,12})\b/i);
   const hotelName = firstMatch(text, /\b(?:hotel|property)\s*[:#-]?\s*([A-Za-z0-9 .'-]{4,80})/i);
   const airports = airportHints(text);
+  const dates = dateHints(text);
+  const times = timeHints(text);
   const bookingType = flightNumber ? "flight" : hotelName ? "hotel" : "other";
 
   return {
@@ -54,12 +80,18 @@ async function extractPdfBooking(file: File) {
     provider: hotelName || "",
     title: hotelName || (flightNumber ? `Flight ${flightNumber}` : file.name.replace(/\.pdf$/i, "")),
     confirmationCode,
-    startDate: isoDateHint(text),
-    endDate: "",
+    startDate: dates[0] || isoDateHint(text),
+    endDate: dates[1] || dates[0] || "",
+    startTime: times[0] || "",
+    endTime: times[1] || "",
     origin: airports.origin,
     destination: airports.destination,
     address: "",
     flightNumber,
+    terminal: terminalHint(text),
+    gate: gateHint(text),
+    baggage: baggageHint(text),
+    duration: durationHint(text),
     confidence: "low" as const
   };
 }
@@ -90,10 +122,18 @@ export async function POST(request: Request, context: RouteContext) {
         provider: booking.provider_name,
         title: booking.title,
         confirmationCode: booking.confirmation_number,
+        flightNumber: booking.flight_number,
+        airlineCode: booking.airline_code,
+        terminal: booking.terminal,
+        gate: booking.gate,
+        baggage: booking.baggage,
+        duration: booking.duration,
         startDate: booking.start_date,
         endDate: booking.end_date,
-        origin: "",
-        destination: "",
+        startTime: booking.start_time,
+        endTime: booking.end_time,
+        origin: booking.origin,
+        destination: booking.destination,
         address: booking.address,
         confidence: booking.extraction_confidence
       }

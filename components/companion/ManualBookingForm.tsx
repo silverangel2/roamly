@@ -11,8 +11,15 @@ type ExtractedReview = {
   bookingType?: BookingKind;
   confirmationCode?: string;
   flightNumber?: string;
+  airlineCode?: string;
+  terminal?: string;
+  gate?: string;
+  baggage?: string;
+  duration?: string;
   startDate?: string;
   endDate?: string;
+  startTime?: string;
+  endTime?: string;
   origin?: string;
   destination?: string;
   address?: string;
@@ -31,9 +38,11 @@ const bookingKinds: Array<{ value: BookingKind; label: string }> = [
   { value: "other", label: "Other" }
 ];
 
-function toDateTime(date: string, time = "") {
+function toDateTime(date: string, time = "", fallbackTime = "") {
   if (!date) return null;
-  return `${date}T${time || "12:00"}:00`;
+  const clock = time || fallbackTime;
+  if (!clock) return null;
+  return `${date}T${clock}:00`;
 }
 
 function fieldClass(uncertain = false) {
@@ -78,9 +87,15 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
   const [provider, setProvider] = useState("");
   const [title, setTitle] = useState("");
   const [flightNumber, setFlightNumber] = useState("");
+  const [airlineCode, setAirlineCode] = useState("");
+  const [terminal, setTerminal] = useState("");
+  const [gate, setGate] = useState("");
+  const [baggage, setBaggage] = useState("");
+  const [duration, setDuration] = useState("");
   const [startDate, setStartDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
   const [address, setAddress] = useState("");
@@ -103,8 +118,15 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
     if (next.title) setTitle(next.title);
     if (next.confirmationCode) setConfirmationCode(next.confirmationCode);
     if (next.flightNumber) setFlightNumber(next.flightNumber);
+    if (next.airlineCode) setAirlineCode(next.airlineCode);
+    if (next.terminal) setTerminal(next.terminal);
+    if (next.gate) setGate(next.gate);
+    if (next.baggage) setBaggage(next.baggage);
+    if (next.duration) setDuration(next.duration);
     if (next.startDate) setStartDate(next.startDate);
+    if (next.startTime) setStartTime(next.startTime);
     if (next.endDate) setEndDate(next.endDate);
+    if (next.endTime) setEndTime(next.endTime);
     if (next.origin) setOrigin(next.origin);
     if (next.destination) setDestination(next.destination);
     if (next.address) setAddress(next.address);
@@ -147,13 +169,41 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
           provider: provider || title,
           confirmationCode,
           flightNumber: kind === "flight" ? flightNumber : null,
+          airlineCode: kind === "flight" ? airlineCode : null,
+          terminal: kind === "flight" ? terminal : null,
+          gate: kind === "flight" ? gate : null,
           startTime: toDateTime(startDate, startTime),
-          endTime: kind === "hotel" ? toDateTime(endDate, "11:00") : null,
+          endTime: kind === "flight" ? toDateTime(endDate || startDate, endTime) : kind === "hotel" ? toDateTime(endDate, "11:00") : null,
           checkInTime: kind === "hotel" ? toDateTime(startDate, "15:00") : null,
           checkOutTime: kind === "hotel" ? toDateTime(endDate, "11:00") : null,
           origin,
           destination,
           address,
+          reservationRequirements:
+            kind === "flight"
+              ? {
+                  baggage: baggage || null,
+                  duration: duration || null,
+                  extraction_confidence: review?.confidence || null
+                }
+              : null,
+          segments:
+            kind === "flight"
+              ? [
+                  {
+                    sequence: 1,
+                    origin,
+                    destination,
+                    departureTime: toDateTime(startDate, startTime),
+                    arrivalTime: toDateTime(endDate || startDate, endTime),
+                    provider: provider || title,
+                    serviceNumber: flightNumber,
+                    terminal,
+                    gate,
+                    status: "confirmed"
+                  }
+                ]
+              : [],
           travelerConfirmed: true
         })
       });
@@ -222,8 +272,21 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
                 <Field label="Departure time" type="time" value={startTime} onChange={setStartTime} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Arrival date" type="date" value={endDate} onChange={setEndDate} placeholder={startDate} />
+                <Field label="Arrival time" type="time" value={endTime} onChange={setEndTime} />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="From" value={origin} onChange={setOrigin} uncertain={uncertain && !origin} placeholder="YUL" />
                 <Field label="To" value={destination} onChange={setDestination} uncertain={uncertain && !destination} placeholder="CDG" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field label="Airline code" value={airlineCode} onChange={setAirlineCode} placeholder="AC" />
+                <Field label="Terminal" value={terminal} onChange={setTerminal} placeholder="1" />
+                <Field label="Gate" value={gate} onChange={setGate} placeholder="A12" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Baggage" value={baggage} onChange={setBaggage} placeholder="1 checked bag" />
+                <Field label="Duration" value={duration} onChange={setDuration} placeholder="5h 40m" />
               </div>
               <Field label="Confirmation code" value={confirmationCode} onChange={setConfirmationCode} placeholder="Optional" />
             </>

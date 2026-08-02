@@ -54,6 +54,11 @@ export const BOOKING_EXTRACTION_JSON_SCHEMA = {
     origin: { type: "string" },
     destination: { type: "string" },
     flight_number: { type: "string" },
+    airline_code: { type: "string" },
+    terminal: { type: "string" },
+    gate: { type: "string" },
+    baggage: { type: "string" },
+    duration: { type: "string" },
     hotel_name: { type: "string" },
     booking_status: { type: "string", enum: ["needs_confirmation", "confirmed", "modified", "cancelled", "refunded"] },
     confidence: { type: "number", minimum: 0, maximum: 1 },
@@ -196,6 +201,68 @@ function cleanLocationValue(value: string) {
     .trim();
 }
 
+function extractTerminal(text: string) {
+  const value =
+    extractNamedValue(text, ["terminal", "departure terminal", "arrival terminal"]) ||
+    clean(text.match(/\bterminal\s+([A-Z0-9]{1,4})\b/i)?.[1] || "");
+  return value.replace(/\s{2,}.*/, "").trim();
+}
+
+function extractGate(text: string) {
+  const value =
+    extractNamedValue(text, ["gate", "departure gate", "boarding gate"]) ||
+    clean(text.match(/\bgate\s+([A-Z0-9]{1,5})\b/i)?.[1] || "");
+  return value.replace(/\s{2,}.*/, "").trim();
+}
+
+function extractBaggage(text: string) {
+  return (
+    extractNamedValue(text, ["baggage", "bags", "checked baggage", "carry-on", "carry on"]) ||
+    clean(text.match(/\b(\d+\s+(?:checked\s+)?bags?|carry-?on only|no checked baggage)\b/i)?.[1] || "")
+  );
+}
+
+function extractDuration(text: string) {
+  return (
+    extractNamedValue(text, ["duration", "flight duration", "flight time", "travel time"]) ||
+    clean(text.match(/\b(\d+\s*h(?:ours?)?\s*(?:\d+\s*m(?:in(?:utes?)?)?)?|\d+\s*hr\s*\d+\s*min)\b/i)?.[1] || "")
+  );
+}
+
+function airlineCodeFromFlightNumber(value?: string | null) {
+  return clean(value).match(/^([A-Z]{2,3})\s?\d{1,4}$/i)?.[1]?.toUpperCase() || null;
+}
+
+function flightSegments(params: {
+  bookingType: string;
+  originName: string | null;
+  destinationName: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  provider: string | null;
+  flightNumber: string | null;
+  terminal: string | null;
+  gate: string | null;
+  status: string;
+}) {
+  if (params.bookingType !== "flight") return [];
+  if (!params.startTime && !params.endTime && !params.originName && !params.destinationName) return [];
+  return [
+    {
+      sequence: 1,
+      origin: params.originName,
+      destination: params.destinationName,
+      departureTime: params.startTime,
+      arrivalTime: params.endTime,
+      provider: params.provider,
+      serviceNumber: params.flightNumber,
+      terminal: params.terminal,
+      gate: params.gate,
+      status: params.status === "cancelled" ? "cancelled" : "confirmed"
+    }
+  ];
+}
+
 function extractRouteFromText(text: string) {
   const direct = text.match(/\bfrom\s+([A-Z][A-Za-z .,'-]{2,70})\s+to\s+([A-Z][A-Za-z .,'-]{2,70})(?:\s+\b(?:on|at|departing|arriving)\b|[.;|]|$)/i);
   if (direct) {
@@ -228,8 +295,13 @@ export function deterministicBookingExtraction(params: {
   const provider = providerHint.provider || providerName(params.metadata, params.filter);
   const bookingType = bookingTypeFromText(`${searchable} ${provider || ""}`, flightNumbers, bookingTypes, domain);
   const startTime = dateTimeHintToIso(dateHints[0], timeHints[0]);
+  const endTime =
+    dateHints[1] || timeHints[1]
+      ? dateTimeHintToIso(dateHints[1] || dateHints[0], timeHints[1])
+      : null;
   const confirmationCode = bookingReferences[0] || null;
   const flightNumber = flightNumbers[0] || null;
+  const airlineCode = airlineCodeFromFlightNumber(flightNumber);
   const status = bookingStatusFromText(searchable || subject);
   const eventTypes = [...new Set(inferredEventTypes(searchable || subject, facts))];
   const highSignal = Boolean(provider && confirmationCode && (flightNumber || startTime || bookingType === "hotel" || bookingType === "activity"));
@@ -251,6 +323,10 @@ export function deterministicBookingExtraction(params: {
     cleanLocationValue(extractNamedValue(searchable, ["destination", "arrival city", "arrival", "dropoff", "drop-off"])) ||
     route.destination ||
     null;
+  const terminal = bookingType === "flight" ? extractTerminal(searchable) || null : null;
+  const gate = bookingType === "flight" ? extractGate(searchable) || null : null;
+  const baggage = bookingType === "flight" ? extractBaggage(searchable) || null : null;
+  const duration = bookingType === "flight" ? extractDuration(searchable) || null : null;
   const title =
     bookingType === "flight" && flightNumber
       ? `Flight ${flightNumber}`
@@ -278,7 +354,13 @@ export function deterministicBookingExtraction(params: {
       provider: field(provider, provider ? 0.7 : 0, "sender", "sender_domain", Boolean(provider)),
       confirmation_code: field(confirmationCode, confirmationCode ? 0.82 : 0, "filter_facts", "booking_reference", Boolean(confirmationCode)),
       start_time: field(startTime, startTime ? 0.62 : 0, "filter_facts", "date_hint"),
+      end_time: field(endTime, endTime ? 0.58 : 0, "filter_facts", "date_hint"),
       flight_number: field(flightNumber, flightNumber ? 0.84 : 0, "filter_facts", "flight_number", Boolean(flightNumber)),
+      airline_code: field(airlineCode, airlineCode ? 0.78 : 0, "filter_facts", "flight_number", Boolean(airlineCode)),
+      terminal: field(terminal, terminal ? 0.62 : 0, "filter_facts", "body_preview", Boolean(terminal)),
+      gate: field(gate, gate ? 0.62 : 0, "filter_facts", "body_preview", Boolean(gate)),
+      baggage: field(baggage, baggage ? 0.5 : 0, "filter_facts", "body_preview", Boolean(baggage)),
+      duration: field(duration, duration ? 0.5 : 0, "filter_facts", "body_preview", Boolean(duration)),
       origin: field(originName, originName ? 0.58 : 0, "filter_facts", "body_preview", Boolean(originName)),
       destination: field(destinationName, destinationName ? 0.58 : 0, "filter_facts", "body_preview", Boolean(destinationName)),
       title: field(title, 0.65, "subject", "subject")
@@ -292,10 +374,31 @@ export function deterministicBookingExtraction(params: {
       sourceReference: `email:${params.metadata.provider}:${params.metadata.messageId}`,
       title,
       startTime,
+      endTime,
       origin: originName,
       destination: destinationName,
       locationName: bookingType === "hotel" ? hotelName || null : bookingType === "activity" ? activityName || null : null,
       flightNumber,
+      airlineCode,
+      terminal,
+      gate,
+      reservationRequirements: {
+        baggage,
+        duration,
+        extraction_event_types: eventTypes
+      },
+      segments: flightSegments({
+        bookingType,
+        originName,
+        destinationName,
+        startTime,
+        endTime,
+        provider,
+        flightNumber,
+        terminal,
+        gate,
+        status
+      }),
       travelerConfirmed: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0,
       lastSyncedAt: new Date().toISOString()
     }
@@ -345,6 +448,16 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
   const title = clean(parsed.title) || clean(metadata.subject) || "Travel booking";
   const bookingStatus = clean(parsed.booking_status) || "needs_confirmation";
   const eventTypes = inferredEventTypes(textFromMetadata(metadata), {});
+  const startTime = dateHintToIso(clean(parsed.start_time));
+  const endTime = dateHintToIso(clean(parsed.end_time));
+  const flightNumber = clean(parsed.flight_number) || null;
+  const airlineCode = clean(parsed.airline_code) || airlineCodeFromFlightNumber(flightNumber);
+  const terminal = clean(parsed.terminal) || null;
+  const gate = clean(parsed.gate) || null;
+  const baggage = clean(parsed.baggage) || null;
+  const duration = clean(parsed.duration) || null;
+  const origin = clean(parsed.origin) || null;
+  const destination = clean(parsed.destination) || null;
   return {
     extractionMethod: "ai_structured" as const,
     overallConfidence: Math.max(0, Math.min(1, confidence)),
@@ -356,8 +469,16 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
       booking_type: field(bookingType, confidence, "ai_structured", "structured_output"),
       provider: field(clean(parsed.provider) || null, confidence, "ai_structured", "structured_output"),
       confirmation_code: field(clean(parsed.confirmation_code) || null, confidence, "ai_structured", "structured_output"),
-      start_time: field(dateHintToIso(clean(parsed.start_time)) || null, confidence, "ai_structured", "structured_output"),
-      flight_number: field(clean(parsed.flight_number) || null, confidence, "ai_structured", "structured_output"),
+      start_time: field(startTime || null, confidence, "ai_structured", "structured_output"),
+      end_time: field(endTime || null, confidence, "ai_structured", "structured_output"),
+      flight_number: field(flightNumber, confidence, "ai_structured", "structured_output"),
+      airline_code: field(airlineCode, confidence, "ai_structured", "structured_output"),
+      terminal: field(terminal, confidence, "ai_structured", "structured_output"),
+      gate: field(gate, confidence, "ai_structured", "structured_output"),
+      baggage: field(baggage, confidence, "ai_structured", "structured_output"),
+      duration: field(duration, confidence, "ai_structured", "structured_output"),
+      origin: field(origin, confidence, "ai_structured", "structured_output"),
+      destination: field(destination, confidence, "ai_structured", "structured_output"),
       title: field(title, confidence, "ai_structured", "structured_output")
     },
     booking: {
@@ -368,12 +489,32 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
       sourceType: "email",
       sourceReference: `email:${metadata.provider}:${metadata.messageId}`,
       title,
-      startTime: dateHintToIso(clean(parsed.start_time)),
-      endTime: dateHintToIso(clean(parsed.end_time)),
-      origin: clean(parsed.origin) || null,
-      destination: clean(parsed.destination) || null,
-      flightNumber: clean(parsed.flight_number) || null,
+      startTime,
+      endTime,
+      origin,
+      destination,
+      flightNumber,
+      airlineCode,
+      terminal,
+      gate,
       locationName: clean(parsed.hotel_name) || null,
+      reservationRequirements: {
+        baggage,
+        duration,
+        extraction_event_types: eventTypes
+      },
+      segments: flightSegments({
+        bookingType,
+        originName: origin,
+        destinationName: destination,
+        startTime,
+        endTime,
+        provider: clean(parsed.provider) || null,
+        flightNumber,
+        terminal,
+        gate,
+        status: bookingStatus
+      }),
       travelerConfirmed: confidence >= 0.82 && clean(parsed.confirmation_code) !== "",
       lastSyncedAt: new Date().toISOString()
     }

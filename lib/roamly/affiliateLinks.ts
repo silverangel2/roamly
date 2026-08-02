@@ -332,9 +332,43 @@ function safeBookingHref(value: unknown) {
   return external;
 }
 
-function approvedMarketAffiliateUrl(market: Record<string, unknown> | null, link: ReturnType<typeof buildRoamlyAffiliateUrl>) {
+function bookingHost(value: unknown) {
+  const href = safeBookingHref(value);
+  if (!href) return "";
+  try {
+    return new URL(href).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function isActivityBookingCategory(category: unknown) {
+  const value = cleanStringValue(category).toLowerCase();
+  return value === "activity" || value === "attraction" || value === "ticket" || value === "tour";
+}
+
+function verifiedPartnerMarketResult(market: Record<string, unknown> | null) {
+  if (!market) return false;
+  const priceType = cleanStringValue(market.price_type);
+  const provider = cleanStringValue(getRecord(market.metadata)?.retrieval_provider);
+  return priceType === "live_partner" || priceType === "cached_recent" || provider === "provider_api";
+}
+
+function approvedMarketAffiliateUrl(
+  market: Record<string, unknown> | null,
+  link: ReturnType<typeof buildRoamlyAffiliateUrl>,
+  category?: unknown
+) {
   const source = cleanStringValue(market?.source);
   const affiliate = safeBookingHref(market?.affiliate_url);
+  const booking = safeBookingHref(market?.booking_url);
+  if (isActivityBookingCategory(category)) {
+    if (source === "klook" && verifiedPartnerMarketResult(market)) {
+      if (bookingHost(affiliate).endsWith("klook.com")) return affiliate;
+      if (bookingHost(booking).endsWith("klook.com")) return booking;
+    }
+    return "";
+  }
   if (affiliate && ["travelpayouts", "stay22", "klook"].includes(source)) return affiliate;
   return link.affiliate_enabled ? link.affiliate_url : "";
 }
@@ -448,6 +482,60 @@ function marketPriceConfidence(result: Record<string, unknown>) {
   if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "partner" as const;
   if (result.price_type === "estimated_fallback") return "estimated" as const;
   return "unknown" as const;
+}
+
+function liveFlightPriceAvailable(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  return (
+    suggestion.price_confidence === "partner" ||
+    suggestion.price_confidence === "user_uploaded" ||
+    suggestion.price_type === "live_partner" ||
+    suggestion.price_type === "cached_recent"
+  );
+}
+
+function normalizeFlightSearchSuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (liveFlightPriceAvailable(suggestion)) return suggestion;
+  return {
+    ...suggestion,
+    title: suggestion.title || "Search flights",
+    description:
+      "Estimate only. Search live prices for the exact route, dates, baggage, seats, schedule, and currency before booking.",
+    booking_label: "Search flights",
+    provider: "Flight search",
+    provider_or_search_source: "Travelpayouts / Aviasales search",
+    estimated_cost_min: null,
+    estimated_cost_max: null,
+    estimated_total_cost_min: null,
+    estimated_total_cost_max: null,
+    price_confidence: "unknown" as const,
+    price_type: "search_ready" as const,
+    market_confidence: "low" as const
+  };
+}
+
+function flightSuggestionRank(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (suggestion.price_type === "live_partner") return 0;
+  if (suggestion.price_type === "cached_recent") return 1;
+  if (suggestion.affiliate_url) return 2;
+  if (suggestion.normal_search_url) return 3;
+  return 9;
+}
+
+function limitFlightSuggestions(suggestions: RoamlyItinerary["booking_suggestions"]) {
+  const flights = suggestions
+    .filter((suggestion) => suggestionCategoryValue(suggestion) === "flight")
+    .map(normalizeFlightSearchSuggestion)
+    .sort((a, b) => flightSuggestionRank(a) - flightSuggestionRank(b));
+  if (!flights.length) return suggestions;
+  const selectedFlight = flights[0];
+  let inserted = false;
+  return suggestions.filter((suggestion) => {
+    if (suggestionCategoryValue(suggestion) !== "flight") return true;
+    if (inserted) return false;
+    inserted = true;
+    Object.assign(suggestion, selectedFlight);
+    return true;
+  });
 }
 
 function timelineAffiliateCategory(item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number]): AffiliateCategory | null {
@@ -616,6 +704,14 @@ function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPay
         locale: payload.language
       });
       const href = safeBookingHref(resolved.finalUrl);
+      if (isActivityBookingCategory(category) && resolved.provider === "klook" && !href) {
+        return {
+          ...item,
+          affiliate_category: category === "activity" || category === "ticket" ? "attraction" : (category as typeof item.affiliate_category),
+          booking_label: undefined,
+          booking: undefined
+        };
+      }
       if (!href) {
         return {
           ...item,
@@ -1084,7 +1180,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       transport_mode_recommendation: budgetBrain.transportModeRecommendation
     },
     daily_itinerary: enrichTimelineItems(itinerary, payload),
-    booking_suggestions: limitHotelSuggestions(dedupeBookingSuggestions(buildBrainBookingSuggestions({
+    booking_suggestions: limitFlightSuggestions(limitHotelSuggestions(dedupeBookingSuggestions(buildBrainBookingSuggestions({
       itinerary,
       payload,
       estimatedBudgetBreakdown,
@@ -1125,7 +1221,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       };
       const affiliateUrl = isHotelSuggestion
         ? safeHotelAffiliateUrl(approvedMarketAffiliateUrl(market, link))
-        : approvedMarketAffiliateUrl(market, link);
+        : approvedMarketAffiliateUrl(market, link, linkCategory);
       const hasAffiliateUrl = Boolean(affiliateUrl) && !unsafeStay22Url(affiliateUrl);
       const normalSearchUrl = isHotelSuggestion
         ? safeHotelSearchUrl(
@@ -1174,7 +1270,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         expires_at: cleanStringValue(market?.expires_at) || suggestion.expires_at,
         market_search_key: cleanStringValue(market?.search_key) || suggestion.market_search_key
       };
-    }).filter((suggestion) => displayableBookingSuggestion(suggestion, payload))))
+    }).filter((suggestion) => displayableBookingSuggestion(suggestion, payload)))))
   };
 }
 

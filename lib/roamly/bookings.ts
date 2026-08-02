@@ -18,6 +18,14 @@ export type ExtractedBooking = {
   provider_name: string;
   title: string;
   confirmation_number: string;
+  flight_number: string;
+  airline_code: string;
+  terminal: string;
+  gate: string;
+  baggage: string;
+  duration: string;
+  origin: string;
+  destination: string;
   booking_status: "booked" | "paid" | "reserved" | "cancelled" | "unknown";
   amount_cents: number | null;
   currency: string;
@@ -65,6 +73,11 @@ function asNullableNumber(value: unknown) {
   return null;
 }
 
+function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function asAmountCents(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value > 1000 ? Math.round(value) : Math.round(value * 100);
@@ -97,12 +110,24 @@ export function normalizeExtractedBooking(value: Record<string, unknown>): Extra
   const bookingType = asText(value.booking_type);
   const bookingStatus = asText(value.booking_status);
   const confidence = asText(value.extraction_confidence);
+  const metadata =
+    typeof value.metadata === "object" && value.metadata
+      ? (value.metadata as Record<string, unknown>)
+      : {};
 
   return {
     booking_type: bookingTypes.has(bookingType as RoamlyBookingType) ? (bookingType as RoamlyBookingType) : "other",
     provider_name: asText(value.provider_name),
     title: asText(value.title) || "Imported booking",
     confirmation_number: asText(value.confirmation_number),
+    flight_number: asText(value.flight_number ?? value.flightNumber),
+    airline_code: asText(value.airline_code ?? value.airlineCode),
+    terminal: asText(value.terminal),
+    gate: asText(value.gate),
+    baggage: asText(value.baggage ?? value.baggage_allowance ?? metadata.baggage),
+    duration: asText(value.duration ?? value.flight_duration ?? metadata.duration),
+    origin: asText(value.origin ?? metadata.origin),
+    destination: asText(value.destination ?? metadata.destination),
     booking_status: statuses.has(bookingStatus) ? (bookingStatus as ExtractedBooking["booking_status"]) : "unknown",
     amount_cents: asAmountCents(value.amount_cents ?? value.amount),
     currency: asText(value.currency).toLowerCase() || "cad",
@@ -118,7 +143,7 @@ export function normalizeExtractedBooking(value: Record<string, unknown>): Extra
     longitude: asNullableNumber(value.longitude),
     raw_extracted_text: asText(value.raw_extracted_text),
     extraction_confidence: confidenceValues.has(confidence) ? (confidence as ExtractedBooking["extraction_confidence"]) : "medium",
-    metadata: typeof value.metadata === "object" && value.metadata ? (value.metadata as Record<string, unknown>) : {}
+    metadata
   };
 }
 
@@ -156,7 +181,7 @@ export async function extractBookingFromScreenshot(file: File): Promise<{ bookin
           {
             type: "text",
             text:
-              "Extract a travel booking. Fields: booking_type, provider_name, title, confirmation_number, booking_status, amount_cents, currency, start_date, end_date, start_time, end_time, address, city, region, country, latitude, longitude, raw_extracted_text, extraction_confidence, metadata. If unsure, use empty string/null and low confidence."
+              "Extract a travel booking. Fields: booking_type, provider_name, title, confirmation_number, flight_number, airline_code, terminal, gate, baggage, duration, origin, destination, booking_status, amount_cents, currency, start_date, end_date, start_time, end_time, address, city, region, country, latitude, longitude, raw_extracted_text, extraction_confidence, metadata. For flight screenshots, capture exact departure/arrival times, airline, flight number, terminal, gate, baggage, duration, origin, and destination when visible. If unsure, use empty string/null and low confidence."
           },
           { type: "image_url", image_url: { url: dataUrl } }
         ]
@@ -191,6 +216,25 @@ function combineBookingDateTime(
     : value.toISOString();
 }
 
+function flightSegmentForBooking(booking: ExtractedBooking, startTime: string | null, endTime: string | null) {
+  if (booking.booking_type !== "flight") return [];
+  if (!startTime && !endTime && !booking.origin && !booking.destination) return [];
+  return [
+    {
+      sequence: 1,
+      origin: booking.origin || null,
+      destination: booking.destination || null,
+      departureTime: startTime,
+      arrivalTime: endTime,
+      provider: booking.provider_name || null,
+      serviceNumber: booking.flight_number || null,
+      terminal: booking.terminal || null,
+      gate: booking.gate || null,
+      status: booking.booking_status === "cancelled" ? "cancelled" : "confirmed"
+    }
+  ];
+}
+
 export async function saveConfirmedBooking(
   supabase: SupabaseClient,
   params: {
@@ -201,6 +245,21 @@ export async function saveConfirmedBooking(
   }
 ) {
   const { booking } = params;
+  const startTime = combineBookingDateTime(
+    booking.start_date,
+    booking.start_time
+  );
+  const endTime = combineBookingDateTime(
+    booking.end_date,
+    booking.end_time
+  );
+  const requirements: Record<string, unknown> = {
+    extraction_confidence: booking.extraction_confidence,
+    raw_extracted_text: booking.raw_extracted_text || null,
+    source_metadata: booking.metadata || {}
+  };
+  if (booking.baggage) requirements.baggage = booking.baggage;
+  if (booking.duration) requirements.duration = booking.duration;
 
   const result = await createTripBooking({
     supabase,
@@ -229,14 +288,8 @@ export async function saveConfirmedBooking(
 
       title: booking.title || "Imported booking",
 
-      startTime: combineBookingDateTime(
-        booking.start_date,
-        booking.start_time
-      ),
-      endTime: combineBookingDateTime(
-        booking.end_date,
-        booking.end_time
-      ),
+      startTime,
+      endTime,
 
       checkInTime:
         booking.booking_type === "hotel"
@@ -255,10 +308,35 @@ export async function saveConfirmedBooking(
           : null,
 
       address: booking.address || null,
+      origin:
+        booking.origin ||
+        metadataText(booking.metadata, "origin") ||
+        null,
+      destination:
+        booking.destination ||
+        metadataText(booking.metadata, "destination") ||
+        null,
       locationName:
         booking.city ||
         booking.address ||
         null,
+      flightNumber:
+        booking.booking_type === "flight"
+          ? booking.flight_number || null
+          : null,
+      airlineCode:
+        booking.booking_type === "flight"
+          ? booking.airline_code || null
+          : null,
+      terminal:
+        booking.booking_type === "flight"
+          ? booking.terminal || null
+          : null,
+      gate:
+        booking.booking_type === "flight"
+          ? booking.gate || null
+          : null,
+      reservationRequirements: requirements,
 
       coordinates:
         typeof booking.latitude === "number" &&
@@ -276,7 +354,8 @@ export async function saveConfirmedBooking(
 
       currency: booking.currency || "cad",
       travelerConfirmed: true,
-      lastSyncedAt: new Date().toISOString()
+      lastSyncedAt: new Date().toISOString(),
+      segments: flightSegmentForBooking(booking, startTime, endTime)
     }
   });
 
@@ -334,11 +413,11 @@ export async function getConfirmedBookingCostCents(supabase: SupabaseClient, use
 export async function getConfirmedBookingsForItinerary(supabase: SupabaseClient, userId: string, tripId: string) {
   const { data, error } = await supabase
     .from("roamly_bookings")
-    .select("booking_type,title,provider_name,booking_status,amount_cents,currency,start_date,end_date,start_time,end_time,address,city,country")
+    .select("booking_type,title,provider_name,booking_status,amount_cents,currency,start_date,end_date,start_time,end_time,start_at,end_at,origin,destination,flight_number,terminal,gate,address,city,country")
     .eq("user_id", userId)
     .eq("trip_id", tripId)
     .neq("booking_status", "cancelled")
-    .order("start_date", { ascending: true, nullsFirst: false })
+    .order("start_at", { ascending: true, nullsFirst: false })
     .limit(20);
 
   if (error) return { bookings: [], error: error.message };

@@ -206,17 +206,66 @@ async function extractBookingProof(client, sessionId) {
           .filter((card) => card.group === "Hotels")
           .flatMap((card) => card.links)
           .filter((link) => link.host.includes("stay22.com")),
+        unsafeStay22HotelLinks: cards
+          .filter((card) => card.group === "Hotels")
+          .flatMap((card) => card.links)
+          .filter((link) => {
+            const host = link.affiliateHost || link.host;
+            const path = link.affiliatePath || "";
+            return /^(hub|app)\\.stay22\\.com$/.test(host) || /login|dashboard|admin|account|referral/i.test(path);
+          }),
+        flightCards: cards
+          .filter((card) => card.group === "Flights" || /flight/i.test(card.title)),
         flightLinks: cards
           .filter((card) => card.group === "Flights" || /flight/i.test(card.title))
           .flatMap((card) => card.links),
         activityLinks: cards
           .filter((card) => /activit|tour|attraction/i.test(card.group))
           .flatMap((card) => card.links),
+        activityKlookLinks: cards
+          .filter((card) => /activit|tour|attraction/i.test(card.group))
+          .flatMap((card) => card.links)
+          .filter((link) => /(^|\\.)klook\\.com$/i.test(link.host)),
         stay22AsHotelIdentity: cards.some((card) => card.group === "Hotels" && /^stay22$/i.test(card.title)),
         pageLooksAuthenticated: !/log in|sign in/i.test(document.body.innerText)
       };
     })()`
   );
+}
+
+async function verifyStay22Navigations(client, sessionId, urls) {
+  const results = [];
+  for (const url of urls) {
+    await client.send("Page.navigate", { url }, sessionId);
+    await waitFor(client, sessionId, "document.readyState === 'complete'", 20000).catch(() => {});
+    const result = await evaluate(
+      client,
+      sessionId,
+      `(() => {
+        const text = document.body?.innerText || "";
+        const href = location.href;
+        const title = document.title || "";
+        let host = "";
+        let path = "";
+        try {
+          const parsed = new URL(href);
+          host = parsed.hostname.replace(/^www\\./, "").toLowerCase();
+          path = parsed.pathname;
+        } catch {}
+        return {
+          requestedUrl: ${JSON.stringify(url)},
+          finalUrl: href,
+          title,
+          host,
+          path,
+          blockedByEdge: /access denied|forbidden|error code|cloudflare/i.test(text),
+          loginOrDashboard: /login|sign in|dashboard|admin|account|referral/i.test([href, title, text.slice(0, 1000)].join(" "))
+        };
+      })()`
+    );
+    results.push(result);
+  }
+  return results;
 }
 
 async function main() {
@@ -287,6 +336,13 @@ async function main() {
   assert.deepEqual(bookingProof.invalidDomains, [], "bookings section must not render blocked metadata domains");
   assert.equal(bookingProof.disabledUnavailableButtonPresent, false, "bookings section must not render disabled unavailable search buttons");
   assert.equal(bookingProof.stay22AsHotelIdentity, false, "Stay22 must not be rendered as a hotel title");
+  assert.deepEqual(bookingProof.unsafeStay22HotelLinks, [], "Stay22 links must not expose dashboard/login/referral URLs");
+  assert.ok(bookingProof.flightCards.length <= 1, "bookings section must render at most one flight search card");
+  if (bookingProof.flightCards.length === 1) {
+    assert.ok(/search flights|search live prices|estimate/i.test(bookingProof.flightCards[0].text), "flight card must clearly be a search/estimate CTA when inventory is unavailable");
+    assert.equal(/CAD\s*\$?\d|CA\$\s*\d/i.test(bookingProof.flightCards[0].text), false, "estimated flight card must not display fabricated CAD pricing");
+  }
+  assert.equal(bookingProof.activityKlookLinks.length, 0, "runtime fixture must not force generic Klook links for activities");
   assert.equal(new Set(bookingProof.hotelTitles).size, 3, "bookings section must render three distinct real hotel suggestions");
   assert.ok(bookingProof.hotelTitles.some((title) => /YWCA Hotel Vancouver/i.test(title)), "YWCA Hotel Vancouver should render as a real hotel suggestion");
   assert.ok(bookingProof.hotelTitles.some((title) => /The Burrard/i.test(title)), "The Burrard should render as a real hotel suggestion");
@@ -306,6 +362,18 @@ async function main() {
     assert.equal(tracked.hasCheckout, true, `${card.title} Stay22 URL must preserve check-out date`);
     assert.equal(tracked.hasGuests, true, `${card.title} Stay22 URL must preserve guest count`);
   });
+  const stay22Urls = bookingProof.hotelCardLinks
+    .flatMap((card) =>
+      card.links
+        .filter((link) => link.hrefPath === "/api/roamly/affiliate/click" && (link.affiliateHost === "stay22.com" || link.affiliateHost.endsWith(".stay22.com")))
+        .map((link) => link.targetHref)
+    );
+  const stay22NavigationProof = await verifyStay22Navigations(client, sessionId, stay22Urls);
+  stay22NavigationProof.forEach((result) => {
+    assert.equal(result.loginOrDashboard, false, `${result.requestedUrl} must not open Stay22 login/dashboard/referral pages`);
+    assert.ok(result.host === "stay22.com" || result.host.endsWith(".stay22.com"), `${result.requestedUrl} must remain on a Stay22 traveler host`);
+    assert.ok(!/hub|app/.test(result.host), `${result.requestedUrl} must not use Stay22 internal app/hub hosts`);
+  });
 
   const proof = {
     browser,
@@ -322,16 +390,28 @@ async function main() {
       hotelTitles: bookingProof.hotelTitles,
       hotelLinkHosts: bookingProof.hotelLinkHosts,
       stay22HotelLinkCount: bookingProof.stay22HotelLinks.length,
+      unsafeStay22HotelLinks: bookingProof.unsafeStay22HotelLinks,
       hotelCardLinks: bookingProof.hotelCardLinks.map((card) => ({
         title: card.title,
         trackedStay22LinkCount: card.links.filter((link) => link.hrefPath === "/api/roamly/affiliate/click" && (link.affiliateHost === "stay22.com" || link.affiliateHost.endsWith(".stay22.com"))).length,
+        stay22AffiliateUrls: card.links
+          .filter((link) => link.hrefPath === "/api/roamly/affiliate/click" && (link.affiliateHost === "stay22.com" || link.affiliateHost.endsWith(".stay22.com"))
+          )
+          .map((link) => link.targetHref),
         stay22AddressIncludesHotel: card.links.some((link) => link.affiliateAddress.toLowerCase().includes(card.title.toLowerCase())),
         stay22AddressIncludesDestination: card.links.some((link) => /vancouver/i.test(link.affiliateAddress)),
         preservesDatesAndGuests: card.links.some((link) => link.hasCheckin && link.hasCheckout && link.hasGuests),
         hasDirectBookingReplacement: card.links.some((link) => link.directBookingHost)
       })),
       flightLinkHosts: bookingProof.flightLinks.map((link) => link.host),
+      flightCards: bookingProof.flightCards.map((card) => ({
+        title: card.title,
+        text: card.text,
+        linkHosts: card.links.map((link) => link.host)
+      })),
       activityLinkHosts: bookingProof.activityLinks.map((link) => link.host),
+      activityKlookLinkCount: bookingProof.activityKlookLinks.length,
+      stay22NavigationProof,
       stay22AsHotelIdentity: bookingProof.stay22AsHotelIdentity,
       cards: bookingProof.cards.map((card) => ({
         group: card.group,

@@ -33,6 +33,8 @@ type CompanionBooking = {
   provider_name: string | null;
   start_date: string | null;
   start_time: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
   address: string | null;
   city: string | null;
 };
@@ -45,6 +47,13 @@ function addDays(date: string, days: number) {
 
 function startOfTrip(date: string | null) {
   return date ? new Date(`${date}T09:00:00Z`).toISOString() : null;
+}
+
+function bookingReminderTime(booking: CompanionBooking) {
+  if (booking.start_at) return booking.start_at;
+  return booking.start_date
+    ? new Date(`${booking.start_date}T${booking.start_time || "09:00"}:00Z`).toISOString()
+    : null;
 }
 
 export function tripHasLiveCompanionUnlock(trip: Pick<CompanionTrip, "live_companion_unlocked" | "tracking_unlocked">) {
@@ -241,8 +250,8 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
     event_type: booking.booking_type === "hotel" ? "check_in_reminder" : "booking_reminder",
     booking_id: booking.id,
     title: booking.title || `${booking.booking_type} reminder`,
-    body: `${booking.provider_name || "Booking"}${booking.start_time ? ` at ${booking.start_time}` : ""}.`,
-    scheduled_for: booking.start_date ? new Date(`${booking.start_date}T${booking.start_time || "09:00"}:00Z`).toISOString() : null
+    body: `${booking.provider_name || "Booking"}${booking.start_at || booking.start_time ? ` at ${booking.start_at || booking.start_time}` : ""}.`,
+    scheduled_for: bookingReminderTime(booking)
   }));
 
   return [...events, ...bookingEvents];
@@ -251,7 +260,7 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
 async function getTripAndBookings(supabase: SupabaseClient, tripId: string) {
   const [{ data: trip, error: tripError }, { data: bookings, error: bookingError }] = await Promise.all([
     supabase.from("roamly_trips").select("*").eq("id", tripId).maybeSingle(),
-    supabase.from("roamly_bookings").select("*").eq("trip_id", tripId).order("start_date", { ascending: true })
+    supabase.from("roamly_bookings").select("*").eq("trip_id", tripId).order("start_at", { ascending: true })
   ]);
   if (tripError) return { trip: null, bookings: [], error: tripError.message };
   if (bookingError) return { trip: trip as CompanionTrip | null, bookings: [], error: bookingError.message };

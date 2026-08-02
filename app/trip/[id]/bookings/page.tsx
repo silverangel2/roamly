@@ -54,7 +54,7 @@ export default async function TripBookingsPage({ params }: { params: Promise<{ i
       .select("*")
       .eq("trip_id", id)
       .eq("user_id", current.user.id)
-      .order("start_date", { ascending: true, nullsFirst: false })
+      .order("start_at", { ascending: true, nullsFirst: false })
   ]);
 
   const walletBookings = walletResult.error && isMissingTableError(walletResult.error) ? [] : walletResult.bookings;

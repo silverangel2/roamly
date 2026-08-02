@@ -283,13 +283,20 @@ function affiliateUrl(request: TravelMarketSearchRequest) {
   return link.affiliate_enabled ? link.affiliate_url : "";
 }
 
+function allowAffiliateSearchFallback(request: TravelMarketSearchRequest) {
+  if (request.category === "attraction" || request.category === "tour") return false;
+  return true;
+}
+
 function baseResult(
   request: TravelMarketSearchRequest,
   overrides: Partial<TravelMarketResult> = {}
 ): TravelMarketResult {
   const searchedAt = overrides.searched_at || nowIso();
   const normal = safeMarketHref(overrides.normal_search_url) || safeMarketHref(normalSearchUrl(request));
-  const affiliate = safeMarketHref(overrides.affiliate_url) || safeMarketHref(affiliateUrl(request));
+  const affiliate =
+    safeMarketHref(overrides.affiliate_url) ||
+    (allowAffiliateSearchFallback(request) ? safeMarketHref(affiliateUrl(request)) : "");
   const booking = safeMarketHref(overrides.booking_url) || affiliate || normal;
   const title = overrides.title || clean(request.title) || categoryDefaultTitle(request);
 
@@ -882,7 +889,7 @@ function searchReadyResult(request: TravelMarketSearchRequest, warning?: string)
       ? "travelpayouts"
       : request.category === "hotel" && stay22AffiliateConfigured()
         ? "stay22"
-        : klookAffiliateConfigured() && shouldUseKlookSearch(request)
+        : klookAffiliateConfigured() && request.category === "transport" && shouldUseKlookSearch(request)
           ? "klook"
           : "roamly_internal";
   const title = clean(request.title) || categoryDefaultTitle(request);
@@ -1103,6 +1110,71 @@ function tourTitle(destination: string, interests: string[] = []) {
   return `${destination} walking highlights tour`;
 }
 
+function notePriorityMarketRequests(payload: TripPlannerPayload, destinationLabel: string, destination: { city?: string | null; country?: string | null }, travelers: number, currency: string) {
+  const noteText = [
+    payload.specialNotes,
+    payload.accessibilityNeeds,
+    payload.dietaryPreference,
+    ...(payload.interests || [])
+  ]
+    .map((value) => clean(value))
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const requests: TravelMarketSearchRequest[] = [];
+  const base = {
+    destination: destinationLabel,
+    city: destination.city || destinationLabel,
+    country: destination.country || payload.destinationCountry,
+    start_date: payload.startDate,
+    travelers,
+    currency,
+    interests: payload.interests
+  };
+
+  if (/\bpride|lgbtq|lgbt|queer\b/i.test(noteText)) {
+    requests.push({
+      ...base,
+      category: "attraction",
+      title: `${destinationLabel} Pride official events`
+    });
+    requests.push({
+      ...base,
+      category: "tour",
+      title: `${destinationLabel} LGBTQ nightlife and community events`
+    });
+  }
+
+  if (/\bfestival|conference|wedding|concert|sporting event|sports event|game|birthday\b/i.test(noteText)) {
+    requests.push({
+      ...base,
+      category: "attraction",
+      title: `${destinationLabel} official event schedule`
+    });
+  }
+
+  if (/\baccessible|accessibility|wheelchair|step[- ]?free|mobility|stroller\b/i.test(noteText)) {
+    requests.push({
+      ...base,
+      category: "attraction",
+      title: `${destinationLabel} accessible attractions step-free routes`
+    });
+  }
+
+  if (/\bvegan|vegetarian|halal|kosher|gluten[- ]?free|allerg|seafood|coffee|food\b/i.test(noteText)) {
+    requests.push({
+      ...base,
+      category: "restaurant",
+      title: compact([
+        payload.dietaryPreference,
+        `${destinationLabel} restaurants official menu reservations`
+      ])
+    });
+  }
+
+  return requests;
+}
+
 export function buildTripMarketSearchRequests(payload: TripPlannerPayload): TravelMarketSearchRequest[] {
   const destinations = tripDestinations(payload);
   const firstDestination = destinations[0];
@@ -1141,6 +1213,7 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
     });
 
     if (payload.budgetIncludesActivities !== false) {
+      requests.push(...notePriorityMarketRequests(payload, destinationLabel, destination, travelers, currency));
       requests.push({
         category: "attraction",
         destination: destinationLabel,

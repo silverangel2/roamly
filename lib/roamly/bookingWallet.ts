@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 
 export const TRIP_BOOKING_TYPES = [
@@ -34,10 +35,16 @@ export const TRIP_BOOKING_SOURCE_TYPES = [
   "affiliate_conversion",
   "manual",
   "upload",
+  "screenshot",
   "email",
+  "gmail",
+  "outlook",
+  "affiliate",
+  "provider",
   "provider_sync",
   "live_provider",
-  "admin"
+  "admin",
+  "import"
 ] as const;
 
 export type TripBookingType = (typeof TRIP_BOOKING_TYPES)[number];
@@ -205,6 +212,7 @@ function normalizedBookingStatus(value: unknown, travelerConfirmed: boolean): Tr
 
 function normalizedSourceType(value: unknown): TripBookingSourceType {
   const text = clean(value);
+  if (text === "upload") return "screenshot";
   return sourceTypeSet.has(text) ? (text as TripBookingSourceType) : "manual";
 }
 
@@ -887,6 +895,22 @@ export async function createTripBooking(params: {
     }
   }
 
+  const itineraryOverride = await applyStoredItineraryBookingOverride({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId,
+    booking: {
+      ...(savedRow as Record<string, unknown>),
+      booking_segments: segments
+    }
+  }).catch((error) => ({
+    ok: false as const,
+    error:
+      error instanceof Error
+        ? error.message
+        : "ITINERARY_BOOKING_OVERRIDE_FAILED"
+  }));
+
   const change = detectMeaningfulBookingChange(
     previousBooking,
     savedRow
@@ -953,7 +977,10 @@ export async function createTripBooking(params: {
       bookingStatus: booking.booking_status,
       sourceType: booking.source_type,
       meaningfulChange: change?.eventType || null,
-      companionTriggered: Boolean(change)
+      companionTriggered: Boolean(change),
+      itineraryOverrideChanged:
+        itineraryOverride.ok === true &&
+        itineraryOverride.changed === true
     }
   });
 
@@ -961,6 +988,7 @@ export async function createTripBooking(params: {
     booking: createdBooking,
     companionWorkflow,
     meaningfulChange: change?.eventType || null,
+    itineraryOverride,
     created: !previousBooking,
     error: null
   };

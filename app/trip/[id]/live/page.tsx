@@ -151,7 +151,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
       .select("*")
       .eq("trip_id", id)
       .eq("user_id", current.user.id)
-      .order("start_date", { ascending: true, nullsFirst: false }),
+      .order("start_at", { ascending: true, nullsFirst: false }),
     supabase
       .from("roamly_activities")
       .select("id,title,category,address,city,country,latitude,longitude,status,sort_order")
@@ -206,6 +206,9 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
     if (!date) return null;
     return time ? `${date}T${time}` : `${date}T00:00:00`;
   }
+  function canonicalBookingTime(row: Record<string, unknown>, timestampKey: string, dateKey: string, timeKey: string) {
+    return getRowString(row, timestampKey) || bookingTime(row, dateKey, timeKey);
+  }
   const bookingDetails: LiveCompanionBookingDetail[] = bookingRows.map((booking) => ({
     id: getRowString(booking, "id"),
     title: getRowString(booking, "title"),
@@ -213,9 +216,9 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
     provider: getRowString(booking, "provider_name") || getRowString(booking, "provider"),
     gate: getRowString(booking, "gate"),
     terminal: getRowString(booking, "terminal"),
-    startTime: bookingTime(booking, "start_date", "start_time"),
-    endTime: bookingTime(booking, "end_date", "end_time"),
-    status: ["confirmed", "modified", "completed"].includes(getRowString(booking, "booking_status") || "")
+    startTime: canonicalBookingTime(booking, "start_at", "start_date", "start_time"),
+    endTime: canonicalBookingTime(booking, "end_at", "end_date", "end_time"),
+    status: ["confirmed", "modified", "completed", "booked", "paid", "reserved"].includes(getRowString(booking, "booking_status") || "")
       ? "verified"
       : "unknown",
     updatedAt: getRowString(booking, "updated_at") || getRowString(booking, "created_at")
@@ -241,7 +244,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         address: [getRowString(booking, "address"), getRowString(booking, "city"), getRowString(booking, "country")]
           .filter(Boolean)
           .join(", ") || null,
-        status: getRowString(booking, "start_date")
+        status: getRowString(booking, "start_at") || getRowString(booking, "start_date")
       };
     }),
     {

@@ -184,6 +184,8 @@ assert.equal(
 );
 [
   "https://app.stay22.com/dashboard",
+  "https://hub.stay22.com/referral/roamly/travel",
+  "https://www.stay22.com/referral/roamly/travel",
   "https://www.stay22.com/login",
   "https://www.stay22.com/account",
   "https://partners.stay22.com/admin"
@@ -401,6 +403,14 @@ const fixturePayload = {
   language: "en"
 };
 const enrichedFixture = affiliateLinksExports.enrichItineraryBookingSuggestions(fixtureItinerary, fixturePayload);
+const flightSuggestions = enrichedFixture.booking_suggestions.filter((item) => item.booking_category === "flight");
+assert.ok(flightSuggestions.length <= 1, "flight suggestions must collapse duplicate/common search links to one card");
+flightSuggestions.forEach((suggestion) => {
+  assert.equal(suggestion.estimated_cost_min ?? null, null, "estimated flight suggestions must not fabricate prices");
+  assert.equal(suggestion.estimated_cost_max ?? null, null, "estimated flight suggestions must not fabricate price ranges");
+  assert.equal(suggestion.price_confidence, "unknown", "flight search suggestions without live inventory must use unknown price confidence");
+  assert.equal(suggestion.booking_label, "Search flights", "estimated flight CTA must be a single search action");
+});
 const hotelSuggestions = enrichedFixture.booking_suggestions.filter((item) => item.booking_category === "hotel");
 assert.equal(hotelSuggestions.length, 3, "exactly three real hotel suggestions must be added before Stay22 actions");
 assert.ok(hotelSuggestions.every((item) => !/stay22/i.test(item.title)), "Stay22 must not be used as the hotel identity");
@@ -419,12 +429,112 @@ hotelSuggestions.forEach((item) => {
   assert.equal(stay22Url.searchParams.get("guests"), String(fixturePayload.travelersCount), `${item.title} must preserve guest count`);
 });
 assert.ok(!enrichedFixture.booking_suggestions.some((item) => /w3\.org|schema\.org|schemas\.live\.com|ogp\.me|json-ld\.org/i.test(`${item.title} ${item.normal_search_url} ${item.affiliate_url}`)), "metadata domains must be removed from booking suggestions");
-assert.ok(enrichedFixture.booking_suggestions.some((item) => item.booking_category === "attraction" && (item.affiliate_provider === "klook" || /klook\.com/.test(item.affiliate_url || ""))), "activities must prefer Klook when configured");
+assert.ok(
+  enrichedFixture.booking_suggestions
+    .filter((item) => ["activity", "attraction", "tour", "ticket"].includes(item.booking_category || item.category))
+    .every((item) => item.affiliate_provider !== "klook" && !/klook\.com/i.test(item.affiliate_url || "")),
+  "activity suggestions must not force Klook unless the market result is a verified Klook product"
+);
 restoreEnv("ROAMLY_STAY22_PARTNER_ID", previousStay22Partner);
 restoreEnv("ROAMLY_KLOOK_PARTNER_ID", previousKlookPartner);
 restoreEnv("ROAMLY_AFFILIATES_ENABLED", previousAffiliateEnabled);
 
+const recommendationBrainExports = loadTsModule("lib/roamly/recommendationBrain.ts");
+const prideRecommendations = recommendationBrainExports.buildRecommendedActivitySuggestions({
+  trip: {
+    destination: "Montreal, Canada",
+    destination_city: "Montreal",
+    destination_country: "Canada",
+    special_notes: "I'm going for Pride."
+  },
+  itinerary: { budget_currency: "CAD" }
+});
+assert.ok(prideRecommendations.length > 0, "planning notes must create high-priority recommendations");
+assert.equal(prideRecommendations[0].note_priority, true, "note-matched recommendations must rank before generic sightseeing");
+assert.ok(/pride/i.test(`${prideRecommendations[0].title} ${prideRecommendations[0].normal_search_url}`), "Pride notes must produce Pride-specific activity searches");
+
+const itineraryBookingOverrideExports = loadTsModule("lib/roamly/itineraryBookingOverrides.ts");
+const rebalanced = itineraryBookingOverrideExports.applyConfirmedBookingOverrideToItinerary(
+  {
+    trip_title: "Flight override fixture",
+    destination_summary: "",
+    best_for: [],
+    budget_fit_summary: "",
+    transport_overview: "",
+    local_tips: [],
+    safety_notes: [],
+    emergency_notes: [],
+    free_or_low_cost_notes: [],
+    packing_checklist: [],
+    estimated_budget_breakdown: { total_estimate: "", transport: "", lodging: "", activities: "", food: "", buffer: "" },
+    daily_itinerary: [
+      {
+        day_number: 1,
+        date: "2026-08-05",
+        city: "Montreal",
+        title: "Arrival day",
+        morning: "",
+        afternoon: "",
+        evening: "",
+        estimated_cost: 0,
+        food: [],
+        map_queries: [],
+        live_timeline: [
+          { time_label: "9:00 AM", startTime: "09:00", endTime: "10:00", title: "Estimated flight arrival", description: "Old estimate.", location_name: "Airport", estimated_cost: 0, category: "Travel", map_query: "Airport", item_type: "travel" },
+          { time_label: "10:30 AM", startTime: "10:30", endTime: "11:15", title: "Hotel check-in", description: "Old check-in time.", location_name: "Hotel", estimated_cost: 0, category: "Hotel", map_query: "Hotel", item_type: "hotel" },
+          { time_label: "12:00 PM", startTime: "12:00", endTime: "13:00", title: "Lunch", description: "Lunch.", location_name: "Downtown", estimated_cost: 25, category: "Meal", map_query: "Lunch", item_type: "meal" }
+        ]
+      }
+    ],
+    booking_suggestions: [],
+    pre_trip_essentials: []
+  },
+  {
+    booking_type: "flight",
+    booking_status: "booked",
+    provider_name: "Air Canada",
+    traveler_confirmed: true,
+    start_at: "2026-08-05T12:00:00.000Z",
+    end_at: "2026-08-05T13:30:00.000Z",
+    origin: "YUL",
+    destination: "YYZ",
+    flight_number: "AC123",
+    terminal: "1",
+    gate: "A12",
+    reservation_requirements: {
+      baggage: "1 checked bag",
+      duration: "1h 30m"
+    },
+    booking_segments: [
+      {
+        origin: "YUL",
+        destination: "YYZ",
+        departure_time: "2026-08-05T12:00:00.000Z",
+        arrival_time: "2026-08-05T13:30:00.000Z",
+        provider: "Air Canada",
+        service_number: "AC123",
+        terminal: "1",
+        gate: "A12",
+        status: "confirmed"
+      }
+    ]
+  }
+);
+assert.equal(rebalanced.changed, true, "confirmed flight booking must rebalance the itinerary");
+const adjustedTimeline = rebalanced.itinerary.daily_itinerary[0].live_timeline;
+const overrideToMinutes = (value) => {
+  const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+assert.ok(/AC123/.test(adjustedTimeline[0].title), "flight item must be replaced with the real flight number");
+assert.ok(/Terminal 1/.test(adjustedTimeline[0].description) && /Gate A12/.test(adjustedTimeline[0].description), "flight item must carry terminal and gate details");
+assert.ok(/Baggage: 1 checked bag/.test(adjustedTimeline[0].description), "flight item must carry baggage details");
+assert.ok(overrideToMinutes(adjustedTimeline[1].startTime) >= 14 * 60, "first post-arrival itinerary item must shift after the real arrival buffer");
+
 const tripPageForPrintChecks = read("app/trip/[id]/page.tsx");
+assert.ok(tripPageForPrintChecks.includes('category === "flight" ? "Search Flights"'), "flight fallback must render a single Search Flights card");
+assert.ok(tripPageForPrintChecks.includes("Estimate only. Search live prices"), "flight fallback must label estimated flight searches clearly");
+assert.ok(tripPageForPrintChecks.includes('curatedBookingSuggestions(suggestions, trip, ["flight"], 1)'), "flight booking suggestions must be capped to one card");
 assert.ok(!tripPageForPrintChecks.includes("Search link unavailable"), "booking cards must not render disabled unavailable-link copy");
 assert.ok(tripPageForPrintChecks.includes("roamly-compact-print"), "trip page must include a compact print/PDF layout");
 assert.ok(tripPageForPrintChecks.includes("roamly-screen-document"), "desktop itinerary must be separated from print/PDF output");
@@ -2211,6 +2321,15 @@ const bookingWalletSandbox = {
         processCompanionBookingChange: async () => ({
           ok: true,
           test: true
+        })
+      };
+    }
+
+    if (id === "@/lib/roamly/itineraryBookingOverrides") {
+      return {
+        applyStoredItineraryBookingOverride: async () => ({
+          ok: true,
+          changed: false
         })
       };
     }

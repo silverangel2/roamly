@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     .select("*")
     .eq("user_id", auth.user.id)
     .eq("trip_id", tripId)
-    .order("start_date", { ascending: true, nullsFirst: false })
+    .order("start_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

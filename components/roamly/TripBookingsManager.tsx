@@ -6,16 +6,24 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 type Booking = {
   id?: string;
   booking_type: string;
+  booking_status?: string | null;
   provider_name?: string | null;
+  provider?: string | null;
   title?: string | null;
   confirmation_number?: string | null;
-  booking_status?: string | null;
+  confirmation_code?: string | null;
   amount_cents?: number | null;
+  total_price?: number | null;
   currency?: string | null;
+  start_at?: string | null;
+  end_at?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   start_time?: string | null;
   end_time?: string | null;
+  flight_number?: string | null;
+  terminal?: string | null;
+  gate?: string | null;
   address?: string | null;
   city?: string | null;
   region?: string | null;
@@ -37,10 +45,42 @@ function formatMoney(cents?: number | null, currency = "CAD") {
   }).format(cents / 100);
 }
 
+function bookingProvider(booking: Booking) {
+  return booking.provider_name || booking.provider || "";
+}
+
+function bookingCostLabel(booking: Booking) {
+  if (typeof booking.amount_cents === "number") return formatMoney(booking.amount_cents, booking.currency || "CAD");
+  if (typeof booking.total_price === "number") {
+    return new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency: (booking.currency || "CAD").toUpperCase(),
+      maximumFractionDigits: 0
+    }).format(booking.total_price);
+  }
+  return "No cost saved";
+}
+
+function bookingWhen(booking: Booking) {
+  const timestamp = booking.start_at || booking.start_time || "";
+  if (timestamp && timestamp.includes("T")) {
+    const date = new Date(timestamp);
+    if (Number.isFinite(date.getTime())) {
+      return new Intl.DateTimeFormat("en-CA", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(date);
+    }
+  }
+  return [booking.start_date, booking.start_time].filter(Boolean).join(" ");
+}
+
 export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
   const committed = bookings
     .filter((booking) => booking.booking_status !== "cancelled")
-    .reduce((sum, booking) => sum + (booking.amount_cents || 0), 0);
+    .reduce((sum, booking) => sum + (booking.amount_cents || (booking.total_price ? Math.round(booking.total_price * 100) : 0)), 0);
 
   return (
     <div className="rounded-[1.5rem] border border-cloud bg-mist p-4">
@@ -104,18 +144,20 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean dark:text-cyan-200">{booking.booking_type}</p>
                 <h3 className="mt-1 text-lg font-black text-ink dark:text-white">{booking.title || "Booking"}</h3>
                 <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">
-                  {[booking.provider_name, booking.start_date, booking.start_time].filter(Boolean).join(" · ")}
+                  {[bookingProvider(booking), booking.flight_number, bookingWhen(booking)].filter(Boolean).join(" · ")}
                 </p>
                 {address ? <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">{address}</p> : null}
               </div>
               <div className="w-fit rounded-full bg-mist px-3 py-2 text-xs font-black text-ink dark:bg-white/10 dark:text-white">
-                {formatMoney(booking.amount_cents, booking.currency || "CAD")}
+                {bookingCostLabel(booking)}
               </div>
             </div>
             <details className="mt-3 rounded-2xl bg-mist px-3 py-3 dark:bg-white/10">
               <summary className="cursor-pointer text-sm font-black text-ink dark:text-white">Booking details</summary>
               <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
-                {booking.confirmation_number ? <p>Reference: {booking.confirmation_number}</p> : null}
+                {booking.confirmation_number || booking.confirmation_code ? <p>Reference: {booking.confirmation_number || booking.confirmation_code}</p> : null}
+                {booking.terminal ? <p>Terminal: {booking.terminal}</p> : null}
+                {booking.gate ? <p>Gate: {booking.gate}</p> : null}
                 {booking.booking_status ? <p>Status: {booking.booking_status}</p> : null}
                 {booking.extraction_confidence ? <p>Extraction: {booking.extraction_confidence}</p> : null}
                 {!booking.confirmation_number && !booking.booking_status && !booking.extraction_confidence ? <p>No extra details saved.</p> : null}

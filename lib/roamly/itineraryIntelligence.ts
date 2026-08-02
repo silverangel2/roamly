@@ -393,6 +393,32 @@ function priceConfidence(result: TravelMarketResult | null | undefined): RoamlyB
   return "unknown";
 }
 
+function liveFlightPriceAvailable(suggestion: RoamlyBookingSuggestion) {
+  return (
+    suggestion.price_confidence === "partner" ||
+    suggestion.price_confidence === "user_uploaded" ||
+    suggestion.price_type === "live_partner" ||
+    suggestion.price_type === "cached_recent"
+  );
+}
+
+function normalizeFlightSuggestion(suggestion: RoamlyBookingSuggestion): RoamlyBookingSuggestion {
+  if (suggestion.category !== "flight" || liveFlightPriceAvailable(suggestion)) return suggestion;
+  return {
+    ...suggestion,
+    description:
+      "Estimate only. Search live prices for the exact route, dates, baggage, seats, schedule, and currency before booking.",
+    booking_label: "Search flights",
+    estimated_cost_min: null,
+    estimated_cost_max: null,
+    estimated_total_cost_min: null,
+    estimated_total_cost_max: null,
+    price_confidence: "unknown",
+    price_type: "search_ready",
+    market_confidence: "low"
+  };
+}
+
 function mapMarketCategory(category: TravelMarketCategory): RoamlyBookingCategory {
   if (category === "flight" || category === "hotel" || category === "attraction" || category === "tour" || category === "restaurant" || category === "transport") {
     return category;
@@ -466,7 +492,9 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
     free_or_paid: category === "restaurant" ? "unknown" : "paid",
     booking_label: suggestedLabel(category, result),
     normal_search_url: directUrl,
-    affiliate_url: clean(result.affiliate_url),
+    affiliate_url: result.source === "klook" && (result.price_type === "live_partner" || providerUsed === "provider_api")
+      ? clean(result.affiliate_url || result.booking_url)
+      : clean(result.affiliate_url),
     affiliate_provider: result.source === "klook" || result.source === "stay22" || result.source === "travelpayouts" ? result.source : "",
     estimated_cost_min: price,
     estimated_cost_max: max,
@@ -556,7 +584,7 @@ function curateBookingSuggestions(
     .filter((suggestion) => !isGenericBooking(suggestion))
     .filter((suggestion) => !isImpracticalTransportSuggestion(suggestion))
     .map((suggestion): RoamlyBookingSuggestion => ({
-      ...suggestion,
+      ...normalizeFlightSuggestion(suggestion),
       booking_label:
         suggestion.category === "flight" && suggestion.price_type !== "live_partner"
           ? "Search flights"
@@ -595,7 +623,7 @@ function curateBookingSuggestions(
   for (const suggestion of merged) {
     const category = suggestion.category;
     const count = perCategory.get(category) || 0;
-    if (count >= 3) continue;
+    if (count >= (category === "flight" ? 1 : 3)) continue;
     const key = `${category}|${uniqueKey(suggestion.title)}|${suggestion.normal_search_url || suggestion.affiliate_url || ""}`;
     if (seen.has(key)) continue;
     seen.add(key);

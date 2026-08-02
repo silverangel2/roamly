@@ -345,6 +345,93 @@ function recommendedActivityCandidates(destinationLower: string): RecommendedAct
   return [];
 }
 
+function noteTextFromTrip(trip: AnyRecord) {
+  const metadata = trip.metadata && typeof trip.metadata === "object" && !Array.isArray(trip.metadata)
+    ? (trip.metadata as AnyRecord)
+    : {};
+  const planning = metadata.planning && typeof metadata.planning === "object" && !Array.isArray(metadata.planning)
+    ? (metadata.planning as AnyRecord)
+    : metadata;
+  return [
+    trip.special_notes,
+    planning.specialNotes,
+    planning.special_notes,
+    planning.accessibilityNeeds,
+    planning.accessibility_needs,
+    planning.dietaryPreference,
+    planning.dietary_preference,
+    Array.isArray(trip.interests) ? trip.interests.join(" ") : "",
+    Array.isArray(planning.interests) ? planning.interests.join(" ") : ""
+  ]
+    .map(text)
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function notePriorityActivityCandidates(destination: string, noteText: string): RecommendedActivityCandidate[] {
+  const candidates: RecommendedActivityCandidate[] = [];
+  const add = (candidate: RecommendedActivityCandidate) => {
+    if (!candidates.some((item) => item.name.toLowerCase() === candidate.name.toLowerCase())) {
+      candidates.push(candidate);
+    }
+  };
+
+  if (/\bpride|lgbtq|lgbt|queer\b/i.test(noteText)) {
+    add({
+      name: `${destination} Pride official events`,
+      location: "Official Pride festival schedule",
+      duration: "varies by event",
+      reason: "Matches the planning note and should be checked before generic sightseeing",
+      searchQuery: `${destination} Pride official events festival schedule`,
+      freeOrPaid: "varies"
+    });
+    add({
+      name: `${destination} LGBTQ+ nightlife and community events`,
+      location: "LGBTQ+ nightlife or festival area",
+      duration: "evening",
+      reason: "Keeps nightlife and event planning aligned with the reason for the trip",
+      searchQuery: `${destination} LGBTQ nightlife events official`,
+      freeOrPaid: "varies"
+    });
+  }
+
+  if (/\bfestival|conference|wedding|concert|sporting event|sports event|game|birthday\b/i.test(noteText)) {
+    add({
+      name: `${destination} event schedule search`,
+      location: "Official event venue or organizer",
+      duration: "depends on event",
+      reason: "Planning notes mention a dated event, so official schedule and venue details should be checked first",
+      searchQuery: `${destination} official event schedule tickets venue`,
+      freeOrPaid: "varies"
+    });
+  }
+
+  if (/\baccessible|accessibility|wheelchair|step[- ]?free|mobility|stroller\b/i.test(noteText)) {
+    add({
+      name: `${destination} accessible attractions and step-free routes`,
+      location: "Accessible routes and venues",
+      duration: "planning check",
+      reason: "Accessibility notes should shape activity selection, routing, and transport choices before generic sightseeing",
+      searchQuery: `${destination} accessible attractions step free routes official`,
+      freeOrPaid: "varies"
+    });
+  }
+
+  if (/\bvegan|vegetarian|halal|kosher|gluten[- ]?free|allerg|seafood|coffee|food\b/i.test(noteText)) {
+    add({
+      name: `${destination} food preference search`,
+      location: "Restaurant areas that match food notes",
+      duration: "meal planning",
+      reason: "Food preferences in the planning notes should shape meal neighbourhoods and reservation searches",
+      searchQuery: `${destination} ${noteText.match(/\b(vegan|vegetarian|halal|kosher|gluten[- ]?free|seafood|coffee)\b/i)?.[0] || "notable"} restaurants official menu reservations`,
+      freeOrPaid: "varies"
+    });
+  }
+
+  return candidates;
+}
+
 export function buildRecommendedActivitySuggestions(params: {
   trip: AnyRecord;
   itinerary: AnyRecord;
@@ -365,8 +452,10 @@ export function buildRecommendedActivitySuggestions(params: {
   const destination = resolvedDestination.searchLabel;
   const destinationLower = `${destination} ${resolvedDestination.asciiName} ${resolvedDestination.name}`.toLowerCase();
   const currency = firstText(itinerary.budget_currency, trip.budget_currency, "CAD");
+  const noteText = noteTextFromTrip(trip);
+  const noteCandidates = notePriorityActivityCandidates(destination, noteText);
 
-  return recommendedActivityCandidates(destinationLower).map((candidate) => ({
+  return [...noteCandidates, ...recommendedActivityCandidates(destinationLower)].map((candidate) => ({
     booking_category: "activity",
     category: "activity",
     title: candidate.name,
@@ -383,7 +472,8 @@ export function buildRecommendedActivitySuggestions(params: {
     url_type: "direct",
     booking_label: "Open details",
     has_affiliate_url: false,
-    normal_search_url: googleSearchUrl(`${candidate.searchQuery} ${destination}`)
+    normal_search_url: googleSearchUrl(`${candidate.searchQuery} ${destination}`),
+    note_priority: noteCandidates.includes(candidate) || undefined
   }));
 }
 

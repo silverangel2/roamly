@@ -151,11 +151,12 @@ export function isTravelerSafeStay22Url(value?: string | null) {
     const host = url.hostname.toLowerCase().replace(/^www\./, "");
     const pathname = url.pathname.toLowerCase();
 
+    if (host === "hub.stay22.com") return false;
     if (host === "app.stay22.com") return false;
     if (host !== "stay22.com" && !host.endsWith(".stay22.com")) return false;
     if (/\b(app|admin|partner|partners|dashboard|login|signin|sign-in|account)\b/.test(host)) return false;
-    if (/\/(?:app|admin|partner|partners|dashboard|login|signin|sign-in|account)(?:\/|$)/i.test(url.pathname)) return false;
-    if (/\b(?:dashboard|login|signin|sign-in|account|admin|partner|partners)\b/.test(pathname)) return false;
+    if (/\/(?:app|admin|partner|partners|dashboard|login|signin|sign-in|account|referral)(?:\/|$)/i.test(url.pathname)) return false;
+    if (/\b(?:dashboard|login|signin|sign-in|account|admin|partner|partners|referral)\b/.test(pathname)) return false;
 
     return true;
   } catch {
@@ -266,10 +267,12 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
     return result(
       input,
       "klook",
-      configured ? klookSearchUrl(input) : "",
+      "",
       input.category === "tour" ? "Book activity" : "Book activity",
       configured,
-      configured ? [] : ["ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER=klook", "ROAMLY_KLOOK_PARTNER_ID or ROAMLY_KLOOK_REFERRAL_URL"]
+      configured
+        ? ["Klook product match required before showing a Klook activity link"]
+        : ["ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER=klook", "ROAMLY_KLOOK_PARTNER_ID or ROAMLY_KLOOK_REFERRAL_URL"]
     );
   }
 
