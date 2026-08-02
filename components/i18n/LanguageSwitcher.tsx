@@ -7,13 +7,13 @@ export function LanguageSwitcher() {
   const { locale, setLocale, t } = useI18n();
 
   return (
-    <label className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-black text-ink shadow-soft ring-1 ring-cloud">
+    <label className="flex min-h-11 items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black text-ink shadow-soft ring-1 ring-cloud dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:ring-slate-700">
       <span className="sr-only">{t("ui.language", "Language")}</span>
       <span aria-hidden="true">{t("ui.language", "Language")}</span>
       <select
         value={locale}
         onChange={(event) => setLocale(event.target.value as RoamlyLocale)}
-        className="bg-transparent text-xs font-black text-ink outline-none"
+        className="min-h-11 bg-transparent text-xs font-black text-ink outline-none dark:text-white"
         aria-label={t("ui.language", "Language")}
       >
         {supportedLocales.map((item) => (

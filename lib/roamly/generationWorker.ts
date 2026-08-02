@@ -7,25 +7,23 @@ import {
   advanceStagedItineraryGeneration,
   canResumeStagedGeneration,
   getStagedGenerationState,
+  nextStagedGenerationWork,
   publicStagedGenerationProgress,
   StagedGenerationError
 } from "@/lib/roamly/stagedItineraryGeneration";
 import {
   claimGenerationJobByTrip,
   claimGenerationJobs,
-  claimGenerationLayer,
-  completeGenerationLayer,
   createOrResumeGenerationJob,
   markQueueFromLegacyState,
+  reconcileGenerationLayersFromStagedState,
   releaseGenerationJob,
-  releaseGenerationLayer,
   scheduleGenerationJobRetry,
-  scheduleGenerationLayerRetry,
   type GenerationClaimConfig,
-  type RoamlyGenerationJob,
-  type RoamlyGenerationLayer
+  type RoamlyGenerationJob
 } from "@/lib/roamly/generationQueue";
 import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
+import { getPublicSupabaseHost, logGenerationDiagnostic } from "@/lib/roamly/generationDiagnostics";
 import { isMissingTableError } from "@/lib/trips";
 
 export type RoamlyGenerationWorkerConfig = {
@@ -37,7 +35,7 @@ export type RoamlyGenerationWorkerConfig = {
   retryBaseSeconds: number;
   retryMaxSeconds: number;
   executionBudgetMs: number;
-  aiStageCleanupBufferMs: number;
+  stageCleanupBufferMs: number;
 };
 
 export type RoamlyGenerationWorkerResult = {
@@ -49,6 +47,7 @@ export type RoamlyGenerationWorkerResult = {
   terminal: boolean;
   busy?: boolean;
   skipped?: boolean;
+  yielded?: boolean;
   layerType?: string | null;
   layerSequence?: number | null;
   progress?: ReturnType<typeof publicStagedGenerationProgress>;
@@ -76,11 +75,11 @@ const DEFAULT_CONFIG: RoamlyGenerationWorkerConfig = {
   concurrency: 3,
   maxRetries: 3,
   leaseSeconds: 240,
-  maxLayersPerRun: 1,
+  maxLayersPerRun: 8,
   retryBaseSeconds: 60,
   retryMaxSeconds: 1800,
   executionBudgetMs: 55_000,
-  aiStageCleanupBufferMs: 8_000
+  stageCleanupBufferMs: 8_000
 };
 
 function envInt(key: string, fallback: number, min: number, max: number) {
@@ -96,16 +95,16 @@ export function getGenerationWorkerConfig(overrides: Partial<RoamlyGenerationWor
     maxRetries: overrides.maxRetries ?? envInt("ROAMLY_GENERATION_MAX_RETRIES", DEFAULT_CONFIG.maxRetries, 0, 10),
     leaseSeconds: overrides.leaseSeconds ?? envInt("ROAMLY_GENERATION_LEASE_SECONDS", DEFAULT_CONFIG.leaseSeconds, 30, 1800),
     maxLayersPerRun:
-      overrides.maxLayersPerRun ?? envInt("ROAMLY_GENERATION_MAX_LAYERS_PER_RUN", DEFAULT_CONFIG.maxLayersPerRun, 1, 5),
+      overrides.maxLayersPerRun ?? envInt("ROAMLY_GENERATION_MAX_LAYERS_PER_RUN", DEFAULT_CONFIG.maxLayersPerRun, 1, 25),
     retryBaseSeconds:
       overrides.retryBaseSeconds ?? envInt("ROAMLY_GENERATION_RETRY_BASE_SECONDS", DEFAULT_CONFIG.retryBaseSeconds, 1, 3600),
     retryMaxSeconds:
       overrides.retryMaxSeconds ?? envInt("ROAMLY_GENERATION_RETRY_MAX_SECONDS", DEFAULT_CONFIG.retryMaxSeconds, 1, 86_400),
     executionBudgetMs:
       overrides.executionBudgetMs ?? envInt("ROAMLY_GENERATION_EXECUTION_BUDGET_MS", DEFAULT_CONFIG.executionBudgetMs, 5_000, 300_000),
-    aiStageCleanupBufferMs:
-      overrides.aiStageCleanupBufferMs ??
-      envInt("ROAMLY_GENERATION_AI_STAGE_CLEANUP_BUFFER_MS", DEFAULT_CONFIG.aiStageCleanupBufferMs, 1_000, 60_000)
+    stageCleanupBufferMs:
+      overrides.stageCleanupBufferMs ??
+      envInt("ROAMLY_GENERATION_STAGE_CLEANUP_BUFFER_MS", DEFAULT_CONFIG.stageCleanupBufferMs, 1_000, 60_000)
   };
 }
 
@@ -249,7 +248,10 @@ async function enqueueLegacyTripJobs(admin: SupabaseClient, config: RoamlyGenera
 
   let enqueued = 0;
   for (const trip of data || []) {
-    const state = getStagedGenerationState((trip as { metadata: unknown }).metadata);
+    const state = getStagedGenerationState(
+      (trip as { metadata: unknown }).metadata,
+      String((trip as { id: string }).id)
+    );
     if (!state) continue;
     const result = await createOrResumeGenerationJob({
       supabase: admin,
@@ -271,7 +273,7 @@ async function ensureTripJob(params: {
 }) {
   const trip = await loadTrip(params.admin, params.tripId, params.userId);
   if (!trip) return { ok: false as const, error: "Trip not found.", jobReady: false };
-  const state = getStagedGenerationState(trip.metadata);
+  const state = getStagedGenerationState(trip.metadata, params.tripId);
   const result = await createOrResumeGenerationJob({
     supabase: params.admin,
     tripId: params.tripId,
@@ -362,26 +364,15 @@ async function finishTerminalJob(params: {
   return email;
 }
 
-async function handleLayerFailure(params: {
+async function handleJobFailure(params: {
   admin: SupabaseClient;
   job: RoamlyGenerationJob;
-  layer: RoamlyGenerationLayer | null;
   workerId: string;
   config: RoamlyGenerationWorkerConfig;
   error: unknown;
 }) {
   const code = errorCode(params.error);
   const message = errorMessage(params.error);
-  if (params.layer) {
-    await scheduleGenerationLayerRetry({
-      supabase: params.admin,
-      layerId: params.layer.id,
-      workerId: params.workerId,
-      errorCode: code,
-      errorMessage: message,
-      retry: retryConfig(params.config)
-    });
-  }
   await scheduleGenerationJobRetry({
     supabase: params.admin,
     jobId: params.job.id,
@@ -393,6 +384,52 @@ async function handleLayerFailure(params: {
   return { code, message };
 }
 
+function remainingExecutionMs(deadlineMs: number) {
+  return Math.max(0, Math.floor(deadlineMs - Date.now()));
+}
+
+function hasBudgetForWork(params: {
+  timeoutMs: number;
+  deadlineMs: number;
+  cleanupBufferMs: number;
+}) {
+  return remainingExecutionMs(params.deadlineMs) >= params.timeoutMs + params.cleanupBufferMs;
+}
+
+function generationProgressScalar(state: ReturnType<typeof getStagedGenerationState>, tripId: string) {
+  if (!state) {
+    return {
+      stateStatus: null,
+      currentStage: null,
+      completedDayCount: null,
+      totalDayCount: null
+    };
+  }
+  const progress = publicStagedGenerationProgress({ generation: state }, tripId);
+  return {
+    stateStatus: state.status,
+    currentStage: state.currentStage,
+    completedDayCount: progress?.completedDayCount ?? state.completedDayCount ?? null,
+    totalDayCount: progress?.totalDayCount ?? state.totalDayCount ?? null
+  };
+}
+
+async function syncQueueFromState(params: {
+  admin: SupabaseClient;
+  job: RoamlyGenerationJob;
+  state: NonNullable<ReturnType<typeof getStagedGenerationState>>;
+  preserveRunningStatus?: boolean;
+}) {
+  await markQueueFromLegacyState({
+    supabase: params.admin,
+    tripId: params.job.trip_id,
+    userId: params.job.user_id,
+    metadata: { generation: params.state },
+    preserveRunningStatus: params.preserveRunningStatus
+  });
+  return publicStagedGenerationProgress({ generation: params.state }, params.job.trip_id);
+}
+
 async function processClaimedJob(params: {
   admin: SupabaseClient;
   job: RoamlyGenerationJob;
@@ -402,17 +439,39 @@ async function processClaimedJob(params: {
   executionDeadlineMs: number;
 }) {
   let advanced = false;
-  let currentLayer: RoamlyGenerationLayer | null = null;
+  let currentWork: ReturnType<typeof nextStagedGenerationWork> = null;
 
   try {
     for (let index = 0; index < params.config.maxLayersPerRun; index += 1) {
-      const trip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id);
+      let trip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id);
       if (!trip) {
         throw new StagedGenerationError("Trip not found.", "TRIP_NOT_FOUND", 404, true);
       }
 
-      const state = getStagedGenerationState(trip.metadata);
+      let state = getStagedGenerationState(trip.metadata, params.job.trip_id);
+      if (!state) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        const retryTrip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id);
+        const retryState = retryTrip ? getStagedGenerationState(retryTrip.metadata, params.job.trip_id) : null;
+        logGenerationDiagnostic("generation_worker_staged_state_missing_rechecked", {
+          requestId: params.requestId,
+          route: "generationWorker",
+          tripId: params.job.trip_id,
+          supabaseHost: getPublicSupabaseHost(),
+          jobId: params.job.id,
+          workerId: params.workerId,
+          retryFoundState: Boolean(retryState),
+          retryStateStatus: retryState?.status || null,
+          retryCompletedDayCount: retryState?.completedDayCount ?? null,
+          retryTotalDayCount: retryState?.totalDayCount ?? null
+        });
+        if (retryState && retryTrip) {
+          trip = retryTrip;
+          state = retryState;
+        }
+      }
       if (state && terminalStatus(state.status) && !canResumeStagedGeneration(state)) {
+        await syncQueueFromState({ admin: params.admin, job: params.job, state, preserveRunningStatus: true });
         if (state.status === "complete") {
           const recovered = await finalizeStoredFullItinerary({
             admin: params.admin,
@@ -436,7 +495,7 @@ async function processClaimedJob(params: {
           claimed: true,
           advanced,
           terminal: true,
-          progress: publicStagedGenerationProgress({ generation: state }),
+          progress: publicStagedGenerationProgress({ generation: state }, params.job.trip_id),
           email
         } satisfies RoamlyGenerationWorkerResult;
       }
@@ -450,14 +509,41 @@ async function processClaimedJob(params: {
       });
       if (recovered) return recovered;
 
-      const claimedLayer = await claimGenerationLayer({
+      if (!state) {
+        throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
+      }
+
+      await reconcileGenerationLayersFromStagedState({
         supabase: params.admin,
-        jobId: params.job.id,
-        config: claimConfig(params.workerId, params.config)
+        tripId: params.job.trip_id,
+        userId: params.job.user_id,
+        state,
+        job: params.job
       });
-      if (!claimedLayer.ok) throw new Error(claimedLayer.error);
-      currentLayer = claimedLayer.layer;
-      if (!currentLayer) {
+
+      currentWork = nextStagedGenerationWork(state);
+      const selectedProgress = generationProgressScalar(state, params.job.trip_id);
+      logGenerationDiagnostic("generation_worker_work_selected", {
+        requestId: params.requestId,
+        route: "generationWorker",
+        tripId: params.job.trip_id,
+        supabaseHost: getPublicSupabaseHost(),
+        jobId: params.job.id,
+        workerId: params.workerId,
+        iteration: index + 1,
+        maxLayersPerRun: params.config.maxLayersPerRun,
+        stateStatus: selectedProgress.stateStatus,
+        currentStage: selectedProgress.currentStage,
+        completedDayCount: selectedProgress.completedDayCount,
+        totalDayCount: selectedProgress.totalDayCount,
+        workStage: currentWork?.stage || null,
+        batchId: currentWork?.batchId || null,
+        dayNumbers: currentWork?.dayNumbers || null,
+        workTimeoutMs: currentWork?.timeoutMs || null,
+        remainingExecutionMs: remainingExecutionMs(params.executionDeadlineMs),
+        cleanupBufferMs: params.config.stageCleanupBufferMs
+      });
+      if (!currentWork) {
         await releaseGenerationJob({
           supabase: params.admin,
           jobId: params.job.id,
@@ -472,24 +558,37 @@ async function processClaimedJob(params: {
           advanced,
           terminal: false,
           skipped: true,
-          error: "No claimable layer is ready."
+          progress: publicStagedGenerationProgress({ generation: state }, params.job.trip_id),
+          error: "No staged work is ready."
         } satisfies RoamlyGenerationWorkerResult;
       }
 
-      const result = await advanceStagedItineraryGeneration({
-        supabase: params.admin,
-        tripId: params.job.trip_id,
-        requestId: params.requestId,
-        executionDeadlineMs: params.executionDeadlineMs,
-        aiStageCleanupBufferMs: params.config.aiStageCleanupBufferMs
-      });
-
-      if ("deferred" in result && result.deferred) {
-        await releaseGenerationLayer({
-          supabase: params.admin,
-          layerId: currentLayer.id,
+      if (!hasBudgetForWork({
+        timeoutMs: currentWork.timeoutMs,
+        deadlineMs: params.executionDeadlineMs,
+        cleanupBufferMs: params.config.stageCleanupBufferMs
+      })) {
+        logGenerationDiagnostic("generation_worker_yield_before_stage", {
+          requestId: params.requestId,
+          route: "generationWorker",
+          tripId: params.job.trip_id,
+          supabaseHost: getPublicSupabaseHost(),
+          jobId: params.job.id,
           workerId: params.workerId,
-          nextStatus: "pending"
+          iteration: index + 1,
+          maxLayersPerRun: params.config.maxLayersPerRun,
+          stateStatus: selectedProgress.stateStatus,
+          currentStage: selectedProgress.currentStage,
+          completedDayCount: selectedProgress.completedDayCount,
+          totalDayCount: selectedProgress.totalDayCount,
+          workStage: currentWork.stage,
+          batchId: currentWork.batchId || null,
+          dayNumbers: currentWork.dayNumbers || null,
+          remainingExecutionMs: remainingExecutionMs(params.executionDeadlineMs),
+          requiredExecutionMs: currentWork.timeoutMs + params.config.stageCleanupBufferMs,
+          workTimeoutMs: currentWork.timeoutMs,
+          cleanupBufferMs: params.config.stageCleanupBufferMs,
+          returnReason: "insufficient_execution_budget"
         });
         await releaseGenerationJob({
           supabase: params.admin,
@@ -505,19 +604,43 @@ async function processClaimedJob(params: {
           advanced: false,
           terminal: false,
           skipped: true,
-          layerType: currentLayer.layer_type,
-          layerSequence: currentLayer.layer_sequence,
-          progress: publicStagedGenerationProgress({ generation: result.state })
+          yielded: true,
+          layerType: currentWork.stage,
+          layerSequence: null,
+          progress: publicStagedGenerationProgress({ generation: state }, params.job.trip_id),
+          error: "Worker yielded before starting the next stage."
         } satisfies RoamlyGenerationWorkerResult;
       }
 
+      const result = await advanceStagedItineraryGeneration({
+        supabase: params.admin,
+        tripId: params.job.trip_id,
+        requestId: params.requestId
+      });
+      const resultProgress = generationProgressScalar(result.state, params.job.trip_id);
+      logGenerationDiagnostic("generation_worker_stage_result", {
+        requestId: params.requestId,
+        route: "generationWorker",
+        tripId: params.job.trip_id,
+        supabaseHost: getPublicSupabaseHost(),
+        jobId: params.job.id,
+        workerId: params.workerId,
+        iteration: index + 1,
+        workStage: currentWork.stage,
+        batchId: currentWork.batchId || null,
+        dayNumbers: currentWork.dayNumbers || null,
+        ok: result.ok,
+        advanced: result.advanced === true,
+        busy: "busy" in result && result.busy === true,
+        resultStatus: result.status,
+        stateStatus: resultProgress.stateStatus,
+        currentStage: resultProgress.currentStage,
+        completedDayCount: resultProgress.completedDayCount,
+        totalDayCount: resultProgress.totalDayCount,
+        errorCode: "error" in result ? result.error : null
+      });
+
       if ("busy" in result && result.busy) {
-        await releaseGenerationLayer({
-          supabase: params.admin,
-          layerId: currentLayer.id,
-          workerId: params.workerId,
-          nextStatus: "pending"
-        });
         await releaseGenerationJob({
           supabase: params.admin,
           jobId: params.job.id,
@@ -532,42 +655,33 @@ async function processClaimedJob(params: {
           advanced: false,
           terminal: false,
           busy: true,
-          progress: publicStagedGenerationProgress({ generation: result.state })
+          layerType: currentWork.stage,
+          layerSequence: null,
+          progress: publicStagedGenerationProgress({ generation: result.state }, params.job.trip_id)
         } satisfies RoamlyGenerationWorkerResult;
       }
 
       advanced = advanced || result.advanced === true;
-      await completeGenerationLayer({
-        supabase: params.admin,
-        layerId: currentLayer.id,
-        workerId: params.workerId,
-        outputJson: {
-          legacyStage: "stage" in result ? result.stage : null,
-          advanced: result.advanced === true,
-          progress: publicStagedGenerationProgress({ generation: result.state })
-        },
-        evidenceJson: {
-          source: "legacy_staged_generation",
-          processedAt: new Date().toISOString(),
-          requestId: params.requestId
-        },
-        dependencyVersionsJson: {
-          stagedGenerationVersion: result.state.version,
-          stagedStatus: result.state.status
-        }
+      const progress = await syncQueueFromState({
+        admin: params.admin,
+        job: params.job,
+        state: result.state,
+        preserveRunningStatus: true
       });
       await Promise.all([
         recordGenerationCostEvent({
           supabase: params.admin,
           tripId: params.job.trip_id,
           jobId: params.job.id,
-          layerId: currentLayer.id,
+          layerId: null,
           userId: params.job.user_id,
           costCategory: "worker_execution",
           unitCount: 1,
           estimatedCostUsd: 0,
           metadata: {
-            layerType: currentLayer.layer_type,
+            workStage: currentWork.stage,
+            batchId: currentWork.batchId,
+            dayNumbers: currentWork.dayNumbers,
             workerId: params.workerId,
             requestId: params.requestId
           }
@@ -576,7 +690,7 @@ async function processClaimedJob(params: {
           supabase: params.admin,
           tripId: params.job.trip_id,
           jobId: params.job.id,
-          layerId: currentLayer.id,
+          layerId: null,
           userId: params.job.user_id,
           costCategory: "model_tokens",
           provider: result.state.provider || "openai",
@@ -591,13 +705,6 @@ async function processClaimedJob(params: {
           }
         })
       ]).catch(() => null);
-      await markQueueFromLegacyState({
-        supabase: params.admin,
-        tripId: params.job.trip_id,
-        userId: params.job.user_id,
-        metadata: { generation: result.state },
-        preserveRunningStatus: true
-      });
 
       if (terminalStatus(result.state.status)) {
         const email = await finishTerminalJob({
@@ -614,17 +721,57 @@ async function processClaimedJob(params: {
           claimed: true,
           advanced,
           terminal: true,
-          layerType: currentLayer.layer_type,
-          layerSequence: currentLayer.layer_sequence,
-          progress: publicStagedGenerationProgress({ generation: result.state }),
+          layerType: currentWork.stage,
+          layerSequence: null,
+          progress,
           error: "error" in result ? result.error : null,
           email
+        } satisfies RoamlyGenerationWorkerResult;
+      }
+
+      if (!result.ok || result.advanced !== true) {
+        await releaseGenerationJob({
+          supabase: params.admin,
+          jobId: params.job.id,
+          workerId: params.workerId,
+          nextStatus: "waiting"
+        });
+        return {
+          tripId: params.job.trip_id,
+          jobId: params.job.id,
+          ok: result.ok,
+          claimed: true,
+          advanced,
+          terminal: false,
+          layerType: currentWork.stage,
+          layerSequence: null,
+          progress,
+          error: "error" in result ? result.error : null
         } satisfies RoamlyGenerationWorkerResult;
       }
     }
 
     const trip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id);
-    const state = trip ? getStagedGenerationState(trip.metadata) : null;
+    const state = trip ? getStagedGenerationState(trip.metadata, params.job.trip_id) : null;
+    const finalProgress = generationProgressScalar(state, params.job.trip_id);
+    logGenerationDiagnostic("generation_worker_max_layers_reached", {
+      requestId: params.requestId,
+      route: "generationWorker",
+      tripId: params.job.trip_id,
+      supabaseHost: getPublicSupabaseHost(),
+      jobId: params.job.id,
+      workerId: params.workerId,
+      maxLayersPerRun: params.config.maxLayersPerRun,
+      advanced,
+      lastWorkStage: currentWork?.stage || null,
+      lastBatchId: currentWork?.batchId || null,
+      lastDayNumbers: currentWork?.dayNumbers || null,
+      stateStatus: finalProgress.stateStatus,
+      currentStage: finalProgress.currentStage,
+      completedDayCount: finalProgress.completedDayCount,
+      totalDayCount: finalProgress.totalDayCount,
+      returnReason: "max_layers_per_run_exhausted"
+    });
     await releaseGenerationJob({
       supabase: params.admin,
       jobId: params.job.id,
@@ -638,47 +785,29 @@ async function processClaimedJob(params: {
       claimed: true,
       advanced,
       terminal: false,
-      layerType: currentLayer?.layer_type || null,
-      layerSequence: currentLayer?.layer_sequence || null,
-      progress: state ? publicStagedGenerationProgress({ generation: state }) : null
+      layerType: currentWork?.stage || null,
+      layerSequence: null,
+      progress: state ? publicStagedGenerationProgress({ generation: state }, params.job.trip_id) : null
     } satisfies RoamlyGenerationWorkerResult;
   } catch (error) {
+    logGenerationDiagnostic("generation_worker_job_failed", {
+      requestId: params.requestId,
+      route: "generationWorker",
+      tripId: params.job.trip_id,
+      supabaseHost: getPublicSupabaseHost(),
+      jobId: params.job.id,
+      workerId: params.workerId,
+      layerType: currentWork?.stage || null,
+      batchId: currentWork?.batchId || null,
+      dayNumbers: currentWork?.dayNumbers || null,
+      errorCode: errorCode(error),
+      errorMessage: errorMessage(error)
+    });
     const terminalTrip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id).catch(() => null);
-    const terminalState = terminalTrip ? getStagedGenerationState(terminalTrip.metadata) : null;
+    const terminalState = terminalTrip ? getStagedGenerationState(terminalTrip.metadata, params.job.trip_id) : null;
     if (terminalState && terminalStatus(terminalState.status)) {
       const code = terminalState.lastErrorCode || errorCode(error);
-      const message = terminalState.lastError || errorMessage(error);
-      if (currentLayer) {
-        if (terminalState.status === "complete") {
-          await completeGenerationLayer({
-            supabase: params.admin,
-            layerId: currentLayer.id,
-            workerId: params.workerId,
-            outputJson: {
-              recoveredAfterThrow: true,
-              progress: publicStagedGenerationProgress({ generation: terminalState })
-            },
-            evidenceJson: {
-              source: "terminal_state_after_generator_throw",
-              processedAt: new Date().toISOString(),
-              requestId: params.requestId
-            },
-            dependencyVersionsJson: {
-              stagedGenerationVersion: terminalState.version,
-              stagedStatus: terminalState.status
-            }
-          });
-        } else {
-          await scheduleGenerationLayerRetry({
-            supabase: params.admin,
-            layerId: currentLayer.id,
-            workerId: params.workerId,
-            errorCode: code,
-            errorMessage: message,
-            retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }
-          });
-        }
-      }
+      await syncQueueFromState({ admin: params.admin, job: params.job, state: terminalState, preserveRunningStatus: true });
       const email = await finishTerminalJob({
         admin: params.admin,
         job: params.job,
@@ -692,18 +821,17 @@ async function processClaimedJob(params: {
         claimed: true,
         advanced,
         terminal: true,
-        layerType: currentLayer?.layer_type || null,
-        layerSequence: currentLayer?.layer_sequence || null,
-        progress: publicStagedGenerationProgress({ generation: terminalState }),
+        layerType: currentWork?.stage || null,
+        layerSequence: null,
+        progress: publicStagedGenerationProgress({ generation: terminalState }, params.job.trip_id),
         error: terminalState.status === "complete" ? null : code,
         email
       } satisfies RoamlyGenerationWorkerResult;
     }
 
-    const failure = await handleLayerFailure({
+    const failure = await handleJobFailure({
       admin: params.admin,
       job: params.job,
-      layer: currentLayer,
       workerId: params.workerId,
       config: params.config,
       error
@@ -715,8 +843,8 @@ async function processClaimedJob(params: {
       claimed: true,
       advanced,
       terminal: false,
-      layerType: currentLayer?.layer_type || null,
-      layerSequence: currentLayer?.layer_sequence || null,
+      layerType: currentWork?.stage || null,
+      layerSequence: null,
       error: failure.code || failure.message
     } satisfies RoamlyGenerationWorkerResult;
   }
@@ -854,35 +982,169 @@ export async function processGenerationQueue(params: {
   }
 
   if (!jobs.length) {
-    return summarize({
+    if (params.tripId) {
+      const resumed = await ensureTripJob({
+        admin,
+        tripId: params.tripId,
+        userId: params.userId
+      });
+
+      if (resumed.ok) {
+        const retry = await claimGenerationJobByTrip({
+          supabase: admin,
+          tripId: params.tripId,
+          config: claimConfig(workerId, config)
+        });
+
+        if (retry.ok && retry.job) {
+          jobs = [retry.job];
+        }
+      }
+    }
+
+    if (!jobs.length) {
+      return summarize({
+        workerId,
+        requestId,
+        config,
+        claimed: 0,
+        results: params.tripId
+          ? [
+              {
+                tripId: params.tripId,
+                ok: true,
+                claimed: false,
+                advanced: false,
+                terminal: false,
+                busy: true,
+                error: "No eligible queue job was claimable."
+              }
+            ]
+          : []
+      });
+    }
+  }
+
+  const results = [];
+  let workerLoopIteration = 0;
+
+  while (jobs.length) {
+    workerLoopIteration += 1;
+    logGenerationDiagnostic("generation_worker_claimed_batch_start", {
+      requestId,
+      route: "generationWorker",
+      tripId: params.tripId || null,
+      supabaseHost: getPublicSupabaseHost(),
+      workerId,
+      workerLoopIteration,
+      claimedJobCount: jobs.length,
+      maxLayersPerRun: config.maxLayersPerRun,
+      remainingExecutionMs: remainingExecutionMs(executionDeadlineMs),
+      reason: params.reason || null
+    });
+    const batchResults = await processJobsInPool({
+      admin,
+      jobs,
       workerId,
       requestId,
       config,
-      claimed: 0,
-      results: params.tripId
-        ? [
-            {
-              tripId: params.tripId,
-              ok: true,
-              claimed: false,
-              advanced: false,
-              terminal: false,
-              busy: true,
-              error: "No eligible queue job was claimable."
-            }
-          ]
-        : []
+      executionDeadlineMs
     });
+
+    results.push(...batchResults);
+    const yielded = batchResults.some((result) => result.yielded);
+    const busy = batchResults.some((result) => result.busy);
+    const terminal = batchResults.some((result) => result.terminal);
+    logGenerationDiagnostic("generation_worker_claimed_batch_result", {
+      requestId,
+      route: "generationWorker",
+      tripId: params.tripId || null,
+      supabaseHost: getPublicSupabaseHost(),
+      workerId,
+      workerLoopIteration,
+      resultCount: batchResults.length,
+      advancedCount: batchResults.filter((result) => result.advanced).length,
+      yieldedCount: batchResults.filter((result) => result.yielded).length,
+      busyCount: batchResults.filter((result) => result.busy).length,
+      terminalCount: batchResults.filter((result) => result.terminal).length,
+      failedCount: batchResults.filter((result) => !result.ok).length,
+      lastError: batchResults.at(-1)?.error || null,
+      remainingExecutionMs: remainingExecutionMs(executionDeadlineMs)
+    });
+
+    if (!params.tripId) {
+      break;
+    }
+
+    if (yielded || busy || terminal || batchResults.some((result) => !result.ok)) {
+      logGenerationDiagnostic("generation_worker_reclaim_after_batch_skipped", {
+        requestId,
+        route: "generationWorker",
+        tripId: params.tripId,
+        supabaseHost: getPublicSupabaseHost(),
+        workerId,
+        workerLoopIteration,
+        yielded,
+        busy,
+        terminal,
+        failed: batchResults.some((result) => !result.ok),
+        remainingExecutionMs: remainingExecutionMs(executionDeadlineMs),
+        returnReason: yielded
+          ? "worker_yielded"
+          : terminal
+            ? "terminal_result"
+            : busy
+              ? "busy_result"
+              : "failed_result"
+      });
+      break;
+    }
+
+    logGenerationDiagnostic("generation_worker_reclaim_after_batch_attempt", {
+      requestId,
+      route: "generationWorker",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      workerId,
+      workerLoopIteration,
+      yielded,
+      busy,
+      terminal,
+      remainingExecutionMs: remainingExecutionMs(executionDeadlineMs)
+    });
+    const retry = await claimGenerationJobByTrip({
+      supabase: admin,
+      tripId: params.tripId,
+      config: claimConfig(workerId, config)
+    });
+    logGenerationDiagnostic("generation_worker_reclaim_after_batch_result", {
+      requestId,
+      route: "generationWorker",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      workerId,
+      workerLoopIteration,
+      ok: retry.ok,
+      claimed: Boolean(retry.job),
+      errorCode: retry.ok ? null : retry.error || "GENERATION_JOB_RECLAIM_FAILED",
+      yielded,
+      busy,
+      terminal,
+      remainingExecutionMs: remainingExecutionMs(executionDeadlineMs)
+    });
+
+    if (!retry.ok) {
+      break;
+    }
+
+    jobs = retry.job ? [retry.job] : [];
   }
 
-  const results = await processJobsInPool({
-    admin,
-    jobs,
+  return summarize({
     workerId,
     requestId,
     config,
-    executionDeadlineMs
+    claimed: results.length,
+    results
   });
-
-  return summarize({ workerId, requestId, config, claimed: jobs.length, results });
 }

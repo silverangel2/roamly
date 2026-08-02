@@ -237,6 +237,7 @@ function generatedDaysFromStored(stored: StoredFinalItinerary) {
 }
 
 function completedGenerationState(params: {
+  tripId: string;
   state: StagedGenerationState | null;
   stored: StoredFinalItinerary;
   completedAt: string;
@@ -254,6 +255,7 @@ function completedGenerationState(params: {
   return {
     version: 2,
     ...(params.state || {}),
+    tripId: params.tripId,
     status: "complete" as const,
     currentStage: "complete" as const,
     totalDayCount,
@@ -516,13 +518,13 @@ export async function finalizeCompletedStagedGeneration(params: {
   if (!loaded.trip) return { ok: false as const, error: "Trip not found." };
 
   const trip = loaded.trip;
-  const state = params.state || getStagedGenerationState(trip.metadata);
+  const state = params.state || getStagedGenerationState(trip.metadata, params.tripId);
   const stored = await loadStoredFinalItinerary({ supabase, trip });
   const eligible = state?.status === "complete" || stored.exists;
   if (!eligible) return { ok: false as const, error: "FINAL_ITINERARY_NOT_SAVED" };
 
   const completedAt = params.completedAt || state?.completedAt || stored.updatedAt || nowIso();
-  const generationState = completedGenerationState({ state, stored, completedAt });
+  const generationState = completedGenerationState({ tripId: trip.id, state, stored, completedAt });
   const unlockSource = normalizeUnlockSource(state?.unlockSource || trip.itinerary_unlock_source);
 
   if (unlockSource === "free" && trip.itinerary_unlock_source !== "free" && trip.itinerary_payment_status !== "free") {
@@ -586,7 +588,7 @@ export async function finalizeCompletedStagedGeneration(params: {
     storedItineraryId: stored.itineraryId,
     recoveredFromStoredItinerary: stored.exists,
     generationState,
-    progress: generationState ? publicStagedGenerationProgress({ generation: generationState }) : null,
+    progress: generationState ? publicStagedGenerationProgress({ generation: generationState }, trip.id) : null,
     email
   };
 }
@@ -633,7 +635,7 @@ export async function recoverCompletedStoredGenerations(params: {
 
   for (const row of data || []) {
     const trip = row as Pick<FinalizationTrip, "id" | "user_id" | "metadata">;
-    const state = getStagedGenerationState(trip.metadata);
+    const state = getStagedGenerationState(trip.metadata, trip.id);
     const result = await finalizeCompletedStagedGeneration({
       supabase,
       tripId: trip.id,

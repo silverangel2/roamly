@@ -182,6 +182,16 @@ export async function sendScheduledTripNotifications() {
   if (error) return { ok: false, error: error.message };
   let sent = 0;
   for (const event of events || []) {
+    const claimed = await supabase
+      .from("roamly_trip_companion_events")
+      .update({ status: "processing" })
+      .eq("id", event.id)
+      .eq("status", "scheduled")
+      .select("id")
+      .maybeSingle();
+
+    if (claimed.error || !claimed.data) continue;
+
     const tripResult = event.trip_id
       ? await supabase
           .from("roamly_trips")
@@ -201,27 +211,28 @@ export async function sendScheduledTripNotifications() {
       continue;
     }
 
-    const duplicate = await supabase
-      .from("roamly_notifications")
-      .select("id")
-      .eq("event_id", event.id)
-      .limit(1)
-      .maybeSingle();
-    if (!duplicate.data) {
-      await sendPushNotification(supabase, event.user_id, {
-        title: event.title || "Roamly reminder",
-        body: event.body,
-        actionUrl: event.trip_id ? `/trip/${event.trip_id}/companion` : "/notifications",
-        type: event.event_type,
-        tripId: event.trip_id,
-        eventId: event.id
-      });
+    const delivery = await sendPushNotification(supabase, event.user_id, {
+      title: event.title || "Roamly reminder",
+      body: event.body,
+      actionUrl: event.trip_id ? `/trip/${event.trip_id}/live` : "/notifications",
+      type: event.event_type,
+      tripId: event.trip_id,
+      eventId: event.id
+    });
+    if (delivery.notification?.data?.id) {
       sent += 1;
+      await supabase
+        .from("roamly_trip_companion_events")
+        .update({ status: "shown", completed_at: new Date().toISOString() })
+        .eq("id", event.id)
+        .eq("status", "processing");
+    } else {
+      await supabase
+        .from("roamly_trip_companion_events")
+        .update({ status: "scheduled", scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString() })
+        .eq("id", event.id)
+        .eq("status", "processing");
     }
-    await supabase
-      .from("roamly_trip_companion_events")
-      .update({ status: "shown", completed_at: new Date().toISOString() })
-      .eq("id", event.id);
   }
   return { ok: true, processed: (events || []).length, sent };
 }

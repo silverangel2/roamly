@@ -43,7 +43,7 @@ function positiveNumber(value: unknown, fallback = 0) {
 }
 
 function category(value: unknown): TravelMarketCategory | null {
-  if (value === "flight" || value === "hotel" || value === "attraction" || value === "tour" || value === "transport") return value;
+  if (value === "flight" || value === "hotel" || value === "attraction" || value === "tour" || value === "restaurant" || value === "transport") return value;
   return null;
 }
 

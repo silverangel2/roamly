@@ -22,6 +22,9 @@ type UpdateBody = {
   bookingNotificationsEnabled?: boolean;
   checkInRemindersEnabled?: boolean;
   marketingEnabled?: boolean;
+  liveCompanionEnabled?: boolean;
+  liveCompanionPausedUntil?: string | null;
+  backgroundLocationEnabled?: boolean;
 };
 
 const VALID_MODES: CompanionControlMode[] = [
@@ -87,34 +90,55 @@ export async function PUT(
     body.maxAutomaticCostChange >= 0
       ? body.maxAutomaticCostChange
       : 0;
+  const pausedUntil =
+    typeof body.liveCompanionPausedUntil === "string" &&
+    body.liveCompanionPausedUntil.trim()
+      ? body.liveCompanionPausedUntil.trim()
+      : null;
+  const currentPreferences = await getCompanionPreferences({
+    supabase: auth.supabase,
+    userId: auth.user.id,
+    tripId: id
+  });
 
   const row = {
     user_id: auth.user.id,
     trip_id: id,
-    control_mode: body.controlMode ?? "suggest_changes",
+    control_mode: body.controlMode ?? currentPreferences.controlMode,
     allow_free_schedule_changes:
-      body.allowFreeScheduleChanges === true,
+      body.allowFreeScheduleChanges ?? currentPreferences.allowFreeScheduleChanges,
     allow_optional_activity_changes:
-      body.allowOptionalActivityChanges === true,
+      body.allowOptionalActivityChanges ?? currentPreferences.allowOptionalActivityChanges,
     allow_meal_changes:
-      body.allowMealChanges === true,
+      body.allowMealChanges ?? currentPreferences.allowMealChanges,
     allow_route_time_updates:
-      body.allowRouteTimeUpdates === true,
-    max_automatic_cost_change: maxAutomaticCostChange,
+      body.allowRouteTimeUpdates ?? currentPreferences.allowRouteTimeUpdates,
+    max_automatic_cost_change:
+      body.maxAutomaticCostChange === undefined
+        ? currentPreferences.maxAutomaticCostChange
+        : maxAutomaticCostChange,
     currency:
       typeof body.currency === "string" && body.currency.trim()
         ? body.currency.trim().toUpperCase()
-        : null,
+        : currentPreferences.currency,
     daily_briefing_enabled:
-      body.dailyBriefingEnabled !== false,
+      body.dailyBriefingEnabled ?? currentPreferences.dailyBriefingEnabled,
     important_travel_alerts_enabled:
-      body.importantTravelAlertsEnabled !== false,
+      body.importantTravelAlertsEnabled ?? currentPreferences.importantTravelAlertsEnabled,
     booking_notifications_enabled:
-      body.bookingNotificationsEnabled !== false,
+      body.bookingNotificationsEnabled ?? currentPreferences.bookingNotificationsEnabled,
     check_in_reminders_enabled:
-      body.checkInRemindersEnabled !== false,
+      body.checkInRemindersEnabled ?? currentPreferences.checkInRemindersEnabled,
     marketing_enabled:
-      body.marketingEnabled === true
+      body.marketingEnabled ?? currentPreferences.marketingEnabled,
+    live_companion_enabled:
+      body.liveCompanionEnabled ?? currentPreferences.liveCompanionEnabled,
+    live_companion_paused_until:
+      body.liveCompanionPausedUntil === undefined
+        ? currentPreferences.liveCompanionPausedUntil
+        : pausedUntil,
+    background_location_enabled:
+      body.backgroundLocationEnabled ?? currentPreferences.backgroundLocationEnabled
   };
 
   const result = await auth.supabase

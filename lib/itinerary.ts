@@ -19,6 +19,10 @@ import {
   type RoamlyPreTripEssential
 } from "@/lib/roamly/amazonAffiliate";
 import { crossBorderTravelDocumentReminders, crossBorderTravelNotes, detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
+import {
+  applyRoamlyItineraryIntelligence,
+  mergeShortTransfersIntoFollowingActivity
+} from "@/lib/roamly/itineraryIntelligence";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource } from "@/lib/roamly/travelMarketSearch";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
@@ -753,7 +757,7 @@ function withTransfersBetweenMajorItems(items: RoamlyActivitySeed[]) {
     if (previous) {
       const previousType = timelineType(previous);
       const currentType = timelineType(item);
-      const needsTransfer =
+      const needsMovementContext =
         previousType !== "transfer" &&
         currentType !== "transfer" &&
         previousType !== "travel" &&
@@ -762,12 +766,26 @@ function withTransfersBetweenMajorItems(items: RoamlyActivitySeed[]) {
         currentType !== "reminder" &&
         previous.location_name &&
         item.location_name &&
-        normalizePlace(previous.location_name) !== normalizePlace(item.location_name);
-      if (needsTransfer) output.push(localTransferItem(previous, item));
+        normalizePlace(previous.location_name) !== normalizePlace(item.location_name) &&
+        !item.travelTimeMinutes &&
+        !item.origin;
+      if (needsMovementContext) {
+        const transfer = localTransferItem(previous, item);
+        output.push({
+          ...item,
+          item_type: timelineType(item),
+          origin: transfer.origin,
+          travelTimeMinutes: transfer.travelTimeMinutes,
+          transportMode: transfer.transportMode,
+          travel_mode: transfer.travel_mode,
+          description: `From ${transfer.origin}: about ${transfer.travelTimeMinutes} min by ${transfer.transportMode}. ${item.description}`.trim()
+        });
+        continue;
+      }
     }
     output.push({ ...item, item_type: timelineType(item) });
   }
-  return withChronologicalTimes(output.slice(0, 14));
+  return withChronologicalTimes(mergeShortTransfersIntoFollowingActivity(output).slice(0, 10));
 }
 
 export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
@@ -799,7 +817,7 @@ export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary,
       live_timeline: timeline
     };
   });
-  return { ...itinerary, daily_itinerary: days };
+  return applyRoamlyItineraryIntelligence({ ...itinerary, daily_itinerary: days }, payload);
 }
 
 function timelineHasTransferBetweenMajorItems(day: RoamlyDayPlan) {
@@ -820,8 +838,13 @@ function timelineHasTransferBetweenMajorItems(day: RoamlyDayPlan) {
     ) {
       const transferBetween = day.live_timeline
         .slice(previousMajorIndex + 1, index)
-        .some((betweenItem) => timelineType(betweenItem) === "transfer");
-      if (!transferBetween) return false;
+        .some((betweenItem) => timelineType(betweenItem) === "transfer" || timelineType(betweenItem) === "travel");
+      const mergedMovementContext =
+        item.travelTimeMinutes ||
+        item.origin ||
+        /\bfrom .+?: about \d+ min\b/i.test(item.description || "") ||
+        /\btransfer|walk|transit|rideshare|taxi\b/i.test(item.description || "");
+      if (!transferBetween && !mergedMovementContext) return false;
     }
     previousMajor = item;
     previousMajorIndex = index;
@@ -886,6 +909,7 @@ export function validateItineraryForProduction(itinerary: RoamlyItinerary, paylo
   const finalDay = itinerary.daily_itinerary[itinerary.daily_itinerary.length - 1];
   itinerary.daily_itinerary.forEach((day) => {
     if (!day.live_timeline.length) errors.push(`Day ${day.day_number} has no timeline items.`);
+    if (day.live_timeline.length > 6) errors.push(`Day ${day.day_number} has more than 6 primary timeline items.`);
     errors.push(...timelineChronologyErrors(day));
   });
   if (needsOriginTravel(payload) && (!firstDay || !hasArrivalTravel(firstDay))) {
@@ -2154,7 +2178,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
     ? [...normalizedDays, ...fallback.daily_itinerary.slice(normalizedDays.length, targetDays)].slice(0, targetDays)
     : fallback.daily_itinerary.slice(0, targetDays);
 
-  return {
+  const normalized: RoamlyItinerary = {
     trip_title: cleanString(record.trip_title, fallback.trip_title),
     destination_summary: cleanString(record.destination_summary, fallback.destination_summary),
     best_for: cleanList(record.best_for, fallback.best_for, 6),
@@ -2274,6 +2298,8 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
     regenerate_suggestions: cleanList(record.regenerate_suggestions, fallback.regenerate_suggestions, 8),
     generation_note: cleanString(record.generation_note, "")
   };
+
+  return applyRoamlyItineraryIntelligence(normalized, payload);
 }
 
 export function getTripDayFromDate(startDate: string | null | undefined, daysCount: number | null | undefined) {

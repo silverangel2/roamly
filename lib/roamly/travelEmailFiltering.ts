@@ -9,6 +9,7 @@ export type TravelEmailMetadata = {
   subject?: string | null;
   receivedAt?: string | null;
   snippet?: string | null;
+  bodyText?: string | null;
 };
 
 export type TravelEmailFilterResult = {
@@ -48,6 +49,10 @@ export const KNOWN_TRAVEL_DOMAINS = [
   "rentalcars.com",
   "viator.com",
   "getyourguide.com",
+  "klook.com",
+  "ticketmaster.com",
+  "tiqets.com",
+  "headout.com",
   "opentable.com",
   "resy.com"
 ] as const;
@@ -59,16 +64,26 @@ const TRAVEL_SUBJECT_PATTERNS = [
   /schedule change/i,
   /flight delayed/i,
   /flight cancelled/i,
+  /cancelled flight/i,
+  /delayed flight/i,
   /hotel modified/i,
+  /hotel changed/i,
+  /booking changed/i,
+  /your booking has changed/i,
+  /activity confirmation/i,
+  /voucher/i,
+  /ticket confirmation/i,
+  /transport confirmation/i,
   /check-?in reminder/i,
   /cancellation confirmation/i,
   /gate (?:change|updated?)/i,
   /terminal (?:change|updated?)/i
 ];
 
-const BOOKING_REFERENCE_PATTERN = /\b(?:confirmation|booking|reservation|record locator|pnr)\s*(?:code|number|#)?\s*[:#-]?\s*([A-Z0-9-]{5,12})\b/gi;
+const BOOKING_REFERENCE_PATTERN = /\b(?:confirmation|booking|reservation|record locator|pnr|voucher|order|reference)\s*(?:code|number|#)?\s*[:#-]?\s*([A-Z0-9-]{5,16})\b/gi;
 const FLIGHT_NUMBER_PATTERN = /\b([A-Z]{2}\s?\d{1,4})\b/g;
 const DATE_PATTERN = /\b(\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})\b/gi;
+const TIME_PATTERN = /\b(\d{1,2}:\d{2}\s?(?:AM|PM|am|pm)?|\d{1,2}\s?(?:AM|PM|am|pm))\b/g;
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -87,7 +102,8 @@ function unique(values: string[]) {
 export function filterTravelEmail(metadata: TravelEmailMetadata): TravelEmailFilterResult {
   const subject = clean(metadata.subject);
   const snippet = clean(metadata.snippet).slice(0, 600);
-  const searchable = `${subject} ${snippet}`;
+  const bodyText = clean(metadata.bodyText).slice(0, 5000);
+  const searchable = `${subject} ${snippet} ${bodyText}`;
   const reasons: string[] = [];
   const facts: Record<string, unknown> = {};
   const domain = senderDomain(metadata.sender);
@@ -118,10 +134,42 @@ export function filterTravelEmail(metadata: TravelEmailMetadata): TravelEmailFil
     facts.dateHints = dateHints.slice(0, 4);
   }
 
-  const travelLanguage = /\b(cancelled|delayed|confirmed|reservation|boarding|check-?in|gate|terminal|hotel|flight|train|bus|rental car)\b/i.test(searchable);
+  const timeHints = unique([...searchable.matchAll(TIME_PATTERN)].map((match) => match[1]));
+  if (timeHints.length) facts.timeHints = timeHints.slice(0, 4);
+
+  const eventTypes = unique([
+    /\bcancel(?:led|ed|lation)\b/i.test(searchable) ? "cancellation" : "",
+    /\bdelay(?:ed)?\b/i.test(searchable) ? "delay" : "",
+    /\b(gate|terminal)\s+(?:change|updated?)\b/i.test(searchable) ? "gate_or_terminal_change" : "",
+    /\b(schedule|time|date)\s+(?:change|changed|updated|modified)\b/i.test(searchable) ? "schedule_change" : "",
+    /\bconfirm(?:ed|ation)\b/i.test(searchable) ? "confirmation" : ""
+  ]);
+  if (eventTypes.length) {
+    reasons.push("travel_event");
+    facts.eventTypes = eventTypes;
+  }
+
+  const bookingTypes = unique([
+    /\bflight|boarding|gate|terminal|airline\b/i.test(searchable) ? "flight" : "",
+    /\bhotel|room|check-?in|check-?out|property\b/i.test(searchable) ? "hotel" : "",
+    /\bklook|voucher|tour|activity|admission|ticket\b/i.test(searchable) ? "activity" : "",
+    /\btrain|rail\b/i.test(searchable) ? "train" : "",
+    /\bbus|coach\b/i.test(searchable) ? "bus" : "",
+    /\btransfer|shuttle|ferry|rental car|car rental\b/i.test(searchable) ? "transport" : "",
+    /\brestaurant|dinner|lunch reservation|opentable|resy\b/i.test(searchable) ? "restaurant" : ""
+  ]);
+  if (bookingTypes.length) facts.bookingTypes = bookingTypes;
+
+  const travelLanguage = /\b(cancelled|canceled|delayed|confirmed|reservation|booking|boarding|check-?in|gate|terminal|hotel|flight|train|bus|rental car|voucher|ticket|tour|activity|transfer)\b/i.test(searchable);
   if (travelLanguage) reasons.push("travel_language");
 
-  const score = Math.min(1, reasons.length * 0.2 + (reasons.includes("known_travel_sender") ? 0.25 : 0));
+  const score = Math.min(
+    1,
+    reasons.length * 0.18 +
+      (reasons.includes("known_travel_sender") ? 0.25 : 0) +
+      (bookingTypes.length ? 0.12 : 0) +
+      (eventTypes.length ? 0.1 : 0)
+  );
   const shouldProcess = score >= 0.35 || (bookingReferences.length > 0 && travelLanguage);
 
   return {

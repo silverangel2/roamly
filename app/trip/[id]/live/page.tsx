@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { NotificationPermissionCard } from "@/components/roamly/NotificationPermissionCard";
 import { TripBookingsList } from "@/components/roamly/TripBookingsManager";
-import { LiveTripClient, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
+import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -10,6 +10,8 @@ import { getTripDayFromDate, type RoamlyItinerary } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
+import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
 import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
@@ -142,7 +144,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
     dayActivities[0] ||
     null;
   const nearbyActivity = dayActivities.find((activity) => activity.status === "nearby") || null;
-  const [companion, bookingsResult, trackingActivitiesResult] = await Promise.all([
+  const [companion, bookingsResult, trackingActivitiesResult, preferences, locationSettingsResult] = await Promise.all([
     buildLiveCompanionSummary(supabase, current.user.id, id),
     supabase
       .from("roamly_bookings")
@@ -154,7 +156,17 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
       .from("roamly_activities")
       .select("id,title,category,address,city,country,latitude,longitude,status,sort_order")
       .eq("trip_id", id)
-      .order("sort_order", { ascending: true })
+      .order("sort_order", { ascending: true }),
+    getCompanionPreferences({
+      supabase,
+      userId: current.user.id,
+      tripId: id
+    }),
+    supabase
+      .from("roamly_location_settings")
+      .select("last_permission_state,last_seen_latitude,last_seen_longitude,last_seen_at,location_tracking_enabled")
+      .eq("user_id", current.user.id)
+      .maybeSingle()
   ]);
 
   const companionMetadata = getRecord(getRecord(companion.trip?.metadata)?.companion) || {};
@@ -176,6 +188,38 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   const tripCountdown = daysUntil(bundle.data.trip.start_date);
   const trackingActivityRows = ((trackingActivitiesResult.data || []) as Record<string, unknown>[]);
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
+  const locationRow = getRecord(locationSettingsResult.data);
+  const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
+  const latestLatitude = getNumberOrNull(locationRow?.last_seen_latitude);
+  const latestLongitude = getNumberOrNull(locationRow?.last_seen_longitude);
+  const latestLocation =
+    latestLatitude != null && latestLongitude != null
+      ? {
+          latitude: latestLatitude,
+          longitude: latestLongitude
+        }
+      : null;
+  const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
+  function bookingTime(row: Record<string, unknown>, dateKey: string, timeKey: string) {
+    const date = getRowString(row, dateKey);
+    const time = getRowString(row, timeKey);
+    if (!date) return null;
+    return time ? `${date}T${time}` : `${date}T00:00:00`;
+  }
+  const bookingDetails: LiveCompanionBookingDetail[] = bookingRows.map((booking) => ({
+    id: getRowString(booking, "id"),
+    title: getRowString(booking, "title"),
+    reference: getRowString(booking, "confirmation_number") || getRowString(booking, "provider_booking_id"),
+    provider: getRowString(booking, "provider_name") || getRowString(booking, "provider"),
+    gate: getRowString(booking, "gate"),
+    terminal: getRowString(booking, "terminal"),
+    startTime: bookingTime(booking, "start_date", "start_time"),
+    endTime: bookingTime(booking, "end_date", "end_time"),
+    status: ["confirmed", "modified", "completed"].includes(getRowString(booking, "booking_status") || "")
+      ? "verified"
+      : "unknown",
+    updatedAt: getRowString(booking, "updated_at") || getRowString(booking, "created_at")
+  }));
   const simulatorPlaces: LiveSimulatorPlace[] = [
     ...localizedActivities.map((activity, index) => ({
       id: `activity:${activity.id || activity.title || index}`,
@@ -350,6 +394,15 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         canSimulateLocation={access.hasQaAccess}
         destinationLabel={destinationLabel}
         simulatorPlaces={simulatorPlaces}
+        tripStartDate={bundle.data.trip.start_date}
+        tripEndDate={bundle.data.trip.end_date}
+        timezone={tripTimezone}
+        companionEnabled={preferences.liveCompanionEnabled}
+        companionPausedUntil={preferences.liveCompanionPausedUntil}
+        backgroundLocationEnabled={preferences.backgroundLocationEnabled}
+        initialPermissionState={permissionState}
+        initialLocation={latestLocation}
+        bookingDetails={bookingDetails}
       />
     </main>
   );

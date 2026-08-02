@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { extractAndMatchTravelEmailBooking } from "@/lib/roamly/bookingExtraction";
-import { recordTravelEmailFilterResult } from "@/lib/roamly/travelEmailFiltering";
+import { filterTravelEmail, recordTravelEmailFilterResult } from "@/lib/roamly/travelEmailFiltering";
 
 export const GMAIL_PROVIDER = "gmail" as const;
 export const OUTLOOK_PROVIDER = "outlook" as const;
@@ -10,6 +10,9 @@ export const GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.reado
 export const OUTLOOK_READONLY_SCOPES = ["offline_access", "User.Read", "Mail.Read"] as const;
 export const GMAIL_OAUTH_STATE_COOKIE = "roamly_gmail_oauth_state";
 export const OUTLOOK_OAUTH_STATE_COOKIE = "roamly_outlook_oauth_state";
+export const EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC = 10;
+export const EMAIL_LOOKBACK_FETCH_TIMEOUT_MS = 8_000;
+export const EMAIL_LOOKBACK_BODY_TEXT_LIMIT = 6_000;
 
 export type EmailProvider = typeof GMAIL_PROVIDER | typeof OUTLOOK_PROVIDER;
 
@@ -24,6 +27,8 @@ export type EmailConnectionRecord = {
   connection_status: string;
   email_address: string | null;
   last_synced_at: string | null;
+  sync_lease_token?: string | null;
+  sync_lease_expires_at?: string | null;
 };
 
 type GoogleTokenResponse = {
@@ -55,13 +60,18 @@ type GmailHistoryResponse = {
   }>;
 };
 
+type GmailMessagePart = {
+  mimeType?: string;
+  body?: { data?: string | null; size?: number | null };
+  headers?: Array<{ name?: string; value?: string }>;
+  parts?: GmailMessagePart[];
+};
+
 type GmailMessageMetadataResponse = {
   id?: string;
   snippet?: string;
   internalDate?: string;
-  payload?: {
-    headers?: Array<{ name?: string; value?: string }>;
-  };
+  payload?: GmailMessagePart;
 };
 
 type OutlookDeltaResponse = {
@@ -75,6 +85,7 @@ type OutlookDeltaResponse = {
         address?: string | null;
       };
     };
+    bodyPreview?: string | null;
   }>;
   "@odata.deltaLink"?: string;
   "@odata.nextLink"?: string;
@@ -82,6 +93,99 @@ type OutlookDeltaResponse = {
 
 function clean(value?: string | null) {
   return (value || "").trim();
+}
+
+const EMAIL_SYNC_LEASE_MS = 4 * 60_000;
+
+async function claimEmailSync(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  provider: EmailProvider;
+}) {
+  const now = new Date();
+  const leaseToken = randomBytes(18).toString("base64url");
+  const result = await params.supabase
+    .from("email_connections")
+    .update({
+      connection_status: "syncing",
+      sync_lease_token: leaseToken,
+      sync_lease_expires_at: new Date(now.getTime() + EMAIL_SYNC_LEASE_MS).toISOString()
+    })
+    .eq("user_id", params.userId)
+    .eq("provider", params.provider)
+    .neq("connection_status", "disconnected")
+    .or(`sync_lease_expires_at.is.null,sync_lease_expires_at.lt.${now.toISOString()}`)
+    .select("id,sync_lease_token")
+    .maybeSingle();
+  if (result.error || !result.data) return null;
+  return { id: String(result.data.id), token: leaseToken };
+}
+
+async function releaseEmailSync(params: {
+  supabase: SupabaseClient;
+  connectionId: string;
+  leaseToken: string;
+}) {
+  await params.supabase
+    .from("email_connections")
+    .update({
+      connection_status: "connected",
+      sync_lease_token: null,
+      sync_lease_expires_at: null
+    })
+    .eq("id", params.connectionId)
+    .eq("sync_lease_token", params.leaseToken);
+}
+
+async function providerFetchJson<T>(url: string | URL, init?: RequestInit) {
+  const response = await fetch(url, {
+    ...init,
+    signal: init?.signal || AbortSignal.timeout(EMAIL_LOOKBACK_FETCH_TIMEOUT_MS)
+  });
+  const data = (await response.json().catch(() => ({}))) as T;
+  return { response, data };
+}
+
+function decodeGmailBodyData(value?: string | null) {
+  const raw = clean(value);
+  if (!raw) return "";
+  try {
+    return Buffer.from(raw.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function gmailPartText(part?: GmailMessagePart | null): string[] {
+  if (!part) return [];
+  const mimeType = clean(part.mimeType).toLowerCase();
+  const data = decodeGmailBodyData(part.body?.data);
+  const current =
+    data && mimeType.includes("text/plain")
+      ? [data]
+      : data && mimeType.includes("text/html")
+        ? [stripHtml(data)]
+        : [];
+  return [...current, ...(part.parts || []).flatMap((child) => gmailPartText(child))];
+}
+
+function gmailMessageBodyText(message: GmailMessageMetadataResponse) {
+  return gmailPartText(message.payload).join("\n").replace(/\s+/g, " ").trim().slice(0, EMAIL_LOOKBACK_BODY_TEXT_LIMIT);
 }
 
 function appUrl(requestOrigin?: string | null) {
@@ -172,12 +276,11 @@ export function outlookAuthorizationUrl(params: { state: string; origin?: string
 }
 
 async function googleTokenRequest(body: URLSearchParams) {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
+  const { response, data } = await providerFetchJson<GoogleTokenResponse>("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body
   });
-  const data = (await response.json().catch(() => ({}))) as GoogleTokenResponse;
   if (!response.ok || data.error) {
     throw new Error(data.error_description || data.error || "Google token exchange failed.");
   }
@@ -185,12 +288,11 @@ async function googleTokenRequest(body: URLSearchParams) {
 }
 
 async function microsoftTokenRequest(body: URLSearchParams) {
-  const response = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(outlookTenantId())}/oauth2/v2.0/token`, {
+  const { response, data } = await providerFetchJson<MicrosoftTokenResponse>(`https://login.microsoftonline.com/${encodeURIComponent(outlookTenantId())}/oauth2/v2.0/token`, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body
   });
-  const data = (await response.json().catch(() => ({}))) as MicrosoftTokenResponse;
   if (!response.ok || data.error) {
     throw new Error(data.error_description || data.error || "Microsoft token exchange failed.");
   }
@@ -245,19 +347,17 @@ async function refreshOutlookAccessToken(refreshToken: string) {
 }
 
 export async function getGmailProfile(accessToken: string) {
-  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+  const { response, data } = await providerFetchJson<{ emailAddress?: string; historyId?: string }>("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: { authorization: `Bearer ${accessToken}` }
   });
-  const data = (await response.json().catch(() => ({}))) as { emailAddress?: string; historyId?: string };
   if (!response.ok) throw new Error("Gmail profile lookup failed.");
   return data;
 }
 
 export async function getOutlookProfile(accessToken: string) {
-  const response = await fetch("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName", {
+  const { response, data } = await providerFetchJson<{ mail?: string; userPrincipalName?: string }>("https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName", {
     headers: { authorization: `Bearer ${accessToken}` }
   });
-  const data = (await response.json().catch(() => ({}))) as { mail?: string; userPrincipalName?: string };
   if (!response.ok) throw new Error("Outlook profile lookup failed.");
   return data;
 }
@@ -280,7 +380,7 @@ function gmailMessageIds(result: GmailHistoryResponse) {
       if (message.id) ids.add(message.id);
     }
   }
-  return [...ids].slice(0, 10);
+  return [...ids].slice(0, EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC);
 }
 
 function gmailHeader(message: GmailMessageMetadataResponse, name: string) {
@@ -304,8 +404,9 @@ async function recordGmailTravelMessage(params: {
   const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(params.messageId)}`);
   url.searchParams.set("format", "metadata");
   ["From", "Subject", "Date"].forEach((header) => url.searchParams.append("metadataHeaders", header));
-  const response = await fetch(url, { headers: { authorization: `Bearer ${params.accessToken}` } });
-  const message = (await response.json().catch(() => ({}))) as GmailMessageMetadataResponse;
+  const { response, data: message } = await providerFetchJson<GmailMessageMetadataResponse>(url, {
+    headers: { authorization: `Bearer ${params.accessToken}` }
+  });
   if (!response.ok) return { saved: false, error: "GMAIL_MESSAGE_METADATA_FAILED" };
   const metadata = {
       provider: GMAIL_PROVIDER,
@@ -315,21 +416,44 @@ async function recordGmailTravelMessage(params: {
       receivedAt: gmailReceivedAt(message),
       snippet: message.snippet || null
   };
+  const preFilter = filterTravelEmail(metadata);
+  const enrichedMetadata = preFilter.shouldProcess
+    ? {
+        ...metadata,
+        bodyText: await fetchGmailTravelBodyText({
+          accessToken: params.accessToken,
+          messageId: message.id || params.messageId
+        }).catch(() => "")
+      }
+    : metadata;
   const saved = await recordTravelEmailFilterResult({
     supabase: params.supabase,
     connection: params.connection,
-    metadata
+    metadata: enrichedMetadata
   });
   if (saved.saved && saved.filter.shouldProcess) {
     await extractAndMatchTravelEmailBooking({
       supabase: params.supabase,
       connection: params.connection,
-      metadata,
+      metadata: enrichedMetadata,
       filter: saved.filter,
       emailMessageId: saved.messageRecordId
     }).catch(() => null);
   }
   return saved;
+}
+
+async function fetchGmailTravelBodyText(params: {
+  accessToken: string;
+  messageId: string;
+}) {
+  const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(params.messageId)}`);
+  url.searchParams.set("format", "full");
+  const { response, data } = await providerFetchJson<GmailMessageMetadataResponse>(url, {
+    headers: { authorization: `Bearer ${params.accessToken}` }
+  });
+  if (!response.ok) return "";
+  return gmailMessageBodyText(data);
 }
 
 async function recordOutlookTravelMessages(params: {
@@ -347,7 +471,8 @@ async function recordOutlookTravelMessages(params: {
       messageId: message.id,
       sender: address ? `${name ? `${name} ` : ""}<${address}>` : name,
       subject: message.subject || "",
-      receivedAt: message.receivedDateTime || null
+      receivedAt: message.receivedDateTime || null,
+      snippet: message.bodyPreview || null
     };
     const saved = await recordTravelEmailFilterResult({
       supabase: params.supabase,
@@ -613,9 +738,10 @@ export async function renewGmailWatch(params: {
   return { ok: true as const, skipped: false as const, historyId: data.historyId || null };
 }
 
-export async function syncGmailConnection(params: {
+async function syncGmailConnectionUnlocked(params: {
   supabase: SupabaseClient;
   userId: string;
+  leaseToken: string;
 }) {
   const writer = createSupabaseAdminClient() || params.supabase;
   const { data, error } = await writer
@@ -644,11 +770,12 @@ export async function syncGmailConnection(params: {
     url.searchParams.set("startHistoryId", historyId);
     url.searchParams.set("historyTypes", "messageAdded");
   } else {
-    url.searchParams.set("q", "newer_than:30d (confirmation OR reservation OR itinerary OR delayed OR cancelled OR check-in)");
-    url.searchParams.set("maxResults", "10");
+    url.searchParams.set("q", "newer_than:30d (confirmation OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in)");
+    url.searchParams.set("maxResults", String(EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC));
   }
-  const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
-  const result = (await response.json().catch(() => ({}))) as GmailHistoryResponse;
+  const { response, data: result } = await providerFetchJson<GmailHistoryResponse>(url, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
   if (!response.ok) return { ok: false, error: "GMAIL_SYNC_FAILED", processed: 0 };
   const messageIds = gmailMessageIds(result);
   for (const messageId of messageIds) {
@@ -666,8 +793,9 @@ export async function syncGmailConnection(params: {
   );
   await writer
     .from("email_connections")
-    .update({ last_synced_at: new Date().toISOString(), connection_status: "connected" })
-    .eq("id", connection.id);
+    .update({ last_synced_at: new Date().toISOString() })
+    .eq("id", connection.id)
+    .eq("sync_lease_token", params.leaseToken);
 
   return {
     ok: true,
@@ -676,9 +804,23 @@ export async function syncGmailConnection(params: {
   };
 }
 
-export async function syncOutlookConnection(params: {
+export async function syncGmailConnection(params: {
   supabase: SupabaseClient;
   userId: string;
+}) {
+  const lease = await claimEmailSync({ ...params, provider: GMAIL_PROVIDER });
+  if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  try {
+    return await syncGmailConnectionUnlocked({ ...params, leaseToken: lease.token });
+  } finally {
+    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token });
+  }
+}
+
+async function syncOutlookConnectionUnlocked(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  leaseToken: string;
 }) {
   const writer = createSupabaseAdminClient() || params.supabase;
   const { data, error } = await writer
@@ -702,10 +844,11 @@ export async function syncOutlookConnection(params: {
   const deltaCursor = clean((cursor as { history_id_or_delta_token?: string | null } | null)?.history_id_or_delta_token);
   const url = deltaCursor
     ? deltaCursor
-    : "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$select=id,subject,from,receivedDateTime&$top=10";
+    : `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages/delta?$select=id,subject,from,receivedDateTime,bodyPreview&$top=${EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC}`;
 
-  const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
-  const result = (await response.json().catch(() => ({}))) as OutlookDeltaResponse;
+  const { response, data: result } = await providerFetchJson<OutlookDeltaResponse>(url, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
   if (!response.ok) return { ok: false, error: "OUTLOOK_SYNC_FAILED", processed: 0 };
   await recordOutlookTravelMessages({ supabase: writer, connection, messages: result.value }).catch(() => null);
   const nextCursor = result["@odata.deltaLink"] || result["@odata.nextLink"] || deltaCursor || null;
@@ -720,12 +863,26 @@ export async function syncOutlookConnection(params: {
   );
   await writer
     .from("email_connections")
-    .update({ last_synced_at: new Date().toISOString(), connection_status: "connected" })
-    .eq("id", connection.id);
+    .update({ last_synced_at: new Date().toISOString() })
+    .eq("id", connection.id)
+    .eq("sync_lease_token", params.leaseToken);
 
   return {
     ok: true,
     error: null,
     processed: Array.isArray(result.value) ? result.value.length : 0
   };
+}
+
+export async function syncOutlookConnection(params: {
+  supabase: SupabaseClient;
+  userId: string;
+}) {
+  const lease = await claimEmailSync({ ...params, provider: OUTLOOK_PROVIDER });
+  if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  try {
+    return await syncOutlookConnectionUnlocked({ ...params, leaseToken: lease.token });
+  } finally {
+    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token });
+  }
 }

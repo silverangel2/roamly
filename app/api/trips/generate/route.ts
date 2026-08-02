@@ -340,7 +340,7 @@ async function activeGenerationResponse(params: {
   requestId: string;
   requestOrigin: string;
 }) {
-  const progress = publicStagedGenerationProgress(params.trip.metadata);
+  const progress = publicStagedGenerationProgress(params.trip.metadata, params.tripId);
   const queueResult = await createOrResumeGenerationJob({
     supabase: params.supabase,
     tripId: params.tripId,
@@ -365,7 +365,11 @@ async function activeGenerationResponse(params: {
     });
   }
   const queueState = queueResult.ok
-    ? publicQueueProgress(await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }), params.trip.metadata)
+    ? publicQueueProgress(
+        await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }),
+        params.trip.metadata,
+        params.tripId
+      )
     : null;
   logGenerationDiagnostic("generation_active_job_resumed", {
     requestId: params.requestId,
@@ -584,32 +588,29 @@ async function finalizeItinerary(params: {
     queuePriorityReason: priority.queuePriorityReason,
     duplicateRequestKey
   });
-  const durableQueueUnavailable = !queueResult.ok && queueTableMissing(queueResult.error);
   if (!queueResult.ok) {
-    if (!durableQueueUnavailable) {
-      await params.supabase
-        .from("roamly_trips")
-        .update({ status: "draft", itinerary_status: "draft" })
-        .eq("id", params.tripId)
-        .eq("user_id", params.userId);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: queueResult.error,
-          code: "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
-          message: "Roamly could not safely queue this itinerary. Please try again in a moment."
-        },
-        { status: 500 }
-      );
-    }
-
-    logGenerationDiagnostic("generation_queue_unavailable_direct_staged_start", {
+    await params.supabase
+      .from("roamly_trips")
+      .update({ status: "draft", itinerary_status: "draft" })
+      .eq("id", params.tripId)
+      .eq("user_id", params.userId);
+    logGenerationDiagnostic("generation_queue_unavailable", {
       requestId: params.requestId,
       route: "/api/trips/generate",
       tripId: params.tripId,
       supabaseHost: getPublicSupabaseHost(),
+      status: queueTableMissing(queueResult.error) ? 503 : 500,
       errorCode: queueResult.error
     });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: queueResult.error,
+        code: "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
+        message: "Roamly could not safely queue this itinerary. Please try again in a moment."
+      },
+      { status: queueTableMissing(queueResult.error) ? 503 : 500 }
+    );
   }
 
   let state: Awaited<ReturnType<typeof startStagedItineraryGeneration>>;
@@ -685,22 +686,20 @@ async function finalizeItinerary(params: {
     supabaseHost: getPublicSupabaseHost(),
     totalDayCount: state.totalDayCount,
     batchCount: Object.keys(state.batches).length,
-    progress: publicStagedGenerationProgress({ generation: state })
+    progress: publicStagedGenerationProgress({ generation: state }, params.tripId)
   });
 
-  let queueState = null;
-  if (!durableQueueUnavailable) {
-    await markQueueFromLegacyState({
-      supabase: params.supabase,
-      tripId: params.tripId,
-      userId: params.userId,
-      metadata: { generation: state }
-    });
-    queueState = publicQueueProgress(
-      await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }),
-      { generation: state }
-    );
-  }
+  await markQueueFromLegacyState({
+    supabase: params.supabase,
+    tripId: params.tripId,
+    userId: params.userId,
+    metadata: { generation: state }
+  });
+  const queueState = publicQueueProgress(
+    await getGenerationQueueForTripAdmin({ tripId: params.tripId, userId: params.userId }),
+    { generation: state },
+    params.tripId
+  );
 
   await recordTripEvent(params.supabase, {
     userId: params.userId,
@@ -735,8 +734,7 @@ async function finalizeItinerary(params: {
     tripId: params.tripId,
     origin: params.requestOrigin,
     reason: "generation_job_created",
-    requestId: params.requestId,
-    directFallbackOnly: durableQueueUnavailable
+    requestId: params.requestId
   });
 
   return NextResponse.json(
@@ -751,7 +749,7 @@ async function finalizeItinerary(params: {
       locked: false,
       unlockSource: canGenerate.source,
       qaTester,
-      progress: publicStagedGenerationProgress({ generation: state }),
+      progress: publicStagedGenerationProgress({ generation: state }, params.tripId),
       queue: queueState
     },
     { status: 202 }

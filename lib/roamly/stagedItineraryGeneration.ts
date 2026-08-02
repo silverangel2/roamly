@@ -16,7 +16,8 @@ import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
-import { searchTripMarketPrices } from "@/lib/roamly/travelMarketSearch";
+import { searchTripMarketPrices, type TravelMarketCategory, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
 import {
   finalizeStagedGenerationNotification,
   getGenerationEmailStatus,
@@ -110,6 +111,7 @@ export type StagedGenerationStageRun = {
 
 export type StagedGenerationState = {
   version: 2;
+  tripId: string;
   status: StagedGenerationStatus;
   currentStage: StagedGenerationStatus;
   totalDayCount: number;
@@ -208,7 +210,11 @@ const MAX_AI_COST_USD = Number(process.env.ROAMLY_STAGED_MAX_AI_COST_USD || 0.05
 const DEFAULT_INPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_INPUT_PRICE_PER_1M || 0.4);
 const DEFAULT_OUTPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_OUTPUT_PRICE_PER_1M || 1.6);
 const STAGE_LEASE_MS = Number(process.env.ROAMLY_STAGED_GENERATION_LEASE_MS || 4 * 60_000);
-const AI_STAGE_CLEANUP_BUFFER_MS = Number(process.env.ROAMLY_AI_STAGE_CLEANUP_BUFFER_MS || 8_000);
+export const STAGED_GENERATION_STAGE_TIMEOUTS_MS = {
+  outline: OUTLINE_TIMEOUT_MS,
+  day_batch: DAY_TIMEOUT_MS,
+  finalization: 10_000
+} as const;
 const MIN_VALID_DAY_ITEMS = 4;
 const MAX_REPAIRED_DAY_ITEMS = 6;
 const DAY_REPAIR_SLOTS_MINUTES = [9 * 60, 10 * 60 + 45, 12 * 60 + 30, 14 * 60 + 15, 16 * 60, 18 * 60 + 30];
@@ -256,14 +262,18 @@ function getStringList(value: unknown, fallback: string[] = [], limit = 8) {
   return items.length ? items.slice(0, limit) : fallback;
 }
 
-export function getStagedGenerationState(metadata: unknown): StagedGenerationState | null {
+export function getStagedGenerationState(metadata: unknown, expectedTripId?: string | null): StagedGenerationState | null {
   const record = getRecord(metadata);
   const generation = getRecord(record?.generation);
   if (!generation || generation.version !== 2) return null;
+  const stateTripId = getString(generation.tripId, "");
+  const scopedTripId = getString(expectedTripId, "");
+  if (scopedTripId && stateTripId && stateTripId !== scopedTripId) return null;
   const payload = getRecord(generation.payload) as TripPlannerPayload | null;
   if (!payload) return null;
   return {
     version: 2,
+    tripId: stateTripId || scopedTripId,
     status: generation.status as StagedGenerationStatus,
     currentStage: generation.currentStage as StagedGenerationStatus,
     totalDayCount: getPositiveNumber(generation.totalDayCount, 0),
@@ -308,11 +318,12 @@ export function getStagedGenerationState(metadata: unknown): StagedGenerationSta
 
 function generationMetadata(metadata: unknown, state: StagedGenerationState) {
   const current = (getRecord(metadata) || {}) as Record<string, unknown>;
-  const currentEmail = getGenerationEmailStatus(current);
+  const currentEmail = getGenerationEmailStatus(current, state.tripId);
   return {
     ...current,
     generationEmail: {
       ...currentEmail,
+      tripId: state.tripId,
       email_me_when_ready: currentEmail.email_me_when_ready !== false
     },
     generation: state
@@ -541,53 +552,6 @@ function traceStage(trace: StageTrace | undefined, event: string, details: Recor
   });
 }
 
-function remainingExecutionMs(deadlineMs?: number | null) {
-  if (!deadlineMs || !Number.isFinite(deadlineMs)) return null;
-  return Math.max(0, Math.floor(deadlineMs - Date.now()));
-}
-
-async function deferAiStageIfTimeBudgetInsufficient(params: {
-  supabase: SupabaseClient;
-  trip: RoamlyTripRecord;
-  state: StagedGenerationState;
-  stage: "outline" | "day_batch";
-  timeoutMs: number;
-  executionDeadlineMs?: number | null;
-  cleanupBufferMs?: number | null;
-  trace?: StageTrace;
-}) {
-  const remainingMs = remainingExecutionMs(params.executionDeadlineMs);
-  const cleanupBufferMs = Math.max(1_000, params.cleanupBufferMs ?? AI_STAGE_CLEANUP_BUFFER_MS);
-  const requiredRemainingMs = params.timeoutMs + cleanupBufferMs;
-
-  if (remainingMs === null || remainingMs >= requiredRemainingMs) return null;
-
-  const deferredState = releaseLease({
-    ...params.state,
-    updatedAt: nowIso()
-  });
-
-  await persistState({ supabase: params.supabase, trip: params.trip, state: deferredState });
-  traceStage(params.trace, "staged_ai_call_deferred_for_time_budget", {
-    stage: params.stage,
-    remainingMs,
-    requiredRemainingMs,
-    timeoutMs: params.timeoutMs,
-    cleanupBufferMs
-  });
-
-  return {
-    ok: true,
-    status: deferredState.status,
-    state: deferredState,
-    advanced: false,
-    deferred: true as const,
-    stage: params.stage,
-    remainingMs,
-    requiredRemainingMs
-  };
-}
-
 async function sendGenerationEmailSafely(params: {
   tripId: string;
   kind: "completion" | "failure";
@@ -745,6 +709,14 @@ function routeText(payload: TripPlannerPayload) {
   return route.join(" -> ");
 }
 
+function payloadWithStateDiscovery(payload: TripPlannerPayload, state: StagedGenerationState): TripPlannerPayload {
+  return {
+    ...payload,
+    priceDiscovery: state.priceDiscovery || payload.priceDiscovery,
+    confirmedBookings: state.confirmedBookings || payload.confirmedBookings
+  };
+}
+
 function compactTravelEvidence(value: unknown) {
   const evidence = getRecord(value);
   if (!evidence) return null;
@@ -789,6 +761,51 @@ function compactMarketResult(value: unknown) {
   };
 }
 
+function marketRetrievalProvider(result: TravelMarketResult) {
+  const metadata = getRecord(result.metadata);
+  const provider = getString(metadata?.retrieval_provider, "");
+  if (provider) return provider;
+  if (result.source === "klook" || result.source === "stay22" || result.source === "travelpayouts") return "provider_api";
+  return "search_link_only";
+}
+
+function marketVerificationStatus(result: TravelMarketResult) {
+  const metadata = getRecord(result.metadata);
+  const verification = getString(metadata?.verification_status, "");
+  if (verification) return verification;
+  const provider = marketRetrievalProvider(result);
+  if (provider === "native") return "native_verified";
+  if (provider === "provider_api" || result.price_type === "live_partner" || result.price_type === "cached_recent") return "verified";
+  if (provider === "firecrawl_fallback") return "requires_verification";
+  return "search_link_only";
+}
+
+function compactVerifiedCandidate(result: TravelMarketResult) {
+  const evidence = compactTravelEvidence(getRecord(result.metadata)?.travel_evidence);
+  return {
+    category: result.category,
+    title: result.title,
+    provider: result.provider,
+    source: result.source,
+    retrieval_provider: marketRetrievalProvider(result),
+    verification_status: marketVerificationStatus(result),
+    price_type: result.price_type,
+    confidence: result.confidence,
+    city: result.city || result.destination,
+    searched_at: result.searched_at,
+    has_booking_or_search_url: Boolean(result.affiliate_url || result.booking_url || result.normal_search_url),
+    rating: getRecord(evidence)?.marketplace_rating
+  };
+}
+
+function verifiedCandidatesForPrompt(payload: TripPlannerPayload, state: StagedGenerationState, limit = 10) {
+  return itineraryMarketResults(payloadWithStateDiscovery(payload, state))
+    .filter((result) => ["hotel", "attraction", "tour", "restaurant", "transport"].includes(result.category))
+    .filter((result) => result.title && !isGenericPlaceName(result.title))
+    .slice(0, limit)
+    .map(compactVerifiedCandidate);
+}
+
 function compactPriceSummary(value: Record<string, unknown> | null | undefined) {
   if (!value) return {};
   return {
@@ -826,6 +843,7 @@ Trip:
 - Accommodation: ${payload.accommodationPreference}; transport: ${payload.transportationPreference}
 - Accessibility/diet: ${payload.accessibilityNeeds || "none"}; ${payload.dietaryPreference || "none"}
 - Price summary: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
+- Verified place candidates: ${JSON.stringify(verifiedCandidatesForPrompt(payload, state, 10))}
 
 Return strict JSON:
 {
@@ -851,6 +869,8 @@ Rules:
 - Return exactly ${state.totalDayCount} days.
 - Day 1 must reserve the beginning for origin-to-destination travel when origin differs from destination.
 - Final day must reserve checkout and return travel when return_to_origin is yes.
+- Prefer exact names from verified place candidates for hotel areas and priority activities.
+- Do not use generic names such as "local bistro", "museum or gallery", "nightlife district", or "hotel room".
 - Keep every field concise.`;
 }
 
@@ -876,6 +896,7 @@ Next start: ${nextStartRequirement || "hotel/base by evening when practical"}
 Avoid repeats: ${usedAttractions.slice(0, 12).join(" | ") || "none"}
 Prefs: ${payload.travelStyle}; ${payload.pace}; ${payload.walkingTolerance}; ${(payload.interests || []).join(", ") || "balanced"}
 Budget cues: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
+Verified candidates: ${JSON.stringify(verifiedCandidatesForPrompt(payload, state, 12))}
 
 JSON shape:
 {
@@ -922,11 +943,17 @@ Rules:
 - Generate exactly these day numbers only: ${dayNumbers.join(", ")}.
 - Return exactly ${days.length} day objects.
 - Use 4 to 6 ordered items per day.
-- Include meals or rest when realistic.
+- Prefer exact verified candidate names for attractions, tours, restaurants, hotels, and transport anchors.
+- Prefer Klook/provider activity results when suitable; use Google/Maps/search-only wording only when no verified candidate fits.
+- Never invent flight numbers, live prices, live availability, booking status, gates, or terminals.
+- Do not use generic titles or locations such as "local bistro", "museum or gallery", "nightlife district", or "hotel room".
+- Include meals or intentional rest only when realistic.
+- Schedule lunch at or before 14:00 unless the title/description explicitly says intentional late lunch.
 - Include startTime/endTime in HH:mm, chronological and non-overlapping.
 - Titles and descriptions must be concise.
 - Use item_type only: travel, transfer, hotel, activity, meal, rest, booking, reminder.
 - Do not repeat already-used attractions.
+- Do not create standalone transfer cards under 15 minutes; put that movement in the following item's description.
 - For Day 1, local activities happen only after arrival/check-in.
 - For final day, keep local sightseeing brief before checkout/return travel.`;
 }
@@ -1048,6 +1075,81 @@ function stagedItemType(item: RoamlyActivitySeed): NonNullable<RoamlyActivitySee
   return "activity";
 }
 
+function stagedMarketCandidates(payload: TripPlannerPayload, categories: TravelMarketCategory[], usedTitles = new Set<string>()) {
+  return itineraryMarketResults(payload)
+    .filter((result) => categories.includes(result.category))
+    .filter((result) => result.title && !isGenericPlaceName(result.title))
+    .filter((result) => !usedTitles.has(normalizedTextKey(result.title)));
+}
+
+function marketCandidateItem(
+  result: TravelMarketResult,
+  fallbackCategory: NonNullable<RoamlyActivitySeed["item_type"]>,
+  startMinutes: number,
+  endMinutes: number,
+  payload: TripPlannerPayload,
+  description: string
+): RoamlyActivitySeed {
+  const duration = Math.max(15, endMinutes - startMinutes);
+  const category =
+    result.category === "restaurant"
+      ? "Meal"
+      : result.category === "hotel"
+        ? "Hotel"
+        : result.category === "transport"
+          ? "Transport"
+          : "Activity";
+  return {
+    time_label: formatRepairTimeLabel(startMinutes),
+    startTime: formatRepairTime24(startMinutes),
+    endTime: formatRepairTime24(endMinutes),
+    title: result.title,
+    description,
+    location_name: result.city || result.destination || result.title,
+    estimated_cost: result.price_amount ?? result.price_min ?? 0,
+    category,
+    map_query: `${result.title} ${result.city || result.destination || payload.destination}`,
+    item_type: category === "Meal" ? "meal" : category === "Hotel" ? "hotel" : fallbackCategory,
+    duration: `${duration} min`,
+    durationMinutes: duration
+  };
+}
+
+function priorityOrCandidateTitle(
+  priority: string | undefined,
+  candidates: TravelMarketResult[],
+  usedTitles: Set<string>,
+  fallback: string
+) {
+  const cleanPriority = getString(priority, "");
+  if (cleanPriority && !isGenericPlaceName(cleanPriority)) {
+    usedTitles.add(normalizedTextKey(cleanPriority));
+    return cleanPriority;
+  }
+  const candidate = candidates.find((result) => !usedTitles.has(normalizedTextKey(result.title)));
+  if (candidate) {
+    usedTitles.add(normalizedTextKey(candidate.title));
+    return candidate.title;
+  }
+  return fallback;
+}
+
+function shouldKeepGeneratedItem(item: RoamlyActivitySeed, payload: TripPlannerPayload, hasMarketCandidates: boolean) {
+  if (!hasMarketCandidates) return true;
+  const type = stagedItemType(item);
+  if (type === "travel" || type === "transfer" || type === "hotel") return true;
+  const title = getString(item.title);
+  const location = getString(item.location_name);
+  if (isGenericPlaceName(title) || isGenericPlaceName(location)) return false;
+  const destination = normalizedTextKey(payload.destination || payload.destinationCity || "");
+  if (destination && normalizedTextKey(location) === destination && type !== "meal") {
+    const titleKey = normalizedTextKey(title);
+    if (!titleKey || titleKey === destination) return false;
+    return !/\b(orientation|local highlight|nearby highlight|neighborhood walk|neighbourhood walk|things to do)\b/i.test(title);
+  }
+  return true;
+}
+
 function durationMinutesForRepair(item: RoamlyActivitySeed) {
   const explicit = item.durationMinutes || item.travelTimeMinutes;
   if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
@@ -1072,9 +1174,34 @@ function durationMinutesForRepair(item: RoamlyActivitySeed) {
 function repairFillerItems(day: RoamlyDayPlan, outlineDay: StagedTripOutlineDay, payload: TripPlannerPayload): RoamlyActivitySeed[] {
   const base = getString(outlineDay.geographicArea, getString(day.city, payload.destination));
   const priorities = outlineDay.priorityActivities.filter((item) => item.trim());
-  const primary = priorities[0] || outlineDay.theme || `${payload.destination} orientation`;
-  const secondary = priorities[1] || `${base} neighborhood walk`;
-  const flexible = priorities[2] || `${payload.destination} local highlight`;
+  const usedTitles = new Set<string>();
+  const activityCandidates = stagedMarketCandidates(payload, ["attraction", "tour"], usedTitles);
+  const restaurantCandidates = stagedMarketCandidates(payload, ["restaurant"], usedTitles);
+  const primary = priorityOrCandidateTitle(priorities[0], activityCandidates, usedTitles, `Search verified places near ${base}`);
+  const secondary = priorityOrCandidateTitle(priorities[1], activityCandidates, usedTitles, `Search a second verified stop near ${base}`);
+  const flexible = priorityOrCandidateTitle(priorities[2], activityCandidates, usedTitles, `Search a flexible evening stop near ${base}`);
+  const lunchCandidate = restaurantCandidates[0];
+  const dinnerCandidate = restaurantCandidates[1];
+  const lunch = lunchCandidate
+    ? marketCandidateItem(
+        lunchCandidate,
+        "meal",
+        12 * 60 + 30,
+        13 * 60 + 45,
+        payload,
+        "Meal stop from retrieved restaurant results; verify hours, reservation terms, and current pricing."
+      )
+    : null;
+  const dinner = dinnerCandidate
+    ? marketCandidateItem(
+        dinnerCandidate,
+        "meal",
+        18 * 60 + 30,
+        20 * 60,
+        payload,
+        "Dinner option from retrieved restaurant results; verify hours, reservation terms, and current pricing."
+      )
+    : null;
   return [
     {
       time_label: "9:00 AM",
@@ -1090,12 +1217,12 @@ function repairFillerItems(day: RoamlyDayPlan, outlineDay: StagedTripOutlineDay,
       duration: "90 min",
       durationMinutes: 90
     },
-    {
+    lunch || {
       time_label: "12:30 PM",
       startTime: "12:30",
       endTime: "13:45",
-      title: `Lunch near ${base}`,
-      description: "Keep the meal close to the day's main area so the schedule stays practical.",
+      title: `Search restaurants near ${base}`,
+      description: "Search-only fallback because no verified restaurant result was available. Verify the exact venue before relying on it.",
       location_name: base,
       estimated_cost: 25,
       category: "Meal",
@@ -1122,8 +1249,8 @@ function repairFillerItems(day: RoamlyDayPlan, outlineDay: StagedTripOutlineDay,
       time_label: "4:00 PM",
       startTime: "16:00",
       endTime: "16:45",
-      title: `${base} rest buffer`,
-      description: "Leave a buffer for transit, weather, crowds, or a quick recharge before evening.",
+      title: `Intentional rest near ${base}`,
+      description: "Intentional buffer for transit, weather, crowds, or a quick recharge before evening.",
       location_name: base,
       estimated_cost: 0,
       category: "Rest",
@@ -1132,7 +1259,7 @@ function repairFillerItems(day: RoamlyDayPlan, outlineDay: StagedTripOutlineDay,
       duration: "45 min",
       durationMinutes: 45
     },
-    {
+    dinner || {
       time_label: "6:30 PM",
       startTime: "18:30",
       endTime: "20:00",
@@ -1187,8 +1314,10 @@ export function repairStagedDayForGenerationValidation(
   payload: TripPlannerPayload
 ): RoamlyDayPlan {
   const seen = new Set<string>();
+  const hasMarketCandidates = itineraryMarketResults(payload).length > 0;
   const deduped = day.live_timeline
     .map((item, index) => cleanItem(item, `${outlineDay.theme} stop ${index + 1}`))
+    .filter((item) => shouldKeepGeneratedItem(item, payload, hasMarketCandidates))
     .filter((item) => {
       const key = normalizedTextKey(item.title || item.map_query || item.location_name);
       if (!key || seen.has(key)) return false;
@@ -1220,16 +1349,21 @@ export function repairStagedDayForGenerationValidation(
   }
 
   const scheduled = repairTimelineSchedule(repaired.length ? repaired : filler);
-  const food = day.food.length
-    ? day.food
-    : [`Lunch near ${outlineDay.geographicArea || payload.destination}`, `Dinner near ${outlineDay.geographicArea || payload.destination}`];
+  const explicitFood = (day.food || []).filter((item) => item && !isGenericPlaceName(item)).slice(0, 3);
+  const food = explicitFood.length
+    ? explicitFood
+    : scheduled
+        .filter((item) => stagedItemType(item) === "meal")
+        .map((item) => item.title)
+        .filter((item) => item && !isGenericPlaceName(item))
+        .slice(0, 3);
   return {
     ...day,
     title: day.title || outlineDay.theme,
     morning: day.morning || `Start around ${outlineDay.geographicArea || payload.destination}.`,
     afternoon: day.afternoon || `Keep the afternoon clustered near ${outlineDay.geographicArea || payload.destination}.`,
     evening: day.evening || "Finish with a flexible nearby evening plan.",
-    food,
+    food: food.length ? food : [`Search restaurants near ${outlineDay.geographicArea || payload.destination}`],
     estimated_cost: day.estimated_cost || scheduled.reduce((sum, item) => sum + (item.estimated_cost || 0), 0),
     map_queries: day.map_queries.length
       ? day.map_queries
@@ -1362,6 +1496,7 @@ async function persistState(params: {
 }) {
   const state = {
     ...params.state,
+    tripId: params.trip.id,
     updatedAt: nowIso()
   };
   const current = await params.supabase
@@ -1431,6 +1566,7 @@ async function claimTrip(supabase: SupabaseClient, trip: RoamlyTripRecord, state
   }
   const claimedState = {
     ...state,
+    tripId: trip.id,
     worker: {
       leaseId: requestId,
       leaseExpiresAt: leaseUntil
@@ -1513,6 +1649,7 @@ export async function startStagedItineraryGeneration(params: {
   });
   const state: StagedGenerationState = {
     version: 2,
+    tripId: params.tripId,
     status: "queued",
     currentStage: "generating_outline",
     totalDayCount,
@@ -1600,6 +1737,34 @@ function canRetryFailedDayBatch(state: StagedGenerationState) {
 
 export function canResumeStagedGeneration(state: StagedGenerationState) {
   return canRetryFinalValidation(state) || canRetryFailedDayBatch(state);
+}
+
+export function nextStagedGenerationWork(state: StagedGenerationState) {
+  if (state.status === "complete") return null;
+  if ((state.status === "failed" || state.status === "partially_failed") && !canResumeStagedGeneration(state)) return null;
+  if (!state.outline) {
+    return {
+      stage: "outline" as const,
+      timeoutMs: STAGED_GENERATION_STAGE_TIMEOUTS_MS.outline,
+      batchId: null as string | null,
+      dayNumbers: null as number[] | null
+    };
+  }
+  const batch = nextBatchToGenerate(state);
+  if (batch) {
+    return {
+      stage: "day_batch" as const,
+      timeoutMs: STAGED_GENERATION_STAGE_TIMEOUTS_MS.day_batch,
+      batchId: batch.id,
+      dayNumbers: batch.dayNumbers
+    };
+  }
+  return {
+    stage: "finalization" as const,
+    timeoutMs: STAGED_GENERATION_STAGE_TIMEOUTS_MS.finalization,
+    batchId: null as string | null,
+    dayNumbers: null as number[] | null
+  };
 }
 
 function finalValidationFailureState(
@@ -1733,11 +1898,9 @@ export async function advanceStagedItineraryGeneration(params: {
   tripId: string;
   userId?: string;
   requestId: string;
-  executionDeadlineMs?: number | null;
-  aiStageCleanupBufferMs?: number | null;
 }) {
   const initialTrip = await loadTrip(params.supabase, params.tripId, params.userId);
-  const initialState = getStagedGenerationState(initialTrip.metadata);
+  const initialState = getStagedGenerationState(initialTrip.metadata, params.tripId);
   if (!initialState) throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
   const retryFinalValidation = canRetryFinalValidation(initialState);
   const retryFailedDayBatch = canRetryFailedDayBatch(initialState);
@@ -1781,23 +1944,11 @@ export async function advanceStagedItineraryGeneration(params: {
   if (!claimedTrip) {
     return { ok: true, status: initialState.status, state: initialState, advanced: false, busy: true };
   }
-  let state = getStagedGenerationState(claimedTrip.metadata) || initialState;
+  let state = getStagedGenerationState(claimedTrip.metadata, params.tripId) || initialState;
   const trace = { requestId: params.requestId, tripId: params.tripId, route: "stagedItineraryGeneration" };
 
   try {
     if (!state.outline) {
-      const deferred = await deferAiStageIfTimeBudgetInsufficient({
-        supabase: params.supabase,
-        trip: claimedTrip,
-        state,
-        stage: "outline",
-        timeoutMs: OUTLINE_TIMEOUT_MS,
-        executionDeadlineMs: params.executionDeadlineMs,
-        cleanupBufferMs: params.aiStageCleanupBufferMs,
-        trace
-      });
-      if (deferred) return deferred;
-
       state = {
         ...state,
         status: "generating_outline",
@@ -1867,7 +2018,10 @@ export async function advanceStagedItineraryGeneration(params: {
         provider: ai.provider,
         model: ai.model
       });
-      return { ok: true, status: state.status, state, advanced: true, stage: "outline" };
+
+      // Continue directly into the first day batch.
+      // Do not exit after the outline.
+
     }
 
     const nextBatch = nextBatchToGenerate(state);
@@ -1880,18 +2034,6 @@ export async function advanceStagedItineraryGeneration(params: {
       if (outlineDays.length !== nextBatch.dayNumbers.length) {
         throw new StagedGenerationError("Outline is missing one or more requested batch days.", "OUTLINE_DAY_NOT_FOUND", 502);
       }
-      const deferred = await deferAiStageIfTimeBudgetInsufficient({
-        supabase: params.supabase,
-        trip: claimedTrip,
-        state,
-        stage: "day_batch",
-        timeoutMs: DAY_TIMEOUT_MS,
-        executionDeadlineMs: params.executionDeadlineMs,
-        cleanupBufferMs: params.aiStageCleanupBufferMs,
-        trace
-      });
-      if (deferred) return deferred;
-
       const attemptCount = nextBatch.attemptCount + 1;
       state = {
         ...state,
@@ -1961,7 +2103,7 @@ export async function advanceStagedItineraryGeneration(params: {
         failureCategory: null,
         errorCode: null
       }), ai);
-      const batchDays = cleanBatchDays(ai.parsed, outlineDays, state.payload);
+      const batchDays = cleanBatchDays(ai.parsed, outlineDays, payloadWithStateDiscovery(state.payload, state));
       const batchErrors = batchDays.flatMap((day) => validateDay(day, day.day_number));
       for (const dayNumber of nextBatch.dayNumbers) {
         if (!batchDays.some((day) => day.day_number === dayNumber)) {
@@ -1992,7 +2134,10 @@ export async function advanceStagedItineraryGeneration(params: {
         ...state,
         status: "generating_day",
         currentStage: "generating_day",
-        completedDayCount: Object.values(state.days).filter((item) => item.status === "complete").length + batchDays.length,
+        completedDayCount: Math.min(
+          state.totalDayCount,
+          Object.values(state.days).filter((item) => item.status === "complete").length + batchDays.length
+        ),
         provider: ai.provider,
         model: ai.model,
         generatedDays: {
@@ -2198,7 +2343,7 @@ export async function resetFailedStagedBatch(params: {
   batchId: string;
 }) {
   const trip = await loadTrip(params.supabase, params.tripId, params.userId);
-  const state = getStagedGenerationState(trip.metadata);
+  const state = getStagedGenerationState(trip.metadata, params.tripId);
   if (!state) throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
   const batch = state.batches[params.batchId];
   if (!batch) throw new StagedGenerationError("Generation batch not found.", "GENERATION_BATCH_NOT_FOUND", 404, true);
@@ -2241,10 +2386,13 @@ export async function resetFailedStagedBatch(params: {
   return nextState;
 }
 
-export function publicStagedGenerationProgress(metadata: unknown) {
-  const state = getStagedGenerationState(metadata);
+export function publicStagedGenerationProgress(metadata: unknown, expectedTripId?: string | null) {
+  const state = getStagedGenerationState(metadata, expectedTripId);
   if (!state) return null;
+  const totalDayCount = Math.max(1, state.totalDayCount || 1);
+  const completedDayCount = Math.max(0, Math.min(state.completedDayCount || 0, totalDayCount));
   const days = Object.values(state.days)
+    .filter((day) => day.dayNumber >= 1 && day.dayNumber <= totalDayCount)
     .sort((a, b) => a.dayNumber - b.dayNumber)
     .map((day) => ({
       dayNumber: day.dayNumber,
@@ -2254,6 +2402,7 @@ export function publicStagedGenerationProgress(metadata: unknown) {
       lastError: day.lastError || null
     }));
   const batches = Object.values(state.batches)
+    .filter((batch) => batch.dayNumbers.every((dayNumber) => dayNumber >= 1 && dayNumber <= totalDayCount))
     .sort((a, b) => a.dayNumbers[0] - b.dayNumbers[0])
     .map((batch) => ({
       id: batch.id,
@@ -2267,10 +2416,11 @@ export function publicStagedGenerationProgress(metadata: unknown) {
       model: batch.model || null
     }));
   return {
+    tripId: state.tripId || expectedTripId || "",
     status: state.status,
     currentStage: state.currentStage,
-    completedDayCount: state.completedDayCount,
-    totalDayCount: state.totalDayCount,
+    completedDayCount,
+    totalDayCount,
     days,
     batches,
     aiCallCount: state.aiCallCount || 0,
@@ -2300,7 +2450,7 @@ export function publicStagedGenerationProgress(metadata: unknown) {
       createdAt: run.createdAt
     })),
     retryLimit: BATCH_ATTEMPT_LIMIT,
-    emailNotification: getGenerationEmailStatus(metadata),
+    emailNotification: getGenerationEmailStatus(metadata, state.tripId),
     startedAt: state.startedAt,
     updatedAt: state.updatedAt,
     completedAt: state.completedAt || null

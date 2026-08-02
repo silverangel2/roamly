@@ -572,8 +572,10 @@ Rules:
 	- Day 1 must begin with the actual journey to the destination unless the traveler is already there. Include departure city, departure point, travel mode, realistic buffer, arrival, baggage/customs/immigration when relevant, transfer to hotel, check-in or luggage storage, and recovery/rest before local activities.
 	- The first Day 1 item must not be a local attraction when Origin is set and different from Destination.
 	- Final day must include hotel checkout, transfer to airport/station/terminal/departure point, recommended arrival buffer, return travel, and final arrival timing when return_to_origin is yes.
-	- Add first-class Travel or Transfer live_timeline items between every major activity, meal, hotel, and booking. Do not hide travel time in notes.
-	- Do not schedule two major places back-to-back without a Transfer item and realistic buffer.
+	- Keep each day to 4-6 meaningful visible timeline cards.
+	- Merge local movement into the following activity card using origin, travelTimeMinutes, travel_mode, and one concise sentence. Standalone Transfer cards are only for major airport/station/inter-city transfers.
+	- Do not create standalone transfer cards under 15 minutes.
+	- Do not schedule two major places back-to-back without realistic movement context on the following card.
 	- Use item_type "Travel" for flights, train, bus, ferry, drive, and inter-city movement; "Transfer" for local movement; "Hotel" for check-in/checkout/luggage; "Rest" for arrival recovery.
 	- Booking suggestions must be specific and practical: Travelpayouts flight searches, Stay22 stay options, Klook entrance tickets/tours/activities/transfers, and Roamly discovery fallback only when a provider is not configured.
 	- Include startTime and endTime in 24-hour HH:mm format for every live_timeline item. Times must be chronological and non-overlapping.
@@ -612,7 +614,7 @@ Rules:
 - Add customs reminder: "Review customs rules before crossing. Food, alcohol, tobacco, medication, plants, and large purchases may have restrictions."
 - Add phone reminders for cross-border/international trips: confirm roaming or eSIM before departure, check device compatibility before buying, download offline maps, save hotel address offline, and emergency contact/local emergency number note when available.
 - Do not give legal immigration, customs, or duty advice; tell the traveler to check official sources.
-- Include at least one recommended transport option, one flight alternative when relevant, one hotel/stay option, one paid ticket or attraction, one tour/activity, and one local transport option when relevant.
+- Booking suggestions should focus on the recommended transport, hotel/stay search, and important ticket/tour/activity needs. Do not list impractical train, bus, driving, or mixed-route alternatives, and do not include more than 3 options in any category.
 - For flights, include origin city/airport, destination city/airport, departure date, return date when relevant, estimated price range when present in Price discovery summary, and booking_label "Find this flight". Say "Faster but more expensive" when the flight is not the budget recommendation. Leave URLs blank.
 - For driving, include a gas/parking estimate if Price discovery summary provides it and booking_label "Open driving route". Use map queries only for directions. Say the estimate uses fuel assumptions until live maps/gas providers are connected.
 - For train and bus, include booking_label "Check train" or "Check bus", and say "Verify live schedule and price." Do not invent exact ticket prices. Leave URLs blank.
@@ -780,15 +782,17 @@ Required JSON shape:
 Rules:
 - Write user-facing values in ${outputLanguage}; keep JSON keys in English.
 - Build exactly ${tripDays} daily_itinerary entries, day_number 1 through ${tripDays}.
-- Every day must have live_timeline with 4 to 7 ordered items, each with startTime and endTime in 24-hour HH:mm, no overlaps.
+- Every day must have live_timeline with 4 to 6 ordered items, each with startTime and endTime in 24-hour HH:mm, no overlaps.
 - Day 1 must start with origin-to-destination travel unless origin is already the destination: departure, departure buffer, main travel, arrival, baggage/customs/station exit when relevant, transfer to lodging, check-in/luggage, rest, then local activity.
 - Final day must include checkout/luggage, transfer to departure point, departure buffer, return travel when return_to_origin is yes, and final arrival.
-- Add transfer items between different major locations. Do not hide travel time in prose.
+- Merge local transfer time into the following activity card using origin, travelTimeMinutes, travel_mode, and a concise sentence. Only use standalone transfer/travel cards for major airport, station, border, or inter-city movement.
+- Do not create standalone transfer cards under 15 minutes.
+- Lunch must start by 2 PM unless the item is intentionally labeled as a late lunch after rest or a travel delay.
 - Use item_type only: travel, transfer, hotel, activity, meal, rest, booking, reminder.
 - Keep descriptions one sentence. No long paragraphs.
 - Leave booking null and URL fields blank. Roamly attaches Travelpayouts, Stay22, Klook, Amazon, and eSIM links server-side.
 - Use booking_label only for real booking opportunities: Check flights, Find a hotel, Book activity, Book transfer. Do not put booking_label on ordinary walking/local transfer items.
-- Booking suggestions must include at least: one flight, one hotel, one activity/tour or attraction when relevant, one airport transfer when relevant.
+- Booking suggestions must include only practical needs: the recommended transport search when relevant, one hotel search when lodging is included, and one important activity/tour or attraction when relevant. Avoid filler booking suggestions.
 - Do not mention or output Google Flights, Google Search, Booking.com, Viator, GetYourGuide, or placeholder URLs.
 - Do not invent exact live availability, reservations, confirmation numbers, discounts, ratings, or prices. Use Price summary confidence.
 - Include carry-on luggage, packing cubes, travel adapter, and eSIM/roaming prep when relevant in pre_trip_essentials.

@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     typeof body.permissionState === "string" && permissionStates.has(body.permissionState)
       ? body.permissionState
       : "prompt";
+  const tripId = typeof body.tripId === "string" && body.tripId.trim() ? body.tripId.trim() : undefined;
   const location = normalizeCoordinates({
     latitude: body.latitude as number,
     longitude: body.longitude as number,
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     metadata: { accuracy: location.accuracy }
   });
 
-  const activation = await activateTripIfNearby(auth.supabase, auth.user.id, location);
+  const activation = await activateTripIfNearby(auth.supabase, auth.user.id, location, tripId);
 
   return NextResponse.json({
     ok: true,

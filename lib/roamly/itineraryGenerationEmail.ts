@@ -22,6 +22,7 @@ type GenerationEmailKind = "completion" | "failure";
 type GenerationDeliveryStatus = "pending" | "sending" | "sent" | "failed" | "skipped" | "captured";
 
 type GenerationEmailState = {
+  tripId?: string | null;
   email_me_when_ready?: boolean;
   delivery_status?: GenerationDeliveryStatus | null;
   completion_email_sent_at?: string | null;
@@ -75,17 +76,29 @@ function getMetadata(trip: RoamlyTripRecord) {
   return getRecord(trip.metadata) || {};
 }
 
-export function getGenerationEmailStatus(metadata: unknown): GenerationEmailState & { email_me_when_ready: boolean } {
+export function getGenerationEmailStatus(
+  metadata: unknown,
+  expectedTripId?: string | null
+): GenerationEmailState & { email_me_when_ready: boolean } {
   const root = getRecord(metadata);
   const state = getRecord(root?.generationEmail) as GenerationEmailState | null;
+  const stateTripId = getString(state?.tripId);
+  const scopedTripId = getString(expectedTripId);
+  if (scopedTripId && stateTripId && stateTripId !== scopedTripId) {
+    return {
+      tripId: scopedTripId,
+      email_me_when_ready: true
+    };
+  }
   return {
     ...(state || {}),
+    tripId: stateTripId || scopedTripId || null,
     email_me_when_ready: state?.email_me_when_ready !== false
   };
 }
 
 function getGenerationEmailStatusForTrip(trip: RoamlyTripRecord) {
-  const metadataState = getGenerationEmailStatus(trip.metadata);
+  const metadataState = getGenerationEmailStatus(trip.metadata, trip.id);
   const columnStatus =
     trip.completion_email_status === "pending" ||
     trip.completion_email_status === "sending" ||
@@ -107,6 +120,7 @@ function getGenerationEmailStatusForTrip(trip: RoamlyTripRecord) {
 
   return {
     ...metadataState,
+    tripId: trip.id,
     delivery_status: deliveredByColumn
       ? columnStatus || metadataState.delivery_status || "sent"
       : metadataState.delivery_status || columnStatus,
@@ -381,6 +395,7 @@ async function updateGenerationEmailMetadata(
   const generationEmail = {
     ...current,
     ...patch,
+    tripId: trip.id,
     email_me_when_ready: current.email_me_when_ready !== false
   };
   const { error } = await admin
@@ -428,6 +443,7 @@ async function claimGenerationEmailSend(
   const generationEmail = {
     ...current,
     ...patch,
+    tripId: trip.id,
     email_me_when_ready: current.email_me_when_ready !== false
   };
   const staleSendingCutoff = new Date(Date.now() - 10 * 60_000).toISOString();
@@ -597,11 +613,13 @@ export async function sendStagedGenerationEmail(params: {
     tripId: trip.id,
     idempotencyKey: key,
     metadata: {
+      tripId: trip.id,
       type: params.kind === "completion" ? "itinerary_generation_complete" : "itinerary_generation_failed",
       idempotencyKey: key,
       transactional: true,
       recipientSource: owner.source,
       actionUrl,
+      destination: getTripDestinationLabel(trip) || trip.title || null,
       template: params.kind === "completion" ? "itinerary_ready" : "itinerary_generation_failure",
       attemptCount: nextAttemptCount
     }

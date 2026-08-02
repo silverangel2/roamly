@@ -16,15 +16,20 @@ import {
   buildSearchReadyTravelEvidence,
   buildTravelEvidenceFromMarketMetadata,
   extractTravelReviewSnippets,
-  runTravelEvidenceSearchFallback,
   scoreTravelEvidence,
   travelEvidenceScraperConfigured,
   type TravelEvidenceSubject
 } from "@/lib/roamly/travelEvidence";
+import { searchReviewIntelNativeTravelCandidates } from "@/lib/roamly/reviewIntelNativeTravelSearch";
 import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
+import {
+  dedupeTravelResults,
+  safeConsumerTravelUrl,
+  validateTravelResultForDisplay
+} from "@/lib/roamly/travelResultValidation";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
-export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "transport";
+export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "restaurant" | "transport";
 export type TravelMarketSource =
   | "travelpayouts"
   | "stay22"
@@ -33,6 +38,7 @@ export type TravelMarketSource =
   | "fallback_estimate";
 export type TravelMarketPriceType = "live_partner" | "cached_recent" | "search_ready" | "estimated_fallback" | "unknown";
 export type TravelMarketConfidence = "high" | "medium" | "low";
+export type TravelRetrievalProvider = "native" | "provider_api" | "firecrawl_fallback" | "search_link_only";
 
 export type TravelMarketResult = {
   id: string;
@@ -85,6 +91,7 @@ export type TravelMarketSearchResponse = {
   searchKey: string;
   providerConfigured: boolean;
   providerAttempted: boolean;
+  providerUsed: TravelRetrievalProvider;
   warning?: string;
 };
 
@@ -93,18 +100,19 @@ const ttlHours: Record<TravelMarketCategory, number> = {
   hotel: 6,
   attraction: 12,
   tour: 12,
+  restaurant: 12,
   transport: 12
 };
+
+const MAX_RESULTS_PER_SEARCH = 3;
+const MAX_TRIP_MARKET_REQUESTS = 14;
 
 function clean(value?: string | null) {
   return (value || "").trim();
 }
 
 function safeMarketHref(value?: string | null) {
-  const raw = clean(value);
-  if (!raw) return "";
-  if (raw.startsWith("/")) return "";
-  return safeExternalUrl(raw);
+  return safeConsumerTravelUrl(value);
 }
 
 function cleanCurrency(value?: string | null) {
@@ -185,15 +193,17 @@ function travelerText(request: TravelMarketSearchRequest) {
 function categoryDefaultTitle(request: TravelMarketSearchRequest) {
   const destination = clean(request.destination || request.city) || "destination";
   if (request.category === "flight") return `${clean(request.origin) || "Origin"} to ${destination} flight search`;
-  if (request.category === "hotel") return `${request.room_type || "Hotel room"} in ${destination}`;
-  if (request.category === "attraction") return `${request.title || `${destination} attraction ticket`}`;
-  if (request.category === "tour") return `${request.title || `${destination} tour`}`;
+  if (request.category === "hotel") return `${destination} hotel search`;
+  if (request.category === "attraction") return `${request.title || `${destination} official attraction search`}`;
+  if (request.category === "tour") return `${request.title || `${destination} guided activity search`}`;
+  if (request.category === "restaurant") return `${request.title || `${destination} restaurant search`}`;
   return `${clean(request.origin) ? `${clean(request.origin)} to ` : ""}${destination} transport search`;
 }
 
 function evidenceSubject(category: TravelMarketCategory): TravelEvidenceSubject | null {
   if (category === "hotel") return "hotel";
   if (category === "attraction" || category === "tour") return "activity";
+  if (category === "restaurant") return "restaurant";
   if (category === "transport") return "transport";
   return null;
 }
@@ -204,23 +214,29 @@ function travelEvidenceDestination(request: TravelMarketSearchRequest | TravelMa
 
 function normalSearchUrl(request: TravelMarketSearchRequest) {
   if (request.category === "flight") {
-    return buildFlightSearchUrl({
-      origin: request.origin,
-      destination: request.destination || request.city,
-      departureDate: request.start_date,
-      returnDate: request.end_date,
-      travelers: request.travelers || 1
-    });
+    return (
+      safeExternalUrl(buildFlightSearchUrl({
+        origin: request.origin,
+        destination: request.destination || request.city,
+        departureDate: request.start_date,
+        returnDate: request.end_date,
+        travelers: request.travelers || 1
+      })) ||
+      googleSearchUrl(compact([request.origin, "to", request.destination || request.city, request.start_date, request.end_date, "flights"]))
+    );
   }
   if (request.category === "hotel") {
-    return buildHotelSearchUrl({
-      destination: request.destination || request.city,
-      checkInDate: request.start_date,
-      checkOutDate: request.end_date,
-      adults: request.travelers || 1,
-      rooms: request.rooms || 1,
-      roomType: request.room_type
-    });
+    return (
+      safeExternalUrl(buildHotelSearchUrl({
+        destination: request.destination || request.city,
+        checkInDate: request.start_date,
+        checkOutDate: request.end_date,
+        adults: request.travelers || 1,
+        rooms: request.rooms || 1,
+        roomType: request.room_type
+      })) ||
+      googleSearchUrl(compact([request.room_type || "hotel", request.destination || request.city, request.start_date, request.end_date]))
+    );
   }
   if (request.category === "attraction") {
     return buildAttractionTicketSearchUrl({
@@ -230,11 +246,17 @@ function normalSearchUrl(request: TravelMarketSearchRequest) {
     });
   }
   if (request.category === "tour") {
-    return buildTourSearchUrl({
-      tourName: request.title || categoryDefaultTitle(request),
-      destination: request.destination || request.city,
-      date: request.start_date
-    });
+    return (
+      safeExternalUrl(buildTourSearchUrl({
+        tourName: request.title || categoryDefaultTitle(request),
+        destination: request.destination || request.city,
+        date: request.start_date
+      })) ||
+      googleSearchUrl(compact([request.title || categoryDefaultTitle(request), request.destination || request.city, request.start_date, "official tour booking"]))
+    );
+  }
+  if (request.category === "restaurant") {
+    return googleMapsSearchUrl(compact([request.title || "restaurants", request.destination || request.city]));
   }
   return buildTransportSearchUrl({
     origin: request.origin,
@@ -510,6 +532,158 @@ function providerPrice(value: Record<string, unknown>) {
   return optionalNumber(value.price) ?? optionalNumber(value.amount) ?? optionalNumber(value.value) ?? optionalNumber(value.fromPrice);
 }
 
+function googleSearchUrl(query: string) {
+  const cleaned = clean(query);
+  if (!cleaned) return "";
+  const url = new URL("https://www.google.com/search");
+  url.searchParams.set("q", cleaned);
+  return url.toString();
+}
+
+function googleMapsSearchUrl(query: string) {
+  const cleaned = clean(query);
+  if (!cleaned) return "";
+  const url = new URL("https://www.google.com/maps/search/");
+  url.searchParams.set("api", "1");
+  url.searchParams.set("query", cleaned);
+  return url.toString();
+}
+
+function genericMarketTitle(value: string) {
+  return /^(local bistro|museum or gallery|nightlife district|hotel room|hotel\/stay|things to do|book activities|find hotels?|flights? to book)$/i.test(
+    value.trim()
+  );
+}
+
+function resultRetrievalProvider(result: TravelMarketResult | undefined): TravelRetrievalProvider {
+  const value = clean(result?.metadata?.retrieval_provider as string).toLowerCase();
+  if (value === "native" || value === "provider_api" || value === "firecrawl_fallback" || value === "search_link_only") {
+    return value;
+  }
+  if (result?.source === "travelpayouts" || result?.source === "stay22" || result?.source === "klook") return "provider_api";
+  if (result?.metadata?.discovery_source === "firecrawl") return "firecrawl_fallback";
+  return "search_link_only";
+}
+
+function withRetrievalProvider(result: TravelMarketResult, provider: TravelRetrievalProvider) {
+  return {
+    ...result,
+    metadata: {
+      ...(result.metadata || {}),
+      retrieval_provider: provider,
+      retrieval_timestamp: result.searched_at,
+      verification_status:
+        result.metadata?.verification_status ||
+        (provider === "search_link_only"
+          ? "search_link_only"
+          : result.price_type === "live_partner" || result.price_type === "cached_recent"
+            ? "verified"
+            : "requires_verification")
+    }
+  } satisfies TravelMarketResult;
+}
+
+function logMarketProviderUsed(params: {
+  category: TravelMarketCategory;
+  searchKey: string;
+  providerUsed: TravelRetrievalProvider;
+  cacheHit: boolean;
+  count: number;
+}) {
+  console.info("[Roamly market] retrieval provider used", params);
+}
+
+function marketDisplayUrl(result: TravelMarketResult) {
+  return result.booking_url || result.affiliate_url || result.normal_search_url || "";
+}
+
+function validMarketResult(result: TravelMarketResult, request?: TravelMarketSearchRequest) {
+  if (result.category === "flight" && result.metadata?.retrieval_provider === "native") return false;
+  return validateTravelResultForDisplay({
+    category: result.category,
+    expectedCategory: request?.category || result.category,
+    title: result.title,
+    provider: result.provider,
+    url: marketDisplayUrl(result),
+    destination: result.destination || result.city,
+    city: result.city,
+    country: result.country,
+    requestedDestination: request?.destination || request?.city,
+    requestedCity: request?.city,
+    source: result.source,
+    metadata: result.metadata,
+    allowSearchFallback: true
+  }).ok;
+}
+
+function dedupeMarketResults(results: TravelMarketResult[], limit = MAX_RESULTS_PER_SEARCH, request?: TravelMarketSearchRequest) {
+  return dedupeTravelResults(
+    results.filter((result) => validMarketResult(result, request)),
+    (result) => ({
+      category: result.category,
+      title: result.title,
+      url: marketDisplayUrl(result)
+    }),
+    limit
+  );
+}
+
+async function searchReviewIntelNative(request: TravelMarketSearchRequest) {
+  if (!marketEnabled()) return [];
+  if (request.category === "flight") return [];
+  const candidates = await searchReviewIntelNativeTravelCandidates(request, { limit: MAX_RESULTS_PER_SEARCH });
+  return dedupeMarketResults(
+    candidates
+      .filter((candidate) => {
+        if (!candidate.title || genericMarketTitle(candidate.title)) return false;
+        return validateTravelResultForDisplay({
+          category: request.category,
+          expectedCategory: request.category,
+          title: candidate.title,
+          provider: candidate.domain || "ReviewIntel native retrieval",
+          url: candidate.url,
+          destination: request.destination || request.city,
+          city: request.city,
+          requestedDestination: request.destination || request.city,
+          source: candidate.source,
+          allowSearchFallback: false
+        }).ok;
+      })
+      .map((candidate) =>
+        withRetrievalProvider(
+          baseResult(request, {
+            title: candidate.title,
+            provider: "ReviewIntel native retrieval",
+            source: "roamly_internal",
+            price_type: "search_ready",
+            confidence: candidate.verificationStatus === "native_review_evidence" ? "medium" : "low",
+            booking_url: candidate.url,
+            normal_search_url: candidate.url,
+            searched_at: candidate.retrievedAt,
+            metadata: {
+              retrieval_provider: "native",
+              retrieval_timestamp: candidate.retrievedAt,
+              verification_status: candidate.verificationStatus,
+              source_url: candidate.url,
+              source_domain: candidate.domain,
+              rating: candidate.rating,
+              review_snippet: candidate.reviewSnippet,
+              reviewintel_native: {
+                queries: candidate.queries,
+                sources_checked: candidate.sourcesChecked,
+                diagnostics: candidate.diagnostics,
+                coverage_note: candidate.coverageNote
+              }
+            }
+          }),
+          "native"
+        )
+      ),
+    MAX_RESULTS_PER_SEARCH,
+    request
+  );
+}
+
 async function searchTravelpayouts(request: TravelMarketSearchRequest) {
   if (!marketEnabled() || !process.env.TRAVELPAYOUTS_API_TOKEN || !process.env.ROAMLY_TRAVELPAYOUTS_MARKER) return [];
   const url = new URL("https://api.travelpayouts.com/aviasales/v3/prices_for_dates");
@@ -540,7 +714,8 @@ async function searchTravelpayouts(request: TravelMarketSearchRequest) {
       });
     })
     .filter((item): item is TravelMarketResult => Boolean(item))
-    .slice(0, 5);
+    .slice(0, MAX_RESULTS_PER_SEARCH)
+    .map((item) => withRetrievalProvider(item, "provider_api"));
 }
 
 async function searchKlook(request: TravelMarketSearchRequest) {
@@ -570,7 +745,8 @@ async function searchKlook(request: TravelMarketSearchRequest) {
       });
     })
     .filter((item): item is TravelMarketResult => Boolean(item))
-    .slice(0, 5);
+    .slice(0, MAX_RESULTS_PER_SEARCH)
+    .map((item) => withRetrievalProvider(item, "provider_api"));
 }
 
 function discoveryLimit(value: unknown, fallback: number) {
@@ -586,7 +762,7 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
     ...request,
     title: clean(request.title) || categoryDefaultTitle(request)
   });
-  const maxQueries = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_QUERIES, 1);
+  const maxQueries = Math.min(1, discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_QUERIES, 1));
   const limitPerQuery = discoveryLimit(process.env.ROAMLY_TRAVEL_DISCOVERY_LIMIT_PER_QUERY, 2);
   const results: TravelMarketResult[] = [];
   const seen = new Set<string>();
@@ -657,7 +833,7 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
       console.warn("[Roamly market] scraper discovery failed", error);
     }
   }
-  return results.slice(0, 4);
+  return dedupeMarketResults(results.map((item) => withRetrievalProvider(item, "firecrawl_fallback")), MAX_RESULTS_PER_SEARCH, request);
 }
 
 async function liveProviderResults(request: TravelMarketSearchRequest) {
@@ -670,6 +846,13 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
     return searchKlook(request);
   }
   return [];
+}
+
+function shouldAttemptProviderAfterNative(request: TravelMarketSearchRequest, nativeResults: TravelMarketResult[]) {
+  if (!nativeResults.length) return true;
+  if (!providerConfigured(request)) return false;
+  if (!nativeResults.every((result) => result.price_type === "search_ready" && result.price_amount == null && result.price_min == null)) return false;
+  return request.category === "flight" || request.category === "hotel" || request.category === "attraction" || request.category === "tour" || request.category === "transport";
 }
 
 function searchReadyResult(request: TravelMarketSearchRequest, warning?: string) {
@@ -756,41 +939,7 @@ function attachTravelSearchBrief(result: TravelMarketResult) {
 }
 
 async function enrichTravelMarketResultsWithReviewEvidence(results: TravelMarketResult[]) {
-  const withStaticEvidence = results.map(attachStaticTravelEvidence);
-  if (!travelEvidenceScraperConfigured()) return withStaticEvidence;
-
-  const scrapeable = new Set(
-    withStaticEvidence
-      .filter((result) => result.category === "hotel" || result.category === "attraction" || result.category === "tour")
-      .slice(0, 4)
-      .map((result) => result.id)
-  );
-  return Promise.all(
-    withStaticEvidence.map(async (result) => {
-      const subject = evidenceSubject(result.category);
-      if (!subject || !scrapeable.has(result.id)) return result;
-      const scraped = await runTravelEvidenceSearchFallback({
-        subject,
-        title: result.title,
-        destination: travelEvidenceDestination(result),
-        metadata: result.metadata,
-        maxQueries: 2,
-        limitPerQuery: 2
-      });
-      return {
-        ...result,
-        metadata: {
-          ...(result.metadata || {}),
-          travel_evidence: scraped.evidence,
-          travel_evidence_scrape: {
-            provider: scraped.provider,
-            attempted: scraped.attempted,
-            error: scraped.error || null
-          }
-        }
-      };
-    })
-  );
+  return results.map(attachStaticTravelEvidence);
 }
 
 export async function searchTravelMarket(
@@ -799,6 +948,7 @@ export async function searchTravelMarket(
     supabase?: SupabaseClient | null;
     forceRefresh?: boolean;
     store?: boolean;
+    allowFirecrawlFallback?: boolean;
   } = {}
 ): Promise<TravelMarketSearchResponse> {
   const normalized: TravelMarketSearchRequest = {
@@ -815,13 +965,31 @@ export async function searchTravelMarket(
   if (!options.forceRefresh) {
     const cached = await cachedResults(options.supabase, searchKey);
     if (cached.length) {
-      return { results: cached.map(attachStaticTravelEvidence), cacheHit: true, searchKey, providerConfigured: configured, providerAttempted: false };
+      const results = dedupeMarketResults(cached.map(attachStaticTravelEvidence), MAX_RESULTS_PER_SEARCH, normalized);
+      if (results.length) {
+        const providerUsed = resultRetrievalProvider(results[0]);
+        logMarketProviderUsed({
+          category: normalized.category,
+          searchKey,
+          providerUsed,
+          cacheHit: true,
+          count: results.length
+        });
+        return { results, cacheHit: true, searchKey, providerConfigured: configured, providerAttempted: false, providerUsed };
+      }
     }
+  }
+
+  let nativeResults: TravelMarketResult[] = [];
+  try {
+    nativeResults = await searchReviewIntelNative(normalized);
+  } catch (error) {
+    console.warn("[Roamly market] ReviewIntel native retrieval failed", error);
   }
 
   let providerResults: TravelMarketResult[] = [];
   let providerAttempted = false;
-  if (configured && marketEnabled()) {
+  if (shouldAttemptProviderAfterNative(normalized, nativeResults) && configured && marketEnabled()) {
     providerAttempted = true;
     try {
       providerResults = await liveProviderResults(normalized);
@@ -833,12 +1001,42 @@ export async function searchTravelMarket(
   const warning = configured
     ? "Provider did not return a numeric live price. Verify the search result before booking."
     : "Provider credentials are not configured. Verify price and availability before booking.";
-  const discoveryResults = providerResults.length ? [] : await searchScraperDiscovery(normalized);
-  const results = (providerResults.length ? providerResults : discoveryResults.length ? discoveryResults : [searchReadyResult(normalized, warning)]).map(attachStaticTravelEvidence);
+  const discoveryResults =
+    !nativeResults.length && !providerResults.length && options.allowFirecrawlFallback
+      ? await searchScraperDiscovery(normalized)
+      : [];
+  const providerUsed: TravelRetrievalProvider = nativeResults.length
+    ? providerResults.length
+      ? "provider_api"
+      : "native"
+    : providerResults.length
+      ? "provider_api"
+      : discoveryResults.length
+        ? "firecrawl_fallback"
+        : "search_link_only";
+  const results = dedupeMarketResults(
+    (providerResults.length
+      ? providerResults
+      : nativeResults.length
+        ? nativeResults
+        : discoveryResults.length
+          ? discoveryResults
+          : [withRetrievalProvider(searchReadyResult(normalized, warning), "search_link_only")]).map(attachStaticTravelEvidence),
+    MAX_RESULTS_PER_SEARCH,
+    normalized
+  );
 
   if (options.store !== false) {
     await storeResults(options.supabase, searchKey, results);
   }
+
+  logMarketProviderUsed({
+    category: normalized.category,
+    searchKey,
+    providerUsed,
+    cacheHit: false,
+    count: results.length
+  });
 
   return {
     results,
@@ -846,7 +1044,13 @@ export async function searchTravelMarket(
     searchKey,
     providerConfigured: configured,
     providerAttempted,
-    warning: providerResults.length ? undefined : warning
+    providerUsed,
+    warning:
+      providerUsed === "provider_api"
+        ? undefined
+        : providerUsed === "native"
+          ? "ReviewIntel native retrieval found source results, but live price and availability were not verified."
+          : warning
   };
 }
 
@@ -934,6 +1138,22 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
     }
 
     requests.push({
+      category: "restaurant",
+      destination: destinationLabel,
+      city: destination.city || destinationLabel,
+      country: destination.country || payload.destinationCountry,
+      start_date: payload.startDate,
+      travelers,
+      title: compact([
+        payload.dietaryPreference,
+        payload.interests?.includes("food") ? "notable restaurants" : "restaurant reservations",
+        destinationLabel
+      ]),
+      currency,
+      interests: payload.interests
+    });
+
+    requests.push({
       category: "transport",
       origin: payload.origin,
       destination: destinationLabel,
@@ -955,10 +1175,19 @@ export async function searchTripMarketPrices(
     supabase?: SupabaseClient | null;
     forceRefresh?: boolean;
     store?: boolean;
+    allowFirecrawlFallback?: boolean;
   } = {}
 ) {
+  const requests = buildTripMarketSearchRequests(payload);
+  const seen = new Set<string>();
+  const uniqueRequests = requests.filter((request) => {
+    const key = buildTravelMarketSearchKey(request);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, MAX_TRIP_MARKET_REQUESTS);
   const responses = await Promise.all(
-    buildTripMarketSearchRequests(payload).map((request) => searchTravelMarket(request, options))
+    uniqueRequests.map((request) => searchTravelMarket(request, options))
   );
   const baseResults = await enrichTravelMarketResultsWithReviewEvidence(responses.flatMap((response) => response.results));
   const transportComparison = compareTransportOptions(payload, { marketResults: baseResults });

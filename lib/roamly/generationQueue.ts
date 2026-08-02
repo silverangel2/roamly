@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getStagedGenerationState, publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
+import {
+  canResumeStagedGeneration,
+  getStagedGenerationState,
+  nextStagedGenerationWork,
+  publicStagedGenerationProgress,
+  type StagedGenerationBatchState,
+  type StagedGenerationState
+} from "@/lib/roamly/stagedItineraryGeneration";
 import {
   ROAMLY_BRAIN_STAGES,
   ROAMLY_BRAIN_VERSION,
@@ -80,8 +87,10 @@ export type RoamlyGenerationLayer = {
 };
 
 export type QueueProgress = {
+  tripId: string;
   job: Pick<
     RoamlyGenerationJob,
+    | "trip_id"
     | "id"
     | "status"
     | "priority"
@@ -104,6 +113,7 @@ export type QueueProgress = {
   totalLayerCount: number;
   layers: Array<{
     id: string;
+    tripId: string;
     layerType: string;
     layerSequence: number;
     label: string;
@@ -137,6 +147,17 @@ export type GenerationFinalizationResult = {
   error?: string;
 };
 
+type GenerationLayerPlanItem = {
+  layerType: string;
+  layerSequence: number;
+  kind: "outline" | "day_batch" | "finalization";
+  batchId?: string | null;
+  dayNumbers?: number[] | null;
+};
+
+const STAGED_OUTLINE_LAYER = "staged_outline";
+const STAGED_FINALIZATION_LAYER = "staged_finalization";
+
 function adminOrClient(client?: SupabaseClient | null) {
   return createSupabaseAdminClient() || client || null;
 }
@@ -154,7 +175,105 @@ export function generationIdempotencyKey(tripId: string, version = ROAMLY_BRAIN_
 }
 
 export function stageLabel(stageType?: string | null) {
+  const staged = stagedLayerLabel(stageType);
+  if (staged) return staged;
   return brainStageLabel(stageType);
+}
+
+function stagedDayLayerType(dayNumbers: number[]) {
+  return `staged_day_${dayNumbers.join("_")}`;
+}
+
+function stagedLayerLabel(stageType?: string | null) {
+  if (!stageType) return "";
+  if (stageType === STAGED_OUTLINE_LAYER) return "Structuring your trip";
+  if (stageType === STAGED_FINALIZATION_LAYER) return "Finalizing your trip";
+  const day = stageType.match(/^staged_day_(.+)$/);
+  if (!day) return "";
+  return `Building Day ${day[1].replace(/_/g, ", ")}`;
+}
+
+function totalDayCountForPlan(payload?: TripPlannerPayload | null, state?: StagedGenerationState | null) {
+  return Math.max(1, Math.round(state?.totalDayCount || payload?.daysCount || 1));
+}
+
+function sortedBatchStates(state?: StagedGenerationState | null) {
+  return Object.values(state?.batches || {})
+    .filter((batch): batch is StagedGenerationBatchState => Array.isArray(batch.dayNumbers) && batch.dayNumbers.length > 0)
+    .sort((a, b) => a.dayNumbers[0] - b.dayNumbers[0]);
+}
+
+function generationLayerPlan(payload?: TripPlannerPayload | null, state?: StagedGenerationState | null): GenerationLayerPlanItem[] {
+  const batches = sortedBatchStates(state);
+  const dayBatches = batches.length
+    ? batches.map((batch) => ({ batchId: batch.id, dayNumbers: batch.dayNumbers }))
+    : Array.from({ length: totalDayCountForPlan(payload, state) }, (_, index) => ({
+        batchId: `batch-${index + 1}`,
+        dayNumbers: [index + 1]
+      }));
+  return [
+    {
+      layerType: STAGED_OUTLINE_LAYER,
+      layerSequence: 1,
+      kind: "outline" as const,
+      batchId: null,
+      dayNumbers: null
+    },
+    ...dayBatches.map((batch, index) => ({
+      layerType: stagedDayLayerType(batch.dayNumbers),
+      layerSequence: index + 2,
+      kind: "day_batch" as const,
+      batchId: batch.batchId,
+      dayNumbers: batch.dayNumbers
+    })),
+    {
+      layerType: STAGED_FINALIZATION_LAYER,
+      layerSequence: dayBatches.length + 2,
+      kind: "finalization" as const,
+      batchId: null,
+      dayNumbers: null
+    }
+  ];
+}
+
+function currentStagedLayerType(state?: StagedGenerationState | null, payload?: TripPlannerPayload | null) {
+  if (!state) return generationLayerPlan(payload, null)[0]?.layerType || STAGED_OUTLINE_LAYER;
+  const work = nextStagedGenerationWork(state);
+  if (work?.stage === "outline") return STAGED_OUTLINE_LAYER;
+  if (work?.stage === "day_batch" && work.dayNumbers?.length) return stagedDayLayerType(work.dayNumbers);
+  if (state.status === "failed" || state.status === "partially_failed") {
+    const failedBatch = sortedBatchStates(state).find((batch) => batch.status === "failed");
+    if (failedBatch) return stagedDayLayerType(failedBatch.dayNumbers);
+  }
+  return STAGED_FINALIZATION_LAYER;
+}
+
+function terminalFailedState(state: StagedGenerationState) {
+  return (state.status === "failed" || state.status === "partially_failed") && !canResumeStagedGeneration(state);
+}
+
+function layerStatusFromState(plan: GenerationLayerPlanItem, state?: StagedGenerationState | null): GenerationLayerStatus {
+  if (!state) return "pending";
+  if (state.status === "complete") return "completed";
+  if (plan.kind === "outline") {
+    if (state.outline) return "completed";
+    return terminalFailedState(state) ? "failed" : "pending";
+  }
+  if (plan.kind === "day_batch") {
+    const batch = plan.batchId ? state.batches[plan.batchId] : null;
+    const completedByDays = (plan.dayNumbers || []).every((dayNumber) => Boolean(state.generatedDays[String(dayNumber)]));
+    if (batch?.status === "complete" || completedByDays) return "completed";
+    if (batch?.status === "failed") return "failed";
+    return "pending";
+  }
+  if (terminalFailedState(state)) return "failed";
+  return "pending";
+}
+
+function terminalQueueStatus(state: StagedGenerationState): GenerationJobStatus {
+  if (state.status === "complete") return "completed";
+  if (terminalFailedState(state)) return "failed";
+  return "waiting";
 }
 
 function modelVersion() {
@@ -165,6 +284,7 @@ async function ensureGenerationLayers(params: {
   supabase: SupabaseClient;
   job: RoamlyGenerationJob;
   payload?: TripPlannerPayload | null;
+  state?: StagedGenerationState | null;
 }) {
   const travelerMemory = await getTravelerMemory(params.supabase, params.job.user_id)
     .then((memory) =>
@@ -198,19 +318,40 @@ async function ensureGenerationLayers(params: {
         generationVersion: params.job.generation_version
       };
 
-  const rows = ROAMLY_BRAIN_STAGES.map((stage) => ({
+  const plan = generationLayerPlan(params.payload, params.state);
+  const rows = plan.map((stage) => ({
     trip_id: params.job.trip_id,
     job_id: params.job.id,
     user_id: params.job.user_id,
-    layer_type: stage.type,
-    layer_sequence: stage.sequence,
+    layer_type: stage.layerType,
+    layer_sequence: stage.layerSequence,
     status: "pending",
-    input_json: input,
+    input_json: {
+      ...input,
+      stagedLayer: stage
+    },
     output_json: {},
     evidence_json: {},
     dependency_versions_json: {},
     generation_version: params.job.generation_version
   }));
+
+  const existing = await params.supabase
+    .from("roamly_trip_generation_layers")
+    .select("id,layer_type,layer_sequence")
+    .eq("job_id", params.job.id)
+    .order("layer_sequence", { ascending: true });
+  if (existing.error) return { ok: false as const, error: existing.error.message };
+
+  const expectedKey = rows.map((row) => `${row.layer_sequence}:${row.layer_type}`).join("|");
+  const existingKey = (existing.data || []).map((row) => `${row.layer_sequence}:${row.layer_type}`).join("|");
+  if (existing.data?.length && existingKey !== expectedKey) {
+    const deleted = await params.supabase
+      .from("roamly_trip_generation_layers")
+      .delete()
+      .eq("job_id", params.job.id);
+    if (deleted.error) return { ok: false as const, error: deleted.error.message };
+  }
 
   const { error } = await params.supabase
     .from("roamly_trip_generation_layers")
@@ -257,6 +398,7 @@ export async function createOrResumeGenerationJob(params: {
         .from("roamly_trip_generation_jobs")
         .update({
           priority: Math.max(job.priority || 0, Math.max(0, Math.round(params.priority || 0))),
+          current_stage: currentStagedLayerType(null, params.payload || null),
           user_plan: params.userPlan || job.user_plan || "free",
           paid_priority: params.paidPriority === true || job.paid_priority === true,
           queue_priority_reason: params.queuePriorityReason || job.queue_priority_reason || params.reason || null,
@@ -279,7 +421,7 @@ export async function createOrResumeGenerationJob(params: {
       paid_priority: params.paidPriority === true,
       queue_priority_reason: params.queuePriorityReason || params.reason || null,
       duplicate_request_key: params.duplicateRequestKey || null,
-      current_stage: ROAMLY_BRAIN_STAGES[0].type,
+      current_stage: currentStagedLayerType(null, params.payload || null),
       generation_version: ROAMLY_BRAIN_VERSION,
       model_version: modelVersion(),
       idempotency_key: idempotencyKey,
@@ -299,6 +441,13 @@ export async function createOrResumeGenerationJob(params: {
       if (retry.data) {
         const job = retry.data as RoamlyGenerationJob;
         await ensureGenerationLayers({ supabase, job, payload: params.payload });
+        await markQueueCurrentStage({
+          supabase,
+          tripId: params.tripId,
+          userId: params.userId,
+          currentStage: currentStagedLayerType(null, params.payload || null),
+          status: job.status === "failed" ? "waiting" : undefined
+        });
         return { ok: true as const, job, resumed: true };
       }
     }
@@ -379,21 +528,125 @@ export async function getGenerationQueueForTripAdmin(params: {
   };
 }
 
+async function latestJobForTrip(params: {
+  supabase: SupabaseClient;
+  tripId: string;
+  userId: string;
+}) {
+  const { data, error } = await params.supabase
+    .from("roamly_trip_generation_jobs")
+    .select("*")
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false as const, error: error.message, job: null as RoamlyGenerationJob | null };
+  return { ok: true as const, job: (data || null) as RoamlyGenerationJob | null };
+}
+
+export async function reconcileGenerationLayersFromStagedState(params: {
+  supabase?: SupabaseClient | null;
+  tripId: string;
+  userId: string;
+  state: StagedGenerationState;
+  job?: RoamlyGenerationJob | null;
+}) {
+  const supabase = adminOrClient(params.supabase);
+  if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+
+  const jobResult = params.job
+    ? { ok: true as const, job: params.job }
+    : await latestJobForTrip({ supabase, tripId: params.tripId, userId: params.userId });
+  if (!jobResult.ok) return jobResult;
+  const job = jobResult.job;
+  if (!job) return { ok: true as const, skipped: true, layers: [] as RoamlyGenerationLayer[] };
+
+  const ensured = await ensureGenerationLayers({
+    supabase,
+    job,
+    payload: params.state.payload,
+    state: params.state
+  });
+  if (!ensured.ok) return ensured;
+
+  const layersResult = await supabase
+    .from("roamly_trip_generation_layers")
+    .select("*")
+    .eq("job_id", job.id)
+    .eq("user_id", params.userId)
+    .order("layer_sequence", { ascending: true });
+  if (layersResult.error) return { ok: false as const, error: layersResult.error.message };
+
+  const now = new Date().toISOString();
+  const plan = generationLayerPlan(params.state.payload, params.state);
+  const planByType = new Map(plan.map((item) => [item.layerType, item]));
+  const updates = (layersResult.data || []).map(async (layer) => {
+    const row = layer as RoamlyGenerationLayer;
+    const layerPlan = planByType.get(row.layer_type);
+    if (!layerPlan) return null;
+    const status = layerStatusFromState(layerPlan, params.state);
+    const errorCode =
+      status === "failed"
+        ? layerPlan.kind === "day_batch" && layerPlan.batchId
+          ? params.state.batches[layerPlan.batchId]?.lastError || params.state.lastErrorCode || "GENERATION_LAYER_FAILED"
+          : params.state.lastErrorCode || "GENERATION_LAYER_FAILED"
+        : null;
+    if (
+      row.status === status &&
+      (status !== "completed" || row.completed_at) &&
+      row.error_code === errorCode
+    ) {
+      return row;
+    }
+    const { data, error } = await supabase
+      .from("roamly_trip_generation_layers")
+      .update({
+        status,
+        locked_at: null,
+        locked_by: null,
+        lease_expires_at: null,
+        completed_at: status === "completed" ? row.completed_at || now : null,
+        error_code: errorCode,
+        error_message: status === "failed" ? params.state.lastError || errorCode : null,
+        next_attempt_at: row.next_attempt_at || now
+      })
+      .eq("id", row.id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return (data || row) as RoamlyGenerationLayer;
+  });
+
+  const layers = await Promise.all(updates);
+  return {
+    ok: true as const,
+    job,
+    currentStage: currentStagedLayerType(params.state, params.state.payload),
+    layers: layers.filter((layer): layer is RoamlyGenerationLayer => Boolean(layer))
+  };
+}
+
 export function publicQueueProgress(
   queue: { job: RoamlyGenerationJob | null; layers: RoamlyGenerationLayer[] },
-  metadata?: unknown
+  metadata?: unknown,
+  expectedTripId?: string | null
 ): QueueProgress | null {
   if (!queue.job) return null;
+  const tripId = queue.job.trip_id;
+  if (expectedTripId && tripId !== expectedTripId) return null;
+  const staged = publicStagedGenerationProgress(metadata || {}, tripId);
+  const stagedState = getStagedGenerationState(metadata || {}, tripId);
   const layers = queue.layers.length
     ? queue.layers
-    : ROAMLY_BRAIN_STAGES.map((stage) => ({
-        id: `${queue.job?.id || "job"}-${stage.type}`,
+    : generationLayerPlan(stagedState?.payload || null, stagedState).map((stage) => ({
+        id: `${queue.job?.id || "job"}-${stage.layerType}`,
         trip_id: queue.job?.trip_id || "",
         job_id: queue.job?.id || "",
         user_id: queue.job?.user_id || "",
-        layer_type: stage.type,
-        layer_sequence: stage.sequence,
-        status: "pending" as GenerationLayerStatus,
+        layer_type: stage.layerType,
+        layer_sequence: stage.layerSequence,
+        status: layerStatusFromState(stage, stagedState),
         input_json: {},
         output_json: {},
         evidence_json: {},
@@ -416,12 +669,13 @@ export function publicQueueProgress(
     layers.find((layer) => layer.status === "running") ||
     layers.find((layer) => layer.status === "pending" || layer.status === "failed" || layer.status === "invalidated") ||
     layers.at(-1);
-  const staged = publicStagedGenerationProgress(metadata || {});
   const currentStage = active?.layer_type || queue.job.current_stage || "queued";
 
   return {
+    tripId,
     job: {
       id: queue.job.id,
+      trip_id: queue.job.trip_id,
       status: queue.job.status,
       priority: queue.job.priority,
       current_stage: queue.job.current_stage,
@@ -440,9 +694,10 @@ export function publicQueueProgress(
     currentStage,
     currentStageLabel: stageLabel(currentStage),
     completedLayerCount: Math.max(completedLayerCount, staged?.status === "complete" ? layers.length : 0),
-    totalLayerCount: layers.length || ROAMLY_BRAIN_STAGES.length,
+    totalLayerCount: layers.length || generationLayerPlan(stagedState?.payload || null, stagedState).length,
     layers: layers.map((layer) => ({
       id: layer.id,
+      tripId: layer.trip_id,
       layerType: layer.layer_type,
       layerSequence: layer.layer_sequence,
       label: stageLabel(layer.layer_type),
@@ -484,34 +739,25 @@ export async function markQueueFromLegacyState(params: {
   metadata: unknown;
   preserveRunningStatus?: boolean;
 }) {
-  const state = getStagedGenerationState(params.metadata);
+  const state = getStagedGenerationState(params.metadata, params.tripId);
   if (!state) return { ok: true as const, skipped: true };
-  const stageByLegacy: Record<string, RoamlyBrainStageType> = {
-    queued: "trip_requirements",
-    validating_input: "trip_requirements",
-    generating_outline: "destination_structure",
-    generating_day: "daily_itinerary_generation",
-    validating_day: "itinerary_logistics_validation",
-    enriching_transport: "transport_decision",
-    enriching_affiliates: "final_assembly",
-    complete: "completion_notification",
-    partially_failed: "schedule_validation",
-    failed: "schedule_validation"
-  };
-  const status: GenerationJobStatus =
-    state.status === "complete"
-      ? "completed"
-      : state.status === "failed" || state.status === "partially_failed"
-        ? "failed"
-        : "waiting";
+  const status = terminalQueueStatus(state);
+  const currentStage = currentStagedLayerType(state, state.payload);
 
   if (params.preserveRunningStatus) {
     const supabase = adminOrClient(params.supabase);
     if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+    const reconciled = await reconcileGenerationLayersFromStagedState({
+      supabase,
+      tripId: params.tripId,
+      userId: params.userId,
+      state
+    });
+    if (!reconciled.ok) return reconciled;
     const runningUpdate = await supabase
       .from("roamly_trip_generation_jobs")
       .update({
-        current_stage: stageByLegacy[state.currentStage] || "daily_itinerary_generation"
+        current_stage: currentStage
       })
       .eq("trip_id", params.tripId)
       .eq("user_id", params.userId)
@@ -523,7 +769,7 @@ export async function markQueueFromLegacyState(params: {
     const inactiveUpdate = await supabase
       .from("roamly_trip_generation_jobs")
       .update({
-        current_stage: stageByLegacy[state.currentStage] || "daily_itinerary_generation",
+        current_stage: currentStage,
         status
       })
       .eq("trip_id", params.tripId)
@@ -535,11 +781,21 @@ export async function markQueueFromLegacyState(params: {
     return { ok: true as const };
   }
 
-  return markQueueCurrentStage({
-    supabase: params.supabase,
+  const supabase = adminOrClient(params.supabase);
+  if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+  const reconciled = await reconcileGenerationLayersFromStagedState({
+    supabase,
     tripId: params.tripId,
     userId: params.userId,
-    currentStage: stageByLegacy[state.currentStage] || "daily_itinerary_generation",
+    state
+  });
+  if (!reconciled.ok) return reconciled;
+
+  return markQueueCurrentStage({
+    supabase,
+    tripId: params.tripId,
+    userId: params.userId,
+    currentStage,
     status
   });
 }

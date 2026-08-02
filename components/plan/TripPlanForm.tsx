@@ -500,6 +500,15 @@ function ToggleButton({
   );
 }
 
+function StepError({ error }: { error: string }) {
+  if (!error) return null;
+  return (
+    <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black leading-6 text-coral">
+      {error}
+    </p>
+  );
+}
+
 export function TripPlanForm({
   freeItineraryUsed = false,
   testerAccess = false,
@@ -1565,6 +1574,7 @@ export function TripPlanForm({
                 <p className="mt-2 text-base font-black leading-7 text-ink">{routePreview}</p>
               </div>
             ) : null}
+            <StepError error={translateText(error)} />
           </div>
         ) : null}
 
@@ -1634,6 +1644,7 @@ export function TripPlanForm({
                 <SelectField value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} />
               </label>
             </div>
+            <StepError error={translateText(error)} />
           </div>
         ) : null}
 
@@ -1660,6 +1671,7 @@ export function TripPlanForm({
               <ToggleButton label="Budget includes hotel" enabled={budgetIncludesHotel} onToggle={() => setBudgetIncludesHotel((value) => !value)} />
               <ToggleButton label="Budget includes activities" enabled={budgetIncludesActivities} onToggle={() => setBudgetIncludesActivities((value) => !value)} />
             </div>
+            <StepError error={translateText(error)} />
           </div>
         ) : null}
 
@@ -1736,6 +1748,7 @@ export function TripPlanForm({
                 {translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}
               </p>
             </label>
+            <StepError error={translateText(error)} />
           </div>
         ) : null}
 
@@ -1758,15 +1771,10 @@ export function TripPlanForm({
                 {translateText("Review your trip details carefully. Once your itinerary is generated, it cannot be edited. New destinations, date changes, or major changes require a new itinerary.")}
               </p>
             </div>
+            <StepError error={translateText(error)} />
           </div>
         ) : null}
       </div>
-
-      {error ? (
-        <p className="mt-4 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {translateText(error)}
-        </p>
-      ) : null}
 
       {notice ? (
         <p className="mt-4 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
@@ -1834,7 +1842,7 @@ export function TripPlanForm({
         </div>
       ) : null}
 
-      <div className="sticky bottom-3 z-20 mt-5 grid grid-cols-2 gap-3 rounded-[1.25rem] bg-white/95 p-2 shadow-soft backdrop-blur sm:static sm:p-0 sm:shadow-none">
+      <div className="sticky bottom-[calc(5.85rem+env(safe-area-inset-bottom))] z-20 mt-5 grid grid-cols-2 gap-3 rounded-[1.25rem] bg-white/95 p-2 shadow-soft backdrop-blur sm:static sm:p-0 sm:shadow-none">
         <button
           type="button"
           onClick={goBack}

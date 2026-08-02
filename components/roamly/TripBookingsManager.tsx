@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { NavigationButtons } from "@/components/roamly/NavigationButtons";
+import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 
 type Booking = {
   id?: string;
@@ -78,6 +78,7 @@ function Field({
 }
 
 export function TripBookingsList({ tripId, bookings }: { tripId: string; bookings: Booking[] }) {
+  void tripId;
   if (!bookings.length) {
     return (
       <div className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
@@ -88,31 +89,51 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
 
   return (
     <div className="grid gap-3">
-      {bookings.map((booking) => (
-        <article key={booking.id || booking.title} className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">{booking.booking_type}</p>
-              <h3 className="mt-1 text-lg font-black text-ink">{booking.title || "Booking"}</h3>
-              <p className="mt-1 text-sm font-bold text-slate-500">
-                {[booking.provider_name, booking.start_date, booking.start_time].filter(Boolean).join(" · ")}
-              </p>
-              {booking.address ? <p className="mt-1 text-sm font-bold text-slate-500">{booking.address}</p> : null}
+      {bookings.map((booking) => {
+        const address = booking.address || [booking.city, booking.region, booking.country].filter(Boolean).join(", ");
+        const mapsLink = buildNavigationLinks({
+          destinationLabel: booking.title,
+          address,
+          latitude: booking.latitude,
+          longitude: booking.longitude
+        })[0];
+        return (
+          <article key={booking.id || booking.title} className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean dark:text-cyan-200">{booking.booking_type}</p>
+                <h3 className="mt-1 text-lg font-black text-ink dark:text-white">{booking.title || "Booking"}</h3>
+                <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">
+                  {[booking.provider_name, booking.start_date, booking.start_time].filter(Boolean).join(" · ")}
+                </p>
+                {address ? <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">{address}</p> : null}
+              </div>
+              <div className="w-fit rounded-full bg-mist px-3 py-2 text-xs font-black text-ink dark:bg-white/10 dark:text-white">
+                {formatMoney(booking.amount_cents, booking.currency || "CAD")}
+              </div>
             </div>
-            <div className="rounded-full bg-mist px-3 py-2 text-xs font-black text-ink">
-              {formatMoney(booking.amount_cents, booking.currency || "CAD")}
-            </div>
-          </div>
-          <NavigationButtons
-            tripId={tripId}
-            destinationLabel={booking.title}
-            address={booking.address || [booking.city, booking.region, booking.country].filter(Boolean).join(", ")}
-            latitude={booking.latitude}
-            longitude={booking.longitude}
-            className="mt-3"
-          />
-        </article>
-      ))}
+            <details className="mt-3 rounded-2xl bg-mist px-3 py-3 dark:bg-white/10">
+              <summary className="cursor-pointer text-sm font-black text-ink dark:text-white">Booking details</summary>
+              <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+                {booking.confirmation_number ? <p>Reference: {booking.confirmation_number}</p> : null}
+                {booking.booking_status ? <p>Status: {booking.booking_status}</p> : null}
+                {booking.extraction_confidence ? <p>Extraction: {booking.extraction_confidence}</p> : null}
+                {!booking.confirmation_number && !booking.booking_status && !booking.extraction_confidence ? <p>No extra details saved.</p> : null}
+              </div>
+            </details>
+            {mapsLink ? (
+              <a
+                href={mapsLink.href}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-ink px-4 py-2 text-sm font-black text-white dark:bg-white dark:text-ink"
+              >
+                Open in Maps
+              </a>
+            ) : null}
+          </article>
+        );
+      })}
     </div>
   );
 }

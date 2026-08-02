@@ -61,6 +61,7 @@ type DeliveryRow = {
   idempotency_key: string;
   attempt_count: number;
   max_attempts: number;
+  next_attempt_at: string;
   is_test: boolean;
   metadata_json: Record<string, unknown> | null;
 };
@@ -170,45 +171,9 @@ export async function queueCompanionNotification(
     ...(params.dedupeParts || [])
   ]);
 
-  const existing = await params.supabase
-    .from("roamly_companion_notification_deliveries")
-    .select("*")
-    .eq("idempotency_key", idempotencyKey)
-    .maybeSingle();
-
-  if (existing.error) {
-    return { ok: false as const, error: existing.error.message };
-  }
-
-  if (existing.data) {
-    return {
-      ok: true as const,
-      delivery: existing.data,
-      deduplicated: true
-    };
-  }
-
-  const notificationInsert = await params.supabase
-    .from("roamly_notifications")
-    .insert({
-      user_id: params.userId,
-      trip_id: params.tripId || null,
-      title: params.title,
-      body: params.body,
-      type: params.type,
-      action_url: params.actionUrl || null,
-      status: "unread"
-    })
-    .select("id")
-    .single();
-
-  if (notificationInsert.error) {
-    return {
-      ok: false as const,
-      error: notificationInsert.error.message
-    };
-  }
-
+  // Claim the unique delivery row before creating the in-app notification.
+  // A read-then-insert sequence creates duplicate notifications when two cron
+  // workers overlap. The unique idempotency index is the concurrency guard.
   const deliveryInsert = await params.supabase
     .from("roamly_companion_notification_deliveries")
     .insert({
@@ -217,7 +182,7 @@ export async function queueCompanionNotification(
       booking_id: params.bookingId || null,
       companion_event_id: params.companionEventId || null,
       repair_proposal_id: params.repairProposalId || null,
-      notification_id: notificationInsert.data.id,
+      notification_id: null,
       notification_type: params.type,
       priority: params.priority,
       channel: "email",
@@ -236,15 +201,61 @@ export async function queueCompanionNotification(
     .single();
 
   if (deliveryInsert.error) {
+    if (deliveryInsert.error.code === "23505") {
+      const existing = await params.supabase
+        .from("roamly_companion_notification_deliveries")
+        .select("*")
+        .eq("idempotency_key", idempotencyKey)
+        .maybeSingle();
+      if (existing.data) {
+        return { ok: true as const, delivery: existing.data, deduplicated: true };
+      }
+    }
     return {
       ok: false as const,
       error: deliveryInsert.error.message
     };
   }
 
+  const notificationInsert = await params.supabase
+    .from("roamly_notifications")
+    .insert({
+      user_id: params.userId,
+      trip_id: params.tripId || null,
+      event_id: params.companionEventId || null,
+      title: params.title,
+      body: params.body,
+      type: params.type,
+      action_url: params.actionUrl || null,
+      status: "unread"
+    })
+    .select("id")
+    .single();
+
+  if (notificationInsert.error) {
+    await params.supabase
+      .from("roamly_companion_notification_deliveries")
+      .update({ status: "suppressed", suppression_reason: "In-app notification could not be created." })
+      .eq("id", deliveryInsert.data.id)
+      .eq("idempotency_key", idempotencyKey);
+    return { ok: false as const, error: notificationInsert.error.message };
+  }
+
+  const linked = await params.supabase
+    .from("roamly_companion_notification_deliveries")
+    .update({ notification_id: notificationInsert.data.id })
+    .eq("id", deliveryInsert.data.id)
+    .eq("idempotency_key", idempotencyKey)
+    .select("*")
+    .single();
+
+  if (linked.error) {
+    return { ok: false as const, error: linked.error.message };
+  }
+
   return {
     ok: true as const,
-    delivery: deliveryInsert.data,
+    delivery: linked.data,
     deduplicated: false
   };
 }
@@ -313,32 +324,49 @@ export async function sendCompanionNotificationDelivery(
     };
   }
 
-  await admin
+  if (delivery.attempt_count >= delivery.max_attempts) {
+    return { ok: false as const, error: "COMPANION_DELIVERY_ATTEMPTS_EXHAUSTED", alreadyFinished: true };
+  }
+
+  // Claim the row atomically. If another worker claimed it first, do not send
+  // a second email. Resend and local capture also receive the same idempotency
+  // key, covering the crash window after provider acceptance.
+  const claimed = await admin
     .from("roamly_companion_notification_deliveries")
     .update({
       status: "sending",
       attempt_count: delivery.attempt_count + 1,
       last_error: null
     })
-    .eq("id", delivery.id);
+    .eq("id", delivery.id)
+    .eq("status", delivery.status)
+    .eq("attempt_count", delivery.attempt_count)
+    .select("*")
+    .maybeSingle();
 
-  const template = renderCompanionEmail(delivery);
+  if (claimed.error) return { ok: false as const, error: claimed.error.message };
+  if (!claimed.data) return { ok: true as const, alreadyClaimed: true };
+
+  const claimedDelivery = claimed.data as DeliveryRow;
+  const claimedAttempt = claimedDelivery.attempt_count;
+
+  const template = renderCompanionEmail(claimedDelivery);
 
   const result = await sendRoamlyEmail({
     to: recipient,
     subject: template.subject,
     html: template.html,
     text: template.text,
-    userId: delivery.user_id,
-    tripId: delivery.trip_id,
-    notificationId: delivery.notification_id,
-    idempotencyKey: delivery.idempotency_key,
+    userId: claimedDelivery.user_id,
+    tripId: claimedDelivery.trip_id,
+    notificationId: claimedDelivery.notification_id,
+    idempotencyKey: claimedDelivery.idempotency_key,
     metadata: {
-      type: delivery.notification_type,
+      type: claimedDelivery.notification_type,
       template: "companion_transactional",
-      deliveryId: delivery.id,
-      isTest: delivery.is_test,
-      ...(delivery.metadata_json || {})
+      deliveryId: claimedDelivery.id,
+      isTest: claimedDelivery.is_test,
+      ...(claimedDelivery.metadata_json || {})
     }
   });
 
@@ -354,30 +382,32 @@ export async function sendCompanionNotificationDelivery(
         sent_at: new Date().toISOString(),
         last_error: null
       })
-      .eq("id", delivery.id);
+      .eq("id", claimedDelivery.id)
+      .eq("status", "sending");
 
     return { ok: true as const, result };
   }
 
   const nextAttempt = new Date(
     Date.now() +
-      retryDelaySeconds(delivery.attempt_count + 1) * 1000
+      retryDelaySeconds(claimedAttempt) * 1000
   ).toISOString();
 
   const exhausted =
     result.permanent ||
-    delivery.attempt_count + 1 >= delivery.max_attempts;
+    claimedAttempt >= claimedDelivery.max_attempts;
 
   await admin
     .from("roamly_companion_notification_deliveries")
     .update({
       status: exhausted ? "failed" : "retrying",
-      next_attempt_at: exhausted ? deliveryResult.data.next_attempt_at : nextAttempt,
+      next_attempt_at: exhausted ? claimedDelivery.next_attempt_at : nextAttempt,
       failed_at: exhausted ? new Date().toISOString() : null,
       last_error: result.error || "Email failed.",
       provider_name: result.provider
     })
-    .eq("id", delivery.id);
+    .eq("id", claimedDelivery.id)
+    .eq("status", "sending");
 
   return {
     ok: false as const,
@@ -399,6 +429,12 @@ export async function processQueuedCompanionNotifications(params?: {
   }
 
   const now = new Date().toISOString();
+  const staleSendingAt = new Date(Date.now() - 15 * 60_000).toISOString();
+  await admin
+    .from("roamly_companion_notification_deliveries")
+    .update({ status: "retrying", next_attempt_at: now, last_error: "Recovered stale sending claim." })
+    .eq("status", "sending")
+    .lt("updated_at", staleSendingAt);
   const limit = Math.max(1, Math.min(params?.limit || 20, 100));
 
   const queued = await admin

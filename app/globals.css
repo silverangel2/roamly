@@ -17,6 +17,7 @@ html {
   background: var(--background);
   color: var(--foreground);
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
@@ -26,6 +27,7 @@ body {
   font-family: var(--font-geist-sans);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 a {
@@ -46,6 +48,19 @@ select {
 
 .safe-bottom {
   padding-bottom: max(5.5rem, env(safe-area-inset-bottom));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #07111f;
+    --foreground: #eef7fb;
+  }
+
+  html,
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
 }
 
 .glass-panel {
@@ -118,7 +133,7 @@ select {
 }
 
 @page {
-  margin: 16mm;
+  margin: 10mm;
 }
 
 @media print {
@@ -159,6 +174,169 @@ select {
   .roamly-print-paper {
     max-width: none !important;
     margin: 0 !important;
+  }
+
+  .roamly-screen-document {
+    display: none !important;
+  }
+
+  .roamly-compact-print {
+    display: block !important;
+    font-size: 9.5pt;
+    line-height: 1.32;
+  }
+
+  .roamly-pdf-page {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .roamly-pdf-cover {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .roamly-pdf-final {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .roamly-pdf-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #d8e6e8;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+
+  .roamly-pdf-brand img {
+    width: 92px;
+    height: auto;
+  }
+
+  .roamly-pdf-brand span,
+  .roamly-pdf-info-cell p,
+  .roamly-pdf-day-heading p,
+  .roamly-pdf-time {
+    color: #1b9aaa;
+    font-size: 8pt;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .roamly-compact-print h1 {
+    font-size: 24pt;
+    line-height: 1.05;
+    margin: 0 0 8px;
+  }
+
+  .roamly-compact-print h2 {
+    font-size: 13pt;
+    margin: 0 0 6px;
+  }
+
+  .roamly-compact-print h3 {
+    font-size: 11pt;
+    margin: 0 0 4px;
+  }
+
+  .roamly-compact-print p {
+    margin: 0;
+  }
+
+  .roamly-pdf-summary {
+    max-width: 170mm;
+    margin-bottom: 12px !important;
+    color: #475569;
+    font-weight: 700;
+  }
+
+  .roamly-pdf-info-grid,
+  .roamly-pdf-two-col {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 10px;
+  }
+
+  .roamly-pdf-info-cell,
+  .roamly-pdf-two-col section,
+  .roamly-pdf-day,
+  .roamly-pdf-final > section {
+    border: 1px solid #d8e6e8;
+    border-radius: 8px;
+    padding: 8px;
+    background: #ffffff;
+  }
+
+  .roamly-pdf-info-cell strong,
+  .roamly-pdf-timeline-row strong,
+  .roamly-compact-print li strong {
+    display: block;
+    color: #102033;
+    font-weight: 900;
+  }
+
+  .roamly-compact-print ul {
+    margin: 0;
+    padding-left: 14px;
+  }
+
+  .roamly-compact-print li {
+    margin: 0 0 4px;
+    color: #475569;
+    font-weight: 700;
+  }
+
+  .roamly-compact-print li span {
+    display: block;
+    font-weight: 650;
+  }
+
+  .roamly-pdf-days {
+    display: grid;
+    gap: 7px;
+  }
+
+  .roamly-pdf-day {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .roamly-pdf-day-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .roamly-pdf-day-heading span,
+  .roamly-pdf-food {
+    color: #475569;
+    font-size: 8.5pt;
+    font-weight: 800;
+  }
+
+  .roamly-pdf-timeline {
+    display: grid;
+    gap: 4px;
+  }
+
+  .roamly-pdf-timeline-row {
+    display: grid;
+    grid-template-columns: 25mm minmax(0, 1fr);
+    gap: 6px;
+    border-top: 1px solid #edf2f7;
+    padding-top: 4px;
+  }
+
+  .roamly-pdf-timeline-row p {
+    color: #475569;
+    font-weight: 650;
   }
 
   .roamly-print-section,

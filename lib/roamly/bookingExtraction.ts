@@ -21,9 +21,11 @@ export type StructuredBookingExtraction = {
   overallConfidence: number;
   missingFields: string[];
   matchReasons: string[];
+  eventTypes: string[];
+  requiresUserApproval: boolean;
 };
 
-type TripMatchRecord = {
+export type TripMatchRecord = {
   id: string;
   user_id: string;
   title: string | null;
@@ -33,6 +35,10 @@ type TripMatchRecord = {
   start_date: string | null;
   end_date: string | null;
 };
+
+const EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE = 0.82;
+const EMAIL_LOOKBACK_TRIP_MATCH_THRESHOLD = 0.7;
+const EMAIL_LOOKBACK_TEXT_LIMIT = 6_000;
 
 export const BOOKING_EXTRACTION_JSON_SCHEMA = {
   type: "object",
@@ -104,23 +110,105 @@ function dateHintToIso(value?: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
-function bookingTypeFromText(text: string, flightNumbers: string[]) {
-  if (flightNumbers.length || /\b(flight|boarding|gate|terminal|airline)\b/i.test(text)) return "flight";
+function dateTimeHintToIso(dateHint?: string | null, timeHint?: string | null) {
+  const dateText = clean(dateHint);
+  const timeText = clean(timeHint);
+  if (!dateText) return null;
+  const direct = dateHintToIso(timeText ? `${dateText} ${timeText}` : dateText);
+  if (direct) return direct;
+  return dateHintToIso(dateText);
+}
+
+function textFromMetadata(metadata: TravelEmailMetadata) {
+  return [metadata.subject, metadata.snippet, metadata.bodyText].map(clean).filter(Boolean).join(" ").slice(0, EMAIL_LOOKBACK_TEXT_LIMIT);
+}
+
+function providerHintFromDomain(domain: string) {
+  if (/klook\.com$/i.test(domain)) return { type: "activity", provider: "Klook" };
+  if (/aircanada\.com$/i.test(domain)) return { type: "flight", provider: "Air Canada" };
+  if (/delta\.com$/i.test(domain)) return { type: "flight", provider: "Delta" };
+  if (/united\.com$/i.test(domain)) return { type: "flight", provider: "United Airlines" };
+  if (/aa\.com$/i.test(domain)) return { type: "flight", provider: "American Airlines" };
+  if (/booking\.com$|hotels\.com$|expedia\.com$|stay22\.com$/i.test(domain)) return { type: "hotel", provider: null };
+  if (/trainline\.com$|amtrak\.com$|viarail\.ca$/i.test(domain)) return { type: "train", provider: null };
+  if (/greyhound\.com$|flixbus\.com$/i.test(domain)) return { type: "bus", provider: null };
+  return { type: "", provider: null };
+}
+
+function bookingTypeFromText(text: string, flightNumbers: string[], bookingTypes: string[], domain: string) {
+  const providerHint = providerHintFromDomain(domain);
+  if (providerHint.type) return providerHint.type;
+  if (bookingTypes.includes("flight") || flightNumbers.length || /\b(flight|boarding|gate|terminal|airline)\b/i.test(text)) return "flight";
+  if (bookingTypes.includes("hotel")) return "hotel";
+  if (bookingTypes.includes("activity")) return "activity";
+  if (bookingTypes.includes("train")) return "train";
+  if (bookingTypes.includes("bus")) return "bus";
+  if (bookingTypes.includes("restaurant")) return "restaurant";
+  if (bookingTypes.includes("transport")) return "transfer";
   if (/\b(hotel|room|property|check-?in|check-?out)\b/i.test(text)) return "hotel";
   if (/\b(train|rail)\b/i.test(text)) return "train";
   if (/\b(bus|coach)\b/i.test(text)) return "bus";
   if (/\b(ferry)\b/i.test(text)) return "ferry";
   if (/\b(rental car|car rental|pickup|pick-up)\b/i.test(text)) return "rental_car";
+  if (/\b(transfer|shuttle|airport pickup|private car)\b/i.test(text)) return "transfer";
   if (/\b(restaurant|dinner|lunch reservation)\b/i.test(text)) return "restaurant";
-  if (/\b(ticket|tour|activity|admission)\b/i.test(text)) return "activity";
+  if (/\b(klook|voucher|ticket|tour|activity|admission)\b/i.test(text)) return "activity";
   return "other";
 }
 
-function bookingStatusFromSubject(subject: string) {
-  if (/\bcancel(?:led|lation)\b/i.test(subject)) return "cancelled";
-  if (/\brefund(?:ed)?\b/i.test(subject)) return "refunded";
-  if (/\b(modified|changed|updated|schedule change)\b/i.test(subject)) return "modified";
+function bookingStatusFromText(text: string) {
+  if (/\bcancel(?:led|ed|lation)\b/i.test(text)) return "cancelled";
+  if (/\brefund(?:ed)?\b/i.test(text)) return "refunded";
+  if (/\b(modified|changed|updated|schedule change|time change|date change|hotel changed|booking changed)\b/i.test(text)) return "modified";
   return "confirmed";
+}
+
+function inferredEventTypes(text: string, facts: Record<string, unknown>) {
+  return [
+    ...asStringArray(facts.eventTypes),
+    /\bcancel(?:led|ed|lation)\b/i.test(text) ? "cancellation" : "",
+    /\bdelay(?:ed)?\b/i.test(text) ? "delay" : "",
+    /\b(gate|terminal)\s+(?:change|updated?)\b/i.test(text) ? "gate_or_terminal_change" : "",
+    /\b(schedule|time|date|hotel|booking)\s+(?:change|changed|updated|modified)\b/i.test(text) ? "schedule_change" : ""
+  ].filter(Boolean);
+}
+
+function requiresApprovalForEvent(eventTypes: string[], bookingType: string, status: string) {
+  if (status === "cancelled" || status === "refunded") return true;
+  if (eventTypes.some((event) => event === "cancellation" || event === "schedule_change")) return true;
+  return bookingType === "hotel" && status === "modified";
+}
+
+function extractNamedValue(text: string, labels: string[]) {
+  for (const label of labels) {
+    const pattern = new RegExp(`\\b${label}\\s*[:#-]?\\s*([^\\n\\r|]{3,80})`, "i");
+    const match = text.match(pattern);
+    if (match?.[1]) return match[1].replace(/\s{2,}.*/, "").trim();
+  }
+  return "";
+}
+
+function cleanLocationValue(value: string) {
+  return clean(value)
+    .replace(/\s+\b(?:on|at|departing|arriving|arrival|departure|date|time)\b.*$/i, "")
+    .replace(/[.;|].*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function extractRouteFromText(text: string) {
+  const direct = text.match(/\bfrom\s+([A-Z][A-Za-z .,'-]{2,70})\s+to\s+([A-Z][A-Za-z .,'-]{2,70})(?:\s+\b(?:on|at|departing|arriving)\b|[.;|]|$)/i);
+  if (direct) {
+    return {
+      origin: cleanLocationValue(direct[1]),
+      destination: cleanLocationValue(direct[2])
+    };
+  }
+  const toOnly = text.match(/\b(?:flight|train|bus|transfer|shuttle|ferry)\s+[A-Z0-9 -]{0,12}\s+to\s+([A-Z][A-Za-z .,'-]{2,70})(?:\s+\b(?:on|at|departing|arriving)\b|[.;|]|$)/i);
+  return {
+    origin: "",
+    destination: toOnly ? cleanLocationValue(toOnly[1]) : ""
+  };
 }
 
 export function deterministicBookingExtraction(params: {
@@ -128,53 +216,87 @@ export function deterministicBookingExtraction(params: {
   filter: TravelEmailFilterResult;
 }): StructuredBookingExtraction {
   const subject = clean(params.metadata.subject);
+  const searchable = textFromMetadata(params.metadata);
   const facts = params.filter.extractedFacts;
   const bookingReferences = asStringArray(facts.bookingReferenceCandidates);
   const flightNumbers = asStringArray(facts.flightNumbers);
   const dateHints = asStringArray(facts.dateHints);
-  const provider = providerName(params.metadata, params.filter);
-  const bookingType = bookingTypeFromText(`${subject} ${provider || ""}`, flightNumbers);
-  const startTime = dateHintToIso(dateHints[0]);
+  const timeHints = asStringArray(facts.timeHints);
+  const bookingTypes = asStringArray(facts.bookingTypes);
+  const domain = senderDomain(params.metadata.sender);
+  const providerHint = providerHintFromDomain(domain);
+  const provider = providerHint.provider || providerName(params.metadata, params.filter);
+  const bookingType = bookingTypeFromText(`${searchable} ${provider || ""}`, flightNumbers, bookingTypes, domain);
+  const startTime = dateTimeHintToIso(dateHints[0], timeHints[0]);
   const confirmationCode = bookingReferences[0] || null;
   const flightNumber = flightNumbers[0] || null;
-  const highSignal = Boolean(provider && confirmationCode && (flightNumber || startTime || bookingType === "hotel"));
-  const overallConfidence = Math.min(1, params.filter.confidence + (highSignal ? 0.25 : 0) + (startTime ? 0.1 : 0));
+  const status = bookingStatusFromText(searchable || subject);
+  const eventTypes = [...new Set(inferredEventTypes(searchable || subject, facts))];
+  const highSignal = Boolean(provider && confirmationCode && (flightNumber || startTime || bookingType === "hotel" || bookingType === "activity"));
+  const overallConfidence = Math.min(
+    1,
+    params.filter.confidence +
+      (highSignal ? 0.25 : 0) +
+      (startTime ? 0.1 : 0) +
+      (eventTypes.length ? 0.05 : 0)
+  );
+  const hotelName = extractNamedValue(searchable, ["hotel", "property", "accommodation"]);
+  const activityName = extractNamedValue(searchable, ["activity", "experience", "tour", "ticket", "voucher"]);
+  const route = extractRouteFromText(searchable);
+  const originName =
+    cleanLocationValue(extractNamedValue(searchable, ["origin", "departure city", "departure", "pickup", "pick-up"])) ||
+    route.origin ||
+    null;
+  const destinationName =
+    cleanLocationValue(extractNamedValue(searchable, ["destination", "arrival city", "arrival", "dropoff", "drop-off"])) ||
+    route.destination ||
+    null;
   const title =
     bookingType === "flight" && flightNumber
       ? `Flight ${flightNumber}`
+      : bookingType === "activity" && activityName
+        ? activityName
       : bookingType === "hotel" && provider
-        ? `${provider} hotel booking`
+        ? `${hotelName || provider} hotel booking`
         : subject || `${provider || "Travel"} booking`;
   const missingFields = [
     !confirmationCode ? "confirmation_code" : "",
-    !startTime ? "start_time" : "",
+    !startTime && status === "confirmed" ? "start_time" : "",
     bookingType === "flight" && !flightNumber ? "flight_number" : ""
   ].filter(Boolean);
+  const requiresUserApproval = requiresApprovalForEvent(eventTypes, bookingType, status);
 
   return {
     extractionMethod: "deterministic",
     overallConfidence: Math.round(overallConfidence * 100) / 100,
     missingFields,
-    matchReasons: params.filter.reasons,
+    matchReasons: [...params.filter.reasons, ...eventTypes.map((event) => `event:${event}`)],
+    eventTypes,
+    requiresUserApproval,
     fields: {
       booking_type: field(bookingType, 0.75, "subject", "subject"),
       provider: field(provider, provider ? 0.7 : 0, "sender", "sender_domain", Boolean(provider)),
       confirmation_code: field(confirmationCode, confirmationCode ? 0.82 : 0, "filter_facts", "booking_reference", Boolean(confirmationCode)),
       start_time: field(startTime, startTime ? 0.62 : 0, "filter_facts", "date_hint"),
       flight_number: field(flightNumber, flightNumber ? 0.84 : 0, "filter_facts", "flight_number", Boolean(flightNumber)),
+      origin: field(originName, originName ? 0.58 : 0, "filter_facts", "body_preview", Boolean(originName)),
+      destination: field(destinationName, destinationName ? 0.58 : 0, "filter_facts", "body_preview", Boolean(destinationName)),
       title: field(title, 0.65, "subject", "subject")
     },
     booking: {
       bookingType,
-      bookingStatus: overallConfidence >= 0.75 && missingFields.length === 0 ? bookingStatusFromSubject(subject) : "needs_confirmation",
+      bookingStatus: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0 ? status : "needs_confirmation",
       provider,
       confirmationCode,
       sourceType: "email",
       sourceReference: `email:${params.metadata.provider}:${params.metadata.messageId}`,
       title,
       startTime,
+      origin: originName,
+      destination: destinationName,
+      locationName: bookingType === "hotel" ? hotelName || null : bookingType === "activity" ? activityName || null : null,
       flightNumber,
-      travelerConfirmed: overallConfidence >= 0.75 && missingFields.length === 0,
+      travelerConfirmed: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0,
       lastSyncedAt: new Date().toISOString()
     }
   };
@@ -210,7 +332,8 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
         content: JSON.stringify({
           sender: metadata.sender || "",
           subject: metadata.subject || "",
-          snippet: metadata.snippet || ""
+          snippet: metadata.snippet || "",
+          body_preview: clean(metadata.bodyText).slice(0, EMAIL_LOOKBACK_TEXT_LIMIT)
         })
       }
     ]
@@ -220,11 +343,15 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
   const confidence = typeof parsed.confidence === "number" ? parsed.confidence : 0;
   const bookingType = clean(parsed.booking_type) || "other";
   const title = clean(parsed.title) || clean(metadata.subject) || "Travel booking";
+  const bookingStatus = clean(parsed.booking_status) || "needs_confirmation";
+  const eventTypes = inferredEventTypes(textFromMetadata(metadata), {});
   return {
     extractionMethod: "ai_structured" as const,
     overallConfidence: Math.max(0, Math.min(1, confidence)),
     missingFields: asStringArray(parsed.missing_fields),
     matchReasons: ["ai_structured_extraction"],
+    eventTypes,
+    requiresUserApproval: requiresApprovalForEvent(eventTypes, bookingType, bookingStatus),
     fields: {
       booking_type: field(bookingType, confidence, "ai_structured", "structured_output"),
       provider: field(clean(parsed.provider) || null, confidence, "ai_structured", "structured_output"),
@@ -235,7 +362,7 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
     },
     booking: {
       bookingType,
-      bookingStatus: clean(parsed.booking_status) || "needs_confirmation",
+      bookingStatus,
       provider: clean(parsed.provider) || null,
       confirmationCode: clean(parsed.confirmation_code) || null,
       sourceType: "email",
@@ -267,15 +394,101 @@ function tripTextScore(trip: TripMatchRecord, extraction: StructuredBookingExtra
   const destination = [trip.destination, trip.destination_name, trip.destination_city, trip.title].map(clean).filter(Boolean).join(" ").toLowerCase();
   const bookingText = [extraction.booking.destination, extraction.booking.locationName, extraction.booking.title].map(clean).filter(Boolean).join(" ").toLowerCase();
   if (!destination || !bookingText) return 0;
-  return destination
+  const matched = destination
     .split(/\W+/)
     .filter((word) => word.length >= 4)
     .some((word) => bookingText.includes(word))
-    ? 0.3
-    : 0;
+  return matched ? 0.3 : 0;
+}
+
+export function scoreTripForEmailLookbackMatch(
+  trip: TripMatchRecord,
+  extraction: StructuredBookingExtraction,
+  tripCount = 1
+) {
+  const dateScore = tripDateScore(trip, extraction.booking.startTime);
+  const textScore = tripTextScore(trip, extraction);
+  const singleTripBonus = tripCount === 1 && dateScore > 0 && extraction.overallConfidence >= 0.9 ? 0.1 : 0;
+  return {
+    trip,
+    score: dateScore + textScore + singleTripBonus,
+    reasons: [
+      dateScore ? "trip_date_overlap" : "",
+      textScore ? "destination_text_match" : "",
+      singleTripBonus ? "single_trip_date_window" : ""
+    ].filter(Boolean)
+  };
+}
+
+export function shouldAutoApplyEmailLookbackExtraction(params: {
+  extraction: StructuredBookingExtraction;
+  matchScore: number;
+}) {
+  return (
+    params.extraction.overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE &&
+    params.extraction.missingFields.length === 0 &&
+    params.matchScore >= EMAIL_LOOKBACK_TRIP_MATCH_THRESHOLD &&
+    !params.extraction.requiresUserApproval
+  );
+}
+
+async function existingBookingTripMatch(supabase: SupabaseClient, userId: string, extraction: StructuredBookingExtraction) {
+  const confirmation = clean(extraction.booking.confirmationCode);
+  const providerBookingId = clean(extraction.booking.providerBookingId);
+  const flightNumber = clean(extraction.booking.flightNumber);
+  const startTime = clean(extraction.booking.startTime);
+
+  async function lookup(column: string, value: string) {
+    if (!value) return null;
+    const { data } = await supabase
+      .from("roamly_bookings")
+      .select("id,trip_id,user_id,title,booking_type,confirmation_number,provider_booking_id,flight_number,start_at")
+      .eq("user_id", userId)
+      .eq(column, value)
+      .order("updated_at", { ascending: false })
+      .limit(3);
+    return (data || [])[0] as Record<string, unknown> | undefined;
+  }
+
+  const direct =
+    (await lookup("confirmation_number", confirmation)) ||
+    (await lookup("provider_booking_id", providerBookingId));
+  if (direct?.trip_id) {
+    return {
+      tripId: String(direct.trip_id),
+      bookingId: String(direct.id),
+      score: 1,
+      reasons: ["exact_existing_booking_match"]
+    };
+  }
+
+  const startMs = startTime ? new Date(startTime).getTime() : NaN;
+  if (flightNumber && Number.isFinite(startMs)) {
+    const { data } = await supabase
+      .from("roamly_bookings")
+      .select("id,trip_id,user_id,title,booking_type,flight_number,start_at")
+      .eq("user_id", userId)
+      .eq("flight_number", flightNumber)
+      .gte("start_at", new Date(startMs - 12 * 60 * 60 * 1000).toISOString())
+      .lte("start_at", new Date(startMs + 12 * 60 * 60 * 1000).toISOString())
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const row = (data || [])[0] as Record<string, unknown> | undefined;
+    if (row?.trip_id) {
+      return {
+        tripId: String(row.trip_id),
+        bookingId: String(row.id),
+        score: 0.95,
+        reasons: ["flight_number_time_existing_booking_match"]
+      };
+    }
+  }
+
+  return null;
 }
 
 async function bestTripMatch(supabase: SupabaseClient, userId: string, extraction: StructuredBookingExtraction) {
+  const existing = await existingBookingTripMatch(supabase, userId, extraction).catch(() => null);
   const { data } = await supabase
     .from("roamly_trips")
     .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date")
@@ -284,14 +497,18 @@ async function bestTripMatch(supabase: SupabaseClient, userId: string, extractio
     .order("start_date", { ascending: true, nullsFirst: false })
     .limit(20);
   const trips = (data || []) as TripMatchRecord[];
+  if (existing) {
+    const trip = trips.find((candidate) => candidate.id === existing.tripId);
+    if (trip) return { trip, score: existing.score, reasons: existing.reasons, existingBookingId: existing.bookingId };
+  }
   const scored = trips
-    .map((trip) => ({
-      trip,
-      score: tripDateScore(trip, extraction.booking.startTime) + tripTextScore(trip, extraction) + (trips.length === 1 ? 0.1 : 0)
-    }))
+    .map((trip) => scoreTripForEmailLookbackMatch(trip, extraction, trips.length))
     .sort((a, b) => b.score - a.score);
   const best = scored[0];
-  return best && best.score >= 0.4 ? best : null;
+  if (!best || best.score < EMAIL_LOOKBACK_TRIP_MATCH_THRESHOLD) return null;
+  if (!best.reasons.includes("trip_date_overlap")) return null;
+  if (!best.reasons.includes("destination_text_match") && !best.reasons.includes("single_trip_date_window")) return null;
+  return best;
 }
 
 async function persistExtraction(params: {
@@ -303,6 +520,9 @@ async function persistExtraction(params: {
   matchedBookingId: string | null;
   matchStatus: "unmatched" | "attached" | "needs_confirmation";
   matchReasons: string[];
+  autoApplyAllowed?: boolean;
+  requiresUserApproval?: boolean;
+  appliedAt?: string | null;
 }) {
   const payload = {
     user_id: params.connection.user_id,
@@ -316,7 +536,17 @@ async function persistExtraction(params: {
     overall_confidence: params.extraction.overallConfidence,
     match_status: params.matchStatus,
     matched_booking_id: params.matchedBookingId,
-    match_reasons: params.matchReasons
+    match_reasons: params.matchReasons,
+    email_event_types: params.extraction.eventTypes,
+    auto_apply_allowed: params.autoApplyAllowed === true,
+    requires_user_approval: params.requiresUserApproval === true,
+    applied_at: params.appliedAt || null,
+    idempotency_key: [
+      params.connection.user_id,
+      params.extraction.booking.sourceReference,
+      params.tripId || "unmatched",
+      params.matchedBookingId || "pending"
+    ].filter(Boolean).join(":")
   };
   await params.supabase.from("booking_extraction_results").upsert(payload, {
     onConflict: "user_id,source_type,source_reference"
@@ -348,12 +578,18 @@ export async function extractAndMatchTravelEmailBooking(params: {
       tripId: null,
       matchedBookingId: null,
       matchStatus: "unmatched",
-      matchReasons: extraction.matchReasons
+      matchReasons: extraction.matchReasons,
+      requiresUserApproval: extraction.requiresUserApproval
     });
     return { attached: false, status: "unmatched" as const, extraction };
   }
 
-  const canAttach = extraction.overallConfidence >= 0.75 && extraction.missingFields.length === 0 && match.score >= 0.4;
+  const matchReasons = Array.isArray(match.reasons) ? match.reasons : [];
+  const existingBookingId = "existingBookingId" in match ? match.existingBookingId || null : null;
+  const canAttach = shouldAutoApplyEmailLookbackExtraction({
+    extraction,
+    matchScore: match.score
+  });
   if (!canAttach) {
     await persistExtraction({
       supabase: writer,
@@ -361,9 +597,10 @@ export async function extractAndMatchTravelEmailBooking(params: {
       emailMessageId: params.emailMessageId || null,
       extraction,
       tripId: match.trip.id,
-      matchedBookingId: null,
+      matchedBookingId: existingBookingId,
       matchStatus: "needs_confirmation",
-      matchReasons: [...extraction.matchReasons, "uncertain_match"]
+      matchReasons: [...extraction.matchReasons, ...matchReasons, extraction.requiresUserApproval ? "requires_user_approval" : "uncertain_match"],
+      requiresUserApproval: extraction.requiresUserApproval
     });
     return { attached: false, status: "needs_confirmation" as const, tripId: match.trip.id, extraction };
   }
@@ -374,6 +611,13 @@ export async function extractAndMatchTravelEmailBooking(params: {
       : params.connection.provider === "outlook"
         ? "outlook"
         : "email";
+  const existingReservationRequirements =
+    "reservationRequirements" in extraction.booking &&
+    extraction.booking.reservationRequirements &&
+    typeof extraction.booking.reservationRequirements === "object" &&
+    !Array.isArray(extraction.booking.reservationRequirements)
+      ? extraction.booking.reservationRequirements
+      : {};
 
   const saved = await createTripBooking({
     supabase: writer,
@@ -391,6 +635,15 @@ export async function extractAndMatchTravelEmailBooking(params: {
         extraction.booking.bookingStatus ||
         "confirmed",
       travelerConfirmed: true,
+      reservationRequirements: {
+        ...existingReservationRequirements,
+        email_lookback: {
+          event_types: extraction.eventTypes,
+          requires_user_approval: extraction.requiresUserApproval,
+          matched_existing_booking_id: existingBookingId,
+          retrieval_timestamp: new Date().toISOString()
+        }
+      },
       lastSyncedAt: new Date().toISOString()
     }
   });
@@ -408,9 +661,12 @@ export async function extractAndMatchTravelEmailBooking(params: {
       matchStatus: "needs_confirmation",
       matchReasons: [
         ...extraction.matchReasons,
+        ...matchReasons,
         "booking_save_failed",
         saved.error
-      ]
+      ],
+      autoApplyAllowed: true,
+      requiresUserApproval: extraction.requiresUserApproval
     });
 
     return {
@@ -430,7 +686,10 @@ export async function extractAndMatchTravelEmailBooking(params: {
     tripId: match.trip.id,
     matchedBookingId: bookingId,
     matchStatus: "attached",
-    matchReasons: [...extraction.matchReasons, "high_confidence_match"]
+    matchReasons: [...extraction.matchReasons, ...matchReasons, "high_confidence_match"],
+    autoApplyAllowed: true,
+    requiresUserApproval: extraction.requiresUserApproval,
+    appliedAt: bookingId ? new Date().toISOString() : null
   });
   if (bookingId) {
     await reconcileTripBookings({

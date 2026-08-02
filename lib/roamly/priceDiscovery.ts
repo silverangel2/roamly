@@ -763,6 +763,7 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     hotel: normalized.budgetIncludesHotel === false ? 0 : fallbackHotelEstimateCents,
     attraction: normalized.budgetIncludesActivities === false ? 0 : Math.round(fallbackActivitiesEstimateCents * 0.45),
     tour: normalized.budgetIncludesActivities === false ? 0 : Math.round(fallbackActivitiesEstimateCents * 0.55),
+    restaurant: 0,
     transport: fallbackLocalTransportEstimateCents
   };
   const marketSelection = selectMarketPrices({
@@ -777,7 +778,7 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
       acc[result.category] += amount;
       return acc;
     },
-    { flight: 0, hotel: 0, attraction: 0, tour: 0, transport: 0 }
+    { flight: 0, hotel: 0, attraction: 0, tour: 0, restaurant: 0, transport: 0 }
   );
   const selectedUserUploadedCents = marketSelection.selectedMarketPrices
     .filter((result) => result.metadata?.source === "user_uploaded_confirmation")

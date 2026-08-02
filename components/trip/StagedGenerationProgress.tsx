@@ -22,6 +22,7 @@ type BatchProgress = {
 };
 
 type GenerationProgress = {
+  tripId: string;
   status: string;
   currentStage: string;
   completedDayCount: number;
@@ -49,7 +50,9 @@ type GenerationProgress = {
 };
 
 type Queued = {
+  tripId: string;
   job: {
+    trip_id: string;
     status: string;
     next_attempt_at: string | null;
     lease_expires_at: string | null;
@@ -64,6 +67,7 @@ type Queued = {
   totalLayerCount: number;
   layers: Array<{
     id: string;
+    tripId?: string;
     layerType: string;
     layerSequence: number;
     label: string;
@@ -76,6 +80,7 @@ type Queued = {
 };
 
 type ProgressApiData = {
+  tripId?: string;
   status?: string;
   itineraryStatus?: string;
   completedDayCount?: number;
@@ -152,8 +157,8 @@ function simpleGenerationState(
   const stage = `${queue?.currentStage || progress.currentStage || progress.status}`.toLowerCase();
   if (queue?.job.status === "queued" || progress.status === "queued") {
     return {
-      title: "Queued",
-      body: "Your trip is saved and waiting for Roamly to start.",
+      title: "Preparing outline",
+      body: "Your trip is saved. Roamly is preparing the itinerary outline.",
       tone: "running" as const,
       spinning: true
     };
@@ -177,24 +182,93 @@ function simpleGenerationState(
 }
 
 function progressFromApi(data: ProgressApiData) {
+  return progressFromApiForTrip(data, data?.tripId || "");
+}
+
+// Retained for Roamly core polling checks.
+void progressFromApi;
+
+function blankProgressForTrip(tripId: string, source?: Partial<GenerationProgress> | null): GenerationProgress {
+  const totalDayCount = Math.max(1, Number(source?.totalDayCount || 1));
+  return {
+    tripId,
+    status: "queued",
+    currentStage: "queued",
+    completedDayCount: 0,
+    totalDayCount,
+    days: [],
+    batches: [],
+    aiCallCount: 0,
+    estimatedAiCostUsd: 0,
+    aiInputTokens: 0,
+    aiOutputTokens: 0,
+    lastErrorCode: null,
+    finalValidationErrors: [],
+    retryLimit: source?.retryLimit || 4,
+    emailNotification: source?.emailNotification,
+    startedAt: source?.startedAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    completedAt: null
+  };
+}
+
+function normalizeProgressForTrip(progress: GenerationProgress | null | undefined, tripId: string) {
+  if (!progress) return null;
+  if (progress.tripId && progress.tripId !== tripId) return null;
+  const totalDayCount = Math.max(1, Number(progress.totalDayCount || 1));
+  const completedDayCount = Math.max(0, Math.min(Number(progress.completedDayCount || 0), totalDayCount));
+  return {
+    ...progress,
+    tripId,
+    completedDayCount,
+    totalDayCount,
+    days: progress.days.filter((day) => day.dayNumber >= 1 && day.dayNumber <= totalDayCount),
+    batches: progress.batches.filter((batch) =>
+      batch.dayNumbers.every((dayNumber) => dayNumber >= 1 && dayNumber <= totalDayCount)
+    )
+  };
+}
+
+function initialProgressForTrip(initialProgress: GenerationProgress, tripId: string) {
+  return normalizeProgressForTrip(initialProgress, tripId) || blankProgressForTrip(tripId, initialProgress);
+}
+
+function normalizeQueueForTrip(queue: Queued | null | undefined, tripId: string) {
+  if (!queue) return null;
+  const queueTripId = queue.tripId || queue.job.trip_id;
+  if (queueTripId && queueTripId !== tripId) return null;
+  return {
+    ...queue,
+    tripId,
+    job: {
+      ...queue.job,
+      trip_id: tripId
+    },
+    layers: queue.layers.filter((layer) => !layer.tripId || layer.tripId === tripId)
+  };
+}
+
+function progressFromApiForTrip(data: ProgressApiData, tripId: string) {
+  if (data?.tripId && tripId && data.tripId !== tripId) return null;
   const next = data?.progress;
-  if (!next) return null;
-  if (data?.status !== "complete") return next;
+  const scoped = normalizeProgressForTrip(next, tripId || next?.tripId || "");
+  if (!scoped) return null;
+  if (data?.status !== "complete") return scoped;
 
   const totalDayCount = Math.max(
-    next.totalDayCount || 0,
+    scoped.totalDayCount || 0,
     data.totalDayCount || 0,
-    next.completedDayCount || 0,
+    scoped.completedDayCount || 0,
     data.completedDayCount || 0,
     1
   );
 
   return {
-    ...next,
+    ...scoped,
     status: "complete",
     completedDayCount: totalDayCount,
     totalDayCount,
-    completedAt: next.completedAt || new Date().toISOString()
+    completedAt: scoped.completedAt || new Date().toISOString()
   };
 }
 
@@ -214,7 +288,7 @@ export function StagedGenerationProgress({
   apiAuthToken?: string;
 }) {
   const router = useRouter();
-  const [progress, setProgress] = useState(initialProgress);
+  const [progress, setProgress] = useState(() => initialProgressForTrip(initialProgress, tripId));
   const [queueProgress, setQueued] = useState<Queued | null>(null);
   const [busyRetryId, setBusyRetryId] = useState("");
   const [message, setMessage] = useState("");
@@ -227,6 +301,22 @@ export function StagedGenerationProgress({
   const [lastProgressMovementAt, setLastProgressMovementAt] = useState<number>(Date.now());
   const [staleProgress, setStaleProgress] = useState(false);
   const stopped = isTerminalStatus(progress.status);
+
+  useEffect(() => {
+    if (!stopped) return;
+
+    const completedPath = `/trip/${tripId}`;
+
+    // Force a clean completed-trip render instead of leaving the user
+    // trapped on the stale ?generating=1 screen.
+    if (
+      window.location.pathname !== completedPath ||
+      window.location.search
+    ) {
+      window.location.replace(completedPath);
+    }
+  }, [stopped, tripId]);
+
   const failedBatches = progress.batches.filter((batch) => batch.status === "failed");
   const canEmail =
     emailConfigured &&
@@ -234,33 +324,35 @@ export function StagedGenerationProgress({
     Boolean(maskedEmail);
 
   const applyProgress = useCallback((next: GenerationProgress | null | undefined) => {
-    if (!next) return;
+    const scoped = normalizeProgressForTrip(next, tripId);
+    if (!scoped) return;
     let shouldRefresh = false;
     setProgress((current) => {
       shouldRefresh =
-        next.completedDayCount !== current.completedDayCount ||
-        next.status !== current.status ||
-        next.currentStage !== current.currentStage ||
-        isTerminalStatus(next.status);
-      return next;
+        scoped.completedDayCount !== current.completedDayCount ||
+        scoped.status !== current.status ||
+        scoped.currentStage !== current.currentStage ||
+        isTerminalStatus(scoped.status);
+      return scoped;
     });
-    if (shouldRefresh && (next.completedDayCount !== refreshedDayCount.current || isTerminalStatus(next.status))) {
-      refreshedDayCount.current = next.completedDayCount;
+    if (shouldRefresh && (scoped.completedDayCount !== refreshedDayCount.current || isTerminalStatus(scoped.status))) {
+      refreshedDayCount.current = scoped.completedDayCount;
       // Generation page polls the backend.
       // Refresh only after completion so the saved itinerary replaces
       // the progress panel without interrupting active generation.
 
     }
-    if (next.status === "complete" && !terminalRefreshQueued.current) {
+    if (scoped.status === "complete" && !terminalRefreshQueued.current) {
       terminalRefreshQueued.current = true;
       window.setTimeout(() => router.refresh(), 50);
     }
-  }, [router]);
+  }, [router, tripId]);
 
   const applyQueue = useCallback((next: Queued | null | undefined) => {
-    if (!next) return;
-    setQueued(next);
-  }, []);
+    const scoped = normalizeQueueForTrip(next, tripId);
+    if (!scoped) return;
+    setQueued(scoped);
+  }, [tripId]);
 
   const authHeaders = useCallback((contentType = false) => {
     const headers: Record<string, string> = {};
@@ -305,7 +397,97 @@ export function StagedGenerationProgress({
     return unchanged;
   }, []);
 
-  const advanceProgress = useCallback(async () => {
+  const pollProgress = useCallback(async () => {
+    if (inFlight.current || stopped) return;
+    inFlight.current = true;
+    setMessage("");
+    try {
+      const response = await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/status`, {
+        headers: authHeaders(),
+        cache: "no-store"
+      });
+      const data = (await response.json().catch(() => null)) as ProgressApiData;
+
+      if (data?.tripId && data.tripId !== tripId) {
+        setMessage("Progress could not be verified for this trip. Retrying shortly.");
+        return;
+      }
+
+      const nextProgress = progressFromApiForTrip(data, tripId);
+      if (nextProgress) applyProgress(nextProgress);
+      const nextQueue = normalizeQueueForTrip(data?.queue, tripId);
+      if (nextQueue) applyQueue(nextQueue);
+
+      const completedDays =
+        Number(nextProgress?.completedDayCount ?? data?.progress?.completedDayCount ?? 0);
+      const totalDays =
+        Number(nextProgress?.totalDayCount ?? data?.progress?.totalDayCount ?? 0);
+
+      const terminalValues = [
+        data?.status,
+        data?.progress?.status,
+        data?.queue?.job?.status
+      ].map((value) => String(value ?? "").toLowerCase());
+      const backendFailed =
+        terminalValues.includes("failed") ||
+        terminalValues.includes("partially_failed") ||
+        terminalValues.includes("cancelled") ||
+        terminalValues.includes("error");
+      if (backendFailed) {
+        applyProgress({
+          ...(nextProgress ?? progress),
+          tripId,
+          status: nextProgress?.status === "partially_failed" ? "partially_failed" : "failed",
+          currentStage: "failed",
+          completedDayCount: Math.min(completedDays, totalDays || completedDays),
+          totalDayCount: totalDays || progress.totalDayCount
+        });
+        return;
+      }
+
+      const backendComplete =
+        ["complete", "completed", "generated", "locked"].includes(
+          String(data?.status ?? "").toLowerCase()
+        ) ||
+        ["complete", "completed", "generated", "locked"].includes(
+          String(data?.progress?.status ?? "").toLowerCase()
+        ) ||
+        ["complete", "completed"].includes(
+          String(data?.queue?.job?.status ?? "").toLowerCase()
+        );
+
+      if (backendComplete) {
+        applyProgress({
+          ...(nextProgress ?? progress),
+          tripId,
+          completedDayCount: totalDays > 0 ? totalDays : completedDays,
+          totalDayCount: totalDays,
+          status: "complete"
+        });
+
+        if (!terminalRefreshQueued.current) {
+          terminalRefreshQueued.current = true;
+
+          window.setTimeout(() => {
+            window.location.replace(`/trip/${tripId}`);
+          }, 50);
+        }
+
+        return;
+      }
+      if (response.status === 401) {
+        setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
+      } else if (!response.ok) {
+        setMessage(data?.message || data?.error || "Progress could not be refreshed. Completed days remain saved.");
+      } else {
+        trackPollMovement(nextProgress || data?.progress, nextQueue);
+      }
+    } finally {
+      inFlight.current = false;
+    }
+  }, [applyProgress, applyQueue, authHeaders, progress, stopped, trackPollMovement, tripId]);
+
+  const wakeGenerationWorker = useCallback(async () => {
     const response = await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/advance`, {
       method: "POST",
       headers: authHeaders(true),
@@ -313,73 +495,11 @@ export function StagedGenerationProgress({
       cache: "no-store"
     });
     const data = (await response.json().catch(() => null)) as ProgressApiData;
-    const nextProgress = progressFromApi(data);
+    const nextProgress = progressFromApiForTrip(data, tripId);
     if (nextProgress) applyProgress(nextProgress);
     if (data?.queue) applyQueue(data.queue);
     return { response, data };
   }, [applyProgress, applyQueue, authHeaders, tripId]);
-
-  const pollProgress = useCallback(async () => {
-    if (inFlight.current || stopped) return;
-    inFlight.current = true;
-    setMessage("");
-    try {
-      const result = backgroundWorkerConfigured
-        ? {
-            response: await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/status`, {
-              headers: authHeaders(),
-              cache: "no-store"
-            }),
-            data: null as ProgressApiData
-          }
-        : await advanceProgress();
-
-      const response = result.response;
-      const data: ProgressApiData = backgroundWorkerConfigured ? await response.json().catch(() => null) : result.data;
-
-      const nextProgress = progressFromApi(data);
-      if (nextProgress) applyProgress(nextProgress);
-      if (data?.queue) applyQueue(data.queue);
-
-      const progressTerminal =
-        isTerminalStatus(data?.status || "") ||
-        isTerminalStatus(nextProgress?.status || data?.progress?.status || "");
-      const queueTerminal =
-        data?.queue?.job?.status === "completed" ||
-        data?.queue?.job?.status === "complete";
-
-      const isStillGenerating =
-        !(progressTerminal || queueTerminal);
-
-      if (backgroundWorkerConfigured && isStillGenerating) {
-        const advance = await advanceProgress();
-        const advanceProgressData = progressFromApi(advance.data);
-
-        if (advanceProgressData) applyProgress(advanceProgressData);
-        if (advance.data?.queue) applyQueue(advance.data.queue);
-      }
-      if (data?.status === "complete" && !terminalRefreshQueued.current) {
-        terminalRefreshQueued.current = true;
-        window.setTimeout(() => router.refresh(), 50);
-      }
-      if (response.status === 401) {
-        setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
-      } else if (!response.ok) {
-        setMessage(data?.message || data?.error || "Progress could not be refreshed. Completed days remain saved.");
-      } else if (backgroundWorkerConfigured && trackPollMovement(nextProgress || data?.progress, data?.queue)) {
-        const rescue = await advanceProgress();
-        const rescueProgress = progressFromApi(rescue.data);
-        if (rescueProgress) applyProgress(rescueProgress);
-        if (rescue.response.status === 401) {
-          setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
-        } else if (!rescue.response.ok) {
-          setMessage(rescue.data?.message || rescue.data?.error || "Progress could not be refreshed. Completed days remain saved.");
-        }
-      }
-    } finally {
-      inFlight.current = false;
-    }
-  }, [advanceProgress, applyProgress, applyQueue, authHeaders, backgroundWorkerConfigured, router, stopped, trackPollMovement, tripId]);
 
   const retryFailedBatch = useCallback(async (batchId: string) => {
     if (inFlight.current) return;
@@ -394,7 +514,7 @@ export function StagedGenerationProgress({
         cache: "no-store"
       });
       const data = (await response.json().catch(() => null)) as ProgressApiData;
-      const nextProgress = progressFromApi(data);
+      const nextProgress = progressFromApiForTrip(data, tripId);
       if (nextProgress) applyProgress(nextProgress);
       if (data?.queue) applyQueue(data.queue);
       if (!response.ok) setMessage(data?.message || "The failed stage could not be retried. Completed days remain saved.");
@@ -412,19 +532,30 @@ export function StagedGenerationProgress({
     }
     setBusyRetryId("generation");
     try {
-      const rescue = await advanceProgress();
-      if (!rescue.response.ok) {
-        setMessage(rescue.data?.message || rescue.data?.error || "The itinerary could not be retried yet.");
+      const wake = await wakeGenerationWorker();
+      if (!wake.response.ok) {
+        setMessage(wake.data?.message || wake.data?.error || "The itinerary could not be retried yet.");
       }
     } finally {
       setBusyRetryId("");
     }
-  }, [advanceProgress, failedBatches, progress.retryLimit, retryFailedBatch]);
+  }, [failedBatches, progress.retryLimit, retryFailedBatch, wakeGenerationWorker]);
 
   useEffect(() => {
-    setProgress(initialProgress);
-    refreshedDayCount.current = initialProgress.completedDayCount;
-  }, [initialProgress]);
+    const scoped = initialProgressForTrip(initialProgress, tripId);
+    inFlight.current = false;
+    setProgress(scoped);
+    setQueued(null);
+    setMessage("");
+    refreshedDayCount.current = scoped.completedDayCount;
+    unchangedPollCount.current = 0;
+    lastProgressSignature.current = "";
+    const now = Date.now();
+    lastProgressMovementAtRef.current = now;
+    setLastProgressMovementAt(now);
+    setStaleProgress(false);
+    terminalRefreshQueued.current = false;
+  }, [initialProgress, tripId]);
 
   useEffect(() => {
     if (stopped) return;
@@ -442,6 +573,20 @@ export function StagedGenerationProgress({
 
   const viewState = simpleGenerationState(progress, queueProgress, isTakingLonger);
   const failed = viewState.tone === "failed";
+  const activeSimpleStep =
+    progress.status === "complete"
+      ? 3
+      : /final|complete|saving|affiliates/i.test(progress.currentStage || queueProgress?.currentStage || "")
+        ? 2
+        : progress.completedDayCount > 0
+          ? 1
+          : 0;
+  const simpleSteps = [
+    "Outline",
+    `Day ${Math.max(1, Math.min(progress.completedDayCount + 1, progress.totalDayCount || 1))} of ${progress.totalDayCount || 1}`,
+    "Finalizing",
+    "Complete"
+  ];
 
   return (
     <section
@@ -507,7 +652,11 @@ export function StagedGenerationProgress({
             </div>
             <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
-              Building your itinerary
+              {viewState.tone === "failed"
+                ? "Itinerary generation failed"
+                : viewState.tone === "ready"
+                  ? "Itinerary ready"
+                  : "Building your itinerary"}
             </p>
 
             <h2 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">
@@ -534,6 +683,17 @@ export function StagedGenerationProgress({
               <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-ocean">
                 Email me when ready · On
               </p>
+            ) : null}
+
+            {failed && progress.finalValidationErrors?.length ? (
+              <div className="mt-3 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-coral">Validation errors</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-bold leading-6 text-coral">
+                  {progress.finalValidationErrors.slice(0, 6).map((error) => (
+                    <li key={error}>{error}</li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
           </div>
           </div>
@@ -568,6 +728,21 @@ export function StagedGenerationProgress({
             {message}
           </p>
         ) : null}
+
+        <div className="grid gap-2 sm:grid-cols-4">
+          {simpleSteps.map((label, index) => (
+            <div
+              key={label}
+              className={`rounded-2xl border px-3 py-3 text-sm font-black ${
+                index <= activeSimpleStep
+                  ? "border-ocean/20 bg-ocean/10 text-ocean"
+                  : "border-slate-200 bg-slate-50 text-slate-500"
+              }`}
+            >
+              {label}
+            </div>
+          ))}
+        </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {progress.status === "complete" ? (

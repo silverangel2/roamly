@@ -43,7 +43,8 @@ export async function GET(
   }
 
   let metadataProgress =
-    publicStagedGenerationProgress(data.metadata) || {
+    publicStagedGenerationProgress(data.metadata, id) || {
+      tripId: id,
       status: "queued",
       completedDayCount: 0,
       totalDayCount: 1,
@@ -56,12 +57,14 @@ export async function GET(
       .from("roamly_trip_generation_jobs")
       .select("status,error_message,completed_at,updated_at")
       .eq("trip_id", id)
+      .eq("user_id", auth.user.id)
       .order("updated_at", { ascending: false })
       .limit(1),
     auth.supabase
       .from("roamly_trip_generation_layers")
       .select("status,completed_at,updated_at")
       .eq("trip_id", id)
+      .eq("user_id", auth.user.id)
       .order("created_at", { ascending: true }),
     getGenerationQueueForTrip({
       supabase: auth.supabase,
@@ -103,7 +106,7 @@ export async function GET(
     hasFinalStoredItineraryInMetadata(data.metadata) ||
       itineraryResult.data?.some((item) => isFinalStoredItinerary((item as { full_json?: unknown }).full_json))
   );
-  const emailStatus = getGenerationEmailStatus(data.metadata);
+  const emailStatus = getGenerationEmailStatus(data.metadata, id);
   const completionEmailMissing = Boolean(
     emailStatus.email_me_when_ready !== false &&
       !emailStatus.completion_email_sent_at &&
@@ -141,7 +144,7 @@ export async function GET(
   const queueProgress =
     queue.error && !queueTableMissing(queue.error)
       ? null
-      : publicQueueProgress(queue, data.metadata);
+      : publicQueueProgress(queue, data.metadata, id);
   const queueRecord = queueProgress as Record<string, unknown> | null;
   const derived = deriveTripGenerationStatus({
     tripStatus: recovery?.ok ? "generated" : data.status,
@@ -173,13 +176,14 @@ export async function GET(
     status: derived.status,
     itineraryStatus: derived.itineraryStatus,
     itineraryLocked: data.itinerary_locked === true || recovery?.ok === true,
-    completedDayCount: derived.completedLayerCount,
-    totalDayCount: derived.totalLayerCount,
+    completedDayCount: derived.completedDayCount,
+    totalDayCount: derived.totalDayCount,
     progress: {
       ...metadataProgress,
       status: derived.progressStatus,
-      completedDayCount: derived.completedLayerCount,
-      totalDayCount: derived.totalLayerCount,
+      tripId: id,
+      completedDayCount: derived.completedDayCount,
+      totalDayCount: derived.totalDayCount,
       percent: derived.percent
     },
     queue: queueForResponse,

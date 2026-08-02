@@ -14,6 +14,12 @@ import {
 import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
 import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
+import {
+  dedupeTravelResults,
+  isBareDomainName,
+  safeConsumerTravelUrl,
+  validateTravelResultForDisplay
+} from "@/lib/roamly/travelResultValidation";
 
 export type RoamlyBookingCategory = "hotel" | "flight" | "attraction" | "ticket" | "tour" | "transport" | "car_rental" | "restaurant" | "insurance";
 
@@ -315,7 +321,7 @@ function safeBookingHref(value: unknown) {
   const raw = cleanStringValue(value);
   if (!raw || isLegacyBookingUrl(raw)) return "";
   if (raw.startsWith("/")) return "";
-  const external = safeExternalUrl(raw);
+  const external = safeConsumerTravelUrl(raw);
   if (!external) return "";
   try {
     const host = new URL(external).hostname.toLowerCase();
@@ -340,6 +346,7 @@ function approvedSourceLabel(value: unknown) {
 
 function approvedProviderLabel(value: unknown) {
   const label = cleanStringValue(value);
+  if (isBareDomainName(label)) return "";
   return /\b(google flights|booking\.com|google search|google travel|getyourguide|viator)\b/i.test(label) ? "" : label;
 }
 
@@ -359,6 +366,39 @@ function titleOverlap(a: string, b: string) {
   return right.some((part) => left.has(part));
 }
 
+function marketDisplayHref(result: Record<string, unknown>) {
+  return (
+    safeBookingHref(result.affiliate_url) ||
+    safeBookingHref(result.booking_url) ||
+    safeBookingHref(result.normal_search_url)
+  );
+}
+
+function marketResultMatchesSuggestion(
+  result: Record<string, unknown>,
+  suggestion: RoamlyItinerary["booking_suggestions"][number],
+  payload: TripPlannerPayload
+) {
+  const category = suggestion.booking_category || suggestion.category;
+  if (result.category !== category) return false;
+  if (category === "flight" && getRecord(result.metadata)?.retrieval_provider === "native") return false;
+  return validateTravelResultForDisplay({
+    category: cleanStringValue(result.category),
+    expectedCategory: category,
+    title: cleanStringValue(result.title),
+    provider: cleanStringValue(result.provider),
+    url: marketDisplayHref(result),
+    destination: cleanStringValue(result.destination || result.city),
+    city: cleanStringValue(result.city),
+    country: cleanStringValue(result.country),
+    requestedDestination: suggestion.destination || suggestion.city || payload.destination,
+    requestedCity: suggestion.city || payload.destinationCity,
+    source: cleanStringValue(result.source),
+    metadata: getRecord(result.metadata),
+    allowSearchFallback: true
+  }).ok;
+}
+
 function pickMarketResult(
   suggestion: RoamlyItinerary["booking_suggestions"][number],
   payload: TripPlannerPayload
@@ -367,6 +407,7 @@ function pickMarketResult(
   const title = suggestion.title || suggestion.booking_label;
   const sameCategory = marketResultsFromPayload(payload)
     .filter((result) => result.category === category)
+    .filter((result) => marketResultMatchesSuggestion(result, suggestion, payload))
     .sort((a, b) => marketResultRank(a) - marketResultRank(b));
   if (!sameCategory.length) return null;
   return (
@@ -613,48 +654,112 @@ function hasSuggestionCategory(
   );
 }
 
-function recommendedStayCandidate(params: {
+type RecommendedStayCandidate = {
+  name: string;
+  neighborhood: string;
+  roomType: string;
+  reason: string;
+  searchQuery: string;
+};
+
+function recommendedStayCandidates(params: {
   destination: string;
   nightlyTarget: number | null;
-}) {
+}): RecommendedStayCandidate[] {
   const destination = params.destination.toLowerCase();
   const nightlyTarget = params.nightlyTarget;
 
-  if (destination.includes("montreal") || destination.includes("montréal")) {
-    if (nightlyTarget && nightlyTarget < 150) {
-      return {
-        name: "M Montreal or similar private/budget room near the Village",
-        neighborhood: "the Village / Berri-UQAM area",
-        roomType: "private room / 1 bed / non-smoking when requested",
-        reason:
-          "close to Gay Village, Pride events, metro, nightlife, and budget-friendly food",
-        searchQuery:
-          "M Montreal private room Berri-UQAM Montreal Village budget hotel"
-      };
-    }
-
-    return {
-      name: "Hotel St-Denis or a similar central 3-star hotel",
-      neighborhood: "Downtown Montreal / Berri-UQAM",
-      roomType: "private room / 1 bed / non-smoking when requested",
-      reason:
-        "central location, metro access, walkable food, nightlife, and easier movement around Pride events",
-      searchQuery:
-        "Hotel St-Denis Montreal private queen room Downtown Berri-UQAM"
-    };
+  if (destination.includes("toronto")) {
+    return [
+      {
+        name: "Chelsea Hotel, Toronto",
+        neighborhood: "Downtown / Yonge-Dundas",
+        roomType: "standard private room",
+        reason: "central base with straightforward transit access to downtown sights, food, shopping, and waterfront routes",
+        searchQuery: "Chelsea Hotel Toronto Downtown Yonge Dundas"
+      },
+      {
+        name: "The Anndore House",
+        neighborhood: "Yorkville / Church-Wellesley",
+        roomType: "standard private room",
+        reason: "walkable to Yorkville, museums, restaurants, and east-west subway access without being far from downtown",
+        searchQuery: "The Anndore House Toronto Yorkville Church Wellesley hotel"
+      },
+      {
+        name: "Holiday Inn Toronto Downtown Centre",
+        neighborhood: "Downtown / Church-Wellesley",
+        roomType: "standard private room",
+        reason: "practical downtown location for transit, restaurants, shopping, and short rides to core itinerary stops",
+        searchQuery: "Holiday Inn Toronto Downtown Centre hotel"
+      }
+    ];
   }
 
-  return {
-    name: `best-rated stay in ${params.destination}`,
-    neighborhood: `central ${params.destination}`,
-    roomType:
-      nightlyTarget && nightlyTarget < 150
-        ? "private room / 1 bed / budget hotel or hostel-private room"
-        : "well-rated private room / 1 bed",
-    reason:
-      "best fit for location, budget, transit access, and the trip plan",
-    searchQuery: `${params.destination} best private room budget hotel central`
-  };
+  if (destination.includes("montreal") || destination.includes("montréal")) {
+    if (nightlyTarget && nightlyTarget < 150) {
+      return [
+        {
+          name: "M Montreal",
+          neighborhood: "the Village / Berri-UQAM",
+          roomType: "private room when available",
+          reason: "budget-friendly base near metro access, the Village, nightlife, and casual food",
+          searchQuery: "M Montreal private room Berri UQAM Montreal Village"
+        },
+        {
+          name: "Hotel St-Denis",
+          neighborhood: "Downtown / Latin Quarter",
+          roomType: "standard private room",
+          reason: "central location near Berri-UQAM, Old Montreal access, restaurants, and transit",
+          searchQuery: "Hotel St-Denis Montreal Latin Quarter hotel"
+        }
+      ];
+    }
+
+    return [
+      {
+        name: "Hotel St-Denis",
+        neighborhood: "Downtown / Latin Quarter",
+        roomType: "standard private room",
+        reason: "central location, metro access, walkable food, nightlife, and Old Montreal access",
+        searchQuery: "Hotel St-Denis Montreal private room Downtown Berri UQAM"
+      },
+      {
+        name: "Le Square Phillips Hotel & Suites",
+        neighborhood: "Downtown Montreal",
+        roomType: "standard suite or private room",
+        reason: "central downtown base with easy access to shopping, food, transit, and Old Montreal",
+        searchQuery: "Le Square Phillips Hotel Suites Montreal Downtown"
+      },
+      {
+        name: "Hotel Monville",
+        neighborhood: "Downtown / Quartier international",
+        roomType: "standard private room",
+        reason: "well-placed for downtown, Old Montreal, restaurants, and transit connections",
+        searchQuery: "Hotel Monville Montreal Quartier international"
+      }
+    ];
+  }
+
+  if (destination.includes("vancouver")) {
+    return [
+      {
+        name: "YWCA Hotel Vancouver",
+        neighborhood: "Downtown Vancouver",
+        roomType: "private room when available",
+        reason: "central, practical base near transit, restaurants, stadium area, and waterfront access",
+        searchQuery: "YWCA Hotel Vancouver Downtown"
+      },
+      {
+        name: "The Burrard",
+        neighborhood: "Downtown Vancouver",
+        roomType: "standard private room",
+        reason: "walkable downtown location with easy access to West End, transit, food, and waterfront routes",
+        searchQuery: "The Burrard Vancouver hotel Downtown"
+      }
+    ];
+  }
+
+  return [];
 }
 
 function buildBrainBookingSuggestions(params: {
@@ -713,16 +818,22 @@ function buildBrainBookingSuggestions(params: {
     budget.selected_hotel_estimate_amount ||
     null;
 
+  const existingRealHotelCount = suggestions.filter((suggestion) => {
+    if (suggestionCategoryValue(suggestion) !== "hotel") return false;
+    const title = cleanStringValue(suggestion.title || suggestion.booking_label);
+    if (!title || /\b(stay22|best-rated stay|budget-matched stay|hotel search|stay to book|hotel\/stay)\b/i.test(title)) return false;
+    return true;
+  }).length;
+
   if (
-    !hasSuggestionCategory(suggestions, "hotel") &&
     payload.budgetIncludesHotel !== false &&
     Boolean(resolvedDestination) &&
-    (nightlyTarget || budget.hotel_estimate_note)
+    existingRealHotelCount < 2
   ) {
-    const stayCandidate = recommendedStayCandidate({
+    const stayCandidates = recommendedStayCandidates({
       destination,
       nightlyTarget
-    });
+    }).slice(0, Math.max(0, 3 - existingRealHotelCount));
 
     const budgetLabel = nightlyTarget
       ? `${Math.round(nightlyTarget)} ${currency} per night target`
@@ -731,27 +842,30 @@ function buildBrainBookingSuggestions(params: {
       ? `${budgetBrain.hotelReserve} ${currency} stay reserve`
       : "hotel reserve set before transport and extras";
 
-    generated.push({
-      booking_category: "hotel",
-      category: "hotel",
-      title: `Recommended stay: ${stayCandidate.name}`,
-      description:
-        `${budgetLabel}. ${reserveLabel}. Choose ${stayCandidate.roomType} around ${stayCandidate.neighborhood}.`,
-      destination,
-      recommended_stay_name: stayCandidate.name,
-      stay_profile: stayCandidate.name,
-      neighborhood: stayCandidate.neighborhood,
-      room_type: stayCandidate.roomType,
-      budget_target: budgetLabel,
-      search_query: `${stayCandidate.searchQuery} ${budgetLabel}`,
-      why_recommended: stayCandidate.reason,
-      recommendation_reason: stayCandidate.reason,
-      provider: "Recommended stay",
-      provider_or_search_source: "Roamly recommendation",
-      url_type: "affiliate",
-      has_affiliate_url: false,
-      booking_label: "Find this stay"
-    } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+    for (const stayCandidate of stayCandidates) {
+      generated.push({
+        booking_category: "hotel",
+        category: "hotel",
+        title: stayCandidate.name,
+        description:
+          `${stayCandidate.neighborhood}. ${reserveLabel}. ${budgetLabel}; verify current rates and availability for ${stayCandidate.roomType}.`,
+        destination,
+        recommended_stay_name: stayCandidate.name,
+        stay_profile: stayCandidate.name,
+        neighborhood: stayCandidate.neighborhood,
+        room_type: stayCandidate.roomType,
+        budget_target: budgetLabel,
+        search_query: `${stayCandidate.searchQuery} ${budgetLabel}`,
+        why_recommended: stayCandidate.reason,
+        recommendation_reason: stayCandidate.reason,
+        provider: "Roamly hotel shortlist",
+        provider_or_search_source: "Roamly hotel shortlist",
+        url_type: "affiliate",
+        has_affiliate_url: false,
+        booking_label: "View hotel options",
+        normal_search_url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${stayCandidate.name} ${destination}`)}`
+      } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+    }
   }
 
   if (!hasSuggestionCategory(suggestions, "activity")) {
@@ -823,7 +937,7 @@ function safeHotelAffiliateUrl(value: unknown) {
   return href;
 }
 
-function bookingDotComHotelSearchUrl(params: {
+function googleHotelSearchUrl(params: {
   destination?: unknown;
   neighborhood?: unknown;
   roomType?: unknown;
@@ -843,17 +957,18 @@ function bookingDotComHotelSearchUrl(params: {
     .filter(Boolean)
     .join(" ");
 
-  const query = new URLSearchParams();
+  const query = new URLSearchParams({
+    api: "1",
+    query: [
+      search || clean(params.destination) || "hotel",
+      clean(params.startDate),
+      clean(params.endDate),
+      `${clean(params.travelers) || "1"} guest`,
+      `${clean(params.rooms) || "1"} room`
+    ].filter(Boolean).join(" ")
+  });
 
-  if (search) query.set("ss", search);
-  if (clean(params.startDate)) query.set("checkin", clean(params.startDate));
-  if (clean(params.endDate)) query.set("checkout", clean(params.endDate));
-  query.set("group_adults", clean(params.travelers) || "1");
-  query.set("no_rooms", clean(params.rooms) || "1");
-  query.set("group_children", "0");
-  query.set("selected_currency", clean(params.currency) || "CAD");
-
-  return `https://www.booking.com/searchresults.html?${query.toString()}`;
+  return `https://www.google.com/maps/search/?${query.toString()}`;
 }
 
 function unsafeStay22Url(value: unknown) {
@@ -871,14 +986,68 @@ function unsafeStay22Url(value: unknown) {
   );
 }
 
-function safeHotelSearchUrl(value: unknown, params: Parameters<typeof bookingDotComHotelSearchUrl>[0]) {
+function safeHotelSearchUrl(value: unknown, params: Parameters<typeof googleHotelSearchUrl>[0]) {
   const href = safeBookingHref(value);
 
   if (!href || unsafeStay22Url(href)) {
-    return bookingDotComHotelSearchUrl(params);
+    return googleHotelSearchUrl(params);
   }
 
   return href;
+}
+
+function suggestionDisplayHref(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  return (
+    safeBookingHref(suggestion.affiliate_url) ||
+    safeBookingHref(suggestion.normal_search_url)
+  );
+}
+
+function isGenericHotelIdentity(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const title = cleanStringValue(suggestion.title || suggestion.booking_label);
+  const provider = cleanStringValue(suggestion.provider || suggestion.provider_or_search_source || suggestion.affiliate_provider);
+  return /\b(stay22|best-rated stay|budget-matched stay|hotel search|stay to book|hotel\/stay)\b/i.test(`${title} ${provider}`);
+}
+
+function displayableBookingSuggestion(
+  suggestion: RoamlyItinerary["booking_suggestions"][number],
+  payload: TripPlannerPayload
+) {
+  const category = suggestion.booking_category || suggestion.category;
+  if (category === "flight" && /reviewintel/i.test(`${suggestion.provider || ""} ${suggestion.provider_or_search_source || ""} ${suggestion.market_source || ""}`)) {
+    return false;
+  }
+  if (category === "hotel" && isGenericHotelIdentity(suggestion)) return false;
+
+  const href = suggestionDisplayHref(suggestion) || safeBookingHref(normalSearchUrlForSuggestion(suggestion, payload));
+  if (!href) return false;
+
+  return validateTravelResultForDisplay({
+    category,
+    expectedCategory: category,
+    title: suggestion.title || suggestion.booking_label,
+    provider: suggestion.provider || suggestion.provider_or_search_source || suggestion.affiliate_provider,
+    url: href,
+    destination: suggestion.destination || suggestion.city || payload.destination,
+    city: suggestion.city || payload.destinationCity,
+    country: suggestion.country || payload.destinationCountry,
+    requestedDestination: payload.destination,
+    requestedCity: payload.destinationCity,
+    source: suggestion.market_source || suggestion.provider_or_search_source || suggestion.provider,
+    allowSearchFallback: true
+  }).ok;
+}
+
+function dedupeBookingSuggestions(suggestions: RoamlyItinerary["booking_suggestions"]) {
+  return dedupeTravelResults(
+    suggestions,
+    (suggestion) => ({
+      category: suggestion.booking_category || suggestion.category,
+      title: suggestion.title || suggestion.booking_label,
+      url: suggestion.affiliate_url || suggestion.normal_search_url
+    }),
+    suggestions.length
+  );
 }
 
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
@@ -907,7 +1076,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       transport_mode_recommendation: budgetBrain.transportModeRecommendation
     },
     daily_itinerary: enrichTimelineItems(itinerary, payload),
-    booking_suggestions: buildBrainBookingSuggestions({
+    booking_suggestions: dedupeBookingSuggestions(buildBrainBookingSuggestions({
       itinerary,
       payload,
       estimatedBudgetBreakdown,
@@ -997,7 +1166,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         expires_at: cleanStringValue(market?.expires_at) || suggestion.expires_at,
         market_search_key: cleanStringValue(market?.search_key) || suggestion.market_search_key
       };
-    })
+    }).filter((suggestion) => displayableBookingSuggestion(suggestion, payload)))
   };
 }
 

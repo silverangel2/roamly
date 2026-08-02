@@ -12,6 +12,7 @@ const adminLinks = [
   ["/admin/affiliates", "Affiliates"],
   ["/admin/users", "Users"],
   ["/admin/trips", "Trips"],
+  ["/admin/roamly/live-companion-test", "Live Companion QA"],
   ["/admin/traffic", "Traffic"],
   ["/admin/notifications", "Notifications"],
   ["/admin/launch", "Launch Readiness"],

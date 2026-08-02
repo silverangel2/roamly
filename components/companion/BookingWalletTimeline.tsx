@@ -223,7 +223,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
         )}
       </section>
 
-      <nav className="sticky bottom-0 -mx-4 mt-6 grid grid-cols-4 gap-2 border-t border-slate-200 bg-[#fbf8ef]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:max-w-xl sm:border-0 sm:bg-transparent sm:px-0">
+      <nav className="mt-6 hidden max-w-xl grid-cols-4 gap-2 sm:grid">
         <Link href={`/trip/${tripId}/live`} className={navLinkClass(false)}>Today</Link>
         <Link href={`/trip/${tripId}`} className={navLinkClass(false)}>Trip</Link>
         <Link href={`/trip/${tripId}/bookings`} className={navLinkClass(true)}>Bookings</Link>

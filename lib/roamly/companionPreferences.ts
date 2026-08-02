@@ -18,6 +18,9 @@ export type CompanionPreferences = {
   bookingNotificationsEnabled: boolean;
   checkInRemindersEnabled: boolean;
   marketingEnabled: boolean;
+  liveCompanionEnabled: boolean;
+  liveCompanionPausedUntil: string | null;
+  backgroundLocationEnabled: boolean;
 };
 
 const DEFAULT_PREFERENCES: CompanionPreferences = {
@@ -32,7 +35,10 @@ const DEFAULT_PREFERENCES: CompanionPreferences = {
   importantTravelAlertsEnabled: true,
   bookingNotificationsEnabled: true,
   checkInRemindersEnabled: true,
-  marketingEnabled: false
+  marketingEnabled: false,
+  liveCompanionEnabled: true,
+  liveCompanionPausedUntil: null,
+  backgroundLocationEnabled: false
 };
 
 function numberValue(value: unknown): number {
@@ -77,7 +83,15 @@ function mapPreferences(
       row.booking_notifications_enabled !== false,
     checkInRemindersEnabled:
       row.check_in_reminders_enabled !== false,
-    marketingEnabled: row.marketing_enabled === true
+    marketingEnabled: row.marketing_enabled === true,
+    liveCompanionEnabled:
+      row.live_companion_enabled !== false,
+    liveCompanionPausedUntil:
+      typeof row.live_companion_paused_until === "string"
+        ? row.live_companion_paused_until
+        : null,
+    backgroundLocationEnabled:
+      row.background_location_enabled === true
   };
 }
 

@@ -215,6 +215,48 @@ export function buildTravelSearchBrief(input: TravelSearchBriefInput): TravelSea
     };
   }
 
+  if (input.category === "restaurant") {
+    const item = title || `${dest} restaurant`;
+    return {
+      category: "restaurant",
+      intent: "Find exact restaurant or dining-area choices that match destination, trip dates, dietary needs, rating evidence, and reservation/search links.",
+      exact_match_terms: uniq([item, dest, clean(input.start_date), ...(input.interests || [])]),
+      must_match: {
+        title: item,
+        destination: dest,
+        dining_date: clean(input.start_date) || null,
+        travelers: travelerCount,
+        currency
+      },
+      search_queries: uniq([
+        compact([item, dest, "restaurant reservations rating address"]),
+        compact([dest, (input.interests || []).join(" "), "top rated restaurants official menu"]),
+        compact([item, dest, "Google Maps Tripadvisor OpenTable"])
+      ]),
+      detail_fields: [
+        "exact_restaurant_name",
+        "address",
+        "neighbourhood",
+        "cuisine",
+        "opening_hours",
+        "reservation_url",
+        "menu_url",
+        "price_level",
+        "marketplace_rating",
+        "review_count",
+        "dietary_notes",
+        "coordinates",
+        "maps_url"
+      ],
+      disambiguation_rules: [
+        ...sharedRules(),
+        "Do not use generic dining labels as restaurant names.",
+        "Restaurant name, city, and address must match before using rating or reservation details."
+      ],
+      output_contract: sharedContract()
+    };
+  }
+
   return {
     category: "transport",
     intent: "Find exact local or intercity transport options that match route, date, traveler count, schedule, and price.",

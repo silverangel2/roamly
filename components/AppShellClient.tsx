@@ -120,9 +120,9 @@ function AppShellContent({
     () =>
       authenticated
         ? [
-            { href: "/dashboard", label: t("ui.nav.dashboard", "Dashboard") },
-            { href: "/plan", label: t("ui.nav.planTrip", "Plan trip") },
-            { href: activeTripId ? `/trip/${activeTripId}` : "/dashboard", label: t("ui.nav.trips", "Trips") },
+            { href: activeTripId ? `/trip/${activeTripId}` : "/dashboard", label: t("ui.nav.trip", "Trip") },
+            { href: "/plan", label: t("ui.nav.planTrip", "Plan") },
+            { href: activeTripId ? `/trip/${activeTripId}/live` : "/dashboard", label: t("ui.nav.companion", "Companion") },
             { href: "/notifications", label: t("ui.nav.notifications", "Notifications"), count: unreadCount },
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
@@ -140,8 +140,8 @@ function AppShellContent({
 
   return (
     <TranslatedTextBoundary>
-      <div className="min-h-dvh bg-[linear-gradient(135deg,#F7FCFF_0%,#FFFFFF_48%,#FFF7EA_100%)] text-ink">
-        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
+      <div className="min-h-dvh bg-[linear-gradient(135deg,#F7FCFF_0%,#FFFFFF_48%,#FFF7EA_100%)] text-ink dark:bg-[linear-gradient(135deg,#07111f_0%,#0f172a_56%,#111827_100%)] dark:text-white">
+        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/88">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
               <Image
@@ -161,8 +161,8 @@ function AppShellContent({
                   href={route.href}
                   className={`rounded-full px-4 py-2 text-sm font-black transition ${
                     isActive(pathname, route.href)
-                      ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)]"
-                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700"
+                      ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)] dark:bg-white/10 dark:text-cyan-100"
+                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                   }`}
                 >
                   {route.label}
@@ -208,7 +208,7 @@ function AppShellContent({
         <RoamlyLocationTracker />
 
         <nav
-          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
+          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-slate-950/95 ${
             authenticated ? "grid-cols-5" : "grid-cols-4"
           }`}
         >
@@ -219,7 +219,7 @@ function AppShellContent({
               className={`relative rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
                 isActive(pathname, route.href)
                   ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
-                  : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"
+                  : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
               }`}
             >
               {route.label}

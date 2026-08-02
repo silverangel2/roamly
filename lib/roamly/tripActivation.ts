@@ -4,6 +4,8 @@ import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { createInAppNotification } from "@/lib/roamly/pushServer";
+import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { isTodayWithinTripDates, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 
 export type TrackingTrip = {
   id: string;
@@ -80,6 +82,10 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string, tripId?: string) {
   const today = todayIso();
   let query = supabase
@@ -97,7 +103,15 @@ export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: 
     .limit(10);
 
   if (error) return { trip: null, error: error.message };
-  const trip = ((data || []) as TrackingTrip[]).find((candidate) => isTripLocked(candidate) && tripHasTrackingUnlock(candidate)) || null;
+  const trip = ((data || []) as TrackingTrip[]).find((candidate) =>
+    isTripLocked(candidate) &&
+    tripHasTrackingUnlock(candidate) &&
+    isTodayWithinTripDates({
+      startDate: candidate.start_date,
+      endDate: candidate.end_date,
+      timezone: timezoneFromTripMetadata(candidate.metadata)
+    })
+  ) || null;
   return { trip };
 }
 
@@ -259,6 +273,23 @@ export async function activateTripIfNearby(
     };
   }
 
+  const preferences = await getCompanionPreferences({ supabase, userId, tripId: trip.id });
+  const pausedUntil = preferences.liveCompanionPausedUntil ? new Date(preferences.liveCompanionPausedUntil) : null;
+  if (!preferences.liveCompanionEnabled || (pausedUntil && pausedUntil.getTime() > Date.now())) {
+    return {
+      tripActivated: false,
+      trip,
+      currentDay: null,
+      nearbyActivities: [] as TrackingActivity[],
+      checkedActivities: [] as TrackingActivity[],
+      upNextActivity: null as TrackingActivity | null,
+      notification: null as TripNotificationPayload | null,
+      notificationCreated: false,
+      companionEventId: null,
+      error: preferences.liveCompanionEnabled ? "Live Trip Companion is paused." : "Live Trip Companion is disabled."
+    };
+  }
+
   const nearby = await findNearbyActivities(supabase, trip.id, location);
   const currentDay = await getCurrentDayRecord(supabase, trip);
   const checked = await getCheckedActivities(supabase, trip.id);
@@ -304,6 +335,21 @@ export async function activateTripIfNearby(
   }
 
   if (nearby.activities[0]) {
+    const cooldownSince = new Date(Date.now() - 60 * 60_000).toISOString();
+    const duplicate = await supabase
+      .from("roamly_trip_companion_events")
+      .select("id,metadata,created_at")
+      .eq("user_id", userId)
+      .eq("trip_id", trip.id)
+      .eq("event_type", "nearby_activity")
+      .gte("created_at", cooldownSince)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const alreadyNotified = (duplicate.data || []).some((event) => {
+      const metadata = recordValue(event.metadata);
+      return metadata?.activityId === nearby.activities[0]?.id;
+    });
+
     await recordTripEvent(supabase, {
       userId,
       tripId: trip.id,
@@ -317,40 +363,44 @@ export async function activateTripIfNearby(
       metadata: simulationMetadata(options)
     });
 
-    const now = new Date().toISOString();
-    const companion = await supabase
-      .from("roamly_trip_companion_events")
-      .insert({
-        user_id: userId,
-        trip_id: trip.id,
-        event_type: "nearby_activity",
-        title: `Nearby now: ${nearby.activities[0].title}`,
-        body: "You are near a planned activity. Check in when you arrive.",
-        scheduled_for: now,
-        completed_at: now,
-        status: "shown",
-        metadata: simulationMetadata(options, {
-          activityId: nearby.activities[0].id,
-          distanceMeters: nearby.activities[0].distance_meters ?? null
+    if (!alreadyNotified) {
+      const now = new Date().toISOString();
+      const companion = await supabase
+        .from("roamly_trip_companion_events")
+        .insert({
+          user_id: userId,
+          trip_id: trip.id,
+          event_type: "nearby_activity",
+          title: `Nearby now: ${nearby.activities[0].title}`,
+          body: "You are near a planned activity. Check in when you arrive.",
+          scheduled_for: now,
+          completed_at: now,
+          status: "shown",
+          metadata: simulationMetadata(options, {
+            activityId: nearby.activities[0].id,
+            distanceMeters: nearby.activities[0].distance_meters ?? null,
+            notificationReason: "arrival_proximity"
+          })
         })
-      })
-      .select("id")
-      .maybeSingle();
+        .select("id")
+        .maybeSingle();
 
-    await createInAppNotification(supabase, {
-      userId,
-      tripId: trip.id,
-      eventId: companion.data?.id || null,
-      type: "nearby_activity",
-      title: `Nearby now: ${nearby.activities[0].title}`,
-      body: "Check in, skip, or open directions from your Live Trip Companion.",
-      actionUrl: `/trip/${trip.id}/live`,
-      metadata: {
-        activityId: nearby.activities[0].id,
-        distanceMeters: nearby.activities[0].distance_meters ?? null,
-        ...(options?.simulated ? { simulated: true, source: options.source || "tester_location_simulator" } : {})
-      }
-    });
+      await createInAppNotification(supabase, {
+        userId,
+        tripId: trip.id,
+        eventId: companion.data?.id || null,
+        type: "nearby_activity",
+        title: `Nearby now: ${nearby.activities[0].title}`,
+        body: "Check in, skip, or open directions from your Live Trip Companion.",
+        actionUrl: `/trip/${trip.id}/live`,
+        metadata: {
+          activityId: nearby.activities[0].id,
+          distanceMeters: nearby.activities[0].distance_meters ?? null,
+          notificationReason: "arrival_proximity",
+          ...(options?.simulated ? { simulated: true, source: options.source || "tester_location_simulator" } : {})
+        }
+      });
+    }
   }
 
   const notification = buildTripNotificationPayload({

@@ -1089,7 +1089,7 @@ alter table public.roamly_trip_companion_events
     'activity_completed',
     'test_notification'
   )),
-  add constraint roamly_trip_companion_events_status_check check (status in ('scheduled', 'shown', 'completed', 'skipped', 'cancelled'));
+  add constraint roamly_trip_companion_events_status_check check (status in ('scheduled', 'processing', 'shown', 'completed', 'skipped', 'cancelled'));
 
 alter table public.roamly_notifications
   drop constraint if exists roamly_notifications_status_check;
@@ -1110,7 +1110,7 @@ alter table public.roamly_market_prices
   drop constraint if exists roamly_market_prices_price_type_check,
   drop constraint if exists roamly_market_prices_confidence_check;
 alter table public.roamly_market_prices
-  add constraint roamly_market_prices_category_check check (category in ('flight', 'hotel', 'attraction', 'tour', 'transport')),
+  add constraint roamly_market_prices_category_check check (category in ('flight', 'hotel', 'attraction', 'tour', 'restaurant', 'transport')),
   add constraint roamly_market_prices_source_check check (source is null or source in ('travelpayouts', 'stay22', 'getyourguide', 'viator', 'klook', 'google_search', 'fallback_estimate')),
   add constraint roamly_market_prices_price_type_check check (price_type in ('live_partner', 'cached_recent', 'search_ready', 'estimated_fallback', 'unknown')),
   add constraint roamly_market_prices_confidence_check check (confidence in ('high', 'medium', 'low'));

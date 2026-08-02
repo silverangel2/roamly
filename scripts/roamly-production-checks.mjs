@@ -89,6 +89,7 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_booking_reconciliation.sql",
   "lib/roamly/bookingWallet.ts",
   "lib/roamly/brain/bookingReconciliation.ts",
+  "lib/roamly/itineraryIntelligence.ts",
   "lib/roamly/affiliateTracking.ts",
   "lib/roamly/emailConnections.ts",
   "lib/roamly/emailProviderAdapters.ts",
@@ -110,6 +111,7 @@ function exists(file) {
   "supabase/migrations/20260716_roamly_email_connections.sql",
   "supabase/migrations/20260716_roamly_travel_email_filtering.sql",
   "supabase/migrations/20260716_roamly_booking_extraction_matching.sql",
+  "supabase/migrations/20260801_roamly_email_lookback_production.sql",
   "supabase/migrations/20260716_roamly_live_provider_status.sql",
   "supabase/migrations/20260716_roamly_companion_events.sql",
   "supabase/migrations/20260716_roamly_companion_impact_analysis.sql",
@@ -242,22 +244,35 @@ const bookingExtractionMigration = read("supabase/migrations/20260716_roamly_boo
 ["booking_extraction_results", "email_message_id", "extracted_booking_json", "field_confidence_json", "matched_booking_id", "needs_confirmation", "enable row level security"].forEach((needle) =>
   assert.ok(bookingExtractionMigration.toLowerCase().includes(needle.toLowerCase()), `booking extraction migration missing ${needle}`)
 );
+const emailLookbackProductionMigration = read("supabase/migrations/20260801_roamly_email_lookback_production.sql");
+["references public.roamly_bookings(id)", "email_event_types", "auto_apply_allowed", "requires_user_approval", "applied_at", "idempotency_key", "roamly_bookings_source_type_check"].forEach((needle) =>
+  assert.ok(emailLookbackProductionMigration.toLowerCase().includes(needle.toLowerCase()), `email lookback production migration missing ${needle}`)
+);
+const notificationClaimsMigration = read("supabase/migrations/20260802_roamly_notification_claims.sql");
+assert.ok(notificationClaimsMigration.includes("processing"), "notification delivery claims must support a processing state");
+const emailSyncLeaseMigration = read("supabase/migrations/20260802_roamly_email_sync_leases.sql");
+assert.ok(emailSyncLeaseMigration.includes("sync_lease_expires_at"), "email sync must have an expiring cursor lease");
 
 const emailConnections = read("lib/roamly/emailConnections.ts");
-["ROAMLY_TOKEN_ENCRYPTION_KEY", "GMAIL_READONLY_SCOPE", "OUTLOOK_READONLY_SCOPES", "encryptToken", "decryptToken", "syncGmailConnection", "syncOutlookConnection", "recordTravelEmailFilterResult", "extractAndMatchTravelEmailBooking", "metadataHeaders"].forEach((needle) =>
+["ROAMLY_TOKEN_ENCRYPTION_KEY", "GMAIL_READONLY_SCOPE", "OUTLOOK_READONLY_SCOPES", "encryptToken", "decryptToken", "syncGmailConnection", "syncOutlookConnection", "recordTravelEmailFilterResult", "extractAndMatchTravelEmailBooking", "metadataHeaders", "EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC", "EMAIL_LOOKBACK_FETCH_TIMEOUT_MS", "EMAIL_LOOKBACK_BODY_TEXT_LIMIT", "fetchGmailTravelBodyText", "filterTravelEmail(metadata)"].forEach((needle) =>
   assert.ok(emailConnections.includes(needle), `email connections helper missing ${needle}`)
 );
+assert.ok(emailConnections.includes("SYNC_ALREADY_RUNNING"), "mailbox sync must suppress overlapping sync runs");
 assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must not request write mailbox scopes");
 assert.ok(!emailConnections.includes("Mail.ReadWrite"), "Outlook integration must not request write mailbox scopes");
-assert.ok(!emailConnections.includes("format\", \"full"), "Gmail sync must not fetch full message bodies during filtering");
+assert.ok(emailConnections.includes("format\", \"metadata"), "Gmail filtering must start from metadata/snippet");
+assert.ok(emailConnections.indexOf("fetchGmailTravelBodyText") > emailConnections.indexOf("filterTravelEmail(metadata)"), "Gmail full body preview must only be fetched after metadata filtering");
 
 const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
-["KNOWN_TRAVEL_DOMAINS", "booking confirmation", "BOOKING_REFERENCE_PATTERN", "filterTravelEmail", "bodyStored: false", "raw_body_retained: false"].forEach((needle) =>
+["KNOWN_TRAVEL_DOMAINS", "booking confirmation", "BOOKING_REFERENCE_PATTERN", "filterTravelEmail", "bodyStored: false", "raw_body_retained: false", "klook.com", "eventTypes", "bookingTypes"].forEach((needle) =>
   assert.ok(travelEmailFiltering.includes(needle), `travel email filtering helper missing ${needle}`)
+);
+["full_body", "body_html", "raw_email_body"].forEach((needle) =>
+  assert.ok(!travelEmailFilteringMigration.includes(needle), `travel email filtering must not store ${needle}`)
 );
 
 const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
-["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "createTripBooking", "high_confidence_match", "reconcileTripBookings"].forEach((needle) =>
+["BOOKING_EXTRACTION_JSON_SCHEMA", "deterministicBookingExtraction", "extractBookingWithAiStructuredOutput", "json_schema", "strict: true", "createTripBooking", "high_confidence_match", "reconcileTripBookings", "existingBookingTripMatch", "EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE", "requiresUserApproval", "auto_apply_allowed", "requires_user_approval"].forEach((needle) =>
   assert.ok(bookingExtraction.includes(needle), `booking extraction helper missing ${needle}`)
 );
 
@@ -590,13 +605,13 @@ assert.ok(!itinerarySource.includes("google\\.com\\/search"), "production valida
 const generationAdvanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(generationAdvanceRoute.includes("processGenerationQueue"), "generation advance route must execute through the durable queue worker");
 assert.ok(generationAdvanceRoute.includes("workerQueueUnavailable"), "generation advance route must detect unavailable queue infrastructure");
-assert.ok(generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must direct-rescue staged jobs when queue infrastructure is unavailable");
-assert.ok(generationAdvanceRoute.includes("finalizeCompletedStagedGeneration"), "generation advance direct rescue must finalize completed fallback generations");
-assert.ok(generationAdvanceRoute.includes("browser_direct_fallback_completion"), "generation advance direct rescue must tag fallback completion finalization");
-assert.ok(generationAdvanceRoute.includes('fallback: "direct_staged_generation"'), "generation advance route must expose direct fallback diagnostics");
+assert.ok(!generationAdvanceRoute.includes("advanceStagedItineraryGeneration"), "generation advance route must not execute staged generation directly");
+assert.ok(!generationAdvanceRoute.includes("finalizeCompletedStagedGeneration"), "generation advance route must not finalize direct fallback generations");
+assert.ok(!generationAdvanceRoute.includes("browser_direct_fallback_completion"), "generation advance route must not tag direct fallback completion finalization");
+assert.ok(!generationAdvanceRoute.includes("direct_staged_generation"), "generation advance route must not expose direct staged fallback diagnostics");
 assert.ok(generationAdvanceRoute.includes("queueSnapshot") && generationAdvanceRoute.includes("queue: await queueSnapshot"), "generation advance route must return queue state");
 assert.ok(generationAdvanceRoute.includes("const savedTrip = await auth.supabase"), "generation advance route must reload saved progress after terminal generator errors");
-assert.ok(generationAdvanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.metadata)"), "generation advance route must return saved failed progress after direct fallback errors");
+assert.ok(generationAdvanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.metadata, id)"), "generation advance route must return saved failed progress scoped to the trip after worker errors");
 
 const generationStatusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose resumable progress");
@@ -609,10 +624,11 @@ assert.ok(generationStatusRoute.includes("status_route_stored_itinerary_recovery
 assert.ok(generationStatusRoute.includes("tripStatusStillBuilding") && generationStatusRoute.includes("itineraryStatusComplete"), "generation status route must repair existing trips stuck queued after a final itinerary is saved");
 assert.ok(generationStatusRoute.includes("getGenerationEmailStatus") && generationStatusRoute.includes("completionEmailMissing"), "generation status route must recover missing completion emails for completed stored itineraries");
 assert.ok(generationStatusRoute.includes("queueTableMissing(jobsResult.error.message)") && generationStatusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
-assert.ok(generationStatusRoute.includes("completedDayCount: derived.completedLayerCount") && generationStatusRoute.includes("totalDayCount: derived.totalLayerCount"), "generation status route must expose terminal day counts at the top level");
+assert.ok(generationStatusRoute.includes("publicStagedGenerationProgress(data.metadata, id)"), "generation status route must read progress only for the requested trip id");
+assert.ok(generationStatusRoute.includes("completedDayCount: derived.completedDayCount") && generationStatusRoute.includes("totalDayCount: derived.totalDayCount"), "generation status route must expose trip-day counts at the top level");
 const generationStatusHelper = read("lib/roamly/generationStatus.ts");
-assert.ok(generationStatusHelper.includes("hasFullItinerary === true") && generationStatusHelper.includes("completedLayerCount = isComplete ? totalLayerCount"), "completed itinerary status must override stale queued progress and return matching counts");
-assert.ok(generationStatusHelper.includes("completedTotalCount = Math.max(metadataTotal, metadataCompleted, 1)"), "completed itinerary status must use itinerary day totals instead of queue layer totals");
+assert.ok(generationStatusHelper.includes("hasFullItinerary === true") && generationStatusHelper.includes("completedDayCount = isComplete ? totalDayCount"), "completed itinerary status must override stale queued progress and return matching day counts");
+assert.ok(generationStatusHelper.includes("explicitFailure") && generationStatusHelper.includes("!explicitFailure"), "failed validation must not be converted to complete by matching counts");
 
 const generationFinalization = read("lib/roamly/generationFinalization.ts");
 [
@@ -663,20 +679,26 @@ assert.ok(!progressComponent.includes("percent"), "generation progress UI must n
 assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progress UI must not render a progress bar");
 [
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
-  "Queued",
+  "Preparing outline",
+  "Outline",
+  "Finalizing",
   "Building your trip",
   "Saving your itinerary",
   "Trip ready",
   "Taking longer than expected. You can leave this page.",
   "Generation failed — Retry",
   "simpleGenerationState",
-  "progressFromApi",
-  "isTerminalStatus(data?.status || \"\")",
+  "progressFromApiForTrip(data, tripId)",
+  "normalizeProgressForTrip",
+  "data?.status !== \"complete\"",
+  "backendFailed",
+  "finalValidationErrors",
   "terminalRefreshQueued",
   "router.refresh()",
-  "trackPollMovement(nextProgress || data?.progress, data?.queue)"
+  "trackPollMovement(nextProgress || data?.progress, nextQueue)"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
-["Trip understood", "Creating your days", "Checking your plan", "Finalizing", "Current step"].forEach((needle) =>
+assert.ok(!progressComponent.includes("(totalDays > 0 && completedDays >= totalDays)"), "generation progress UI must not mark validation failure complete from counts alone");
+["Trip understood", "Creating your days", "Checking your plan", "Current step"].forEach((needle) =>
   assert.ok(!progressComponent.includes(needle), `generation progress UI must not render old progress label ${needle}`)
 );
 
@@ -684,7 +706,7 @@ const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts")
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must require an accepted bearer secret");
 assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("export async function POST"), "generation cron route must support immediate background worker triggers");
-assert.ok(generationCron.includes("maxLayersPerRun: 1"), "protected worker wake must process one layer per run");
+assert.ok(generationCron.includes("maxLayersPerRun: 8"), "protected worker wake must let the durable worker continue until its budget guard yields");
 
 const generationWorker = read("lib/roamly/generationWorker.ts");
 [
@@ -693,22 +715,25 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "ROAMLY_GENERATION_MAX_RETRIES",
   "ROAMLY_GENERATION_LEASE_SECONDS",
   "ROAMLY_GENERATION_MAX_LAYERS_PER_RUN",
-  "maxLayersPerRun: 1",
+  "maxLayersPerRun: 8",
+  "ROAMLY_GENERATION_STAGE_CLEANUP_BUFFER_MS",
+  "stageCleanupBufferMs",
+  "hasBudgetForWork",
+  "nextStagedGenerationWork",
   "claimGenerationJobs",
   "claimGenerationJobByTrip",
   "advanceStagedItineraryGeneration",
+  "reconcileGenerationLayersFromStagedState",
   "sendStagedGenerationEmail",
   "finalizeStoredFullItinerary",
   "finalizeCompletedStagedGeneration",
   "requireQueueFinalization: true",
   "workerId: params.workerId",
-  "scheduleGenerationLayerRetry",
   "recordGenerationCostEvent"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
 [
-  "terminal_state_after_generator_throw",
   "terminalState && terminalStatus(terminalState.status)",
-  "recoveredAfterThrow",
+  "syncQueueFromState",
   "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
 assert.ok(
@@ -841,13 +866,13 @@ assert.ok(
 const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must run after the response");
 assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "generation background trigger must call the protected worker");
-assert.ok(generationBackground.includes("runLocalWorkerFallback"), "generation background trigger must fall back to an in-process worker when HTTP wake is unavailable");
-assert.ok(generationBackground.includes("local_after_fallback"), "generation background trigger must tag local fallback diagnostics");
-assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "generation background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
-assert.ok(generationBackground.includes("background_direct_fallback_completion"), "generation background direct fallback must finalize completed staged generations");
-assert.ok(generationBackground.includes("staged_generation_background_direct_fallback_finalized"), "generation background direct fallback must log finalization results");
-assert.ok(generationBackground.includes("outlineCompletedNeedsFirstDayContinuation"), "generation background must detect outline-only worker completions");
-assert.ok(generationBackground.includes("outline_to_first_day"), "generation background must immediately continue from outline to the first day batch");
+assert.ok(generationBackground.includes("staged_generation_background_worker_wake"), "generation background trigger must log protected worker wake results");
+assert.ok(generationBackground.includes("staged_generation_background_wake_skipped"), "generation background trigger must log missing worker secrets");
+assert.ok(generationBackground.includes("tripId: params.tripId"), "generation background trigger must only wake the scheduled trip job");
+assert.ok(!generationBackground.includes("runLocalWorkerFallback"), "generation background trigger must not depend on an in-process fallback worker");
+assert.ok(!generationBackground.includes("advanceStagedItineraryGeneration"), "generation background trigger must not execute staged generation directly");
+assert.ok(!generationBackground.includes("outlineCompletedNeedsFirstDayContinuation"), "generation background must not chain outline-to-day continuations");
+assert.ok(!generationBackground.includes("outline_to_first_day"), "generation background must not depend on outline-to-day chained HTTP timing");
 
 const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnostics/route.ts");
 ["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
@@ -861,7 +886,7 @@ const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");
 
 const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
-["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail", "findDeliveredGenerationEmail", "resolveTripOwnerEmail", "claimGenerationEmailSend", "isBlockedProductionRecipientEmail", "productionEmailSafetyEnabled", "getGenerationEmailStatusForTrip", "deliveredByColumn", "roamly_email_logs", ".eq(\"idempotency_key\", key)", "Generation email already sent."].forEach((needle) =>
+["completion_email_status", "completion_email_sent_at", "completion_email_attempt_count", "completion_email_next_retry_at", "failure_email_sent_at", "email_provider_message_id", "delivery_status", "last_email_error", "sendRoamlyEmail", "findDeliveredGenerationEmail", "resolveTripOwnerEmail", "claimGenerationEmailSend", "isBlockedProductionRecipientEmail", "productionEmailSafetyEnabled", "getGenerationEmailStatusForTrip", "deliveredByColumn", "roamly_email_logs", "tripId: trip.id", "destination: getTripDestinationLabel(trip)", ".eq(\"idempotency_key\", key)", "Generation email already sent."].forEach((needle) =>
   assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`)
 );
 assert.ok(generationEmail.includes("toRoamlyAbsoluteUrl(`/trip/${tripId}?from=generation-email`"), "completion email CTA must be a production-safe absolute trip URL");

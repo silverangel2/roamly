@@ -1,0 +1,94 @@
+import { after } from "next/server";
+import { logGenerationDiagnostic, getPublicSupabaseHost } from "@/lib/roamly/generationDiagnostics";
+
+type ScheduleStagedGenerationAdvanceParams = {
+  tripId: string;
+  origin?: string | null;
+  reason: string;
+  requestId?: string;
+};
+
+export function getGenerationWorkerSecret() {
+  return getGenerationWorkerSecrets()[0] || "";
+}
+
+export function getGenerationWorkerSecrets() {
+  return [
+    process.env.ROAMLY_GENERATION_CRON_SECRET,
+    process.env.CRON_SECRET
+  ]
+    .map((value) => value?.trim() || "")
+    .filter((value, index, values) => value && values.indexOf(value) === index);
+}
+
+function siteUrl(origin?: string | null) {
+  if (origin && /^https?:\/\//i.test(origin)) return origin.replace(/\/$/, "");
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "https://roamlyhq.com";
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+export function scheduleStagedGenerationAdvance(params: ScheduleStagedGenerationAdvanceParams) {
+  const secret = getGenerationWorkerSecret();
+  const url = `${siteUrl(params.origin)}/api/cron/roamly-itinerary-generation`;
+
+  after(async () => {
+    if (!secret) {
+      logGenerationDiagnostic("staged_generation_background_wake_skipped", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        errorCode: "GENERATION_CRON_SECRET_MISSING"
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${secret}`,
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({
+          tripId: params.tripId,
+          reason: params.reason,
+          requestId: params.requestId || null
+        }),
+        cache: "no-store"
+      });
+      const body = await response.json().catch(() => null);
+
+      logGenerationDiagnostic("staged_generation_background_worker_wake", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        status: response.status,
+        ok: response.ok,
+        workerOk: record(body).ok === true,
+        claimed: record(body).claimed || 0,
+        processed: record(body).processed || 0,
+        completed: record(body).completed || 0,
+        errorCode: response.ok ? null : record(body).error || "BACKGROUND_WORKER_WAKE_FAILED"
+      });
+    } catch (error) {
+      logGenerationDiagnostic("staged_generation_background_worker_wake_failed", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        errorCode: error instanceof Error ? error.name : "BACKGROUND_WORKER_WAKE_FAILED"
+      });
+    }
+  });
+}

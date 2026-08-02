@@ -47,6 +47,7 @@ function loadTsModule(entryFile) {
         return require(id);
       },
       URL,
+      URLSearchParams,
       process
     };
 
@@ -114,6 +115,7 @@ const placeResolverExports = loadTsModule("lib/roamly/placeResolver.ts");
 const airportResolverExports = loadTsModule("lib/roamly/airportResolver.ts");
 const bookingLinksExports = loadTsModule("lib/roamly/bookingLinks.ts");
 const affiliateResolverExports = loadTsModule("lib/roamly/affiliateResolver.ts");
+const travelResultValidationExports = loadTsModule("lib/roamly/travelResultValidation.ts");
 
 [
   ["Montreal", "Montreal, Canada"],
@@ -200,15 +202,221 @@ assert.equal(
 
 assert.ok(affiliateResolver.includes("https://www.stay22.com/allez/roam"), "Stay22 partner fallback must use the Allez traveler endpoint");
 
+[
+  "https://w3.org/TR/json-ld/",
+  "https://schema.org/Hotel",
+  "https://schemas.live.com/hotmail/",
+  "https://ogp.me/",
+  "https://json-ld.org/"
+].forEach((href) => {
+  assert.equal(travelResultValidationExports.isBlockedTravelDomain(href), true, `${href} must be blocked`);
+  assert.equal(
+    travelResultValidationExports.validateTravelResultForDisplay({
+      category: "hotel",
+      title: href.replace(/^https?:\/\//, ""),
+      provider: href.replace(/^https?:\/\//, ""),
+      url: href,
+      requestedDestination: "Toronto, Canada"
+    }).ok,
+    false,
+    `${href} must not validate as a travel result`
+  );
+});
+
+assert.equal(
+  travelResultValidationExports.validateTravelResultForDisplay({
+    category: "restaurant",
+    title: "Alo",
+    provider: "Google Maps",
+    url: "https://www.google.com/maps/search/?api=1&query=Alo%20Toronto",
+    destination: "Toronto, Canada",
+    requestedDestination: "Toronto, Canada"
+  }).ok,
+  true,
+  "real restaurant map results must validate"
+);
+assert.equal(
+  travelResultValidationExports.validateTravelResultForDisplay({
+    category: "shopping",
+    title: "St. Lawrence Market",
+    provider: "Google Maps",
+    url: "https://www.google.com/maps/search/?api=1&query=St%20Lawrence%20Market%20Toronto",
+    destination: "Toronto, Canada",
+    requestedDestination: "Toronto, Canada"
+  }).ok,
+  true,
+  "real souvenir/shopping place results must validate"
+);
+assert.equal(
+  travelResultValidationExports.validateTravelResultForDisplay({
+    category: "flight",
+    expectedCategory: "hotel",
+    title: "Saint John to Vancouver flight",
+    provider: "Travelpayouts",
+    url: "https://www.aviasales.com/search/YSJ0508YVR08081",
+    destination: "Vancouver, Canada",
+    requestedDestination: "Toronto, Canada"
+  }).ok,
+  false,
+  "irrelevant categories or destinations must be hidden"
+);
+assert.equal(
+  travelResultValidationExports.dedupeTravelResults(
+    [
+      { category: "hotel", title: "Chelsea Hotel, Toronto", url: "https://www.google.com/maps/search/?api=1&query=Chelsea%20Hotel%20Toronto&utm_source=x" },
+      { category: "hotel", title: "Chelsea Hotel, Toronto", url: "https://www.google.com/maps/search/?api=1&query=Chelsea%20Hotel%20Toronto&utm_source=y" }
+    ],
+    (item) => item
+  ).length,
+  1,
+  "duplicate travel results must be removed"
+);
+
 const affiliateLinks = read("lib/roamly/affiliateLinks.ts");
 assert.ok(affiliateLinks.includes("enrichTimelineItems"), "timeline booking CTAs must be resolved server-side");
 assert.ok(affiliateLinks.includes("resolveAffiliateLink"), "affiliate links must use the centralized resolver");
 assert.ok(affiliateLinks.includes("booking: {"), "timeline items must receive structured booking objects");
 assert.ok(affiliateLinks.includes('if (raw.startsWith("/")) return "";'), "generated booking links must reject internal /plan fallbacks");
-["recommended_stay_name", "stay_profile", "neighborhood", "room_type", "budget_target", "why_recommended", "Find this stay"].forEach((needle) =>
+["recommended_stay_name", "stay_profile", "neighborhood", "room_type", "budget_target", "why_recommended", "View hotel options"].forEach((needle) =>
   assert.ok(affiliateLinks.includes(needle), `hotel recommendation missing ${needle}`)
 );
 assert.ok(affiliateLinks.includes("payload.budgetIncludesHotel !== false") && affiliateLinks.includes("Boolean(resolvedDestination)"), "hotel recommendations must respect included hotel budget and resolved places");
+["Chelsea Hotel, Toronto", "The Anndore House", "Holiday Inn Toronto Downtown Centre"].forEach((needle) =>
+  assert.ok(affiliateLinks.includes(needle), `Toronto hotel shortlist missing ${needle}`)
+);
+assert.ok(affiliateLinks.includes("safeConsumerTravelUrl"), "affiliate enrichment must use the centralized consumer travel URL filter");
+assert.ok(affiliateLinks.includes("validateTravelResultForDisplay"), "affiliate enrichment must validate result category/destination before display");
+
+const previousStay22Partner = process.env.ROAMLY_STAY22_PARTNER_ID;
+const previousKlookPartner = process.env.ROAMLY_KLOOK_PARTNER_ID;
+const previousAffiliateEnabled = process.env.ROAMLY_AFFILIATES_ENABLED;
+const restoreEnv = (key, value) => {
+  if (value === undefined) delete process.env[key];
+  else process.env[key] = value;
+};
+process.env.ROAMLY_AFFILIATES_ENABLED = "true";
+process.env.ROAMLY_STAY22_PARTNER_ID = "test-stay22";
+process.env.ROAMLY_KLOOK_PARTNER_ID = "test-klook";
+const affiliateLinksExports = loadTsModule("lib/roamly/affiliateLinks.ts");
+const fixtureItinerary = {
+  trip_title: "Toronto compact fixture",
+  destination_summary: "Toronto itinerary fixture.",
+  best_for: ["Downtown", "Food"],
+  budget_fit_summary: "Workable",
+  transport_overview: "Fly to Toronto.",
+  local_tips: ["Use transit downtown."],
+  safety_notes: ["Keep booking confirmations offline."],
+  emergency_notes: ["Call local emergency services if needed."],
+  free_or_low_cost_notes: [],
+  packing_checklist: ["Comfortable shoes"],
+  estimated_budget_breakdown: {
+    total_estimate: "CAD 1,000",
+    transport: "Verify flights",
+    lodging: "Verify hotels",
+    activities: "Verify activities",
+    food: "Verify food",
+    buffer: "Keep a buffer",
+    selected_transport_estimate_amount: 300,
+    selected_hotel_estimate_amount: 180,
+    recommended_transport_option: null,
+    transport_options: [],
+    budget_category_confidence: []
+  },
+  daily_itinerary: [
+    {
+      day_number: 1,
+      date: "2026-08-05",
+      city: "Toronto",
+      title: "Downtown Toronto",
+      morning: "Arrive and settle in.",
+      afternoon: "CN Tower.",
+      evening: "Dinner downtown.",
+      estimated_cost: 80,
+      food: ["Alo"],
+      map_queries: ["CN Tower Toronto"],
+      live_timeline: [
+        { startTime: "10:00", endTime: "11:30", title: "CN Tower", description: "Observation visit.", location_name: "Downtown Toronto", category: "attraction", map_query: "CN Tower Toronto" },
+        { startTime: "12:00", endTime: "13:00", title: "Alo", description: "Restaurant option.", location_name: "Downtown Toronto", category: "meal", map_query: "Alo Toronto" },
+        { startTime: "15:00", endTime: "16:00", title: "St. Lawrence Market", description: "Public market and souvenir stop.", location_name: "Old Town Toronto", category: "shopping", map_query: "St. Lawrence Market Toronto" }
+      ]
+    }
+  ],
+  booking_suggestions: [
+    {
+      category: "flight",
+      booking_category: "flight",
+      title: "w3.org",
+      description: "Invalid metadata result.",
+      booking_status: "needs_booking",
+      booking_label: "Compare flights",
+      normal_search_url: "https://w3.org/TR/",
+      estimated_cost_min: null,
+      estimated_cost_max: null,
+      currency: "CAD",
+      price_confidence: "unknown"
+    },
+    {
+      category: "attraction",
+      booking_category: "attraction",
+      title: "CN Tower",
+      description: "Observation visit.",
+      destination: "Toronto, Canada",
+      booking_status: "needs_booking",
+      booking_label: "Book activity",
+      normal_search_url: "https://www.google.com/search?q=CN%20Tower%20Toronto%20official%20site",
+      estimated_cost_min: null,
+      estimated_cost_max: null,
+      currency: "CAD",
+      price_confidence: "unknown"
+    }
+  ],
+  pre_trip_essentials: []
+};
+const fixturePayload = {
+  tripType: "single_destination",
+  origin: "Saint John, Canada",
+  destination: "Toronto, Canada",
+  destinationCity: "Toronto",
+  destinationCountry: "Canada",
+  returnToOrigin: true,
+  startDate: "2026-08-05",
+  endDate: "2026-08-08",
+  daysCount: 4,
+  travelersCount: 1,
+  travelers: { adults: 1, children: 0, infants: 0 },
+  rooms: 1,
+  bedPreference: "Standard queen room",
+  budgetAmount: 1500,
+  budgetCurrency: "CAD",
+  budgetIncludesFlights: true,
+  budgetIncludesHotel: true,
+  budgetIncludesActivities: true,
+  travelStyle: "Balanced",
+  interests: ["food"],
+  pace: "Balanced",
+  walkingTolerance: "Medium",
+  accommodationPreference: "Central hotel",
+  transportationPreference: "Flight",
+  language: "en"
+};
+const enrichedFixture = affiliateLinksExports.enrichItineraryBookingSuggestions(fixtureItinerary, fixturePayload);
+const hotelSuggestions = enrichedFixture.booking_suggestions.filter((item) => item.booking_category === "hotel");
+assert.ok(hotelSuggestions.length >= 2, "real hotel suggestions must be added before Stay22 actions");
+assert.ok(hotelSuggestions.every((item) => !/stay22/i.test(item.title)), "Stay22 must not be used as the hotel identity");
+assert.ok(hotelSuggestions.some((item) => item.affiliate_provider === "stay22" || /stay22\.com/.test(item.affiliate_url || "")), "Stay22 must be attached as hotel booking/search link");
+assert.ok(!enrichedFixture.booking_suggestions.some((item) => /w3\.org|schema\.org|schemas\.live\.com|ogp\.me|json-ld\.org/i.test(`${item.title} ${item.normal_search_url} ${item.affiliate_url}`)), "metadata domains must be removed from booking suggestions");
+assert.ok(enrichedFixture.booking_suggestions.some((item) => item.booking_category === "attraction" && (item.affiliate_provider === "klook" || /klook\.com/.test(item.affiliate_url || ""))), "activities must prefer Klook when configured");
+restoreEnv("ROAMLY_STAY22_PARTNER_ID", previousStay22Partner);
+restoreEnv("ROAMLY_KLOOK_PARTNER_ID", previousKlookPartner);
+restoreEnv("ROAMLY_AFFILIATES_ENABLED", previousAffiliateEnabled);
+
+const tripPageForPrintChecks = read("app/trip/[id]/page.tsx");
+assert.ok(!tripPageForPrintChecks.includes("Search link unavailable"), "booking cards must not render disabled unavailable-link copy");
+assert.ok(tripPageForPrintChecks.includes("roamly-compact-print"), "trip page must include a compact print/PDF layout");
+assert.ok(tripPageForPrintChecks.includes("roamly-screen-document"), "desktop itinerary must be separated from print/PDF output");
+const globalsCss = read("app/globals.css");
+assert.ok(globalsCss.includes(".roamly-screen-document") && globalsCss.includes("display: none !important"), "print CSS must hide desktop navigation/tabs");
+assert.ok(globalsCss.includes(".roamly-compact-print") && globalsCss.includes("break-after: page") && globalsCss.includes("break-before: page"), "print CSS must create compact cover/days/final pages");
 
 const affiliateNeutrality = read("lib/roamly/affiliateNeutrality.ts");
 [
@@ -238,6 +446,8 @@ const itinerary = read("lib/itinerary.ts");
   "arrivalTravelItems",
   "departureTravelItems",
   "withTransfersBetweenMajorItems",
+  "applyRoamlyItineraryIntelligence",
+  "mergeShortTransfersIntoFollowingActivity",
   "withChronologicalTimes",
   "timelineChronologyErrors",
   "Day 1 is missing travel/arrival before local activities.",
@@ -249,13 +459,218 @@ assert.ok(itinerary.includes('if (raw.startsWith("/")) return false;'), "itinera
 assert.ok(itinerary.includes("Roamly recommends this option for your trip."), "itinerary must confidently label the recommended transport option");
 assert.ok(!itinerary.includes("google\\.com\\/search"), "itinerary validation must allow safe Google official/activity searches");
 
+const itineraryIntelligenceExports = loadTsModule("lib/roamly/itineraryIntelligence.ts");
+assert.equal(itineraryIntelligenceExports.isGenericPlaceName("local bistro"), true, "generic place names must be rejected");
+const mergedTransfers = itineraryIntelligenceExports.mergeShortTransfersIntoFollowingActivity([
+  {
+    time_label: "10:00 AM",
+    title: "Travel to Notre-Dame Basilica",
+    description: "Short local hop.",
+    location_name: "Old Port to Notre-Dame Basilica",
+    estimated_cost: 0,
+    category: "Transfer",
+    map_query: "Old Port to Notre-Dame Basilica",
+    item_type: "transfer",
+    origin: "Old Port",
+    destination: "Notre-Dame Basilica",
+    travelTimeMinutes: 9,
+    transportMode: "walk"
+  },
+  {
+    time_label: "10:15 AM",
+    title: "Notre-Dame Basilica admission",
+    description: "Timed visit.",
+    location_name: "Notre-Dame Basilica",
+    estimated_cost: 18,
+    category: "Activity",
+    map_query: "Notre-Dame Basilica",
+    item_type: "activity"
+  }
+]);
+assert.equal(mergedTransfers.length, 1, "short transfer cards must be merged into the following activity");
+assert.equal(mergedTransfers[0].origin, "Old Port", "merged activity must retain transfer origin");
+assert.equal(mergedTransfers[0].travelTimeMinutes, 9, "merged activity must retain transfer duration");
+
+const intelligentItinerary = itineraryIntelligenceExports.applyRoamlyItineraryIntelligence(
+  {
+    trip_title: "Montreal test",
+    destination_summary: "",
+    best_for: [],
+    route_reasoning: "",
+    budget_fit_summary: "",
+    booking_status_summary: "",
+    free_or_low_cost_notes: [],
+    estimated_budget_breakdown: {
+      lodging: "",
+      food: "",
+      activities: "",
+      transport: "",
+      buffer: "",
+      total_estimate: "",
+      notes: ""
+    },
+    hotel_area_suggestions: [],
+    transport_overview: "",
+    daily_itinerary: [
+      {
+        day_number: 1,
+        city: "Montreal",
+        title: "Generic day",
+        morning: "",
+        afternoon: "",
+        evening: "",
+        food: ["local bistro"],
+        estimated_cost: 100,
+        map_queries: [],
+        live_timeline: [
+          {
+            time_label: "9:30 AM",
+            title: "Museum or gallery",
+            description: "Generic activity.",
+            location_name: "Montreal",
+            estimated_cost: 20,
+            category: "Activity",
+            map_query: "Montreal activity"
+          },
+          {
+            time_label: "10:30 AM",
+            title: "Travel to lunch",
+            description: "Short hop.",
+            location_name: "Museum to lunch",
+            estimated_cost: 0,
+            category: "Transfer",
+            map_query: "Museum to lunch",
+            item_type: "transfer",
+            origin: "Museum",
+            destination: "Lunch",
+            travelTimeMinutes: 8,
+            transportMode: "walk"
+          },
+          {
+            time_label: "2:30 PM",
+            title: "Neighborhood lunch and explore",
+            description: "Generic lunch.",
+            location_name: "Montreal",
+            estimated_cost: 30,
+            category: "Meal",
+            map_query: "Montreal lunch",
+            item_type: "meal"
+          },
+          {
+            time_label: "4:00 PM",
+            title: "Easy evening finish",
+            description: "Generic evening.",
+            location_name: "Montreal",
+            estimated_cost: 25,
+            category: "Activity",
+            map_query: "Montreal evening"
+          },
+          {
+            time_label: "5:30 PM",
+            title: "Hidden gem",
+            description: "Generic.",
+            location_name: "Montreal",
+            estimated_cost: 10,
+            category: "Activity",
+            map_query: "Montreal"
+          },
+          {
+            time_label: "7:00 PM",
+            title: "Casual dinner",
+            description: "Generic.",
+            location_name: "Montreal",
+            estimated_cost: 35,
+            category: "Meal",
+            map_query: "Montreal dinner"
+          },
+          {
+            time_label: "8:30 PM",
+            title: "Nightlife district",
+            description: "Generic.",
+            location_name: "Montreal",
+            estimated_cost: 20,
+            category: "Activity",
+            map_query: "Montreal nightlife"
+          }
+        ]
+      }
+    ],
+    packing_checklist: [],
+    local_tips: [],
+    safety_notes: [],
+    emergency_notes: [],
+    booking_suggestions: [],
+    pre_trip_essentials: [],
+    regenerate_suggestions: []
+  },
+  {
+    destination: "Montreal",
+    destinationCity: "Montreal",
+    startDate: "2026-08-05",
+    endDate: "2026-08-08",
+    daysCount: 4,
+    budgetCurrency: "CAD",
+    interests: ["Culture", "Food"],
+    priceDiscovery: {
+      marketResults: [
+        {
+          id: "native-notre-dame",
+          category: "attraction",
+          title: "Notre-Dame Basilica admission",
+          provider: "ReviewIntel native retrieval",
+          source: "roamly_internal",
+          currency: "CAD",
+          price_type: "search_ready",
+          confidence: "medium",
+          normal_search_url: "https://example.com/notre-dame",
+          searched_at: "2026-08-01T12:00:00.000Z",
+          expires_at: "2026-08-02T12:00:00.000Z",
+          metadata: { retrieval_provider: "native", verification_status: "native_review_evidence" }
+        },
+        {
+          id: "native-restaurant",
+          category: "restaurant",
+          title: "Joe Beef",
+          provider: "ReviewIntel native retrieval",
+          source: "roamly_internal",
+          currency: "CAD",
+          price_type: "search_ready",
+          confidence: "medium",
+          normal_search_url: "https://example.com/joe-beef",
+          searched_at: "2026-08-01T12:00:00.000Z",
+          expires_at: "2026-08-02T12:00:00.000Z",
+          metadata: { retrieval_provider: "native", verification_status: "native_review_evidence" }
+        }
+      ]
+    }
+  }
+);
+assert.ok(intelligentItinerary.daily_itinerary[0].live_timeline.length <= 6, "intelligence pass must cap visible timeline items at 6");
+assert.ok(
+  intelligentItinerary.daily_itinerary[0].live_timeline.some((item) => item.title === "Notre-Dame Basilica admission"),
+  "generic activity must be replaced by a real market-backed place"
+);
+assert.ok(!JSON.stringify(intelligentItinerary).toLowerCase().includes("local bistro"), "generic food text must be removed");
+
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("BookingPlan") && tripPage.includes("BookingRecommendationCard"), "booking recommendations must render in a dedicated section");
 assert.ok(!tripPage.includes("shouldShowInlineTimelineBooking") && !tripPage.includes("item.booking"), "timeline must not render booking spam inside itinerary cards");
 assert.ok(tripPage.includes("isLegacyBookingUrl(raw)"), "trip rendering must reject legacy booking links");
 assert.ok(tripPage.includes("enrichItineraryBookingSuggestions"), "saved trips must reconstruct missing affiliate links on load");
-assert.ok(tripPage.includes("const generationPanelVisible = !canShowFull &&"), "trip page must not show generation/loading UI when a full itinerary exists");
+assert.ok(tripPage.includes("const generationFailed = generationStatus === \"failed\" || generationStatus === \"partially_failed\""), "trip page must detect terminal failed generation state");
+assert.ok(tripPage.includes("(!canShowFull || generationFailed)"), "trip page must still show failed generation UI when a non-final preview itinerary exists");
 assert.ok(tripPage.includes("canShowFull && full && !generationPanelVisible"), "trip page must render the itinerary automatically after generation completes");
+[
+  "buildDisplayTimelineItems",
+  "roamly-day-nav",
+  "roamly-tab-nav",
+  "DayTimelineCard",
+  "min-h-11",
+  "buildRelevantBookingGroups",
+  "isImpracticalBookingSuggestion",
+  "RecommendedTransportCard"
+].forEach((needle) => assert.ok(tripPage.includes(needle), `mobile itinerary/bookings UI missing ${needle}`));
+assert.ok(tripPage.includes("slice(0, 6)") || tripPage.includes("output.length >= 6"), "completed itinerary display must cap daily primary items");
 
 const planPage = read("app/plan/page.tsx");
 assert.ok(planPage.includes("hidden gap-2 lg:grid"), "mobile plan page must not render the desktop info rail");
@@ -470,7 +885,7 @@ const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
   "prepareStagedGenerationContext",
   "startStagedItineraryGeneration",
   "createOrResumeGenerationJob",
-  "generation_queue_unavailable_direct_staged_start",
+  "generation_queue_unavailable",
   "generationPriorityForEntitlement",
   "duplicateGenerationRequestKey",
   "paidPriority",
@@ -496,14 +911,14 @@ assert.ok(tripPage.includes("itinerary_render_full_loaded"), "trip page must log
 const advanceRoute = read("app/api/trips/[id]/generation/advance/route.ts");
 assert.ok(advanceRoute.includes("processGenerationQueue"), "client generation worker route must advance through the durable queue worker");
 assert.ok(advanceRoute.includes("workerQueueUnavailable"), "client generation worker route must detect unavailable queue infrastructure");
-assert.ok(advanceRoute.includes("advanceStagedItineraryGeneration"), "client generation worker route must direct-rescue staged jobs when queue infrastructure is unavailable");
-assert.ok(advanceRoute.includes("finalizeCompletedStagedGeneration"), "client generation direct rescue must finalize completed fallback generations");
-assert.ok(advanceRoute.includes("browser_direct_fallback_completion"), "client generation direct rescue must tag fallback completion finalization");
-assert.ok(advanceRoute.includes('fallback: "direct_staged_generation"'), "client generation worker route must expose direct fallback diagnostics");
+assert.ok(!advanceRoute.includes("advanceStagedItineraryGeneration"), "client route must not execute staged generation directly");
+assert.ok(!advanceRoute.includes("finalizeCompletedStagedGeneration"), "client route must not finalize direct fallback generations");
+assert.ok(!advanceRoute.includes("browser_direct_fallback_completion"), "client route must not tag direct fallback completion finalization");
+assert.ok(!advanceRoute.includes("direct_staged_generation"), "client route must not expose direct staged fallback diagnostics");
 assert.ok(advanceRoute.includes("resetFailedStagedBatch"), "client generation worker route must retry only failed batches");
 assert.ok(advanceRoute.includes("queueSnapshot") && advanceRoute.includes("queue: await queueSnapshot"), "client generation worker route must return durable queue progress");
 assert.ok(advanceRoute.includes("const savedTrip = await auth.supabase"), "client generation worker route must reload saved progress after terminal generator errors");
-assert.ok(advanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.metadata)"), "client generation worker route must return saved failed progress after direct fallback errors");
+assert.ok(advanceRoute.includes("publicStagedGenerationProgress(savedTrip.data?.metadata, id)"), "client generation worker route must return saved failed progress scoped to the trip after worker errors");
 
 const statusRoute = read("app/api/trips/[id]/generation/status/route.ts");
 assert.ok(statusRoute.includes("publicStagedGenerationProgress"), "generation status route must expose safe progress");
@@ -516,7 +931,9 @@ assert.ok(statusRoute.includes("status_route_stored_itinerary_recovery"), "gener
 assert.ok(statusRoute.includes("tripStatusStillBuilding") && statusRoute.includes("itineraryStatusComplete"), "generation status route must repair existing trips stuck queued after a final itinerary is saved");
 assert.ok(statusRoute.includes("getGenerationEmailStatus") && statusRoute.includes("completionEmailMissing"), "generation status route must recover missing completion emails for completed stored itineraries");
 assert.ok(statusRoute.includes("queueTableMissing(jobsResult.error.message)") && statusRoute.includes("queueTableMissing(layersResult.error.message)"), "generation status route must tolerate missing queue tables");
-assert.ok(statusRoute.includes("completedDayCount: derived.completedLayerCount") && statusRoute.includes("totalDayCount: derived.totalLayerCount"), "generation status route must expose terminal day counts at the top level");
+assert.ok(statusRoute.includes("publicStagedGenerationProgress(data.metadata, id)"), "generation status route must derive metadata progress only for the requested trip id");
+assert.ok(statusRoute.includes('.eq("user_id", auth.user.id)'), "generation status route must scope queue lookups by the authenticated user");
+assert.ok(statusRoute.includes("completedDayCount: derived.completedDayCount") && statusRoute.includes("totalDayCount: derived.totalDayCount"), "generation status route must expose trip-day counts at the top level");
 const generationStatusExports = loadTsModule("lib/roamly/generationStatus.ts");
 const completedGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generated",
@@ -531,6 +948,8 @@ const completedGenerationState = generationStatusExports.deriveTripGenerationSta
 });
 assert.equal(completedGenerationState.progressStatus, "complete", "completed staged generation must return complete progress");
 assert.equal(completedGenerationState.status, "complete", "completed staged generation status endpoint must return complete");
+assert.equal(completedGenerationState.completedDayCount, 4, "completed progress must report completed trip days, not queue layers");
+assert.equal(completedGenerationState.totalDayCount, 4, "completed progress must report total trip days, not queue layers");
 const storedFullGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
@@ -542,8 +961,8 @@ const storedFullGenerationState = generationStatusExports.deriveTripGenerationSt
 });
 assert.equal(storedFullGenerationState.progressStatus, "complete", "stored final itinerary must return complete progress");
 assert.equal(storedFullGenerationState.status, "complete", "stored final itinerary status endpoint must return complete");
-assert.equal(storedFullGenerationState.completedLayerCount, storedFullGenerationState.totalLayerCount, "completed itinerary progress must report completedDayCount equal to totalDayCount");
-assert.equal(storedFullGenerationState.totalLayerCount, 4, "completed itinerary progress must use the itinerary day total instead of stale queue layers");
+assert.equal(storedFullGenerationState.completedDayCount, storedFullGenerationState.totalDayCount, "completed itinerary progress must report completedDayCount equal to totalDayCount");
+assert.equal(storedFullGenerationState.totalDayCount, 4, "completed itinerary progress must use the itinerary day total instead of stale queue layers");
 const staleQueuedCompletedState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
@@ -555,8 +974,8 @@ const staleQueuedCompletedState = generationStatusExports.deriveTripGenerationSt
 });
 assert.equal(staleQueuedCompletedState.status, "complete", "completed itinerary must override a stale queued job");
 assert.equal(staleQueuedCompletedState.progressStatus, "complete", "completed itinerary must override stale queued progress");
-assert.equal(staleQueuedCompletedState.completedLayerCount, staleQueuedCompletedState.totalLayerCount, "completed stale queued jobs must stop at matching terminal counts");
-assert.equal(staleQueuedCompletedState.totalLayerCount, 5, "completed stale queued jobs must keep the saved itinerary day total");
+assert.equal(staleQueuedCompletedState.completedDayCount, staleQueuedCompletedState.totalDayCount, "completed stale queued jobs must stop at matching terminal day counts");
+assert.equal(staleQueuedCompletedState.totalDayCount, 5, "completed stale queued jobs must keep the saved itinerary day total");
 const storedFullNoQueueGenerationState = generationStatusExports.deriveTripGenerationStatus({
   tripStatus: "generating",
   itineraryStatus: "generating",
@@ -568,6 +987,65 @@ const storedFullNoQueueGenerationState = generationStatusExports.deriveTripGener
 });
 assert.equal(storedFullNoQueueGenerationState.progressStatus, "complete", "stored final itinerary must complete when queue lookup is unavailable");
 assert.equal(storedFullNoQueueGenerationState.percent, 100, "stored final itinerary without queue must stop polling at 100 percent");
+
+const failedValidationGenerationState = generationStatusExports.deriveTripGenerationStatus({
+  tripStatus: "draft",
+  itineraryStatus: "draft",
+  metadataProgress: { status: "failed", completedDayCount: 4, totalDayCount: 4 },
+  latestJob: { status: "failed", error_message: "FINAL_VALIDATION_FAILED", completed_at: null },
+  layers: [
+    { status: "completed" },
+    { status: "completed" },
+    { status: "completed" },
+    { status: "completed" },
+    { status: "failed" },
+    { status: "pending" }
+  ],
+  queueProgress: { completedLayerCount: 4, totalLayerCount: 6 }
+});
+assert.equal(failedValidationGenerationState.isFailed, true, "failed final validation must remain terminal failed");
+assert.equal(failedValidationGenerationState.progressStatus, "failed", "failed final validation must not become complete because day counts match");
+assert.equal(failedValidationGenerationState.completedDayCount, 4, "failed validation completed days must stay clamped to trip days");
+assert.equal(failedValidationGenerationState.totalDayCount, 4, "failed validation total days must not include outline/finalization queue layers");
+
+const stagedGenerationExports = loadTsModule("lib/roamly/stagedItineraryGeneration.ts");
+const montrealTripId = "00000000-0000-4000-8000-0000000000a1";
+const nycTripId = "00000000-0000-4000-8000-0000000000b2";
+const scopedGenerationMetadata = {
+  generation: {
+    version: 2,
+    tripId: montrealTripId,
+    status: "generating_day",
+    currentStage: "generating_day",
+    totalDayCount: 4,
+    completedDayCount: 6,
+    payload: { destination: "Montreal", startDate: "2026-09-01", endDate: "2026-09-04" },
+    days: {
+      "1": { dayNumber: 1, status: "complete", attemptCount: 1 },
+      "2": { dayNumber: 2, status: "complete", attemptCount: 1 },
+      "3": { dayNumber: 3, status: "complete", attemptCount: 1 },
+      "4": { dayNumber: 4, status: "complete", attemptCount: 1 },
+      "5": { dayNumber: 5, status: "complete", attemptCount: 1 }
+    },
+    batches: {
+      "batch-1": { id: "batch-1", dayNumbers: [1], status: "complete", attemptCount: 1 },
+      "batch-5": { id: "batch-5", dayNumbers: [5], status: "complete", attemptCount: 1 }
+    },
+    generatedDays: {},
+    startedAt: "2026-09-01T00:00:00.000Z",
+    updatedAt: "2026-09-01T00:00:00.000Z"
+  }
+};
+const montrealProgress = stagedGenerationExports.publicStagedGenerationProgress(scopedGenerationMetadata, montrealTripId);
+assert.equal(montrealProgress.tripId, montrealTripId, "progress must carry the trip id");
+assert.equal(montrealProgress.completedDayCount, 4, "progress cannot exceed total trip days");
+assert.equal(montrealProgress.totalDayCount, 4, "progress total must remain the trip day count");
+assert.deepEqual(Array.from(montrealProgress.days, (day) => day.dayNumber), [1, 2, 3, 4], "progress must discard impossible day states beyond total days");
+assert.equal(
+  stagedGenerationExports.publicStagedGenerationProgress(scopedGenerationMetadata, nycTripId),
+  null,
+  "progress for Montreal must not be returned for a New York trip id"
+);
 
 const generationFinalization = read("lib/roamly/generationFinalization.ts");
 [
@@ -1190,7 +1668,7 @@ const generationCron = read("app/api/cron/roamly-itinerary-generation/route.ts")
 assert.ok(generationCron.includes("processGenerationQueue"), "generation cron must wake the shared queue worker");
 assert.ok(generationCron.includes("getGenerationWorkerSecrets"), "generation cron must be protected by accepted bearer secrets");
 assert.ok(generationCron.includes("export async function POST"), "generation worker must support protected background POST triggers");
-assert.ok(generationCron.includes("maxLayersPerRun: 1"), "protected worker wake must process one layer per run to avoid serverless timeout leases");
+assert.ok(generationCron.includes("maxLayersPerRun: 8"), "protected worker wake must let the durable worker continue until its budget guard yields");
 
 const generationWorker = read("lib/roamly/generationWorker.ts");
 [
@@ -1201,13 +1679,17 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "ROAMLY_GENERATION_MAX_RETRIES",
   "ROAMLY_GENERATION_LEASE_SECONDS",
   "ROAMLY_GENERATION_MAX_LAYERS_PER_RUN",
-  "maxLayersPerRun: 1",
+  "maxLayersPerRun: 8",
+  "ROAMLY_GENERATION_STAGE_CLEANUP_BUFFER_MS",
+  "stageCleanupBufferMs",
+  "hasBudgetForWork",
+  "nextStagedGenerationWork",
   "ROAMLY_GENERATION_RETRY_BASE_SECONDS",
   "ROAMLY_GENERATION_RETRY_MAX_SECONDS",
   "claimGenerationJobs",
   "claimGenerationJobByTrip",
-  "claimGenerationLayer",
   "advanceStagedItineraryGeneration",
+  "reconcileGenerationLayersFromStagedState",
   "sendStagedGenerationEmail",
   "finalizeStoredFullItinerary",
   "finalizeCompletedStagedGeneration",
@@ -1218,13 +1700,11 @@ const generationWorker = read("lib/roamly/generationWorker.ts");
   "model_tokens",
   "terminalStatus(state.status)",
   "releaseGenerationJob",
-  "scheduleGenerationLayerRetry",
   "scheduleGenerationJobRetry"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker missing ${needle}`));
 [
-  "terminal_state_after_generator_throw",
   "terminalState && terminalStatus(terminalState.status)",
-  "recoveredAfterThrow",
+  "syncQueueFromState",
   "retry: { maxRetries: 0, retryBaseSeconds: 1, retryMaxSeconds: 1 }"
 ].forEach((needle) => assert.ok(generationWorker.includes(needle), `generation worker terminal throw handling missing ${needle}`));
 assert.ok(
@@ -1413,72 +1893,13 @@ const generationBackground = read("lib/roamly/stagedGenerationBackground.ts");
 assert.ok(generationBackground.includes("after("), "generation background trigger must continue after the response");
 assert.ok(generationBackground.includes("/api/cron/roamly-itinerary-generation"), "background trigger must call the protected worker route");
 assert.ok(generationBackground.includes("ROAMLY_GENERATION_CRON_SECRET") && generationBackground.includes("CRON_SECRET"), "background trigger must use the existing cron secret");
-assert.ok(generationBackground.includes("runLocalWorkerFallback"), "background trigger must fall back to an in-process worker when HTTP wake is unavailable");
-assert.ok(generationBackground.includes("local_after_fallback"), "background trigger must tag local fallback diagnostics");
-assert.ok(generationBackground.includes("advanceStagedItineraryGeneration"), "background trigger must direct-rescue staged jobs when queue infrastructure is unavailable");
-assert.ok(generationBackground.includes("background_direct_fallback_completion"), "generation background direct fallback must finalize completed staged generations");
-assert.ok(generationBackground.includes("staged_generation_background_direct_fallback_finalized"), "generation background direct fallback must log finalization results");
-assert.ok(generationBackground.includes("outlineCompletedNeedsFirstDayContinuation"), "generation background must detect outline-only worker completions");
-assert.ok(generationBackground.includes("outline_to_first_day"), "generation background must immediately continue from outline to the first day batch");
-const generationBackgroundExports = loadTsModule("lib/roamly/stagedGenerationBackground.ts");
-assert.equal(
-  generationBackgroundExports.outlineCompletedNeedsFirstDayContinuation({
-    ok: true,
-    results: [
-      {
-        ok: true,
-        advanced: true,
-        terminal: false,
-        progress: {
-          status: "generating_day",
-          currentStage: "generating_day",
-          completedDayCount: 0,
-          totalDayCount: 3,
-          stageRuns: [
-            {
-              stage: "outline",
-              status: "success",
-              attemptNumber: 1
-            }
-          ],
-          batches: [
-            {
-              id: "batch-1",
-              dayNumbers: [1],
-              status: "queued"
-            }
-          ]
-        }
-      }
-    ]
-  }),
-  true,
-  "outline-only worker completion must automatically request the first day batch"
-);
-assert.equal(
-  generationBackgroundExports.outlineCompletedNeedsFirstDayContinuation({
-    ok: true,
-    results: [
-      {
-        ok: true,
-        advanced: true,
-        terminal: false,
-        progress: {
-          status: "generating_day",
-          currentStage: "generating_day",
-          completedDayCount: 1,
-          totalDayCount: 3,
-          stageRuns: [
-            { stage: "outline", status: "success", attemptNumber: 1 },
-            { stage: "day_batch", status: "success", attemptNumber: 1, dayNumbers: [1] }
-          ]
-        }
-      }
-    ]
-  }),
-  false,
-  "completed Day 1 worker progress must not request another outline-to-first-day continuation"
-);
+assert.ok(generationBackground.includes("staged_generation_background_worker_wake"), "background trigger must log protected worker wake results");
+assert.ok(generationBackground.includes("staged_generation_background_wake_skipped"), "background trigger must log missing worker secrets");
+assert.ok(generationBackground.includes("tripId: params.tripId"), "background worker wake must only process the scheduled trip id");
+assert.ok(!generationBackground.includes("runLocalWorkerFallback"), "background trigger must not depend on an in-process fallback worker");
+assert.ok(!generationBackground.includes("advanceStagedItineraryGeneration"), "background trigger must not execute staged generation directly");
+assert.ok(!generationBackground.includes("outlineCompletedNeedsFirstDayContinuation"), "background trigger must not chain outline-to-day continuations");
+assert.ok(!generationBackground.includes("outline_to_first_day"), "background trigger must not depend on outline-to-day chained HTTP timing");
 
 const progressComponent = read("components/trip/StagedGenerationProgress.tsx");
 assert.ok(progressComponent.includes("fetchWithSupabaseAuth"), "generation progress UI must send authenticated cookies/tokens");
@@ -1491,21 +1912,30 @@ assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progr
 [
   "SAVED_QUEUE_MESSAGE",
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
-  "Queued",
+  "Preparing outline",
+  "Outline",
+  "Finalizing",
   "Building your trip",
   "Saving your itinerary",
   "Trip ready",
   "Taking longer than expected. You can leave this page.",
   "Generation failed — Retry",
   "simpleGenerationState",
-  "progressFromApi",
-  "isTerminalStatus(data?.status || \"\")",
-  "trackPollMovement(nextProgress || data?.progress, data?.queue)",
+  "progressFromApiForTrip(data, tripId)",
+  "normalizeProgressForTrip",
+  "normalizeQueueForTrip",
+  "data?.status !== \"complete\"",
+  "backendFailed",
+  "finalValidationErrors",
+  "trackPollMovement(nextProgress || data?.progress, nextQueue)",
   "terminalRefreshQueued",
   "router.refresh()",
-  "advanceProgress"
+  "wakeGenerationWorker"
 ].forEach((needle) => assert.ok(progressComponent.includes(needle), `generation progress UI missing ${needle}`));
-["Trip understood", "Creating your days", "Checking your plan", "Finalizing", "Current step"].forEach((needle) =>
+assert.ok(!progressComponent.includes("(totalDays > 0 && completedDays >= totalDays)"), "generation progress UI must not mark a failed validation complete from day counts alone");
+assert.ok(progressComponent.includes("/generation/status"), "generation progress UI must poll read-only status");
+assert.ok(!progressComponent.includes("await advanceProgress"), "generation progress UI must not advance generation from polling");
+["Trip understood", "Creating your days", "Checking your plan", "Current step"].forEach((needle) =>
   assert.ok(!progressComponent.includes(needle), `generation progress UI must not render old progress label ${needle}`)
 );
 
@@ -1541,6 +1971,8 @@ const generationEmail = read("lib/roamly/itineraryGenerationEmail.ts");
   "getGenerationEmailStatusForTrip",
   "deliveredByColumn",
   "roamly_email_logs",
+  "tripId: trip.id",
+  "destination: getTripDestinationLabel(trip)",
   ".eq(\"idempotency_key\", key)",
   "Generation email already sent."
 ].forEach((needle) => assert.ok(generationEmail.includes(needle), `generation email helper missing ${needle}`));
@@ -1567,6 +1999,29 @@ const ownerEmail = await generationEmailExports.resolveTripOwnerEmail(
 );
 assert.equal(ownerEmail.email, "real.owner@roamlyhq.com", "completion email must resolve the real auth owner email");
 assert.equal(ownerEmail.source, "auth", "completion email recipient source must be auth");
+const montrealFailureEmail = generationEmailExports.renderItineraryGenerationEmail("failure", {
+  id: montrealTripId,
+  user_id: "owner-user-id",
+  title: "Montreal family trip",
+  destination_name: "Montreal",
+  destination_city: "Montreal",
+  destination_country: "Canada",
+  status: "draft",
+  start_date: "2026-09-01",
+  end_date: "2026-09-04",
+  created_at: "2026-08-01T00:00:00.000Z",
+  updated_at: "2026-08-01T00:00:00.000Z",
+  metadata: {
+    planning: {
+      destination: "Montreal",
+      startDate: "2026-09-01",
+      endDate: "2026-09-04"
+    }
+  }
+});
+assert.ok(montrealFailureEmail.subject.includes("Montreal"), "failure email destination must match the failed trip destination");
+assert.ok(montrealFailureEmail.text.includes(`/trip/${montrealTripId}?from=generation-email`), "failure email link must point at the same trip id");
+assert.ok(!montrealFailureEmail.subject.includes("New York") && !montrealFailureEmail.text.includes("New York"), "Montreal failure email must not leak another trip destination");
 
 const emailAdapter = read("lib/roamly/email.ts");
 [
@@ -1964,6 +2419,17 @@ const bookingExtractionMigration = read("supabase/migrations/20260716_roamly_boo
 ].forEach((needle) =>
   assert.ok(bookingExtractionMigration.toLowerCase().includes(needle.toLowerCase()), `booking extraction migration missing ${needle}`)
 );
+const emailLookbackProductionMigration = read("supabase/migrations/20260801_roamly_email_lookback_production.sql");
+[
+  "references public.roamly_bookings(id)",
+  "email_event_types",
+  "auto_apply_allowed",
+  "requires_user_approval",
+  "applied_at",
+  "idempotency_key"
+].forEach((needle) =>
+  assert.ok(emailLookbackProductionMigration.toLowerCase().includes(needle.toLowerCase()), `email lookback production migration missing ${needle}`)
+);
 
 const emailConnections = read("lib/roamly/emailConnections.ts");
 [
@@ -1982,6 +2448,10 @@ const emailConnections = read("lib/roamly/emailConnections.ts");
   "syncOutlookConnection",
   "recordTravelEmailFilterResult",
   "extractAndMatchTravelEmailBooking",
+  "EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC",
+  "EMAIL_LOOKBACK_FETCH_TIMEOUT_MS",
+  "EMAIL_LOOKBACK_BODY_TEXT_LIMIT",
+  "fetchGmailTravelBodyText",
   "format\", \"metadata",
   "metadataHeaders",
   "https://www.googleapis.com/auth/gmail.readonly",
@@ -1990,7 +2460,7 @@ const emailConnections = read("lib/roamly/emailConnections.ts");
 ].forEach((needle) => assert.ok(emailConnections.includes(needle), `email connections helper missing ${needle}`));
 assert.ok(!emailConnections.includes("gmail.modify"), "Gmail integration must not request write mailbox scopes");
 assert.ok(!emailConnections.includes("Mail.ReadWrite"), "Outlook integration must not request write mailbox scopes");
-assert.ok(!emailConnections.includes("format\", \"full"), "Gmail sync must not fetch full message bodies during filtering");
+assert.ok(emailConnections.indexOf("fetchGmailTravelBodyText") > emailConnections.indexOf("filterTravelEmail(metadata)"), "Gmail body preview must only be fetched after metadata filtering");
 
 const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
 [
@@ -2001,21 +2471,51 @@ const travelEmailFiltering = read("lib/roamly/travelEmailFiltering.ts");
   "filterTravelEmail",
   "recordTravelEmailFilterResult",
   "bodyStored: false",
-  "raw_body_retained: false"
+  "raw_body_retained: false",
+  "klook.com",
+  "eventTypes",
+  "bookingTypes"
 ].forEach((needle) => assert.ok(travelEmailFiltering.includes(needle), `travel email filtering helper missing ${needle}`));
 ["full_body", "body_html", "raw_email_body"].forEach((needle) =>
   assert.ok(!travelEmailFilteringMigration.includes(needle), `travel email filtering must not store ${needle}`)
 );
 
+const travelEmailFilteringExports = loadTsModule("lib/roamly/travelEmailFiltering.ts");
+const klookFilter = travelEmailFilteringExports.filterTravelEmail({
+  provider: "gmail",
+  messageId: "m1",
+  sender: "Klook <booking@klook.com>",
+  subject: "Klook activity confirmation",
+  snippet: "Voucher ABC12345 for Old Montreal Walking Tour on Aug 6, 2026 at 10:00 AM"
+});
+assert.equal(klookFilter.shouldProcess, true, "Klook activity confirmations must be processed");
+assert.ok(klookFilter.extractedFacts.bookingTypes.includes("activity"), "Klook confirmation must be classified as activity");
+const delayFilter = travelEmailFilteringExports.filterTravelEmail({
+  provider: "gmail",
+  messageId: "m2",
+  sender: "Air Canada <updates@aircanada.com>",
+  subject: "Flight delayed",
+  snippet: "Flight AC123 is delayed. Confirmation QWERTY."
+});
+assert.ok(delayFilter.extractedFacts.eventTypes.includes("delay"), "flight delay emails must expose a delay event type");
+
 const bookingExtraction = read("lib/roamly/bookingExtraction.ts");
 [
   "BOOKING_EXTRACTION_JSON_SCHEMA",
   "deterministicBookingExtraction",
+  "scoreTripForEmailLookbackMatch",
+  "shouldAutoApplyEmailLookbackExtraction",
   "extractBookingWithAiStructuredOutput",
   "json_schema",
   "strict: true",
   "createTripBooking",
   "bestTripMatch",
+  "existingBookingTripMatch",
+  "EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE",
+  "EMAIL_LOOKBACK_TRIP_MATCH_THRESHOLD",
+  "requiresUserApproval",
+  "auto_apply_allowed",
+  "requires_user_approval",
   "needs_confirmation",
   "high_confidence_match",
   "reconcileTripBookings",
@@ -2025,6 +2525,204 @@ assert.ok(
   bookingWallet.includes("processCompanionBookingChange"),
   "booking wallet must trigger Companion for meaningful booking changes"
 );
+assert.ok(
+  bookingExtraction.includes('onConflict: "user_id,source_type,source_reference"'),
+  "booking extraction persistence must be idempotent by source reference"
+);
+assert.ok(
+  travelEmailFiltering.includes('onConflict: "email_connection_id,provider,provider_message_id"') && emailConnections.includes("email_sync_cursors"),
+  "email sync must checkpoint messages and avoid duplicate processing"
+);
+
+const bookingExtractionExports = loadTsModule("lib/roamly/bookingExtraction.ts");
+const montrealTrip = {
+  id: "trip-montreal",
+  user_id: "user-1",
+  title: "Montreal August trip",
+  destination: "Montreal",
+  destination_name: "Montreal",
+  destination_city: "Montreal",
+  start_date: "2026-08-05",
+  end_date: "2026-08-08"
+};
+const torontoTrip = {
+  id: "trip-toronto",
+  user_id: "user-1",
+  title: "Toronto August trip",
+  destination: "Toronto",
+  destination_name: "Toronto",
+  destination_city: "Toronto",
+  start_date: "2026-08-05",
+  end_date: "2026-08-08"
+};
+
+function emailLookbackFixture(metadata) {
+  const filter = travelEmailFilteringExports.filterTravelEmail(metadata);
+  assert.equal(filter.shouldProcess, true, `${metadata.messageId} must be treated as a travel email`);
+  const extraction = bookingExtractionExports.deterministicBookingExtraction({ metadata, filter });
+  const montrealScore = bookingExtractionExports.scoreTripForEmailLookbackMatch(montrealTrip, extraction, 2);
+  const torontoScore = bookingExtractionExports.scoreTripForEmailLookbackMatch(torontoTrip, extraction, 2);
+  assert.ok(montrealScore.score >= 0.7, `${metadata.messageId} must confidently match the Montreal trip`);
+  assert.ok(montrealScore.score > torontoScore.score, `${metadata.messageId} must not match the wrong trip first`);
+  return { filter, extraction, score: montrealScore.score };
+}
+
+const fixtureResults = {
+  flightConfirmation: emailLookbackFixture({
+    provider: "gmail",
+    messageId: "fixture-flight-confirmation",
+    sender: "Air Canada <itinerary@aircanada.com>",
+    subject: "Booking confirmation for flight AC123",
+    snippet: "Confirmation QWERTY. From Saint John to Montreal on Aug 6, 2026 at 10:00 AM. Destination: Montreal."
+  }),
+  flightDelay: emailLookbackFixture({
+    provider: "gmail",
+    messageId: "fixture-flight-delay",
+    sender: "Air Canada <updates@aircanada.com>",
+    subject: "Flight AC123 delayed",
+    snippet: "Flight AC123 is delayed. Confirmation QWERTY. From Saint John to Montreal on Aug 6, 2026 at 10:00 AM. Destination: Montreal."
+  }),
+  flightCancellation: emailLookbackFixture({
+    provider: "gmail",
+    messageId: "fixture-flight-cancelled",
+    sender: "Air Canada <updates@aircanada.com>",
+    subject: "Flight AC123 cancelled",
+    snippet: "Cancellation notice. Confirmation QWERTY. From Saint John to Montreal on Aug 6, 2026 at 10:00 AM. Destination: Montreal."
+  }),
+  hotelChange: emailLookbackFixture({
+    provider: "gmail",
+    messageId: "fixture-hotel-change",
+    sender: "Booking.com <noreply@booking.com>",
+    subject: "Your hotel booking changed",
+    snippet: "Booking changed. Confirmation HN12345. Hotel: Hotel Nelligan. Destination: Montreal. Check-in Aug 6, 2026 at 3:00 PM."
+  }),
+  activityBooking: emailLookbackFixture({
+    provider: "gmail",
+    messageId: "fixture-klook-activity",
+    sender: "Klook <booking@klook.com>",
+    subject: "Klook activity confirmation",
+    snippet: "Voucher KLOOK123. Activity: Old Montreal Walking Tour. Destination: Montreal. Aug 7, 2026 at 10:00 AM."
+  }),
+  transportBooking: emailLookbackFixture({
+    provider: "gmail",
+    messageId: "fixture-transport",
+    sender: "Airport Shuttle <booking@airportshuttle.example>",
+    subject: "Transport confirmation",
+    snippet: "Confirmation TRNSP9. Transfer: YUL Airport Transfer. Destination: Montreal. Aug 6, 2026 at 1:00 PM."
+  })
+};
+
+assert.equal(fixtureResults.flightConfirmation.extraction.booking.bookingType, "flight", "flight confirmation must extract a flight booking");
+assert.equal(fixtureResults.flightDelay.extraction.eventTypes.includes("delay"), true, "flight delay fixture must expose delay event");
+assert.equal(fixtureResults.flightDelay.extraction.requiresUserApproval, false, "minor delay fixture must not require approval by default");
+assert.equal(fixtureResults.flightCancellation.extraction.requiresUserApproval, true, "flight cancellation fixture must require approval");
+assert.equal(fixtureResults.hotelChange.extraction.booking.bookingType, "hotel", "hotel change fixture must extract a hotel booking");
+assert.equal(fixtureResults.hotelChange.extraction.requiresUserApproval, true, "hotel change fixture must require approval");
+assert.equal(fixtureResults.activityBooking.extraction.booking.bookingType, "activity", "Klook fixture must extract an activity booking");
+assert.equal(fixtureResults.activityBooking.extraction.booking.provider, "Klook", "Klook fixture must keep the provider name");
+assert.equal(fixtureResults.transportBooking.extraction.booking.bookingType, "transfer", "transport fixture must extract a transfer booking");
+assert.equal(
+  bookingExtractionExports.shouldAutoApplyEmailLookbackExtraction({
+    extraction: fixtureResults.flightDelay.extraction,
+    matchScore: fixtureResults.flightDelay.score
+  }),
+  true,
+  "safe high-confidence delay update must be auto-applicable"
+);
+assert.equal(
+  bookingExtractionExports.shouldAutoApplyEmailLookbackExtraction({
+    extraction: fixtureResults.flightCancellation.extraction,
+    matchScore: 1
+  }),
+  false,
+  "major cancellation must require approval even with an exact match"
+);
+
+const liveCompanionExports = loadTsModule("lib/roamly/liveCompanion.ts");
+const verifiedMuseum = liveCompanionExports.applyVerifiedBookingOverride(
+  {
+    id: "museum",
+    title: "Pointe-a-Calliere Museum",
+    shortDescription: "Stale itinerary copy.",
+    dayNumber: 1,
+    timeLabel: "11:00 AM",
+    address: "350 Place Royale, Montreal",
+    latitude: 45.5027,
+    longitude: -73.5545,
+    booking: { title: "Pointe-a-Calliere Museum", status: "stale", startTime: "2026-08-06T11:00:00-04:00" }
+  },
+  [
+    {
+      id: "booking-museum",
+      title: "Pointe-a-Calliere Museum",
+      provider: "Email Lookback",
+      reference: "KLOOK123",
+      status: "verified",
+      startTime: "2026-08-06T13:00:00-04:00",
+      updatedAt: "2026-08-06T09:00:00-04:00"
+    }
+  ]
+);
+assert.equal(verifiedMuseum.startAt, "2026-08-06T13:00:00-04:00", "verified booking changes must override stale itinerary time");
+assert.equal(verifiedMuseum.booking.reference, "KLOOK123", "verified booking reference must flow into Live Companion");
+const liveSelection = liveCompanionExports.selectNowAndNextActivity({
+  activities: [
+    {
+      id: "basilica",
+      title: "Notre-Dame Basilica",
+      dayNumber: 1,
+      timeLabel: "9:00 AM",
+      status: "completed",
+      latitude: 45.5045,
+      longitude: -73.5561
+    },
+    verifiedMuseum
+  ],
+  tripStartDate: "2026-08-06",
+  timezone: "America/Toronto",
+  now: "2026-08-06T16:30:00.000Z"
+});
+assert.equal(liveSelection.next.id, "museum", "Live Companion Now/Next must use verified booking timing");
+const leaveDecision = liveCompanionExports.evaluateNotificationDecision({
+  eventType: "leave_by",
+  activity: verifiedMuseum,
+  now: "2026-08-06T16:20:00.000Z",
+  activeWindow: true,
+  paused: false,
+  reason: "Fixture leave-by notification."
+});
+const cooldownDecision = liveCompanionExports.evaluateNotificationDecision({
+  eventType: "leave_by",
+  activity: verifiedMuseum,
+  now: "2026-08-06T16:25:00.000Z",
+  activeWindow: true,
+  paused: false,
+  history: [{ key: leaveDecision.key, eventType: "leave_by", activityId: "museum", sentAt: leaveDecision.eventTime }],
+  reason: "Fixture duplicate leave-by notification."
+});
+assert.equal(leaveDecision.notificationSent, true, "first leave-by notification should send");
+assert.equal(cooldownDecision.notificationSent, false, "duplicate leave-by notification should be suppressed by cooldown");
+
+const liveCompanionQaConsole = read("components/admin/LiveCompanionQaConsole.tsx");
+[
+  "phonePresets",
+  "previewModes",
+  "Trip start",
+  "Before trip",
+  "Arrive",
+  "Late",
+  "Route down",
+  "Permission denied",
+  "Offline",
+  "Cooldown",
+  "Notification test log",
+  "Suppression:",
+  "Reminder lead",
+  "Location interval",
+  "Arrival radius",
+  "longTextStress",
+  "darkMode"
+].forEach((needle) => assert.ok(liveCompanionQaConsole.includes(needle), `Live Companion QA console missing ${needle}`));
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsIncrementalSync", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>

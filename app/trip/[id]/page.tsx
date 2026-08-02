@@ -42,9 +42,13 @@ import {
 } from "@/lib/roamly/generationDiagnostics";
 import {
   buildTransportSearchUrl,
-  safeExternalUrl,
   type BookingUrlType
 } from "@/lib/roamly/bookingLinks";
+import {
+  isBareDomainName,
+  safeConsumerTravelUrl,
+  validateTravelResultForDisplay
+} from "@/lib/roamly/travelResultValidation";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import {
@@ -58,7 +62,7 @@ import {
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, isMissingTableError, type RoamlyTripRecord } from "@/lib/trips";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
-import { buildRecommendedStaySuggestion, hasBookingCategory } from "@/lib/roamly/recommendationBrain";
+import { buildRecommendedActivitySuggestions, buildRecommendedStaySuggestions } from "@/lib/roamly/recommendationBrain";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -299,140 +303,226 @@ function NavigationChipList({ query }: { query: string }) {
   );
 }
 
-function TimelineItemCard({
-  item
-}: {
-  item: RoamlyItinerary["daily_itinerary"][number]["live_timeline"][number] & {
-    booking?: Record<string, unknown> | null;
-  };
-}) {
-  const entry =
-    item as unknown as Record<string, unknown>;
+type DisplayTimelineItem = {
+  time: string;
+  sortMinutes: number | null;
+  title: string;
+  description: string;
+  location: string;
+  category: string;
+  durationLabel: string;
+  travelLabel: string;
+  transferNote: string;
+  mapQuery: string;
+  warning: string;
+};
 
-  const stringValue = (...keys: string[]) => {
-    for (const key of keys) {
-      const value = entry[key];
+const genericStopPatterns = [
+  /^local bistro$/i,
+  /^museum or gallery$/i,
+  /^nightlife district$/i,
+  /^hotel room$/i,
+  /^planned activity$/i,
+  /^activity title$/i,
+  /^things to do$/i,
+  /^book activities$/i,
+  /^find hotels?$/i,
+  /^hotel\/stay to book$/i,
+  /^flights? to book$/i,
+  /^neighborhood lunch and explore$/i,
+  /^easy evening finish$/i,
+  /^.+ first stop$/i
+];
 
-      if (
-        typeof value === "string" &&
-        value.trim()
-      ) {
-        return value.trim();
-      }
+function isGenericStopText(value: string) {
+  const text = value.trim();
+  if (!text) return true;
+  return genericStopPatterns.some((pattern) => pattern.test(text));
+}
+
+function timelineText(record: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+}
+
+function timelineNumber(record: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.round(value));
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value.replace(/[^0-9.]/g, ""));
+      if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
+    }
+  }
+  return null;
+}
+
+function parseClockMinutes(value: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+  const military = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (military) {
+    const hour = Number(military[1]);
+    const minute = Number(military[2]);
+    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? hour * 60 + minute : null;
+  }
+  const twelve = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if (!twelve) return null;
+  let hour = Number(twelve[1]);
+  const minute = Number(twelve[2] || "0");
+  const period = twelve[3].toUpperCase();
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return hour * 60 + minute;
+}
+
+function formatClock(value: string) {
+  const minutes = parseClockMinutes(value);
+  if (minutes == null) return value;
+  const hour24 = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+function isTransferLike(record: Record<string, unknown>) {
+  const text = [
+    timelineText(record, "item_type", "type"),
+    timelineText(record, "category"),
+    timelineText(record, "title"),
+    timelineText(record, "travel_mode", "transportMode", "transport_mode")
+  ]
+    .join(" ")
+    .toLowerCase();
+  return /\b(travel|transfer|transit|taxi|rideshare|shuttle|walk to|travel to|transfer to|drive to|get to)\b/.test(text);
+}
+
+function isMajorTravel(record: Record<string, unknown>) {
+  const type = timelineText(record, "item_type", "type").toLowerCase();
+  const mode = timelineText(record, "travel_mode", "transportMode", "transport_mode").toLowerCase();
+  const title = timelineText(record, "title").toLowerCase();
+  const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
+  if (type === "travel" && /\b(flight|train|rail|bus|ferry|drive|inter[- ]?city)\b/.test(`${mode} ${title}`)) return true;
+  return Boolean(minutes != null && minutes >= 60);
+}
+
+function cleanTimelineTitle(record: Record<string, unknown>) {
+  const rawTitle = timelineText(record, "title", "name");
+  const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
+  const mapQuery = timelineText(record, "map_query", "mapQuery");
+  const category = timelineText(record, "category", "item_type", "type");
+
+  if (rawTitle && !isGenericStopText(rawTitle)) return rawTitle;
+  if (location && !isGenericStopText(location)) {
+    if (/meal|lunch|dinner|breakfast|food/i.test(`${rawTitle} ${category}`)) return `${rawTitle || "Meal"} at ${location}`;
+    return location;
+  }
+  if (mapQuery && !isGenericStopText(mapQuery)) return mapQuery;
+  return "";
+}
+
+function transferSummary(record: Record<string, unknown>) {
+  const origin = timelineText(record, "origin");
+  const destination = timelineText(record, "destination", "location_name", "location");
+  const mode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
+  const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
+  const title = cleanTimelineTitle(record) || timelineText(record, "title");
+  const route = origin && destination ? `${origin} to ${destination}` : destination || title;
+  return [mode || "Transfer", route, minutes ? `${minutes} min` : ""].filter(Boolean).join(" · ");
+}
+
+function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][number]) {
+  const output: DisplayTimelineItem[] = [];
+  const seen = new Set<string>();
+  const pendingTransfers: string[] = [];
+
+  for (const item of day.live_timeline || []) {
+    const record = item as unknown as Record<string, unknown>;
+    const transferLike = isTransferLike(record);
+
+    if (transferLike && !isMajorTravel(record)) {
+      const summary = transferSummary(record);
+      if (summary) pendingTransfers.push(summary);
+      continue;
     }
 
-    return "";
-  };
+    const title = cleanTimelineTitle(record);
+    const type = timelineText(record, "item_type", "type");
+    const category = timelineText(record, "category") || type || "Stop";
+    const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
+    const description = timelineText(record, "description", "summary", "details", "notes");
+    const start = timelineText(record, "startTime", "start_time");
+    const end = timelineText(record, "endTime", "end_time");
+    const timeLabel = timelineText(record, "time_label", "time") || (start ? formatClock(start) : "");
+    const time = start && end ? `${formatClock(start)}-${formatClock(end)}` : timeLabel;
+    const sortMinutes = parseClockMinutes(start || timeLabel);
+    const duration = timelineNumber(record, "durationMinutes", "duration_minutes");
+    const travelMinutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes");
+    const mapQuery = timelineText(record, "map_query", "mapQuery") || location || title;
+    const isLunch = /\blunch\b/i.test(`${title} ${description} ${category}`);
+    const warning =
+      isLunch && sortMinutes != null && sortMinutes > 14 * 60
+        ? "Late lunch timing. Treat this as an intentional rest or adjust earlier."
+        : "";
 
-  const numberValue = (...keys: string[]) => {
-    for (const key of keys) {
-      const value = entry[key];
+    if (!title && !description) continue;
+    if (!transferLike && title && isGenericStopText(title) && (!location || isGenericStopText(location))) continue;
 
-      if (
-        typeof value === "number" &&
-        Number.isFinite(value)
-      ) {
-        return value;
-      }
-    }
+    const key = `${time}|${title}|${location}`.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-    return null;
-  };
+    output.push({
+      time: time || "Flexible",
+      sortMinutes,
+      title: title || category,
+      description,
+      location,
+      category,
+      durationLabel: duration ? `${duration} min` : timelineText(record, "duration"),
+      travelLabel: travelMinutes ? `${travelMinutes} min travel` : "",
+      transferNote: pendingTransfers.splice(0).join(" / "),
+      mapQuery,
+      warning
+    });
 
-  const title =
-    stringValue("title", "name") ||
-    "Planned activity";
+    if (output.length >= 6) break;
+  }
 
-  const time =
-    stringValue(
-      "time_label",
-      "time",
-      "start_time"
-    );
+  return output.sort((a, b) => (a.sortMinutes ?? 10_000) - (b.sortMinutes ?? 10_000));
+}
 
-  const description =
-    stringValue(
-      "description",
-      "summary",
-      "details",
-      "notes"
-    );
-
-  const location =
-    stringValue(
-      "location",
-      "place_name",
-      "venue",
-      "area"
-    );
-
-  const category =
-    stringValue(
-      "category",
-      "item_type",
-      "type"
-    );
-
-  const duration =
-    numberValue(
-      "duration_minutes",
-      "durationMinutes"
-    );
-
-  const travelMinutes =
-    numberValue(
-      "travel_time_minutes",
-      "travelMinutes"
-    );
-
-  const meta = [
-    duration
-      ? `${duration} min`
-      : "",
-    travelMinutes
-      ? `${travelMinutes} min travel`
-      : "",
-    location
-  ].filter(Boolean);
+function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
+  const meta = [item.durationLabel, item.travelLabel, item.location].filter(Boolean);
+  const secondary = [item.transferNote ? `Arrival/transfer: ${item.transferNote}` : "", item.description].filter(Boolean);
 
   return (
-    <article className="rounded-2xl border border-[#e8e2d8] bg-white p-4 shadow-[0_8px_24px_rgba(16,32,51,0.05)] sm:p-5">
-      <div className="grid gap-3 sm:grid-cols-[92px_minmax(0,1fr)]">
+    <article className="rounded-[1rem] border border-[#e8e2d8] bg-white p-4 shadow-[0_10px_28px_rgba(16,32,51,0.05)] sm:p-5">
+      <div className="grid gap-4 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
         <div>
-          <p className="text-sm font-black text-ocean">
-            {time || "Flexible"}
-          </p>
-
-          {category ? (
-            <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">
-              {category.replaceAll("_", " ")}
-            </p>
-          ) : null}
+          <p className="text-sm font-black text-ocean">{item.time}</p>
+          <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p>
         </div>
 
         <div className="min-w-0">
-          <h4 className="text-base font-black leading-6 text-ink sm:text-lg">
-            {title}
-          </h4>
-
-          {meta.length ? (
-            <p className="mt-1 text-xs font-bold text-slate-500">
-              {meta.join(" · ")}
-            </p>
-          ) : null}
-
-          {description ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm font-black text-ocean">
-                View details
-              </summary>
-
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                {description}
-              </p>
+          <h4 className="text-lg font-black leading-6 text-ink sm:text-xl">{item.title}</h4>
+          {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
+          {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
+          {secondary.length ? (
+            <details className="mt-3 rounded-[0.8rem] bg-[#f8faf8] px-3 py-2">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Timing and notes</summary>
+              <div className="mt-2 grid gap-1">
+                {secondary.map((line) => (
+                  <p key={line} className="text-sm font-semibold leading-6 text-slate-600">{line}</p>
+                ))}
+              </div>
             </details>
           ) : null}
-
         </div>
       </div>
     </article>
@@ -446,16 +536,22 @@ function DayTimelineCard({
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
 }) {
-  const places = day.map_queries.slice(0, 5);
+  const timelineItems = buildDisplayTimelineItems(day);
+  const places = [
+    ...timelineItems.map((item) => item.mapQuery),
+    ...day.map_queries
+  ]
+    .map((item) => getString(item))
+    .filter((item) => item && !isGenericStopText(item))
+    .filter((item, index, list) => list.indexOf(item) === index)
+    .slice(0, 5);
 
   return (
-    <details
+    <section
       id={`day-${day.day_number}`}
-      name="roamly-day"
-      open={day.day_number === 1}
-      className="roamly-day-print scroll-mt-36 rounded-[1.15rem] border border-[#e8dfd0] bg-white shadow-[0_12px_34px_rgba(16,32,51,0.06)]"
+      className="roamly-day-print scroll-mt-40 rounded-[1.15rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 shadow-[0_12px_34px_rgba(16,32,51,0.06)] sm:p-6"
     >
-      <summary className="flex cursor-pointer list-none flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
             Day {day.day_number}
@@ -463,20 +559,20 @@ function DayTimelineCard({
             {day.date ? ` · ${formatTripDate(day.date)}` : ""}
           </p>
           <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">{day.title}</h3>
-          <p className="mt-1 text-xs font-bold leading-5 text-slate-500 sm:hidden">
-            {compact(day.morning || day.afternoon || day.evening, "Tap to view the day timeline.", 90)}
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+            {compact(day.morning || day.afternoon || day.evening, "A paced day with the main stops grouped together.", 150)}
           </p>
         </div>
         <span className="w-fit rounded-full border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
           Est. {formatMoney(day.estimated_cost, currency)}
         </span>
-      </summary>
+      </div>
 
-      <div className="border-t border-[#eee5d7] px-4 pb-4 pt-3">
-        <div className="grid gap-2">
-          {day.live_timeline.length ? (
-            day.live_timeline.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time_label}-${item.title}-${index}`} item={item} />
+      <div className="mt-5 border-t border-[#eee5d7] pt-4">
+        <div className="grid gap-3">
+          {timelineItems.length ? (
+            timelineItems.map((item, index) => (
+              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} />
             ))
           ) : (
             <>
@@ -508,7 +604,7 @@ function DayTimelineCard({
           </details>
         ) : null}
       </div>
-    </details>
+    </section>
   );
 }
 
@@ -530,7 +626,9 @@ function BuildingDayCard({
         Day {dayNumber}
         {date ? ` · ${formatTripDate(date)}` : ""}
       </p>
-      <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">Building...</h3>
+      <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">
+        {status === "failed" ? "Failed" : "Building..."}
+      </h3>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
         {status === "failed" ? "This day needs attention. Completed days remain available." : "Roamly is still building this day."}
       </p>
@@ -538,7 +636,62 @@ function BuildingDayCard({
   );
 }
 
-function budgetRows({
+function sourceShortLabel(label?: string) {
+  if (label === "Live price") return "Live";
+  if (label === "Recently searched") return "Recent";
+  if (label === "User uploaded confirmation") return "Uploaded";
+  if (label === "Market estimate") return "Market";
+  if (label === "Conservative estimate") return "Planning";
+  return "Estimate";
+}
+
+function budgetCategoryCards({
+  trip,
+  itinerary,
+  currency
+}: {
+  trip: RoamlyTripRecord;
+  itinerary: RoamlyItinerary;
+  currency: string;
+}) {
+  const estimate = itinerary.estimated_budget_breakdown;
+  const confidence = (category: BudgetCategoryConfidence["category"]) =>
+    estimate.budget_category_confidence?.find((item) => item.category === category);
+  const card = (
+    label: string,
+    amount: number | null | undefined,
+    category: BudgetCategoryConfidence["category"],
+    fallback: string,
+    note?: string
+  ) => {
+    const info = confidence(category);
+    return {
+      label,
+      value: typeof amount === "number" && Number.isFinite(amount) ? formatBudgetMoney(amount, currency) : fallback,
+      source: sourceShortLabel(info?.label),
+      note: note || info?.source || info?.note || ""
+    };
+  };
+
+  return [
+    card("Transport", estimate.selected_transport_estimate_amount, "transport", estimate.transport),
+    card(
+      "Hotel/stay",
+      estimate.selected_hotel_estimate_amount,
+      "hotel",
+      trip.budget_includes_hotel === false ? "Not in budget" : estimate.lodging
+    ),
+    card("Tickets/tours", estimate.tickets_tours_estimate_amount, "tickets_tours", estimate.activities),
+    card("Food", estimate.food_estimate_amount, "food", estimate.food),
+    card("Local movement", estimate.local_transport_estimate_amount, "local_transport", "Verify local transport"),
+    card("Buffer", estimate.buffer_estimate_amount, "buffer", estimate.buffer),
+    estimate.committed_bookings_amount && estimate.committed_bookings_amount > 0
+      ? card("Saved bookings", estimate.committed_bookings_amount, "committed_bookings", "Saved")
+      : null
+  ].filter((item): item is { label: string; value: string; source: string; note: string } => Boolean(item));
+}
+
+function BudgetSummary({
   trip,
   itinerary,
   currency
@@ -551,50 +704,30 @@ function budgetRows({
   const budgetAmount = getTripBudgetAmount(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
   const balance = describeBudgetBalanceFromAmounts(budgetAmount, totalEstimateAmount, currency);
-  const confidence = (category: BudgetCategoryConfidence["category"]) =>
-    estimate.budget_category_confidence?.find((item) => item.category === category);
-  const withConfidence = (amount: number | null | undefined, category: BudgetCategoryConfidence["category"], fallback: string) => {
-    const label = confidence(category)?.label;
-    const value = typeof amount === "number" && Number.isFinite(amount) ? formatBudgetMoney(amount, currency) : fallback;
-    return label ? `${value} · ${label}` : value;
-  };
-
-  return [
-    {
-      label: "User budget",
-      value: budgetAmount == null ? "Not set" : formatBudgetMoney(budgetAmount, currency)
-    },
-    { label: "Selected transport", value: withConfidence(estimate.selected_transport_estimate_amount, "transport", estimate.transport) },
-    { label: "Selected hotel/stay", value: trip.budget_includes_hotel === false ? "Not included in trip budget." : withConfidence(estimate.selected_hotel_estimate_amount, "hotel", estimate.lodging) },
-    { label: "Tickets/tours", value: withConfidence(estimate.tickets_tours_estimate_amount, "tickets_tours", estimate.activities) },
-    { label: "Food", value: withConfidence(estimate.food_estimate_amount, "food", estimate.food) },
-    { label: "Local transport", value: withConfidence(estimate.local_transport_estimate_amount, "local_transport", "Confirm local transport estimate.") },
-    { label: "Buffer", value: withConfidence(estimate.buffer_estimate_amount, "buffer", estimate.buffer) },
-    { label: "Committed bookings", value: withConfidence(estimate.committed_bookings_amount, "committed_bookings", "None saved") },
-    {
-      label: "Total",
-      value: totalEstimateAmount == null ? estimate.total_estimate : formatBudgetMoney(totalEstimateAmount, currency)
-    },
-    { label: balance?.label || "Remaining budget", value: balance?.value || "Confirm after live booking prices." }
-  ];
-}
-
-function BudgetTable({
-  trip,
-  itinerary,
-  currency
-}: {
-  trip: RoamlyTripRecord;
-  itinerary: RoamlyItinerary;
-  currency: string;
-}) {
-  const estimate = itinerary.estimated_budget_breakdown;
+  const total = totalEstimateAmount == null ? estimate.total_estimate : formatBudgetMoney(totalEstimateAmount, currency);
   const crossBorderBadges = estimate.cross_border
     ? ["Cross-border trip", "Passport check", estimate.currency_change ? "Currency change" : "", "Border time buffer", "Roaming reminder", "Customs reminder"].filter((label): label is string => Boolean(label))
     : [];
+  const cards = budgetCategoryCards({ trip, itinerary, currency });
+  const warningTone = estimate.budget_status === "over_budget" ? "border-coral/25 bg-coral/10 text-coral" : "border-ocean/20 bg-ocean/10 text-ocean";
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
+      <div className="rounded-[1.15rem] border border-[#e8dfd0] bg-white p-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:p-5">
+        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.55fr)] md:items-end">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Trip estimate</p>
+            <p className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-4xl">{total}</p>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+              Estimates are separated from live or recently retrieved provider data. Refresh before booking.
+            </p>
+          </div>
+          <div className={`rounded-[1rem] border px-4 py-3 text-sm font-black leading-6 ${warningTone}`}>
+            {balance?.text || "Budget target not set. Verify prices before booking."}
+          </div>
+        </div>
+      </div>
+
       {crossBorderBadges.length ? (
         <div className="flex flex-wrap gap-2 rounded-[1.15rem] border border-sun/30 bg-sun/10 px-4 py-3">
           {crossBorderBadges.filter(Boolean).filter(Boolean).map((label) => (
@@ -604,12 +737,19 @@ function BudgetTable({
           ))}
         </div>
       ) : null}
-      <div className="overflow-hidden rounded-[1.15rem] border border-[#e8dfd0] bg-white shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
-        {budgetRows({ trip, itinerary, currency }).map((row) => (
-          <div key={row.label} className="grid gap-1 border-b border-[#eee5d7] px-4 py-3 last:border-b-0 sm:grid-cols-[11rem_1fr] sm:gap-5">
-            <p className="text-sm font-black text-ink">{row.label}</p>
-            <p className="text-sm font-semibold leading-6 text-slate-700">{row.value}</p>
-          </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((row) => (
+          <article key={row.label} className="rounded-[1rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_10px_28px_rgba(16,32,51,0.04)]">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-sm font-black text-ink">{row.label}</p>
+              <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.08em] text-ocean">
+                {row.source}
+              </span>
+            </div>
+            <p className="mt-2 text-xl font-black tracking-tight text-ink">{row.value}</p>
+            {row.note ? <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-slate-500">{row.note}</p> : null}
+          </article>
         ))}
       </div>
     </div>
@@ -621,6 +761,17 @@ function isAllowedBookingHost(url: URL) {
   if (host === "aviasales.com") return true;
   if (host === "stay22.com" || host.endsWith(".stay22.com")) return true;
   if (host === "klook.com" || host.endsWith(".klook.com")) return true;
+  if (host === "booking.com" || host.endsWith(".booking.com")) return true;
+  if (host === "hotels.com" || host.endsWith(".hotels.com")) return true;
+  if (host === "expedia.com" || host.endsWith(".expedia.com")) return true;
+  if (host === "tripadvisor.com" || host.endsWith(".tripadvisor.com")) return true;
+  if (host === "opentable.com" || host.endsWith(".opentable.com")) return true;
+  if (host === "resy.com" || host.endsWith(".resy.com")) return true;
+  if (host === "thefork.com" || host.endsWith(".thefork.com")) return true;
+  if (host === "viator.com" || host.endsWith(".viator.com")) return true;
+  if (host === "getyourguide.com" || host.endsWith(".getyourguide.com")) return true;
+  if (host === "kayak.com" || host.endsWith(".kayak.com")) return true;
+  if (host === "skyscanner.com" || host.endsWith(".skyscanner.com")) return true;
   if (/^amazon\.[a-z.]+$/.test(host)) return true;
   if (host === "airalo.com" || host.endsWith(".airalo.com")) return true;
   if ((host === "google.com" || host === "maps.google.com") && /^\/maps\//.test(url.pathname)) return true;
@@ -634,7 +785,7 @@ function safeBookingUrl(value?: string | null) {
   if (isLegacyBookingUrl(raw)) return "";
   if (raw === "#" || /^javascript:/i.test(raw) || /placeholder|example\.com/i.test(raw)) return "";
   if (raw.startsWith("/")) return "";
-  const external = safeExternalUrl(raw);
+  const external = safeConsumerTravelUrl(raw);
   if (!external) return "";
   try {
     const url = new URL(external);
@@ -652,7 +803,15 @@ function bookingCategory(suggestion: RoamlyItinerary["booking_suggestions"][numb
 }
 
 function bookingTitle(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  return suggestion.title || suggestion.booking_label || "Suggested option";
+  const category = bookingCategory(suggestion);
+  const title = suggestion.title || suggestion.booking_label || "Suggested option";
+  if (["activity", "attraction", "tour"].includes(String(category))) {
+    return title
+      .replace(/^recommended activity:\s*/i, "")
+      .replace(/^visit\s+/i, "")
+      .trim() || "Suggested option";
+  }
+  return title;
 }
 
 function bookingDescription(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -754,6 +913,7 @@ function googleActivitySearchUrl(title: string, destination: string) {
 
 function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
   const category = bookingCategory(suggestion);
+  const categoryValue = String(category);
   const title = bookingTitle(suggestion);
   const travelers = tripTravelerDetails(trip);
   const destination = suggestion.destination || suggestion.city || getTripDestinationLabel(trip) || "";
@@ -786,7 +946,7 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
     }).finalUrl;
   }
 
-  if (category === "attraction") {
+  if (["attraction", "activity", "experience"].includes(categoryValue)) {
     return resolveAffiliateLink({
       category: "activity",
       title,
@@ -814,7 +974,8 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
   }
 
   if (category === "restaurant") {
-    return "";
+    const query = [title, suggestion.location || suggestion.neighborhood || destination].filter(Boolean).join(" ");
+    return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : "";
   }
 
   if (["activity", "attraction", "tour", "experience"].includes(category)) {
@@ -828,34 +989,86 @@ function bookingProvider(suggestion: RoamlyItinerary["booking_suggestions"][numb
   return suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || fallback;
 }
 
+function isGoogleSearchFallbackUrl(value?: string | null) {
+  const href = safeBookingUrl(value);
+  if (!href) return false;
+  try {
+    const url = new URL(href);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    return host === "google.com" && (url.pathname === "/search" || url.pathname.startsWith("/maps/"));
+  } catch {
+    return false;
+  }
+}
+
+function providerForBookingHref(href: string, fallback: string) {
+  try {
+    const host = new URL(href).hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "aviasales.com") return "Travelpayouts";
+    if (host === "stay22.com" || host.endsWith(".stay22.com")) return "Stay22";
+    if (host === "klook.com" || host.endsWith(".klook.com")) return "Klook";
+    if (host === "google.com" && href.includes("/maps/")) return "Google Maps";
+    if (host === "google.com") return "Google search";
+  } catch {
+    return fallback;
+  }
+  return fallback;
+}
+
+function isAffiliateBookingHref(href: string) {
+  try {
+    const host = new URL(href).hostname.toLowerCase().replace(/^www\./, "");
+    return host === "aviasales.com" || host === "stay22.com" || host.endsWith(".stay22.com") || host === "klook.com" || host.endsWith(".klook.com");
+  } catch {
+    return false;
+  }
+}
+
 function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const category = bookingCategory(suggestion);
+  const categoryValue = String(category);
   const affiliate = safeBookingUrl(suggestion.affiliate_url);
   if (affiliate) {
     return {
       href: affiliate,
-      provider: bookingProvider(suggestion, "Affiliate partner"),
+      provider: providerForBookingHref(affiliate, bookingProvider(suggestion, "Affiliate partner")),
       hasAffiliateUrl: true,
       urlType: "affiliate" as BookingUrlType
     };
   }
 
   const normal = safeBookingUrl(suggestion.normal_search_url);
+  const fallback = safeBookingUrl(fallbackBookingUrl(suggestion, trip));
+  const shouldPreferAffiliateFallback =
+    fallback &&
+    isAffiliateBookingHref(fallback) &&
+    ["hotel", "activity", "attraction", "tour", "flight"].includes(categoryValue) &&
+    (!normal || isGoogleSearchFallbackUrl(normal));
+
+  if (shouldPreferAffiliateFallback) {
+    return {
+      href: fallback,
+      provider: providerForBookingHref(fallback, bookingProvider(suggestion, "Affiliate partner")),
+      hasAffiliateUrl: true,
+      urlType: "affiliate" as BookingUrlType
+    };
+  }
+
   if (normal) {
     return {
       href: normal,
-      provider: bookingProvider(suggestion, "Normal search"),
+      provider: providerForBookingHref(normal, bookingProvider(suggestion, "Normal search")),
       hasAffiliateUrl: false,
       urlType: "normal_search" as BookingUrlType
     };
   }
 
-  const fallback = safeBookingUrl(fallbackBookingUrl(suggestion, trip));
   if (fallback) {
     return {
       href: fallback,
-      provider: bookingProvider(suggestion, "Fallback search"),
-      hasAffiliateUrl: false,
-      urlType: "fallback" as BookingUrlType
+      provider: providerForBookingHref(fallback, bookingProvider(suggestion, "Fallback search")),
+      hasAffiliateUrl: isAffiliateBookingHref(fallback),
+      urlType: isAffiliateBookingHref(fallback) ? "affiliate" as BookingUrlType : "fallback" as BookingUrlType
     };
   }
 
@@ -863,10 +1076,10 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
 }
 
 function priceConfidenceLabel(value?: string) {
-  if (value === "partner") return "Partner price";
-  if (value === "user_uploaded") return "Uploaded booking";
-  if (value === "unknown") return "Price unknown";
-  return "Estimated price";
+  if (value === "partner") return "Live price";
+  if (value === "user_uploaded") return "Live price";
+  if (value === "unknown") return "Search only";
+  return "Estimated";
 }
 
 function isExpired(value?: string | null) {
@@ -888,21 +1101,16 @@ function formatMarketDateTime(value?: string | null) {
 }
 
 function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  if (suggestion.price_confidence === "user_uploaded") return "Uploaded booking price";
+  if (suggestion.free_or_paid === "free") return "Free";
+  if (suggestion.price_confidence === "user_uploaded") return "Live price";
   if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
-    return "Refresh price";
+    return "Search only";
   }
-  if (suggestion.price_type === "live_partner") return "Live partner price";
-  if (suggestion.price_type === "cached_recent") return "Recently searched price";
-  if (suggestion.price_type === "search_ready") return "Market estimate";
-  if (suggestion.price_type === "estimated_fallback") return "Conservative estimate";
+  if (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent") return "Live price";
+  if (suggestion.price_type === "search_ready") return "Search only";
+  if (suggestion.price_type === "estimated_fallback") return "Estimated";
+  if (suggestion.advance_booking_recommended) return "Booking required";
   return priceConfidenceLabel(suggestion.price_confidence);
-}
-
-function bookingStatusLabel(value?: string) {
-  if (value === "user_uploaded") return "User-uploaded";
-  if (value === "suggested") return "Suggested option";
-  return "Needs booking";
 }
 
 function formatRange(min: number | null | undefined, max: number | null | undefined, currency: string) {
@@ -932,11 +1140,11 @@ function transportModeLabel(mode: TransportOption["mode"]) {
 }
 
 function transportActionLabel(mode: TransportOption["mode"]) {
-  if (mode === "flight") return "Compare flights";
+  if (mode === "flight") return "Search flights";
   if (mode === "train") return "Check train";
   if (mode === "bus") return "Check bus";
   if (mode === "drive") return "Open driving route";
-  return "Compare flights";
+  return "Search route";
 }
 
 function transportSourceLabel(option: TransportOption) {
@@ -946,8 +1154,8 @@ function transportSourceLabel(option: TransportOption) {
   if (option.availability === "search_ready") return "Search-ready";
   if (option.availability === "not_available") return "Not available";
   if (option.availability === "unverified") return "Unverified";
-  if (option.mode === "drive") return "Conservative drive estimate";
-  return "Conservative estimate";
+  if (option.mode === "drive") return "Drive estimate";
+  return "Planning estimate";
 }
 
 function transportEstimate(option: TransportOption) {
@@ -1018,23 +1226,24 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
   if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
     return total ? `Previously searched ${total}. Refresh price before using it for booking.` : "Refresh price before using this option.";
   }
-  if (suggestion.price_type === "search_ready") return "Market estimate. Refresh live price and availability before booking.";
-  if (nightly && total) return `${suggestion.price_type === "estimated_fallback" ? "Conservative estimate" : "Estimate"} nightly ${nightly}; stay ${total}.`;
-  if (total) return `${suggestion.price_type === "estimated_fallback" ? "Conservative estimate" : "Estimate"} ${total}.`;
+  if (suggestion.price_type === "search_ready") return "Search-only result. Verify price and availability.";
+  if (nightly && total) return `Estimate: nightly ${nightly}; stay ${total}.`;
+  if (total) return `Estimate: ${total}.`;
   if (suggestion.free_or_paid === "free") return "Free option. Verify hours and access rules.";
-  return "Search-ready option. Verify current prices before booking.";
+  return "Verify current prices before booking.";
 }
 
 function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
   return [
-    suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider,
+    `Source: ${suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || "Search link"}`,
+    `Verification: ${priceSourceLabel(suggestion)}`,
     suggestion.market_source,
     suggestion.location || suggestion.neighborhood || suggestion.city,
     suggestion.date || suggestion.departure_date,
     suggestion.time_window,
     suggestion.duration,
     suggestion.room_type,
-    suggestion.searched_at ? `Searched ${formatMarketDateTime(suggestion.searched_at)}` : "",
+    suggestion.searched_at ? `Retrieved ${formatMarketDateTime(suggestion.searched_at)}` : "Retrieved: not live-verified",
     suggestion.expires_at
       ? isExpired(suggestion.expires_at)
         ? "Refresh price"
@@ -1047,11 +1256,45 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
 }
 
 function bookingActionLabel(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], link: ReturnType<typeof resolveBookingLink>) {
-  if (category === "flight") return "Compare flights";
-  if (category === "hotel") return "Find a hotel";
-  if (category === "attraction" || category === "tour") return "Book activity";
+  if (category === "flight") return link?.hasAffiliateUrl ? "Compare flights" : "Search flights";
+  if (category === "hotel") return "View hotel options";
+  if (category === "attraction" || category === "tour") return link?.hasAffiliateUrl ? "Book activity" : "Search activity";
   if (category === "transport" || category === "car_rental") return link?.hasAffiliateUrl ? "Book transfer" : "Open route";
+  if (category === "restaurant") return "View on Google Maps";
   return suggestion.booking_label || "View option";
+}
+
+function bookingStatusBadge(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const source = priceSourceLabel(suggestion);
+  if (source) return source;
+  if (category === "restaurant" && suggestion.advance_booking_recommended) return "Reservation recommended";
+  if (suggestion.advance_booking_recommended) return "Booking required";
+  return "";
+}
+
+function validBookingSuggestionForTrip(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const category = bookingCategory(suggestion);
+  const title = bookingTitle(suggestion);
+  const provider = bookingProvider(suggestion, "");
+  if (!title || isBareDomainName(title)) return false;
+  if (category === "hotel" && /\bstay22\b/i.test(`${title} ${provider}`)) return false;
+  if (category === "flight" && /reviewintel/i.test(`${provider} ${suggestion.market_source || ""}`)) return false;
+  const link = resolveBookingLink(suggestion, trip);
+  if (!link?.href) return false;
+  return validateTravelResultForDisplay({
+    category,
+    expectedCategory: category,
+    title,
+    provider,
+    url: link.href,
+    destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip),
+    city: suggestion.city || trip.destination_city,
+    country: suggestion.country || trip.destination_country,
+    requestedDestination: getTripDestinationLabel(trip),
+    requestedCity: trip.destination_city,
+    source: suggestion.provider_or_search_source || suggestion.provider || suggestion.market_source,
+    allowSearchFallback: true
+  }).ok;
 }
 
 function BookingRecommendationCard({
@@ -1066,8 +1309,9 @@ function BookingRecommendationCard({
   const category = bookingCategory(suggestion);
   const title = bookingTitle(suggestion);
   const link = resolveBookingLink(suggestion, trip);
+  if (!link?.href) return null;
   const mapQuery = suggestion.location || suggestion.neighborhood || suggestion.city || title;
-  const confidence = priceSourceLabel(suggestion);
+  const statusBadge = bookingStatusBadge(category, suggestion);
   const actionLabel = bookingActionLabel(category, suggestion, link);
 
   return (
@@ -1075,9 +1319,9 @@ function BookingRecommendationCard({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
-            {[bookingStatusLabel(suggestion.booking_status), confidence, suggestion.free_or_paid && suggestion.free_or_paid !== "unknown" ? suggestion.free_or_paid : ""]
+            {[statusBadge]
               .filter((label): label is string => Boolean(label))
-              .filter(Boolean).filter(Boolean).map((label) => (
+              .map((label) => (
                 <span key={label} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
                   {label}
                 </span>
@@ -1086,36 +1330,32 @@ function BookingRecommendationCard({
           <h3 className="mt-2 text-lg font-black leading-6 text-ink">{title}</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{bookingDescription(suggestion)}</p>
           <p className="mt-2 text-sm font-black text-ink">{bookingEstimate(suggestion)}</p>
-          {suggestion.why_recommended ? (
-            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{suggestion.why_recommended}</p>
-          ) : null}
-          {bookingMeta(suggestion).length ? (
-            <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{bookingMeta(suggestion).join(" · ")}</p>
+          {suggestion.why_recommended || bookingMeta(suggestion).length ? (
+            <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-2">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Details</summary>
+              {suggestion.why_recommended ? (
+                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{suggestion.why_recommended}</p>
+              ) : null}
+              {bookingMeta(suggestion).length ? (
+                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{bookingMeta(suggestion).join(" · ")}</p>
+              ) : null}
+            </details>
           ) : null}
           {category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-2 lg:items-end">
-          <p className="roamly-no-print max-w-[13rem] text-xs font-bold leading-5 text-slate-500">
-            Search-ready suggestion. Verify live price and availability before booking.
-          </p>
-          {link?.href ? (
-            <BookingRecommendationButton
-              href={link.href}
-              label={actionLabel}
-              tripId={tripId}
-              category={category}
-              title={title}
-              provider={link.provider}
-              hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
-              urlType={link.urlType}
-            />
-          ) : (
-            <p className="roamly-no-print max-w-[13rem] rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black leading-5 text-slate-500">
-              Live booking search is temporarily unavailable
-            </p>
-          )}
+          <BookingRecommendationButton
+            href={link.href}
+            label={actionLabel}
+            tripId={tripId}
+            category={category}
+            title={title}
+            provider={link.provider}
+            hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
+            urlType={link.urlType}
+          />
           <p className="roamly-print-only hidden text-xs font-black text-ocean">
-            {link?.href ? `Search: ${actionLabel}` : "Live booking search temporarily unavailable"}
+            Search: {actionLabel}
           </p>
         </div>
       </div>
@@ -1123,117 +1363,276 @@ function BookingRecommendationCard({
   );
 }
 
-function TransportComparison({ itinerary, tripId }: { itinerary: RoamlyItinerary; tripId: string }) {
-  const options = transportOptionsFromItinerary(itinerary);
+function isGenericBookingSuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const title = bookingTitle(suggestion).toLowerCase();
+  const category = String(bookingCategory(suggestion));
+  if (
+    ["activity", "attraction", "tour"].includes(category) &&
+    /\b(casual nightlife|nearby lounge|walk along|stroll|wander|free time|explore nearby|open evening)\b/i.test(title)
+  ) {
+    return true;
+  }
+  return /^(local bistro|museum or gallery|nightlife district|hotel room|hotel\/stay to book|flights? to book|things to do|book activities|find hotels?|activities\/tours to reserve)$/i.test(title);
+}
+
+function isImpracticalBookingSuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const category = bookingCategory(suggestion);
+  if (category !== "flight" && category !== "transport" && category !== "car_rental") return false;
+  const text = `${bookingTitle(suggestion)} ${suggestion.description || ""} ${suggestion.why_recommended || ""}`.toLowerCase();
+  return /\b(not available|not recommended|too long for this trip|impractical|unrealistic|miserable)\b/.test(text);
+}
+
+function bookingRank(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const link = resolveBookingLink(suggestion, trip);
+  if (suggestion.price_type === "live_partner") return 0;
+  if (suggestion.price_type === "cached_recent") return 1;
+  if (link?.hasAffiliateUrl) return 2;
+  if (suggestion.advance_booking_recommended) return 3;
+  if (link?.href) return 4;
+  return 8;
+}
+
+function curatedBookingSuggestions(
+  suggestions: RoamlyItinerary["booking_suggestions"],
+  trip: RoamlyTripRecord,
+  categories: string[],
+  limit: number
+) {
+  const seen = new Set<string>();
+  return suggestions
+    .filter((suggestion) => categories.includes(bookingCategory(suggestion)))
+    .filter((suggestion) => !isGenericBookingSuggestion(suggestion))
+    .filter((suggestion) => !isImpracticalBookingSuggestion(suggestion))
+    .filter((suggestion) => validBookingSuggestionForTrip(suggestion, trip))
+    .sort((a, b) => bookingRank(a, trip) - bookingRank(b, trip))
+    .filter((suggestion) => {
+      const key = `${bookingCategory(suggestion)}|${bookingTitle(suggestion).toLowerCase()}|${suggestion.normal_search_url || suggestion.affiliate_url || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+function bookingSuggestionsWithRecommendations(itinerary: RoamlyItinerary, trip: RoamlyTripRecord) {
+  const rawSuggestions = itinerary.booking_suggestions || [];
+  const recommendedStays = buildRecommendedStaySuggestions({ trip, itinerary }) as unknown as RoamlyItinerary["booking_suggestions"];
+  const recommendedActivities = buildRecommendedActivitySuggestions({ trip, itinerary }) as unknown as RoamlyItinerary["booking_suggestions"];
+  const initialHotelItems = curatedBookingSuggestions(rawSuggestions, trip, ["hotel"], 3);
+  const suggestions = !recommendedStays.length || initialHotelItems.length >= Math.min(2, recommendedStays.length)
+    ? rawSuggestions
+    : [
+        ...rawSuggestions,
+        ...recommendedStays.filter((stay) => {
+          const stayTitle = bookingTitle(stay).toLowerCase();
+          return !rawSuggestions.some((suggestion) => bookingCategory(suggestion) === "hotel" && bookingTitle(suggestion).toLowerCase() === stayTitle);
+        })
+      ];
+
+  const initialActivityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
+  if (!recommendedActivities.length || initialActivityItems.length >= 2) return suggestions;
+
+  return [
+    ...suggestions,
+    ...recommendedActivities.filter((activity) => {
+      const activityTitle = bookingTitle(activity).toLowerCase();
+      return !suggestions.some((suggestion) =>
+        ["activity", "attraction", "tour"].includes(String(bookingCategory(suggestion))) &&
+        bookingTitle(suggestion).toLowerCase() === activityTitle
+      );
+    })
+  ];
+}
+
+function routeNeedsTransport(trip: RoamlyTripRecord) {
+  const origin = getTripOriginLabel(trip).toLowerCase().trim();
+  const destination = getTripDestinationLabel(trip).toLowerCase().trim();
+  return Boolean(origin && destination && origin !== destination);
+}
+
+function tripIncludesActivities(trip: RoamlyTripRecord) {
+  const planning = getTripPlanningMetadata(trip.metadata);
+  return planning.budgetIncludesActivities !== false && planning.budget_includes_activities !== false;
+}
+
+function bookingGroupMode(itinerary: RoamlyItinerary) {
+  return getString(recommendedTransportFromItinerary(itinerary)?.mode).toLowerCase();
+}
+
+function buildRelevantBookingGroups(params: {
+  itinerary: RoamlyItinerary;
+  trip: RoamlyTripRecord;
+  flightItems: RoamlyItinerary["booking_suggestions"];
+  hotelItems: RoamlyItinerary["booking_suggestions"];
+  activityItems: RoamlyItinerary["booking_suggestions"];
+  transportItems: RoamlyItinerary["booking_suggestions"];
+}) {
+  const mode = bookingGroupMode(params.itinerary);
+  const needsTransport = routeNeedsTransport(params.trip);
+  const showFlightFallback =
+    needsTransport &&
+    params.trip.budget_includes_flights !== false &&
+    (!mode || mode === "flight" || mode === "mixed");
+  const showFlightItems = params.flightItems.length > 0 && (!mode || mode === "flight" || mode === "mixed");
+  const hasRecommendedTransport = Boolean(recommendedTransportFromItinerary(params.itinerary));
+  return [
+    (showFlightItems || showFlightFallback)
+      ? { title: "Flights", fallback: "flight" as const, items: params.flightItems }
+      : null,
+    (params.hotelItems.length > 0 || params.trip.budget_includes_hotel !== false)
+      ? { title: "Hotels", fallback: "hotel" as const, items: params.hotelItems }
+      : null,
+    (params.activityItems.length > 0 || tripIncludesActivities(params.trip))
+      ? { title: "Important activities", fallback: "activity" as const, items: params.activityItems }
+      : null,
+    params.transportItems.length > 0 && !hasRecommendedTransport
+      ? { title: "Transport", fallback: null, items: params.transportItems }
+      : null
+  ].filter((group): group is {
+    title: string;
+    fallback: "flight" | "hotel" | "activity" | null;
+    items: RoamlyItinerary["booking_suggestions"];
+  } => Boolean(group));
+}
+
+function fallbackSearchHref(category: "flight" | "hotel" | "activity", trip: RoamlyTripRecord) {
+  const destination = getTripDestinationLabel(trip);
+  const origin = getTripOriginLabel(trip);
+  const start = tripDate(trip, "start");
+  const end = tripDate(trip, "end");
+  if (category === "flight") {
+    const affiliate = resolveAffiliateLink({
+      category: "flight",
+      origin,
+      destination,
+      startDate: start,
+      endDate: end,
+      travelers: tripTravelerDetails(trip)
+    }).finalUrl;
+    if (affiliate) return affiliate;
+  }
+  const query =
+    category === "flight"
+      ? [origin, "to", destination, start, end, "flights"].filter(Boolean).join(" ")
+      : category === "hotel"
+        ? [destination, start, end, "hotels"].filter(Boolean).join(" ")
+        : [destination, start, "top attractions official tickets"].filter(Boolean).join(" ");
+  return query ? `https://www.google.com/search?q=${encodeURIComponent(query)}` : "";
+}
+
+function BookingSearchFallbackCard({
+  category,
+  trip,
+  tripId
+}: {
+  category: "flight" | "hotel" | "activity";
+  trip: RoamlyTripRecord;
+  tripId: string;
+}) {
+  const href = safeBookingUrl(fallbackSearchHref(category, trip));
+  if (!href) return null;
+  const label = category === "flight" ? "Search flights" : category === "hotel" ? "Search hotels" : "Search activities";
+  const title = category === "flight" ? "Flight search" : category === "hotel" ? "Hotel search" : "Activity search";
+  const hasAffiliateUrl = isAffiliateBookingHref(href);
+  const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : "Google search");
+  return (
+    <article className="rounded-[1rem] border border-dashed border-[#e8dfd0] bg-white px-4 py-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-lg font-black leading-6 text-ink">{title}</h3>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            Search current options for the trip dates and verify price, schedule, and availability.
+          </p>
+          <p className="mt-2 text-xs font-bold text-slate-500">{category === "flight" && href.includes("aviasales.com") ? "Travelpayouts / Aviasales search" : "Search only"}</p>
+        </div>
+        <BookingRecommendationButton
+          href={href}
+          label={label}
+          tripId={tripId}
+          category={category}
+          title={title}
+          provider={provider}
+          hasAffiliateUrl={hasAffiliateUrl}
+          urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
+        />
+      </div>
+    </article>
+  );
+}
+
+function RecommendedTransportCard({ itinerary, tripId }: { itinerary: RoamlyItinerary; tripId: string }) {
   const recommended = recommendedTransportFromItinerary(itinerary);
-  if (!options.length) return null;
-  const ordered = [
-    ...(recommended ? [recommended] : []),
-    ...options.filter((option) => option !== recommended && option.budget_fit !== "best")
-  ].slice(0, 6);
+  if (!recommended || !recommended.realistic || recommended.availability === "not_available") return null;
+  const href = transportHref(recommended);
+  const provider = transportProviderForLink(recommended, href, transportSourceLabel(recommended));
+  const hasAffiliateUrl = transportHasAffiliateLink(recommended, href);
+  const missingNote = transportMissingNote(recommended, href);
 
   return (
     <section className="roamly-print-section">
-      <h3 className="text-lg font-black text-ink">Transport comparison</h3>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        {ordered.map((option, index) => {
-          const isRecommended = option.budget_fit === "best" || option === recommended;
-          const href = transportHref(option);
-          const title = isRecommended ? `Recommended: ${transportModeLabel(option.mode)}` : `${transportModeLabel(option.mode)} option`;
-          const provider = transportProviderForLink(option, href, transportSourceLabel(option));
-          const hasAffiliateUrl = transportHasAffiliateLink(option, href);
-          const missingNote = transportMissingNote(option, href);
-          return (
-            <article key={`${option.mode}-${option.title}-${index}`} className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
-                      {title}
-                    </span>
-                    {transportBadges(option).map((badge) => (
-                      <span key={badge} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                  <h4 className="mt-2 text-lg font-black leading-6 text-ink">{option.title}</h4>
-                  <p className="mt-1 text-sm font-black text-ink">{transportEstimate(option)}</p>
-                  {option.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{option.duration_label}</p> : null}
-                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{option.why_recommended}</p>
-                  {option.warning ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{option.warning}</p> : null}
-                  {option.mode === "drive" ? (
-                    <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                      Driving estimate uses fuel, parking, toll, border, and overnight-stop assumptions where relevant until live maps/gas providers are connected.
-                    </p>
-                  ) : null}
-                  {option.mode === "train" || option.mode === "bus" ? (
-                    <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Verify live schedule and price.</p>
-                  ) : null}
-                </div>
-                {href ? (
-                  <BookingRecommendationButton
-                    href={href}
-                    label={transportActionLabel(option.mode)}
-                    tripId={tripId}
-                    category={option.mode === "flight" || option.mode === "mixed" ? "flight" : "transport"}
-                    title={option.title}
-                    provider={provider}
-                    hasAffiliateUrl={hasAffiliateUrl}
-                    urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
-                  />
-                ) : missingNote ? (
-                  <p className="roamly-no-print max-w-[13rem] rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black leading-5 text-slate-500">
-                    {missingNote}
-                  </p>
-                ) : null}
-              </div>
-            </article>
-          );
-        })}
-      </div>
+      <h3 className="text-lg font-black text-ink">Recommended transport</h3>
+      <article className="mt-3 rounded-[1rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                {transportModeLabel(recommended.mode)}
+              </span>
+              {transportBadges(recommended).slice(0, 3).map((badge) => (
+                <span key={badge} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                  {badge}
+                </span>
+              ))}
+            </div>
+            <h4 className="mt-2 text-lg font-black leading-6 text-ink">{recommended.title}</h4>
+            <p className="mt-1 text-sm font-black text-ink">{transportEstimate(recommended)}</p>
+            {recommended.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{recommended.duration_label}</p> : null}
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{recommended.why_recommended}</p>
+            {recommended.warning ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{recommended.warning}</p> : null}
+          </div>
+          {href ? (
+            <BookingRecommendationButton
+              href={href}
+              label={transportActionLabel(recommended.mode)}
+              tripId={tripId}
+              category={recommended.mode === "flight" || recommended.mode === "mixed" ? "flight" : "transport"}
+              title={recommended.title}
+              provider={provider}
+              hasAffiliateUrl={hasAffiliateUrl}
+              urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
+            />
+          ) : missingNote ? (
+            <p className="roamly-no-print max-w-[13rem] rounded-[1rem] border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black leading-5 text-slate-500">
+              {missingNote}
+            </p>
+          ) : null}
+        </div>
+      </article>
     </section>
   );
 }
 
 function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string }) {
-  const rawSuggestions = itinerary.booking_suggestions || [];
-  const recommendedStay = buildRecommendedStaySuggestion({ trip, itinerary });
-  const shouldAddRecommendedStay =
-    Boolean(recommendedStay) && !hasBookingCategory(rawSuggestions, "hotel");
-
-  const suggestions = shouldAddRecommendedStay
-    ? [
-        ...rawSuggestions,
-        recommendedStay as unknown as RoamlyItinerary["booking_suggestions"][number]
-      ]
-    : rawSuggestions;
-
-  const groups = [
-    { title: "Flights", categories: ["flight"] },
-    { title: "Stays", categories: ["hotel"] },
-    { title: "Tickets & attractions", categories: ["attraction"] },
-    { title: "Tours & activities", categories: ["tour"] },
-    { title: "Transport", categories: ["transport", "car_rental"] },
-    { title: "Restaurants", categories: ["restaurant"] }
-  ];
+  const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
+  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 3);
+  const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3);
+  const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
+  const transportItems = curatedBookingSuggestions(suggestions, trip, ["transport", "car_rental"], 2);
+  const groups = buildRelevantBookingGroups({ itinerary, trip, flightItems, hotelItems, activityItems, transportItems });
 
   return (
     <div className="grid gap-5">
-      <p className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
-        Suggested options are search-ready planning recommendations, not completed bookings. Estimated prices may change before booking.
-        {" "}
-        {affiliateDisclosure}
+      <p className="roamly-no-print rounded-[1rem] border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
+        Recommended transport, stays, flights, and important activities. Live prices appear only when a connected provider returned them. {affiliateDisclosure}
       </p>
-      <TransportComparison itinerary={itinerary} tripId={tripId} />
+      <RecommendedTransportCard itinerary={itinerary} tripId={tripId} />
       {groups.map((group) => {
-        const items = suggestions.filter((suggestion) => group.categories.includes(bookingCategory(suggestion)));
         return (
           <section key={group.title} className="roamly-print-section">
             <h3 className="text-lg font-black text-ink">{group.title}</h3>
-            {items.length ? (
+            {group.items.length ? (
               <div className="mt-3 grid gap-3">
-                {items.map((suggestion, index) => (
+                {group.items.map((suggestion, index) => (
                   <BookingRecommendationCard
                     key={`${group.title}-${bookingTitle(suggestion)}-${index}`}
                     suggestion={suggestion}
@@ -1242,11 +1641,11 @@ function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; 
                   />
                 ))}
               </div>
-            ) : (
-              <p className="mt-3 rounded-2xl border border-dashed border-[#e8dfd0] bg-white px-4 py-3 text-sm font-black leading-6 text-slate-500">
-                Roamly could not produce a specific option for this category. Try regenerating this itinerary or narrowing your preferences.
-              </p>
-            )}
+            ) : group.fallback ? (
+              <div className="mt-3">
+                <BookingSearchFallbackCard category={group.fallback} trip={trip} tripId={tripId} />
+              </div>
+            ) : null}
           </section>
         );
       })}
@@ -1322,7 +1721,7 @@ function PreTripEssentialCard({
             urlType={urlType}
           />
         </div>
-        <p className="roamly-print-only hidden text-xs font-black text-ocean">{href ? `${provider} search: ${label}` : `${provider} search link unavailable`}</p>
+        {href ? <p className="roamly-print-only hidden text-xs font-black text-ocean">{provider} search: {label}</p> : null}
       </div>
     </article>
   );
@@ -1379,6 +1778,197 @@ function BookingSummaryList({ bookings }: { bookings: Array<Record<string, unkno
         );
       })}
     </div>
+  );
+}
+
+function travelerSummary(trip: RoamlyTripRecord) {
+  const travelers = tripTravelerDetails(trip);
+  const rooms = tripRooms(trip);
+  return [
+    `${travelers.adults} ${travelers.adults === 1 ? "adult" : "adults"}`,
+    travelers.children ? `${travelers.children} ${travelers.children === 1 ? "child" : "children"}` : "",
+    travelers.infants ? `${travelers.infants} ${travelers.infants === 1 ? "infant" : "infants"}` : "",
+    `${rooms} ${rooms === 1 ? "room" : "rooms"}`
+  ].filter(Boolean).join(" · ");
+}
+
+function PrintInfoCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="roamly-pdf-info-cell">
+      <p>{label}</p>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function CompactPrintDay({ day, currency }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string }) {
+  const items = buildDisplayTimelineItems(day).slice(0, 6);
+
+  return (
+    <section className="roamly-pdf-day">
+      <div className="roamly-pdf-day-heading">
+        <p>
+          Day {day.day_number}
+          {day.city ? ` · ${day.city}` : ""}
+          {day.date ? ` · ${formatTripDate(day.date)}` : ""}
+        </p>
+        <span>Est. {formatMoney(day.estimated_cost, currency)}</span>
+      </div>
+      <h3>{day.title}</h3>
+      {items.length ? (
+        <div className="roamly-pdf-timeline">
+          {items.map((item, index) => (
+            <div key={`${day.day_number}-print-${item.time}-${item.title}-${index}`} className="roamly-pdf-timeline-row">
+              <p className="roamly-pdf-time">{item.time}</p>
+              <div>
+                <strong>{item.title}</strong>
+                <p>{[item.location, item.durationLabel, item.travelLabel].filter(Boolean).join(" · ")}</p>
+                {item.transferNote ? <p>Transfer: {item.transferNote}</p> : null}
+                {item.description ? <p>{compact(item.description, "", 120)}</p> : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="roamly-pdf-timeline">
+          <div className="roamly-pdf-timeline-row"><p className="roamly-pdf-time">Morning</p><p>{day.morning}</p></div>
+          <div className="roamly-pdf-timeline-row"><p className="roamly-pdf-time">Afternoon</p><p>{day.afternoon}</p></div>
+          <div className="roamly-pdf-timeline-row"><p className="roamly-pdf-time">Evening</p><p>{day.evening}</p></div>
+        </div>
+      )}
+      {day.food.length ? <p className="roamly-pdf-food">Food: {day.food.slice(0, 3).join(" · ")}</p> : null}
+    </section>
+  );
+}
+
+function CompactPrintItinerary({
+  trip,
+  itinerary,
+  bookings,
+  tripTitle,
+  destinationLabel,
+  currency,
+  budgetDisplay,
+  travelStyle,
+  dayCount
+}: {
+  trip: RoamlyTripRecord;
+  itinerary: RoamlyItinerary;
+  bookings: Array<Record<string, unknown>>;
+  tripTitle: string;
+  destinationLabel: string;
+  currency: string;
+  budgetDisplay: string;
+  travelStyle: string;
+  dayCount: number;
+}) {
+  const recommendedTransport = recommendedTransportFromItinerary(itinerary);
+  const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
+  const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3);
+  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 2);
+  const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
+  const essentials = [
+    ...packingChecklistItems([], itinerary).slice(0, 5),
+    ...itinerary.local_tips.slice(0, 4)
+  ].slice(0, 8);
+  const notes = [
+    ...itinerary.safety_notes.slice(0, 4),
+    ...itinerary.emergency_notes.slice(0, 4)
+  ].slice(0, 8);
+
+  return (
+    <article className="roamly-compact-print hidden">
+      <section className="roamly-pdf-page roamly-pdf-cover">
+        <div className="roamly-pdf-brand">
+          <Image src="/roamly-wordmark.png" alt="Roamly" width={92} height={38} />
+          <span>Offline itinerary</span>
+        </div>
+        <h1>{tripTitle}</h1>
+        <p className="roamly-pdf-summary">{compact(itinerary.destination_summary, "Trip plan", 240)}</p>
+        <div className="roamly-pdf-info-grid">
+          <PrintInfoCell label="Destination" value={destinationLabel} />
+          <PrintInfoCell label="Dates" value={formatDateRange(trip)} />
+          <PrintInfoCell label="Travellers" value={travelerSummary(trip)} />
+          <PrintInfoCell label="Days" value={dayCount ? `${dayCount} days` : "Flexible"} />
+          <PrintInfoCell label="Budget" value={budgetDisplay} />
+          <PrintInfoCell label="Style" value={travelStyle} />
+        </div>
+        <div className="roamly-pdf-two-col">
+          <section>
+            <h2>Transport</h2>
+            <p>{recommendedTransport ? `${recommendedTransport.title}. ${transportEstimate(recommendedTransport)}` : compact(itinerary.transport_overview, "Verify transport before travel.", 180)}</p>
+          </section>
+          <section>
+            <h2>Stay</h2>
+            {hotelItems.length ? (
+              <ul>
+                {hotelItems.map((item) => (
+                  <li key={`print-hotel-${bookingTitle(item)}`}>
+                    <strong>{bookingTitle(item)}</strong>
+                    <span>{[item.neighborhood || item.location, item.room_type, item.why_recommended].filter(Boolean).join(" · ")}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>Hotel options should be verified for the trip dates before departure.</p>
+            )}
+          </section>
+        </div>
+        <div className="roamly-pdf-two-col">
+          <section>
+            <h2>Flight/Search References</h2>
+            {flightItems.length ? (
+              <ul>{flightItems.map((item) => <li key={`print-flight-${bookingTitle(item)}`}>{bookingTitle(item)}</li>)}</ul>
+            ) : (
+              <p>Use the flight search action on the trip page to verify schedules and fares.</p>
+            )}
+          </section>
+          <section>
+            <h2>Important Activities</h2>
+            {activityItems.length ? (
+              <ul>{activityItems.map((item) => <li key={`print-activity-${bookingTitle(item)}`}>{bookingTitle(item)}</li>)}</ul>
+            ) : (
+              <p>No paid activity bookings are required by default.</p>
+            )}
+          </section>
+        </div>
+      </section>
+
+      <section className="roamly-pdf-days">
+        {itinerary.daily_itinerary.map((day) => (
+          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} />
+        ))}
+      </section>
+
+      <section className="roamly-pdf-page roamly-pdf-final">
+        <h2>Bookings And Essentials</h2>
+        <div className="roamly-pdf-two-col">
+          <section>
+            <h3>Confirmed bookings</h3>
+            {bookings.length ? (
+              <ul>
+                {bookings.slice(0, 8).map((booking, index) => (
+                  <li key={`print-booking-${index}`}>
+                    <strong>{getString(booking.title) || "Saved booking"}</strong>
+                    <span>{[booking.provider_name, booking.start_date, booking.start_time].map((item) => getString(item)).filter(Boolean).join(" · ")}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No confirmed bookings saved in Roamly yet.</p>
+            )}
+          </section>
+          <section>
+            <h3>Essentials</h3>
+            <ul>{essentials.map((item) => <li key={`print-essential-${item}`}>{item}</li>)}</ul>
+          </section>
+        </div>
+        <section>
+          <h3>Important notes</h3>
+          <ul>{notes.map((item) => <li key={`print-note-${item}`}>{item}</li>)}</ul>
+        </section>
+      </section>
+    </article>
   );
 }
 
@@ -1488,8 +2078,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : null;
   const displayedItineraryLanguage = localizedItinerary?.language || getTripItineraryLanguage(trip.metadata);
   const itineraryLocked = isTripLocked(trip);
-  const generationProgress = publicStagedGenerationProgress(trip.metadata);
+  const generationProgress = publicStagedGenerationProgress(trip.metadata, id);
   const generationStatus = generationProgress?.status || "";
+  const generationFailed = generationStatus === "failed" || generationStatus === "partially_failed";
   const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
   const canonicalDays = full?.daily_itinerary || [];
   const canShowFull = canonicalDays.length > 0;
@@ -1500,7 +2091,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       generationStatus !== "failed" &&
       generationStatus !== "partially_failed"
   );
-  const generationPanelVisible = !canShowFull && (Boolean(generationProgress && generationStatus !== "complete"));
+  const generationPanelVisible = Boolean(
+    generationProgress &&
+      generationStatus !== "complete" &&
+      (!canShowFull || generationFailed)
+  );
   const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
   const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
@@ -1561,6 +2156,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     <main className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-24 pt-5 text-ink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <div className="roamly-print-paper mx-auto max-w-6xl">
+        <div className="roamly-screen-document">
         <section className="rounded-[1.1rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 shadow-[0_16px_44px_rgba(16,32,51,0.07)] sm:rounded-[1.35rem] sm:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
@@ -1576,8 +2172,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     ? "Generated itinerary"
                     : itineraryLocked
                       ? "Locked itinerary"
-                      : generationPanelVisible
-                        ? "Generating itinerary"
+                    : generationFailed
+                        ? "Generation failed"
+                        : generationPanelVisible
+                          ? "Generating itinerary"
                         : paidForItinerary
                           ? "Ready to generate"
                           : freeAvailable
@@ -1673,143 +2271,192 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
         {canShowFull && full && !generationPanelVisible ? (
           <>
-            <nav className="roamly-no-print sticky top-[4.25rem] z-20 -mx-4 mt-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
-              <div className="flex min-w-max gap-2">
-                {[
-                  ["day-by-day", "Day-by-day"],
-                  ["overview", "Overview"],
-                  ["budget", "Budget"],
-                  ["bookings", "Bookings"],
-                  ["pre-trip-essentials", "Essentials"],
-                  ["travel-notes", "Travel notes"]
-                ].map(([href, label], index) => (
-                  <a
-                    key={href}
-                    href={`#${href}`}
-                    className={`rounded-full px-3 py-2 text-xs font-black transition sm:px-4 sm:text-sm ${
-                      index === 0
-                        ? "bg-ocean text-white shadow-[0_10px_24px_rgba(27,154,170,0.22)]"
-                        : "bg-white text-slate-600 ring-1 ring-[#e8dfd0] hover:text-ocean"
-                    }`}
-                  >
-                    {label}
-                  </a>
-                ))}
-              </div>
-            </nav>
+            <div className="roamly-tabs mt-4">
+              <style>{`
+                .roamly-tab-input{position:absolute;opacity:0;pointer-events:none}
+                .roamly-tab-panel{display:none}
+                #roamly-tab-day-by-day:checked ~ .roamly-tab-panels .roamly-panel-day-by-day,
+                #roamly-tab-overview:checked ~ .roamly-tab-panels .roamly-panel-overview,
+                #roamly-tab-budget:checked ~ .roamly-tab-panels .roamly-panel-budget,
+                #roamly-tab-bookings:checked ~ .roamly-tab-panels .roamly-panel-bookings,
+                #roamly-tab-essentials:checked ~ .roamly-tab-panels .roamly-panel-essentials,
+                #roamly-tab-travel-notes:checked ~ .roamly-tab-panels .roamly-panel-travel-notes{display:block}
+                #roamly-tab-day-by-day:checked ~ .roamly-tab-nav label[for="roamly-tab-day-by-day"],
+                #roamly-tab-overview:checked ~ .roamly-tab-nav label[for="roamly-tab-overview"],
+                #roamly-tab-budget:checked ~ .roamly-tab-nav label[for="roamly-tab-budget"],
+                #roamly-tab-bookings:checked ~ .roamly-tab-nav label[for="roamly-tab-bookings"],
+                #roamly-tab-essentials:checked ~ .roamly-tab-nav label[for="roamly-tab-essentials"],
+                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#102033;color:white;border-color:#102033}
+                .roamly-day-input{position:absolute;opacity:0;pointer-events:none}
+                .roamly-day-panel{display:none}
+                ${dayNumbersToRender.map((dayNumber) => `
+                  #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"]{background:#102033;color:white;border-color:#102033}
+                  #roamly-day-${dayNumber}:checked ~ .roamly-day-panels .roamly-day-panel-${dayNumber}{display:block}
+                `).join("\n")}
+                @media print{.roamly-tab-panel,.roamly-day-panel{display:block!important}.roamly-tab-nav,.roamly-day-nav{display:none!important}}
+              `}</style>
+              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-day-by-day" defaultChecked />
+              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-overview" />
+              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-budget" />
+              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-bookings" />
+              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-essentials" />
+              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-travel-notes" />
 
-            <section id="day-by-day" className="mt-8 scroll-mt-32">
-              <SectionHeading
-                eyebrow="Day-by-day"
-                title="Your itinerary"
-                summary="Clean daily plan with timing, travel, and key notes."
-              />
-              <nav className="roamly-no-print sticky top-[8.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:top-[9.2rem] sm:mx-0 sm:rounded-full sm:border">
+              <nav className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
                 <div className="flex min-w-max gap-2">
-                  {dayNumbersToRender.map((dayNumber) => (
-                    <a
-                      key={dayNumber}
-                      href={`#day-${dayNumber}`}
-                      className="rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean"
+                  {[
+                    ["roamly-tab-day-by-day", "Day-by-day"],
+                    ["roamly-tab-overview", "Overview"],
+                    ["roamly-tab-budget", "Budget"],
+                    ["roamly-tab-bookings", "Bookings"],
+                    ["roamly-tab-essentials", "Essentials"],
+                    ["roamly-tab-travel-notes", "Travel notes"]
+                  ].map(([tabId, label]) => (
+                    <label
+                      key={tabId}
+                      htmlFor={tabId}
+                      className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean sm:px-4 sm:text-sm"
                     >
-                      Day {dayNumber}
-                      {!canonicalDayByNumber.has(dayNumber) ? " · Building" : ""}
-                    </a>
+                      {label}
+                    </label>
                   ))}
                 </div>
               </nav>
-              <div className="grid gap-4 md:gap-5">
-                {dayNumbersToRender.map((dayNumber) => {
-                  const day = canonicalDayByNumber.get(dayNumber);
-                  const progressDay = generationDayProgress.find((item) => item.dayNumber === dayNumber);
-                  return day ? (
-                    <DayTimelineCard key={day.day_number} day={day} currency={currency} />
-                  ) : (
-                    <BuildingDayCard
-                      key={dayNumber}
-                      dayNumber={dayNumber}
-                      date={progressDay?.date}
-                      status={progressDay?.status}
+
+              <div className="roamly-tab-panels">
+                <section id="day-by-day" className="roamly-tab-panel roamly-panel-day-by-day mt-8 scroll-mt-32">
+                  <SectionHeading
+                    eyebrow="Day-by-day"
+                    title="Your itinerary"
+                    summary="Clean daily plan with timing, travel, and key notes."
+                  />
+                  <div>
+                    {dayNumbersToRender.map((dayNumber, index) => (
+                      <input
+                        key={`day-input-${dayNumber}`}
+                        className="roamly-day-input"
+                        type="radio"
+                        name="roamly-day-selector"
+                        id={`roamly-day-${dayNumber}`}
+                        defaultChecked={index === 0}
+                      />
+                    ))}
+                    <nav className="roamly-day-nav roamly-no-print sticky top-[8.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:top-[9.2rem] sm:mx-0 sm:rounded-full sm:border">
+                      <div className="flex min-w-max gap-2">
+                        {dayNumbersToRender.map((dayNumber) => (
+                          <label
+                            key={dayNumber}
+                            htmlFor={`roamly-day-${dayNumber}`}
+                            className="min-h-11 cursor-pointer rounded-full border border-[#e8dfd0] bg-white px-4 py-3 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean"
+                          >
+                            Day {dayNumber}
+                            {!canonicalDayByNumber.has(dayNumber) ? generationFailed ? " · Failed" : " · Building" : ""}
+                          </label>
+                        ))}
+                      </div>
+                    </nav>
+                    <div className="roamly-day-panels grid gap-4 md:gap-5">
+                      {dayNumbersToRender.map((dayNumber) => {
+                        const day = canonicalDayByNumber.get(dayNumber);
+                        const progressDay = generationDayProgress.find((item) => item.dayNumber === dayNumber);
+                        return (
+                          <div key={dayNumber} className={`roamly-day-panel roamly-day-panel-${dayNumber}`}>
+                            {day ? (
+                              <DayTimelineCard day={day} currency={currency} />
+                            ) : (
+                              <BuildingDayCard
+                                dayNumber={dayNumber}
+                                date={progressDay?.date}
+                                status={progressDay?.status || (generationFailed ? "failed" : null)}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
+
+                <section id="overview" className="roamly-tab-panel roamly-panel-overview mt-8 scroll-mt-32">
+                  <SectionHeading eyebrow="Overview" title="Trip summary" summary="Only the essentials." />
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <SummaryTile label="Best for" value={full.best_for.slice(0, 3).join(" · ") || travelStyle} />
+                    <SummaryTile label="Budget" value={compact(full.budget_fit_summary, "Verify prices before booking.", 130)} />
+                    <SummaryTile label="Transport" value={compact(full.transport_overview, "Travel time is included in the plan.", 130)} />
+                  </div>
+                </section>
+
+                <section id="budget" className="roamly-tab-panel roamly-panel-budget mt-8 scroll-mt-32">
+                  <SectionHeading eyebrow="Budget" title="Budget" summary="A concise category summary with one total." />
+                  <BudgetSummary trip={trip} itinerary={full} currency={currency} />
+                </section>
+
+                <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">
+                  <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary="Only the recommended transport, stay, flights, and important activities." />
+                  <div className="mb-4">
+                    <MarketPriceRefreshButton tripId={id} />
+                  </div>
+                  <BookingPlan itinerary={full} trip={trip} tripId={id} />
+                  <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
+                    <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
+                    <div className="mt-4 grid gap-4">
+                      <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} />
+                      <TripBookingsManager tripId={id} initialBookings={importedBookings} />
+                    </div>
+                  </details>
+                </section>
+
+                <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32">
+                  <PreTripEssentialsSection essentials={full.pre_trip_essentials || []} tripId={id} />
+                </section>
+
+                <section id="travel-notes" className="roamly-tab-panel roamly-panel-travel-notes mt-8 scroll-mt-32">
+                  <SectionHeading eyebrow="Notes" title="Travel notes" />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <ChecklistGroup
+                      title="Packing"
+                      items={packingChecklistItems(checklist, full).slice(0, 8)}
                     />
-                  );
-                })}
+                    <ChecklistGroup title="Local tips" items={full.local_tips.slice(0, 6)} />
+                  </div>
+                  <details className="mt-4 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
+                    <summary className="cursor-pointer text-sm font-black text-ocean">More notes</summary>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <ChecklistGroup title="Safety" items={full.safety_notes.slice(0, 6)} />
+                      <ChecklistGroup
+                        title="Documents"
+                        items={getStringList(trip.document_checklist, ["Passport/ID", "Booking confirmations", "Travel insurance details"], 6)}
+                      />
+                      <ChecklistGroup title="Emergency" items={full.emergency_notes.slice(0, 6)} />
+                      <ChecklistGroup
+                        title="Low-cost reminders"
+                        items={full.free_or_low_cost_notes.length ? full.free_or_low_cost_notes.slice(0, 5) : ["Keep a buffer for weather, taxis, and spontaneous stops."]}
+                      />
+                    </div>
+                  </details>
+                </section>
               </div>
-            </section>
 
-            <section id="overview" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Overview" title="Trip summary" summary="Only the essentials." />
-              <div className="grid gap-3 md:grid-cols-3">
-                <SummaryTile label="Best for" value={full.best_for.slice(0, 3).join(" · ") || travelStyle} />
-                <SummaryTile label="Budget" value={compact(full.budget_fit_summary, "Verify prices before booking.", 130)} />
-                <SummaryTile label="Transport" value={compact(full.transport_overview, "Travel time is included in the plan.", 130)} />
-              </div>
-            </section>
-
-            <section id="budget" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Budget" title="Budget" summary="Hotel, transport, food, activities, nightlife, and buffer." />
-              <BudgetTable trip={trip} itinerary={full} currency={currency} />
-            </section>
-
-            <section id="bookings" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary="One clean place for flights, stays, and activities." />
-              <div className="mb-4">
-                <MarketPriceRefreshButton tripId={id} />
-              </div>
-              <BookingPlan itinerary={full} trip={trip} tripId={id} />
-              <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
-                <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
-                <div className="mt-4 grid gap-4">
-                  <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} />
-                  <TripBookingsManager tripId={id} initialBookings={importedBookings} />
-                </div>
-              </details>
-            </section>
-
-            <PreTripEssentialsSection essentials={full.pre_trip_essentials || []} tripId={id} />
-
-            <section id="travel-notes" className="mt-8 scroll-mt-32">
-              <SectionHeading eyebrow="Notes" title="Travel notes" />
-              <div className="grid gap-4 md:grid-cols-2">
-                <ChecklistGroup
-                  title="Packing"
-                  items={packingChecklistItems(checklist, full).slice(0, 8)}
-                />
-                <ChecklistGroup title="Local tips" items={full.local_tips.slice(0, 6)} />
-              </div>
-              <details className="mt-4 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
-                <summary className="cursor-pointer text-sm font-black text-ocean">More notes</summary>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
-                  <ChecklistGroup title="Safety" items={full.safety_notes.slice(0, 6)} />
-                  <ChecklistGroup
-                    title="Documents"
-                    items={getStringList(trip.document_checklist, ["Passport/ID", "Booking confirmations", "Travel insurance details"], 6)}
-                  />
-                  <ChecklistGroup title="Emergency" items={full.emergency_notes.slice(0, 6)} />
-                  <ChecklistGroup
-                    title="Low-cost reminders"
-                    items={full.free_or_low_cost_notes.length ? full.free_or_low_cost_notes.slice(0, 5) : ["Keep a buffer for weather, taxis, and spontaneous stops."]}
-                  />
-                </div>
-              </details>
-            </section>
+            </div>
 
             <footer className="mt-10 border-t border-[#e8dfd0] py-6 text-sm font-bold text-slate-500">
               Generated by Roamly
             </footer>
-            <div className="roamly-no-print fixed inset-x-0 bottom-0 z-30 border-t border-[#e8dfd0] bg-[#fffdf8]/95 px-3 py-3 shadow-[0_-12px_30px_rgba(16,32,51,0.08)] backdrop-blur sm:hidden">
-              <div className="grid grid-cols-3 gap-2">
-                <a href="#day-by-day" className="rounded-full bg-ink px-3 py-3 text-center text-xs font-black text-white">
-                  Days
-                </a>
-                <a href="#bookings" className="rounded-full border border-ocean/20 bg-ocean/10 px-3 py-3 text-center text-xs font-black text-ocean">
-                  Book
-                </a>
-                <a href="#budget" className="rounded-full border border-[#e8dfd0] bg-white px-3 py-3 text-center text-xs font-black text-slate-600">
-                  Budget
-                </a>
-              </div>
-            </div>
           </>
+        ) : null}
+        </div>
+        {canShowFull && full && !generationPanelVisible ? (
+          <CompactPrintItinerary
+            trip={trip}
+            itinerary={full}
+            bookings={importedBookings as Array<Record<string, unknown>>}
+            tripTitle={tripTitle}
+            destinationLabel={destinationLabel}
+            currency={currency}
+            budgetDisplay={budgetDisplay}
+            travelStyle={travelStyle}
+            dayCount={dayCount}
+          />
         ) : null}
       </div>
     </main>

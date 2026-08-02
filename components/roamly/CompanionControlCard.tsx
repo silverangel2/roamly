@@ -15,6 +15,9 @@ type Preferences = {
   allowRouteTimeUpdates: boolean;
   maxAutomaticCostChange: number;
   currency: string | null;
+  liveCompanionEnabled: boolean;
+  liveCompanionPausedUntil: string | null;
+  backgroundLocationEnabled: boolean;
 };
 
 type ModeOption = {
@@ -152,6 +155,70 @@ export function CompanionControlCard({
     }
   }
 
+  async function saveLiveControls(patch: Partial<Preferences>, successMessage: string) {
+    const previous = preferences;
+    const next = {
+      ...(preferences || {
+        controlMode: selectedMode,
+        allowFreeScheduleChanges: false,
+        allowOptionalActivityChanges: false,
+        allowMealChanges: false,
+        allowRouteTimeUpdates: false,
+        maxAutomaticCostChange: 0,
+        currency: null,
+        liveCompanionEnabled: true,
+        liveCompanionPausedUntil: null,
+        backgroundLocationEnabled: false
+      }),
+      ...patch
+    };
+
+    setPreferences(next);
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch(
+        `/api/trips/${tripId}/companion/preferences`,
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            liveCompanionEnabled: next.liveCompanionEnabled,
+            liveCompanionPausedUntil: next.liveCompanionPausedUntil,
+            backgroundLocationEnabled: next.backgroundLocationEnabled
+          })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(
+          result?.error || "Could not save Companion settings."
+        );
+      }
+
+      setPreferences(result.preferences);
+      setMessage(successMessage);
+    } catch {
+      setPreferences(previous);
+      setMessage("Your setting was not saved. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const pausedUntil = preferences?.liveCompanionPausedUntil
+    ? new Date(preferences.liveCompanionPausedUntil)
+    : null;
+  const isPaused = Boolean(
+    pausedUntil && pausedUntil.getTime() > Date.now()
+  );
+
   return (
     <section
       aria-labelledby="companion-control-title"
@@ -229,6 +296,91 @@ export function CompanionControlCard({
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black text-ink">
+              Live Companion{" "}
+              {preferences?.liveCompanionEnabled === false
+                ? "off"
+                : isPaused
+                  ? "paused"
+                  : "ready"}
+            </p>
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+              Pause stops live prompts and notifications. Background location is opt-in and only used when supported.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              disabled={saving || !preferences}
+              onClick={() =>
+                saveLiveControls(
+                  {
+                    liveCompanionEnabled: true,
+                    liveCompanionPausedUntil: new Date(Date.now() + 60 * 60_000).toISOString()
+                  },
+                  "Live Companion paused for 1 hour."
+                )
+              }
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-60"
+            >
+              Pause
+            </button>
+            <button
+              type="button"
+              disabled={saving || !preferences}
+              onClick={() =>
+                saveLiveControls(
+                  {
+                    liveCompanionEnabled: true,
+                    liveCompanionPausedUntil: null
+                  },
+                  "Live Companion resumed."
+                )
+              }
+              className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean disabled:opacity-60"
+            >
+              Resume
+            </button>
+            <button
+              type="button"
+              disabled={saving || !preferences}
+              onClick={() =>
+                saveLiveControls(
+                  {
+                    liveCompanionEnabled: false,
+                    liveCompanionPausedUntil: null
+                  },
+                  "Live Companion disabled."
+                )
+              }
+              className="min-h-11 rounded-2xl border border-coral/20 bg-coral/10 px-3 py-2 text-xs font-black text-coral disabled:opacity-60"
+            >
+              Disable
+            </button>
+            <button
+              type="button"
+              disabled={saving || !preferences}
+              onClick={() =>
+                saveLiveControls(
+                  {
+                    backgroundLocationEnabled: !preferences?.backgroundLocationEnabled
+                  },
+                  preferences?.backgroundLocationEnabled
+                    ? "Background location disabled."
+                    : "Background location preference saved."
+                )
+              }
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-60"
+            >
+              {preferences?.backgroundLocationEnabled ? "Background on" : "Background off"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {message ? (

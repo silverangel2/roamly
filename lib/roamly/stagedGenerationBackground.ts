@@ -6,10 +6,10 @@ type ScheduleStagedGenerationAdvanceParams = {
   origin?: string | null;
   reason: string;
   requestId?: string;
-  directFallbackOnly?: boolean;
 };
 
-const BACKGROUND_EXECUTION_BUDGET_MS = 55_000;
+const BACKGROUND_WORKER_SLICE_BUDGET_MS = 55_000;
+const BACKGROUND_WORKER_MAX_SLICES = 25;
 
 export function getGenerationWorkerSecret() {
   return getGenerationWorkerSecrets()[0] || "";
@@ -36,191 +36,194 @@ function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function numeric(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-function summaryErrorMessages(summary: unknown) {
-  const root = record(summary);
-  const messages = typeof root.error === "string" ? [root.error] : [];
-  const results = Array.isArray(root.results) ? root.results : [];
-  for (const result of results) {
-    const error = record(result).error;
-    if (typeof error === "string" && error) messages.push(error);
-  }
-  return messages;
-}
-
-export function outlineCompletedNeedsFirstDayContinuation(summary: unknown) {
-  const root = record(summary);
-  const results: unknown[] = Array.isArray(root.results) ? root.results : [];
-
-  return results.some((result) => {
-    const item = record(result);
-    const progress = record(item.progress);
-    const stageRuns = Array.isArray(progress.stageRuns)
-      ? progress.stageRuns.map((run) => record(run))
-      : [];
-    const latestStageRun = stageRuns.at(-1) || {};
-    const hasDayBatchRun = stageRuns.some((run) => run.stage === "day_batch");
-
-    return (
-      item.advanced === true &&
-      item.terminal !== true &&
-      progress.status === "generating_day" &&
-      numeric(progress.totalDayCount) > 0 &&
-      numeric(progress.completedDayCount) === 0 &&
-      latestStageRun.stage === "outline" &&
-      latestStageRun.status === "success" &&
-      !hasDayBatchRun
-    );
-  });
-}
-
-async function queueUnavailableFromSummary(summary: unknown) {
-  const { queueTableMissing } = await import("@/lib/roamly/generationQueue");
-  return summaryErrorMessages(summary).some((message) => queueTableMissing(message));
-}
-
-async function runLocalWorkerFallback(params: ScheduleStagedGenerationAdvanceParams) {
-  const requestId = params.requestId || `background:${params.tripId}`;
-  const executionDeadlineMs = Date.now() + BACKGROUND_EXECUTION_BUDGET_MS;
-  if (params.directFallbackOnly) {
-    await runDirectStagedFallback(params, requestId, executionDeadlineMs);
-    return;
+function serializeError(error: unknown, seen = new WeakSet<object>()): Record<string, unknown> {
+  if (!error || typeof error !== "object") {
+    return {
+      value: String(error)
+    };
   }
 
+  if (seen.has(error)) {
+    return {
+      circular: true
+    };
+  }
+  seen.add(error);
+
+  const source = error as Error & { cause?: unknown };
+  const serialized: Record<string, unknown> = {
+    name: source.name,
+    message: source.message,
+    stack: source.stack,
+    cause: source.cause == null ? source.cause : serializeError(source.cause, seen)
+  };
+
+  for (const key of Object.getOwnPropertyNames(error)) {
+    if (key in serialized) continue;
+    const value = (error as Record<string, unknown>)[key];
+    serialized[key] = value && typeof value === "object" ? serializeError(value, seen) : value;
+  }
+
+  return serialized;
+}
+
+function workerResults(summary: unknown) {
+  const results = record(summary).results;
+  return Array.isArray(results) ? results.map(record) : [];
+}
+
+function targetResult(summary: unknown, tripId: string) {
+  const results = workerResults(summary);
+  return [...results].reverse().find((result) => String(result.tripId || "") === tripId) || (results.length === 1 ? results[0] : null);
+}
+
+function terminalResult(result: Record<string, unknown> | null) {
+  if (!result) return false;
+  const progress = record(result.progress);
+  return (
+    result.terminal === true ||
+    progress.status === "complete" ||
+    progress.status === "failed" ||
+    progress.status === "partially_failed"
+  );
+}
+
+function shouldContinueAfterResult(result: Record<string, unknown> | null) {
+  if (!result || terminalResult(result) || result.busy === true) return false;
+  return result.advanced === true || result.yielded === true;
+}
+
+function sumNumber(summaries: unknown[], key: string) {
+  return summaries.reduce<number>((sum, summary) => {
+    const value = record(summary)[key];
+    return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+  }, 0);
+}
+
+function combinedWorkerSummary(summaries: unknown[], tripId: string) {
+  const results = summaries.flatMap(workerResults);
+  const target = [...results].reverse().find((result) => result.tripId === tripId) || null;
+  return {
+    ok: summaries.length > 0 && summaries.every((summary) => record(summary).ok !== false),
+    claimed: sumNumber(summaries, "claimed"),
+    processed: sumNumber(summaries, "processed"),
+    advanced: sumNumber(summaries, "advanced"),
+    completed: sumNumber(summaries, "completed"),
+    failed: sumNumber(summaries, "failed"),
+    busy: sumNumber(summaries, "busy"),
+    slices: summaries.length,
+    targetTerminal: terminalResult(target),
+    targetProgress: target ? target.progress || null : null,
+    results
+  };
+}
+
+async function wakeWorker(params: ScheduleStagedGenerationAdvanceParams, url: string) {
   const { processGenerationQueue } = await import("@/lib/roamly/generationWorker");
-  const summary = await processGenerationQueue({
-    tripId: params.tripId,
-    requestId,
-    reason: `${params.reason}:local_after_fallback`,
-    executionDeadlineMs,
-    config: {
-      batchSize: 1,
-      concurrency: 1,
-      maxLayersPerRun: 1
-    }
-  });
+  const summaries: unknown[] = [];
 
-  logGenerationDiagnostic("staged_generation_background_local_worker_result", {
-    requestId,
-    tripId: params.tripId,
-    route: "stagedGenerationBackground",
-    supabaseHost: getPublicSupabaseHost(),
-    reason: params.reason,
+  for (let index = 0; index < BACKGROUND_WORKER_MAX_SLICES; index += 1) {
+    logGenerationDiagnostic("staged_generation_background_slice_start", {
+      requestId: params.requestId,
+      tripId: params.tripId,
+      route: "stagedGenerationBackground",
+      supabaseHost: getPublicSupabaseHost(),
+      reason: params.reason,
+      sliceIndex: index + 1,
+      maxSlices: BACKGROUND_WORKER_MAX_SLICES,
+      sliceBudgetMs: BACKGROUND_WORKER_SLICE_BUDGET_MS,
+      workerMode: "local_worker_direct",
+      protectedWorkerUrl: url
+    });
+    const summary = await processGenerationQueue({
+      tripId: params.tripId,
+      requestId: params.requestId || `background:${params.tripId}`,
+      reason: index === 0 ? params.reason : `${params.reason}:background_slice_${index + 1}`,
+      executionDeadlineMs: Date.now() + BACKGROUND_WORKER_SLICE_BUDGET_MS,
+      config: {
+        batchSize: 25,
+        concurrency: 1,
+        maxLayersPerRun: 1,
+        executionBudgetMs: BACKGROUND_WORKER_SLICE_BUDGET_MS,
+        stageCleanupBufferMs: 1_000
+      }
+    });
+    summaries.push(summary);
+
+    const result = targetResult(summary, params.tripId);
+    const progress = result ? record(result.progress) : {};
+    const shouldContinue = shouldContinueAfterResult(result);
+    logGenerationDiagnostic("staged_generation_background_slice_result", {
+      requestId: params.requestId,
+      tripId: params.tripId,
+      route: "stagedGenerationBackground",
+      supabaseHost: getPublicSupabaseHost(),
+      reason: params.reason,
+      sliceIndex: index + 1,
+      status: record(summary).ok === false ? 500 : 200,
+      workerOk: record(summary).ok === true,
+      claimed: record(summary).claimed || 0,
+      processed: record(summary).processed || 0,
+      advanced: record(summary).advanced || 0,
+      completed: record(summary).completed || 0,
+      failed: record(summary).failed || 0,
+      busy: record(summary).busy || 0,
+      targetAdvanced: result?.advanced === true,
+      targetYielded: result?.yielded === true,
+      targetBusy: result?.busy === true,
+      targetTerminal: terminalResult(result),
+      targetStatus: typeof progress.status === "string" ? progress.status : null,
+      targetCompletedDayCount: typeof progress.completedDayCount === "number" ? progress.completedDayCount : null,
+      targetTotalDayCount: typeof progress.totalDayCount === "number" ? progress.totalDayCount : null,
+      targetError: typeof result?.error === "string" ? result.error : null,
+      shouldContinue
+    });
+    if (!result || !shouldContinue) break;
+  }
+
+  const summary = combinedWorkerSummary(summaries, params.tripId);
+
+  return {
+    status: summary.ok ? 200 : 500,
     ok: summary.ok,
-    claimed: summary.claimed,
-    processed: summary.processed,
-    advanced: summary.advanced,
-    completed: summary.completed,
-    failed: summary.failed,
-    errorCode: summary.error || summary.results.find((result) => result.error)?.error || null
-  });
-
-  if (summary.ok || !(await queueUnavailableFromSummary(summary))) return;
-
-  await runDirectStagedFallback(params, requestId, executionDeadlineMs);
-}
-
-async function runDirectStagedFallback(
-  params: ScheduleStagedGenerationAdvanceParams,
-  requestId: string,
-  executionDeadlineMs: number
-) {
-  const [{ createSupabaseAdminClient }, { advanceStagedItineraryGeneration, publicStagedGenerationProgress }] =
-    await Promise.all([
-      import("@/lib/supabase/admin"),
-      import("@/lib/roamly/stagedItineraryGeneration")
-    ]);
-  const admin = createSupabaseAdminClient();
-  if (!admin) {
-    logGenerationDiagnostic("staged_generation_background_direct_fallback_skipped", {
-      requestId,
-      tripId: params.tripId,
-      route: "stagedGenerationBackground",
-      supabaseHost: getPublicSupabaseHost(),
-      reason: params.reason,
-      errorCode: "SUPABASE_SERVICE_ROLE_MISSING"
-    });
-    return;
-  }
-
-  const direct = await advanceStagedItineraryGeneration({
-    supabase: admin,
-    tripId: params.tripId,
-    requestId,
-    executionDeadlineMs
-  });
-
-  logGenerationDiagnostic("staged_generation_background_direct_fallback_result", {
-    requestId,
-    tripId: params.tripId,
-    route: "stagedGenerationBackground",
-    supabaseHost: getPublicSupabaseHost(),
-    reason: params.reason,
-    ok: direct.ok,
-    advanced: direct.advanced,
-    busy: "busy" in direct ? direct.busy === true : false,
-    status: direct.status,
-    stage: "stage" in direct ? direct.stage : null,
-    progress: publicStagedGenerationProgress({ generation: direct.state }),
-    errorCode: "error" in direct ? direct.error || null : null
-  });
-
-  if (direct.ok && direct.status === "complete") {
-    const { finalizeCompletedStagedGeneration } = await import("@/lib/roamly/generationFinalization");
-    const finalized = await finalizeCompletedStagedGeneration({
-      supabase: admin,
-      tripId: params.tripId,
-      state: direct.state,
-      source: "background_direct_fallback_completion"
-    });
-
-    logGenerationDiagnostic("staged_generation_background_direct_fallback_finalized", {
-      requestId,
-      tripId: params.tripId,
-      route: "stagedGenerationBackground",
-      supabaseHost: getPublicSupabaseHost(),
-      reason: params.reason,
-      ok: finalized.ok,
-      queueFinalized: finalized.ok ? finalized.queueFinalized : false,
-      email: finalized.ok ? finalized.email : null,
-      errorCode: finalized.ok ? finalized.queueFinalizationError : finalized.error
-    });
-  }
-
-  if (
-    direct.ok &&
-    direct.advanced &&
-    direct.status === "generating_day"
-  ) {
-    await runLocalWorkerFallback({
-      ...params,
-      reason: params.reason + ":continue"
-    });
-  }
+    url,
+    body: summary
+  };
 }
 
 export function scheduleStagedGenerationAdvance(params: ScheduleStagedGenerationAdvanceParams) {
   const secret = getGenerationWorkerSecret();
   const url = `${siteUrl(params.origin)}/api/cron/roamly-itinerary-generation`;
 
-  after(async () => {
-    let shouldRunLocalFallback = params.directFallbackOnly || !secret;
-    let fallbackReason = params.reason;
+  logGenerationDiagnostic("staged_generation_background_schedule_requested", {
+    requestId: params.requestId,
+    tripId: params.tripId,
+    route: "stagedGenerationBackground",
+    supabaseHost: getPublicSupabaseHost(),
+    reason: params.reason,
+    protectedWorkerUrl: url,
+    workerMode: "local_worker_direct",
+    secretPresent: Boolean(secret),
+    authorizationHeaderPresent: false,
+    cookieHeaderPresent: false
+  });
 
-    if (params.directFallbackOnly) {
-      logGenerationDiagnostic("staged_generation_background_direct_fallback_selected", {
-        requestId: params.requestId,
-        tripId: params.tripId,
-        route: "stagedGenerationBackground",
-        supabaseHost: getPublicSupabaseHost(),
-        reason: params.reason,
-        errorCode: "DURABLE_QUEUE_UNAVAILABLE"
-      });
-    } else if (!secret) {
-      logGenerationDiagnostic("staged_generation_background_secret_missing_local_fallback", {
+  after(async () => {
+    logGenerationDiagnostic("staged_generation_background_after_started", {
+      requestId: params.requestId,
+      tripId: params.tripId,
+      route: "stagedGenerationBackground",
+      supabaseHost: getPublicSupabaseHost(),
+      reason: params.reason,
+      protectedWorkerUrl: url,
+      workerMode: "local_worker_direct",
+      secretPresent: Boolean(secret),
+      authorizationHeaderPresent: false,
+      cookieHeaderPresent: false
+    });
+
+    if (!secret) {
+      logGenerationDiagnostic("staged_generation_background_wake_skipped", {
         requestId: params.requestId,
         tripId: params.tripId,
         route: "stagedGenerationBackground",
@@ -228,71 +231,69 @@ export function scheduleStagedGenerationAdvance(params: ScheduleStagedGeneration
         reason: params.reason,
         errorCode: "GENERATION_CRON_SECRET_MISSING"
       });
-    } else {
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${secret}`,
-            "content-type": "application/json"
-          },
-          body: JSON.stringify({
-            tripId: params.tripId,
-            reason: params.reason,
-            requestId: params.requestId || null
-          }),
-          cache: "no-store"
-        });
-        const body = await response.json().catch(() => null);
-        const outlineToFirstDay = outlineCompletedNeedsFirstDayContinuation(body);
-        shouldRunLocalFallback = response.status === 401 || (await queueUnavailableFromSummary(body)) || outlineToFirstDay;
-        if (outlineToFirstDay) {
-          fallbackReason = `${params.reason}:outline_to_first_day`;
-          logGenerationDiagnostic("staged_generation_background_outline_to_first_day_continuation", {
-            requestId: params.requestId,
-            tripId: params.tripId,
-            route: "stagedGenerationBackground",
-            supabaseHost: getPublicSupabaseHost(),
-            reason: params.reason
-          });
-        }
-
-        if (!response.ok) {
-          logGenerationDiagnostic("staged_generation_background_trigger_non_ok", {
-            requestId: params.requestId,
-            tripId: params.tripId,
-            route: "stagedGenerationBackground",
-            supabaseHost: getPublicSupabaseHost(),
-            reason: params.reason,
-            status: response.status,
-            localFallback: shouldRunLocalFallback,
-            errorCode: record(body).error || record(body).errorCode || "BACKGROUND_TRIGGER_NON_OK"
-          });
-        }
-      } catch (error) {
-        shouldRunLocalFallback = true;
-        logGenerationDiagnostic("staged_generation_background_trigger_failed", {
-          requestId: params.requestId,
-          tripId: params.tripId,
-          route: "stagedGenerationBackground",
-          supabaseHost: getPublicSupabaseHost(),
-          reason: params.reason,
-          errorCode: error instanceof Error ? error.name : "BACKGROUND_TRIGGER_FAILED"
-        });
-      }
+      return;
     }
 
-    if (!shouldRunLocalFallback) return;
-
-    await runLocalWorkerFallback({ ...params, reason: fallbackReason }).catch((error) => {
-      logGenerationDiagnostic("staged_generation_background_trigger_failed", {
+    try {
+      logGenerationDiagnostic("staged_generation_background_wake_call_start", {
         requestId: params.requestId,
         tripId: params.tripId,
         route: "stagedGenerationBackground",
         supabaseHost: getPublicSupabaseHost(),
-        reason: fallbackReason,
-        errorCode: error instanceof Error ? error.name : "LOCAL_BACKGROUND_FALLBACK_FAILED"
+        reason: params.reason,
+        protectedWorkerUrl: url,
+        workerMode: "local_worker_direct",
+        authorizationHeaderPresent: false,
+        cookieHeaderPresent: false
       });
-    });
+      const response = await wakeWorker(params, url);
+      const body = response.body;
+
+      logGenerationDiagnostic("staged_generation_background_worker_wake", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        status: response.status,
+        ok: response.ok,
+        protectedWorkerUrl: response.url,
+        workerMode: "local_worker_direct",
+        authorizationHeaderPresent: false,
+        cookieHeaderPresent: false,
+        workerOk: record(body).ok === true,
+        claimed: record(body).claimed || 0,
+        processed: record(body).processed || 0,
+        completed: record(body).completed || 0,
+        advanced: record(body).advanced || 0,
+        failed: record(body).failed || 0,
+        busy: record(body).busy || 0,
+        slices: record(body).slices || null,
+        errorCode: response.ok ? null : record(body).error || "BACKGROUND_WORKER_WAKE_FAILED"
+      });
+    } catch (error) {
+      const serializedError = serializeError(error);
+      console.error("[Roamly generation trace]", {
+        event: "staged_generation_background_worker_wake_failed_error",
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        error: serializedError
+      });
+      logGenerationDiagnostic("staged_generation_background_worker_wake_failed", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        cause: error instanceof Error ? String(error.cause) : undefined,
+        serializedError: JSON.stringify(serializedError)
+      });
+    }
   });
 }

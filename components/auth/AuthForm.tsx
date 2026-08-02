@@ -501,9 +501,9 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
         {busy ? "Working..." : isSignup ? "Create free account" : "Log in"}
       </button>
 
-      <p className="text-center text-sm font-bold text-slate-500">
-        {isSignup ? "Already have an account?" : "New to Roamly?"}{" "}
-        <Link href={alternateHref} className="text-ocean hover:text-ink">
+      <p className="flex flex-wrap items-center justify-center gap-x-2 text-center text-sm font-bold text-slate-500">
+        <span>{isSignup ? "Already have an account?" : "New to Roamly?"}</span>
+        <Link href={alternateHref} className="inline-flex min-h-11 items-center rounded-full px-2 text-ocean hover:text-ink focus:outline-none focus:ring-4 focus:ring-ocean/15">
           {isSignup ? "Log in" : "Create account"}
         </Link>
       </p>
