@@ -1,6 +1,7 @@
 "use client";
 
 import type { BookingUrlType } from "@/lib/roamly/bookingLinks";
+import { trackedAffiliateHref } from "@/lib/roamly/bookingCtaLinks";
 
 type BookingRecommendationButtonProps = {
   href: string;
@@ -41,80 +42,6 @@ function trackBookingClick(metadata: Record<string, unknown>) {
   }).catch(() => undefined);
 }
 
-function isUnsafeStay22BookingUrl(value: string) {
-  const url = value.toLowerCase();
-
-  return (
-    url.includes("hub.stay22.com") ||
-    url.includes("app.stay22.com") ||
-    url.includes("dashboard") ||
-    url.includes("signin") ||
-    url.includes("sign-in") ||
-    url.includes("login") ||
-    url.includes("account") ||
-    url.includes("partner")
-  );
-}
-
-function bookingDotComSearchUrl(params: {
-  title: string;
-  category: string;
-  provider: string;
-}) {
-  const query = [
-    params.title,
-    params.category === "hotel" ? "hotel" : "",
-    params.provider && !params.provider.toLowerCase().includes("stay22")
-      ? params.provider
-      : ""
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const searchParams = new URLSearchParams({
-    ss: query || "hotel",
-    group_adults: "1",
-    no_rooms: "1",
-    group_children: "0",
-    selected_currency: "CAD"
-  });
-
-  return `https://www.booking.com/searchresults.html?${searchParams.toString()}`;
-}
-
-function trackedAffiliateHref(params: {
-  href: string;
-  tripId: string;
-  category: string;
-  title: string;
-  provider: string;
-  hasAffiliateUrl: boolean;
-  urlType: BookingUrlType;
-}) {
-  if (isUnsafeStay22BookingUrl(params.href)) {
-    return bookingDotComSearchUrl({
-      title: params.title,
-      category: params.category,
-      provider: params.provider
-    });
-  }
-
-  if (!params.hasAffiliateUrl && params.urlType !== "affiliate") {
-    return params.href;
-  }
-
-  const searchParams = new URLSearchParams({
-    tripId: params.tripId,
-    category: params.category,
-    title: params.title,
-    provider: params.provider,
-    destinationUrl: params.href,
-    affiliateUrl: params.href
-  });
-
-  return `/api/roamly/affiliate/click?${searchParams.toString()}`;
-}
-
 export function BookingRecommendationButton({
   href,
   label,
@@ -129,6 +56,8 @@ export function BookingRecommendationButton({
 
   const isExternal = /^https?:\/\//i.test(href);
   const trackedHref = trackedAffiliateHref({ href, tripId, category, title, provider, hasAffiliateUrl, urlType });
+
+  if (!trackedHref) return null;
 
   return (
     <a

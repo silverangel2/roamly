@@ -138,8 +138,38 @@ async function extractBookingProof(client, sessionId) {
       function linkProof(link) {
         const targetHref = outboundHref(link.href);
         let host = "";
+        let hrefHost = "";
+        let hrefPath = "";
+        let affiliateHost = "";
+        let affiliatePath = "";
+        let affiliateAddress = "";
+        let hasAffiliateUrl = false;
+        let hasDestinationUrl = false;
+        let hasCheckin = false;
+        let hasCheckout = false;
+        let hasGuests = false;
+        let directBookingHost = false;
         try { host = new URL(targetHref).hostname.replace(/^www\\./, "").toLowerCase(); } catch {}
-        return { text: link.innerText.trim(), href: link.href, targetHref, host };
+        try {
+          const hrefUrl = new URL(link.href, location.origin);
+          hrefHost = hrefUrl.hostname.replace(/^www\\./, "").toLowerCase();
+          hrefPath = hrefUrl.pathname;
+          const affiliateUrl = hrefUrl.searchParams.get("affiliateUrl") || "";
+          const destinationUrl = hrefUrl.searchParams.get("destinationUrl") || "";
+          hasAffiliateUrl = Boolean(affiliateUrl);
+          hasDestinationUrl = Boolean(destinationUrl);
+          directBookingHost = hrefUrl.hostname.replace(/^www\\./, "").toLowerCase() === "booking.com";
+          if (affiliateUrl) {
+            const parsedAffiliate = new URL(affiliateUrl);
+            affiliateHost = parsedAffiliate.hostname.replace(/^www\\./, "").toLowerCase();
+            affiliatePath = parsedAffiliate.pathname;
+            affiliateAddress = parsedAffiliate.searchParams.get("address") || "";
+            hasCheckin = parsedAffiliate.searchParams.has("checkin");
+            hasCheckout = parsedAffiliate.searchParams.has("checkout");
+            hasGuests = parsedAffiliate.searchParams.has("guests");
+          }
+        } catch {}
+        return { text: link.innerText.trim(), href: link.href, targetHref, host, hrefHost, hrefPath, affiliateHost, affiliatePath, affiliateAddress, hasAffiliateUrl, hasDestinationUrl, hasCheckin, hasCheckout, hasGuests, directBookingHost };
       }
       const links = Array.from(section ? section.querySelectorAll("a[href]") : []).map((link) => {
         return linkProof(link);
@@ -166,6 +196,12 @@ async function extractBookingProof(client, sessionId) {
         links,
         hotelTitles: cards.filter((card) => card.group === "Hotels").map((card) => card.title),
         hotelLinkHosts: links.filter((link) => /hotel|stay/i.test(link.text)).map((link) => link.host),
+        hotelCardLinks: cards
+          .filter((card) => card.group === "Hotels")
+          .map((card) => ({
+            title: card.title,
+            links: card.links
+          })),
         stay22HotelLinks: cards
           .filter((card) => card.group === "Hotels")
           .flatMap((card) => card.links)
@@ -251,8 +287,25 @@ async function main() {
   assert.deepEqual(bookingProof.invalidDomains, [], "bookings section must not render blocked metadata domains");
   assert.equal(bookingProof.disabledUnavailableButtonPresent, false, "bookings section must not render disabled unavailable search buttons");
   assert.equal(bookingProof.stay22AsHotelIdentity, false, "Stay22 must not be rendered as a hotel title");
+  assert.equal(new Set(bookingProof.hotelTitles).size, 3, "bookings section must render three distinct real hotel suggestions");
   assert.ok(bookingProof.hotelTitles.some((title) => /YWCA Hotel Vancouver/i.test(title)), "YWCA Hotel Vancouver should render as a real hotel suggestion");
   assert.ok(bookingProof.hotelTitles.some((title) => /The Burrard/i.test(title)), "The Burrard should render as a real hotel suggestion");
+  assert.ok(bookingProof.hotelTitles.some((title) => /Victorian Hotel Vancouver/i.test(title)), "Victorian Hotel Vancouver should render as a real hotel suggestion");
+  bookingProof.hotelCardLinks.forEach((card) => {
+    const bookingLinks = card.links.filter((link) => link.text && /hotel|option|view/i.test(link.text));
+    assert.ok(bookingLinks.length, `${card.title} should render a booking action`);
+    const tracked = bookingLinks.find((link) => link.hrefPath === "/api/roamly/affiliate/click");
+    assert.ok(tracked, `${card.title} booking CTA must go through the Roamly affiliate click route`);
+    assert.equal(tracked.hasAffiliateUrl, true, `${card.title} tracked CTA must preserve affiliateUrl`);
+    assert.equal(tracked.hasDestinationUrl, true, `${card.title} tracked CTA must preserve destinationUrl`);
+    assert.ok(/stay22\.com$/.test(tracked.affiliateHost) || tracked.affiliateHost.endsWith(".stay22.com"), `${card.title} affiliateUrl must remain a Stay22 URL`);
+    assert.equal(tracked.directBookingHost, false, `${card.title} CTA must not be an untracked direct Booking.com replacement`);
+    assert.ok(tracked.affiliateAddress.toLowerCase().includes(card.title.toLowerCase()), `${card.title} Stay22 URL must include the exact hotel context`);
+    assert.ok(/vancouver/i.test(tracked.affiliateAddress), `${card.title} Stay22 URL must include destination context`);
+    assert.equal(tracked.hasCheckin, true, `${card.title} Stay22 URL must preserve check-in date`);
+    assert.equal(tracked.hasCheckout, true, `${card.title} Stay22 URL must preserve check-out date`);
+    assert.equal(tracked.hasGuests, true, `${card.title} Stay22 URL must preserve guest count`);
+  });
 
   const proof = {
     browser,
@@ -269,6 +322,14 @@ async function main() {
       hotelTitles: bookingProof.hotelTitles,
       hotelLinkHosts: bookingProof.hotelLinkHosts,
       stay22HotelLinkCount: bookingProof.stay22HotelLinks.length,
+      hotelCardLinks: bookingProof.hotelCardLinks.map((card) => ({
+        title: card.title,
+        trackedStay22LinkCount: card.links.filter((link) => link.hrefPath === "/api/roamly/affiliate/click" && (link.affiliateHost === "stay22.com" || link.affiliateHost.endsWith(".stay22.com"))).length,
+        stay22AddressIncludesHotel: card.links.some((link) => link.affiliateAddress.toLowerCase().includes(card.title.toLowerCase())),
+        stay22AddressIncludesDestination: card.links.some((link) => /vancouver/i.test(link.affiliateAddress)),
+        preservesDatesAndGuests: card.links.some((link) => link.hasCheckin && link.hasCheckout && link.hasGuests),
+        hasDirectBookingReplacement: card.links.some((link) => link.directBookingHost)
+      })),
       flightLinkHosts: bookingProof.flightLinks.map((link) => link.host),
       activityLinkHosts: bookingProof.activityLinks.map((link) => link.host),
       stay22AsHotelIdentity: bookingProof.stay22AsHotelIdentity,

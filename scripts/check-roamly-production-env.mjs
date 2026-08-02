@@ -192,6 +192,36 @@ const checks = [
     keys: ["ROAMLY_AFFILIATE_WEBHOOK_SECRET"]
   },
   {
+    label: "Affiliates enabled flag",
+    required: OPTIONAL,
+    keys: ["ROAMLY_AFFILIATES_ENABLED"]
+  },
+  {
+    label: "Stay22 hotel links",
+    required: OPTIONAL,
+    keys: ["ROAMLY_STAY22_PARTNER_ID", "ROAMLY_STAY22_SMART_LINK_URL", "ROAMLY_STAY22_REFERRAL_URL"]
+  },
+  {
+    label: "Travelpayouts flight marker",
+    required: OPTIONAL,
+    keys: ["ROAMLY_TRAVELPAYOUTS_MARKER"]
+  },
+  {
+    label: "Travelpayouts live price API token",
+    required: OPTIONAL,
+    keys: ["TRAVELPAYOUTS_API_TOKEN"]
+  },
+  {
+    label: "Klook activity links",
+    required: OPTIONAL,
+    keys: ["ROAMLY_KLOOK_PARTNER_ID", "ROAMLY_KLOOK_REFERRAL_URL"]
+  },
+  {
+    label: "Klook live price API key",
+    required: OPTIONAL,
+    keys: ["KLOOK_API_KEY"]
+  },
+  {
     label: "Token encryption key",
     required: OPTIONAL,
     keys: ["ROAMLY_TOKEN_ENCRYPTION_KEY"]
@@ -394,6 +424,11 @@ const checks = [
     keys: ["ROAMLY_META_PAGE_ID"]
   },
   {
+    label: "Meta app ID",
+    required: OPTIONAL,
+    keys: ["ROAMLY_META_APP_ID"]
+  },
+  {
     label: "Meta access token",
     required: OPTIONAL,
     keys: ["ROAMLY_META_ACCESS_TOKEN"]
@@ -408,6 +443,10 @@ const checks = [
 function read(key) {
   return process.env[key]?.trim() || "";
 }
+
+const strictExpectedValues =
+  process.env.ROAMLY_STRICT_PRODUCTION_ENV === "true" ||
+  process.env.VERCEL_ENV === "production";
 
 function configuredKeys(keys) {
   return keys.filter((key) => Boolean(read(key)));
@@ -437,8 +476,12 @@ for (const check of checks) {
   }
 
   if (check.expected && read(check.keys[0]) !== check.expected) {
-    print("Missing", check.label, `expected ${check.expected}`);
-    missingRequired += 1;
+    if (strictExpectedValues) {
+      print("Missing", check.label, `expected ${check.expected}`);
+      missingRequired += 1;
+    } else {
+      print("Review", check.label, `set; production expects ${check.expected}`);
+    }
     continue;
   }
 

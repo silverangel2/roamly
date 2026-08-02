@@ -183,12 +183,15 @@ function stay22Url(input: AffiliateResolverInput) {
   if (!resolvedPlace) return "";
 
   const url = new URL(base);
-  const address = [clean(input.neighborhood), resolvedPlace.searchLabel].filter(Boolean).join(", ");
+  const hotelName = input.category === "hotel" ? clean(input.title || input.query) : "";
+  const address = [hotelName, clean(input.neighborhood), resolvedPlace.searchLabel].filter(Boolean).join(", ");
 
   if (address && !url.searchParams.has("address")) url.searchParams.set("address", address);
   if (input.startDate && !url.searchParams.has("checkin")) url.searchParams.set("checkin", input.startDate);
   if (input.endDate && !url.searchParams.has("checkout")) url.searchParams.set("checkout", input.endDate);
   if (!url.searchParams.has("guests")) url.searchParams.set("guests", String(input.adults || travelersCount(input.travelers)));
+  if (input.rooms && !url.searchParams.has("rooms")) url.searchParams.set("rooms", String(input.rooms));
+  if (input.roomType && !url.searchParams.has("room_type")) url.searchParams.set("room_type", input.roomType);
   if (partnerId) {
     if (!url.searchParams.has("aid")) url.searchParams.set("aid", partnerId);
   }
@@ -248,7 +251,12 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
       configured ? stay22Url(input) : "",
       "Find a hotel",
       configured,
-      configured ? [] : ["ROAMLY_HOTEL_AFFILIATE_PROVIDER=stay22", "ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL"]
+      configured
+        ? []
+        : [
+            "ROAMLY_HOTEL_AFFILIATE_PROVIDER=stay22",
+            "ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL"
+          ]
     );
   }
 

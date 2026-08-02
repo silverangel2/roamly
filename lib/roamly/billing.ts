@@ -453,72 +453,98 @@ export async function claimFreeItinerary(
   const writer =
     createSupabaseAdminClient() || supabase;
 
-  const current =
-    await hasUsedFreeItinerary(
-      writer,
-      userId
-    );
+  const now = new Date().toISOString();
+  const todayStart = new Date();
+  todayStart.setUTCHours(0, 0, 0, 0);
+  const todayStartIso = todayStart.toISOString();
 
-  if (current.error) {
+  const claimExisting = await writer
+    .from("roamly_user_entitlements")
+    .update({
+      free_itinerary_used_at: now,
+      free_itinerary_trip_id:
+        tripId,
+      updated_at: now
+    })
+    .eq("user_id", userId)
+    .or(
+      `free_itinerary_used_at.is.null,free_itinerary_used_at.lt.${todayStartIso}`
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (claimExisting.error) {
     return {
       ok: false as const,
-      error: current.error
+      error: claimExisting.error.message
     };
   }
 
-  if (current.used) {
+  const writeResult = claimExisting.data
+    ? claimExisting
+    : await (async () => {
+        const { data: existing, error: readError } =
+          await writer
+            .from("roamly_user_entitlements")
+            .select("free_itinerary_used_at")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+        if (readError) {
+          return {
+            data: null,
+            error: readError
+          };
+        }
+
+        if (existing?.free_itinerary_used_at) {
+          const usedAt = new Date(existing.free_itinerary_used_at);
+          if (
+            Number.isFinite(usedAt.getTime()) &&
+            usedAt >= todayStart
+          ) {
+            return {
+              data: null,
+              error: {
+                message:
+                  "FREE_ITINERARY_ALREADY_USED_TODAY"
+              }
+            };
+          }
+        }
+
+        return writer
+          .from("roamly_user_entitlements")
+          .insert({
+            user_id: userId,
+            free_itinerary_used_at: now,
+            free_itinerary_trip_id:
+              tripId,
+            updated_at: now
+          })
+          .select("id")
+          .single();
+      })();
+
+  if (writeResult.error) {
+    const message = writeResult.error.message || "";
+    const alreadyUsed =
+      message === "FREE_ITINERARY_ALREADY_USED_TODAY" ||
+      /duplicate key|unique constraint|23505/i.test(message);
+
+    return {
+      ok: false as const,
+      error: alreadyUsed
+        ? "FREE_ITINERARY_ALREADY_USED_TODAY"
+        : message
+    };
+  }
+
+  if (!writeResult.data) {
     return {
       ok: false as const,
       error:
         "FREE_ITINERARY_ALREADY_USED_TODAY"
-    };
-  }
-
-  const now = new Date().toISOString();
-
-  const { data: existing, error: readError } =
-    await writer
-      .from("roamly_user_entitlements")
-      .select("id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-  if (readError) {
-    return {
-      ok: false as const,
-      error: readError.message
-    };
-  }
-
-  const writeResult = existing
-    ? await writer
-        .from("roamly_user_entitlements")
-        .update({
-          free_itinerary_used_at: now,
-          free_itinerary_trip_id:
-            tripId,
-          updated_at: now
-        })
-        .eq("id", existing.id)
-        .select("id")
-        .single()
-    : await writer
-        .from("roamly_user_entitlements")
-        .insert({
-          user_id: userId,
-          free_itinerary_used_at: now,
-          free_itinerary_trip_id:
-            tripId,
-          updated_at: now
-        })
-        .select("id")
-        .single();
-
-  if (writeResult.error) {
-    return {
-      ok: false as const,
-      error:
-        writeResult.error.message
     };
   }
 

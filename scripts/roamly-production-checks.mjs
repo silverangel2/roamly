@@ -220,7 +220,10 @@ const affiliateTracking = read("lib/roamly/affiliateTracking.ts");
 assert.ok(affiliateTracking.includes("reconcileTripBookings"), "affiliate conversions must trigger booking reconciliation");
 
 const bookingRecommendationButton = read("components/trip/BookingRecommendationButton.tsx");
-assert.ok(bookingRecommendationButton.includes("/api/roamly/affiliate/click"), "affiliate CTAs must go through server-side click tracking");
+const bookingCtaLinks = read("lib/roamly/bookingCtaLinks.ts");
+assert.ok(bookingRecommendationButton.includes("trackedAffiliateHref"), "affiliate CTA component must use the shared tracked href helper");
+assert.ok(bookingCtaLinks.includes("/api/roamly/affiliate/click"), "affiliate CTAs must go through server-side click tracking");
+assert.ok(bookingCtaLinks.includes("destinationUrl") && bookingCtaLinks.includes("affiliateUrl"), "affiliate CTAs must preserve provider links through tracked redirects");
 
 const affiliateClickRoute = read("app/api/roamly/affiliate/click/route.ts");
 assert.ok(affiliateClickRoute.includes("requireUser") && affiliateClickRoute.includes("createAffiliateClick"), "affiliate click route must authenticate and create click records");

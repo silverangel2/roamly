@@ -434,20 +434,41 @@ function marketEnabled() {
   return value !== "false" && value !== "0" && value !== "disabled";
 }
 
+function travelpayoutsAffiliateConfigured() {
+  return (
+    affiliateGateEnabled() &&
+    clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER || "travelpayouts").toLowerCase() === "travelpayouts" &&
+    Boolean(clean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER))
+  );
+}
+
+function travelpayoutsApiConfigured() {
+  return travelpayoutsAffiliateConfigured() && Boolean(clean(process.env.TRAVELPAYOUTS_API_TOKEN));
+}
+
+function klookApiConfigured() {
+  return klookAffiliateConfigured() && Boolean(clean(process.env.KLOOK_API_KEY) && clean(process.env.ROAMLY_KLOOK_PARTNER_ID));
+}
+
 function providerConfigured(request: TravelMarketSearchRequest) {
   const category = request.category;
-  if (category === "flight") return Boolean(process.env.TRAVELPAYOUTS_API_TOKEN && process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
+  if (category === "flight") return travelpayoutsAffiliateConfigured();
   if (category === "hotel") return stay22AffiliateConfigured();
   if (category === "attraction" || category === "tour") {
-    return Boolean(process.env.KLOOK_API_KEY && process.env.ROAMLY_KLOOK_PARTNER_ID && clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase() === "klook");
+    return klookAffiliateConfigured();
   }
   if (category === "transport") {
-    return Boolean(
-      process.env.KLOOK_API_KEY &&
-        process.env.ROAMLY_KLOOK_PARTNER_ID &&
-        clean(process.env.ROAMLY_ATTRACTIONS_AFFILIATE_PROVIDER || "klook").toLowerCase() === "klook" &&
-        isKlookTransportSearch(request)
-    );
+    return klookAffiliateConfigured() && isKlookTransportSearch(request);
+  }
+  return false;
+}
+
+function liveProviderConfigured(request: TravelMarketSearchRequest) {
+  const category = request.category;
+  if (category === "flight") return travelpayoutsApiConfigured();
+  if (category === "attraction" || category === "tour") return klookApiConfigured();
+  if (category === "transport") {
+    return klookApiConfigured() && isKlookTransportSearch(request);
   }
   return false;
 }
@@ -685,14 +706,14 @@ async function searchReviewIntelNative(request: TravelMarketSearchRequest) {
 }
 
 async function searchTravelpayouts(request: TravelMarketSearchRequest) {
-  if (!marketEnabled() || !process.env.TRAVELPAYOUTS_API_TOKEN || !process.env.ROAMLY_TRAVELPAYOUTS_MARKER) return [];
+  if (!marketEnabled() || !travelpayoutsApiConfigured()) return [];
   const url = new URL("https://api.travelpayouts.com/aviasales/v3/prices_for_dates");
   url.searchParams.set("origin", clean(request.origin));
   url.searchParams.set("destination", clean(request.destination || request.city));
   url.searchParams.set("departure_at", cleanDate(request.start_date));
   if (cleanDate(request.end_date)) url.searchParams.set("return_at", cleanDate(request.end_date));
   url.searchParams.set("currency", cleanCurrency(request.currency));
-  url.searchParams.set("token", process.env.TRAVELPAYOUTS_API_TOKEN);
+  url.searchParams.set("token", clean(process.env.TRAVELPAYOUTS_API_TOKEN));
   const json = await fetchJson(url.toString());
   return arrayFromUnknown(json)
     .map((item) => {
@@ -719,13 +740,13 @@ async function searchTravelpayouts(request: TravelMarketSearchRequest) {
 }
 
 async function searchKlook(request: TravelMarketSearchRequest) {
-  if (!marketEnabled() || !process.env.KLOOK_API_KEY || !process.env.ROAMLY_KLOOK_PARTNER_ID) return [];
+  if (!marketEnabled() || !klookApiConfigured()) return [];
   const url = new URL("https://www.klook.com/v1/usrcsrv/search");
   url.searchParams.set("query", clean(request.title || request.destination || request.city));
   url.searchParams.set("currency", cleanCurrency(request.currency));
   const json = await fetchJson(url.toString(), {
     headers: {
-      authorization: `Bearer ${process.env.KLOOK_API_KEY}`,
+      authorization: `Bearer ${clean(process.env.KLOOK_API_KEY)}`,
       accept: "application/json"
     }
   });
@@ -850,22 +871,24 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
 
 function shouldAttemptProviderAfterNative(request: TravelMarketSearchRequest, nativeResults: TravelMarketResult[]) {
   if (!nativeResults.length) return true;
-  if (!providerConfigured(request)) return false;
+  if (!liveProviderConfigured(request)) return false;
   if (!nativeResults.every((result) => result.price_type === "search_ready" && result.price_amount == null && result.price_min == null)) return false;
   return request.category === "flight" || request.category === "hotel" || request.category === "attraction" || request.category === "tour" || request.category === "transport";
 }
 
 function searchReadyResult(request: TravelMarketSearchRequest, warning?: string) {
   const source: TravelMarketSource =
-	    request.category === "hotel" && stay22AffiliateConfigured()
-	      ? "stay22"
-	      : klookAffiliateConfigured() && shouldUseKlookSearch(request)
-	        ? "klook"
-	        : "roamly_internal";
+    request.category === "flight" && travelpayoutsAffiliateConfigured()
+      ? "travelpayouts"
+      : request.category === "hotel" && stay22AffiliateConfigured()
+        ? "stay22"
+        : klookAffiliateConfigured() && shouldUseKlookSearch(request)
+          ? "klook"
+          : "roamly_internal";
   const title = clean(request.title) || categoryDefaultTitle(request);
   const subject = evidenceSubject(request.category);
   return baseResult(request, {
-    provider: source === "stay22" ? "Stay22 search" : source === "klook" ? "Klook search" : "Search-ready link",
+    provider: source === "travelpayouts" ? "Travelpayouts search" : source === "stay22" ? "Stay22 search" : source === "klook" ? "Klook search" : "Search-ready link",
     source,
     title,
     price_type: "search_ready",
@@ -961,6 +984,7 @@ export async function searchTravelMarket(
   };
   const searchKey = buildTravelMarketSearchKey(normalized);
   const configured = providerConfigured(normalized);
+  const liveConfigured = liveProviderConfigured(normalized);
 
   if (!options.forceRefresh) {
     const cached = await cachedResults(options.supabase, searchKey);
@@ -989,7 +1013,7 @@ export async function searchTravelMarket(
 
   let providerResults: TravelMarketResult[] = [];
   let providerAttempted = false;
-  if (shouldAttemptProviderAfterNative(normalized, nativeResults) && configured && marketEnabled()) {
+  if (shouldAttemptProviderAfterNative(normalized, nativeResults) && liveConfigured && marketEnabled()) {
     providerAttempted = true;
     try {
       providerResults = await liveProviderResults(normalized);
@@ -999,7 +1023,9 @@ export async function searchTravelMarket(
   }
 
   const warning = configured
-    ? "Provider did not return a numeric live price. Verify the search result before booking."
+    ? liveConfigured
+      ? "Provider did not return a numeric live price. Verify the search result before booking."
+      : "Partner link is configured; live price API credentials are optional and not configured. Verify price and availability before booking."
     : "Provider credentials are not configured. Verify price and availability before booking.";
   const discoveryResults =
     !nativeResults.length && !providerResults.length && options.allowFirecrawlFallback

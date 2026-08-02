@@ -67,8 +67,8 @@ const ADAPTERS: Record<RoamlyProviderKind, AdapterConfig> = {
   flights: {
     kind: "flights",
     provider: "travelpayouts",
-    requiredEnv: ["TRAVELPAYOUTS_API_TOKEN", "ROAMLY_TRAVELPAYOUTS_MARKER"],
-    source: "Travelpayouts flight prices"
+    requiredEnv: ["ROAMLY_TRAVELPAYOUTS_MARKER"],
+    source: "Travelpayouts flight links"
   },
   rail: {
     kind: "rail",
@@ -104,14 +104,14 @@ const ADAPTERS: Record<RoamlyProviderKind, AdapterConfig> = {
   hotels: {
     kind: "hotels",
     provider: "stay22",
-    requiredEnv: ["ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL"],
+    requiredEnv: ["ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_SMART_LINK_URL or ROAMLY_STAY22_REFERRAL_URL"],
     source: "Stay22 hotel links"
   },
   activities: {
     kind: "activities",
     provider: "klook",
-    requiredEnv: ["KLOOK_API_KEY", "ROAMLY_KLOOK_PARTNER_ID"],
-    source: "Klook activities"
+    requiredEnv: ["ROAMLY_KLOOK_PARTNER_ID or ROAMLY_KLOOK_REFERRAL_URL"],
+    source: "Klook activity links"
   },
   reviews: {
     kind: "reviews",
@@ -134,7 +134,10 @@ const ADAPTERS: Record<RoamlyProviderKind, AdapterConfig> = {
   affiliates: {
     kind: "affiliates",
     provider: "roamly_affiliate_resolver",
-    requiredEnv: ["ROAMLY_AFFILIATES_ENABLED", "ROAMLY_STAY22_SMART_LINK_URL or ROAMLY_KLOOK_PARTNER_ID or ROAMLY_TRAVELPAYOUTS_MARKER"],
+    requiredEnv: [
+      "ROAMLY_AFFILIATES_ENABLED",
+      "ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_SMART_LINK_URL or ROAMLY_STAY22_REFERRAL_URL or ROAMLY_KLOOK_PARTNER_ID or ROAMLY_KLOOK_REFERRAL_URL or ROAMLY_TRAVELPAYOUTS_MARKER"
+    ],
     source: "Roamly affiliate resolver"
   }
 };
@@ -237,6 +240,8 @@ export async function flightProviderAdapter(request: TravelMarketSearchRequest) 
   return available(config, {
     search_key: buildTravelMarketSearchKey({ ...request, category: "flight" }),
     provider_backed: true,
+    affiliate_link_available: true,
+    live_prices_configured: Boolean(clean(process.env.TRAVELPAYOUTS_API_TOKEN)),
     live_prices_require_query: true
   });
 }
@@ -296,6 +301,8 @@ export async function activitiesProviderAdapter(request: TravelMarketSearchReque
   return available(config, {
     search_key: buildTravelMarketSearchKey({ ...request, category: "attraction" }),
     provider_backed: true,
+    affiliate_link_available: true,
+    live_activity_prices_configured: Boolean(clean(process.env.KLOOK_API_KEY) && clean(process.env.ROAMLY_KLOOK_PARTNER_ID)),
     live_activity_prices_require_query: true
   });
 }

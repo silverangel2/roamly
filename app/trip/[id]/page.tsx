@@ -935,9 +935,12 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
   if (category === "hotel") {
     return resolveAffiliateLink({
       category: "hotel",
+      title,
+      query: title,
       destination,
-      startDate: tripDate(trip, "start"),
-      endDate: tripDate(trip, "end"),
+      startDate,
+      endDate,
+      travelers,
       adults: travelers.adults,
       children: travelers.children,
       rooms: tripRooms(trip),
@@ -1024,10 +1027,67 @@ function isAffiliateBookingHref(href: string) {
   }
 }
 
+function normalizedSearchContext(value?: string | null) {
+  return (value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildStay22HotelFallbackUrl(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  if (bookingCategory(suggestion) !== "hotel") return "";
+  return safeBookingUrl(fallbackBookingUrl(suggestion, trip));
+}
+
+function isCompleteStay22HotelContext(href: string, suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  try {
+    const url = new URL(href);
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    if (host !== "stay22.com" && !host.endsWith(".stay22.com")) return false;
+
+    const address = normalizedSearchContext(url.searchParams.get("address") || url.searchParams.get("q") || url.searchParams.get("query"));
+    const title = normalizedSearchContext(bookingTitle(suggestion));
+    const destination = normalizedSearchContext(suggestion.destination || suggestion.city || getTripDestinationLabel(trip));
+    return Boolean(
+      address &&
+      title &&
+      address.includes(title) &&
+      (!destination || address.includes(destination.split(" ")[0] || destination)) &&
+      url.searchParams.get("checkin") &&
+      url.searchParams.get("checkout") &&
+      (url.searchParams.get("guests") || url.searchParams.get("adults"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
   const category = bookingCategory(suggestion);
   const categoryValue = String(category);
   const affiliate = safeBookingUrl(suggestion.affiliate_url);
+  if (category === "hotel") {
+    const stay22Fallback = buildStay22HotelFallbackUrl(suggestion, trip);
+    if (affiliate && isCompleteStay22HotelContext(affiliate, suggestion, trip)) {
+      return {
+        href: affiliate,
+        provider: providerForBookingHref(affiliate, bookingProvider(suggestion, "Affiliate partner")),
+        hasAffiliateUrl: true,
+        urlType: "affiliate" as BookingUrlType
+      };
+    }
+
+    if (stay22Fallback) {
+      return {
+        href: stay22Fallback,
+        provider: providerForBookingHref(stay22Fallback, bookingProvider(suggestion, "Stay22")),
+        hasAffiliateUrl: true,
+        urlType: "affiliate" as BookingUrlType
+      };
+    }
+  }
+
   if (affiliate) {
     return {
       href: affiliate,
@@ -1043,7 +1103,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     fallback &&
     isAffiliateBookingHref(fallback) &&
     ["hotel", "activity", "attraction", "tour", "flight"].includes(categoryValue) &&
-    (!normal || isGoogleSearchFallbackUrl(normal));
+    (category === "hotel" || !normal || isGoogleSearchFallbackUrl(normal));
 
   if (shouldPreferAffiliateFallback) {
     return {
@@ -1310,7 +1370,9 @@ function BookingRecommendationCard({
   const title = bookingTitle(suggestion);
   const link = resolveBookingLink(suggestion, trip);
   if (!link?.href) return null;
-  const mapQuery = suggestion.location || suggestion.neighborhood || suggestion.city || title;
+  const mapQuery = category === "hotel"
+    ? [title, suggestion.neighborhood || suggestion.city || getTripDestinationLabel(trip)].filter(Boolean).join(" ")
+    : suggestion.location || suggestion.neighborhood || suggestion.city || title;
   const statusBadge = bookingStatusBadge(category, suggestion);
   const actionLabel = bookingActionLabel(category, suggestion, link);
 
@@ -1341,7 +1403,7 @@ function BookingRecommendationCard({
               ) : null}
             </details>
           ) : null}
-          {category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
+          {category === "hotel" || category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-2 lg:items-end">
           <BookingRecommendationButton
@@ -1419,7 +1481,7 @@ function bookingSuggestionsWithRecommendations(itinerary: RoamlyItinerary, trip:
   const recommendedStays = buildRecommendedStaySuggestions({ trip, itinerary }) as unknown as RoamlyItinerary["booking_suggestions"];
   const recommendedActivities = buildRecommendedActivitySuggestions({ trip, itinerary }) as unknown as RoamlyItinerary["booking_suggestions"];
   const initialHotelItems = curatedBookingSuggestions(rawSuggestions, trip, ["hotel"], 3);
-  const suggestions = !recommendedStays.length || initialHotelItems.length >= Math.min(2, recommendedStays.length)
+  const suggestions = !recommendedStays.length || initialHotelItems.length >= Math.min(3, recommendedStays.length)
     ? rawSuggestions
     : [
         ...rawSuggestions,
@@ -1508,6 +1570,20 @@ function fallbackSearchHref(category: "flight" | "hotel" | "activity", trip: Roa
       startDate: start,
       endDate: end,
       travelers: tripTravelerDetails(trip)
+    }).finalUrl;
+    if (affiliate) return affiliate;
+  }
+  if (category === "hotel") {
+    const travelers = tripTravelerDetails(trip);
+    const affiliate = resolveAffiliateLink({
+      category: "hotel",
+      destination,
+      startDate: start,
+      endDate: end,
+      travelers,
+      adults: travelers.adults,
+      children: travelers.children,
+      rooms: tripRooms(trip)
     }).finalUrl;
     if (affiliate) return affiliate;
   }

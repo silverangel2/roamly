@@ -151,6 +151,13 @@ function recommendedStayCandidates(destinationLower: string, nightlyTarget: numb
         roomType: "standard private room",
         reason: "walkable downtown location with easy access to West End, transit, food, and waterfront routes",
         searchQuery: "The Burrard Vancouver hotel Downtown"
+      },
+      {
+        name: "Victorian Hotel Vancouver",
+        neighborhood: "Downtown Vancouver / Gastown edge",
+        roomType: "standard private room",
+        reason: "central heritage hotel near Gastown, downtown restaurants, transit, and waterfront itinerary stops",
+        searchQuery: "Victorian Hotel Vancouver Downtown Gastown"
       }
     ];
   }

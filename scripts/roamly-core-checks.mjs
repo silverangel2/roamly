@@ -114,6 +114,7 @@ assert.ok(cityDataset.cities.length > 30000, "city resolver must use a broad glo
 const placeResolverExports = loadTsModule("lib/roamly/placeResolver.ts");
 const airportResolverExports = loadTsModule("lib/roamly/airportResolver.ts");
 const bookingLinksExports = loadTsModule("lib/roamly/bookingLinks.ts");
+const bookingCtaLinksExports = loadTsModule("lib/roamly/bookingCtaLinks.ts");
 const affiliateResolverExports = loadTsModule("lib/roamly/affiliateResolver.ts");
 const travelResultValidationExports = loadTsModule("lib/roamly/travelResultValidation.ts");
 
@@ -401,9 +402,22 @@ const fixturePayload = {
 };
 const enrichedFixture = affiliateLinksExports.enrichItineraryBookingSuggestions(fixtureItinerary, fixturePayload);
 const hotelSuggestions = enrichedFixture.booking_suggestions.filter((item) => item.booking_category === "hotel");
-assert.ok(hotelSuggestions.length >= 2, "real hotel suggestions must be added before Stay22 actions");
+assert.equal(hotelSuggestions.length, 3, "exactly three real hotel suggestions must be added before Stay22 actions");
 assert.ok(hotelSuggestions.every((item) => !/stay22/i.test(item.title)), "Stay22 must not be used as the hotel identity");
-assert.ok(hotelSuggestions.some((item) => item.affiliate_provider === "stay22" || /stay22\.com/.test(item.affiliate_url || "")), "Stay22 must be attached as hotel booking/search link");
+["Chelsea Hotel, Toronto", "The Anndore House", "Holiday Inn Toronto Downtown Centre"].forEach((title) => {
+  assert.ok(hotelSuggestions.some((item) => item.title === title), `${title} must be included as a real Toronto hotel suggestion`);
+});
+hotelSuggestions.forEach((item) => {
+  assert.equal(item.affiliate_provider, "stay22", `${item.title} must use Stay22 as the affiliate layer`);
+  assert.ok(/stay22\.com/.test(item.affiliate_url || ""), `${item.title} must preserve a Stay22 affiliate URL`);
+  const stay22Url = new URL(item.affiliate_url);
+  const address = stay22Url.searchParams.get("address") || "";
+  assert.ok(address.includes(item.title), `${item.title} must be included in the Stay22 hotel search context`);
+  assert.ok(/Toronto|Canada/i.test(address), `${item.title} Stay22 context must preserve the requested destination`);
+  assert.equal(stay22Url.searchParams.get("checkin"), fixturePayload.startDate, `${item.title} must preserve check-in date`);
+  assert.equal(stay22Url.searchParams.get("checkout"), fixturePayload.endDate, `${item.title} must preserve check-out date`);
+  assert.equal(stay22Url.searchParams.get("guests"), String(fixturePayload.travelersCount), `${item.title} must preserve guest count`);
+});
 assert.ok(!enrichedFixture.booking_suggestions.some((item) => /w3\.org|schema\.org|schemas\.live\.com|ogp\.me|json-ld\.org/i.test(`${item.title} ${item.normal_search_url} ${item.affiliate_url}`)), "metadata domains must be removed from booking suggestions");
 assert.ok(enrichedFixture.booking_suggestions.some((item) => item.booking_category === "attraction" && (item.affiliate_provider === "klook" || /klook\.com/.test(item.affiliate_url || ""))), "activities must prefer Klook when configured");
 restoreEnv("ROAMLY_STAY22_PARTNER_ID", previousStay22Partner);
@@ -1774,13 +1788,15 @@ const providerAdapters = read("lib/roamly/providers/adapters.ts");
   "weatherProviderAdapter",
   "currencyConversionProviderAdapter",
   "affiliateProviderAdapter",
-  "TRAVELPAYOUTS_API_TOKEN",
+  "ROAMLY_TRAVELPAYOUTS_MARKER",
   "ROAMLY_RAIL_PROVIDER_API_KEY",
   "ROAMLY_BUS_PROVIDER_API_KEY",
   "ROAMLY_FERRY_PROVIDER_API_KEY",
   "GOOGLE_MAPS_API_KEY",
-  "ROAMLY_STAY22_SMART_LINK_URL or traveler-safe ROAMLY_STAY22_REFERRAL_URL",
-  "KLOOK_API_KEY",
+  "ROAMLY_STAY22_PARTNER_ID or ROAMLY_STAY22_SMART_LINK_URL or ROAMLY_STAY22_REFERRAL_URL",
+  "ROAMLY_KLOOK_PARTNER_ID or ROAMLY_KLOOK_REFERRAL_URL",
+  "live_prices_configured",
+  "live_activity_prices_configured",
   "ROAMLY_REVIEWS_PROVIDER_API_KEY",
   "ROAMLY_WEATHER_API_KEY",
   "ROAMLY_CURRENCY_API_KEY",
@@ -2361,8 +2377,46 @@ assert.ok(
 );
 
 const bookingRecommendationButton = read("components/trip/BookingRecommendationButton.tsx");
-assert.ok(bookingRecommendationButton.includes("/api/roamly/affiliate/click"), "affiliate booking CTAs must use tracked server redirects");
-assert.ok(bookingRecommendationButton.includes("destinationUrl") && bookingRecommendationButton.includes("affiliateUrl"), "tracked affiliate CTAs must pass only internal redirect metadata");
+const bookingCtaLinks = read("lib/roamly/bookingCtaLinks.ts");
+assert.ok(bookingRecommendationButton.includes("trackedAffiliateHref"), "booking CTA component must use the shared tracked affiliate href helper");
+assert.ok(bookingCtaLinks.includes("/api/roamly/affiliate/click"), "affiliate booking CTAs must use tracked server redirects");
+assert.ok(bookingCtaLinks.includes("destinationUrl") && bookingCtaLinks.includes("affiliateUrl"), "tracked affiliate CTAs must pass only internal redirect metadata");
+assert.ok(!bookingRecommendationButton.includes("bookingDotComSearchUrl"), "hotel CTAs must not replace working Stay22 deep links with Booking.com");
+assert.ok(!bookingRecommendationButton.includes('url.includes("partner")'), "hotel CTAs must not reject Stay22 traveler links just because an affiliate id includes partner text");
+
+[
+  "https://www.stay22.com/search?aid=partner",
+  "https://www.stay22.com/allez/roam?aid=partner&address=San%20Juan"
+].forEach((href) => {
+  assert.equal(bookingCtaLinksExports.isTravelerSafeStay22BookingUrl(href), true, `${href} must remain usable in booking CTAs`);
+  const tracked = bookingCtaLinksExports.trackedAffiliateHref({
+    href,
+    tripId: "trip_123",
+    category: "hotel",
+    title: "YWCA Hotel Vancouver",
+    provider: "Stay22",
+    hasAffiliateUrl: true,
+    urlType: "affiliate"
+  });
+  const url = new URL(tracked, "https://roamly.local");
+  assert.equal(url.pathname, "/api/roamly/affiliate/click", `${href} must use Roamly affiliate click tracking`);
+  assert.equal(url.searchParams.get("affiliateUrl"), href, `${href} must preserve the existing Stay22 affiliate URL`);
+  assert.equal(url.searchParams.get("destinationUrl"), href, `${href} must preserve the existing Stay22 destination URL`);
+});
+
+assert.equal(
+  bookingCtaLinksExports.trackedAffiliateHref({
+    href: "https://www.stay22.com/login",
+    tripId: "trip_123",
+    category: "hotel",
+    title: "Unsafe hotel link",
+    provider: "Stay22",
+    hasAffiliateUrl: true,
+    urlType: "affiliate"
+  }),
+  "",
+  "unsafe Stay22 admin/login URLs must not render as hotel booking CTAs"
+);
 
 const affiliateClickRoute = read("app/api/roamly/affiliate/click/route.ts");
 ["requireUser", "createAffiliateClick", "NextResponse.redirect"].forEach((needle) =>

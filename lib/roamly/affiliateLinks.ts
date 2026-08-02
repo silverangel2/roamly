@@ -755,6 +755,13 @@ function recommendedStayCandidates(params: {
         roomType: "standard private room",
         reason: "walkable downtown location with easy access to West End, transit, food, and waterfront routes",
         searchQuery: "The Burrard Vancouver hotel Downtown"
+      },
+      {
+        name: "Victorian Hotel Vancouver",
+        neighborhood: "Downtown Vancouver / Gastown edge",
+        roomType: "standard private room",
+        reason: "central heritage hotel near Gastown, downtown restaurants, transit, and waterfront itinerary stops",
+        searchQuery: "Victorian Hotel Vancouver Downtown Gastown"
       }
     ];
   }
@@ -828,7 +835,7 @@ function buildBrainBookingSuggestions(params: {
   if (
     payload.budgetIncludesHotel !== false &&
     Boolean(resolvedDestination) &&
-    existingRealHotelCount < 2
+    existingRealHotelCount < 3
   ) {
     const stayCandidates = recommendedStayCandidates({
       destination,
@@ -911,20 +918,15 @@ function buildBrainBookingSuggestions(params: {
 
 
 function isUnsafeStay22TravelerUrl(value: unknown) {
-  const url = cleanStringValue(value).toLowerCase();
+  const href = safeExternalUrl(cleanStringValue(value));
+  if (!href) return false;
 
-  if (!url) return false;
-
-  return (
-    url.includes("hub.stay22.com") ||
-    url.includes("app.stay22.com") ||
-    url.includes("dashboard") ||
-    url.includes("signin") ||
-    url.includes("sign-in") ||
-    url.includes("login") ||
-    url.includes("account") ||
-    url.includes("partner")
-  );
+  try {
+    const host = new URL(href).hostname.toLowerCase().replace(/^www\./, "");
+    return (host === "stay22.com" || host.endsWith(".stay22.com")) && !isTravelerSafeStay22Url(href);
+  } catch {
+    return true;
+  }
 }
 
 function safeHotelAffiliateUrl(value: unknown) {
@@ -972,18 +974,15 @@ function googleHotelSearchUrl(params: {
 }
 
 function unsafeStay22Url(value: unknown) {
-  const url = String(value || "").toLowerCase();
+  const href = safeExternalUrl(String(value || ""));
+  if (!href) return false;
 
-  return (
-    url.includes("hub.stay22.com") ||
-    url.includes("app.stay22.com") ||
-    url.includes("dashboard") ||
-    url.includes("signin") ||
-    url.includes("sign-in") ||
-    url.includes("login") ||
-    url.includes("account") ||
-    url.includes("partner")
-  );
+  try {
+    const host = new URL(href).hostname.toLowerCase().replace(/^www\./, "");
+    return (host === "stay22.com" || host.endsWith(".stay22.com")) && !isTravelerSafeStay22Url(href);
+  } catch {
+    return true;
+  }
 }
 
 function safeHotelSearchUrl(value: unknown, params: Parameters<typeof googleHotelSearchUrl>[0]) {
@@ -1050,6 +1049,15 @@ function dedupeBookingSuggestions(suggestions: RoamlyItinerary["booking_suggesti
   );
 }
 
+function limitHotelSuggestions(suggestions: RoamlyItinerary["booking_suggestions"]) {
+  let hotelCount = 0;
+  return suggestions.filter((suggestion) => {
+    if ((suggestion.booking_category || suggestion.category) !== "hotel") return true;
+    hotelCount += 1;
+    return hotelCount <= 3;
+  });
+}
+
 export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   const budgetBrain = calculateRoamlyBudgetBrain({
@@ -1076,7 +1084,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       transport_mode_recommendation: budgetBrain.transportModeRecommendation
     },
     daily_itinerary: enrichTimelineItems(itinerary, payload),
-    booking_suggestions: dedupeBookingSuggestions(buildBrainBookingSuggestions({
+    booking_suggestions: limitHotelSuggestions(dedupeBookingSuggestions(buildBrainBookingSuggestions({
       itinerary,
       payload,
       estimatedBudgetBreakdown,
@@ -1166,7 +1174,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         expires_at: cleanStringValue(market?.expires_at) || suggestion.expires_at,
         market_search_key: cleanStringValue(market?.search_key) || suggestion.market_search_key
       };
-    }).filter((suggestion) => displayableBookingSuggestion(suggestion, payload)))
+    }).filter((suggestion) => displayableBookingSuggestion(suggestion, payload))))
   };
 }
 

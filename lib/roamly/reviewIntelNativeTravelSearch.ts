@@ -1,7 +1,3 @@
-import {
-  runNativeReviewRetrieval,
-  type NativeReviewRetrievalResult
-} from "../../../review-insight-ai/lib/nativeReviewRetrieval";
 import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
 import {
   safeConsumerTravelUrl,
@@ -9,12 +5,69 @@ import {
 } from "@/lib/roamly/travelResultValidation";
 import type { TravelMarketCategory } from "@/lib/roamly/travelMarketSearch";
 
+type NativeReview = {
+  source: string;
+  sourceUrl?: string;
+  rating?: number | null;
+  title?: string;
+  body: string;
+};
+
+type NativeSourceLink = { label: string; url: string; domain?: string };
+
+type NativeReviewRetrievalResult = {
+  queries: string[];
+  sourcesChecked: string[];
+  sourceLinks: NativeSourceLink[];
+  reviews: NativeReview[];
+  coverageNote: string;
+  diagnostics: {
+    searchProviders: string[];
+    attemptedSearches: number;
+    attemptedPages: number;
+    normalFetchSuccesses: number;
+    normalFetchFailures: number;
+    playwrightSuccesses: number;
+    playwrightFailures: number;
+  };
+};
+
+type NativeReviewRetrievalFn = (input: {
+  productTitle: string;
+  store?: string | null;
+  sourceLinks?: Array<{ label?: string | null; url?: string | null; domain?: string | null }> | null;
+  maxQueries?: number;
+  maxPages?: number;
+  maxSnippets?: number;
+  politeDelayMs?: number;
+}) => Promise<NativeReviewRetrievalResult>;
+
 export const reviewIntelNativeSourceFiles = [
   "/Users/junel/review-insight-ai/lib/nativeReviewRetrieval.ts",
   "/Users/junel/review-insight-ai/lib/reviewCollector.ts",
   "/Users/junel/review-insight-ai/lib/productUrlRetrieval.ts",
   "/Users/junel/review-insight-ai/lib/firecrawlFallback.ts"
 ] as const;
+
+let nativeReviewRetrieval: Promise<NativeReviewRetrievalFn | null> | null = null;
+
+async function loadNativeReviewRetrieval() {
+  if (!nativeReviewRetrieval) {
+    nativeReviewRetrieval = (async () => {
+      try {
+        const modulePath = "../../../review-insight-ai/lib/nativeReviewRetrieval";
+        const mod = await import(/* webpackIgnore: true */ modulePath) as {
+          runNativeReviewRetrieval?: NativeReviewRetrievalFn;
+        };
+        return typeof mod.runNativeReviewRetrieval === "function" ? mod.runNativeReviewRetrieval : null;
+      } catch {
+        return null;
+      }
+    })();
+  }
+
+  return nativeReviewRetrieval;
+}
 
 export type ReviewIntelNativeTravelRequest = {
   category: TravelMarketCategory;
@@ -120,6 +173,8 @@ export async function searchReviewIntelNativeTravelCandidates(
   const retrievedAt = new Date().toISOString();
   const target = nativeTitle(request);
   if (!target) return [];
+  const runNativeReviewRetrieval = await loadNativeReviewRetrieval();
+  if (!runNativeReviewRetrieval) return [];
 
   const result = await runNativeReviewRetrieval({
     productTitle: target,
