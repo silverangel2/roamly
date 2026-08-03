@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from "crypto";
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 import { mkdir, readFile, rm, stat } from "fs/promises";
 import os from "os";
 import path from "path";
 import sharp from "sharp";
+import ffprobeInstaller from "ffprobe-static";
 import { publicSocialMediaStorageBucket, uploadPublicSupabaseObject } from "@/lib/roamly/publicSocialStorage";
 
 export type SocialReelBrand = "roamly" | "reviewintel";
@@ -16,6 +18,8 @@ export type SocialReelVideoResult = {
   width: number;
   height: number;
   durationSeconds: number;
+  mimeType: "video/mp4";
+  ffprobe: Record<string, unknown>;
   audioTrack: ApprovedAudioTrack;
 };
 
@@ -275,17 +279,45 @@ function runProcess(command: string, args: string[]) {
 }
 
 async function resolveFfmpegPath() {
-  if (process.env.FFMPEG_PATH?.trim()) return process.env.FFMPEG_PATH.trim();
+  const candidates = [
+    process.env.FFMPEG_PATH?.trim(),
+    process.platform === "linux" ? path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg") : "",
+    process.platform === "darwin" && process.arch === "arm64" ? path.join(process.cwd(), "node_modules/@ffmpeg-installer/darwin-arm64/ffmpeg") : "",
+    process.platform === "darwin" ? path.join(process.cwd(), "node_modules/@ffmpeg-installer/darwin-x64/ffmpeg") : ""
+  ].filter(Boolean);
+  const binary = candidates.find((candidate) => typeof candidate === "string" && existsSync(candidate)) as string | undefined;
+  if (!binary) throw new Error("ffmpeg binary path is not available.");
+  return binary;
+}
 
-  try {
-    const mod = await import("@ffmpeg-installer/ffmpeg");
-    const installer = (mod.default || mod) as { path?: string };
-    if (installer.path) return installer.path;
-  } catch {
-    // The explicit error below is clearer for runtime proof.
+function runProcessOutput(command: string, args: string[]) {
+  return new Promise<string>((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve(stdout);
+      else reject(new Error(stderr.trim() || `${path.basename(command)} exited with code ${code}`));
+    });
+  });
+}
+
+async function probeGeneratedMp4(filePath: string, ffprobePath: string) {
+  const raw = await runProcessOutput(ffprobePath, ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", filePath]);
+  const probe = JSON.parse(raw) as { streams?: Array<Record<string, unknown>>; format?: Record<string, unknown> };
+  const video = (probe.streams || []).find((stream) => stream.codec_type === "video");
+  const formatName = String(probe.format?.format_name || "").split(",")[0];
+  const widthValue = Number(video?.width);
+  const heightValue = Number(video?.height);
+  const durationValue = Number(video?.duration || probe.format?.duration);
+  const sizeValue = Number(probe.format?.size);
+  if (formatName !== "mp4" || video?.codec_name !== "h264" || !Number.isFinite(widthValue) || !Number.isFinite(heightValue) || Math.abs(widthValue / heightValue - 9 / 16) > 0.01 || !Number.isFinite(durationValue) || durationValue <= 0 || !Number.isFinite(sizeValue) || sizeValue <= 0 || sizeValue > publicSocialMaxBytes) {
+    throw new Error("Generated Reel failed ffprobe validation for MP4, H.264, 9:16, duration, or file size.");
   }
-
-  throw new Error("ffmpeg binary path is not available. Install @ffmpeg-installer/ffmpeg or set FFMPEG_PATH.");
+  return { probe, width: widthValue, height: heightValue, durationSeconds: durationValue, size: sizeValue };
 }
 
 function safeFilenamePart(value: string) {
@@ -332,7 +364,8 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       });
     }
 
-    await runProcess(await resolveFfmpegPath(), [
+    const ffmpegPath = await resolveFfmpegPath();
+    await runProcess(ffmpegPath, [
       "-y",
       "-loop",
       "1",
@@ -380,6 +413,8 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       outputPath
     ]);
 
+    const ffprobePath = existsSync((ffprobeInstaller as { path?: string }).path || "") ? (ffprobeInstaller as { path: string }).path : path.join(process.cwd(), "node_modules/ffprobe-static/bin/linux/x64/ffprobe");
+    const validated = await probeGeneratedMp4(outputPath, ffprobePath);
     const buffer = await readFile(outputPath);
     const size = await stat(outputPath).then((item) => item.size).catch(() => buffer.length);
     const { storageBucket } = publicSocialMediaStorageBucket();
@@ -402,7 +437,9 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       size,
       width,
       height,
-      durationSeconds: totalSeconds,
+      durationSeconds: validated.durationSeconds,
+      mimeType: "video/mp4",
+      ffprobe: validated.probe,
       audioTrack
     };
   } finally {

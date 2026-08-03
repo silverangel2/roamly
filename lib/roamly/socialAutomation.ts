@@ -1851,6 +1851,8 @@ async function ensureReelVideo(
     width: video.width,
     height: video.height,
     durationSeconds: video.durationSeconds,
+    mimeType: video.mimeType,
+    ffprobe: video.ffprobe,
     audioTrack: video.audioTrack,
     generatedAt: new Date().toISOString()
   };

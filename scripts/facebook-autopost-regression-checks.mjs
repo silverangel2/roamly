@@ -44,7 +44,7 @@ assert(/Legacy Facebook publishing is disabled/.test(legacySocial) && !/pageId\}
 assert(/facebook_reel_id/.test(automation) && /facebook_url/.test(automation), "returned Reel ID and permalink are persisted");
 assert(/automaticRetryLimit/.test(automation) && /nextAttempt <= retryLimit/.test(automation), "retry logic remains bounded by settings");
 assert(/manualReviewRequired/.test(automation) && /!settings\.manualReviewRequired/.test(automation), "manual approval flow is respected before publishing");
-assert(/@ffmpeg-installer\/ffmpeg/.test(generator), "Reel generator uses deterministic ffmpeg binary");
+assert(/@ffmpeg-installer\/(linux-x64|darwin-arm64)/.test(generator), "Reel generator uses deterministic platform ffmpeg binary");
 assert(/width = 1080/.test(generator) && /height = 1920/.test(generator), "generated video is vertical 9:16");
 assert(/proof_reel/.test(cron), "protected runtime proof action is available");
 assert(/runFacebookAutomationForAllBrands/.test(cron), "cron default can run both brands");
