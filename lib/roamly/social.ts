@@ -77,8 +77,16 @@ function clean(value?: string | null) {
   return (value || "").trim();
 }
 
+function cleanEnvValue(value?: string | null) {
+  const text = clean(value);
+  if (!text) return "";
+  if (/^\[(sensitive|redacted|secret|token|private)\]$/i.test(text)) return "";
+  if (/^(changeme|change_me|your[_-]?token|your[_-]?secret|placeholder)$/i.test(text)) return "";
+  return text;
+}
+
 function enabled(value?: string | null) {
-  return /^(true|1|yes|on)$/i.test(clean(value));
+  return /^(true|1|yes|on)$/i.test(cleanEnvValue(value));
 }
 
 function getOpenAIClient() {
@@ -111,14 +119,14 @@ export function getRoamlySocialEnvStatus() {
   const instagramEnabled = enabled(process.env.ROAMLY_SOCIAL_INSTAGRAM_ENABLED);
   const autoPostEnabled = enabled(process.env.ROAMLY_SOCIAL_AUTOPOST_ENABLED);
   const requireApproval = enabled(process.env.ROAMLY_SOCIAL_REQUIRE_APPROVAL);
-  const pageIdConfigured = Boolean(clean(process.env.ROAMLY_META_PAGE_ID));
-  const tokenConfigured = Boolean(clean(process.env.ROAMLY_META_ACCESS_TOKEN));
-  const instagramAccountConfigured = Boolean(clean(process.env.ROAMLY_INSTAGRAM_BUSINESS_ACCOUNT_ID));
+  const pageIdConfigured = Boolean(cleanEnvValue(process.env.ROAMLY_META_PAGE_ID));
+  const tokenConfigured = Boolean(cleanEnvValue(process.env.ROAMLY_META_ACCESS_TOKEN));
+  const instagramAccountConfigured = Boolean(cleanEnvValue(process.env.ROAMLY_INSTAGRAM_BUSINESS_ACCOUNT_ID));
 
   return {
     autoPostEnabled,
     requireApproval,
-    cronSecretConfigured: Boolean(clean(process.env.ROAMLY_SOCIAL_CRON_SECRET)),
+    cronSecretConfigured: Boolean(cleanEnvValue(process.env.ROAMLY_SOCIAL_CRON_SECRET)),
     facebookEnabled,
     instagramEnabled,
     facebookConnected: facebookEnabled && pageIdConfigured && tokenConfigured,

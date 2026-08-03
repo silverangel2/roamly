@@ -12,7 +12,8 @@ import {
   saveFacebookAutomationSettings,
   skipNextFacebookPost,
   validateFacebookPageConnection,
-  type FacebookAutomationSettings
+  type FacebookAutomationSettings,
+  type FacebookSocialBrand
 } from "@/lib/roamly/socialAutomation";
 
 function getString(value: unknown, maxLength = 80) {
@@ -41,6 +42,12 @@ function getStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
     : undefined;
+}
+
+function normalizeBrand(value: unknown): FacebookSocialBrand {
+  const raw = typeof value === "string" ? value.trim().toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+  if (raw === "reviewintel" || raw === "reviewinsight") return "reviewintel";
+  return "roamly";
 }
 
 function getSettingsPatch(value: unknown): Partial<FacebookAutomationSettings> {
@@ -76,11 +83,11 @@ function getSettingsPatch(value: unknown): Partial<FacebookAutomationSettings> {
   return patch;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const guard = await requireRoamlyAdmin();
   if (!guard.ok) return guard.response;
 
-  const summary = await getFacebookAutomationSummary(guard.admin);
+  const summary = await getFacebookAutomationSummary(guard.admin, normalizeBrand(request.nextUrl.searchParams.get("brand")));
   return NextResponse.json({ ok: true, summary });
 }
 
@@ -90,6 +97,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const action = getString(body.action);
+  const brand = normalizeBrand(body.brand);
   const confirm = getBoolean(body.confirm);
   const actorEmail = guard.user.email || guard.user.id;
 
@@ -102,55 +110,55 @@ export async function POST(request: NextRequest) {
 
   if (action === "generate_100") {
     if (!confirm) return NextResponse.json({ ok: false, error: "Please confirm before creating 100 scheduled posts." }, { status: 400 });
-    const result = await generateFacebookQueue(guard.admin, { count: 100, actorEmail });
+    const result = await generateFacebookQueue(guard.admin, { count: 100, actorEmail, brand });
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "refill_queue") {
-    const result = await refillFacebookQueue(guard.admin, actorEmail);
+    const result = await refillFacebookQueue(guard.admin, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "run_automation") {
-    const result = await runFacebookAutomationCycle(guard.admin, { trigger: "admin" });
+    const result = await runFacebookAutomationCycle(guard.admin, { trigger: "admin", brand });
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "publish_next_now") {
     if (!confirm) return NextResponse.json({ ok: false, error: "Please confirm before publishing immediately." }, { status: 400 });
-    const result = await publishNextFacebookPostNow(guard.admin, actorEmail);
+    const result = await publishNextFacebookPostNow(guard.admin, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "retry_failures") {
-    const result = await retryFailedFacebookPosts(guard.admin, actorEmail);
+    const result = await retryFailedFacebookPosts(guard.admin, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "skip_next") {
-    const result = await skipNextFacebookPost(guard.admin, actorEmail);
+    const result = await skipNextFacebookPost(guard.admin, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "clear_failed_jobs") {
     if (!confirm) return NextResponse.json({ ok: false, error: "Please confirm before clearing failed jobs." }, { status: 400 });
-    const result = await clearFailedFacebookJobs(guard.admin, actorEmail);
+    const result = await clearFailedFacebookJobs(guard.admin, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "pause") {
-    const result = await saveFacebookAutomationSettings(guard.admin, { paused: true }, actorEmail);
+    const result = await saveFacebookAutomationSettings(guard.admin, { paused: true }, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "resume") {
-    const result = await saveFacebookAutomationSettings(guard.admin, { paused: false }, actorEmail);
+    const result = await saveFacebookAutomationSettings(guard.admin, { paused: false }, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "enable_autopost") {
     if (!confirm) return NextResponse.json({ ok: false, error: "Please confirm before enabling unattended autoposting." }, { status: 400 });
-    const validation = await validateFacebookPageConnection();
+    const validation = await validateFacebookPageConnection(brand);
     if (!validation.ok) {
       return NextResponse.json(
         { ok: false, error: validation.blockingIssues[0] || "Facebook Page validation failed.", validation },
@@ -160,13 +168,14 @@ export async function POST(request: NextRequest) {
     const result = await saveFacebookAutomationSettings(
       guard.admin,
       { automationEnabled: true, paused: false, manualReviewRequired: false },
-      actorEmail
+      actorEmail,
+      brand
     );
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
   if (action === "disable_autopost") {
-    const result = await saveFacebookAutomationSettings(guard.admin, { automationEnabled: false, paused: true }, actorEmail);
+    const result = await saveFacebookAutomationSettings(guard.admin, { automationEnabled: false, paused: true }, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 
@@ -176,7 +185,7 @@ export async function POST(request: NextRequest) {
     if (significantIncrease && !confirm) {
       return NextResponse.json({ ok: false, error: "Please confirm before setting more than 6 posts per day." }, { status: 400 });
     }
-    const result = await saveFacebookAutomationSettings(guard.admin, settings, actorEmail);
+    const result = await saveFacebookAutomationSettings(guard.admin, settings, actorEmail, brand);
     return NextResponse.json(result, { status: result.ok ? 200 : 500 });
   }
 

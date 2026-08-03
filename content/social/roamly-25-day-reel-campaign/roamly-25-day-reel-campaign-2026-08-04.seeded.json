@@ -1,0 +1,1866 @@
+{
+  "campaignId": "roamly-premium-reels-2026-08",
+  "campaignName": "Roamly Premium 25-Day Reel Campaign",
+  "brand": "Roamly",
+  "platforms": [
+    "facebook_reels",
+    "instagram_reels"
+  ],
+  "format": {
+    "aspectRatio": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "startDateLocal": "2026-08-04 10:30 ADT",
+  "endDateLocal": "2026-08-28 10:30 ADT",
+  "scheduleTimezone": "America/Moncton",
+  "publicationInstruction": "Do not publish until final queue approval.",
+  "generationStyle": "Premium three-shot cinematic travel Reel with realistic source plates, subtle camera movement, restrained Roamly overlay branding, and no slideshow-only treatment.",
+  "counts": {
+    "posts": 25,
+    "reelAssets": 25,
+    "sourcePlates": 75
+  },
+  "contactSheet": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-25-day-campaign-contact-sheet.jpg",
+  "posts": [
+    {
+      "dayNumber": 1,
+      "theme": "Dream Destinations",
+      "destination": "Santorini, Greece",
+      "hook": "Blue hour belongs to Santorini.",
+      "caption": "Whitewashed mornings, caldera sunsets, and dinner timed before the island glows. Roamly turns the dream trip into a plan that feels composed from the first booking.",
+      "cta": "Start your Santorini plan in Roamly",
+      "visualConcept": "Caldera arrival, terrace planning detail, and sunset cliffside finale with clean Cycladic light.",
+      "reelScript": "Open on a calm caldera reveal, move into a refined terrace planning detail, then finish with a sunset village path and a confident Roamly CTA.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "santorini-dream-01.png",
+          "durationSeconds": 6.4,
+          "onScreenText": "Blue hour belongs here. Build the trip around the moments that matter.",
+          "action": "Open on a calm caldera reveal, move into a refined terrace planning detail, then finish with a sunset village path and a confident Roamly CTA."
+        },
+        {
+          "shot": 2,
+          "source": "santorini-dream-02.png",
+          "durationSeconds": 6.7,
+          "onScreenText": "Sunset is not a stop. It is the anchor for the whole day.",
+          "action": "Open on a calm caldera reveal, move into a refined terrace planning detail, then finish with a sunset village path and a confident Roamly CTA."
+        },
+        {
+          "shot": 3,
+          "source": "santorini-dream-03.png",
+          "durationSeconds": 6.9,
+          "onScreenText": "Dream it. Then time it. Start Santorini in Roamly.",
+          "action": "Open on a calm caldera reveal, move into a refined terrace planning detail, then finish with a sunset village path and a confident Roamly CTA."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Blue hour belongs here. Build the trip around the moments that matter.",
+        "Sunset is not a stop. It is the anchor for the whole day.",
+        "Dream it. Then time it. Start Santorini in Roamly."
+      ],
+      "voiceover": "Some places do not need more stops. They need better timing. Let Roamly shape Santorini around the light, the meals, and the moments you came for.",
+      "musicDirection": "Luminous Mediterranean piano with airy strings and a soft pulse",
+      "hashtags": "#Roamly #SantoriniTravel #DreamTrip #GreekIslands #TravelPlanning",
+      "captionHashtags": [
+        "#Roamly",
+        "#SantoriniTravel",
+        "#DreamTrip",
+        "#GreekIslands",
+        "#TravelPlanning"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-01-santorini-dream-destinations.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-01-santorini-dream-destinations.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-01-santorini-dream-destinations.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/santorini-dream-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/santorini-dream-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/santorini-dream-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-01-santorini-dream-destinations.mp4",
+      "scheduledFor": "2026-08-04T13:30:00.000Z",
+      "scheduledLocal": "2026-08-04 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-01-santorini-dream-destinations.mp4",
+      "databaseIds": {
+        "mediaAssetId": "d259b382-d2f1-5629-b4e4-715b261f4b40",
+        "draftId": "a98d68fc-a978-5093-ad5e-a496d44c916e",
+        "queueId": "1294515d-f522-5a4e-84bd-7ce5183ebfd6",
+        "scheduledPostId": "53da06b8-ae02-58f5-b544-43da2078355c",
+        "publishingJobId": "7ca30aa8-758b-5d17-8a4a-3ed27b81b3d3",
+        "facebookProcessingId": "c33ee988-47b9-59f7-9911-8761c3a9fe38",
+        "qualityCheckId": "093678aa-54c2-5d2b-8157-e544333a49c7"
+      }
+    },
+    {
+      "dayNumber": 2,
+      "theme": "Smart Itinerary Planning",
+      "destination": "Kyoto, Japan",
+      "hook": "Kyoto rewards the unhurried plan.",
+      "caption": "Temple mornings, garden pauses, and neighborhood dinners belong in a rhythm, not a rush. Roamly sequences Kyoto so each move feels intentional.",
+      "cta": "Sequence Kyoto with Roamly",
+      "visualConcept": "Quiet temple morning, table-level itinerary craft, and lantern-lit lane for a rhythm-led planning story.",
+      "reelScript": "Begin with a still temple path, cut to a calm planning surface, then close in a lantern lane that shows how a well-paced day lands.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "kyoto-itinerary-01.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Less rushing. More Kyoto. Let the day breathe before it begins.",
+          "action": "Begin with a still temple path, cut to a calm planning surface, then close in a lantern lane that shows how a well-paced day lands."
+        },
+        {
+          "shot": 2,
+          "source": "kyoto-itinerary-02.png",
+          "durationSeconds": 7,
+          "onScreenText": "Temples. Transit. Dinner. One rhythm, not a pile of tabs.",
+          "action": "Begin with a still temple path, cut to a calm planning surface, then close in a lantern lane that shows how a well-paced day lands."
+        },
+        {
+          "shot": 3,
+          "source": "kyoto-itinerary-03.png",
+          "durationSeconds": 7.2,
+          "onScreenText": "Plan the quiet parts too. Sequence Kyoto with Roamly.",
+          "action": "Begin with a still temple path, cut to a calm planning surface, then close in a lantern lane that shows how a well-paced day lands."
+        }
+      ],
+      "durationSeconds": 21,
+      "recommendedReelDuration": "21 seconds",
+      "onScreenText": [
+        "Less rushing. More Kyoto. Let the day breathe before it begins.",
+        "Temples. Transit. Dinner. One rhythm, not a pile of tabs.",
+        "Plan the quiet parts too. Sequence Kyoto with Roamly."
+      ],
+      "voiceover": "In Kyoto, the best itinerary leaves space. Roamly balances the temples, the trains, the tea, and the quiet hours in between.",
+      "musicDirection": "Minimal koto texture, warm bass, and slow modern percussion",
+      "hashtags": "#Roamly #KyotoTravel #JapanTrip #SmartItinerary #SlowLuxury",
+      "captionHashtags": [
+        "#Roamly",
+        "#KyotoTravel",
+        "#JapanTrip",
+        "#SmartItinerary",
+        "#SlowLuxury"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-02-kyoto-smart-itinerary.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-02-kyoto-smart-itinerary.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-02-kyoto-smart-itinerary.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/kyoto-itinerary-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/kyoto-itinerary-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/kyoto-itinerary-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-02-kyoto-smart-itinerary.mp4",
+      "scheduledFor": "2026-08-05T13:30:00.000Z",
+      "scheduledLocal": "2026-08-05 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-02-kyoto-smart-itinerary.mp4",
+      "databaseIds": {
+        "mediaAssetId": "54680bb4-eccc-5bd8-80d9-53fae3ef8a64",
+        "draftId": "a6a90a10-1806-5c7c-9cda-49194ac5c37c",
+        "queueId": "092f690a-8f6c-530b-8b09-775e6efc8d2c",
+        "scheduledPostId": "030fccb2-702e-5148-9c1a-5ec3772d34d8",
+        "publishingJobId": "588b8ce9-da6e-50a2-89ff-7c767d3b0167",
+        "facebookProcessingId": "7ab6fcf3-b76b-5073-af84-16af6ea6bd17",
+        "qualityCheckId": "836bfd5a-60c1-53c3-b1e7-3f3c97247533"
+      }
+    },
+    {
+      "dayNumber": 3,
+      "theme": "Budget Travel",
+      "destination": "Lisbon, Portugal",
+      "hook": "Spend less. Feel richer.",
+      "caption": "Lisbon does not need an inflated budget to feel elevated. Roamly helps line up neighborhoods, viewpoints, transit, and meals that deliver more value per hour.",
+      "cta": "Find Lisbon value in Roamly",
+      "visualConcept": "Tram-side arrival, elevated cafe planning, and golden miradouro payoff built around value without cheap cues.",
+      "reelScript": "Use a cinematic tram moment, show budget-aware choices as a quiet cafe detail, then reveal the sunset viewpoint as the premium result.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "lisbon-budget-01.png",
+          "durationSeconds": 6.2,
+          "onScreenText": "Premium is not always pricey. Lisbon proves the point.",
+          "action": "Use a cinematic tram moment, show budget-aware choices as a quiet cafe detail, then reveal the sunset viewpoint as the premium result."
+        },
+        {
+          "shot": 2,
+          "source": "lisbon-budget-02.png",
+          "durationSeconds": 6.2,
+          "onScreenText": "Choose value by the hour. Views, transit, meals, neighborhoods.",
+          "action": "Use a cinematic tram moment, show budget-aware choices as a quiet cafe detail, then reveal the sunset viewpoint as the premium result."
+        },
+        {
+          "shot": 3,
+          "source": "lisbon-budget-03.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Spend where it shows. Find Lisbon value in Roamly.",
+          "action": "Use a cinematic tram moment, show budget-aware choices as a quiet cafe detail, then reveal the sunset viewpoint as the premium result."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Premium is not always pricey. Lisbon proves the point.",
+        "Choose value by the hour. Views, transit, meals, neighborhoods.",
+        "Spend where it shows. Find Lisbon value in Roamly."
+      ],
+      "voiceover": "A smart Lisbon trip is not about cutting the joy. It is about choosing the hours, meals, and views that make the budget work harder.",
+      "musicDirection": "Warm guitar pulse with crisp percussion and a coastal afternoon feel",
+      "hashtags": "#Roamly #LisbonTravel #BudgetTravel #PortugalTrip #TravelValue",
+      "captionHashtags": [
+        "#Roamly",
+        "#LisbonTravel",
+        "#BudgetTravel",
+        "#PortugalTrip",
+        "#TravelValue"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-03-lisbon-budget-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-03-lisbon-budget-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-03-lisbon-budget-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/lisbon-budget-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/lisbon-budget-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/lisbon-budget-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-03-lisbon-budget-travel.mp4",
+      "scheduledFor": "2026-08-06T13:30:00.000Z",
+      "scheduledLocal": "2026-08-06 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-03-lisbon-budget-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "a152701f-b8d5-503f-bd0a-97739441c06b",
+        "draftId": "65592620-c44d-5a24-8530-d0294a8f5027",
+        "queueId": "f59666bf-d7ee-5600-ad00-0c3a61ef35cf",
+        "scheduledPostId": "bdf7534a-29cb-5187-8ea2-7e5c319329fe",
+        "publishingJobId": "a304a192-ddee-5410-b6e2-13750c200541",
+        "facebookProcessingId": "d3ed287d-ebb5-5291-b56d-e9ee468f3f3f",
+        "qualityCheckId": "d8918848-4773-5393-8531-53483d6976fd"
+      }
+    },
+    {
+      "dayNumber": 4,
+      "theme": "Luxury Travel",
+      "destination": "Paris, France",
+      "hook": "Luxury is not more. It is easier.",
+      "caption": "Paris feels premium when the hotel, transfers, dinner windows, and slow mornings work in sync. Roamly turns the trip into something calm, polished, and ready.",
+      "cta": "Upgrade your Paris plan in Roamly",
+      "visualConcept": "Approved showcase style: suite detail, polished transfer planning, and rooftop Eiffel-view finish.",
+      "reelScript": "Open with the Paris luxury reveal, shift into the suite-level planning moment, and close with a rooftop evening that sells ease, not excess.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "paris-luxury-01.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Luxury is not more. It is easier.",
+          "action": "Open with the Paris luxury reveal, shift into the suite-level planning moment, and close with a rooftop evening that sells ease, not excess."
+        },
+        {
+          "shot": 2,
+          "source": "paris-luxury-02.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Hotels. Transfers. Dinner windows. One plan that actually flows.",
+          "action": "Open with the Paris luxury reveal, shift into the suite-level planning moment, and close with a rooftop evening that sells ease, not excess."
+        },
+        {
+          "shot": 3,
+          "source": "paris-luxury-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Upgrade the plan. Roamly makes travel feel effortless.",
+          "action": "Open with the Paris luxury reveal, shift into the suite-level planning moment, and close with a rooftop evening that sells ease, not excess."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Luxury is not more. It is easier.",
+        "Hotels. Transfers. Dinner windows. One plan that actually flows.",
+        "Upgrade the plan. Roamly makes travel feel effortless."
+      ],
+      "voiceover": "Real luxury is fewer loose ends. Roamly brings the hotel, transfers, meals, and pace into one polished Paris plan.",
+      "musicDirection": "Warm cinematic lounge bed with soft piano and brushed percussion",
+      "hashtags": "#Roamly #ParisTravel #LuxuryTravel #PremiumTravel #TravelPlanning",
+      "captionHashtags": [
+        "#Roamly",
+        "#ParisTravel",
+        "#LuxuryTravel",
+        "#PremiumTravel",
+        "#TravelPlanning"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-04-paris-luxury-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-04-paris-luxury-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-04-paris-luxury-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/paris-luxury-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/paris-luxury-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/paris-luxury-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-04-paris-luxury-travel.mp4",
+      "scheduledFor": "2026-08-07T13:30:00.000Z",
+      "scheduledLocal": "2026-08-07 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-04-paris-luxury-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "cb92f9e2-9857-5fad-8c4f-e4bfed87b998",
+        "draftId": "ff6395ed-a5b5-5724-b574-4e085ee5eb04",
+        "queueId": "18e93916-3829-5485-ba7c-2d94e7719fe2",
+        "scheduledPostId": "57a9b3b3-64fb-57d2-a1af-7db5b9b62a2f",
+        "publishingJobId": "d0f9414c-fc50-578d-9a9e-5d51beb00e5a",
+        "facebookProcessingId": "2e0721a6-aaae-5ddc-8e80-28977075e07d",
+        "qualityCheckId": "2e67c674-6fac-5ae9-a2cd-b93c4a2798dd"
+      }
+    },
+    {
+      "dayNumber": 5,
+      "theme": "Solo Travel",
+      "destination": "Seoul, South Korea",
+      "hook": "Solo should never feel underplanned.",
+      "caption": "From first coffee to late-night neighborhoods, Seoul is better when the plan keeps you oriented and open. Roamly helps solo travel feel sharp, flexible, and secure.",
+      "cta": "Build your solo Seoul route",
+      "visualConcept": "Stylish solo cafe start, market orientation, and night street confidence without lonely or generic framing.",
+      "reelScript": "Show a confident solo morning, move into a route choice in a high-energy district, and close with a composed evening scene.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "seoul-solo-01.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Solo, not scattered. A city feels better when the next move is clear.",
+          "action": "Show a confident solo morning, move into a route choice in a high-energy district, and close with a composed evening scene."
+        },
+        {
+          "shot": 2,
+          "source": "seoul-solo-02.png",
+          "durationSeconds": 6.7,
+          "onScreenText": "Keep the plan flexible. Markets, cafes, neighborhoods, pace.",
+          "action": "Show a confident solo morning, move into a route choice in a high-energy district, and close with a composed evening scene."
+        },
+        {
+          "shot": 3,
+          "source": "seoul-solo-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Travel on your terms. Build Seoul solo in Roamly.",
+          "action": "Show a confident solo morning, move into a route choice in a high-energy district, and close with a composed evening scene."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Solo, not scattered. A city feels better when the next move is clear.",
+        "Keep the plan flexible. Markets, cafes, neighborhoods, pace.",
+        "Travel on your terms. Build Seoul solo in Roamly."
+      ],
+      "voiceover": "Solo travel is not winging it alone. It is knowing where you are headed, when to pivot, and where the day gets interesting.",
+      "musicDirection": "Clean Seoul city-pop groove with soft synths and a refined night pulse",
+      "hashtags": "#Roamly #SeoulTravel #SoloTravel #KoreaTrip #TravelConfidence",
+      "captionHashtags": [
+        "#Roamly",
+        "#SeoulTravel",
+        "#SoloTravel",
+        "#KoreaTrip",
+        "#TravelConfidence"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-05-seoul-solo-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-05-seoul-solo-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-05-seoul-solo-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/seoul-solo-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/seoul-solo-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/seoul-solo-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-05-seoul-solo-travel.mp4",
+      "scheduledFor": "2026-08-08T13:30:00.000Z",
+      "scheduledLocal": "2026-08-08 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-05-seoul-solo-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "d8fb1169-729c-51d0-8b8e-1d89c0f8ebd5",
+        "draftId": "f1baee1b-5b41-5d0a-b50b-e49d8e17a665",
+        "queueId": "02877195-84a1-527f-9455-81fee9c478af",
+        "scheduledPostId": "59428ae0-96fb-58d7-90b8-34a750db3a67",
+        "publishingJobId": "9269700f-c38c-5204-9b37-514c444e62a3",
+        "facebookProcessingId": "63540df9-50be-56ba-ba07-2778c0a22883",
+        "qualityCheckId": "30b6e70a-ebea-5e61-ac4a-9ea150a6a351"
+      }
+    },
+    {
+      "dayNumber": 6,
+      "theme": "Couple Travel",
+      "destination": "Amalfi Coast, Italy",
+      "hook": "Two travelers. One graceful pace.",
+      "caption": "A romantic coast trip needs more than pretty stops. Roamly balances boat timing, cliffside lunches, slow swims, and quiet evenings so the plan feels shared.",
+      "cta": "Shape an Amalfi trip for two",
+      "visualConcept": "Boat approach, shared lunch planning, and twilight terrace to keep the couple theme specific and cinematic.",
+      "reelScript": "Start on the coast from the water, bring the couple into an intimate planning detail, and end with an evening terrace that feels earned.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "amalfi-couple-01.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Plan for both of you. Not just the postcard stops.",
+          "action": "Start on the coast from the water, bring the couple into an intimate planning detail, and end with an evening terrace that feels earned."
+        },
+        {
+          "shot": 2,
+          "source": "amalfi-couple-02.png",
+          "durationSeconds": 7,
+          "onScreenText": "Boats, lunches, slow swims. The magic is in the spacing.",
+          "action": "Start on the coast from the water, bring the couple into an intimate planning detail, and end with an evening terrace that feels earned."
+        },
+        {
+          "shot": 3,
+          "source": "amalfi-couple-03.png",
+          "durationSeconds": 7.2,
+          "onScreenText": "Make the coast feel easy. Shape Amalfi for two.",
+          "action": "Start on the coast from the water, bring the couple into an intimate planning detail, and end with an evening terrace that feels earned."
+        }
+      ],
+      "durationSeconds": 21,
+      "recommendedReelDuration": "21 seconds",
+      "onScreenText": [
+        "Plan for both of you. Not just the postcard stops.",
+        "Boats, lunches, slow swims. The magic is in the spacing.",
+        "Make the coast feel easy. Shape Amalfi for two."
+      ],
+      "voiceover": "The best couple trips leave room for both people. Roamly builds the timing, the breaks, and the views into one shared rhythm.",
+      "musicDirection": "Elegant Italian coastal strings with soft downtempo percussion",
+      "hashtags": "#Roamly #AmalfiCoast #CoupleTravel #ItalyTrip #RomanticTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#AmalfiCoast",
+        "#CoupleTravel",
+        "#ItalyTrip",
+        "#RomanticTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-06-amalfi-couple-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-06-amalfi-couple-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-06-amalfi-couple-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/amalfi-couple-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/amalfi-couple-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/amalfi-couple-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-06-amalfi-couple-travel.mp4",
+      "scheduledFor": "2026-08-09T13:30:00.000Z",
+      "scheduledLocal": "2026-08-09 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-06-amalfi-couple-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "cb5de857-17ec-5a21-9ffb-21ad53f2ac67",
+        "draftId": "4ffe41fd-1203-5be5-9656-6de8627614cf",
+        "queueId": "7091cda9-4a03-5003-852f-c1f17e9c87f1",
+        "scheduledPostId": "cfcf9115-0dc2-5abe-af4b-60abe83b1934",
+        "publishingJobId": "a17ea9ed-2281-591b-9f14-9279446d888e",
+        "facebookProcessingId": "efb5b6db-765b-5766-b06f-f1ff44f4a83b",
+        "qualityCheckId": "12dc0c59-1eff-542c-b49e-b9068f185f83"
+      }
+    },
+    {
+      "dayNumber": 7,
+      "theme": "Family Travel",
+      "destination": "Costa Rica",
+      "hook": "Family travel needs softer edges.",
+      "caption": "Wildlife, beach time, drive windows, and downtime can coexist. Roamly helps Costa Rica feel adventurous for the kids and manageable for everyone.",
+      "cta": "Plan Costa Rica as a family",
+      "visualConcept": "Rainforest wildlife, lodge downtime, and beach sunset built around family energy management.",
+      "reelScript": "Open with rainforest wonder, move into a lodge break that proves pacing matters, and close on the beach with everyone still relaxed.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "costa-rica-family-01.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Adventure needs downtime. Especially when everyone is coming.",
+          "action": "Open with rainforest wonder, move into a lodge break that proves pacing matters, and close on the beach with everyone still relaxed."
+        },
+        {
+          "shot": 2,
+          "source": "costa-rica-family-02.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Wildlife, drives, beach hours. Built around real family energy.",
+          "action": "Open with rainforest wonder, move into a lodge break that proves pacing matters, and close on the beach with everyone still relaxed."
+        },
+        {
+          "shot": 3,
+          "source": "costa-rica-family-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Keep the trip joyful. Plan Costa Rica as a family.",
+          "action": "Open with rainforest wonder, move into a lodge break that proves pacing matters, and close on the beach with everyone still relaxed."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Adventure needs downtime. Especially when everyone is coming.",
+        "Wildlife, drives, beach hours. Built around real family energy.",
+        "Keep the trip joyful. Plan Costa Rica as a family."
+      ],
+      "voiceover": "A great family trip is not packed tighter. It is paced better. Roamly balances the adventure with the breathing room.",
+      "musicDirection": "Bright organic percussion, soft marimba, and warm family-adventure lift",
+      "hashtags": "#Roamly #CostaRicaTravel #FamilyTravel #AdventureFamily #TripPlanning",
+      "captionHashtags": [
+        "#Roamly",
+        "#CostaRicaTravel",
+        "#FamilyTravel",
+        "#AdventureFamily",
+        "#TripPlanning"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-07-costa-rica-family-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-07-costa-rica-family-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-07-costa-rica-family-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/costa-rica-family-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/costa-rica-family-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/costa-rica-family-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-07-costa-rica-family-travel.mp4",
+      "scheduledFor": "2026-08-10T13:30:00.000Z",
+      "scheduledLocal": "2026-08-10 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-07-costa-rica-family-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "89cd002d-9084-5550-8a20-ddea7be658ec",
+        "draftId": "8a542fcc-4b78-5605-adc8-9d6a8849dbc8",
+        "queueId": "985735ab-7d12-5fff-b086-f160e4f879ba",
+        "scheduledPostId": "f46a4c8d-a824-5f28-8b7f-2884b1ea3d15",
+        "publishingJobId": "bc093add-5a45-5f33-a75b-630b77187cbe",
+        "facebookProcessingId": "f1d77b0f-2f30-58ed-ad6c-917681c07972",
+        "qualityCheckId": "a6d6c8e7-ee33-56f4-912c-d65ac044d524"
+      }
+    },
+    {
+      "dayNumber": 8,
+      "theme": "Food Travel",
+      "destination": "Oaxaca, Mexico",
+      "hook": "Let the meal lead the map.",
+      "caption": "Oaxaca is a trip you taste. Roamly connects markets, mezcal, mole, and neighborhood walks into a food-first route that still leaves space to wander.",
+      "cta": "Taste-plan Oaxaca in Roamly",
+      "visualConcept": "Market color, chef-table detail, and dusk street dining designed as a culinary route.",
+      "reelScript": "Open in a vivid market, shift into a crafted plate or mezcal detail, and close with a warm street-dining evening.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "oaxaca-food-01.png",
+          "durationSeconds": 6.1,
+          "onScreenText": "Start with what you want to taste. Then build the day around it.",
+          "action": "Open in a vivid market, shift into a crafted plate or mezcal detail, and close with a warm street-dining evening."
+        },
+        {
+          "shot": 2,
+          "source": "oaxaca-food-02.png",
+          "durationSeconds": 6.4,
+          "onScreenText": "Markets. Mezcal. Mole. A route with appetite.",
+          "action": "Open in a vivid market, shift into a crafted plate or mezcal detail, and close with a warm street-dining evening."
+        },
+        {
+          "shot": 3,
+          "source": "oaxaca-food-03.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Follow the flavor. Taste-plan Oaxaca in Roamly.",
+          "action": "Open in a vivid market, shift into a crafted plate or mezcal detail, and close with a warm street-dining evening."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Start with what you want to taste. Then build the day around it.",
+        "Markets. Mezcal. Mole. A route with appetite.",
+        "Follow the flavor. Taste-plan Oaxaca in Roamly."
+      ],
+      "voiceover": "In Oaxaca, the best plan starts with what you want to taste. Roamly builds the route around the markets, the tables, and the walk between them.",
+      "musicDirection": "Refined Latin percussion, soft guitar, and warm evening texture",
+      "hashtags": "#Roamly #OaxacaTravel #FoodTravel #MexicoTrip #CulinaryTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#OaxacaTravel",
+        "#FoodTravel",
+        "#MexicoTrip",
+        "#CulinaryTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-08-oaxaca-food-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-08-oaxaca-food-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-08-oaxaca-food-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/oaxaca-food-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/oaxaca-food-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/oaxaca-food-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-08-oaxaca-food-travel.mp4",
+      "scheduledFor": "2026-08-11T13:30:00.000Z",
+      "scheduledLocal": "2026-08-11 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-08-oaxaca-food-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "b1fd143f-48f8-5a12-985a-e5eaf606e1d8",
+        "draftId": "832bd3b6-8934-5ce0-a315-9b609b3bf517",
+        "queueId": "1cc456da-e43c-584d-8de6-c653a0ec74a8",
+        "scheduledPostId": "d4786fe1-c308-5fd7-8167-35f3a165d23b",
+        "publishingJobId": "295710f3-4a4d-5de0-99b6-075f1c6453f0",
+        "facebookProcessingId": "c9aae2f6-b30f-56c1-a036-15ee9c4a8f54",
+        "qualityCheckId": "04b25d48-5894-503a-9a0e-0012931a3707"
+      }
+    },
+    {
+      "dayNumber": 9,
+      "theme": "Nightlife",
+      "destination": "Berlin, Germany",
+      "hook": "The night needs a smarter plan.",
+      "caption": "Berlin after dark is better with timing, transit, neighborhood flow, and a backup move. Roamly keeps the night polished without making it predictable.",
+      "cta": "Map your Berlin night",
+      "visualConcept": "Design-forward dinner start, transit between districts, and late-night terrace energy without club cliches.",
+      "reelScript": "Begin with a refined pre-night meal, move through transit and neighborhood choice, then finish in a tasteful late-night scene.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "berlin-nightlife-01.png",
+          "durationSeconds": 6.4,
+          "onScreenText": "Do not leave the night to chance. Berlin deserves better timing.",
+          "action": "Begin with a refined pre-night meal, move through transit and neighborhood choice, then finish in a tasteful late-night scene."
+        },
+        {
+          "shot": 2,
+          "source": "berlin-nightlife-02.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Dinner, district, ride, backup. The plan stays loose but useful.",
+          "action": "Begin with a refined pre-night meal, move through transit and neighborhood choice, then finish in a tasteful late-night scene."
+        },
+        {
+          "shot": 3,
+          "source": "berlin-nightlife-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Make the night flow. Map Berlin after dark.",
+          "action": "Begin with a refined pre-night meal, move through transit and neighborhood choice, then finish in a tasteful late-night scene."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Do not leave the night to chance. Berlin deserves better timing.",
+        "Dinner, district, ride, backup. The plan stays loose but useful.",
+        "Make the night flow. Map Berlin after dark."
+      ],
+      "voiceover": "A good night out is not random. Roamly helps you pace the dinner, the district, the ride, and the plan B.",
+      "musicDirection": "Deep Berlin electronic pulse with clean bass and restrained atmosphere",
+      "hashtags": "#Roamly #BerlinTravel #NightlifeTravel #GermanyTrip #CityNights",
+      "captionHashtags": [
+        "#Roamly",
+        "#BerlinTravel",
+        "#NightlifeTravel",
+        "#GermanyTrip",
+        "#CityNights"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-09-berlin-nightlife.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-09-berlin-nightlife.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-09-berlin-nightlife.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/berlin-nightlife-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/berlin-nightlife-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/berlin-nightlife-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-09-berlin-nightlife.mp4",
+      "scheduledFor": "2026-08-12T13:30:00.000Z",
+      "scheduledLocal": "2026-08-12 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-09-berlin-nightlife.mp4",
+      "databaseIds": {
+        "mediaAssetId": "c37cc1e5-36a5-52c3-a7f8-f098330f73f9",
+        "draftId": "35475ef1-0ce0-58c4-a9d8-640a024455cd",
+        "queueId": "495357cb-283f-507f-b259-c2ef2d53f4e0",
+        "scheduledPostId": "246f7169-716f-5a47-adad-e77a6d3545e8",
+        "publishingJobId": "8dd42b89-e376-5b78-aec0-0f22b3b69dfc",
+        "facebookProcessingId": "870cef69-a6b9-5566-a1db-4800d65cafe0",
+        "qualityCheckId": "e959bdee-b4b0-55c5-b297-b2773d0c2285"
+      }
+    },
+    {
+      "dayNumber": 10,
+      "theme": "Hidden Gems",
+      "destination": "Ljubljana, Slovenia",
+      "hook": "Small cities can feel enormous.",
+      "caption": "Ljubljana rewards travelers who look beyond the obvious square. Roamly surfaces riverside corners, quiet viewpoints, and places that feel personally found.",
+      "cta": "Uncover Ljubljana with Roamly",
+      "visualConcept": "Riverside calm, quiet cafe or gallery detail, and castle-view overlook for an understated hidden-gem arc.",
+      "reelScript": "Open along the river, reveal a tucked-away local detail, then lift into a soft overlook that makes the find feel valuable.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "ljubljana-hidden-01.png",
+          "durationSeconds": 6.2,
+          "onScreenText": "Look past the obvious. The city opens up quickly.",
+          "action": "Open along the river, reveal a tucked-away local detail, then lift into a soft overlook that makes the find feel valuable."
+        },
+        {
+          "shot": 2,
+          "source": "ljubljana-hidden-02.png",
+          "durationSeconds": 6.3,
+          "onScreenText": "Corners that feel found. Riverside, galleries, quiet views.",
+          "action": "Open along the river, reveal a tucked-away local detail, then lift into a soft overlook that makes the find feel valuable."
+        },
+        {
+          "shot": 3,
+          "source": "ljubljana-hidden-03.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Travel smaller. Notice more. Uncover Ljubljana.",
+          "action": "Open along the river, reveal a tucked-away local detail, then lift into a soft overlook that makes the find feel valuable."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Look past the obvious. The city opens up quickly.",
+        "Corners that feel found. Riverside, galleries, quiet views.",
+        "Travel smaller. Notice more. Uncover Ljubljana."
+      ],
+      "voiceover": "Hidden gems are not about secrecy. They are about fit. Roamly finds the places that match how you actually want to spend the day.",
+      "musicDirection": "Soft indie cinematic texture with light piano and relaxed city ambience",
+      "hashtags": "#Roamly #Ljubljana #HiddenGems #SloveniaTravel #UnderratedCities",
+      "captionHashtags": [
+        "#Roamly",
+        "#Ljubljana",
+        "#HiddenGems",
+        "#SloveniaTravel",
+        "#UnderratedCities"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-10-ljubljana-hidden-gems.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-10-ljubljana-hidden-gems.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-10-ljubljana-hidden-gems.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/ljubljana-hidden-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/ljubljana-hidden-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/ljubljana-hidden-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-10-ljubljana-hidden-gems.mp4",
+      "scheduledFor": "2026-08-13T13:30:00.000Z",
+      "scheduledLocal": "2026-08-13 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-10-ljubljana-hidden-gems.mp4",
+      "databaseIds": {
+        "mediaAssetId": "6943dd5b-519f-5990-a8d4-2cc6a50740d9",
+        "draftId": "6d990c73-e489-5f95-9c75-0eb4d0be330d",
+        "queueId": "86aadfd1-d30e-5040-bd96-67ffdb45b79b",
+        "scheduledPostId": "6ab65ef6-20ed-5693-a35e-2f0ce2b181fd",
+        "publishingJobId": "8dd3dd24-2e70-5c70-8dd9-ceab0eaf94cb",
+        "facebookProcessingId": "795e1f84-ff53-5fad-962b-691a0983ff79",
+        "qualityCheckId": "bfbf7b7d-c7ed-5011-bbc2-40c38c68d6af"
+      }
+    },
+    {
+      "dayNumber": 11,
+      "theme": "Beaches",
+      "destination": "Turks and Caicos",
+      "hook": "A beach day can still be designed.",
+      "caption": "Clear water is the start. Roamly adds the right beach window, boat moment, shade break, and unhurried dinner so the day feels resort-level from end to end.",
+      "cta": "Design your beach day in Roamly",
+      "visualConcept": "Grace Bay blue hour walk, cabana planning detail, and sandbar boat arrival in luminous water.",
+      "reelScript": "Open with the shoreline mood, cut to a cabana planning beat, then expand into a private sandbar-style water reveal.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "turks-caicos-beach-01.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Clear water is only the start. Design the whole day around it.",
+          "action": "Open with the shoreline mood, cut to a cabana planning beat, then expand into a private sandbar-style water reveal."
+        },
+        {
+          "shot": 2,
+          "source": "turks-caicos-beach-02.png",
+          "durationSeconds": 6.7,
+          "onScreenText": "Shade, boat, dinner, pace. Small choices make it feel premium.",
+          "action": "Open with the shoreline mood, cut to a cabana planning beat, then expand into a private sandbar-style water reveal."
+        },
+        {
+          "shot": 3,
+          "source": "turks-caicos-beach-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Let the day stay light. Design your beach day.",
+          "action": "Open with the shoreline mood, cut to a cabana planning beat, then expand into a private sandbar-style water reveal."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Clear water is only the start. Design the whole day around it.",
+        "Shade, boat, dinner, pace. Small choices make it feel premium.",
+        "Let the day stay light. Design your beach day."
+      ],
+      "voiceover": "A perfect beach day is not empty time. It is the right light, the right water, the right break, and no scramble at dinner.",
+      "musicDirection": "Elegant tropical downtempo with glassy pads and light percussion",
+      "hashtags": "#Roamly #TurksAndCaicos #BeachTrip #IslandTravel #LuxuryBeach",
+      "captionHashtags": [
+        "#Roamly",
+        "#TurksAndCaicos",
+        "#BeachTrip",
+        "#IslandTravel",
+        "#LuxuryBeach"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-11-turks-caicos-beaches.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-11-turks-caicos-beaches.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-11-turks-caicos-beaches.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/turks-caicos-beach-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/turks-caicos-beach-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/turks-caicos-beach-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-11-turks-caicos-beaches.mp4",
+      "scheduledFor": "2026-08-14T13:30:00.000Z",
+      "scheduledLocal": "2026-08-14 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-11-turks-caicos-beaches.mp4",
+      "databaseIds": {
+        "mediaAssetId": "914671a7-6fad-553a-8e99-d9990a179d57",
+        "draftId": "7e315935-671a-5acb-8505-9ad875b3789e",
+        "queueId": "11ccfb56-a8da-5fd0-91e1-8852630537b4",
+        "scheduledPostId": "7b15d345-3209-54a2-944a-9c18164fc457",
+        "publishingJobId": "dfa87b09-9a72-5ea6-b316-05fb49d5bd48",
+        "facebookProcessingId": "cbebf782-3e16-53bf-8982-b9f9a5f47e64",
+        "qualityCheckId": "be908eab-b81e-545d-be61-b3169dae1f68"
+      }
+    },
+    {
+      "dayNumber": 12,
+      "theme": "Road Trips",
+      "destination": "Pacific Coast Highway, California",
+      "hook": "The road is better with room.",
+      "caption": "Big Sur, viewpoints, meals, and coastal inns need space between them. Roamly makes a road trip feel cinematic without turning the day into a race.",
+      "cta": "Route the coast with Roamly",
+      "visualConcept": "Convertible cliff drive, overlook picnic planning, and boutique inn arrival after coastal rain.",
+      "reelScript": "Open on the moving coast road, pause at an overlook for route intent, then end with a cinematic inn arrival.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "pch-roadtrip-01.png",
+          "durationSeconds": 6.9,
+          "onScreenText": "Do not overstuff the drive. The coast needs room.",
+          "action": "Open on the moving coast road, pause at an overlook for route intent, then end with a cinematic inn arrival."
+        },
+        {
+          "shot": 2,
+          "source": "pch-roadtrip-02.png",
+          "durationSeconds": 7,
+          "onScreenText": "Viewpoints, meals, arrival. Timed like a film, not a checklist.",
+          "action": "Open on the moving coast road, pause at an overlook for route intent, then end with a cinematic inn arrival."
+        },
+        {
+          "shot": 3,
+          "source": "pch-roadtrip-03.png",
+          "durationSeconds": 7.1,
+          "onScreenText": "Let the route breathe. Route the coast with Roamly.",
+          "action": "Open on the moving coast road, pause at an overlook for route intent, then end with a cinematic inn arrival."
+        }
+      ],
+      "durationSeconds": 21,
+      "recommendedReelDuration": "21 seconds",
+      "onScreenText": [
+        "Do not overstuff the drive. The coast needs room.",
+        "Viewpoints, meals, arrival. Timed like a film, not a checklist.",
+        "Let the route breathe. Route the coast with Roamly."
+      ],
+      "voiceover": "A road trip is not the number of stops. It is the space between them. Roamly gives the drive room to become the memory.",
+      "musicDirection": "Wide coastal guitar, soft analog drums, and cinematic sunset lift",
+      "hashtags": "#Roamly #PacificCoastHighway #RoadTrip #CaliforniaTravel #BigSur",
+      "captionHashtags": [
+        "#Roamly",
+        "#PacificCoastHighway",
+        "#RoadTrip",
+        "#CaliforniaTravel",
+        "#BigSur"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-12-pacific-coast-highway-road-trip.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-12-pacific-coast-highway-road-trip.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-12-pacific-coast-highway-road-trip.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/pch-roadtrip-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/pch-roadtrip-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/pch-roadtrip-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-12-pacific-coast-highway-road-trip.mp4",
+      "scheduledFor": "2026-08-15T13:30:00.000Z",
+      "scheduledLocal": "2026-08-15 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-12-pacific-coast-highway-road-trip.mp4",
+      "databaseIds": {
+        "mediaAssetId": "59f0a705-1f84-58b9-8512-0db86f494b3a",
+        "draftId": "e045c7e4-465b-5500-9ddd-2339eaa6536d",
+        "queueId": "dd25466a-0478-5003-bf82-bf6563b3dc2f",
+        "scheduledPostId": "7e53ef31-d8d3-5dc0-b0b1-f08d9dbbe977",
+        "publishingJobId": "f677d4bb-d90a-5368-8364-7e725adbeb5d",
+        "facebookProcessingId": "b8784f09-67c2-5291-8c99-5e227ac6705b",
+        "qualityCheckId": "61c397e7-8ef8-50bc-b2bd-1af748180cef"
+      }
+    },
+    {
+      "dayNumber": 13,
+      "theme": "Weekend Escapes",
+      "destination": "Quebec City, Canada",
+      "hook": "A weekend can feel far away.",
+      "caption": "Snowy lanes, cafe starts, and golden overlooks can fit inside two days when the plan is tight where it should be and soft where it matters.",
+      "cta": "Build a Quebec weekend in Roamly",
+      "visualConcept": "Snowy boutique arrival, frosted cafe itinerary detail, and Chateau Frontenac sunset overlook.",
+      "reelScript": "Open with a cozy arrival, move into a cafe planning pause, and close with an elevated winter city reveal.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "quebec-weekend-01.png",
+          "durationSeconds": 6.1,
+          "onScreenText": "Two days can reset everything. When the plan is shaped well.",
+          "action": "Open with a cozy arrival, move into a cafe planning pause, and close with an elevated winter city reveal."
+        },
+        {
+          "shot": 2,
+          "source": "quebec-weekend-02.png",
+          "durationSeconds": 6.3,
+          "onScreenText": "Cafe starts. Snowy lanes. A weekend with no wasted hours.",
+          "action": "Open with a cozy arrival, move into a cafe planning pause, and close with an elevated winter city reveal."
+        },
+        {
+          "shot": 3,
+          "source": "quebec-weekend-03.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Go closer. Feel farther. Build Quebec in Roamly.",
+          "action": "Open with a cozy arrival, move into a cafe planning pause, and close with an elevated winter city reveal."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Two days can reset everything. When the plan is shaped well.",
+        "Cafe starts. Snowy lanes. A weekend with no wasted hours.",
+        "Go closer. Feel farther. Build Quebec in Roamly."
+      ],
+      "voiceover": "A great weekend escape is not about distance. It is about arriving with the right shape already in place.",
+      "musicDirection": "Warm winter piano, soft brushed drums, and cinematic city sparkle",
+      "hashtags": "#Roamly #QuebecCity #WeekendEscape #CanadaTravel #WinterTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#QuebecCity",
+        "#WeekendEscape",
+        "#CanadaTravel",
+        "#WinterTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-13-quebec-city-weekend-escape.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-13-quebec-city-weekend-escape.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-13-quebec-city-weekend-escape.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/quebec-weekend-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/quebec-weekend-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/quebec-weekend-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-13-quebec-city-weekend-escape.mp4",
+      "scheduledFor": "2026-08-16T13:30:00.000Z",
+      "scheduledLocal": "2026-08-16 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-13-quebec-city-weekend-escape.mp4",
+      "databaseIds": {
+        "mediaAssetId": "15cee288-444f-51be-a52a-79515abd8daf",
+        "draftId": "dcd44026-35f2-5166-961a-6cba814b741a",
+        "queueId": "c1203c7a-b029-5acc-b99b-bf122468a7db",
+        "scheduledPostId": "a5cb23fa-86aa-5f44-bbd2-b4bf7d691ef7",
+        "publishingJobId": "b008229c-56b1-52f0-878b-ee4345e08098",
+        "facebookProcessingId": "aab32cd9-db24-50b3-a4c7-4b3984b3e186",
+        "qualityCheckId": "f269d392-44ad-5697-8aed-4b090a05e7bc"
+      }
+    },
+    {
+      "dayNumber": 14,
+      "theme": "Adventure",
+      "destination": "Patagonia, Chile",
+      "hook": "Plan hard. Travel wild.",
+      "caption": "Patagonia is wild enough. Your transfers, layers, weather windows, and recovery time should not be. Roamly helps make the adventure practical before the trail begins.",
+      "cta": "Prepare Patagonia in Roamly",
+      "visualConcept": "Approved showcase style: mountain trail scale, lodge planning detail, and bridge crossing under dramatic light.",
+      "reelScript": "Open with the wild landscape, ground the plan at the lodge, then return outside for an earned trail moment.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "patagonia-adventure-01.png",
+          "durationSeconds": 7.2,
+          "onScreenText": "Plan hard. Travel wild.",
+          "action": "Open with the wild landscape, ground the plan at the lodge, then return outside for an earned trail moment."
+        },
+        {
+          "shot": 2,
+          "source": "patagonia-adventure-02.png",
+          "durationSeconds": 7.4,
+          "onScreenText": "Weather windows matter. So do transfers, layers, and recovery time.",
+          "action": "Open with the wild landscape, ground the plan at the lodge, then return outside for an earned trail moment."
+        },
+        {
+          "shot": 3,
+          "source": "patagonia-adventure-03.png",
+          "durationSeconds": 7.4,
+          "onScreenText": "Make the wild part easier. Prepare Patagonia with Roamly.",
+          "action": "Open with the wild landscape, ground the plan at the lodge, then return outside for an earned trail moment."
+        }
+      ],
+      "durationSeconds": 22,
+      "recommendedReelDuration": "22 seconds",
+      "onScreenText": [
+        "Plan hard. Travel wild.",
+        "Weather windows matter. So do transfers, layers, and recovery time.",
+        "Make the wild part easier. Prepare Patagonia with Roamly."
+      ],
+      "voiceover": "The trail can stay wild. The logistics should not. Roamly helps shape the weather, gear, transfers, and recovery into the adventure.",
+      "musicDirection": "Expansive cinematic outdoor pulse with deep drums and airy strings",
+      "hashtags": "#Roamly #Patagonia #AdventureTravel #HikingTrip #TravelPrep",
+      "captionHashtags": [
+        "#Roamly",
+        "#Patagonia",
+        "#AdventureTravel",
+        "#HikingTrip",
+        "#TravelPrep"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-14-patagonia-adventure-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-14-patagonia-adventure-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-14-patagonia-adventure-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/patagonia-adventure-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/patagonia-adventure-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/patagonia-adventure-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-14-patagonia-adventure-travel.mp4",
+      "scheduledFor": "2026-08-17T13:30:00.000Z",
+      "scheduledLocal": "2026-08-17 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-14-patagonia-adventure-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "222dd224-f427-5824-85c2-db1072f9d3df",
+        "draftId": "e41bb81d-5d91-57b0-97da-0b3f3820f119",
+        "queueId": "a40eb57a-30bc-58f7-b4e4-d46963762a25",
+        "scheduledPostId": "387a6964-d0dc-530d-97e6-f91975648444",
+        "publishingJobId": "b704d378-b66e-500b-a7ec-b0ed2fa8ac0a",
+        "facebookProcessingId": "1faf8ba9-583d-548a-8eaa-d7aa05846759",
+        "qualityCheckId": "ceb5c245-f51d-5bca-b0af-8a23502f7cf5"
+      }
+    },
+    {
+      "dayNumber": 15,
+      "theme": "Slow Travel",
+      "destination": "Luang Prabang, Laos",
+      "hook": "Slow is a strategy.",
+      "caption": "Luang Prabang is best when sunrise, river time, temples, and quiet afternoons are protected. Roamly helps slow travel feel deliberate, not underplanned.",
+      "cta": "Slow-plan Luang Prabang",
+      "visualConcept": "Mekong sunrise walk, guesthouse balcony planning, and sunset long-tail boat reflection.",
+      "reelScript": "Start with a morning riverside walk, pause for a balcony planning scene, then let the river sunset carry the message.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "luang-prabang-slow-01.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Slow is a choice. Protect the hours that matter.",
+          "action": "Start with a morning riverside walk, pause for a balcony planning scene, then let the river sunset carry the message."
+        },
+        {
+          "shot": 2,
+          "source": "luang-prabang-slow-02.png",
+          "durationSeconds": 7,
+          "onScreenText": "Sunrise, temples, river time. A plan can be quiet and precise.",
+          "action": "Start with a morning riverside walk, pause for a balcony planning scene, then let the river sunset carry the message."
+        },
+        {
+          "shot": 3,
+          "source": "luang-prabang-slow-03.png",
+          "durationSeconds": 7.2,
+          "onScreenText": "Travel at the right speed. Slow-plan Luang Prabang.",
+          "action": "Start with a morning riverside walk, pause for a balcony planning scene, then let the river sunset carry the message."
+        }
+      ],
+      "durationSeconds": 21,
+      "recommendedReelDuration": "21 seconds",
+      "onScreenText": [
+        "Slow is a choice. Protect the hours that matter.",
+        "Sunrise, temples, river time. A plan can be quiet and precise.",
+        "Travel at the right speed. Slow-plan Luang Prabang."
+      ],
+      "voiceover": "Slow travel is not doing less by accident. It is protecting the moments that deserve more of you.",
+      "musicDirection": "Soft ambient pads, light hand percussion, and quiet river warmth",
+      "hashtags": "#Roamly #LuangPrabang #SlowTravel #LaosTravel #MindfulTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#LuangPrabang",
+        "#SlowTravel",
+        "#LaosTravel",
+        "#MindfulTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-15-luang-prabang-slow-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-15-luang-prabang-slow-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-15-luang-prabang-slow-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/luang-prabang-slow-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/luang-prabang-slow-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/luang-prabang-slow-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-15-luang-prabang-slow-travel.mp4",
+      "scheduledFor": "2026-08-18T13:30:00.000Z",
+      "scheduledLocal": "2026-08-18 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-15-luang-prabang-slow-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "c757b69c-206c-5515-aac9-9ddf4cfae0ae",
+        "draftId": "13ded9ee-a1a0-5066-a7c5-35e1505a612a",
+        "queueId": "55206e65-7812-5189-aab5-189cad9ff168",
+        "scheduledPostId": "9dd55de1-a3e3-5f2e-9256-8f6dbb9778ae",
+        "publishingJobId": "7618d4a8-8b57-5edd-8c44-8c9d9b253c8f",
+        "facebookProcessingId": "61dab025-aa19-5f2c-9d69-549263c1ad6b",
+        "qualityCheckId": "0bc79438-6940-5768-aa5d-f37c0250da08"
+      }
+    },
+    {
+      "dayNumber": 16,
+      "theme": "Flights",
+      "destination": "Barcelona, Spain",
+      "hook": "The trip starts before takeoff.",
+      "caption": "Better flight timing changes the first day. Roamly helps align arrival windows, transfers, check-in, and energy so Barcelona begins smoothly.",
+      "cta": "Time your Barcelona arrival",
+      "visualConcept": "Airport lounge flight timing, airport-train arrival, and rooftop Sagrada Familia sunset payoff.",
+      "reelScript": "Open with the flight decision, show the arrival transfer working, and close with the first-day rooftop payoff.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "barcelona-flights-01.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Arrival time is a travel choice. Not just a flight detail.",
+          "action": "Open with the flight decision, show the arrival transfer working, and close with the first-day rooftop payoff."
+        },
+        {
+          "shot": 2,
+          "source": "barcelona-flights-02.png",
+          "durationSeconds": 6.7,
+          "onScreenText": "Landing, transfer, check-in. Protect the first day.",
+          "action": "Open with the flight decision, show the arrival transfer working, and close with the first-day rooftop payoff."
+        },
+        {
+          "shot": 3,
+          "source": "barcelona-flights-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Start smoother. Time Barcelona in Roamly.",
+          "action": "Open with the flight decision, show the arrival transfer working, and close with the first-day rooftop payoff."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Arrival time is a travel choice. Not just a flight detail.",
+        "Landing, transfer, check-in. Protect the first day.",
+        "Start smoother. Time Barcelona in Roamly."
+      ],
+      "voiceover": "The cheapest flight is not always the smartest one. Roamly helps pick the arrival that protects your first real day.",
+      "musicDirection": "Modern airport lounge pulse with soft synth, clean percussion, and lift",
+      "hashtags": "#Roamly #BarcelonaTravel #FlightPlanning #SpainTrip #ArrivalDay",
+      "captionHashtags": [
+        "#Roamly",
+        "#BarcelonaTravel",
+        "#FlightPlanning",
+        "#SpainTrip",
+        "#ArrivalDay"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-16-barcelona-flight-planning.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-16-barcelona-flight-planning.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-16-barcelona-flight-planning.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/barcelona-flights-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/barcelona-flights-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/barcelona-flights-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-16-barcelona-flight-planning.mp4",
+      "scheduledFor": "2026-08-19T13:30:00.000Z",
+      "scheduledLocal": "2026-08-19 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-16-barcelona-flight-planning.mp4",
+      "databaseIds": {
+        "mediaAssetId": "063b8ded-2e40-510b-8bdb-26fc40868e00",
+        "draftId": "ec31ec1c-c825-57d0-ba78-898c84a3e984",
+        "queueId": "043f2394-9a05-59a3-bb30-35555f38ea08",
+        "scheduledPostId": "daaa9bd6-8873-5357-9dcc-ca61f97f9754",
+        "publishingJobId": "f69e2a34-773a-5aec-bb58-c31b32d6664a",
+        "facebookProcessingId": "bfa8f81c-96da-58e7-8fc6-96decd0a5eb1",
+        "qualityCheckId": "cfe578d5-2028-52c1-9407-f497fd913620"
+      }
+    },
+    {
+      "dayNumber": 17,
+      "theme": "Hotels",
+      "destination": "New York City, USA",
+      "hook": "The right hotel changes the map.",
+      "caption": "In New York, the hotel is not just a room. It decides your mornings, neighborhoods, rides, and late-night returns. Roamly helps match the stay to the trip.",
+      "cta": "Choose your New York base",
+      "visualConcept": "Boutique hotel arrival, skyline room comparison, and neighborhood morning exit.",
+      "reelScript": "Open at a polished hotel door, move into room and view evaluation, then prove the choice with an easy neighborhood morning.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "nyc-hotels-01.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "A hotel is a strategy. Especially in New York.",
+          "action": "Open at a polished hotel door, move into room and view evaluation, then prove the choice with an easy neighborhood morning."
+        },
+        {
+          "shot": 2,
+          "source": "nyc-hotels-02.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "View, neighborhood, return time. Choose for the whole trip.",
+          "action": "Open at a polished hotel door, move into room and view evaluation, then prove the choice with an easy neighborhood morning."
+        },
+        {
+          "shot": 3,
+          "source": "nyc-hotels-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Pick the right base. Choose New York in Roamly.",
+          "action": "Open at a polished hotel door, move into room and view evaluation, then prove the choice with an easy neighborhood morning."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "A hotel is a strategy. Especially in New York.",
+        "View, neighborhood, return time. Choose for the whole trip.",
+        "Pick the right base. Choose New York in Roamly."
+      ],
+      "voiceover": "A good hotel is not just beautiful. It sits in the right version of your trip. Roamly helps you choose the base before the city chooses for you.",
+      "musicDirection": "Sophisticated urban lounge with upright bass, light drums, and warm keys",
+      "hashtags": "#Roamly #NewYorkTravel #HotelSelection #CityBreak #TravelPlanning",
+      "captionHashtags": [
+        "#Roamly",
+        "#NewYorkTravel",
+        "#HotelSelection",
+        "#CityBreak",
+        "#TravelPlanning"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-17-nyc-hotel-selection.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-17-nyc-hotel-selection.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-17-nyc-hotel-selection.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/nyc-hotels-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/nyc-hotels-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/nyc-hotels-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-17-nyc-hotel-selection.mp4",
+      "scheduledFor": "2026-08-20T13:30:00.000Z",
+      "scheduledLocal": "2026-08-20 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-17-nyc-hotel-selection.mp4",
+      "databaseIds": {
+        "mediaAssetId": "24b17d3d-9327-50e2-9501-3db2898868ae",
+        "draftId": "1b76613c-2e34-5d8e-bbf4-d0145807f42b",
+        "queueId": "8542e01e-dcd9-537f-be6b-a44ef5fc5ca9",
+        "scheduledPostId": "ae739eda-5b7a-57bd-9487-0844095e1021",
+        "publishingJobId": "15a0c8f2-c6fd-51b8-b549-c0d4d368f188",
+        "facebookProcessingId": "3e8f0db8-e431-5065-80c8-fb513cf028e3",
+        "qualityCheckId": "a3608781-967c-523f-9f23-a41da4df8a6f"
+      }
+    },
+    {
+      "dayNumber": 18,
+      "theme": "Transportation",
+      "destination": "Amsterdam, Netherlands",
+      "hook": "Move through the city, not against it.",
+      "caption": "Amsterdam is smoother when you know when to walk, ride, tram, or float. Roamly keeps transportation choices simple, scenic, and matched to the day.",
+      "cta": "Navigate Amsterdam with Roamly",
+      "visualConcept": "Tram-bike-walk decision, canal boat option, and morning bike route across canal light.",
+      "reelScript": "Show the transportation decision, reveal a canal option, then finish with a quiet bike route that feels obvious in hindsight.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "amsterdam-transport-01.png",
+          "durationSeconds": 6.1,
+          "onScreenText": "Choose the move. Walk, ride, tram, or float.",
+          "action": "Show the transportation decision, reveal a canal option, then finish with a quiet bike route that feels obvious in hindsight."
+        },
+        {
+          "shot": 2,
+          "source": "amsterdam-transport-02.png",
+          "durationSeconds": 6.4,
+          "onScreenText": "Transport can be part of the trip. Not just the gap between stops.",
+          "action": "Show the transportation decision, reveal a canal option, then finish with a quiet bike route that feels obvious in hindsight."
+        },
+        {
+          "shot": 3,
+          "source": "amsterdam-transport-03.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Make the city simple. Navigate Amsterdam.",
+          "action": "Show the transportation decision, reveal a canal option, then finish with a quiet bike route that feels obvious in hindsight."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Choose the move. Walk, ride, tram, or float.",
+        "Transport can be part of the trip. Not just the gap between stops.",
+        "Make the city simple. Navigate Amsterdam."
+      ],
+      "voiceover": "The best way across Amsterdam changes by hour. Roamly helps choose the ride, walk, tram, or canal moment that fits.",
+      "musicDirection": "Light kinetic city groove with soft bells and understated movement",
+      "hashtags": "#Roamly #AmsterdamTravel #Transportation #NetherlandsTrip #CityTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#AmsterdamTravel",
+        "#Transportation",
+        "#NetherlandsTrip",
+        "#CityTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-18-amsterdam-transportation.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-18-amsterdam-transportation.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-18-amsterdam-transportation.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/amsterdam-transport-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/amsterdam-transport-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/amsterdam-transport-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-18-amsterdam-transportation.mp4",
+      "scheduledFor": "2026-08-21T13:30:00.000Z",
+      "scheduledLocal": "2026-08-21 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-18-amsterdam-transportation.mp4",
+      "databaseIds": {
+        "mediaAssetId": "b93c8569-ade4-5cc4-aa3a-7b4ed1554823",
+        "draftId": "a44c7bbd-487f-57c7-a896-7b892b6fe602",
+        "queueId": "4232ce55-167d-52fb-a919-4a96383eb54a",
+        "scheduledPostId": "ad320910-44c2-547f-9e5f-a2396d955fc4",
+        "publishingJobId": "00c7c93b-bd9f-51a0-a0a8-aa0dae10e384",
+        "facebookProcessingId": "5fab26e5-3ac9-5259-8f63-a9639d207546",
+        "qualityCheckId": "9b258c55-4f21-5445-a877-d0d2a4284033"
+      }
+    },
+    {
+      "dayNumber": 19,
+      "theme": "Packing",
+      "destination": "Iceland South Coast",
+      "hook": "Pack for the weather you want to enjoy.",
+      "caption": "The South Coast can change by the hour. Roamly turns waterfalls, black sand, wind, and lodge time into a packing plan that keeps the day open.",
+      "cta": "Pack Iceland smarter",
+      "visualConcept": "Lodge gear layout, waterfall mist field test, and black-sand shell adjustment.",
+      "reelScript": "Begin with premium gear laid out against the landscape, move into the misty waterfall proof point, and end at black sand in weather-ready confidence.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "iceland-packing-01.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "The forecast is part of the plan. Pack for the day you want.",
+          "action": "Begin with premium gear laid out against the landscape, move into the misty waterfall proof point, and end at black sand in weather-ready confidence."
+        },
+        {
+          "shot": 2,
+          "source": "iceland-packing-02.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Mist, wind, black sand. Layers decide the mood.",
+          "action": "Begin with premium gear laid out against the landscape, move into the misty waterfall proof point, and end at black sand in weather-ready confidence."
+        },
+        {
+          "shot": 3,
+          "source": "iceland-packing-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Stay ready for the coast. Pack Iceland smarter.",
+          "action": "Begin with premium gear laid out against the landscape, move into the misty waterfall proof point, and end at black sand in weather-ready confidence."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "The forecast is part of the plan. Pack for the day you want.",
+        "Mist, wind, black sand. Layers decide the mood.",
+        "Stay ready for the coast. Pack Iceland smarter."
+      ],
+      "voiceover": "Packing is part of the itinerary. In Iceland, the right layer can decide whether a weather shift becomes a problem or the best part of the day.",
+      "musicDirection": "Cinematic Nordic ambient bed with low drums and cold-air texture",
+      "hashtags": "#Roamly #IcelandTravel #PackingTips #SouthCoastIceland #AdventurePrep",
+      "captionHashtags": [
+        "#Roamly",
+        "#IcelandTravel",
+        "#PackingTips",
+        "#SouthCoastIceland",
+        "#AdventurePrep"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-19-iceland-packing.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-19-iceland-packing.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-19-iceland-packing.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/iceland-packing-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/iceland-packing-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/iceland-packing-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-19-iceland-packing.mp4",
+      "scheduledFor": "2026-08-22T13:30:00.000Z",
+      "scheduledLocal": "2026-08-22 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-19-iceland-packing.mp4",
+      "databaseIds": {
+        "mediaAssetId": "7c68421a-35fd-53db-9916-9d698555f5e1",
+        "draftId": "37c31e31-4313-5600-bcf5-e356954e49e2",
+        "queueId": "a10d1c1a-a20d-5532-8256-4e03ffe6c5dc",
+        "scheduledPostId": "d2136ddf-3c96-56c9-ba0a-3b870d72f0ee",
+        "publishingJobId": "89e63308-f539-5ac0-8f33-bdd8136f1f0a",
+        "facebookProcessingId": "bffa3bb3-e706-52d8-a729-18d649a64d35",
+        "qualityCheckId": "69181513-75b6-5a05-9567-a71abd94d9ba"
+      }
+    },
+    {
+      "dayNumber": 20,
+      "theme": "Live Travel Companion",
+      "destination": "London, UK",
+      "hook": "When the day changes, the plan should too.",
+      "caption": "Rain, queues, closures, and late discoveries are normal in a real city day. Roamly helps the plan adapt in the moment without losing the thread.",
+      "cta": "Let London adapt in Roamly",
+      "visualConcept": "Rainy awning check-in, logo-free courtyard reroute, and Thames evening after a successful pivot.",
+      "reelScript": "Open with rain changing the day, show a real-time reroute into a better nearby option, then close on the river once the day is back on track.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "london-live-companion-01.png",
+          "durationSeconds": 6.4,
+          "onScreenText": "The day changed. The plan can change with it.",
+          "action": "Open with rain changing the day, show a real-time reroute into a better nearby option, then close on the river once the day is back on track."
+        },
+        {
+          "shot": 2,
+          "source": "london-live-companion-02.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Rain, queues, new openings. Roamly keeps the thread.",
+          "action": "Open with rain changing the day, show a real-time reroute into a better nearby option, then close on the river once the day is back on track."
+        },
+        {
+          "shot": 3,
+          "source": "london-live-companion-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Recover the day in real time. Let London adapt.",
+          "action": "Open with rain changing the day, show a real-time reroute into a better nearby option, then close on the river once the day is back on track."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "The day changed. The plan can change with it.",
+        "Rain, queues, new openings. Roamly keeps the thread.",
+        "Recover the day in real time. Let London adapt."
+      ],
+      "voiceover": "Travel plans should not break when the day changes. Roamly helps you reroute, recover, and keep moving with confidence.",
+      "musicDirection": "Rainy London electronic texture with soft piano and steady pulse",
+      "hashtags": "#Roamly #LondonTravel #TravelCompanion #RealTimeTravel #CityGuide",
+      "captionHashtags": [
+        "#Roamly",
+        "#LondonTravel",
+        "#TravelCompanion",
+        "#RealTimeTravel",
+        "#CityGuide"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-20-london-live-companion.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-20-london-live-companion.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-20-london-live-companion.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/london-live-companion-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/london-live-companion-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/london-live-companion-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-20-london-live-companion.mp4",
+      "scheduledFor": "2026-08-23T13:30:00.000Z",
+      "scheduledLocal": "2026-08-23 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-20-london-live-companion.mp4",
+      "databaseIds": {
+        "mediaAssetId": "c81bbc1d-75f1-55b5-b9c1-ec5dcc7d3eb6",
+        "draftId": "4cb67d10-0d14-52ed-93c2-76bc10fe3ea3",
+        "queueId": "2658bc61-bffb-5793-aecc-ab09b06e727f",
+        "scheduledPostId": "48b09e4f-0e44-57fd-b5a4-818128a864f0",
+        "publishingJobId": "7ce6e4a1-4399-5cf8-b656-bb1aaed6e144",
+        "facebookProcessingId": "22be4483-c583-5500-aaf3-d174e875dc71",
+        "qualityCheckId": "ff7e29e5-ea8f-5909-a103-1fdb97dfdee9"
+      }
+    },
+    {
+      "dayNumber": 21,
+      "theme": "Travel Mistakes",
+      "destination": "Rome, Italy",
+      "hook": "Avoid the trip that fights you.",
+      "caption": "Rome is magic when timing works and tiring when it does not. Roamly helps avoid the classic mistakes: harsh hours, crowded routes, and dinner left too late.",
+      "cta": "Refine your Rome plan",
+      "visualConcept": "Midday Colosseum friction, quiet early piazza correction, and on-time Trastevere dinner payoff.",
+      "reelScript": "Show the costly timing mistake, contrast it with a calm morning alternative, then finish with dinner arriving exactly when it should.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "rome-mistakes-01.png",
+          "durationSeconds": 6.2,
+          "onScreenText": "Most mistakes are timing mistakes. Rome makes that obvious.",
+          "action": "Show the costly timing mistake, contrast it with a calm morning alternative, then finish with dinner arriving exactly when it should."
+        },
+        {
+          "shot": 2,
+          "source": "rome-mistakes-02.png",
+          "durationSeconds": 6.3,
+          "onScreenText": "Shift the hard hours. Protect the magic.",
+          "action": "Show the costly timing mistake, contrast it with a calm morning alternative, then finish with dinner arriving exactly when it should."
+        },
+        {
+          "shot": 3,
+          "source": "rome-mistakes-03.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Make Rome feel lighter. Refine the plan.",
+          "action": "Show the costly timing mistake, contrast it with a calm morning alternative, then finish with dinner arriving exactly when it should."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Most mistakes are timing mistakes. Rome makes that obvious.",
+        "Shift the hard hours. Protect the magic.",
+        "Make Rome feel lighter. Refine the plan."
+      ],
+      "voiceover": "Most travel mistakes are timing mistakes. Roamly helps Rome feel lighter by moving the right moments to the right hours.",
+      "musicDirection": "Elegant Italian cinematic pulse with warm strings and grounded drums",
+      "hashtags": "#Roamly #RomeTravel #TravelMistakes #ItalyTravel #BetterPlanning",
+      "captionHashtags": [
+        "#Roamly",
+        "#RomeTravel",
+        "#TravelMistakes",
+        "#ItalyTravel",
+        "#BetterPlanning"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-21-rome-travel-mistakes.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-21-rome-travel-mistakes.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-21-rome-travel-mistakes.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/rome-mistakes-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/rome-mistakes-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/rome-mistakes-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-21-rome-travel-mistakes.mp4",
+      "scheduledFor": "2026-08-24T13:30:00.000Z",
+      "scheduledLocal": "2026-08-24 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-21-rome-travel-mistakes.mp4",
+      "databaseIds": {
+        "mediaAssetId": "97e468b1-f875-5b86-b112-2c092dcca8cc",
+        "draftId": "a9a9502f-7748-560a-9885-109af7d32268",
+        "queueId": "44befa79-12e4-58a7-8ba2-d614b0487a1b",
+        "scheduledPostId": "1ea19672-1851-5bf4-9fe7-0e7a6fab1790",
+        "publishingJobId": "c0abe35c-d07f-54c1-85d8-3ebab1dc9037",
+        "facebookProcessingId": "279684b0-3ef8-5f93-ba2d-5140762e5955",
+        "qualityCheckId": "4a4c1aed-74d4-5aa7-9ad4-3ff385cc02f9"
+      }
+    },
+    {
+      "dayNumber": 22,
+      "theme": "Personalized Travel",
+      "destination": "Marrakech, Morocco",
+      "hook": "Recommendations should feel like you.",
+      "caption": "Marrakech can be medina energy, quiet riads, craft, desert dinners, or all of it in balance. Roamly shapes suggestions around the traveler, not the average list.",
+      "cta": "Personalize Marrakech in Roamly",
+      "visualConcept": "Riad entry from the medina, artisan craft conversation, and Agafay desert dinner recommendation.",
+      "reelScript": "Open with a personalized escape from the medina into a riad, move into a craft recommendation, and close on a private desert dinner.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "marrakech-personalized-01.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Not the average list. The right recommendation for your pace.",
+          "action": "Open with a personalized escape from the medina into a riad, move into a craft recommendation, and close on a private desert dinner."
+        },
+        {
+          "shot": 2,
+          "source": "marrakech-personalized-02.png",
+          "durationSeconds": 7,
+          "onScreenText": "Craft, calm, desert, dinner. Your version of Marrakech.",
+          "action": "Open with a personalized escape from the medina into a riad, move into a craft recommendation, and close on a private desert dinner."
+        },
+        {
+          "shot": 3,
+          "source": "marrakech-personalized-03.png",
+          "durationSeconds": 7.2,
+          "onScreenText": "Make it personal. Personalize Marrakech in Roamly.",
+          "action": "Open with a personalized escape from the medina into a riad, move into a craft recommendation, and close on a private desert dinner."
+        }
+      ],
+      "durationSeconds": 21,
+      "recommendedReelDuration": "21 seconds",
+      "onScreenText": [
+        "Not the average list. The right recommendation for your pace.",
+        "Craft, calm, desert, dinner. Your version of Marrakech.",
+        "Make it personal. Personalize Marrakech in Roamly."
+      ],
+      "voiceover": "The best recommendation is not the most popular one. It is the one that matches your pace, your taste, and your day.",
+      "musicDirection": "Refined oud, soft hand percussion, and warm desert evening ambience",
+      "hashtags": "#Roamly #MarrakechTravel #PersonalizedTravel #MoroccoTrip #CuratedTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#MarrakechTravel",
+        "#PersonalizedTravel",
+        "#MoroccoTrip",
+        "#CuratedTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-22-marrakech-personalized-travel.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-22-marrakech-personalized-travel.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-22-marrakech-personalized-travel.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/marrakech-personalized-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/marrakech-personalized-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/marrakech-personalized-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-22-marrakech-personalized-travel.mp4",
+      "scheduledFor": "2026-08-25T13:30:00.000Z",
+      "scheduledLocal": "2026-08-25 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-22-marrakech-personalized-travel.mp4",
+      "databaseIds": {
+        "mediaAssetId": "45ff98d0-3a9c-57da-85c1-1b972ea88d25",
+        "draftId": "122a45ed-a4b1-5898-9460-2c03d121f52b",
+        "queueId": "0b5a54fd-5994-56a6-a7f7-7a24493dcd95",
+        "scheduledPostId": "3b9d690b-185e-53ed-9eb0-5bc41f7560bc",
+        "publishingJobId": "502978a2-7c68-592e-a95b-fc6c243592bb",
+        "facebookProcessingId": "20642165-4f3f-584e-92a2-0d0e74a5dab8",
+        "qualityCheckId": "d2c7135f-707a-56c9-a30b-570c7e17afeb"
+      }
+    },
+    {
+      "dayNumber": 23,
+      "theme": "Travel Confidence",
+      "destination": "Vancouver, Canada",
+      "hook": "Confidence is knowing the next move.",
+      "caption": "Vancouver can shift from ferry to forest to skyline in one day. Roamly keeps the transitions clear, so the trip feels expansive without feeling uncertain.",
+      "cta": "Travel Vancouver with confidence",
+      "visualConcept": "Waterfront ferry orientation, North Shore forest bridge, and skyline terrace reflection.",
+      "reelScript": "Open with an arrival and route confirmation, expand into a confident nature move, then close with a composed skyline pause.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "vancouver-confidence-01.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Know the next move. Then enjoy this one.",
+          "action": "Open with an arrival and route confirmation, expand into a confident nature move, then close with a composed skyline pause."
+        },
+        {
+          "shot": 2,
+          "source": "vancouver-confidence-02.png",
+          "durationSeconds": 6.7,
+          "onScreenText": "Ferry, forest, skyline. Big days need clear transitions.",
+          "action": "Open with an arrival and route confirmation, expand into a confident nature move, then close with a composed skyline pause."
+        },
+        {
+          "shot": 3,
+          "source": "vancouver-confidence-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Move with confidence. Travel Vancouver in Roamly.",
+          "action": "Open with an arrival and route confirmation, expand into a confident nature move, then close with a composed skyline pause."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Know the next move. Then enjoy this one.",
+        "Ferry, forest, skyline. Big days need clear transitions.",
+        "Move with confidence. Travel Vancouver in Roamly."
+      ],
+      "voiceover": "Travel confidence is not having every minute locked. It is knowing the next move well enough to enjoy the one you are in.",
+      "musicDirection": "Clean Pacific Northwest cinematic bed with soft drums and open-air synths",
+      "hashtags": "#Roamly #VancouverTravel #TravelConfidence #CanadaTrip #CityNature",
+      "captionHashtags": [
+        "#Roamly",
+        "#VancouverTravel",
+        "#TravelConfidence",
+        "#CanadaTrip",
+        "#CityNature"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-23-vancouver-travel-confidence.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-23-vancouver-travel-confidence.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-23-vancouver-travel-confidence.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/vancouver-confidence-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/vancouver-confidence-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/vancouver-confidence-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-23-vancouver-travel-confidence.mp4",
+      "scheduledFor": "2026-08-26T13:30:00.000Z",
+      "scheduledLocal": "2026-08-26 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-23-vancouver-travel-confidence.mp4",
+      "databaseIds": {
+        "mediaAssetId": "3a26c25b-0c5b-5e6c-897a-769e40de02f6",
+        "draftId": "32058081-c949-58b1-8d88-df73057cea59",
+        "queueId": "cc9a332c-ff5e-580a-901e-0314d545c240",
+        "scheduledPostId": "296f08ec-2203-5207-8542-12ff00cbd943",
+        "publishingJobId": "a651e0e0-2cf1-5e9b-9b59-e149e569aade",
+        "facebookProcessingId": "a799c386-ca45-5f9a-af15-3b1bbbf736a0",
+        "qualityCheckId": "31d8d07c-fd2c-50ac-a932-b7eae12d405a"
+      }
+    },
+    {
+      "dayNumber": 24,
+      "theme": "Post-Trip Memories",
+      "destination": "Bali, Indonesia",
+      "hook": "The trip should last longer than the flight home.",
+      "caption": "The best journeys deserve a beautiful afterlife. Roamly helps turn Bali moments, routes, photos, and notes into memories worth returning to.",
+      "cta": "Keep your Bali story in Roamly",
+      "visualConcept": "Villa photo review, rice-terrace memory replay, and warm desk archive with printed trip images.",
+      "reelScript": "Open with photo review in the place itself, relive a golden terrace walk, then close at home with a curated memory archive.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "bali-memories-01.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Bring the trip home well. Moments deserve a place to live.",
+          "action": "Open with photo review in the place itself, relive a golden terrace walk, then close at home with a curated memory archive."
+        },
+        {
+          "shot": 2,
+          "source": "bali-memories-02.png",
+          "durationSeconds": 6.6,
+          "onScreenText": "Routes, notes, photos. The story stays together.",
+          "action": "Open with photo review in the place itself, relive a golden terrace walk, then close at home with a curated memory archive."
+        },
+        {
+          "shot": 3,
+          "source": "bali-memories-03.png",
+          "durationSeconds": 6.8,
+          "onScreenText": "Return to it anytime. Keep Bali in Roamly.",
+          "action": "Open with photo review in the place itself, relive a golden terrace walk, then close at home with a curated memory archive."
+        }
+      ],
+      "durationSeconds": 20,
+      "recommendedReelDuration": "20 seconds",
+      "onScreenText": [
+        "Bring the trip home well. Moments deserve a place to live.",
+        "Routes, notes, photos. The story stays together.",
+        "Return to it anytime. Keep Bali in Roamly."
+      ],
+      "voiceover": "A trip is not finished when you land. Roamly keeps the routes, notes, and moments together so the memory stays easy to return to.",
+      "musicDirection": "Dreamy tropical piano, soft pads, and light nostalgic percussion",
+      "hashtags": "#Roamly #BaliTravel #TravelMemories #PostTrip #TravelStory",
+      "captionHashtags": [
+        "#Roamly",
+        "#BaliTravel",
+        "#TravelMemories",
+        "#PostTrip",
+        "#TravelStory"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-24-bali-post-trip-memories.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-24-bali-post-trip-memories.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-24-bali-post-trip-memories.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/bali-memories-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/bali-memories-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/bali-memories-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-24-bali-post-trip-memories.mp4",
+      "scheduledFor": "2026-08-27T13:30:00.000Z",
+      "scheduledLocal": "2026-08-27 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-24-bali-post-trip-memories.mp4",
+      "databaseIds": {
+        "mediaAssetId": "45bf1c74-ec04-53dd-9f5e-2e6d152302cd",
+        "draftId": "aa3fa2d7-f086-5970-ba4e-0eb851f5dabc",
+        "queueId": "942f08da-cdf8-58b7-aab8-c9d9ccc7430e",
+        "scheduledPostId": "f0e33bf5-86ba-587a-a243-163b1414885a",
+        "publishingJobId": "0e92600f-bfc5-5d77-9f57-5ca6e9186344",
+        "facebookProcessingId": "a41c3c2d-210d-5fc7-84bc-39f51db46892",
+        "qualityCheckId": "68f81bc3-a32e-57c9-88b8-159ed6bdd386"
+      }
+    },
+    {
+      "dayNumber": 25,
+      "theme": "Design-Led City Reset",
+      "destination": "Copenhagen, Denmark",
+      "hook": "Pick a city. Then pick a pace.",
+      "caption": "Copenhagen rewards travelers who balance design shops, bakeries, bikes, transit, and one slow waterfront hour. Roamly shapes the city break so it feels curated, not crowded.",
+      "cta": "Shape Copenhagen in Roamly",
+      "visualConcept": "Approved showcase style: design-city street, bike-transit motion, and clean waterfront close.",
+      "reelScript": "Open with the city-break promise, move through bike and transit choices, then end at the waterfront with the pace resolved.",
+      "storyboard": [
+        {
+          "shot": 1,
+          "source": "copenhagen-design-reset-01.png",
+          "durationSeconds": 6.2,
+          "onScreenText": "Pick a city. Then pick a pace.",
+          "action": "Open with the city-break promise, move through bike and transit choices, then end at the waterfront with the pace resolved."
+        },
+        {
+          "shot": 2,
+          "source": "copenhagen-design-reset-02.png",
+          "durationSeconds": 6.3,
+          "onScreenText": "Bakeries. Bikes. Canals. A city break should breathe.",
+          "action": "Open with the city-break promise, move through bike and transit choices, then end at the waterfront with the pace resolved."
+        },
+        {
+          "shot": 3,
+          "source": "copenhagen-design-reset-03.png",
+          "durationSeconds": 6.5,
+          "onScreenText": "Curated, not crowded. Shape Copenhagen in Roamly.",
+          "action": "Open with the city-break promise, move through bike and transit choices, then end at the waterfront with the pace resolved."
+        }
+      ],
+      "durationSeconds": 19,
+      "recommendedReelDuration": "19 seconds",
+      "onScreenText": [
+        "Pick a city. Then pick a pace.",
+        "Bakeries. Bikes. Canals. A city break should breathe.",
+        "Curated, not crowded. Shape Copenhagen in Roamly."
+      ],
+      "voiceover": "A city break can be designed around pace. Roamly helps Copenhagen feel curated without squeezing out the quiet parts.",
+      "musicDirection": "Clean Nordic city-pop texture with airy synths and light percussion",
+      "hashtags": "#Roamly #Copenhagen #CityBreak #ScandinavianTravel #DesignTravel",
+      "captionHashtags": [
+        "#Roamly",
+        "#Copenhagen",
+        "#CityBreak",
+        "#ScandinavianTravel",
+        "#DesignTravel"
+      ],
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-25-copenhagen-design-reset.mp4",
+      "reelAssetFilename": "roamly-2026-08-day-25-copenhagen-design-reset.mp4",
+      "reelThumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-25-copenhagen-design-reset.jpg",
+      "sourcePlates": [
+        "content/social/roamly-25-day-reel-campaign/sources/copenhagen-design-reset-01.png",
+        "content/social/roamly-25-day-reel-campaign/sources/copenhagen-design-reset-02.png",
+        "content/social/roamly-25-day-reel-campaign/sources/copenhagen-design-reset-03.png"
+      ],
+      "publicObjectPath": "social/videos/roamly/roamly-premium-reels-2026-08/day-25-copenhagen-design-reset.mp4",
+      "scheduledFor": "2026-08-28T13:30:00.000Z",
+      "scheduledLocal": "2026-08-28 10:30 ADT",
+      "status": "scheduled",
+      "publishingState": "not_published",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-25-copenhagen-design-reset.mp4",
+      "databaseIds": {
+        "mediaAssetId": "2d8a2ef4-c8bf-5622-b878-74546bcf5533",
+        "draftId": "1aa635c3-4887-5a06-b8ad-98a046fe5183",
+        "queueId": "ca28e331-6e6b-5de0-97db-518532ef222a",
+        "scheduledPostId": "5305e395-ee5c-5084-9526-47d5526a91d2",
+        "publishingJobId": "c04b3f71-5b50-5157-ae5d-8907d2d728ce",
+        "facebookProcessingId": "d0e5f3ea-2602-58ed-ad00-47d00f61b7d0",
+        "qualityCheckId": "8c352232-44cc-5a3a-82e7-c069e451ea24"
+      }
+    }
+  ],
+  "validation": {
+    "uniqueDestinations": 25,
+    "uniqueHooks": 25,
+    "uniqueCaptions": 25,
+    "uniqueCtas": 25,
+    "uniqueVisualConcepts": 25,
+    "verticalNineBySixteen": true,
+    "queueDatesConsecutive": true,
+    "failedGenerations": 0,
+    "failedUploads": null
+  },
+  "storageBucket": "roamly-social-public",
+  "seededAt": "2026-08-03T08:36:47.492Z"
+}

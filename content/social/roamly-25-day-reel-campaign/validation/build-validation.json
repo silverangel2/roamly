@@ -1,0 +1,207 @@
+{
+  "generatedAt": "2026-08-03T03:39:02.202Z",
+  "planPath": "content/social/roamly-25-day-reel-campaign/roamly-25-day-reel-campaign-2026-08-04.json",
+  "contactSheet": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-25-day-campaign-contact-sheet.jpg",
+  "assets": [
+    {
+      "dayNumber": 1,
+      "destination": "Santorini, Greece",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-01-santorini-dream-destinations.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-01-santorini-dream-destinations.jpg",
+      "bytes": 2574010,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 2,
+      "destination": "Kyoto, Japan",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-02-kyoto-smart-itinerary.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-02-kyoto-smart-itinerary.jpg",
+      "bytes": 3797367,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 3,
+      "destination": "Lisbon, Portugal",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-03-lisbon-budget-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-03-lisbon-budget-travel.jpg",
+      "bytes": 2694599,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 4,
+      "destination": "Paris, France",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-04-paris-luxury-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-04-paris-luxury-travel.jpg",
+      "bytes": 2703173,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 5,
+      "destination": "Seoul, South Korea",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-05-seoul-solo-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-05-seoul-solo-travel.jpg",
+      "bytes": 2708093,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 6,
+      "destination": "Amalfi Coast, Italy",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-06-amalfi-couple-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-06-amalfi-couple-travel.jpg",
+      "bytes": 2920133,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 7,
+      "destination": "Costa Rica",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-07-costa-rica-family-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-07-costa-rica-family-travel.jpg",
+      "bytes": 2933632,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 8,
+      "destination": "Oaxaca, Mexico",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-08-oaxaca-food-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-08-oaxaca-food-travel.jpg",
+      "bytes": 2943209,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 9,
+      "destination": "Berlin, Germany",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-09-berlin-nightlife.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-09-berlin-nightlife.jpg",
+      "bytes": 2812768,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 10,
+      "destination": "Ljubljana, Slovenia",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-10-ljubljana-hidden-gems.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-10-ljubljana-hidden-gems.jpg",
+      "bytes": 3344427,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 11,
+      "destination": "Turks and Caicos",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-11-turks-caicos-beaches.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-11-turks-caicos-beaches.jpg",
+      "bytes": 2354734,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 12,
+      "destination": "Pacific Coast Highway, California",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-12-pacific-coast-highway-road-trip.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-12-pacific-coast-highway-road-trip.jpg",
+      "bytes": 2694383,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 13,
+      "destination": "Quebec City, Canada",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-13-quebec-city-weekend-escape.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-13-quebec-city-weekend-escape.jpg",
+      "bytes": 2976035,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 14,
+      "destination": "Patagonia, Chile",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-14-patagonia-adventure-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-14-patagonia-adventure-travel.jpg",
+      "bytes": 3267526,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 15,
+      "destination": "Luang Prabang, Laos",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-15-luang-prabang-slow-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-15-luang-prabang-slow-travel.jpg",
+      "bytes": 3168154,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 16,
+      "destination": "Barcelona, Spain",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-16-barcelona-flight-planning.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-16-barcelona-flight-planning.jpg",
+      "bytes": 2301286,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 17,
+      "destination": "New York City, USA",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-17-nyc-hotel-selection.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-17-nyc-hotel-selection.jpg",
+      "bytes": 2907139,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 18,
+      "destination": "Amsterdam, Netherlands",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-18-amsterdam-transportation.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-18-amsterdam-transportation.jpg",
+      "bytes": 3041124,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 19,
+      "destination": "Iceland South Coast",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-19-iceland-packing.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-19-iceland-packing.jpg",
+      "bytes": 2557718,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 20,
+      "destination": "London, UK",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-20-london-live-companion.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-20-london-live-companion.jpg",
+      "bytes": 2699194,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 21,
+      "destination": "Rome, Italy",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-21-rome-travel-mistakes.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-21-rome-travel-mistakes.jpg",
+      "bytes": 2786546,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 22,
+      "destination": "Marrakech, Morocco",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-22-marrakech-personalized-travel.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-22-marrakech-personalized-travel.jpg",
+      "bytes": 3313683,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 23,
+      "destination": "Vancouver, Canada",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-23-vancouver-travel-confidence.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-23-vancouver-travel-confidence.jpg",
+      "bytes": 2772740,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 24,
+      "destination": "Bali, Indonesia",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-24-bali-post-trip-memories.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-24-bali-post-trip-memories.jpg",
+      "bytes": 2750809,
+      "status": "generated"
+    },
+    {
+      "dayNumber": 25,
+      "destination": "Copenhagen, Denmark",
+      "file": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-25-copenhagen-design-reset.mp4",
+      "thumbnail": "content/social/roamly-25-day-reel-campaign/thumbnails/roamly-2026-08-day-25-copenhagen-design-reset.jpg",
+      "bytes": 2988610,
+      "status": "generated"
+    }
+  ]
+}

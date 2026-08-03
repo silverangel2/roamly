@@ -47,6 +47,8 @@ type ControlSummary = {
   };
 };
 
+type FacebookSocialBrand = "roamly" | "reviewintel";
+
 type ActionButton = {
   action: string;
   label: string;
@@ -54,11 +56,24 @@ type ActionButton = {
   disabled?: boolean;
 };
 
-export function FacebookAutomationControls({ summary }: { summary: ControlSummary }) {
+function brandLabel(brand: FacebookSocialBrand) {
+  return brand === "reviewintel" ? "ReviewIntel" : "Roamly";
+}
+
+export function FacebookAutomationControls({
+  summary,
+  brand = "roamly",
+  title
+}: {
+  summary: ControlSummary;
+  brand?: FacebookSocialBrand;
+  title?: string;
+}) {
   const [settings, setSettings] = useState(summary.settings);
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const label = brandLabel(brand);
 
   async function runAction(action: string, confirmMessage?: string) {
     setNotice("");
@@ -73,7 +88,7 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, confirm: Boolean(confirmMessage) })
+        body: JSON.stringify({ action, brand, confirm: Boolean(confirmMessage) })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || data?.reason || "Automation action failed.");
@@ -98,7 +113,7 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "save_settings", settings, confirm: confirmHighDailyLimit })
+        body: JSON.stringify({ action: "save_settings", brand, settings, confirm: confirmHighDailyLimit })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Settings could not be saved.");
@@ -127,7 +142,7 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
     {
       action: "enable_autopost",
       label: "Enable autopost",
-      confirm: "Enable unattended Facebook autoposting? Only do this after the Page and token are validated.",
+      confirm: `Enable unattended ${label} Facebook Reel autoposting? Only do this after the Page and token are validated.`,
       disabled: summary.settings.automationEnabled && !summary.settings.paused
     },
     {
@@ -136,14 +151,14 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
     },
     {
       action: "generate_100",
-      label: "Generate 100 posts",
-      confirm: "Create 100 unique scheduled Facebook posts and Reels?"
+      label: "Generate 100 Reels",
+      confirm: `Create 100 unique scheduled ${label} Facebook Reels?`
     },
     { action: "refill_queue", label: "Refill queue" },
     {
       action: "publish_next_now",
       label: "Publish next now",
-      confirm: "Publish the next scheduled Facebook item immediately?"
+      confirm: `Publish the next scheduled ${label} Facebook Reel immediately?`
     },
     { action: "run_automation", label: "Run automation now" },
     { action: "retry_failures", label: "Retry failures" },
@@ -151,14 +166,17 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
     {
       action: "clear_failed_jobs",
       label: "Clear failed jobs",
-      confirm: "Archive all failed jobs and mark failure records resolved?"
+      confirm: `Archive all failed ${label} jobs and mark failure records resolved?`
     }
   ];
 
   return (
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="rounded-2xl border border-cloud bg-white/92 p-4 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Controls</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{title || `${label} controls`}</p>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+          {summary.env.pageName || summary.env.pageId || `${label} Facebook Page`} · {summary.counts.queueSize} future Reels
+        </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {actions.map((item) => (
             <button
@@ -183,7 +201,7 @@ export function FacebookAutomationControls({ summary }: { summary: ControlSummar
       </section>
 
       <section className="rounded-2xl border border-cloud bg-white/92 p-4 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Automation settings</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{label} automation settings</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {[
             ["Posts per day", "postsPerDay", 0, 12],

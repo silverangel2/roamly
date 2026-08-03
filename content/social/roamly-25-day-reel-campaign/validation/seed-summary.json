@@ -1,0 +1,539 @@
+{
+  "seededAt": "2026-08-03T08:36:47.493Z",
+  "campaignId": "roamly-premium-reels-2026-08",
+  "brand": "roamly",
+  "platform": "facebook_roamly",
+  "storageBucket": "roamly-social-public",
+  "planPath": "content/social/roamly-25-day-reel-campaign/roamly-25-day-reel-campaign-2026-08-04.json",
+  "seededPlanPath": "content/social/roamly-25-day-reel-campaign/roamly-25-day-reel-campaign-2026-08-04.seeded.json",
+  "noMetaPublishAttempted": true,
+  "allPublicUrlsValid": true,
+  "failedUploads": 0,
+  "failedGenerations": 0,
+  "presentCounts": {
+    "batches": 1,
+    "mediaAssets": 25,
+    "drafts": 25,
+    "queue": 25,
+    "scheduledPosts": 25,
+    "publishingJobs": 25,
+    "facebookProcessing": 25,
+    "qualityChecks": 25,
+    "auditLogs": 1
+  },
+  "createdCounts": {
+    "batches": 0,
+    "mediaAssets": 25,
+    "drafts": 25,
+    "queue": 25,
+    "scheduledPosts": 25,
+    "publishingJobs": 25,
+    "facebookProcessing": 25,
+    "qualityChecks": 25,
+    "auditLogs": 1
+  },
+  "schedule": [
+    {
+      "dayNumber": 1,
+      "theme": "Dream Destinations",
+      "destination": "Santorini, Greece",
+      "scheduledFor": "2026-08-04T13:30:00.000Z",
+      "scheduledLocal": "2026-08-04 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-01-santorini-dream-destinations.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-01-santorini-dream-destinations.mp4"
+    },
+    {
+      "dayNumber": 2,
+      "theme": "Smart Itinerary Planning",
+      "destination": "Kyoto, Japan",
+      "scheduledFor": "2026-08-05T13:30:00.000Z",
+      "scheduledLocal": "2026-08-05 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-02-kyoto-smart-itinerary.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-02-kyoto-smart-itinerary.mp4"
+    },
+    {
+      "dayNumber": 3,
+      "theme": "Budget Travel",
+      "destination": "Lisbon, Portugal",
+      "scheduledFor": "2026-08-06T13:30:00.000Z",
+      "scheduledLocal": "2026-08-06 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-03-lisbon-budget-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-03-lisbon-budget-travel.mp4"
+    },
+    {
+      "dayNumber": 4,
+      "theme": "Luxury Travel",
+      "destination": "Paris, France",
+      "scheduledFor": "2026-08-07T13:30:00.000Z",
+      "scheduledLocal": "2026-08-07 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-04-paris-luxury-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-04-paris-luxury-travel.mp4"
+    },
+    {
+      "dayNumber": 5,
+      "theme": "Solo Travel",
+      "destination": "Seoul, South Korea",
+      "scheduledFor": "2026-08-08T13:30:00.000Z",
+      "scheduledLocal": "2026-08-08 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-05-seoul-solo-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-05-seoul-solo-travel.mp4"
+    },
+    {
+      "dayNumber": 6,
+      "theme": "Couple Travel",
+      "destination": "Amalfi Coast, Italy",
+      "scheduledFor": "2026-08-09T13:30:00.000Z",
+      "scheduledLocal": "2026-08-09 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-06-amalfi-couple-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-06-amalfi-couple-travel.mp4"
+    },
+    {
+      "dayNumber": 7,
+      "theme": "Family Travel",
+      "destination": "Costa Rica",
+      "scheduledFor": "2026-08-10T13:30:00.000Z",
+      "scheduledLocal": "2026-08-10 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-07-costa-rica-family-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-07-costa-rica-family-travel.mp4"
+    },
+    {
+      "dayNumber": 8,
+      "theme": "Food Travel",
+      "destination": "Oaxaca, Mexico",
+      "scheduledFor": "2026-08-11T13:30:00.000Z",
+      "scheduledLocal": "2026-08-11 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-08-oaxaca-food-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-08-oaxaca-food-travel.mp4"
+    },
+    {
+      "dayNumber": 9,
+      "theme": "Nightlife",
+      "destination": "Berlin, Germany",
+      "scheduledFor": "2026-08-12T13:30:00.000Z",
+      "scheduledLocal": "2026-08-12 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-09-berlin-nightlife.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-09-berlin-nightlife.mp4"
+    },
+    {
+      "dayNumber": 10,
+      "theme": "Hidden Gems",
+      "destination": "Ljubljana, Slovenia",
+      "scheduledFor": "2026-08-13T13:30:00.000Z",
+      "scheduledLocal": "2026-08-13 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-10-ljubljana-hidden-gems.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-10-ljubljana-hidden-gems.mp4"
+    },
+    {
+      "dayNumber": 11,
+      "theme": "Beaches",
+      "destination": "Turks and Caicos",
+      "scheduledFor": "2026-08-14T13:30:00.000Z",
+      "scheduledLocal": "2026-08-14 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-11-turks-caicos-beaches.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-11-turks-caicos-beaches.mp4"
+    },
+    {
+      "dayNumber": 12,
+      "theme": "Road Trips",
+      "destination": "Pacific Coast Highway, California",
+      "scheduledFor": "2026-08-15T13:30:00.000Z",
+      "scheduledLocal": "2026-08-15 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-12-pacific-coast-highway-road-trip.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-12-pacific-coast-highway-road-trip.mp4"
+    },
+    {
+      "dayNumber": 13,
+      "theme": "Weekend Escapes",
+      "destination": "Quebec City, Canada",
+      "scheduledFor": "2026-08-16T13:30:00.000Z",
+      "scheduledLocal": "2026-08-16 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-13-quebec-city-weekend-escape.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-13-quebec-city-weekend-escape.mp4"
+    },
+    {
+      "dayNumber": 14,
+      "theme": "Adventure",
+      "destination": "Patagonia, Chile",
+      "scheduledFor": "2026-08-17T13:30:00.000Z",
+      "scheduledLocal": "2026-08-17 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-14-patagonia-adventure-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-14-patagonia-adventure-travel.mp4"
+    },
+    {
+      "dayNumber": 15,
+      "theme": "Slow Travel",
+      "destination": "Luang Prabang, Laos",
+      "scheduledFor": "2026-08-18T13:30:00.000Z",
+      "scheduledLocal": "2026-08-18 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-15-luang-prabang-slow-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-15-luang-prabang-slow-travel.mp4"
+    },
+    {
+      "dayNumber": 16,
+      "theme": "Flights",
+      "destination": "Barcelona, Spain",
+      "scheduledFor": "2026-08-19T13:30:00.000Z",
+      "scheduledLocal": "2026-08-19 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-16-barcelona-flight-planning.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-16-barcelona-flight-planning.mp4"
+    },
+    {
+      "dayNumber": 17,
+      "theme": "Hotels",
+      "destination": "New York City, USA",
+      "scheduledFor": "2026-08-20T13:30:00.000Z",
+      "scheduledLocal": "2026-08-20 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-17-nyc-hotel-selection.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-17-nyc-hotel-selection.mp4"
+    },
+    {
+      "dayNumber": 18,
+      "theme": "Transportation",
+      "destination": "Amsterdam, Netherlands",
+      "scheduledFor": "2026-08-21T13:30:00.000Z",
+      "scheduledLocal": "2026-08-21 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-18-amsterdam-transportation.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-18-amsterdam-transportation.mp4"
+    },
+    {
+      "dayNumber": 19,
+      "theme": "Packing",
+      "destination": "Iceland South Coast",
+      "scheduledFor": "2026-08-22T13:30:00.000Z",
+      "scheduledLocal": "2026-08-22 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-19-iceland-packing.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-19-iceland-packing.mp4"
+    },
+    {
+      "dayNumber": 20,
+      "theme": "Live Travel Companion",
+      "destination": "London, UK",
+      "scheduledFor": "2026-08-23T13:30:00.000Z",
+      "scheduledLocal": "2026-08-23 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-20-london-live-companion.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-20-london-live-companion.mp4"
+    },
+    {
+      "dayNumber": 21,
+      "theme": "Travel Mistakes",
+      "destination": "Rome, Italy",
+      "scheduledFor": "2026-08-24T13:30:00.000Z",
+      "scheduledLocal": "2026-08-24 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-21-rome-travel-mistakes.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-21-rome-travel-mistakes.mp4"
+    },
+    {
+      "dayNumber": 22,
+      "theme": "Personalized Travel",
+      "destination": "Marrakech, Morocco",
+      "scheduledFor": "2026-08-25T13:30:00.000Z",
+      "scheduledLocal": "2026-08-25 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-22-marrakech-personalized-travel.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-22-marrakech-personalized-travel.mp4"
+    },
+    {
+      "dayNumber": 23,
+      "theme": "Travel Confidence",
+      "destination": "Vancouver, Canada",
+      "scheduledFor": "2026-08-26T13:30:00.000Z",
+      "scheduledLocal": "2026-08-26 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-23-vancouver-travel-confidence.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-23-vancouver-travel-confidence.mp4"
+    },
+    {
+      "dayNumber": 24,
+      "theme": "Post-Trip Memories",
+      "destination": "Bali, Indonesia",
+      "scheduledFor": "2026-08-27T13:30:00.000Z",
+      "scheduledLocal": "2026-08-27 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-24-bali-post-trip-memories.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-24-bali-post-trip-memories.mp4"
+    },
+    {
+      "dayNumber": 25,
+      "theme": "Design-Led City Reset",
+      "destination": "Copenhagen, Denmark",
+      "scheduledFor": "2026-08-28T13:30:00.000Z",
+      "scheduledLocal": "2026-08-28 10:30 ADT",
+      "status": "scheduled",
+      "reelAsset": "content/social/roamly-25-day-reel-campaign/assets/roamly-2026-08-day-25-copenhagen-design-reset.mp4",
+      "publicMediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-25-copenhagen-design-reset.mp4"
+    }
+  ],
+  "publicUrls": [
+    {
+      "dayNumber": 1,
+      "destination": "Santorini, Greece",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-01-santorini-dream-destinations.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 2,
+      "destination": "Kyoto, Japan",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-02-kyoto-smart-itinerary.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 3,
+      "destination": "Lisbon, Portugal",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-03-lisbon-budget-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 4,
+      "destination": "Paris, France",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-04-paris-luxury-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 5,
+      "destination": "Seoul, South Korea",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-05-seoul-solo-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 6,
+      "destination": "Amalfi Coast, Italy",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-06-amalfi-couple-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 7,
+      "destination": "Costa Rica",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-07-costa-rica-family-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 8,
+      "destination": "Oaxaca, Mexico",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-08-oaxaca-food-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 9,
+      "destination": "Berlin, Germany",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-09-berlin-nightlife.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 10,
+      "destination": "Ljubljana, Slovenia",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-10-ljubljana-hidden-gems.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 11,
+      "destination": "Turks and Caicos",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-11-turks-caicos-beaches.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 12,
+      "destination": "Pacific Coast Highway, California",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-12-pacific-coast-highway-road-trip.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 13,
+      "destination": "Quebec City, Canada",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-13-quebec-city-weekend-escape.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 14,
+      "destination": "Patagonia, Chile",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-14-patagonia-adventure-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 15,
+      "destination": "Luang Prabang, Laos",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-15-luang-prabang-slow-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 16,
+      "destination": "Barcelona, Spain",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-16-barcelona-flight-planning.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 17,
+      "destination": "New York City, USA",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-17-nyc-hotel-selection.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 18,
+      "destination": "Amsterdam, Netherlands",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-18-amsterdam-transportation.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 19,
+      "destination": "Iceland South Coast",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-19-iceland-packing.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 20,
+      "destination": "London, UK",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-20-london-live-companion.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 21,
+      "destination": "Rome, Italy",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-21-rome-travel-mistakes.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 22,
+      "destination": "Marrakech, Morocco",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-22-marrakech-personalized-travel.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 23,
+      "destination": "Vancouver, Canada",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-23-vancouver-travel-confidence.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 24,
+      "destination": "Bali, Indonesia",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-24-bali-post-trip-memories.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    },
+    {
+      "dayNumber": 25,
+      "destination": "Copenhagen, Denmark",
+      "mediaUrl": "https://ikrfkpnbtkdohoxnbphu.supabase.co/storage/v1/object/public/roamly-social-public/social/videos/roamly/roamly-premium-reels-2026-08/day-25-copenhagen-design-reset.mp4",
+      "probe": {
+        "ok": true,
+        "status": 200,
+        "method": "HEAD"
+      }
+    }
+  ]
+}
