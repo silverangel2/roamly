@@ -1276,6 +1276,7 @@ async function insertQueueRows(admin: SupabaseClient, draftId: string, draft: Ge
         contentType: draft.contentType,
         postFormat: draft.postFormat,
         reelOnly: true,
+        platformMediaType: "reel",
         runtimeProof: Boolean(draft.metadata.runtimeProof),
         proofId: typeof draft.metadata.proofId === "string" ? draft.metadata.proofId : undefined
       })
@@ -1292,7 +1293,7 @@ async function insertQueueRows(admin: SupabaseClient, draftId: string, draft: Ge
       platform,
       scheduled_for: draft.scheduledFor,
       status: "scheduled",
-      metadata: withBrandMetadata(brand, { idempotencyKey })
+      metadata: withBrandMetadata(brand, { idempotencyKey, platformMediaType: "reel" })
     }),
     admin.from("roamly_publishing_jobs").insert({
       queue_id: queueId,
@@ -1301,7 +1302,7 @@ async function insertQueueRows(admin: SupabaseClient, draftId: string, draft: Ge
       job_status: "scheduled",
       idempotency_key: idempotencyKey,
       scheduled_for: draft.scheduledFor,
-      metadata: withBrandMetadata(brand, { publishKey, reelOnly: true })
+      metadata: withBrandMetadata(brand, { publishKey, reelOnly: true, platformMediaType: "reel" })
     })
   ]);
 
@@ -1654,7 +1655,36 @@ async function facebookGraph<T>(
 }
 
 function videoLooksSupported(url: string) {
-  return /^https:\/\//i.test(url) && /\.(mp4|mov)(\?|$)/i.test(url);
+  return /^https:\/\//i.test(url) && /\.mp4(\?|$)/i.test(url);
+}
+
+const MAX_REEL_BYTES = 50 * 1024 * 1024;
+
+function assertReelMediaMetadata(input: {
+  assetType?: unknown;
+  isVertical?: unknown;
+  width?: unknown;
+  height?: unknown;
+  durationSeconds?: unknown;
+  fileSizeBytes?: unknown;
+}) {
+  if (input.assetType !== "video") {
+    throw new FacebookGraphError("Facebook Reel publishing requires an MP4 video asset.", false, { mediaType: input.assetType || null });
+  }
+  if (input.isVertical !== true) {
+    throw new FacebookGraphError("Facebook Reel publishing requires vertical 9:16 media.", false, { isVertical: input.isVertical ?? null });
+  }
+  const width = Number(input.width);
+  const height = Number(input.height);
+  const duration = Number(input.durationSeconds);
+  const size = Number(input.fileSizeBytes);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0 || Math.abs(width / height - 9 / 16) > 0.01) {
+    throw new FacebookGraphError("Facebook Reel publishing requires a 9:16 video.", false, { width, height });
+  }
+  if (!Number.isFinite(duration) || duration <= 0) throw new FacebookGraphError("Facebook Reel video duration is invalid.", false, { durationSeconds: duration });
+  if (!Number.isFinite(size) || size <= 0 || size > MAX_REEL_BYTES) {
+    throw new FacebookGraphError("Facebook Reel video file size is invalid.", false, { fileSizeBytes: size, maxBytes: MAX_REEL_BYTES });
+  }
 }
 
 function supabaseMediaConfig() {
@@ -1733,6 +1763,31 @@ async function ensureReelVideo(
   config: FacebookBrandConfig
 ): Promise<{ mediaUrl: string; generatedVideo?: Awaited<ReturnType<typeof generateFreshSocialReelVideo>>; mediaAssetId?: string | null }> {
   const existingUrl = clean(draft.selected_media_url || draft.suggested_media);
+  const asset = draft.selected_media_asset_id
+    ? await admin
+        .from("roamly_social_media_assets")
+        .select("asset_type,is_vertical,width,height,duration_seconds,metadata,media_url")
+        .eq("id", draft.selected_media_asset_id)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (asset.error) throw new FacebookGraphError(`Reel media asset validation failed: ${asset.error.message}`, false, { assetError: asset.error.message });
+  const assetMetadata = objectValue(asset.data?.metadata);
+  if (draft.selected_media_asset_id && !asset.data) {
+    throw new FacebookGraphError("The selected Facebook Reel media asset no longer exists.", false, { assetId: draft.selected_media_asset_id });
+  }
+  if (asset.data) {
+    assertReelMediaMetadata({
+      assetType: asset.data.asset_type,
+      isVertical: asset.data.is_vertical,
+      width: asset.data.width ?? assetMetadata.width,
+      height: asset.data.height ?? assetMetadata.height,
+      durationSeconds: asset.data.duration_seconds ?? assetMetadata.duration_seconds,
+      fileSizeBytes: assetMetadata.file_size_bytes
+    });
+  }
+  if ((existingUrl || draft.selected_media_asset_id) && !videoLooksSupported(existingUrl)) {
+    throw new FacebookGraphError("The selected Facebook Reel asset is not an MP4 video.", false, { mediaUrl: existingUrl || null });
+  }
   if (videoLooksSupported(existingUrl)) {
     const probe = await probeFacebookAccessibleUrl({ url: existingUrl, timeoutMs: 7000 });
     if (!probe.ok) {
@@ -1751,7 +1806,7 @@ async function ensureReelVideo(
         generatedVideoRequired: false
       })
     });
-    return { mediaUrl: existingUrl };
+    return { mediaUrl: existingUrl, mediaAssetId: draft.selected_media_asset_id };
   }
 
   const { supabaseUrl, serviceKey } = supabaseMediaConfig();
@@ -1799,6 +1854,14 @@ async function ensureReelVideo(
     audioTrack: video.audioTrack,
     generatedAt: new Date().toISOString()
   };
+  assertReelMediaMetadata({
+    assetType: "video",
+    isVertical: video.width / video.height === 9 / 16,
+    width: video.width,
+    height: video.height,
+    durationSeconds: video.durationSeconds,
+    fileSizeBytes: video.size
+  });
   const metadata = withBrandMetadata(config.brand, {
     ...(draft.metadata || {}),
     generatedReelVideo
@@ -1948,9 +2011,13 @@ async function publishFacebookReel(
 
   const confirmation = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
     method: "GET",
-    params: { fields: "id,permalink_url,status" }
+    params: { fields: "id,permalink_url,status,media_type,is_reel" }
   });
   const permalink = typeof confirmation.permalink_url === "string" ? confirmation.permalink_url : "";
+  const classifiedAsReel = confirmation.is_reel === true || String(confirmation.media_type || "").toLowerCase() === "reel" || /\/reel\//i.test(permalink);
+  if (!permalink || !classifiedAsReel) {
+    throw new FacebookGraphError("Meta did not confirm the published object as a Reel.", false, { confirmation, permalink, classifiedAsReel });
+  }
   await admin
     .from("roamly_facebook_media_processing")
     .update({
@@ -1965,7 +2032,8 @@ async function publishFacebookReel(
         start,
         upload,
         finish,
-        confirmation
+        confirmation,
+        platformMediaType: "reel"
       })
     })
     .eq("queue_id", queueId);
@@ -1975,10 +2043,11 @@ async function publishFacebookReel(
     status: "published",
     facebookReelId: videoId,
     facebookMediaId: videoId,
-    facebookUrl: permalink || `https://www.facebook.com/reel/${videoId}`,
+    facebookUrl: permalink,
     metaResponse: withBrandMetadata(config.brand, {
       pageId: config.pageId,
       postedAs: "reel",
+      platformMediaType: "reel",
       mediaUrl,
       generatedVideo: reelMedia.generatedVideo || null,
       start,

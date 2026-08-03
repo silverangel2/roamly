@@ -412,16 +412,9 @@ function captionWithDisclosure(caption: string, disclosure: string) {
 }
 
 async function postFacebook(generated: RoamlyGeneratedSocialPost, mediaUrl?: string | null) {
-  const status = getRoamlySocialEnvStatus();
-  if (!status.facebookConnected) return { ok: false as const, status: "skipped" as const, error: "Facebook not connected." };
-
-  const pageId = clean(process.env.ROAMLY_META_PAGE_ID);
-  const accessToken = clean(process.env.ROAMLY_META_ACCESS_TOKEN);
-  const caption = captionWithDisclosure(generated.facebookCaption, generated.affiliateDisclosure);
-  const id = mediaUrl
-    ? await graphPost(`${pageId}/photos`, { url: mediaUrl, caption, access_token: accessToken })
-    : await graphPost(`${pageId}/feed`, { message: caption, access_token: accessToken });
-  return { ok: true as const, status: "posted" as const, externalPostId: id };
+  void generated;
+  void mediaUrl;
+  return { ok: false as const, status: "failed" as const, error: "Legacy Facebook publishing is disabled. Facebook posts must use the Reel-only automation path." };
 }
 
 async function postInstagram(generated: RoamlyGeneratedSocialPost, mediaUrl?: string | null) {

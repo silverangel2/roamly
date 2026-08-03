@@ -19,6 +19,7 @@ const cron = read("app/api/cron/roamly-social-autopost/route.ts");
 const controls = read("components/admin/social/FacebookAutomationControls.tsx");
 const automationPage = read("app/admin/social/automation/page.tsx");
 const runtimeProof = read("scripts/facebook-reel-runtime-proof.mjs");
+const legacySocial = read("lib/roamly/social.ts");
 
 assert(/const FACEBOOK_BRANDS = \["roamly", "reviewintel"\]/.test(automation), "both Roamly and ReviewIntel brands are registered");
 assert(/return "reel";/.test(automation), "automatic Facebook queue generation is Reel-only");
@@ -31,6 +32,16 @@ assert(/generateFreshSocialReelVideo/.test(automation), "publish path generates 
 assert(/video_generated/.test(automation), "generated video proof stage is logged");
 assert(/meta_upload_complete/.test(automation), "Meta upload proof stage is logged");
 assert(/meta_publish_complete/.test(automation), "Meta final publish proof stage is logged");
+assert(/video_reels/.test(automation), "both brands use the Page video_reels endpoint");
+assert(!/\$\{config\.pageId\}\/feed/.test(automation), "Reel automation never calls the Page feed endpoint");
+assert(!/\$\{config\.pageId\}\/photos/.test(automation), "Reel automation never calls the Page photos endpoint");
+assert(/upload_phase: "start"/.test(automation) && /upload_phase: "finish"/.test(automation), "Reel upload uses start and finish phases");
+assert(/video_state: "PUBLISHED"/.test(automation), "Reel upload finishes with PUBLISHED state");
+assert(/video\/mp4/.test(automation) && /9:16/.test(automation), "Reel media validation requires MP4 and vertical 9:16 media");
+assert(/selected Facebook Reel asset is not an MP4/.test(automation), "image assets are rejected for Reel jobs");
+assert(/classifiedAsReel/.test(automation) && /platformMediaType: "reel"/.test(automation), "Meta object classification and saved media type are Reel-specific");
+assert(/Legacy Facebook publishing is disabled/.test(legacySocial) && !/pageId\}\/feed/.test(legacySocial) && !/pageId\}\/photos/.test(legacySocial), "legacy Facebook publisher cannot fall back to feed or photo posts");
+assert(/facebook_reel_id/.test(automation) && /facebook_url/.test(automation), "returned Reel ID and permalink are persisted");
 assert(/automaticRetryLimit/.test(automation) && /nextAttempt <= retryLimit/.test(automation), "retry logic remains bounded by settings");
 assert(/manualReviewRequired/.test(automation) && /!settings\.manualReviewRequired/.test(automation), "manual approval flow is respected before publishing");
 assert(/@ffmpeg-installer\/ffmpeg/.test(generator), "Reel generator uses deterministic ffmpeg binary");
