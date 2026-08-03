@@ -44,7 +44,8 @@ async function readEnvFile(file) {
 async function mergedEnv() {
   const roamly = await readEnvFile(path.join(root, ".env.local"));
   const reviewintel = await readEnvFile(reviewIntelEnvPath);
-  const env = { ...process.env, ...roamly };
+  // Explicitly injected production values must win over local redacted placeholders.
+  const env = { ...roamly, ...process.env };
 
   if (!env.REVIEWINTEL_META_PAGE_ID && reviewintel.FACEBOOK_PAGE_ID) {
     env.REVIEWINTEL_META_PAGE_ID = reviewintel.FACEBOOK_PAGE_ID;
