@@ -16,5 +16,13 @@
       "path": "/api/cron/roamly-booking-monitor",
       "schedule": "*/10 * * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/**/*.ts": {
+      "includeFiles": [
+        "node_modules/@ffmpeg-installer/linux-x64/ffmpeg",
+        "node_modules/ffprobe-static/bin/linux/x64/ffprobe"
+      ]
+    }
+  }
 }
