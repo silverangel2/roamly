@@ -49,8 +49,9 @@ type GenerateFreshSocialReelVideoInput = {
 
 const width = 1080;
 const height = 1920;
-const sceneSeconds = 3;
-const totalSeconds = sceneSeconds * 3;
+const sceneSeconds = 4;
+const sceneCount = 5;
+const totalSeconds = sceneSeconds * sceneCount;
 const publicSocialMaxBytes = 50 * 1024 * 1024;
 
 const approvedGeneratedAudioTracks: ApprovedAudioTrack[] = [
@@ -173,6 +174,7 @@ function sceneSvg(input: {
   websiteUrl: string;
   affiliateUrl?: string;
   scene: number;
+  fontBase64: string;
 }) {
   const theme = brandTheme(input.brand);
   const hook = compactText(input.hook, 78);
@@ -183,15 +185,23 @@ function sceneSvg(input: {
   const affiliateHost = input.affiliateUrl ? compactText(hostLabel(input.affiliateUrl), 34) : "";
   const hookLines = wrapLines(hook, input.scene === 2 ? 18 : 20, input.scene === 2 ? 3 : 2);
   const supportLines = wrapLines(support, 35, 3);
-  const ctaLines = wrapLines(cta, 24, 2);
   const lowerLabel = input.scene === 3 ? (affiliateHost ? `CTA: ${siteHost} + ${affiliateHost}` : `CTA: ${siteHost}`) : topic;
 
-  const mainPanelTop = input.scene === 2 ? 640 : 710;
-  const mainPanelHeight = input.scene === 2 ? 610 : 520;
+  const mainPanelTop = input.scene === 2 ? 640 : input.scene === 4 ? 580 : 710;
+  const mainPanelHeight = input.scene === 2 ? 610 : input.scene === 4 ? 700 : 520;
+  const font = "Roamly Sans, Arial, sans-serif";
+  const panelContent = input.scene === 4
+    ? `<circle cx="540" cy="940" r="205" fill="${theme.bg}" stroke="${theme.accent2}" stroke-width="14"/><text x="540" y="1025" text-anchor="middle" font-family="${font}" font-size="188" font-weight="900" fill="#ffffff">9.2</text><text x="540" y="1105" text-anchor="middle" font-family="${font}" font-size="28" font-weight="800" fill="${theme.accent}">TRIP CONFIDENCE</text><rect x="136" y="1195" width="808" height="22" rx="11" fill="#d1d5db"/><rect x="136" y="1195" width="690" height="22" rx="11" fill="${theme.accent2}"/><text x="136" y="1305" font-family="${font}" font-size="34" font-weight="800" fill="${theme.muted}">Pacing</text><text x="800" y="1305" font-family="${font}" font-size="34" font-weight="800" fill="${theme.ink}">Balanced</text>`
+    : input.scene === 5
+      ? `<text font-family="${font}">${textTspans(["Make room for", "the good parts."], 132, 900, 72, 84, theme.ink)}</text><text font-family="${font}">${textTspans(wrapLines(cta, 25, 2), 136, 1130, 40, 54, theme.muted, 760)}</text><rect x="136" y="1280" width="510" height="92" rx="46" fill="${theme.accent2}"/><text x="391" y="1340" text-anchor="middle" font-family="${font}" font-size="33" font-weight="850" fill="${theme.ink}">PLAN WITH ROAMLY</text>`
+      : input.scene === 3
+        ? `<rect x="136" y="${mainPanelTop + 310}" width="790" height="20" rx="10" fill="#d1d5db"/><rect x="136" y="${mainPanelTop + 310}" width="610" height="20" rx="10" fill="${theme.accent}"/><text x="136" y="${mainPanelTop + 420}" font-family="${font}" font-size="34" font-weight="800" fill="${theme.muted}">Stops organized</text><text x="790" y="${mainPanelTop + 420}" font-family="${font}" font-size="38" font-weight="850" fill="${theme.ink}">12</text>`
+        : `<text font-family="${font}">${textTspans(input.scene === 2 ? supportLines : hookLines, 136, mainPanelTop + 350, 39, 55, theme.muted, 760)}</text>`;
 
   return Buffer.from(`
   <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
     <defs>
+      <style>@font-face{font-family:'Roamly Sans';src:url('data:font/ttf;base64,${input.fontBase64}') format('truetype');font-weight:100 900;}</style>
       <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stop-color="${theme.bg}"/>
         <stop offset="0.56" stop-color="${theme.bg2}"/>
@@ -205,26 +215,23 @@ function sceneSvg(input: {
     <path d="M-120 450 C 190 250, 410 330, 640 126 C 860 -68, 1130 14, 1220 220 L1220 -100 L-120 -100 Z" fill="${theme.accent}" opacity="0.28"/>
     <path d="M-160 1720 C 140 1460, 390 1510, 650 1350 C 910 1190, 1120 1320, 1240 1460 L1240 2060 L-160 2060 Z" fill="${theme.accent2}" opacity="0.20"/>
     <rect x="76" y="94" width="${input.brand === "reviewintel" ? 510 : 330}" height="76" rx="38" fill="#ffffff" opacity="0.93"/>
-    <text x="124" y="144" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="950" letter-spacing="4" fill="${theme.ink}">${theme.label}</text>
-    <text x="86" y="294" font-family="Inter, Arial, sans-serif" font-size="35" font-weight="850" fill="#e5faff" opacity="0.92">${xmlEscape(sceneLabel(input.scene))}</text>
+    <text x="124" y="144" font-family="${font}" font-size="28" font-weight="950" letter-spacing="4" fill="${theme.ink}">${theme.label}</text>
+    <text x="86" y="294" font-family="${font}" font-size="35" font-weight="850" fill="#e5faff" opacity="0.92">${xmlEscape(sceneLabel(input.scene))}</text>
     <rect x="78" y="${mainPanelTop}" width="924" height="${mainPanelHeight}" rx="46" fill="${theme.panel}" opacity="0.95" filter="url(#shadow)"/>
-    <text font-family="Inter, Arial, sans-serif">${textTspans(hookLines, 132, mainPanelTop + 130, input.scene === 2 ? 70 : 74, 84, theme.ink)}</text>
-    ${
-      input.scene === 1 || input.scene === 2
-        ? `<text font-family="Inter, Arial, sans-serif">${textTspans(supportLines, 136, mainPanelTop + 350, 39, 55, theme.muted, 760)}</text>`
-        : `<rect x="136" y="${mainPanelTop + 330}" width="470" height="88" rx="44" fill="${theme.accent}" opacity="0.20"/>
-           <text font-family="Inter, Arial, sans-serif">${textTspans(ctaLines, 176, mainPanelTop + 388, 37, 48, theme.ink, 850)}</text>`
-    }
+    ${input.scene < 4 ? `<text font-family="${font}">${textTspans(hookLines, 132, mainPanelTop + 130, input.scene === 2 ? 70 : 74, 84, theme.ink)}</text>` : ""}
+    ${panelContent}
     <rect x="78" y="1568" width="924" height="150" rx="38" fill="#ffffff" opacity="0.16"/>
-    <text x="124" y="1630" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="850" fill="#ffffff">${xmlEscape(lowerLabel)}</text>
-    <text x="124" y="1686" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" fill="#d7fffb" opacity="0.92">Generated vertical Reel - 9:16 MP4</text>
+    <text x="124" y="1630" font-family="${font}" font-size="30" font-weight="850" fill="#ffffff">${xmlEscape(lowerLabel)}</text>
+    <text x="124" y="1686" font-family="${font}" font-size="24" font-weight="700" fill="#d7fffb" opacity="0.92">A clearer trip, built around you.</text>
   </svg>`);
 }
 
 function sceneLabel(scene: number) {
   if (scene === 1) return "Plan";
   if (scene === 2) return "Check";
-  return "Act";
+  if (scene === 3) return "Organize";
+  if (scene === 4) return "Refine";
+  return "Go";
 }
 
 function hostLabel(value: string) {
@@ -247,6 +254,7 @@ async function createSceneFrame(input: {
   scene: number;
   destination: string;
 }) {
+  const fontBase64 = (await readFile(path.join(process.cwd(), "public/fonts/RoamlySans.ttf"))).toString("base64");
   await sharp(
     sceneSvg({
       brand: input.brand,
@@ -256,7 +264,8 @@ async function createSceneFrame(input: {
       cta: input.cta,
       websiteUrl: input.websiteUrl,
       affiliateUrl: input.affiliateUrl,
-      scene: input.scene
+      scene: input.scene,
+      fontBase64
     })
   )
     .png()
@@ -305,6 +314,19 @@ function runProcessOutput(command: string, args: string[]) {
   });
 }
 
+function resolveFfprobePath() {
+  const packagePath = (ffprobeInstaller as { path?: string }).path || "";
+  const candidates = [
+    packagePath,
+    process.platform === "darwin" && process.arch === "arm64" ? path.join(process.cwd(), "node_modules/ffprobe-static/bin/darwin/arm64/ffprobe") : "",
+    process.platform === "darwin" ? path.join(process.cwd(), "node_modules/ffprobe-static/bin/darwin/x64/ffprobe") : "",
+    process.platform === "linux" && process.arch === "x64" ? path.join(process.cwd(), "node_modules/ffprobe-static/bin/linux/x64/ffprobe") : "",
+  ].filter(Boolean);
+  const binary = candidates.find((candidate) => existsSync(candidate));
+  if (!binary) throw new Error("ffprobe binary path is not available.");
+  return binary;
+}
+
 async function probeGeneratedMp4(filePath: string, ffprobePath: string) {
   const raw = await runProcessOutput(ffprobePath, ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", filePath]);
   const probe = JSON.parse(raw) as { streams?: Array<Record<string, unknown>>; format?: Record<string, unknown> };
@@ -343,14 +365,14 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
   await mkdir(tmpDir, { recursive: true });
 
   try {
-    const frames = [1, 2, 3].map((scene) => path.join(tmpDir, `scene-${scene}.png`));
+    const frames = Array.from({ length: sceneCount }, (_, index) => path.join(tmpDir, `scene-${index + 1}.png`));
     const support =
       compactText(input.support, 112) ||
       (input.brand === "reviewintel"
         ? "ReviewIntel turns review patterns into clearer buying and seller decisions."
         : "Roamly keeps trip details, booking links, and daily pacing in one practical plan.");
 
-    for (let scene = 1; scene <= 3; scene += 1) {
+    for (let scene = 1; scene <= sceneCount; scene += 1) {
       await createSceneFrame({
         brand: input.brand,
         topic: input.topic,
@@ -365,26 +387,11 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
     }
 
     const ffmpegPath = await resolveFfmpegPath();
+    const sceneFilters = frames.map((_, index) => `[${index}:v]zoompan=z='min(zoom+0.0015,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${sceneSeconds * 30}:s=${width}x${height}:fps=30,format=yuv420p[v${index}]`).join(";");
+    const concatInputs = Array.from({ length: sceneCount }, (_, index) => `[v${index}]`).join("");
     await runProcess(ffmpegPath, [
       "-y",
-      "-loop",
-      "1",
-      "-t",
-      String(sceneSeconds),
-      "-i",
-      frames[0],
-      "-loop",
-      "1",
-      "-t",
-      String(sceneSeconds),
-      "-i",
-      frames[1],
-      "-loop",
-      "1",
-      "-t",
-      String(sceneSeconds),
-      "-i",
-      frames[2],
+      ...frames.flatMap((frame) => ["-i", frame]),
       "-f",
       "lavfi",
       "-t",
@@ -392,7 +399,7 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       "-i",
       audioTrack.lavfi,
       "-filter_complex",
-      `[0:v][1:v][2:v]concat=n=3:v=1:a=0,format=yuv420p,fps=30[v];[3:a]volume=${audioTrack.volume},afade=t=in:st=0:d=0.5,afade=t=out:st=8.2:d=0.8[a]`,
+      `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v];[${sceneCount}:a]volume=${audioTrack.volume},afade=t=in:st=0:d=0.5,afade=t=out:st=19.2:d=0.8[a]`,
       "-map",
       "[v]",
       "-map",
@@ -413,7 +420,7 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       outputPath
     ]);
 
-    const ffprobePath = existsSync((ffprobeInstaller as { path?: string }).path || "") ? (ffprobeInstaller as { path: string }).path : path.join(process.cwd(), "node_modules/ffprobe-static/bin/linux/x64/ffprobe");
+    const ffprobePath = resolveFfprobePath();
     const validated = await probeGeneratedMp4(outputPath, ffprobePath);
     const buffer = await readFile(outputPath);
     const size = await stat(outputPath).then((item) => item.size).catch(() => buffer.length);
