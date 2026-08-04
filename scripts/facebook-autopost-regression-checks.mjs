@@ -50,6 +50,7 @@ assert(/proof_reel/.test(cron), "protected runtime proof action is available");
 assert(/runFacebookAutomationForAllBrands/.test(cron), "cron default can run both brands");
 assert(/force: true/.test(cron), "runtime proof uses the explicit force publish path");
 assert(/queue_status: "archived"/.test(cron) && /Proof Reel was not published/.test(cron), "failed runtime proof queue items are archived");
+assert(/x-vercel-cron-schedule/.test(cron) && /0 12 \* \* \*/.test(cron), "production cron authentication accepts only the configured Vercel schedule header");
 assert(/body: JSON\.stringify\(\{ action, brand, confirm/.test(controls), "admin control actions send the selected brand");
 assert(/body: JSON\.stringify\(\{ action: "save_settings", brand, settings/.test(controls), "admin settings saves send the selected brand");
 assert(/getFacebookAutomationSummaries/.test(automationPage) && /brand: "reviewintel"/.test(automationPage), "automation page exposes ReviewIntel controls");
