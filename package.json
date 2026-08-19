@@ -25,6 +25,7 @@
     "next": "^15.3.4",
     "nodemailer": "^9.0.3",
     "openai": "^5.8.2",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "^0.34.5",

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { NotificationPermissionCard } from "@/components/roamly/NotificationPermissionCard";
+import { QRCodeSVG } from "qrcode.react";
 
 type Trip = {
   id: string;
@@ -143,6 +145,71 @@ export function AdminLiveTestConsole({
     setBrowserPermission(Notification.permission);
   }, []);
 
+  async function createQaTrip() {
+    setBusy("seed_qa_trip");
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetchWithSupabaseAuth("/api/admin/roamly/seed-demo", {
+        method: "POST",
+        credentials: "include"
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not create the controlled QA trip.");
+      }
+
+      setResult({
+        ok: true,
+        test: "qa_trip_created",
+        message: "Controlled Live Companion QA trip created. Refreshing..."
+      });
+
+      window.location.reload();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not create the controlled QA trip."
+      );
+      setBusy("");
+    }
+  }
+
+  async function createSaintJohnFieldTest() {
+    setBusy("seed_field_test");
+    setError("");
+    setResult(null);
+
+    try {
+      const response = await fetchWithSupabaseAuth(
+        "/api/admin/roamly/seed-field-test",
+        {
+          method: "POST",
+          credentials: "include"
+        }
+      );
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not create Saint John field test.");
+      }
+
+      window.location.reload();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not create Saint John field test."
+      );
+      setBusy("");
+    }
+  }
+
   async function run(action: string) {
     setBusy(action);
     setError("");
@@ -182,6 +249,35 @@ export function AdminLiveTestConsole({
           </select>
         </label>
 
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={createQaTrip}
+            disabled={Boolean(busy)}
+            className="rounded-2xl border border-ocean/30 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean transition hover:-translate-y-0.5 disabled:opacity-60"
+          >
+            {busy === "seed_qa_trip"
+              ? "Creating QA trip..."
+              : "Create / Reset Live Companion QA Trip"}
+          </button>
+
+          <button
+            type="button"
+            onClick={createSaintJohnFieldTest}
+            disabled={Boolean(busy)}
+            className="ml-2 rounded-2xl border border-ocean/30 bg-white px-4 py-3 text-sm font-black text-ocean transition hover:-translate-y-0.5 disabled:opacity-60"
+          >
+            {busy === "seed_field_test"
+              ? "Creating Saint John test..."
+              : "Create Saint John Field Test"}
+          </button>
+
+          <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+            Creates a protected admin-only trip with scheduled activities for the
+            Production Live Companion lifecycle test. It does not modify customer trips.
+          </p>
+        </div>
+
         {selectedTrip ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ResultPill label="Companion unlocked" value={Boolean(selectedTrip.tracking_unlocked)} />
@@ -201,7 +297,163 @@ export function AdminLiveTestConsole({
         ) : null}
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <section>
+        {selectedTrip?.metadata?.field_test === true ? (
+          <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+                  Real Saint John Field Test
+                </p>
+                <h3 className="mt-1 text-xl font-black text-slate-900">
+                  3-stop Live Companion test
+                </h3>
+                <p className="mt-1 text-sm font-bold text-slate-500">
+                  Real GPS · Saint John local time · No simulated location
+                </p>
+              </div>
+
+              <span className="rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
+                America/Moncton
+              </span>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-ocean/20 bg-ocean/5 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean">
+                Phone field test
+              </p>
+
+              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+                Open the real Live Companion on your phone. Your phone provides the
+                GPS and receives the notifications; this admin page only monitors the test.
+              </p>
+
+              {typeof window !== "undefined" && tripId ? (
+                <div className="mt-4 flex justify-center rounded-2xl bg-white p-4">
+                  <QRCodeSVG
+                    value={`${(process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "")}/trip/${tripId}/live?fieldTest=1`}
+                    size={180}
+                    level="M"
+                  />
+                </div>
+              ) : null}
+
+              <p className="mt-2 text-center text-xs font-bold text-slate-500">
+                Scan with your phone camera
+              </p>
+
+              <a
+                href={`/trip/${tripId}/live?fieldTest=1`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 block w-full rounded-2xl bg-ink px-5 py-3 text-center text-sm font-black text-white"
+              >
+                Open Field Test on Phone
+              </a>
+
+              <p className="mt-2 text-xs font-bold text-slate-500">
+                On your phone, use this same Roamly address and trip. Do not use simulated location.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-3">
+              {tripActivities
+                .slice()
+                .sort(
+                  (a, b) =>
+                    new Date(a.scheduled_start || 0).getTime() -
+                    new Date(b.scheduled_start || 0).getTime()
+                )
+                .map((activity, index) => (
+                  <div
+                    key={activity.id}
+                    className="rounded-2xl border border-slate-200 bg-mist/40 p-4"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ocean text-sm font-black text-white">
+                        {index + 1}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-black text-slate-900">
+                            {activity.title}
+                          </p>
+
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600">
+                            {activity.status}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 text-sm font-bold text-slate-500">
+                          {activity.address || "No address"}
+                        </p>
+
+                        <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                          {activity.scheduled_start
+                            ? new Intl.DateTimeFormat("en-CA", {
+                                timeZone: "America/Moncton",
+                                hour: "numeric",
+                                minute: "2-digit"
+                              }).format(new Date(activity.scheduled_start))
+                            : "No scheduled time"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <p className="mt-4 rounded-2xl bg-sun/15 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+              Field mode must use your actual browser location. Walk or drive normally;
+              Roamly should detect approaching, arrival, check-in/skip and progression
+              without simulated GPS.
+            </p>
+          </section>
+        ) : null}
+
+        <NotificationPermissionCard qaTripId={tripId || undefined} />
+        <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+          This is Roamly&apos;s real notification registration. Enable reminders
+          on this device before running the Production Live Companion Test.
+        </p>
+      </section>
+
+      <section className="rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+          Production acceptance test
+        </p>
+        <h2 className="mt-2 text-xl font-black text-ink">
+          Live Companion
+        </h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+          Runs the controlled QA trip through the actual Live Companion production path:
+          detection, real push evidence, duplicate suppression, expiry, retirement and
+          automatic advance to the next activity.
+        </p>
+
+        <button
+          type="button"
+          onClick={() => run("production_lifecycle")}
+          disabled={!tripId || Boolean(busy)}
+          className="mt-5 w-full rounded-2xl bg-ink px-5 py-4 text-center text-sm font-black uppercase tracking-[0.08em] text-white shadow-soft transition hover:-translate-y-0.5 disabled:opacity-60"
+        >
+          {busy === "production_lifecycle"
+            ? "Running production test..."
+            : "Run Production Live Companion Test"}
+        </button>
+
+        <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+          This acceptance test is restricted to the controlled admin QA trip.
+          The buttons below are diagnostics and do not certify Live Companion.
+        </p>
+      </section>
+
+      <section>
+        <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+          Individual diagnostics
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {actions.map(([action, label]) => (
           <button
             key={action}
@@ -213,12 +465,64 @@ export function AdminLiveTestConsole({
             {busy === action ? "Running..." : label}
           </button>
         ))}
+        </div>
       </section>
 
       {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
 
       {result ? (
         <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+          {result.test === "production_live_companion_lifecycle" ? (
+            <div className="mb-5">
+              <div
+                className={`rounded-[1.5rem] border-2 p-5 ${
+                  result.passed === true
+                    ? "border-ocean/40 bg-ocean/10"
+                    : "border-coral/40 bg-coral/10"
+                }`}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.16em] opacity-70">
+                  Production Live Companion
+                </p>
+                <p className="mt-2 text-3xl font-black text-ink">
+                  {result.passed === true ? "PASS" : "FAIL"}
+                </p>
+                <p className="mt-2 text-sm font-bold text-slate-600">
+                  {result.passed === true
+                    ? "The controlled lifecycle passed every required production-path check."
+                    : "Live Companion did not pass every required production-path check. Review the failed stage below."}
+                </p>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <ResultPill
+                  label="Activity A detected"
+                  value={(result.stages as Record<string, unknown> | undefined)?.activityADetected}
+                />
+                <ResultPill
+                  label="Real push"
+                  value={(result.stages as Record<string, unknown> | undefined)?.realPushEvidence}
+                />
+                <ResultPill
+                  label="Duplicate suppressed"
+                  value={(result.stages as Record<string, unknown> | undefined)?.duplicateSuppressed}
+                />
+                <ResultPill
+                  label="A expired by production"
+                  value={(result.stages as Record<string, unknown> | undefined)?.productionExpiredActivityA}
+                />
+                <ResultPill
+                  label="A stayed retired"
+                  value={(result.stages as Record<string, unknown> | undefined)?.activityAStayedRetired}
+                />
+                <ResultPill
+                  label="Advanced to Activity B"
+                  value={(result.stages as Record<string, unknown> | undefined)?.productionAdvancedToActivityB}
+                />
+              </div>
+            </div>
+          ) : null}
+
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Latest result</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ResultPill label="Trip activated" value={result.tripActivated} />

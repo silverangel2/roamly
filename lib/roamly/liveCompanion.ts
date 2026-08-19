@@ -311,7 +311,7 @@ export function activityStartDate(params: {
   return zonedDateTimeToDate(date.slice(0, 10), minutes, params.timezone || "UTC");
 }
 
-function activityEndDate(params: {
+export function activityEndDate(params: {
   activity: LiveCompanionActivity;
   tripStartDate?: string | null;
   timezone?: string | null;

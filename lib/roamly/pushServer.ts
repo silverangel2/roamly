@@ -10,6 +10,11 @@ export type NotificationPayload = {
   type?: string;
   tripId?: string | null;
   eventId?: string | null;
+  appleMapsUrl?: string | null;
+  googleMapsUrl?: string | null;
+  citymapperUrl?: string | null;
+  checkInUrl?: string | null;
+  skipUrl?: string | null;
 };
 
 function configureWebPush() {
@@ -54,32 +59,61 @@ export async function createInAppNotification(
     .maybeSingle();
 }
 
-export async function sendPushNotification(supabase: SupabaseClient, userId: string, payload: NotificationPayload) {
+export async function sendPushNotification(
+  supabase: SupabaseClient,
+  userId: string,
+  payload: NotificationPayload,
+  options: {
+    sendEmail?: boolean;
+    notificationId?: string | null;
+    createNotification?: boolean;
+  } = {}
+) {
   const writer = createSupabaseAdminClient() || supabase;
   const configured = configureWebPush();
-  const notification = await createInAppNotification(writer, {
-    userId,
-    tripId: payload.tripId || null,
-    eventId: payload.eventId || null,
-    type: payload.type || "trip_reminder",
-    title: payload.title,
-    body: payload.body || null,
-    actionUrl: payload.actionUrl || null,
-    status: "unread",
-    metadata: { pushConfigured: configured, pushStatus: configured ? "pending" : "not_configured" }
-  });
-  const notificationId = notification.data?.id || null;
-  const emailResult = notificationId
-    ? await sendTripReminderEmail({
+  const existingNotificationId = options.notificationId ? String(options.notificationId).trim() : "";
+  const createNotification = options.createNotification !== false;
+  const notification = existingNotificationId
+    ? { data: { id: existingNotificationId }, error: null }
+    : !createNotification
+      ? { data: null, error: null }
+    : await createInAppNotification(writer, {
         userId,
         tripId: payload.tripId || null,
-        notificationId
-      }).catch((error) => ({
-        ok: false,
-        status: "failed" as const,
-        error: error instanceof Error ? error.message : "Email reminder failed."
-      }))
-    : null;
+        eventId: payload.eventId || null,
+        type: payload.type || "trip_reminder",
+        title: payload.title,
+        body: payload.body || null,
+        actionUrl: payload.actionUrl || null,
+        status: "unread",
+        metadata: { pushConfigured: configured, pushStatus: configured ? "pending" : "not_configured" }
+      });
+  const notificationId = notification.data?.id || null;
+  if (existingNotificationId) {
+    await writer
+      .from("roamly_notifications")
+      .update({
+        push_status: configured ? "pending" : "not_configured",
+        push_error: null
+      })
+      .eq("id", existingNotificationId)
+      .eq("user_id", userId);
+  }
+  const emailResult =
+    options.sendEmail !== false && notificationId
+      ? await sendTripReminderEmail({
+          userId,
+          tripId: payload.tripId || null,
+          notificationId
+        }).catch((error) => ({
+          ok: false,
+          status: "failed" as const,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Email reminder failed."
+        }))
+      : null;
   if (!configured) {
     if (notification.data?.id) {
       await writer
@@ -115,7 +149,12 @@ export async function sendPushNotification(supabase: SupabaseClient, userId: str
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body || "",
-    actionUrl: payload.actionUrl || "/notifications"
+    actionUrl: payload.actionUrl || "/notifications",
+    appleMapsUrl: payload.appleMapsUrl || null,
+    googleMapsUrl: payload.googleMapsUrl || null,
+    citymapperUrl: payload.citymapperUrl || null,
+    checkInUrl: payload.checkInUrl || null,
+    skipUrl: payload.skipUrl || null
   });
 
   const results = await Promise.allSettled(
@@ -219,7 +258,7 @@ export async function sendScheduledTripNotifications() {
       tripId: event.trip_id,
       eventId: event.id
     });
-    if (delivery.notification?.data?.id) {
+    if (delivery.ok && (delivery.sent ?? 0) > 0) {
       sent += 1;
       await supabase
         .from("roamly_trip_companion_events")

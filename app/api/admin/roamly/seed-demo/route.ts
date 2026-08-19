@@ -72,6 +72,9 @@ export async function POST() {
       destination_region: "Ontario",
       destination_city: "Toronto",
       start_date: new Date().toISOString().slice(0, 10),
+      end_date: new Date(Date.now() + 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10),
       status: "locked",
       itinerary_status: "locked",
       itinerary_locked: true,
@@ -118,24 +121,45 @@ export async function POST() {
 
   const dayIdByNumber = new Map((days || []).map((day) => [day.day_number, day.id]));
 
+  // Production-format schedule for the controlled Live Companion QA trip.
+  // These timestamps are test data only. The lifecycle tester may advance
+  // decision time, but production Live Companion must perform the actual
+  // expiry/state transitions.
+  const scheduleBase = new Date();
+  scheduleBase.setMinutes(scheduleBase.getMinutes() + 10, 0, 0);
+
   const activityResult = await guard.admin.from("roamly_activities").insert(
-    torontoTestActivities.map((activity) => ({
-      trip_id: trip.id,
-      trip_day_id: dayIdByNumber.get(activity.day) || null,
-      title: activity.title,
-      description: activity.description,
-      category: activity.category,
-      address: activity.address,
-      city: "Toronto",
-      region: "Ontario",
-      country: "Canada",
-      latitude: activity.latitude,
-      longitude: activity.longitude,
-      radius_meters: 350,
-      sort_order: activity.sort_order,
-      status: "planned",
-      metadata: { admin_test: true }
-    }))
+    torontoTestActivities.map((activity, index) => {
+      const scheduledStart = new Date(
+        scheduleBase.getTime() + index * 120 * 60 * 1000
+      );
+      const scheduledEnd = new Date(
+        scheduledStart.getTime() + 90 * 60 * 1000
+      );
+
+      return {
+        trip_id: trip.id,
+        trip_day_id: dayIdByNumber.get(activity.day) || null,
+        title: activity.title,
+        description: activity.description,
+        category: activity.category,
+        address: activity.address,
+        city: "Toronto",
+        region: "Ontario",
+        country: "Canada",
+        latitude: activity.latitude,
+        longitude: activity.longitude,
+        radius_meters: 350,
+        sort_order: activity.sort_order,
+        scheduled_start: scheduledStart.toISOString(),
+        scheduled_end: scheduledEnd.toISOString(),
+        status: "planned",
+        metadata: {
+          admin_test: true,
+          live_companion_lifecycle_test: true
+        }
+      };
+    })
   );
 
   if (activityResult.error) {

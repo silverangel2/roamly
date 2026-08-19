@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 import {
   buildLiveCompanionDebugReport,
+  runLiveCompanionLifecycleTest,
   sendTestInAppNotification,
   sendTestPushNotification,
   simulateCheckIn,
@@ -40,6 +41,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (action === "production_lifecycle") {
+      const result = await runLiveCompanionLifecycleTest(tripId);
+      return NextResponse.json({
+        ok: result.passed,
+        action,
+        ...result
+      });
+    }
+
     if (action in locationActions) {
       const result = await simulateTripLocation(tripId, locationActions[action]);
       return NextResponse.json({ ok: true, action, ...result });

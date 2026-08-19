@@ -1,5 +1,7 @@
 "use client";
 
+import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -17,7 +19,7 @@ export async function requestNotificationPermission() {
   return Notification.requestPermission();
 }
 
-export async function subscribeToPushNotifications() {
+export async function subscribeToPushNotifications(qaTripId?: string) {
   if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
     return { ok: false, error: "Push notifications are not supported in this browser." };
   }
@@ -34,7 +36,48 @@ export async function subscribeToPushNotifications() {
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
   });
 
-  const response = await fetch("/api/roamly/push/subscribe", {
+  const payload = subscription.toJSON();
+
+  const response = await fetchWithSupabaseAuth(
+    qaTripId
+      ? "/api/admin/roamly/push/subscribe"
+      : "/api/roamly/push/subscribe",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(
+        qaTripId
+          ? { tripId: qaTripId, ...payload }
+          : payload
+      )
+    }
+  );
+  const data = await response.json().catch(() => null);
+  if (!response.ok) return { ok: false, error: data?.error || "Push subscription failed." };
+  return { ok: true };
+}
+
+export async function ensurePushSubscription() {
+  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return { ok: false, error: "Push notifications are not supported in this browser." };
+  }
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+  if (!vapidPublicKey) {
+    return { ok: false, error: "VAPID public key is not configured." };
+  }
+  const permission = await requestNotificationPermission();
+  if (permission !== "granted") return { ok: false, error: "Notification permission was not granted." };
+
+  const registration = await navigator.serviceWorker.register("/sw.js");
+  const existing = await registration.pushManager.getSubscription();
+  const subscription =
+    existing ||
+    (await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+    }));
+
+  const response = await fetchWithSupabaseAuth("/api/roamly/push/subscribe", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(subscription.toJSON())
@@ -49,7 +92,7 @@ export async function unsubscribeFromPushNotifications() {
   const registration = await navigator.serviceWorker.ready.catch(() => null);
   const subscription = await registration?.pushManager.getSubscription();
   await subscription?.unsubscribe();
-  const response = await fetch("/api/roamly/push/unsubscribe", { method: "POST" });
+  const response = await fetchWithSupabaseAuth("/api/roamly/push/unsubscribe", { method: "POST" });
   const data = await response.json().catch(() => null);
   if (!response.ok) return { ok: false, error: data?.error || "Push unsubscribe failed." };
   return { ok: true };

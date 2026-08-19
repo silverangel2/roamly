@@ -1,11 +1,25 @@
+import { sendPushNotification } from "@/lib/roamly/pushServer";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateDistanceMeters, isWithinRadius, type LocationInput } from "@/lib/roamly/location";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
-import { createInAppNotification } from "@/lib/roamly/pushServer";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
-import { isTodayWithinTripDates, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import {
+  activityEndDate,
+  buildLiveCompanionState,
+  evaluateNotificationDecision,
+  isTodayWithinTripDates,
+  selectNowAndNextActivity,
+  timezoneFromTripMetadata,
+  type LiveCompanionActivity,
+  type LiveCoordinates,
+  type LiveRouteStatus,
+  type LiveCompanionTrip,
+  type LiveNotificationHistoryItem,
+  type LiveNotificationType
+} from "@/lib/roamly/liveCompanion";
+import { getLiveRouteStatus } from "@/lib/roamly/liveRouting";
 
 export type TrackingTrip = {
   id: string;
@@ -72,6 +86,7 @@ export type TripNotificationPayload = {
 type ActivationOptions = {
   simulated?: boolean;
   source?: string;
+  decisionNow?: Date;
 };
 
 export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date"> & { days_count?: number | null }) {
@@ -84,6 +99,69 @@ function todayIso() {
 
 function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+
+function toLiveCompanionActivity(
+  activity: TrackingActivity
+): LiveCompanionActivity {
+  return {
+    id: activity.id,
+    title: activity.title,
+    shortDescription: activity.description,
+    startAt: activity.scheduled_start,
+    endAt: activity.scheduled_end,
+    address: activity.address,
+    latitude: activity.latitude,
+    longitude: activity.longitude,
+    radiusMeters: activity.radius_meters,
+    status: activity.status
+  };
+}
+
+function isLiveNotificationType(
+  value: unknown
+): value is LiveNotificationType {
+  return (
+    value === "trip_active" ||
+    value === "leave_by" ||
+    value === "arrival" ||
+    value === "late" ||
+    value === "booking_change" ||
+    value === "next_activity"
+  );
+}
+
+function companionEventTypeForLiveNotification(
+  value: LiveNotificationType
+) {
+  if (value === "next_activity") return "up_next_activity";
+  if (value === "leave_by") return "departure_reminder";
+  if (value === "late") return "running_late";
+  if (value === "arrival") return "arrival_detected";
+  return "up_next_activity";
+}
+
+function liveNotificationTypeFromCompanionEvent(
+  value: unknown
+): LiveNotificationType | null {
+  if (isLiveNotificationType(value)) return value;
+  if (value === "up_next_activity") return "next_activity";
+  if (value === "departure_reminder") return "leave_by";
+  if (value === "running_late") return "late";
+  if (value === "arrival_detected") return "arrival";
+  return null;
+}
+
+function hasValidCoordinates(
+  value: { latitude?: number | null; longitude?: number | null } | null | undefined
+) {
+  return (
+    typeof value?.latitude === "number" &&
+    Number.isFinite(value.latitude) &&
+    typeof value.longitude === "number" &&
+    Number.isFinite(value.longitude)
+  );
 }
 
 export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string, tripId?: string) {
@@ -290,6 +368,40 @@ export async function activateTripIfNearby(
     };
   }
 
+  // Retire unresolved activities whose real itinerary window has ended.
+  // This runs before nearby sensing so an expired activity cannot be
+  // rediscovered by GPS and generate another Live Companion alert.
+  const tripTimezone = timezoneFromTripMetadata(trip.metadata);
+  const { data: expirableActivities } = await supabase
+    .from("roamly_activities")
+    .select("*")
+    .eq("trip_id", trip.id)
+    .in("status", ["planned", "nearby"]);
+
+  const expiredActivityIds = ((expirableActivities || []) as TrackingActivity[])
+    .filter((activity) => {
+      const end = activityEndDate({
+        activity: toLiveCompanionActivity(activity),
+        timezone: tripTimezone
+      });
+      const decisionNow =
+        options?.simulated === true && options.decisionNow
+          ? options.decisionNow
+          : new Date();
+
+      return Boolean(end && end.getTime() < decisionNow.getTime());
+    })
+    .map((activity) => activity.id);
+
+  if (expiredActivityIds.length) {
+    await supabase
+      .from("roamly_activities")
+      .update({ status: "missed" })
+      .eq("trip_id", trip.id)
+      .in("status", ["planned", "nearby"])
+      .in("id", expiredActivityIds);
+  }
+
   const nearby = await findNearbyActivities(supabase, trip.id, location);
   const currentDay = await getCurrentDayRecord(supabase, trip);
   const checked = await getCheckedActivities(supabase, trip.id);
@@ -364,41 +476,634 @@ export async function activateTripIfNearby(
     });
 
     if (!alreadyNotified) {
-      const now = new Date().toISOString();
-      const companion = await supabase
-        .from("roamly_trip_companion_events")
-        .insert({
-          user_id: userId,
-          trip_id: trip.id,
-          event_type: "nearby_activity",
-          title: `Nearby now: ${nearby.activities[0].title}`,
-          body: "You are near a planned activity. Check in when you arrive.",
-          scheduled_for: now,
-          completed_at: now,
-          status: "shown",
-          metadata: simulationMetadata(options, {
-            activityId: nearby.activities[0].id,
-            distanceMeters: nearby.activities[0].distance_meters ?? null,
-            notificationReason: "arrival_proximity"
-          })
-        })
-        .select("id")
-        .maybeSingle();
-
-      await createInAppNotification(supabase, {
+      /*
+       * LIVE COMPANION — NEARBY ACTIVITY
+       *
+       * `alreadyNotified` above prevents watchPosition() from
+       * firing the same nearby alert repeatedly.
+       *
+       * Send this immediately to the phone notification wall.
+       * Do not send email.
+       */
+      const pushed = await sendPushNotification(
+        supabase,
         userId,
-        tripId: trip.id,
-        eventId: companion.data?.id || null,
-        type: "nearby_activity",
-        title: `Nearby now: ${nearby.activities[0].title}`,
-        body: "Check in, skip, or open directions from your Live Trip Companion.",
-        actionUrl: `/trip/${trip.id}/live`,
-        metadata: {
-          activityId: nearby.activities[0].id,
-          distanceMeters: nearby.activities[0].distance_meters ?? null,
-          notificationReason: "arrival_proximity",
-          ...(options?.simulated ? { simulated: true, source: options.source || "tester_location_simulator" } : {})
+        {
+          tripId: trip.id,
+          type: "nearby_activity",
+          title: `You're nearby: ${nearby.activities[0].title}`,
+          body: "You're close to your next planned activity. Open Roamly when you're ready.",
+          actionUrl:
+            `/trip/${trip.id}/live?activity=${encodeURIComponent(
+              nearby.activities[0].id
+            )}`,
+          appleMapsUrl:
+            nearby.activities[0].latitude != null &&
+            nearby.activities[0].longitude != null
+              ? `https://maps.apple.com/?daddr=${nearby.activities[0].latitude},${nearby.activities[0].longitude}`
+              : null,
+          googleMapsUrl:
+            nearby.activities[0].latitude != null &&
+            nearby.activities[0].longitude != null
+              ? `https://www.google.com/maps/dir/?api=1&destination=${nearby.activities[0].latitude},${nearby.activities[0].longitude}`
+              : null,
+          citymapperUrl:
+            nearby.activities[0].latitude != null &&
+            nearby.activities[0].longitude != null
+              ? `https://citymapper.com/directions?endcoord=${nearby.activities[0].latitude},${nearby.activities[0].longitude}`
+              : null,
+          checkInUrl:
+            `/trip/${trip.id}/live?activity=${encodeURIComponent(
+              nearby.activities[0].id
+            )}&action=check-in`,
+          skipUrl:
+            `/trip/${trip.id}/live?activity=${encodeURIComponent(
+              nearby.activities[0].id
+            )}&action=skip`
+        },
+        {
+          sendEmail: false,
+          createNotification: false
         }
+      );
+
+      if (Number(pushed.sent || 0) > 0) {
+        const now = new Date().toISOString();
+        await supabase
+          .from("roamly_trip_companion_events")
+          .insert({
+            user_id: userId,
+            trip_id: trip.id,
+            event_type: "nearby_activity",
+            title: `Nearby now: ${nearby.activities[0].title}`,
+            body: "You are near a planned activity. Check in when you arrive.",
+            scheduled_for: now,
+            completed_at: now,
+            status: "shown",
+            metadata: simulationMetadata(options, {
+              activityId: nearby.activities[0].id,
+              distanceMeters: nearby.activities[0].distance_meters ?? null,
+              notificationReason: "arrival_proximity"
+            })
+          });
+      }
+    }
+  }
+
+
+  /*
+   * =========================================================
+   * LIVE COMPANION — CHRONOLOGICAL INDIVIDUAL PUSHES
+   * =========================================================
+   *
+   * Nearby remains handled by the existing GPS push block above.
+   *
+   * These additional events use Roamly's existing timing,
+   * arrival and anti-spam decision engine.
+   */
+
+  if (trip && upNext.activity) {
+    const activeTrip = trip;
+
+    const liveTrip: LiveCompanionTrip = {
+      id: activeTrip.id,
+      title: activeTrip.title,
+      startDate: activeTrip.start_date,
+      endDate: activeTrip.end_date,
+      timezone: timezoneFromTripMetadata(
+        activeTrip.metadata
+      ),
+      enabled: true
+    };
+
+    const liveActivities: LiveCompanionActivity[] =
+      checked.activities.map(
+        toLiveCompanionActivity
+      );
+
+    const fallbackLiveActivity =
+      toLiveCompanionActivity(
+        upNext.activity
+      );
+
+    if (
+      !liveActivities.some(
+        (activity) =>
+          activity.id ===
+          fallbackLiveActivity.id
+      )
+    ) {
+      liveActivities.push(
+        fallbackLiveActivity
+      );
+    }
+
+    const historySince =
+      new Date(
+        Date.now() -
+          24 * 60 * 60 * 1000
+      ).toISOString();
+
+    const historyResult =
+      await supabase
+        .from(
+          "roamly_trip_companion_events"
+        )
+        .select(
+          "event_type,created_at,metadata"
+        )
+        .eq(
+          "user_id",
+          userId
+        )
+        .eq(
+          "trip_id",
+          activeTrip.id
+        )
+        .gte(
+          "created_at",
+          historySince
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false
+          }
+        )
+        .limit(100);
+
+    const history: LiveNotificationHistoryItem[] =
+      [];
+
+    for (
+      const event of
+      historyResult.data || []
+    ) {
+      const metadata =
+        recordValue(
+          event.metadata
+        );
+
+      const eventType =
+        liveNotificationTypeFromCompanionEvent(
+          metadata?.liveNotificationType ||
+          event.event_type
+        );
+
+      if (!eventType) {
+        continue;
+      }
+
+      const activityId =
+        typeof metadata?.activityId === "string"
+          ? metadata.activityId
+          : typeof metadata?.activity_id === "string"
+            ? metadata.activity_id
+            : null;
+
+      history.push({
+        eventType,
+
+        activityId,
+
+        sentAt:
+          event.created_at,
+
+        key:
+          String(
+            metadata?.liveNotificationKey ||
+            `${eventType}:${activityId || "trip"}`
+          )
+      });
+    }
+
+    const liveNow =
+      new Date();
+
+    const routeSelection =
+      selectNowAndNextActivity({
+        activities:
+          liveActivities,
+
+        tripStartDate:
+          liveTrip.startDate,
+
+        timezone:
+          liveTrip.timezone,
+
+        now:
+          liveNow
+      });
+
+    const routeDestination =
+      routeSelection.next ||
+      fallbackLiveActivity;
+
+    const routeOrigin: LiveCoordinates = {
+      latitude:
+        location.latitude,
+
+      longitude:
+        location.longitude,
+
+      accuracy:
+        location.accuracy ??
+        null
+    };
+
+    const liveRoute: LiveRouteStatus | null =
+      hasValidCoordinates(
+        routeOrigin
+      ) &&
+      hasValidCoordinates(
+        routeDestination
+      )
+        ? await getLiveRouteStatus({
+            origin:
+              routeOrigin,
+
+            destination:
+              routeDestination,
+
+            mode:
+              "walking"
+          })
+        : null;
+
+    const companionState =
+      buildLiveCompanionState({
+        trip: liveTrip,
+
+        activities:
+          liveActivities,
+
+        permission:
+          "granted",
+
+        location: {
+          latitude:
+            location.latitude,
+
+          longitude:
+            location.longitude,
+
+          accuracy:
+            location.accuracy ??
+            null
+        },
+
+        route:
+          liveRoute,
+
+        now:
+          liveNow
+      });
+
+    const nextLiveActivity =
+      companionState.next ||
+      fallbackLiveActivity;
+
+    const nextLiveTitle =
+      nextLiveActivity.title;
+
+    const arrivalLiveActivity =
+      companionState.now ||
+      companionState.next ||
+      fallbackLiveActivity;
+
+    const arrivalLiveTitle =
+      arrivalLiveActivity.title;
+
+    async function pushLiveEvent(params: {
+      eventType:
+        | "next_activity"
+        | "leave_by"
+        | "late"
+        | "arrival";
+
+      title: string;
+      body: string;
+      reason: string;
+
+      locationState?:
+        | "arrived"
+        | "nearby"
+        | "away"
+        | "unknown";
+
+      activity?: LiveCompanionActivity;
+    }) {
+      const liveActivity =
+        params.activity ||
+        nextLiveActivity;
+
+      const liveActivityId =
+        liveActivity.id;
+
+      const actionUrl =
+        `/trip/${activeTrip.id}/live?activity=${encodeURIComponent(
+          liveActivityId
+        )}`;
+
+      const decision =
+        evaluateNotificationDecision({
+          eventType:
+            params.eventType,
+
+          activity:
+            liveActivity,
+
+          history,
+
+          activeWindow:
+            companionState.activeWindow,
+
+          paused:
+            false,
+
+          locationState:
+            params.locationState ||
+            companionState.arrivalState,
+
+          reason:
+            params.reason
+        });
+
+      if (
+        !decision.notificationSent
+      ) {
+        return;
+      }
+
+      if (
+        history.some(
+          (item) =>
+            item.key ===
+            decision.key
+        )
+      ) {
+        return;
+      }
+
+      const pushed =
+        await sendPushNotification(
+          supabase,
+          userId,
+          {
+            tripId:
+              activeTrip.id,
+
+            type:
+              params.eventType,
+
+            title:
+              params.title,
+
+            body:
+              params.body,
+
+            actionUrl
+          },
+          {
+            sendEmail:
+              false,
+
+            createNotification:
+              false
+          }
+        );
+
+      /*
+       * Do not mark the timeline event as delivered unless an
+       * actual enabled push subscription received it.
+       */
+      if (
+        Number(
+          pushed.sent || 0
+        ) <= 0
+      ) {
+        return;
+      }
+
+      const now =
+        new Date().toISOString();
+
+      await supabase
+        .from(
+          "roamly_trip_companion_events"
+        )
+        .insert({
+          user_id:
+            userId,
+
+          trip_id:
+            activeTrip.id,
+
+          event_type:
+            companionEventTypeForLiveNotification(
+              params.eventType
+            ),
+
+          title:
+            params.title,
+
+          body:
+            params.body,
+
+          scheduled_for:
+            now,
+
+          completed_at:
+            now,
+
+          status:
+            "shown",
+
+          metadata:
+            simulationMetadata(
+              options,
+              {
+                activityId:
+                  liveActivityId,
+
+                liveNotificationType:
+                  params.eventType,
+
+                liveNotificationKey:
+                  decision.key,
+
+                notificationReason:
+                  params.reason,
+
+                countdownMinutes:
+                  companionState.countdownMinutes ??
+                  null,
+
+                leaveBy:
+                  companionState.leaveBy ??
+                  null,
+
+                lateByMinutes:
+                  companionState.lateByMinutes ??
+                  null,
+
+                arrivalState:
+                  companionState.arrivalState
+              }
+            )
+        });
+
+      history.push({
+        eventType:
+          params.eventType,
+
+        activityId:
+          liveActivityId,
+
+        sentAt:
+          decision.eventTime,
+
+        key:
+          decision.key
+      });
+    }
+
+
+    /*
+     * 1. UP NEXT / STARTING SOON
+     */
+    if (
+      typeof companionState.countdownMinutes ===
+        "number" &&
+      companionState.countdownMinutes >= 0 &&
+      companionState.countdownMinutes <= 30
+    ) {
+      const minutes =
+        Math.max(
+          1,
+          Math.round(
+            companionState.countdownMinutes
+          )
+        );
+
+      await pushLiveEvent({
+        eventType:
+          "next_activity",
+
+        title:
+          minutes <= 15
+            ? `Starting soon: ${nextLiveTitle}`
+            : `Up next: ${nextLiveTitle}`,
+
+        body:
+          `Starts in ${minutes} min.`,
+
+        reason:
+          minutes <= 15
+            ? "activity_starting_soon"
+            : "up_next"
+      });
+    }
+
+
+    /*
+     * 2. LEAVE NOW
+     */
+    if (
+      companionState.leaveBy
+    ) {
+      const leaveAt =
+        new Date(
+          companionState.leaveBy
+        ).getTime();
+
+      if (
+        Number.isFinite(
+          leaveAt
+        ) &&
+        Date.now() >=
+          leaveAt &&
+        (
+          !companionState.lateByMinutes ||
+          companionState.lateByMinutes <= 0
+        )
+      ) {
+        await pushLiveEvent({
+          eventType:
+            "leave_by",
+
+          title:
+            `Leave now for ${nextLiveTitle}`,
+
+          body:
+            `Time to head out.`,
+
+          reason:
+            "recommended_departure_reached"
+        });
+      }
+    }
+
+
+    /*
+     * 3. RUNNING LATE
+     */
+    if (
+      typeof companionState.lateByMinutes ===
+        "number" &&
+      companionState.lateByMinutes > 0
+    ) {
+      const lateMinutes =
+        Math.max(
+          1,
+          Math.round(
+            companionState.lateByMinutes
+          )
+        );
+
+      await pushLiveEvent({
+        eventType:
+          "late",
+
+        title:
+          `You're running late for ${nextLiveTitle}`,
+
+        body:
+          `About ${lateMinutes} min behind.`,
+
+        reason:
+          "traveler_running_late"
+      });
+    }
+
+
+    /*
+     * 4. ARRIVED
+     *
+     * Nearby remains the separate GPS alert already above.
+     */
+    if (
+      companionState.arrivalState ===
+        "arrived"
+    ) {
+      await pushLiveEvent({
+        eventType:
+          "arrival",
+
+        title:
+          `You've arrived at ${arrivalLiveTitle}`,
+
+        body:
+          `You're here.`,
+
+        reason:
+          "arrival_radius_entered",
+
+        locationState:
+          "arrived",
+
+        activity:
+          arrivalLiveActivity
       });
     }
   }

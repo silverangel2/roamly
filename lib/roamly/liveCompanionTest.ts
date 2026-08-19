@@ -9,6 +9,10 @@ import {
 import { calculateDistanceMeters, type LocationInput } from "@/lib/roamly/location";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
+import {
+  activityEndDate,
+  timezoneFromTripMetadata
+} from "@/lib/roamly/liveCompanion";
 
 export type LiveTestLocationMode = "first_activity" | "next_activity" | "hotel" | "far_away";
 export type LiveTestReminderType = "one_week_before" | "one_day_before" | "countdown_24h" | "travel_day_started";
@@ -154,33 +158,196 @@ async function locationForMode(
   return { location: await ensureActivityCoordinates(supabase, trip, activities[0] || null), activities, bookings };
 }
 
-export async function simulateTripLocation(tripId: string, mode: LiveTestLocationMode) {
+export async function simulateTripLocation(
+  tripId: string,
+  mode: LiveTestLocationMode,
+  decisionNow?: Date
+) {
   const supabase = admin();
   const trip = await getTrip(supabase, tripId);
   const target = await locationForMode(supabase, trip, mode);
 
-  const activation = await activateTripIfNearby(supabase, trip.user_id || "", target.location, trip.id, {
-    simulated: true,
-    source: "admin_live_test"
-  });
-  const booking = nearestBooking(target.bookings, target.location);
-  const debug = await buildLiveCompanionDebugReport(tripId);
+  // Snapshot real production evidence BEFORE the simulated GPS update.
+  const before = await buildLiveCompanionDebugReport(tripId);
+
+  const beforeCompanionIds = new Set(
+    before.companionEvents.map((event) => String(event.id))
+  );
+
+  const beforeNotificationIds = new Set(
+    before.notifications.map((notification) =>
+      String(notification.id)
+    )
+  );
+
+  /*
+   * QA acts only as a virtual phone.
+   *
+   * It supplies GPS coordinates to the SAME production nearby
+   * engine used by Live Companion.
+   *
+   * QA does NOT tell production which activity is nearby and
+   * does NOT manufacture a notification or companion event.
+   */
+  const activation = await activateTripIfNearby(
+    supabase,
+    trip.user_id || "",
+    target.location,
+    trip.id,
+    {
+      simulated: true,
+      source: "admin_live_test",
+      decisionNow
+    }
+  );
+
+  // Read what production actually created after processing GPS.
+  const after = await buildLiveCompanionDebugReport(tripId);
+
+  const newCompanionEvents = after.companionEvents.filter(
+    (event) => !beforeCompanionIds.has(String(event.id))
+  );
+
+  const newNotifications = after.notifications.filter(
+    (notification) =>
+      !beforeNotificationIds.has(String(notification.id))
+  );
+
+  const booking = nearestBooking(
+    target.bookings,
+    target.location
+  );
+
+  const nearbyDetected =
+    Boolean(activation.nearbyActivities?.length);
+
+  const nearestActivity =
+    activation.nearbyActivities?.[0] ||
+    activation.upNextActivity ||
+    null;
+
+  /*
+   * For the production nearby-location acceptance path, a generic
+   * "shown" event is not sufficient evidence. It must be the real
+   * nearby_activity event for the exact activity production discovered.
+   *
+   * tripActivation.ts creates this event only after the real push path
+   * reports pushed.sent > 0.
+   */
+  const discoveredActivityId =
+    activation.nearbyActivities?.[0]?.id || null;
+
+  const shownCompanionEvent =
+    newCompanionEvents.find(
+      (event) =>
+        String(event.status || "").toLowerCase() === "shown" &&
+        String(event.event_type || "").toLowerCase() === "nearby_activity" &&
+        Boolean(discoveredActivityId) &&
+        String(event.metadata?.activityId || "") ===
+          String(discoveredActivityId)
+    ) || null;
+
+  const productionNotification =
+    newNotifications[0] || null;
+
+  /*
+   * Nearby GPS pushes intentionally use createNotification:false in
+   * production, so a roamly_notifications row is not required.
+   * The correlated shown nearby event is the production evidence that
+   * the nearby push path reported at least one successful send.
+   */
+  const notificationCreated = Boolean(shownCompanionEvent);
+
+  const pushSent = Boolean(shownCompanionEvent);
+
+  const expectsNearby = mode !== "far_away";
+
+  /*
+   * PASS is based on production evidence.
+   *
+   * NEAR:
+   * production must discover a nearby planned activity,
+   * produce its notification and reach the shown/push state.
+   *
+   * FAR AWAY:
+   * production must NOT falsely detect an activity or create
+   * an unwanted nearby notification.
+   */
+  const endToEndPassed = expectsNearby
+    ? nearbyDetected &&
+      notificationCreated &&
+      pushSent
+    : !nearbyDetected &&
+      newCompanionEvents.length === 0 &&
+      newNotifications.length === 0;
 
   return {
+    testType: "production_live_companion_location",
+    simulatedInputOnly: true,
+
     simulatedLatitude: target.location.latitude,
     simulatedLongitude: target.location.longitude,
-    nearestActivity: activation.nearbyActivities?.[0] || activation.upNextActivity || null,
+
+    productionEngine: "activateTripIfNearby",
+
+    activitiesChecked:
+      activation.checkedActivities?.length ??
+      activation.nearbyActivities?.length ??
+      null,
+
+    nearestActivity,
     nearestBooking: booking,
-    distanceMeters: activation.nearbyActivities?.[0]?.distance_meters ?? booking?.distanceMeters ?? null,
+
+    distanceMeters:
+      activation.nearbyActivities?.[0]?.distance_meters ??
+      booking?.distanceMeters ??
+      null,
+
+    nearbyDetected,
+
     tripActivated: activation.tripActivated,
     currentDay: activation.currentDay,
-    nearbyActivities: activation.nearbyActivities || [],
-    upNextActivity: activation.upNextActivity,
-    notificationCreated: Boolean(activation.notificationCreated || activation.notification),
-    pushAttempted: false,
-    pushStatus: "not_attempted",
-    createdEvents: debug.tripEvents.slice(0, 5),
-    debug
+
+    nearbyActivities:
+      activation.nearbyActivities || [],
+
+    upNextActivity:
+      activation.upNextActivity,
+
+    notificationCreated,
+
+    pushAttempted:
+      notificationCreated || Boolean(shownCompanionEvent),
+
+    pushStatus:
+      shownCompanionEvent
+        ? "sent"
+        : notificationCreated
+          ? "notification_created_but_no_shown_push_event"
+          : "not_triggered",
+
+    pushSent,
+
+    companionEventCreated:
+      newCompanionEvents.length > 0,
+
+    shownCompanionEvent,
+    productionNotification,
+
+    newCompanionEvents,
+    newNotifications,
+
+    endToEndPassed,
+
+    endToEndStatus:
+      endToEndPassed ? "PASS" : "FAIL",
+
+    expectedBehavior:
+      expectsNearby
+        ? "Production must discover the nearby planned activity and complete the real notification/push path."
+        : "Production must detect that the traveler is outside all activity zones and must not send a nearby notification.",
+
+    debug: after
   };
 }
 
@@ -333,6 +500,268 @@ export async function simulateComplete(tripId: string) {
     simulated: true
   });
   return { ...result, debug: await buildLiveCompanionDebugReport(tripId) };
+}
+
+export async function runLiveCompanionLifecycleTest(tripId: string) {
+  const supabase = admin();
+  const trip = await getTrip(supabase, tripId);
+
+  const tripMetadata =
+    trip.metadata && typeof trip.metadata === "object"
+      ? (trip.metadata as Record<string, unknown>)
+      : {};
+
+  if (tripMetadata.admin_test !== true) {
+    throw new Error(
+      "Lifecycle acceptance test refused: selected trip is not a controlled admin_test trip."
+    );
+  }
+
+  if (!trip.itinerary_locked || !trip.tracking_unlocked) {
+    throw new Error(
+      "Lifecycle acceptance test refused: QA trip must have a locked itinerary and Live Companion unlocked."
+    );
+  }
+
+  const { data: activities, error: activitiesError } = await supabase
+    .from("roamly_activities")
+    .select("*")
+    .eq("trip_id", tripId)
+    .eq("metadata->>admin_test", "true")
+    .order("scheduled_start", { ascending: true })
+    .order("sort_order", { ascending: true });
+
+  if (activitiesError) {
+    throw new Error(`Unable to load QA activities: ${activitiesError.message}`);
+  }
+
+  const qaActivities = (activities || []) as TrackingActivity[];
+
+  if (qaActivities.length < 2) {
+    throw new Error(
+      "Lifecycle acceptance test requires at least two controlled QA activities."
+    );
+  }
+
+  const activityA = qaActivities[0];
+  const expectedNext = qaActivities[1];
+
+  if (
+    activityA.latitude == null ||
+    activityA.longitude == null ||
+    !activityA.scheduled_end
+  ) {
+    throw new Error(
+      "Lifecycle acceptance test requires Activity A coordinates and scheduled_end."
+    );
+  }
+
+  const beforeEventsResult = await supabase
+    .from("roamly_trip_companion_events")
+    .select("id,event_type,status,metadata,created_at")
+    .eq("trip_id", tripId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (beforeEventsResult.error) {
+    throw new Error(
+      `Unable to read Companion evidence: ${beforeEventsResult.error.message}`
+    );
+  }
+
+  const beforeEvents = beforeEventsResult.data || [];
+
+  const initial = await simulateTripLocation(tripId, "first_activity");
+
+  const afterInitialResult = await supabase
+    .from("roamly_trip_companion_events")
+    .select("id,event_type,status,metadata,created_at")
+    .eq("trip_id", tripId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (afterInitialResult.error) {
+    throw new Error(
+      `Unable to read post-detection Companion evidence: ${afterInitialResult.error.message}`
+    );
+  }
+
+  const beforeIds = new Set(beforeEvents.map((event) => event.id));
+  const initialNewEvents = (afterInitialResult.data || []).filter(
+    (event) => !beforeIds.has(event.id)
+  );
+
+  const initialPushEvent =
+    initialNewEvents.find(
+      (event) =>
+        String(event.event_type || "").toLowerCase() === "nearby_activity" &&
+        String(event.status || "").toLowerCase() === "shown" &&
+        String(event.metadata?.activityId || "") === String(activityA.id)
+    ) || null;
+
+  const detectedA =
+    Boolean(initial.nearbyDetected) &&
+    Array.isArray(initial.nearbyActivities) &&
+    initial.nearbyActivities.some(
+      (activity) => String(activity?.id || "") === String(activityA.id)
+    );
+
+  const realPushEvidence =
+    Boolean(initial.pushSent) && Boolean(initialPushEvent);
+
+  const idsAfterInitial = new Set(
+    (afterInitialResult.data || []).map((event) => event.id)
+  );
+
+  // Repeat the exact same production GPS scenario.
+  // A correct anti-spam implementation must not generate another equivalent
+  // nearby_activity/shown event for Activity A.
+  const repeated = await simulateTripLocation(tripId, "first_activity");
+
+  const afterRepeatResult = await supabase
+    .from("roamly_trip_companion_events")
+    .select("id,event_type,status,metadata,created_at")
+    .eq("trip_id", tripId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (afterRepeatResult.error) {
+    throw new Error(
+      `Unable to read duplicate-suppression evidence: ${afterRepeatResult.error.message}`
+    );
+  }
+
+  const repeatNewMatchingEvents = (afterRepeatResult.data || []).filter(
+    (event) =>
+      !idsAfterInitial.has(event.id) &&
+      String(event.event_type || "").toLowerCase() === "nearby_activity" &&
+      String(event.status || "").toLowerCase() === "shown" &&
+      String(event.metadata?.activityId || "") === String(activityA.id)
+  );
+
+  const duplicateSuppressed = repeatNewMatchingEvents.length === 0;
+
+  // QA-only inspection window.
+  // Keep Activity A alive for three real minutes after the production push
+  // so the tester can inspect/click the real notification actions.
+  // This does NOT alter production itinerary timing or scheduled_end.
+  const qaInspectionWindowMs = 30 * 1000;
+  await new Promise((resolve) => setTimeout(resolve, qaInspectionWindowMs));
+
+  // QA controls only the decision clock.
+  // scheduled_end is real production-format itinerary data created by the
+  // controlled admin seed. Production must perform the actual missed update.
+  const expiryDecisionNow = new Date(
+    new Date(activityA.scheduled_end).getTime() + 60 * 1000
+  );
+
+  if (Number.isNaN(expiryDecisionNow.getTime())) {
+    throw new Error("Activity A scheduled_end is not a valid timestamp.");
+  }
+
+  const expiredRun = await simulateTripLocation(
+    tripId,
+    "first_activity",
+    expiryDecisionNow
+  );
+
+  const afterExpiryActivityResult = await supabase
+    .from("roamly_activities")
+    .select("*")
+    .eq("id", activityA.id)
+    .eq("trip_id", tripId)
+    .single();
+
+  if (afterExpiryActivityResult.error) {
+    throw new Error(
+      `Unable to verify Activity A expiry: ${afterExpiryActivityResult.error.message}`
+    );
+  }
+
+  const activityAfterExpiry =
+    afterExpiryActivityResult.data as TrackingActivity;
+
+  const productionExpiredA = activityAfterExpiry.status === "missed";
+
+  // Run production again at A's location after expiry.
+  // A must stay terminal and must not become nearby again.
+  const resurrectionRun = await simulateTripLocation(
+    tripId,
+    "first_activity",
+    expiryDecisionNow
+  );
+
+  const finalActivityResult = await supabase
+    .from("roamly_activities")
+    .select("*")
+    .eq("id", activityA.id)
+    .eq("trip_id", tripId)
+    .single();
+
+  if (finalActivityResult.error) {
+    throw new Error(
+      `Unable to verify terminal Activity A state: ${finalActivityResult.error.message}`
+    );
+  }
+
+  const finalActivity = finalActivityResult.data as TrackingActivity;
+  const noResurrection = finalActivity.status === "missed";
+
+  const productionNextId =
+    resurrectionRun.upNextActivity?.id ||
+    expiredRun.upNextActivity?.id ||
+    null;
+
+  const advancedToB =
+    Boolean(productionNextId) &&
+    String(productionNextId) === String(expectedNext.id);
+
+  const passed =
+    detectedA &&
+    realPushEvidence &&
+    duplicateSuppressed &&
+    productionExpiredA &&
+    noResurrection &&
+    advancedToB;
+
+  return {
+    passed,
+    verdict: passed
+      ? "PASS"
+      : "FAIL",
+    test: "production_live_companion_lifecycle",
+    tripId,
+    activityA: {
+      id: activityA.id,
+      title: activityA.title,
+      scheduledStart: activityA.scheduled_start,
+      scheduledEnd: activityA.scheduled_end
+    },
+    expectedNextActivity: {
+      id: expectedNext.id,
+      title: expectedNext.title
+    },
+    stages: {
+      entitlementReady: true,
+      activityADetected: detectedA,
+      realPushEvidence,
+      duplicateSuppressed,
+      productionExpiredActivityA: productionExpiredA,
+      activityAStayedRetired: noResurrection,
+      productionAdvancedToActivityB: advancedToB
+    },
+    evidence: {
+      initial,
+      repeated,
+      expiredRun,
+      resurrectionRun,
+      initialPushEvent,
+      repeatDuplicateEvents: repeatNewMatchingEvents,
+      finalActivityAStatus: finalActivity.status,
+      productionNextActivityId: productionNextId
+    },
+    debug: await buildLiveCompanionDebugReport(tripId)
+  };
 }
 
 export async function buildLiveCompanionDebugReport(tripId: string) {

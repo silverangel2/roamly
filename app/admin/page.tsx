@@ -168,6 +168,16 @@ export default async function AdminPage() {
       control: "Open notifications"
     },
     {
+      title: "Live Companion QA",
+      href: "/admin/live-test",
+      status: "Ready",
+      working: "Automated lifecycle QA and real-location Saint John field testing.",
+      attention: "Use field mode to verify real GPS, push notifications, navigation, arrival, check-in, skip, and activity progression.",
+      activity: "Production Live Companion lifecycle is tested without changing customer lifecycle rules.",
+      next: "Create or continue a Saint John field test.",
+      control: "Open Live Companion QA"
+    },
+    {
       title: "Launch Readiness",
       href: "/admin/launch",
       status: social.env.publishingReady && email.configured ? "Ready" : "Needs attention",

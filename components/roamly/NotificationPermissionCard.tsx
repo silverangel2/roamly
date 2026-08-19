@@ -7,7 +7,11 @@ import {
   unsubscribeFromPushNotifications
 } from "@/lib/roamly/pushClient";
 
-export function NotificationPermissionCard() {
+export function NotificationPermissionCard({
+  qaTripId
+}: {
+  qaTripId?: string;
+} = {}) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -27,7 +31,7 @@ export function NotificationPermissionCard() {
     setBusy(true);
     setError("");
     setNotice("");
-    const result = await subscribeToPushNotifications();
+    const result = await subscribeToPushNotifications(qaTripId);
     setBusy(false);
     if (result.ok) {
       setPermission("granted");
@@ -87,10 +91,10 @@ export function NotificationPermissionCard() {
         <button
           type="button"
           onClick={enable}
-          disabled={busy || isGranted}
+          disabled={busy || (isGranted && !qaTripId)}
           className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 disabled:opacity-60"
         >
-          Enable reminders
+          {qaTripId && isGranted ? "Register QA push" : "Enable reminders"}
         </button>
         <button
           type="button"
