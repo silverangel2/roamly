@@ -75,6 +75,20 @@ function isDashboardPath(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  // ADMIN ROUTING SAFETY:
+  // /admin and its APIs perform authorization in the Admin layer.
+  // Never let traveler middleware reinterpret a valid Admin route.
+  const roamlyPathname = request.nextUrl.pathname;
+  if (
+    roamlyPathname === "/admin-access" ||
+    roamlyPathname === "/admin" ||
+    roamlyPathname.startsWith("/admin/") ||
+    roamlyPathname.startsWith("/api/admin/") ||
+    roamlyPathname.startsWith("/api/auth/facebook/")
+  ) {
+    return NextResponse.next();
+  }
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-roamly-path", `${request.nextUrl.pathname}${request.nextUrl.search}`);
   let response = NextResponse.next({ request: { headers: requestHeaders } });

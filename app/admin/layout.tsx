@@ -45,7 +45,7 @@ export default async function AdminLayout({
   if (!dedicatedAdmin) {
     const existingAdmin = await requireAdmin("/admin");
 
-    if (!existingAdmin.ok) {
+    if (!existingAdmin?.ok) {
       redirect("/admin-access");
     }
   }
