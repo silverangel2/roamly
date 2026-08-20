@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { safeAuthNextPath } from "@/lib/navigation";
+import {
+  ROAMLY_ADMIN_COOKIE,
+  verifyRoamlyAdminSessionValue
+} from "@/lib/roamly/adminAccess";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
 import { applyCookieHeaders, normalizeSupabaseCookieOptions } from "@/lib/supabase/cookies";
 import {
@@ -36,7 +40,6 @@ function staleSupabaseAuthCookieNames(request: NextRequest) {
 function isProtectedPage(pathname: string) {
   return [
     "/account",
-    "/admin",
     "/dashboard",
     "/notifications",
     "/preview",
@@ -82,6 +85,39 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/admin" ||
     request.nextUrl.pathname.startsWith("/admin/") ||
     request.nextUrl.pathname.startsWith("/api/admin/");
+
+  const isPublicAdminAuthRoute =
+    request.nextUrl.pathname === "/admin-access" ||
+    request.nextUrl.pathname === "/api/admin/access" ||
+    request.nextUrl.pathname === "/api/admin/session" ||
+    request.nextUrl.pathname === "/api/admin/logout";
+
+  if (isAdminRequest && !isPublicAdminAuthRoute) {
+    const adminSessionValid = await verifyRoamlyAdminSessionValue(
+      request.cookies.get(ROAMLY_ADMIN_COOKIE)?.value
+    );
+
+    if (!adminSessionValid) {
+      if (request.nextUrl.pathname.startsWith("/api/admin/")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "ADMIN_AUTH_REQUIRED"
+          },
+          { status: 401 }
+        );
+      }
+
+      return NextResponse.redirect(
+        new URL("/admin-access", request.url)
+      );
+    }
+
+    // Dedicated Roamly Admin authentication is complete.
+    // Do not send authenticated Admin routes through the normal
+    // traveler/Supabase login guard below.
+    return response;
+  }
 
   if (!hasSupabaseConfig()) {
     return response;
@@ -182,22 +218,6 @@ export async function middleware(request: NextRequest) {
     response = clearStaleAuthCookies(response);
   }
 
-  if (isAdminRequest) {
-    logAuthDiagnostic("middleware_admin_auth", {
-      path: request.nextUrl.pathname,
-      ...getSupabaseAuthCookieDiagnostics(request.headers.get("cookie") || ""),
-      getUserOk: Boolean(user),
-      authenticatedUserId: user?.id || null,
-      authenticatedEmail: user?.email || null,
-      getUserError: userError ? userError.name || "auth_error" : null,
-      supabaseProjectHost: getSupabaseProjectHost(),
-      middlewareRefreshAttempted: true,
-      refreshedCookiesAttached,
-      authCookieWriteCount,
-      redirectDestination: null,
-      reasonCode: null
-    });
-  }
 
   if (user && isDashboardPath(request.nextUrl.pathname)) {
     const plannerNext = readPendingPlannerNext(request);
