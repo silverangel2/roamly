@@ -108,15 +108,7 @@ async function resolveDedicatedRoamlyAdmin() {
 }
 
 async function resolveRoamlyAdmin() {
-  // New passcode-based Admin Access.
-  const dedicated = await resolveDedicatedRoamlyAdmin();
-
-  if (dedicated.ok && dedicated.user && dedicated.admin) {
-    return dedicated;
-  }
-
-  // Compatibility with the original, known-working Roamly Admin
-  // authentication used before dedicated Admin Access was introduced.
+  // Preserve the original, known-working Roamly Admin path as primary.
   const existing = await requireAdmin("/admin");
 
   if (existing.ok && existing.user && existing.admin) {
@@ -128,8 +120,9 @@ async function resolveRoamlyAdmin() {
     };
   }
 
-  // Preserve the dedicated failure information when neither method works.
-  return dedicated;
+  // Dedicated passcode Admin Access is the compatibility fallback.
+  // It must not interfere with an already-authenticated desktop Admin.
+  return resolveDedicatedRoamlyAdmin();
 }
 
 export async function requireRoamlyAdmin() {
@@ -141,7 +134,7 @@ export async function requireRoamlyAdmin() {
       response: NextResponse.json(
         {
           ok: false,
-          error: resolved.reason
+          error: "reason" in resolved ? resolved.reason : "ADMIN_AUTH_REQUIRED"
         },
         { status: 401 }
       )
