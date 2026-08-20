@@ -295,19 +295,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/account/:path*",
-    "/admin/:path*",
-    "/dashboard/:path*",
-    "/notifications/:path*",
-    "/plan/:path*",
-    "/preview/:path*",
-    "/pricing/:path*",
-    "/trip/:path*",
-    "/api/admin/:path*",
-    "/api/account/:path*",
-    "/api/roamly/:path*",
-    "/api/trips/:path*",
-    "/api/stripe/checkout/:path*",
-    "/api/stripe/create-trip-checkout"
+    "/((?!_next/static|_next/image|favicon.ico|admin(?:/|$)|admin-access(?:/|$)|api/admin(?:/|$)|api/auth/facebook(?:/|$)).*)"
   ]
 };
