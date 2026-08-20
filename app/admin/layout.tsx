@@ -1,5 +1,6 @@
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Card } from "@/components/ui/Card";
+import { requireAdmin } from "@/lib/roamly/auth";
 import {
   ROAMLY_ADMIN_COOKIE,
   isRoamlyAdminConfigured,
@@ -26,8 +27,7 @@ export default async function AdminLayout({
           </h1>
 
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-            Configure ROAMLY_ADMIN_CODE and
-            ROAMLY_ADMIN_SESSION_SECRET.
+            Configure ROAMLY_ADMIN_CODE and ROAMLY_ADMIN_SESSION_SECRET.
           </p>
         </Card>
       </main>
@@ -36,12 +36,18 @@ export default async function AdminLayout({
 
   const cookieStore = await cookies();
 
-  const valid = await verifyRoamlyAdminSessionValue(
+  const dedicatedAdmin = await verifyRoamlyAdminSessionValue(
     cookieStore.get(ROAMLY_ADMIN_COOKIE)?.value
   );
 
-  if (!valid) {
-    redirect("/admin-access");
+  // Preserve the new dedicated Admin Access flow, but also keep the
+  // original Roamly/Supabase Admin authentication that already worked.
+  if (!dedicatedAdmin) {
+    const existingAdmin = await requireAdmin("/admin");
+
+    if (!existingAdmin.ok) {
+      redirect("/admin-access");
+    }
   }
 
   return (

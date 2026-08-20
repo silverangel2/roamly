@@ -90,33 +90,23 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/admin-access" ||
     request.nextUrl.pathname === "/api/admin/access" ||
     request.nextUrl.pathname === "/api/admin/session" ||
-    request.nextUrl.pathname === "/api/admin/logout";
+    request.nextUrl.pathname === "/api/admin/logout" ||
+    request.nextUrl.pathname === "/api/auth/facebook/start" ||
+    request.nextUrl.pathname === "/api/auth/facebook/callback";
 
   if (isAdminRequest && !isPublicAdminAuthRoute) {
     const adminSessionValid = await verifyRoamlyAdminSessionValue(
       request.cookies.get(ROAMLY_ADMIN_COOKIE)?.value
     );
 
-    if (!adminSessionValid) {
-      if (request.nextUrl.pathname.startsWith("/api/admin/")) {
-        return NextResponse.json(
-          {
-            ok: false,
-            error: "ADMIN_AUTH_REQUIRED"
-          },
-          { status: 401 }
-        );
-      }
-
-      return NextResponse.redirect(
-        new URL("/admin-access", request.url)
-      );
+    // New dedicated Admin Access is sufficient by itself.
+    if (adminSessionValid) {
+      return response;
     }
 
-    // Dedicated Roamly Admin authentication is complete.
-    // Do not send authenticated Admin routes through the normal
-    // traveler/Supabase login guard below.
-    return response;
+    // No dedicated session: continue through the existing Supabase
+    // authentication flow below. The Admin page/API guard will still
+    // enforce Admin authorization after normal authentication succeeds.
   }
 
   if (!hasSupabaseConfig()) {
