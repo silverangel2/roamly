@@ -22,7 +22,7 @@ function authorized(request: NextRequest) {
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
   const vercelCronSchedule = request.headers.get("x-vercel-cron-schedule") || "";
-  return Boolean((secret && token && token === secret) || vercelCronSchedule === "0 12 * * *");
+  return Boolean((secret && token && token === secret) || vercelCronSchedule === "*/30 * * * *");
 }
 
 function normalizeBrand(value: unknown): FacebookSocialBrand | undefined {
