@@ -32,6 +32,7 @@ function AppShellContent({
   const [authenticated, setAuthenticated] = useState(initialAuth.authenticated);
   const [activeTripId, setActiveTripId] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
+  const [adminAuthorized, setAdminAuthorized] = useState(false);
 
   useEffect(() => {
     setAuthenticated(initialAuth.authenticated);
@@ -60,6 +61,29 @@ function AppShellContent({
       return undefined;
     }
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadAdminState() {
+      try {
+        const response = await fetch("/api/admin/session", {
+          cache: "no-store",
+          credentials: "include"
+        });
+
+        if (alive) setAdminAuthorized(response.ok);
+      } catch {
+        if (alive) setAdminAuthorized(false);
+      }
+    }
+
+    void loadAdminState();
+
+    return () => {
+      alive = false;
+    };
+  }, [pathname]);
 
   useEffect(() => {
     let alive = true;
@@ -171,6 +195,16 @@ function AppShellContent({
             </nav>
 
             <div className="flex items-center gap-2">
+              {adminAuthorized ? (
+                <Link
+                  href="/admin"
+                  aria-label="Open Roamly Admin"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800 shadow-sm transition active:scale-[0.98] md:hidden dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-100"
+                >
+                  Admin
+                </Link>
+              ) : null}
+
               <div className="hidden sm:block">
                 <LanguageSwitcher />
               </div>
@@ -184,12 +218,14 @@ function AppShellContent({
                   </Link>
                 </>
               ) : (
-                <Link
-                  href="/auth/logout"
-                  className="hidden rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-coral sm:inline-flex"
-                >
-                  {t("ui.nav.logout", "Logout")}
-                </Link>
+                <form action="/auth/logout" method="post" className="hidden sm:block">
+                  <button
+                    type="submit"
+                    className="rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-coral"
+                  >
+                    {t("ui.nav.logout", "Logout")}
+                  </button>
+                </form>
               )}
               <Link href={planTripHref} className="hidden rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 sm:inline-flex">
                 {planTripLabel}
