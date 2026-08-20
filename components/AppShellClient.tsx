@@ -195,15 +195,13 @@ function AppShellContent({
             </nav>
 
             <div className="flex items-center gap-2">
-              {adminAuthorized ? (
-                <Link
-                  href="/admin"
-                  aria-label="Open Roamly Admin"
-                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800 shadow-sm transition active:scale-[0.98] md:hidden dark:border-cyan-400/20 dark:bg-cyan-400/10 dark:text-cyan-100"
-                >
-                  Admin
-                </Link>
-              ) : null}
+              <Link
+                href={adminAuthorized ? "/admin" : "/admin-access"}
+                aria-label={adminAuthorized ? "Open Roamly Admin" : "Open Admin Access"}
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800 shadow-sm transition active:scale-[0.98] md:hidden"
+              >
+                {adminAuthorized ? "Admin" : "Admin Access"}
+              </Link>
 
               <div className="hidden sm:block">
                 <LanguageSwitcher />
