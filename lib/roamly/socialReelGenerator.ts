@@ -47,6 +47,16 @@ type GenerateFreshSocialReelVideoInput = {
   fetcher?: typeof fetch;
 };
 
+type GenerateStaticSocialPosterReelVideoInput = {
+  brand: SocialReelBrand;
+  sourceImageUrl: string;
+  topic: string;
+  supabaseUrl: string;
+  serviceKey: string;
+  audioSeed: string;
+  fetcher?: typeof fetch;
+};
+
 const width = 1080;
 const height = 1920;
 const sceneSeconds = 4;
@@ -56,25 +66,11 @@ const publicSocialMaxBytes = 50 * 1024 * 1024;
 
 const approvedGeneratedAudioTracks: ApprovedAudioTrack[] = [
   {
-    id: "roamly-original-soft-pulse",
-    name: "Roamly Original Soft Pulse",
-    license: "Original generated tone bed; royalty-free for owned brand social media.",
-    lavfi: "sine=frequency=196:sample_rate=44100",
-    volume: 0.032
-  },
-  {
-    id: "roamly-original-warm-lift",
-    name: "Roamly Original Warm Lift",
-    license: "Original generated tone bed; royalty-free for owned brand social media.",
-    lavfi: "sine=frequency=261.63:sample_rate=44100",
-    volume: 0.029
-  },
-  {
-    id: "roamly-original-light-motion",
-    name: "Roamly Original Light Motion",
-    license: "Original generated tone bed; royalty-free for owned brand social media.",
-    lavfi: "sine=frequency=329.63:sample_rate=44100",
-    volume: 0.025
+    id: "silent-facebook-reel",
+    name: "Silent Facebook Reel",
+    license: "No generated audio. Uploaded videos keep their own audio; generated fallback videos are silent.",
+    lavfi: "",
+    volume: 0
   }
 ];
 
@@ -331,13 +327,51 @@ async function probeGeneratedMp4(filePath: string, ffprobePath: string) {
   const raw = await runProcessOutput(ffprobePath, ["-v", "error", "-print_format", "json", "-show_streams", "-show_format", filePath]);
   const probe = JSON.parse(raw) as { streams?: Array<Record<string, unknown>>; format?: Record<string, unknown> };
   const video = (probe.streams || []).find((stream) => stream.codec_type === "video");
-  const formatName = String(probe.format?.format_name || "").split(",")[0];
+  const formatNames = String(probe.format?.format_name || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
   const widthValue = Number(video?.width);
   const heightValue = Number(video?.height);
   const durationValue = Number(video?.duration || probe.format?.duration);
   const sizeValue = Number(probe.format?.size);
-  if (formatName !== "mp4" || video?.codec_name !== "h264" || !Number.isFinite(widthValue) || !Number.isFinite(heightValue) || Math.abs(widthValue / heightValue - 9 / 16) > 0.01 || !Number.isFinite(durationValue) || durationValue <= 0 || !Number.isFinite(sizeValue) || sizeValue <= 0 || sizeValue > publicSocialMaxBytes) {
-    throw new Error("Generated Reel failed ffprobe validation for MP4, H.264, 9:16, duration, or file size.");
+
+  const isMp4 = formatNames.includes("mp4");
+  const isH264 = video?.codec_name === "h264";
+  const isVertical916 =
+    Number.isFinite(widthValue) &&
+    Number.isFinite(heightValue) &&
+    Math.abs(widthValue / heightValue - 9 / 16) <= 0.01;
+
+  const hasValidDuration =
+    Number.isFinite(durationValue) &&
+    durationValue > 0;
+
+  const hasValidSize =
+    Number.isFinite(sizeValue) &&
+    sizeValue > 0 &&
+    sizeValue <= publicSocialMaxBytes;
+
+  if (!isMp4 || !isH264 || !isVertical916 || !hasValidDuration || !hasValidSize) {
+    console.error("[ROAMLY_REEL_VALIDATION_FAILED]", {
+      formatNames,
+      codec: video?.codec_name || null,
+      width: widthValue,
+      height: heightValue,
+      durationSeconds: durationValue,
+      sizeBytes: sizeValue,
+      publicSocialMaxBytes,
+      isMp4,
+      isH264,
+      isVertical916,
+      hasValidDuration,
+      hasValidSize
+    });
+
+    throw new Error(
+      "Generated Reel failed ffprobe validation for MP4, H.264, 9:16, duration, or file size."
+    );
   }
   return { probe, width: widthValue, height: heightValue, durationSeconds: durationValue, size: sizeValue };
 }
@@ -348,6 +382,109 @@ function safeFilenamePart(value: string) {
     .replace(/^-+|-+$/g, "")
     .toLowerCase()
     .slice(0, 48);
+}
+
+async function fetchImageBuffer(url: string, fetcher: typeof fetch) {
+  const response = await fetcher(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Source image returned HTTP ${response.status}.`);
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType && !/^image\//i.test(contentType)) {
+    throw new Error("Source media is not an image.");
+  }
+  return Buffer.from(await response.arrayBuffer());
+}
+
+
+export async function generateStaticSocialPosterReelVideo(input: GenerateStaticSocialPosterReelVideoInput): Promise<SocialReelVideoResult> {
+  const fetcher = input.fetcher || fetch;
+  const audioTrack = selectApprovedAudioTrack(input.audioSeed || input.topic || input.brand);
+  const cleanTopic = safeFilenamePart(input.topic || "social-photo-reel") || "social-photo-reel";
+  const digest = createHash("sha1")
+    .update(`${input.brand}-${cleanTopic}-${input.sourceImageUrl}-${input.audioSeed}`)
+    .digest("hex")
+    .slice(0, 10);
+  const filename = `${input.brand}-static-photo-reel-${new Date().toISOString().slice(0, 10)}-${cleanTopic}-${digest}.mp4`;
+  const objectPath = `social/videos/${input.brand}/${filename}`;
+  const tmpDir = path.join(os.tmpdir(), `${input.brand}-static-photo-reel-${cleanTopic}-${randomUUID()}`);
+  const framePath = path.join(tmpDir, "source-frame.png");
+  const outputPath = path.join(tmpDir, filename);
+
+  await mkdir(tmpDir, { recursive: true });
+
+  try {
+    const image = await fetchImageBuffer(input.sourceImageUrl, fetcher);
+    const theme = brandTheme(input.brand);
+    await sharp(image)
+      .rotate()
+      .resize(width, height, {
+        fit: "contain",
+        background: theme.bg
+      })
+      .png()
+      .toFile(framePath);
+
+    const ffmpegPath = await resolveFfmpegPath();
+
+    await runProcess(ffmpegPath, [
+      "-y",
+      "-loop",
+      "1",
+      "-framerate",
+      "30",
+      "-t",
+      "15",
+      "-i",
+      framePath,
+      "-vf",
+      "format=yuv420p",
+      "-map",
+      "0:v",
+      "-t",
+      "15",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-movflags",
+      "+faststart",
+      "-pix_fmt",
+      "yuv420p",
+      "-an",
+      outputPath
+    ]);
+
+    const ffprobePath = resolveFfprobePath();
+    const validated = await probeGeneratedMp4(outputPath, ffprobePath);
+    const buffer = await readFile(outputPath);
+    const size = await stat(outputPath).then((item) => item.size).catch(() => buffer.length);
+    const { storageBucket } = publicSocialMediaStorageBucket();
+    const publicUrl = await uploadPublicSupabaseObject({
+      supabaseUrl: cleanSupabaseUrl(input.supabaseUrl),
+      serviceKey: input.serviceKey,
+      storageBucket,
+      objectPath,
+      body: new Blob([new Uint8Array(buffer)], { type: "video/mp4" }),
+      contentType: "video/mp4",
+      allowedMimeTypes: ["video/mp4", "image/png", "image/jpeg", "image/webp"],
+      fileSizeLimit: publicSocialMaxBytes,
+      fetcher
+    });
+
+    return {
+      filename,
+      objectPath,
+      publicUrl,
+      size,
+      width,
+      height,
+      durationSeconds: validated.durationSeconds,
+      mimeType: "video/mp4",
+      ffprobe: validated.probe,
+      audioTrack
+    };
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => null);
+  }
 }
 
 export async function generateFreshSocialReelVideo(input: GenerateFreshSocialReelVideoInput): Promise<SocialReelVideoResult> {
@@ -387,24 +524,35 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
     }
 
     const ffmpegPath = await resolveFfmpegPath();
-    const sceneFilters = frames.map((_, index) => `[${index}:v]zoompan=z='min(zoom+0.0015,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${sceneSeconds * 30}:s=${width}x${height}:fps=30,format=yuv420p[v${index}]`).join(";");
-    const concatInputs = Array.from({ length: sceneCount }, (_, index) => `[v${index}]`).join("");
+
+    const sceneFilters = frames
+      .map(
+        (_, index) =>
+          `[${index}:v]zoompan=z='min(zoom+0.0015,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${sceneSeconds * 30}:s=${width}x${height}:fps=30,format=yuv420p[v${index}]`
+      )
+      .join(";");
+
+    const concatInputs = Array.from(
+      { length: sceneCount },
+      (_, index) => `[v${index}]`
+    ).join("");
+
+    const videoFilter =
+      `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v]`;
+
     await runProcess(ffmpegPath, [
       "-y",
+
       ...frames.flatMap((frame) => ["-i", frame]),
-      "-f",
-      "lavfi",
-      "-t",
-      String(totalSeconds),
-      "-i",
-      audioTrack.lavfi,
+
       "-filter_complex",
-      `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v];[${sceneCount}:a]volume=${audioTrack.volume},afade=t=in:st=0:d=0.5,afade=t=out:st=19.2:d=0.8[a]`,
+      videoFilter,
+
       "-map",
       "[v]",
-      "-map",
-      "[a]",
-      "-shortest",
+
+      "-t",
+      String(totalSeconds),
       "-c:v",
       "libx264",
       "-preset",
@@ -413,10 +561,9 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       "+faststart",
       "-pix_fmt",
       "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "96k",
+
+      "-an",
+
       outputPath
     ]);
 

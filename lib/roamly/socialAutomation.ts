@@ -4,7 +4,9 @@ import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/ama
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
 import { probeFacebookAccessibleUrl } from "@/lib/roamly/publicSocialStorage";
-import { generateFreshSocialReelVideo, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
+import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
+
+import { getRoamlyFacebookCredentialsForPosting } from "@/lib/roamly/facebookConnector";
 
 export type FacebookPostFormat = "reel" | "image" | "statement" | "link";
 export type FacebookQueueStatus = "scheduled" | "processing" | "published" | "failed" | "retrying" | "skipped" | "archived";
@@ -119,6 +121,26 @@ type SocialDraftRow = {
   updated_at: string;
 };
 
+type SocialMediaAssetRow = {
+  id: string;
+  platform: string | null;
+  status: string | null;
+  title: string | null;
+  media_url: string | null;
+  asset_type: string | null;
+  approved_for_automation: boolean | null;
+  excluded_from_automation: boolean | null;
+  archived_at?: string | null;
+  use_count: number | null;
+  last_used_at: string | null;
+  width: number | null;
+  height: number | null;
+  duration_seconds: number | null;
+  is_vertical: boolean | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type QueueWithDraft = {
   id: string;
   draft_id: string;
@@ -165,6 +187,8 @@ type PublishResult = {
   facebookReelId?: string | null;
   facebookMediaId?: string | null;
   facebookUrl?: string | null;
+  mediaAssetId?: string | null;
+  sourceMediaAssetId?: string | null;
   temporary?: boolean;
   error?: string;
   metaResponse?: Record<string, unknown>;
@@ -408,6 +432,23 @@ function metadataBrand(metadata: Record<string, unknown> | null | undefined) {
   return normalizeFacebookBrand(metadata?.brand || metadata?.social_brand || metadata?.facebookBrand);
 }
 
+function explicitMetadataBrand(metadata: Record<string, unknown> | null | undefined): FacebookSocialBrand | null {
+  const raw = clean(
+    typeof metadata?.brand === "string"
+      ? metadata.brand
+      : typeof metadata?.social_brand === "string"
+        ? metadata.social_brand
+        : typeof metadata?.facebookBrand === "string"
+          ? metadata.facebookBrand
+          : ""
+  )
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  if (raw === "roamly") return "roamly";
+  if (raw === "reviewintel" || raw === "reviewinsight") return "reviewintel";
+  return null;
+}
+
 function brandFromQueueItem(item: Pick<QueueWithDraft, "platform" | "metadata" | "draft">): FacebookSocialBrand {
   if (item.platform === "facebook_reviewintel") return "reviewintel";
   if (item.platform === "facebook_roamly") return "roamly";
@@ -525,7 +566,18 @@ function facebookBrandConfig(brandInput: FacebookSocialBrand = "roamly"): Facebo
 }
 
 function uniqueHashtags(values: string[]) {
-  return [...new Set(values.map((tag) => tag.replace(/^#/, "").replace(/[^A-Za-z0-9_]/g, "")).filter(Boolean))].slice(0, 8);
+  return [
+    ...new Set(
+      values
+        .map((tag) =>
+          tag
+            .replace(/^#/, "")
+            .normalize("NFC")
+            .replace(/[^\\p{L}\\p{N}\\p{M}_]/gu, "")
+        )
+        .filter(Boolean)
+    )
+  ].slice(0, 12);
 }
 
 function appBaseUrl() {
@@ -545,7 +597,7 @@ export function getDefaultFacebookAutomationSettings(brand: FacebookSocialBrand 
     manualReviewRequired: config.requireApproval,
     postsPerDay: numberValue(
       envFirst(isReviewIntel ? "REVIEWINTEL_SOCIAL_POSTS_PER_DAY" : "ROAMLY_SOCIAL_POSTS_PER_DAY"),
-      isReviewIntel ? 1 : 2,
+      1,
       0,
       12
     ),
@@ -571,7 +623,7 @@ export function getDefaultFacebookAutomationSettings(brand: FacebookSocialBrand 
     ),
     maximumDailyPosts: numberValue(
       envFirst(isReviewIntel ? "REVIEWINTEL_SOCIAL_MAX_DAILY_POSTS" : "ROAMLY_SOCIAL_MAX_DAILY_POSTS"),
-      isReviewIntel ? 1 : 3,
+      1,
       0,
       24
     ),
@@ -877,13 +929,22 @@ function captionFor({
 }
 
 function hashtagsFor(category: string, destination: string, index: number, brand: FacebookSocialBrand) {
-  const base = brand === "reviewintel" ? REVIEWINTEL_HASHTAG_GROUPS[index % REVIEWINTEL_HASHTAG_GROUPS.length] : HASHTAG_GROUPS[index % HASHTAG_GROUPS.length];
+  const base = brand === "reviewintel"
+    ? REVIEWINTEL_HASHTAG_GROUPS[index % REVIEWINTEL_HASHTAG_GROUPS.length]
+    : HASHTAG_GROUPS[index % HASHTAG_GROUPS.length];
+
   const specific = [
     destination.replace(/[^A-Za-z0-9]/g, ""),
     category.replace(/[^A-Za-z0-9]/g, ""),
     TOPIC_ROTATION[index % TOPIC_ROTATION.length].replace(/[^A-Za-z0-9]/g, "")
   ];
-  return uniqueHashtags([...base, ...specific]);
+
+  const fixedReachHashtags =
+    brand === "roamly"
+      ? ["fypシ", "fypシ゚viralシ", "fypviralシ"]
+      : [];
+
+  return uniqueHashtags([...base, ...specific, ...fixedReachHashtags]);
 }
 
 function mediaDirectionFor(format: FacebookPostFormat, category: string, destination: string, topic: string, brand: FacebookSocialBrand) {
@@ -1033,24 +1094,139 @@ async function existingScheduledTimes(admin: SupabaseClient) {
 function buildScheduleSlots(settings: FacebookAutomationSettings, count: number, usedTimes: Set<string>) {
   const slots: string[] = [];
   const now = new Date();
-  const hours = settings.preferredPostingHours.length ? settings.preferredPostingHours : [9, 12, 18];
-  let dayOffset = 1;
+
+  const hours = [
+    ...new Set(
+      (settings.preferredPostingHours.length
+        ? settings.preferredPostingHours
+        : [9, 12, 18]
+      )
+        .map((value) => Math.max(0, Math.min(23, Math.trunc(value))))
+    )
+  ].sort((a, b) => a - b);
+
+  const settingsRecord = settings as unknown as Record<string, unknown>;
+  const timeZone =
+    String(
+      settingsRecord.timezone ||
+      settingsRecord.timeZone ||
+      settingsRecord.postingTimezone ||
+      "America/Moncton"
+    ).trim() || "America/Moncton";
+
+  const partsInZone = (date: Date) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(date);
+
+    const get = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value || 0);
+
+    return {
+      year: get("year"),
+      month: get("month"),
+      day: get("day"),
+      hour: get("hour"),
+      minute: get("minute"),
+      second: get("second")
+    };
+  };
+
+  const zonedWallClockToUtc = (
+    year: number,
+    month: number,
+    day: number,
+    hour: number
+  ) => {
+    const wallClockUtc = Date.UTC(year, month - 1, day, hour, 0, 0, 0);
+    let candidate = new Date(wallClockUtc);
+
+    // Resolve the UTC instant whose wall-clock representation in timeZone
+    // equals year/month/day/hour:00.
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const actual = partsInZone(candidate);
+      const actualAsUtc = Date.UTC(
+        actual.year,
+        actual.month - 1,
+        actual.day,
+        actual.hour,
+        actual.minute,
+        actual.second,
+        0
+      );
+
+      const delta = wallClockUtc - actualAsUtc;
+      if (delta === 0) break;
+
+      candidate = new Date(candidate.getTime() + delta);
+    }
+
+    candidate.setMilliseconds(0);
+    return candidate;
+  };
+
+  const maxForDay = Math.max(
+    1,
+    Math.min(
+      settings.maximumDailyPosts || settings.postsPerDay || 2,
+      hours.length,
+      6
+    )
+  );
+
+  /*
+   * Start TODAY, not tomorrow.
+   * Any configured time that has already passed today is skipped naturally.
+   */
+  let dayOffset = 0;
+
   while (slots.length < count && dayOffset < 730) {
-    const maxForDay = Math.max(1, Math.min(settings.maximumDailyPosts || settings.postsPerDay || 2, 6));
-    for (let dailyIndex = 0; dailyIndex < maxForDay && slots.length < count; dailyIndex += 1) {
-      const slot = new Date(now);
-      slot.setDate(now.getDate() + dayOffset);
-      const hour = hours[(dayOffset + dailyIndex) % hours.length];
-      const minute = (11 + dayOffset * 13 + dailyIndex * 19) % 60;
-      slot.setHours(hour, minute, 0, 0);
+    const localNow = partsInZone(now);
+
+    // Noon UTC keeps calendar arithmetic stable while we add days.
+    const calendarDate = new Date(
+      Date.UTC(
+        localNow.year,
+        localNow.month - 1,
+        localNow.day + dayOffset,
+        12,
+        0,
+        0,
+        0
+      )
+    );
+
+    const year = calendarDate.getUTCFullYear();
+    const month = calendarDate.getUTCMonth() + 1;
+    const day = calendarDate.getUTCDate();
+
+    for (
+      let dailyIndex = 0;
+      dailyIndex < maxForDay && slots.length < count;
+      dailyIndex += 1
+    ) {
+      const hour = hours[dailyIndex];
+
+      // EXACT configured time: HH:00. No randomized minute.
+      const slot = zonedWallClockToUtc(year, month, day, hour);
       const key = slot.toISOString().slice(0, 16);
+
       if (slot > now && !usedTimes.has(key)) {
         usedTimes.add(key);
         slots.push(slot.toISOString());
       }
     }
+
     dayOffset += 1;
   }
+
   return slots;
 }
 
@@ -1460,7 +1636,18 @@ export async function queueFacebookRuntimeProofReel(
   const hashtags = uniqueHashtags(
     normalizedBrand === "reviewintel"
       ? ["ReviewIntel", "SmartShopping", "ReviewAnalysis", "FakeReviews", "BeforeYouBuy", "FacebookReels", `RI${proofMoment}`]
-      : ["Roamly", "TravelPlanning", "SmartTravel", "TripPlanning", "TravelTips", "FacebookReels", `Roamly${proofMoment}`]
+      : [
+          "Roamly",
+          "TravelPlanning",
+          "SmartTravel",
+          "TripPlanning",
+          "TravelTips",
+          "FacebookReels",
+          "fypシ",
+          "fypシ゚viralシ",
+          "fypviralシ",
+          `Roamly${proofMoment}`
+        ]
   );
   const draft: GeneratedFacebookDraft = {
     contentType: "Facebook Reels",
@@ -1569,19 +1756,25 @@ async function releaseStaleLocks(admin: SupabaseClient, brand: FacebookSocialBra
 
 async function getDueQueue(admin: SupabaseClient, limit: number, brand: FacebookSocialBrand) {
   const now = new Date().toISOString();
+
   const { data, error } = await admin
     .from("roamly_social_queue")
     .select(
-      "*,draft:roamly_social_drafts(id,content_type,post_format,topic,hook,caption,on_screen_text,media_direction,suggested_media,selected_media_asset_id,selected_media_url,call_to_action,hashtags,music_or_audio_mood,roamly_link,amazon_affiliate_link,affiliate_disclosure,generation_source,status,quality_score,quality_reasons,metadata,created_at,updated_at)"
+      "*,draft:roamly_social_drafts!inner(id,content_type,post_format,topic,hook,caption,on_screen_text,media_direction,suggested_media,selected_media_asset_id,selected_media_url,call_to_action,hashtags,music_or_audio_mood,roamly_link,amazon_affiliate_link,affiliate_disclosure,generation_source,status,quality_score,quality_reasons,metadata,created_at,updated_at)"
     )
     .in("platform", brandQueuePlatforms(brand))
     .in("queue_status", ["scheduled", "retrying"])
+    .eq("draft.post_format", "reel")
     .lte("scheduled_for", now)
     .or(`retry_after.is.null,retry_after.lte.${now}`)
     .order("scheduled_for", { ascending: true })
     .limit(limit);
+
   if (error) throw error;
-  return ((data || []) as unknown as QueueWithDraft[]).filter((item) => item.draft);
+
+  return ((data || []) as unknown as QueueWithDraft[]).filter(
+    (item) => item.draft?.post_format === "reel"
+  );
 }
 
 async function lockQueueItem(admin: SupabaseClient, item: QueueWithDraft) {
@@ -1613,6 +1806,24 @@ async function lockQueueItem(admin: SupabaseClient, item: QueueWithDraft) {
     })
     .eq("queue_id", item.id);
   return lockToken;
+}
+
+async function facebookBrandConfigForPosting(
+  brand: FacebookSocialBrand
+): Promise<FacebookBrandConfig> {
+  const config = facebookBrandConfig(brand);
+
+  if (normalizeFacebookBrand(brand) !== "roamly") {
+    return config;
+  }
+
+  const stored = await getRoamlyFacebookCredentialsForPosting();
+
+  return {
+    ...config,
+    pageId: stored.pageId || config.pageId,
+    pageAccessToken: stored.accessToken || config.pageAccessToken
+  };
 }
 
 async function facebookGraph<T>(
@@ -1687,11 +1898,105 @@ function assertReelMediaMetadata(input: {
   }
 }
 
+function assertUploadedReelVideoAsset(input: {
+  assetType?: unknown;
+  isVertical?: unknown;
+  width?: unknown;
+  height?: unknown;
+  durationSeconds?: unknown;
+  fileSizeBytes?: unknown;
+}) {
+  if (input.assetType && input.assetType !== "video") {
+    throw new FacebookGraphError("Facebook Reel publishing requires an MP4 video asset.", false, { mediaType: input.assetType || null });
+  }
+  if (input.isVertical === false) {
+    throw new FacebookGraphError("Facebook Reel publishing requires vertical 9:16 media.", false, { isVertical: input.isVertical });
+  }
+  const width = Number(input.width);
+  const height = Number(input.height);
+  if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0 && Math.abs(width / height - 9 / 16) > 0.04) {
+    throw new FacebookGraphError("Facebook Reel publishing requires a 9:16 video.", false, { width, height });
+  }
+  const duration = Number(input.durationSeconds);
+  if (input.durationSeconds != null && (!Number.isFinite(duration) || duration <= 0)) {
+    throw new FacebookGraphError("Facebook Reel video duration is invalid.", false, { durationSeconds: duration });
+  }
+  const size = Number(input.fileSizeBytes);
+  if (input.fileSizeBytes != null && (!Number.isFinite(size) || size <= 0 || size > MAX_REEL_BYTES)) {
+    throw new FacebookGraphError("Facebook Reel video file size is invalid.", false, { fileSizeBytes: size, maxBytes: MAX_REEL_BYTES });
+  }
+}
+
 function supabaseMediaConfig() {
   return {
     supabaseUrl: envFirst("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL"),
     serviceKey: envFirst("SUPABASE_SERVICE_ROLE_KEY")
   };
+}
+
+function assetUrl(asset: Pick<SocialMediaAssetRow, "media_url"> | null | undefined) {
+  return clean(asset?.media_url || "");
+}
+
+function assetType(asset: Pick<SocialMediaAssetRow, "asset_type" | "media_url" | "metadata">) {
+  const metadata = objectValue(asset.metadata);
+  const raw = clean(asset.asset_type || String(metadata.asset_type || metadata.media_type || "")).toLowerCase();
+  if (raw === "image" || raw === "photo") return "image" as const;
+  if (raw === "video" || /\.mp4(\?|$)/i.test(clean(asset.media_url))) return "video" as const;
+  if (/\.(png|jpe?g|webp)(\?|$)/i.test(clean(asset.media_url))) return "image" as const;
+  return "";
+}
+
+function isApprovedAutomationAsset(asset: SocialMediaAssetRow, brand: FacebookSocialBrand) {
+  const metadata = objectValue(asset.metadata);
+  const platform = clean(asset.platform);
+  const metadataBrandName = explicitMetadataBrand(metadata);
+  const platforms = brandQueuePlatforms(brand);
+  return Boolean(
+    asset.id &&
+      assetUrl(asset) &&
+      asset.approved_for_automation === true &&
+      asset.excluded_from_automation !== true &&
+      asset.status !== "rejected" &&
+      asset.status !== "archived" &&
+      !asset.archived_at &&
+      (platforms.includes(platform) || (brand === "roamly" && platform === LEGACY_FACEBOOK_PLATFORM) || metadataBrandName === brand)
+  );
+}
+
+function sortAutomationAssets(assets: SocialMediaAssetRow[]) {
+  return [...assets].sort((a, b) => {
+    const useDiff = Number(a.use_count || 0) - Number(b.use_count || 0);
+    if (useDiff) return useDiff;
+    const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;
+    const bUsed = b.last_used_at ? Date.parse(b.last_used_at) : 0;
+    if (aUsed !== bUsed) return aUsed - bUsed;
+    return Date.parse(String(b.created_at || "")) - Date.parse(String(a.created_at || ""));
+  });
+}
+
+async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSocialBrand) {
+  const { data, error } = await admin
+    .from("roamly_social_media_assets")
+    .select("id,platform,status,title,media_url,asset_type,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
+    .eq("approved_for_automation", true)
+    .eq("excluded_from_automation", false)
+    .order("use_count", { ascending: true })
+    .order("last_used_at", { ascending: true, nullsFirst: true })
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.warn("[Roamly social] media library selection failed", error.message);
+    return null;
+  }
+
+  const assets = ((data || []) as SocialMediaAssetRow[]).filter((asset) => {
+    const type = assetType(asset);
+    return (type === "video" || type === "image") && isApprovedAutomationAsset(asset, brand);
+  });
+
+  return sortAutomationAssets(assets)[0] || null;
 }
 
 function draftHashtags(draft: SocialDraftRow) {
@@ -1761,37 +2066,270 @@ async function ensureReelVideo(
   queueId: string,
   draft: SocialDraftRow,
   config: FacebookBrandConfig
-): Promise<{ mediaUrl: string; generatedVideo?: Awaited<ReturnType<typeof generateFreshSocialReelVideo>>; mediaAssetId?: string | null }> {
+): Promise<{
+  mediaUrl: string;
+  generatedVideo?: Awaited<ReturnType<typeof generateFreshSocialReelVideo>>;
+  mediaAssetId?: string | null;
+  sourceMediaAssetId?: string | null;
+}> {
   const existingUrl = clean(draft.selected_media_url || draft.suggested_media);
   const asset = draft.selected_media_asset_id
     ? await admin
         .from("roamly_social_media_assets")
-        .select("asset_type,is_vertical,width,height,duration_seconds,metadata,media_url")
+        .select("id,platform,status,title,media_url,asset_type,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
         .eq("id", draft.selected_media_asset_id)
         .maybeSingle()
     : { data: null, error: null };
   if (asset.error) throw new FacebookGraphError(`Reel media asset validation failed: ${asset.error.message}`, false, { assetError: asset.error.message });
-  const assetMetadata = objectValue(asset.data?.metadata);
   if (draft.selected_media_asset_id && !asset.data) {
     throw new FacebookGraphError("The selected Facebook Reel media asset no longer exists.", false, { assetId: draft.selected_media_asset_id });
   }
-  if (asset.data) {
-    assertReelMediaMetadata({
-      assetType: asset.data.asset_type,
-      isVertical: asset.data.is_vertical,
-      width: asset.data.width ?? assetMetadata.width,
-      height: asset.data.height ?? assetMetadata.height,
-      durationSeconds: asset.data.duration_seconds ?? assetMetadata.duration_seconds,
-      fileSizeBytes: assetMetadata.file_size_bytes
-    });
-  }
-  if ((existingUrl || draft.selected_media_asset_id) && !videoLooksSupported(existingUrl)) {
-    throw new FacebookGraphError("The selected Facebook Reel asset is not an MP4 video.", false, { mediaUrl: existingUrl || null });
-  }
-  if (videoLooksSupported(existingUrl)) {
-    const probe = await probeFacebookAccessibleUrl({ url: existingUrl, timeoutMs: 7000 });
+
+  const selectedAsset = (asset.data || null) as SocialMediaAssetRow | null;
+  const pickedAsset = !existingUrl && !selectedAsset
+    ? await pickAutomationMediaAsset(admin, config.brand)
+    : null;
+  const sourceAsset = selectedAsset || pickedAsset;
+  const sourceUrl = existingUrl || assetUrl(sourceAsset);
+  const sourceType = sourceAsset ? assetType(sourceAsset) : videoLooksSupported(sourceUrl) ? "video" : "";
+
+  if (sourceUrl && sourceType === "video") {
+    /*
+     * Older Roamly generated Reels can contain the old synthetic audio.
+     * If this MP4 was generated from one of Roamly's original library
+     * photos, regenerate from THAT SAME PHOTO with the current renderer.
+     */
+    if (config.brand === "roamly" && sourceAsset) {
+      const sourceAssetMetadata = objectValue(sourceAsset.metadata);
+      const libraryMediaMetadata = objectValue(
+        sourceAssetMetadata.facebookLibraryMedia
+      );
+      const generatedReelMetadata = objectValue(
+        sourceAssetMetadata.generatedReelVideo
+      );
+
+      const draftMetadata = objectValue(draft.metadata);
+      const draftLibraryMediaMetadata = objectValue(
+        draftMetadata.facebookLibraryMedia
+      );
+      const draftGeneratedReelMetadata = objectValue(
+        draftMetadata.generatedReelVideo
+      );
+
+      const rawOriginalSourceMediaAssetId =
+        sourceAssetMetadata.sourceMediaAssetId ??
+        libraryMediaMetadata.sourceMediaAssetId ??
+        generatedReelMetadata.sourceMediaAssetId ??
+        draftMetadata.sourceMediaAssetId ??
+        draftLibraryMediaMetadata.sourceMediaAssetId ??
+        draftGeneratedReelMetadata.sourceMediaAssetId ??
+        "";
+
+      const originalSourceMediaAssetId = clean(
+        String(rawOriginalSourceMediaAssetId)
+      );
+
+      if (
+        originalSourceMediaAssetId &&
+        originalSourceMediaAssetId !== sourceAsset.id
+      ) {
+        const { data: originalSourceAsset } = await admin
+          .from("roamly_social_media_assets")
+          .select("id,platform,status,title,media_url,asset_type,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
+          .eq("id", originalSourceMediaAssetId)
+          .maybeSingle();
+
+        const originalPhoto =
+          (originalSourceAsset || null) as SocialMediaAssetRow | null;
+
+        if (
+          originalPhoto &&
+          assetType(originalPhoto) === "image" &&
+          assetUrl(originalPhoto)
+        ) {
+          const originalPhotoUrl = assetUrl(originalPhoto);
+
+          const probe = await probeFacebookAccessibleUrl({
+            url: originalPhotoUrl,
+            timeoutMs: 7000
+          });
+
+          if (!probe.ok) {
+            throw new FacebookGraphError(
+              probe.error || "Original Roamly source photo is not publicly reachable.",
+              false,
+              {
+                mediaUrl: originalPhotoUrl,
+                sourceMediaAssetId: originalPhoto.id
+              }
+            );
+          }
+
+          const { supabaseUrl, serviceKey } = supabaseMediaConfig();
+
+          if (!supabaseUrl || !serviceKey) {
+            throw new FacebookGraphError(
+              "Static photo Reel conversion requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
+              false,
+              {}
+            );
+          }
+
+          console.log("[ROAMLY_REGENERATE_STALE_REEL_FROM_ORIGINAL_PHOTO]", {
+            queueId,
+            draftId: draft.id,
+            staleVideoAssetId: sourceAsset.id,
+            originalPhotoAssetId: originalPhoto.id,
+            originalPhotoUrl
+          });
+
+          const video = await generateStaticSocialPosterReelVideo({
+            brand: config.brand,
+            sourceImageUrl: originalPhotoUrl,
+            topic: draft.topic || draft.content_type,
+            supabaseUrl,
+            serviceKey,
+            audioSeed: `${config.brand}:static-photo:${queueId}:${draft.id}:${originalPhoto.id}`
+          });
+
+          const mediaAssetId = await insertGeneratedReelMediaAsset(
+            admin,
+            draft,
+            config,
+            video
+          );
+
+          const generatedReelVideo = {
+            filename: video.filename,
+            objectPath: video.objectPath,
+            publicUrl: video.publicUrl,
+            size: video.size,
+            width: video.width,
+            height: video.height,
+            durationSeconds: video.durationSeconds,
+            mimeType: video.mimeType,
+            ffprobe: video.ffprobe,
+            audioTrack: video.audioTrack,
+            generatedAt: new Date().toISOString(),
+            sourceMediaAssetId: originalPhoto.id,
+            sourceMediaUrl: originalPhotoUrl,
+            visualRules: {
+              generatedText: false,
+              crop: false,
+              pan: false,
+              zoom: false
+            }
+          };
+
+          await admin
+            .from("roamly_social_drafts")
+            .update({
+              selected_media_url: video.publicUrl,
+              selected_media_asset_id: mediaAssetId,
+              media_hash: hash(video.publicUrl),
+              metadata: withBrandMetadata(config.brand, {
+                ...(draft.metadata || {}),
+                generatedReelVideo,
+                sourceMediaAssetId: originalPhoto.id,
+                facebookLibraryMedia: {
+                  mode: "static_library_photo",
+                  sourceMediaAssetId: originalPhoto.id,
+                  generatedMediaAssetId: mediaAssetId,
+                  sourceMediaUrl: originalPhotoUrl,
+                  publicUrl: video.publicUrl,
+                  publicProbe: probe,
+                  regeneratedBecause: "stale_generated_reel_audio",
+                  visualRules: generatedReelVideo.visualRules
+                }
+              })
+            })
+            .eq("id", draft.id);
+
+          return {
+            mediaUrl: video.publicUrl,
+            generatedVideo: video,
+            mediaAssetId,
+            sourceMediaAssetId: originalPhoto.id
+          };
+        }
+      }
+    }
+
+    /*
+     * Never republish an older GENERATED Roamly Reel after regeneration
+     * failed. Those legacy MP4s can contain the old frequency audio.
+     *
+     * Genuine uploaded/original videos still continue through normally.
+     */
+    if (config.brand === "roamly") {
+      const staleAssetMetadata = sourceAsset
+        ? objectValue(sourceAsset.metadata)
+        : {};
+      const staleAssetLibrary = objectValue(
+        staleAssetMetadata.facebookLibraryMedia
+      );
+      const staleAssetGenerated = objectValue(
+        staleAssetMetadata.generatedReelVideo
+      );
+
+      const staleDraftMetadata = objectValue(draft.metadata);
+      const staleDraftLibrary = objectValue(
+        staleDraftMetadata.facebookLibraryMedia
+      );
+      const staleDraftGenerated = objectValue(
+        staleDraftMetadata.generatedReelVideo
+      );
+
+      const generatedMode =
+        String(staleAssetLibrary.mode ?? "") === "static_library_photo" ||
+        String(staleDraftLibrary.mode ?? "") === "static_library_photo";
+
+      const hasGeneratedMetadata =
+        Boolean(String(staleAssetGenerated.publicUrl ?? "")) ||
+        Boolean(String(staleAssetGenerated.filename ?? "")) ||
+        Boolean(String(staleDraftGenerated.publicUrl ?? "")) ||
+        Boolean(String(staleDraftGenerated.filename ?? "")) ||
+        Boolean(String(staleAssetMetadata.sourceMediaAssetId ?? "")) ||
+        Boolean(String(staleDraftMetadata.sourceMediaAssetId ?? ""));
+
+      if (generatedMode || hasGeneratedMetadata) {
+        console.error("[ROAMLY_BLOCKED_STALE_GENERATED_REEL_AUDIO]", {
+          queueId,
+          draftId: draft.id,
+          sourceMediaAssetId: sourceAsset?.id || null,
+          sourceUrl
+        });
+
+        throw new FacebookGraphError(
+          "Refusing to publish an older generated Roamly Reel that may contain legacy audio. The Reel must be regenerated from its original photo.",
+          false,
+          {
+            queueId,
+            draftId: draft.id,
+            mediaUrl: sourceUrl,
+            mediaAssetId: sourceAsset?.id || null
+          }
+        );
+      }
+    }
+
+    if (!videoLooksSupported(sourceUrl)) {
+      throw new FacebookGraphError("The selected Facebook Reel asset is not an MP4 video.", false, { mediaUrl: sourceUrl || null });
+    }
+    if (sourceAsset) {
+      const assetMetadata = objectValue(sourceAsset.metadata);
+      assertUploadedReelVideoAsset({
+        assetType: assetType(sourceAsset) || sourceAsset.asset_type,
+        isVertical: sourceAsset.is_vertical ?? assetMetadata.is_vertical,
+        width: sourceAsset.width ?? assetMetadata.width,
+        height: sourceAsset.height ?? assetMetadata.height,
+        durationSeconds: sourceAsset.duration_seconds ?? assetMetadata.duration_seconds,
+        fileSizeBytes: assetMetadata.file_size_bytes ?? assetMetadata.size_bytes
+      });
+    }
+    const probe = await probeFacebookAccessibleUrl({ url: sourceUrl, timeoutMs: 7000 });
     if (!probe.ok) {
-      throw new FacebookGraphError(probe.error || "Configured Reel MP4 is not publicly reachable.", false, { probe, mediaUrl: existingUrl });
+      throw new FacebookGraphError(probe.error || "Configured Reel MP4 is not publicly reachable.", false, { probe, mediaUrl: sourceUrl });
     }
     await admin.from("roamly_facebook_media_processing").insert({
       queue_id: queueId,
@@ -1801,12 +2339,147 @@ async function ensureReelVideo(
       metadata: withBrandMetadata(config.brand, {
         stage: "existing_video_selected",
         page_id: config.pageId,
-        mediaUrl: existingUrl,
+        mediaUrl: sourceUrl,
+        mediaAssetId: sourceAsset?.id || draft.selected_media_asset_id || null,
         publicProbe: probe,
         generatedVideoRequired: false
       })
     });
-    return { mediaUrl: existingUrl, mediaAssetId: draft.selected_media_asset_id };
+    if (sourceAsset) {
+      await admin
+        .from("roamly_social_drafts")
+        .update({
+          selected_media_url: sourceUrl,
+          selected_media_asset_id: sourceAsset.id,
+          media_hash: hash(sourceUrl),
+          metadata: withBrandMetadata(config.brand, {
+            ...(draft.metadata || {}),
+            facebookLibraryMedia: {
+              mode: "original_video",
+              sourceMediaAssetId: sourceAsset.id,
+              publicUrl: sourceUrl,
+              publicProbe: probe
+            }
+          })
+        })
+        .eq("id", draft.id);
+    }
+    return {
+      mediaUrl: sourceUrl,
+      mediaAssetId: sourceAsset?.id || draft.selected_media_asset_id,
+      sourceMediaAssetId: sourceAsset?.id || draft.selected_media_asset_id
+    };
+  }
+
+  if (sourceUrl && sourceType === "image") {
+    const probe = await probeFacebookAccessibleUrl({ url: sourceUrl, timeoutMs: 7000 });
+    if (!probe.ok) {
+      throw new FacebookGraphError(probe.error || "Configured Reel image is not publicly reachable.", false, { probe, mediaUrl: sourceUrl });
+    }
+    const { supabaseUrl, serviceKey } = supabaseMediaConfig();
+    if (!supabaseUrl || !serviceKey) {
+      throw new FacebookGraphError("Static photo Reel conversion requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.", false, {});
+    }
+    await admin.from("roamly_facebook_media_processing").insert({
+      queue_id: queueId,
+      draft_id: draft.id,
+      processing_status: "pending",
+      metadata: withBrandMetadata(config.brand, {
+        stage: "static_photo_reel_generation_started",
+        page_id: config.pageId,
+        sourceMediaAssetId: sourceAsset?.id || null,
+        sourceMediaUrl: sourceUrl,
+        publicProbe: probe,
+        visualRules: {
+          generatedText: false,
+          crop: false,
+          pan: false,
+          zoom: false
+        }
+      })
+    });
+
+    const video = await generateStaticSocialPosterReelVideo({
+      brand: config.brand,
+      sourceImageUrl: sourceUrl,
+      topic: draft.topic || draft.content_type,
+      supabaseUrl,
+      serviceKey,
+      audioSeed: `${config.brand}:static-photo:${queueId}:${draft.id}:${sourceAsset?.id || Date.now()}`
+    });
+    const mediaAssetId = await insertGeneratedReelMediaAsset(admin, draft, config, video);
+    const generatedReelVideo = {
+      filename: video.filename,
+      objectPath: video.objectPath,
+      publicUrl: video.publicUrl,
+      size: video.size,
+      width: video.width,
+      height: video.height,
+      durationSeconds: video.durationSeconds,
+      mimeType: video.mimeType,
+      ffprobe: video.ffprobe,
+      audioTrack: video.audioTrack,
+      generatedAt: new Date().toISOString(),
+      sourceMediaAssetId: sourceAsset?.id || null,
+      sourceMediaUrl: sourceUrl,
+      visualRules: {
+        generatedText: false,
+        crop: false,
+        pan: false,
+        zoom: false
+      }
+    };
+    const metadata = withBrandMetadata(config.brand, {
+      ...(draft.metadata || {}),
+      generatedReelVideo,
+      sourceMediaAssetId: sourceAsset?.id || null,
+      facebookLibraryMedia: {
+        mode: "static_library_photo",
+        sourceMediaAssetId: sourceAsset?.id || null,
+        generatedMediaAssetId: mediaAssetId,
+        sourceMediaUrl: sourceUrl,
+        publicUrl: video.publicUrl,
+        publicProbe: probe,
+        visualRules: generatedReelVideo.visualRules
+      }
+    });
+
+    await admin
+      .from("roamly_social_drafts")
+      .update({
+        selected_media_url: video.publicUrl,
+        selected_media_asset_id: mediaAssetId,
+        media_hash: hash(video.publicUrl),
+        metadata
+      })
+      .eq("id", draft.id);
+
+    await admin
+      .from("roamly_facebook_media_processing")
+      .update({
+        processing_status: "ready",
+        checked_at: new Date().toISOString(),
+        metadata: withBrandMetadata(config.brand, {
+          stage: "static_photo_reel_generated",
+          generatedVideo: generatedReelVideo,
+          mediaAssetId,
+          sourceMediaAssetId: sourceAsset?.id || null,
+          page_id: config.pageId
+        })
+      })
+      .eq("queue_id", queueId)
+      .is("facebook_video_id", null);
+
+    return {
+      mediaUrl: video.publicUrl,
+      generatedVideo: video,
+      mediaAssetId,
+      sourceMediaAssetId: sourceAsset?.id || null
+    };
+  }
+
+  if (sourceUrl) {
+    throw new FacebookGraphError("The selected Facebook Reel media asset is unsupported.", false, { mediaUrl: sourceUrl, mediaType: sourceType || null });
   }
 
   const { supabaseUrl, serviceKey } = supabaseMediaConfig();
@@ -1939,19 +2612,58 @@ async function waitForReelProcessing(config: FacebookBrandConfig, videoId: strin
   return { ready: false, response: {}, error: lastStatus ? `Meta processing still ${lastStatus}.` : "Meta processing did not confirm readiness." };
 }
 
+
+function finalFacebookReelCaption(
+  draft: QueueWithDraft["draft"],
+  brand: FacebookSocialBrand
+) {
+  const original = finalCaption(draft);
+
+  if (normalizeFacebookBrand(brand) !== "roamly") {
+    return original;
+  }
+
+  // Strip the entire old hashtag section from Roamly's final caption.
+  // This deliberately bypasses all earlier hashtag sanitizers that
+  // produced broken output such as "#p #pp".
+  const withoutHashtags = original
+    .split(/\n/)
+    .filter((line) => !line.trim().startsWith("#"))
+    .join("\n")
+    .trim();
+
+  // IMPORTANT:
+  // These three tags are literal final-output text.
+  // Do not pass them through uniqueHashtags(), regex cleanup,
+  // normalization, slicing, or any other sanitizer.
+  return `${withoutHashtags}\n\n#travel #travelreels #travelinspiration #fypシ #fypシ゚viralシ #fypviralシ`;
+}
+
 async function publishFacebookReel(
   admin: SupabaseClient,
   queueId: string,
   draft: SocialDraftRow,
   brand: FacebookSocialBrand = metadataBrand(draft.metadata)
 ): Promise<PublishResult> {
-  const config = facebookBrandConfig(brand);
+  console.log("[FB_REEL_STAGE_1_CONFIG_START]", { queueId, brand });
+  const config = await facebookBrandConfigForPosting(brand);
+  console.log("[FB_REEL_STAGE_2_CONFIG_OK]", { queueId, pageId: config.pageId });
+
+  console.log("[FB_REEL_STAGE_3_ENSURE_START]", { queueId });
   const reelMedia = await ensureReelVideo(admin, queueId, draft, config);
+  console.log("[FB_REEL_STAGE_4_ENSURE_OK]", {
+    queueId,
+    mediaUrl: reelMedia.mediaUrl,
+    generatedVideo: reelMedia.generatedVideo || null
+  });
+
   const mediaUrl = reelMedia.mediaUrl;
 
+  console.log("[FB_REEL_STAGE_5_META_START_REQUEST]", { queueId });
   const start = await facebookGraph<{ video_id?: string; upload_url?: string }>(config, `${config.pageId}/video_reels`, {
     params: { upload_phase: "start" }
   });
+  console.log("[FB_REEL_STAGE_6_META_START_OK]", { queueId, videoId: start.video_id || null });
   const videoId = clean(start.video_id);
   const uploadUrl = clean(start.upload_url);
   if (!videoId || !uploadUrl) {
@@ -1976,7 +2688,9 @@ async function publishFacebookReel(
     .eq("queue_id", queueId)
     .is("facebook_video_id", null);
 
+  console.log("[FB_REEL_STAGE_7_UPLOAD_START]", { queueId, mediaUrl });
   const upload = await uploadReelVideo(config, uploadUrl, mediaUrl);
+  console.log("[FB_REEL_STAGE_8_UPLOAD_OK]", { queueId });
   await admin
     .from("roamly_facebook_media_processing")
     .update({
@@ -1993,7 +2707,13 @@ async function publishFacebookReel(
     })
     .eq("queue_id", queueId);
 
+  console.log("[FB_REEL_STAGE_9_PROCESSING_WAIT]", { queueId, videoId });
   const processing = await waitForReelProcessing(config, videoId);
+  console.log("[FB_REEL_STAGE_10_PROCESSING_RESULT]", {
+    queueId,
+    ready: processing.ready,
+    error: processing.error || null
+  });
   if (!processing.ready) {
     await admin
       .from("roamly_facebook_media_processing")
@@ -2002,24 +2722,38 @@ async function publishFacebookReel(
     return { ok: false, status: "failed", temporary: true, error: processing.error || "Meta processing did not finish.", metaResponse: processing.response };
   }
 
-  const finish = await facebookGraph<{ id?: string; success?: boolean }>(config, `${config.pageId}/video_reels`, {
+  console.log("[FB_REEL_STAGE_11_FINISH_START]", {
+    queueId,
+    caption: finalFacebookReelCaption(draft, brand)
+  });
+  const finish = await facebookGraph<{ id?: string; post_id?: string; success?: boolean }>(config, `${config.pageId}/video_reels`, {
     params: {
       upload_phase: "finish",
       video_id: videoId,
       video_state: "PUBLISHED",
-      description: finalCaption(draft)
+      description: finalFacebookReelCaption(draft, brand)
     }
   });
+  console.log("[FB_REEL_STAGE_12_FINISH_OK]", { queueId, finish });
+  if (finish.success === false) {
+    throw new FacebookGraphError("Facebook Reel publish failed.", true, finish as Record<string, unknown>);
+  }
 
-  const confirmation = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
-    method: "GET",
-    params: { fields: "id,permalink_url,status,media_type,is_reel" }
-  });
+  let confirmation: Record<string, unknown> = {};
+  let confirmationError: string | null = null;
+  try {
+    confirmation = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
+      method: "GET",
+      params: { fields: "id,permalink_url,status,media_type,is_reel" }
+    });
+  } catch (error) {
+    confirmationError = error instanceof Error ? error.message : "Meta Reel confirmation lookup failed.";
+    confirmation = error instanceof FacebookGraphError ? error.responseBody : {};
+  }
   const permalink = typeof confirmation.permalink_url === "string" ? confirmation.permalink_url : "";
   const classifiedAsReel = confirmation.is_reel === true || String(confirmation.media_type || "").toLowerCase() === "reel" || /\/reel\//i.test(permalink);
-  if (!permalink || !classifiedAsReel) {
-    throw new FacebookGraphError("Meta did not confirm the published object as a Reel.", false, { confirmation, permalink, classifiedAsReel });
-  }
+  const confirmedImmediately = Boolean(permalink && classifiedAsReel);
+  const externalId = clean(String(confirmation.id || finish.post_id || finish.id || videoId));
   await admin
     .from("roamly_facebook_media_processing")
     .update({
@@ -2035,6 +2769,8 @@ async function publishFacebookReel(
         upload,
         finish,
         confirmation,
+        confirmationError,
+        confirmationStatus: confirmedImmediately ? "confirmed_immediately" : "publish_accepted_confirmation_pending",
         platformMediaType: "reel"
       })
     })
@@ -2043,19 +2779,25 @@ async function publishFacebookReel(
   return {
     ok: true,
     status: "published",
-    facebookReelId: videoId,
+    facebookReelId: externalId || videoId,
     facebookMediaId: videoId,
-    facebookUrl: permalink,
+    facebookUrl: permalink || null,
+    mediaAssetId: reelMedia.mediaAssetId || null,
+    sourceMediaAssetId: reelMedia.sourceMediaAssetId || null,
     metaResponse: withBrandMetadata(config.brand, {
       pageId: config.pageId,
       postedAs: "reel",
       platformMediaType: "reel",
       mediaUrl,
+      mediaAssetId: reelMedia.mediaAssetId || null,
+      sourceMediaAssetId: reelMedia.sourceMediaAssetId || null,
       generatedVideo: reelMedia.generatedVideo || null,
       start,
       upload,
       finish,
-      confirmation
+      confirmation,
+      confirmationError,
+      confirmationStatus: confirmedImmediately ? "confirmed_immediately" : "publish_accepted_confirmation_pending"
     })
   };
 }
@@ -2125,6 +2867,39 @@ async function saveAttempt(
   });
 }
 
+async function markMediaAssetUsed(
+  admin: SupabaseClient,
+  mediaAssetId: string,
+  item: QueueWithDraft,
+  brand: FacebookSocialBrand,
+  usedAt: string,
+  metadata: Record<string, unknown> = {}
+) {
+  const current = await admin
+    .from("roamly_social_media_assets")
+    .select("use_count")
+    .eq("id", mediaAssetId)
+    .maybeSingle();
+  const useCount = Number((current.data as { use_count?: number | null } | null)?.use_count || 0) + 1;
+  await admin
+    .from("roamly_social_media_assets")
+    .update({
+      use_count: useCount,
+      last_used_at: usedAt
+    })
+    .eq("id", mediaAssetId);
+  await admin.from("roamly_media_library_usage").insert({
+    media_asset_id: mediaAssetId,
+    draft_id: item.draft_id,
+    queue_id: item.id,
+    platform: brandPlatform(brand),
+    use_count: 1,
+    last_used_at: usedAt,
+    status: "active",
+    metadata
+  });
+}
+
 async function markPublished(admin: SupabaseClient, item: QueueWithDraft, result: PublishResult) {
   const now = new Date().toISOString();
   const brand = brandFromQueueItem(item);
@@ -2160,22 +2935,18 @@ async function markPublished(admin: SupabaseClient, item: QueueWithDraft, result
       .eq("queue_id", item.id)
   ]);
 
-  if (item.draft.selected_media_asset_id) {
-    await admin
-      .from("roamly_social_media_assets")
-      .update({
-        use_count: ((item.draft.metadata?.mediaUseCount as number | undefined) || 0) + 1,
-        last_used_at: now
-      })
-      .eq("id", item.draft.selected_media_asset_id);
-    await admin.from("roamly_media_library_usage").insert({
-      media_asset_id: item.draft.selected_media_asset_id,
-      draft_id: item.draft_id,
-      queue_id: item.id,
-      platform: brandPlatform(brand),
-      use_count: 1,
-      last_used_at: now,
-      status: "active"
+  const draftMetadata = objectValue(item.draft.metadata);
+  const mediaIds = [
+    result.mediaAssetId,
+    result.sourceMediaAssetId,
+    item.draft.selected_media_asset_id,
+    clean(String(draftMetadata.sourceMediaAssetId || ""))
+  ].filter((value): value is string => Boolean(value));
+  for (const mediaAssetId of [...new Set(mediaIds)]) {
+    await markMediaAssetUsed(admin, mediaAssetId, item, brand, now, {
+      source: "facebook_publish_success",
+      resultMediaAssetId: result.mediaAssetId || null,
+      sourceMediaAssetId: result.sourceMediaAssetId || null
     });
   }
 }
@@ -2228,7 +2999,7 @@ async function markFailed(admin: SupabaseClient, item: QueueWithDraft, result: P
 }
 
 export async function validateFacebookPageConnection(brand: FacebookSocialBrand = "roamly") {
-  const config = facebookBrandConfig(brand);
+  const config = await facebookBrandConfigForPosting(brand);
   const blockingIssues: string[] = [];
   if (!config.facebookEnabled) blockingIssues.push(`${config.label} Facebook publishing is not enabled.`);
   if (!config.pageId) blockingIssues.push(`${config.label} Facebook Page ID is missing.`);
@@ -2459,48 +3230,417 @@ export async function getFacebookAutomationSummaries(admin: SupabaseClient) {
   return Object.fromEntries(entries);
 }
 
-export async function publishNextFacebookPostNow(admin: SupabaseClient, actorEmail?: string | null, brand: FacebookSocialBrand = "roamly") {
+export async function publishNextFacebookPostNow(
+  admin: SupabaseClient,
+  actorEmail?: string | null,
+  brand: FacebookSocialBrand = "roamly"
+) {
+  console.log("[POST_NOW_DEBUG_START]", {
+    at: new Date().toISOString()
+  });
+
   const normalizedBrand = normalizeFacebookBrand(brand);
+
   const { data, error } = await admin
     .from("roamly_social_queue")
-    .select("id")
+    .select("id,draft_id,draft:roamly_social_drafts!inner(post_format)")
     .in("platform", brandQueuePlatforms(normalizedBrand))
     .eq("queue_status", "scheduled")
+    .eq("draft.post_format", "reel")
     .order("scheduled_for", { ascending: true })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return { ok: false as const, error: error?.message || "No scheduled post is available." };
+
+  if (error) {
+    return {
+      ok: false as const,
+      error: error.message
+    };
+  }
+
+  if (!data && normalizedBrand === "roamly") {
+    console.log("[POST_NOW_FRESH_QUEUE_CREATE]", {
+      brand: normalizedBrand,
+      reason: "No scheduled Roamly Reel available"
+    });
+
+    const fresh = await queueFacebookRuntimeProofReel(
+      admin,
+      "roamly",
+      actorEmail || "post_now"
+    );
+
+    if (!fresh.ok) {
+      return {
+        ok: false as const,
+        error: fresh.error || "Could not create a fresh Roamly Reel."
+      };
+    }
+
+    console.log("[POST_NOW_FRESH_QUEUE_CREATED]", {
+      queueId: fresh.queueId,
+      draftId: fresh.draftId
+    });
+
+    const result = await runFacebookAutomationCycle(admin, {
+      trigger: "admin",
+      force: true,
+      limit: 1,
+      brand: "roamly"
+    });
+
+    return {
+      ok: result.ok,
+      freshCreated: true,
+      queueId: fresh.queueId,
+      draftId: fresh.draftId,
+      result
+    };
+  }
+
+  if (!data) {
+    return {
+      ok: false as const,
+      error: "No scheduled Facebook Reel is available."
+    };
+  }
+
+  /*
+   * POST NOW must regenerate THIS selected Reel using current music/caption
+   * rules instead of reusing an old rendered MP4.
+   */
+  if (data.draft_id) {
+    const { data: draft, error: draftError } = await admin
+      .from("roamly_social_drafts")
+      .select("id,hashtags,metadata")
+      .eq("id", data.draft_id)
+      .maybeSingle();
+
+    if (draftError) {
+      return { ok: false as const, error: draftError.message };
+    }
+
+    if (draft) {
+      const metadata =
+        draft.metadata &&
+        typeof draft.metadata === "object" &&
+        !Array.isArray(draft.metadata)
+          ? (draft.metadata as Record<string, unknown>)
+          : {};
+
+      const libraryMedia =
+        metadata.facebookLibraryMedia &&
+        typeof metadata.facebookLibraryMedia === "object" &&
+        !Array.isArray(metadata.facebookLibraryMedia)
+          ? (metadata.facebookLibraryMedia as Record<string, unknown>)
+          : {};
+
+      const sourceMediaUrl =
+        typeof libraryMedia.sourceMediaUrl === "string"
+          ? libraryMedia.sourceMediaUrl.trim()
+          : "";
+
+      const sourceMediaAssetId =
+        typeof libraryMedia.sourceMediaAssetId === "string"
+          ? libraryMedia.sourceMediaAssetId
+          : null;
+
+      const existingHashtags = Array.isArray(draft.hashtags)
+        ? draft.hashtags.filter(
+            (tag): tag is string => typeof tag === "string"
+          )
+        : [];
+
+      const refreshedHashtags = uniqueHashtags([
+        ...existingHashtags,
+        "fypシ",
+        "fypシ゚viralシ",
+        "fypviralシ"
+      ]);
+
+      const { error: refreshError } = await admin
+        .from("roamly_social_drafts")
+        .update({
+          selected_media_url: sourceMediaUrl || null,
+          selected_media_asset_id: sourceMediaAssetId,
+          media_hash: sourceMediaUrl ? hash(sourceMediaUrl) : null,
+          hashtags: refreshedHashtags
+        })
+        .eq("id", data.draft_id);
+
+      if (refreshError) {
+        return { ok: false as const, error: refreshError.message };
+      }
+    }
+  }
+
+  /*
+   * The normal cycle chooses the oldest due Reel.
+   * Give THIS selected queue row a deliberately old unique timestamp so
+   * no previously-overdue Reel can jump ahead of it.
+   */
+  let movedToPrioritySlot = false;
+  let moveError: string | null = null;
+
+  const priorityBase = Date.UTC(2000, 0, 1);
+
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const scheduledFor = new Date(priorityBase + attempt).toISOString();
+
+    const { error: updateError } = await admin
+      .from("roamly_social_queue")
+      .update({
+        scheduled_for: scheduledFor,
+        retry_after: null
+      })
+      .eq("id", data.id);
+
+    if (!updateError) {
+      movedToPrioritySlot = true;
+      moveError = null;
+      break;
+    }
+
+    moveError = updateError.message;
+
+    if (updateError.code !== "23505") {
+      break;
+    }
+  }
+
+  if (!movedToPrioritySlot) {
+    return {
+      ok: false as const,
+      error:
+        moveError ||
+        "Could not move the selected Reel into the Post now priority slot."
+    };
+  }
+
+  await recordAdminActivity(
+    admin,
+    actorEmail,
+    "facebook_publish_next_now",
+    "social_queue",
+    data.id,
+    "completed",
+    { brand: normalizedBrand }
+  );
+
+  console.log("[POST_NOW_EXACT_QUEUE]", {
+    queueId: data.id,
+    draftId: data.draft_id
+  });
+
+  const selectedQueueId = data.id;
+
+  // POST NOW DIRECT EXACT PUBLISH
+  // Publish the exact queue row already selected above.
+  // Never ask the generic scheduler to choose another due Reel.
+  const { data: exactQueueRow, error: exactQueueError } = await admin
+    .from("roamly_social_queue")
+    .select(
+      "*,draft:roamly_social_drafts!inner(id,content_type,post_format,topic,hook,caption,on_screen_text,media_direction,suggested_media,selected_media_asset_id,selected_media_url,call_to_action,hashtags,music_or_audio_mood,roamly_link,amazon_affiliate_link,affiliate_disclosure,generation_source,status,quality_score,quality_reasons,metadata,created_at,updated_at)"
+    )
+    .eq("id", selectedQueueId)
+    .eq("draft.post_format", "reel")
+    .maybeSingle();
+
+  if (exactQueueError || !exactQueueRow) {
+    return {
+      ok: false as const,
+      error:
+        exactQueueError?.message ||
+        "Selected Facebook Reel could not be reloaded."
+    };
+  }
+
+  const exactItem = exactQueueRow as unknown as QueueWithDraft;
+
+  console.log("[POST_NOW_DIRECT_SELECTED]", {
+    queueId: exactItem.id,
+    draftId: exactItem.draft_id,
+    hashtags: exactItem.draft?.hashtags || [],
+    selectedMediaUrl: exactItem.draft?.selected_media_url || null
+  });
+
+  const lockToken = await lockQueueItem(admin, exactItem);
+
+  if (!lockToken) {
+    return {
+      ok: false as const,
+      error: "The selected Facebook Reel could not be locked for publishing."
+    };
+  }
+
+  let publishResult: PublishResult;
+
+  try {
+    publishResult = await publishQueueItem(admin, exactItem);
+  } catch (error) {
+    publishResult = {
+      ok: false,
+      status: "failed",
+      temporary: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Facebook Reel publishing failed."
+    };
+  }
+
+  console.log("[POST_NOW_DIRECT_RESULT]", {
+    queueId: exactItem.id,
+    ok: publishResult.ok,
+    status: publishResult.status,
+    error: publishResult.ok ? null : publishResult.error
+  });
+
+  if (publishResult.ok) {
+    await markPublished(admin, exactItem, publishResult);
+
+    return {
+      ok: true as const,
+      queueId: exactItem.id,
+      result: publishResult
+    };
+  }
+
   await admin
     .from("roamly_social_queue")
-    .update({ scheduled_for: new Date(Date.now() - 1000).toISOString(), retry_after: null })
-    .eq("id", data.id);
-  await recordAdminActivity(admin, actorEmail, "facebook_publish_next_now", "social_queue", data.id, "completed", { brand: normalizedBrand });
-  const result = await runFacebookAutomationCycle(admin, { trigger: "admin", force: true, limit: 1, brand: normalizedBrand });
-  return { ok: result.ok, result };
+    .update({
+      queue_status: "failed",
+      permanent_failure: true,
+      last_error: publishResult.error || "Publishing failed.",
+      processing_finished_at: new Date().toISOString(),
+      processing_locked_at: null,
+      processing_lock_token: null
+    })
+    .eq("id", exactItem.id);
+
+  await admin
+    .from("roamly_social_drafts")
+    .update({
+      status: "failed"
+    })
+    .eq("id", exactItem.draft_id);
+
+  return {
+    ok: false as const,
+    queueId: exactItem.id,
+    error: publishResult.error || "Facebook Reel publishing failed.",
+    result: publishResult
+  };
 }
+
 
 export async function retryFailedFacebookPosts(admin: SupabaseClient, actorEmail?: string | null, brand: FacebookSocialBrand = "roamly") {
   const normalizedBrand = normalizeFacebookBrand(brand);
-  const retryAt = new Date(Date.now() - 1000).toISOString();
-  const { data, error } = await admin
+
+  const { data: candidates, error: selectError } = await admin
     .from("roamly_social_queue")
-    .update({
-      queue_status: "retrying",
-      retry_after: retryAt,
-      scheduled_for: retryAt,
-      permanent_failure: false,
-      processing_lock_token: null,
-      processing_locked_at: null
-    })
+    .select("id")
     .in("platform", brandQueuePlatforms(normalizedBrand))
-    .eq("queue_status", "failed")
-    .select("id");
-  if (error) return { ok: false as const, error: error.message };
-  await recordAdminActivity(admin, actorEmail, "facebook_retry_failures", "social_queue", undefined, "completed", {
-    brand: normalizedBrand,
-    count: data?.length || 0
+    .in("queue_status", ["failed", "retrying"])
+    .order("updated_at", { ascending: true });
+
+  if (selectError) {
+    return { ok: false as const, error: selectError.message };
+  }
+
+  if (!candidates?.length) {
+    return {
+      ok: false as const,
+      error: "No failed Facebook posts are available to retry."
+    };
+  }
+
+  const retriedIds: string[] = [];
+  const baseTime = Date.now() - 1000;
+
+  for (let rowIndex = 0; rowIndex < candidates.length; rowIndex += 1) {
+    const item = candidates[rowIndex];
+    let moved = false;
+    let lastError: string | null = null;
+
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      /*
+       * scheduled_for has a partial UNIQUE constraint, so every manually
+       * retried item must receive its own immediate timestamp.
+       */
+      const scheduledFor = new Date(
+        baseTime - (rowIndex * 1000) - attempt
+      ).toISOString();
+
+      const { error: updateError } = await admin
+        .from("roamly_social_queue")
+        .update({
+          queue_status: "scheduled",
+          retry_after: null,
+          scheduled_for: scheduledFor,
+          permanent_failure: false,
+          processing_lock_token: null,
+          processing_locked_at: null
+        })
+        .eq("id", item.id);
+
+      if (!updateError) {
+        moved = true;
+        retriedIds.push(item.id);
+        break;
+      }
+
+      lastError = updateError.message;
+
+      if (updateError.code !== "23505") {
+        break;
+      }
+    }
+
+    if (!moved && lastError) {
+      console.error("[Roamly Facebook] Could not requeue failed post", {
+        queueId: item.id,
+        error: lastError
+      });
+    }
+  }
+
+  if (!retriedIds.length) {
+    return {
+      ok: false as const,
+      error: "Failed Facebook posts could not be moved back into the publishing queue."
+    };
+  }
+
+  await recordAdminActivity(
+    admin,
+    actorEmail,
+    "facebook_retry_failures",
+    "social_queue",
+    undefined,
+    "completed",
+    {
+      brand: normalizedBrand,
+      count: retriedIds.length
+    }
+  );
+
+  /*
+   * Admin Retry means retry now. Do not make the user wait for cron.
+   */
+  const result = await runFacebookAutomationCycle(admin, {
+    trigger: "admin",
+    force: true,
+    limit: retriedIds.length,
+    brand: normalizedBrand
   });
-  return { ok: true as const, brand: normalizedBrand, retried: data?.length || 0 };
+
+  return {
+    ok: result.ok,
+    brand: normalizedBrand,
+    retried: retriedIds.length,
+    result
+  };
 }
 
 export async function skipNextFacebookPost(admin: SupabaseClient, actorEmail?: string | null, brand: FacebookSocialBrand = "roamly") {
