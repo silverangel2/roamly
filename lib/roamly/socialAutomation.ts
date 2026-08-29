@@ -6,7 +6,10 @@ import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roaml
 import { probeFacebookAccessibleUrl } from "@/lib/roamly/publicSocialStorage";
 import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
 
-import { getRoamlyFacebookCredentialsForPosting } from "@/lib/roamly/facebookConnector";
+import {
+  getRoamlyFacebookConnectionStatus,
+  getRoamlyFacebookCredentialsForPosting
+} from "@/lib/roamly/facebookConnector";
 
 export type FacebookPostFormat = "reel" | "image" | "statement" | "link";
 export type FacebookQueueStatus = "scheduled" | "processing" | "published" | "failed" | "retrying" | "skipped" | "archived";
@@ -46,6 +49,8 @@ export type FacebookAutomationSummary = {
   env: ReturnType<typeof getRoamlySocialEnvStatus> & {
     pageName?: string;
     pageId?: string;
+    credentialSource?: "connected-facebook-oauth" | "env-fallback" | "missing";
+    canonicalConnection?: Awaited<ReturnType<typeof getRoamlyFacebookConnectionStatus>>;
     permissions: string[];
     publishingReady: boolean;
     blockingIssues: string[];
@@ -3714,9 +3719,25 @@ export async function getFacebookAutomationSummary(
   const normalizedBrand = normalizeFacebookBrand(brand);
   const config = facebookBrandConfig(normalizedBrand);
   const { tableReady, settings } = await loadFacebookAutomationSettings(admin, normalizedBrand);
+  const canonicalConnection =
+    normalizedBrand === "roamly"
+      ? await getRoamlyFacebookConnectionStatus().catch(() => null)
+      : null;
   const social =
     normalizedBrand === "roamly"
-      ? getRoamlySocialEnvStatus()
+      ? {
+          ...getRoamlySocialEnvStatus(),
+          facebookConnected: Boolean(canonicalConnection?.connected),
+          pageIdConfigured: Boolean(canonicalConnection?.pageId || config.pageId),
+          tokenConfigured: Boolean(canonicalConnection?.canonicalTokenStored),
+          facebookStatusLabel: canonicalConnection?.connected
+            ? "Facebook connected through OAuth"
+            : canonicalConnection?.envFallbackConfigured
+              ? "Facebook OAuth connection missing; env fallback configured"
+              : "Facebook not connected",
+          credentialSource: canonicalConnection?.source || ("missing" as const),
+          canonicalConnection: canonicalConnection || undefined
+        }
       : {
           autoPostEnabled: config.autoPostEnabled,
           requireApproval: config.requireApproval,

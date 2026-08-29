@@ -1,8 +1,15 @@
+import { createHash } from "crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const GRAPH_BASE = "https://graph.facebook.com/v23.0";
 
 export const ROAMLY_FACEBOOK_STATE_COOKIE = "roamly_facebook_oauth_state";
+
+function tokenFingerprint(value?: string | null) {
+  return value
+    ? createHash("sha256").update(value).digest("hex").slice(0, 12)
+    : null;
+}
 
 export function getRoamlyFacebookScopes() {
   return [
@@ -299,12 +306,86 @@ export async function getStoredRoamlyFacebookConnection() {
   };
 }
 
-export async function disconnectRoamlyFacebookConnection() {
+export async function getRoamlyFacebookConnectionStatus() {
   const admin = createSupabaseAdminClient();
 
   if (!admin) {
     throw new Error("Supabase admin client is not configured.");
   }
+
+  const { data, error } = await admin
+    .from("social_connections")
+    .select(
+      "account_id,account_name,access_token,expires_at,is_connected,updated_at,scopes,metadata"
+    )
+    .eq("provider", "facebook")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Could not read Facebook connection: ${error.message}`
+    );
+  }
+
+  const envPageId =
+    process.env.ROAMLY_META_PAGE_ID?.trim() || "";
+  const envToken =
+    process.env.ROAMLY_META_ACCESS_TOKEN?.trim() || "";
+  const connected =
+    Boolean(data?.is_connected && data?.account_id && data?.access_token);
+
+  return {
+    connected,
+    pageId: connected ? String(data?.account_id || "") : envPageId,
+    pageName: connected ? String(data?.account_name || "") : "",
+    expiresAt:
+      connected && data?.expires_at
+        ? String(data.expires_at)
+        : null,
+    updatedAt: data?.updated_at ? String(data.updated_at) : null,
+    canonicalRowExists: Boolean(data),
+    canonicalRowConnected: Boolean(data?.is_connected),
+    canonicalTokenStored: Boolean(data?.access_token),
+    envFallbackConfigured: Boolean(envPageId && envToken),
+    source: connected
+      ? ("connected-facebook-oauth" as const)
+      : envPageId && envToken
+        ? ("env-fallback" as const)
+        : ("missing" as const)
+  };
+}
+
+export async function disconnectRoamlyFacebookConnection(input: {
+  source: "admin-request";
+  requestedAt?: string;
+}) {
+  const admin = createSupabaseAdminClient();
+
+  if (!admin) {
+    throw new Error("Supabase admin client is not configured.");
+  }
+
+  const requestedAt = input.requestedAt || new Date().toISOString();
+  const { data: current, error: readError } = await admin
+    .from("social_connections")
+    .select(
+      "account_id,account_name,access_token,is_connected,metadata"
+    )
+    .eq("provider", "facebook")
+    .maybeSingle();
+
+  if (readError) {
+    throw new Error(
+      `Could not read Facebook before disconnect: ${readError.message}`
+    );
+  }
+
+  const metadata =
+    current?.metadata &&
+    typeof current.metadata === "object" &&
+    !Array.isArray(current.metadata)
+      ? (current.metadata as Record<string, unknown>)
+      : {};
 
   const { error } = await admin
     .from("social_connections")
@@ -312,6 +393,14 @@ export async function disconnectRoamlyFacebookConnection() {
       is_connected: false,
       access_token: null,
       refresh_token: null,
+      metadata: {
+        ...metadata,
+        disconnectedAt: requestedAt,
+        disconnectedBy: input.source,
+        disconnectedPageId: current?.account_id || null,
+        disconnectedPageName: current?.account_name || null,
+        disconnectedTokenFingerprint: tokenFingerprint(current?.access_token)
+      },
       updated_at: new Date().toISOString()
     })
     .eq("provider", "facebook");

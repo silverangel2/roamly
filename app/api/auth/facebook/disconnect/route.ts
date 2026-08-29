@@ -9,7 +9,39 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function isSameOriginRequest(request: Request) {
+  const requestOrigin = new URL(request.url).origin;
+  const origin = request.headers.get("origin");
+  const referer = request.headers.get("referer");
+
+  if (origin) {
+    return origin === requestOrigin;
+  }
+
+  if (referer) {
+    try {
+      return new URL(referer).origin === requestOrigin;
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "INVALID_ORIGIN"
+      },
+      {
+        status: 403
+      }
+    );
+  }
+
   const cookieHeader = request.headers.get("cookie") || "";
 
   const adminCookie = cookieHeader
@@ -38,7 +70,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    await disconnectRoamlyFacebookConnection();
+    await disconnectRoamlyFacebookConnection({
+      source: "admin-request"
+    });
 
     return NextResponse.redirect(
       new URL("/admin/social/automation?facebook=disconnected", request.url),
