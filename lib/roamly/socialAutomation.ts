@@ -2391,7 +2391,15 @@ async function ensureReelVideo(
         Boolean(String(staleAssetMetadata.sourceMediaAssetId ?? "")) ||
         Boolean(String(staleDraftMetadata.sourceMediaAssetId ?? ""));
 
-      if (generatedMode || hasGeneratedMetadata) {
+      // Pre-fix August campaign Reels were generated before the newer
+      // generatedReelVideo/facebookLibraryMedia metadata was recorded.
+      // They can contain the retired synthetic frequency audio and must
+      // never fall through as genuine uploaded/original videos.
+      const legacyGeneratedCampaign =
+        String(staleAssetMetadata.source ?? "") ===
+        "codex_roamly_premium_reel_campaign";
+
+      if (generatedMode || hasGeneratedMetadata || legacyGeneratedCampaign) {
         console.error("[ROAMLY_BLOCKED_STALE_GENERATED_REEL_AUDIO]", {
           queueId,
           draftId: draft.id,
