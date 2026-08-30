@@ -600,12 +600,14 @@ export function getDefaultFacebookAutomationSettings(brand: FacebookSocialBrand 
     automationEnabled: config.autoPostEnabled,
     paused: !config.autoPostEnabled,
     manualReviewRequired: config.requireApproval,
-    postsPerDay: numberValue(
-      envFirst(isReviewIntel ? "REVIEWINTEL_SOCIAL_POSTS_PER_DAY" : "ROAMLY_SOCIAL_POSTS_PER_DAY"),
-      1,
-      0,
-      12
-    ),
+    postsPerDay: isReviewIntel
+      ? numberValue(
+          envFirst("REVIEWINTEL_SOCIAL_POSTS_PER_DAY"),
+          1,
+          0,
+          12
+        )
+      : 1,
     reelsPerWeek: numberValue(
       envFirst(isReviewIntel ? "REVIEWINTEL_SOCIAL_REELS_PER_WEEK" : "ROAMLY_SOCIAL_REELS_PER_WEEK"),
       isReviewIntel ? 7 : 3,
@@ -626,12 +628,14 @@ export function getDefaultFacebookAutomationSettings(brand: FacebookSocialBrand 
       1,
       1000
     ),
-    maximumDailyPosts: numberValue(
-      envFirst(isReviewIntel ? "REVIEWINTEL_SOCIAL_MAX_DAILY_POSTS" : "ROAMLY_SOCIAL_MAX_DAILY_POSTS"),
-      1,
-      0,
-      24
-    ),
+    maximumDailyPosts: isReviewIntel
+      ? numberValue(
+          envFirst("REVIEWINTEL_SOCIAL_MAX_DAILY_POSTS"),
+          1,
+          0,
+          24
+        )
+      : 1,
     contentCategories: isReviewIntel ? REVIEWINTEL_AUTOMATION_CATEGORIES : FACEBOOK_AUTOMATION_CATEGORIES,
     categoryPercentages: {},
     affiliatePostFrequency: 12,
@@ -679,13 +683,19 @@ export async function loadFacebookAutomationSettings(
       automationEnabled: Boolean(data.automation_enabled),
       paused: Boolean(data.paused),
       manualReviewRequired: Boolean(data.manual_review_required),
-      postsPerDay: numberValue(data.posts_per_day, defaults.postsPerDay, 0, 12),
+      postsPerDay:
+        normalizedBrand === "roamly"
+          ? 1
+          : numberValue(data.posts_per_day, defaults.postsPerDay, 0, 12),
       reelsPerWeek: numberValue(data.reels_per_week, defaults.reelsPerWeek, 0, 21),
       preferredPostingHours: numberArray(data.preferred_posting_hours, defaults.preferredPostingHours),
       timeZone: clean(data.time_zone) || defaults.timeZone,
       minimumQueueSize: numberValue(data.minimum_queue_size, defaults.minimumQueueSize, 0, 500),
       maximumQueueSize: numberValue(data.maximum_queue_size, defaults.maximumQueueSize, 1, 1000),
-      maximumDailyPosts: numberValue(data.maximum_daily_posts, defaults.maximumDailyPosts, 0, 24),
+      maximumDailyPosts:
+        normalizedBrand === "roamly"
+          ? 1
+          : numberValue(data.maximum_daily_posts, defaults.maximumDailyPosts, 0, 24),
       contentCategories: stringArray(data.content_categories, defaults.contentCategories),
       categoryPercentages: objectValue(data.category_percentages) as Record<string, number>,
       affiliatePostFrequency: numberValue(data.affiliate_post_frequency, defaults.affiliatePostFrequency, 0, 100),
@@ -1731,15 +1741,76 @@ async function countFutureQueue(admin: SupabaseClient, brand: FacebookSocialBran
   return count || 0;
 }
 
-async function countPublishedToday(admin: SupabaseClient, brand: FacebookSocialBrand) {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+function dayBoundsInTimeZone(timeZone: string, date = new Date(), daySpan = 1) {
+  const zone = clean(timeZone) || "America/Moncton";
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: zone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value || 0);
+
+  const toUtc = (dayOffset: number) => {
+    const wallClockUtc = Date.UTC(
+      value("year"),
+      value("month") - 1,
+      value("day") + dayOffset,
+      0,
+      0,
+      0,
+      0
+    );
+    let candidate = new Date(wallClockUtc);
+
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const actualParts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: zone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hourCycle: "h23"
+      }).formatToParts(candidate);
+      const actual = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(actualParts.find((part) => part.type === type)?.value || 0);
+      const actualAsUtc = Date.UTC(
+        actual("year"),
+        actual("month") - 1,
+        actual("day"),
+        actual("hour"),
+        actual("minute"),
+        actual("second"),
+        0
+      );
+      const delta = wallClockUtc - actualAsUtc;
+      if (delta === 0) break;
+      candidate = new Date(candidate.getTime() + delta);
+    }
+
+    candidate.setMilliseconds(0);
+    return candidate;
+  };
+
+  return {
+    start: toUtc(0),
+    end: toUtc(daySpan)
+  };
+}
+
+async function countPublishedToday(admin: SupabaseClient, brand: FacebookSocialBrand, timeZone: string) {
+  const { start, end } = dayBoundsInTimeZone(timeZone);
   const { count } = await admin
     .from("roamly_social_queue")
     .select("id", { count: "exact", head: true })
     .in("platform", brandQueuePlatforms(brand))
     .eq("queue_status", "published")
-    .gte("published_at", start.toISOString());
+    .gte("published_at", start.toISOString())
+    .lt("published_at", end.toISOString());
   return count || 0;
 }
 
@@ -1759,10 +1830,15 @@ async function releaseStaleLocks(admin: SupabaseClient, brand: FacebookSocialBra
     .lt("processing_locked_at", stale);
 }
 
-async function getDueQueue(admin: SupabaseClient, limit: number, brand: FacebookSocialBrand) {
+async function getDueQueue(
+  admin: SupabaseClient,
+  limit: number,
+  brand: FacebookSocialBrand,
+  options: { queueId?: string; notBefore?: string } = {}
+) {
   const now = new Date().toISOString();
 
-  const { data, error } = await admin
+  let query = admin
     .from("roamly_social_queue")
     .select(
       "*,draft:roamly_social_drafts!inner(id,content_type,post_format,topic,hook,caption,on_screen_text,media_direction,suggested_media,selected_media_asset_id,selected_media_url,call_to_action,hashtags,music_or_audio_mood,roamly_link,amazon_affiliate_link,affiliate_disclosure,generation_source,status,quality_score,quality_reasons,metadata,created_at,updated_at)"
@@ -1774,6 +1850,11 @@ async function getDueQueue(admin: SupabaseClient, limit: number, brand: Facebook
     .or(`retry_after.is.null,retry_after.lte.${now}`)
     .order("scheduled_for", { ascending: true })
     .limit(limit);
+
+  if (options.queueId) query = query.eq("id", options.queueId);
+  if (options.notBefore) query = query.gte("scheduled_for", options.notBefore);
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -3082,8 +3163,15 @@ export async function runFacebookAutomationCycle(
     trigger = "cron",
     force = false,
     limit = 8,
-    brand = "roamly"
-  }: { trigger?: "cron" | "admin"; force?: boolean; limit?: number; brand?: FacebookSocialBrand } = {}
+    brand = "roamly",
+    queueId
+  }: {
+    trigger?: "cron" | "admin";
+    force?: boolean;
+    limit?: number;
+    brand?: FacebookSocialBrand;
+    queueId?: string;
+  } = {}
 ) {
   const normalizedBrand = normalizeFacebookBrand(brand);
   const cronId = trigger === "cron" ? await createCronLog(admin) : undefined;
@@ -3131,8 +3219,12 @@ export async function runFacebookAutomationCycle(
       return summary;
     }
 
-    const publishedToday = await countPublishedToday(admin, normalizedBrand);
-    const remainingToday = Math.max(0, settings.maximumDailyPosts - publishedToday);
+    const publishedToday = await countPublishedToday(admin, normalizedBrand, settings.timeZone);
+    const dailyLimit =
+      normalizedBrand === "roamly"
+        ? 1
+        : settings.maximumDailyPosts;
+    const remainingToday = Math.max(0, dailyLimit - publishedToday);
     if (!remainingToday) {
       const refill = await refillFacebookQueue(admin, trigger, normalizedBrand);
       summary.generated = "created" in refill ? refill.created || 0 : 0;
@@ -3142,7 +3234,20 @@ export async function runFacebookAutomationCycle(
       return summary;
     }
 
-    const due = await getDueQueue(admin, Math.min(limit, remainingToday), normalizedBrand);
+    const runLimit =
+      normalizedBrand === "roamly" && trigger === "cron" && !force
+        ? 1
+        : limit;
+    const notBefore =
+      normalizedBrand === "roamly" && trigger === "cron" && !force
+        ? new Date(Date.now() - 2 * 60 * 60_000).toISOString()
+        : undefined;
+    const due = await getDueQueue(
+      admin,
+      Math.min(runLimit, remainingToday),
+      normalizedBrand,
+      { queueId, notBefore: queueId ? undefined : notBefore }
+    );
     summary.dueFound = due.length;
     for (const item of due) {
       const lockToken = await lockQueueItem(admin, item);
@@ -3757,12 +3862,8 @@ export async function getFacebookAutomationSummary(
         };
   const validation = await validateFacebookPageConnection(normalizedBrand);
   const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(todayStart);
-  todayEnd.setDate(todayEnd.getDate() + 1);
-  const weekEnd = new Date(todayStart);
-  weekEnd.setDate(weekEnd.getDate() + 7);
+  const { start: todayStart, end: todayEnd } = dayBoundsInTimeZone(settings.timeZone, now);
+  const { end: weekEnd } = dayBoundsInTimeZone(settings.timeZone, now, 7);
 
   if (!tableReady) {
     return {

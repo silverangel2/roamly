@@ -179,7 +179,7 @@ async function handle(request: NextRequest) {
       admin.from("roamly_publishing_jobs").update({ scheduled_for: dueAt, job_status: "scheduled" }).eq("queue_id", queueId)
     ]);
 
-    const result = await runFacebookAutomationCycle(admin, { trigger: "cron", brand, force: true, limit: 1 });
+    const result = await runFacebookAutomationCycle(admin, { trigger: "cron", brand, force: true, limit: 1, queueId });
     const [processingLogs, finalQueue, attempts] = await Promise.all([
       admin
         .from("roamly_facebook_media_processing")
