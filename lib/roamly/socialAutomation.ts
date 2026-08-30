@@ -133,6 +133,7 @@ type SocialMediaAssetRow = {
   title: string | null;
   media_url: string | null;
   asset_type: string | null;
+  source?: string | null;
   approved_for_automation: boolean | null;
   excluded_from_automation: boolean | null;
   archived_at?: string | null;
@@ -2046,6 +2047,26 @@ function assetType(asset: Pick<SocialMediaAssetRow, "asset_type" | "media_url" |
   return "";
 }
 
+export function isLegacyRoamlyGeneratedVideoAsset(asset: Pick<SocialMediaAssetRow, "id" | "source" | "media_url" | "metadata"> | null | undefined) {
+  if (!asset) return false;
+
+  const metadata = objectValue(asset.metadata);
+  const campaignId = clean(String(metadata.campaignId || ""));
+  const publicObjectPath = clean(String(metadata.publicObjectPath || ""));
+  const localAssetPath = clean(String(metadata.localAssetPath || ""));
+  const source = clean(asset.source || String(metadata.source || ""));
+  const mediaUrl = clean(asset.media_url || "");
+
+  if (source === "codex_roamly_premium_reel_campaign") return true;
+  if (campaignId === "roamly-premium-reels-2026-08") return true;
+
+  return [
+    publicObjectPath,
+    localAssetPath,
+    mediaUrl
+  ].some((value) => /roamly-premium-reels-2026-08\/day-\d{2}-/i.test(value));
+}
+
 function isApprovedAutomationAsset(asset: SocialMediaAssetRow, brand: FacebookSocialBrand) {
   const metadata = objectValue(asset.metadata);
   const platform = clean(asset.platform);
@@ -2077,7 +2098,7 @@ function sortAutomationAssets(assets: SocialMediaAssetRow[]) {
 async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSocialBrand) {
   const { data, error } = await admin
     .from("roamly_social_media_assets")
-    .select("id,platform,status,title,media_url,asset_type,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
+    .select("id,platform,status,title,media_url,asset_type,source,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
     .eq("approved_for_automation", true)
     .eq("excluded_from_automation", false)
     .order("use_count", { ascending: true })
@@ -2092,6 +2113,9 @@ async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSo
 
   const assets = ((data || []) as SocialMediaAssetRow[]).filter((asset) => {
     const type = assetType(asset);
+    if (brand === "roamly" && type === "video" && isLegacyRoamlyGeneratedVideoAsset(asset)) {
+      return false;
+    }
     return (type === "video" || type === "image") && isApprovedAutomationAsset(asset, brand);
   });
 
@@ -2175,7 +2199,7 @@ async function ensureReelVideo(
   const asset = draft.selected_media_asset_id
     ? await admin
         .from("roamly_social_media_assets")
-        .select("id,platform,status,title,media_url,asset_type,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
+        .select("id,platform,status,title,media_url,asset_type,source,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
         .eq("id", draft.selected_media_asset_id)
         .maybeSingle()
     : { data: null, error: null };
@@ -2234,7 +2258,7 @@ async function ensureReelVideo(
       ) {
         const { data: originalSourceAsset } = await admin
           .from("roamly_social_media_assets")
-          .select("id,platform,status,title,media_url,asset_type,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
+          .select("id,platform,status,title,media_url,asset_type,source,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
           .eq("id", originalSourceMediaAssetId)
           .maybeSingle();
 
@@ -2396,8 +2420,14 @@ async function ensureReelVideo(
       // They can contain the retired synthetic frequency audio and must
       // never fall through as genuine uploaded/original videos.
       const legacyGeneratedCampaign =
-        String(staleAssetMetadata.source ?? "") ===
-        "codex_roamly_premium_reel_campaign";
+        isLegacyRoamlyGeneratedVideoAsset(
+          sourceAsset || {
+            id: "",
+            source: null,
+            media_url: sourceUrl,
+            metadata: staleDraftMetadata
+          }
+        );
 
       if (generatedMode || hasGeneratedMetadata || legacyGeneratedCampaign) {
         console.error("[ROAMLY_BLOCKED_STALE_GENERATED_REEL_AUDIO]", {

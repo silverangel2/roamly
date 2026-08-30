@@ -27,7 +27,7 @@ export type ApprovedAudioTrack = {
   id: string;
   name: string;
   license: string;
-  lavfi: string;
+  sourcePath: string;
   volume: number;
 };
 
@@ -66,13 +66,21 @@ const publicSocialMaxBytes = 50 * 1024 * 1024;
 
 const approvedGeneratedAudioTracks: ApprovedAudioTrack[] = [
   {
-    id: "silent-facebook-reel",
-    name: "Silent Facebook Reel",
-    license: "No generated audio. Uploaded videos keep their own audio; generated fallback videos are silent.",
-    lavfi: "",
-    volume: 0
+    id: "roamly-theme",
+    name: "Roamly Theme",
+    license: "Roamly-owned/approved Reel music.",
+    sourcePath: "public/audio/reels/roamly-theme.mp3",
+    volume: 0.22
   }
 ];
+
+const noGeneratedAudioTrack: ApprovedAudioTrack = {
+  id: "no-generated-audio",
+  name: "No Generated Audio",
+  license: "Generated fallback video has no added audio.",
+  sourcePath: "",
+  volume: 0
+};
 
 function cleanSupabaseUrl(value: string) {
   return value.replace(/\/$/, "");
@@ -130,9 +138,14 @@ function seedNumber(seed: string) {
   return Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0);
 }
 
-function selectApprovedAudioTrack(seed: string) {
+function selectApprovedAudioTrack(brand: SocialReelBrand, seed: string) {
+  if (brand !== "roamly") return noGeneratedAudioTrack;
   const index = Math.abs(seedNumber(seed)) % approvedGeneratedAudioTracks.length;
   return approvedGeneratedAudioTracks[index];
+}
+
+function resolveRoamlyThemePath(audioTrack: ApprovedAudioTrack) {
+  return path.join(process.cwd(), audioTrack.sourcePath);
 }
 
 function brandTheme(brand: SocialReelBrand) {
@@ -376,6 +389,19 @@ async function probeGeneratedMp4(filePath: string, ffprobePath: string) {
   return { probe, width: widthValue, height: heightValue, durationSeconds: durationValue, size: sizeValue };
 }
 
+function assertGeneratedRoamlyAudio(input: { probe: Record<string, unknown>; audioTrack: ApprovedAudioTrack }) {
+  const streams = Array.isArray(input.probe.streams)
+    ? (input.probe.streams as Array<Record<string, unknown>>)
+    : [];
+  const audio = streams.find((stream) => stream.codec_type === "audio");
+
+  if (!audio || audio.codec_name !== "aac") {
+    throw new Error(
+      `Generated Roamly Reel must contain AAC audio from ${input.audioTrack.sourcePath}.`
+    );
+  }
+}
+
 function safeFilenamePart(value: string) {
   return value
     .replace(/[^a-z0-9-]+/gi, "-")
@@ -397,7 +423,9 @@ async function fetchImageBuffer(url: string, fetcher: typeof fetch) {
 
 export async function generateStaticSocialPosterReelVideo(input: GenerateStaticSocialPosterReelVideoInput): Promise<SocialReelVideoResult> {
   const fetcher = input.fetcher || fetch;
-  const audioTrack = selectApprovedAudioTrack(input.audioSeed || input.topic || input.brand);
+  const audioTrack = selectApprovedAudioTrack(input.brand, input.audioSeed || input.topic || input.brand);
+  const roamlyThemePath = resolveRoamlyThemePath(audioTrack);
+  const useRoamlyTheme = input.brand === "roamly" && existsSync(roamlyThemePath);
   const cleanTopic = safeFilenamePart(input.topic || "social-photo-reel") || "social-photo-reel";
   const digest = createHash("sha1")
     .update(`${input.brand}-${cleanTopic}-${input.sourceImageUrl}-${input.audioSeed}`)
@@ -435,10 +463,12 @@ export async function generateStaticSocialPosterReelVideo(input: GenerateStaticS
       "15",
       "-i",
       framePath,
+      ...(useRoamlyTheme ? ["-stream_loop", "-1", "-i", roamlyThemePath] : []),
       "-vf",
       "format=yuv420p",
       "-map",
       "0:v",
+      ...(useRoamlyTheme ? ["-map", "1:a:0"] : []),
       "-t",
       "15",
       "-c:v",
@@ -449,12 +479,17 @@ export async function generateStaticSocialPosterReelVideo(input: GenerateStaticS
       "+faststart",
       "-pix_fmt",
       "yuv420p",
-      "-an",
+      ...(useRoamlyTheme
+        ? ["-c:a", "aac", "-b:a", "128k", "-af", `volume=${audioTrack.volume}`, "-shortest"]
+        : ["-an"]),
       outputPath
     ]);
 
     const ffprobePath = resolveFfprobePath();
     const validated = await probeGeneratedMp4(outputPath, ffprobePath);
+    if (useRoamlyTheme) {
+      assertGeneratedRoamlyAudio({ probe: validated.probe, audioTrack });
+    }
     const buffer = await readFile(outputPath);
     const size = await stat(outputPath).then((item) => item.size).catch(() => buffer.length);
     const { storageBucket } = publicSocialMediaStorageBucket();
@@ -488,7 +523,7 @@ export async function generateStaticSocialPosterReelVideo(input: GenerateStaticS
 }
 
 export async function generateFreshSocialReelVideo(input: GenerateFreshSocialReelVideoInput): Promise<SocialReelVideoResult> {
-  const audioTrack = selectApprovedAudioTrack(input.audioSeed || input.topic || input.brand);
+  const audioTrack = selectApprovedAudioTrack(input.brand, input.audioSeed || input.topic || input.brand);
   const cleanTopic = safeFilenamePart(input.topic || "social-reel") || "social-reel";
   const digest = createHash("sha1")
     .update(`${input.brand}-${cleanTopic}-${input.caption}-${input.audioSeed}`)
@@ -540,7 +575,7 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
     const videoFilter =
       `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v]`;
 
-    const roamlyThemePath = path.join(process.cwd(), "public", "audio", "reels", "roamly-theme.mp3");
+    const roamlyThemePath = resolveRoamlyThemePath(audioTrack);
     const useRoamlyTheme = input.brand === "roamly" && existsSync(roamlyThemePath);
 
     await runProcess(ffmpegPath, [
@@ -568,7 +603,7 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       "yuv420p",
 
       ...(useRoamlyTheme
-        ? ["-c:a", "aac", "-b:a", "128k", "-af", "volume=0.22", "-shortest"]
+        ? ["-c:a", "aac", "-b:a", "128k", "-af", `volume=${audioTrack.volume}`, "-shortest"]
         : ["-an"]),
 
       outputPath
@@ -576,6 +611,9 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
 
     const ffprobePath = resolveFfprobePath();
     const validated = await probeGeneratedMp4(outputPath, ffprobePath);
+    if (useRoamlyTheme) {
+      assertGeneratedRoamlyAudio({ probe: validated.probe, audioTrack });
+    }
     const buffer = await readFile(outputPath);
     const size = await stat(outputPath).then((item) => item.size).catch(() => buffer.length);
     const { storageBucket } = publicSocialMediaStorageBucket();
