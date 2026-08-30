@@ -349,6 +349,7 @@ const REVIEWINTEL_HASHTAG_GROUPS = [
 
 const FACEBOOK_BRANDS = ["roamly", "reviewintel"] as const satisfies FacebookSocialBrand[];
 const LEGACY_FACEBOOK_PLATFORM = "facebook";
+const DEFAULT_ROAMLY_TIME_ZONE = "America/Moncton";
 
 function clean(value?: string | null) {
   return (value || "").trim();
@@ -374,6 +375,17 @@ function numberArray(value: unknown, fallback: number[]) {
 
 function objectValue(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function validTimeZone(value: unknown, fallback = DEFAULT_ROAMLY_TIME_ZONE) {
+  const zone = clean(typeof value === "string" ? value : "");
+  if (!zone) return fallback;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: zone });
+    return zone;
+  } catch {
+    return fallback;
+  }
 }
 
 function hash(value: string) {
@@ -615,7 +627,7 @@ export function getDefaultFacebookAutomationSettings(brand: FacebookSocialBrand 
       21
     ),
     preferredPostingHours: [9, 12, 18],
-    timeZone: clean(process.env.ROAMLY_TIME_ZONE) || clean(process.env.TZ) || "America/Moncton",
+    timeZone: validTimeZone(process.env.ROAMLY_TIME_ZONE, validTimeZone(process.env.TZ)),
     minimumQueueSize: numberValue(
       envFirst(isReviewIntel ? "REVIEWINTEL_SOCIAL_MIN_QUEUE_SIZE" : "ROAMLY_SOCIAL_MIN_QUEUE_SIZE"),
       isReviewIntel ? 10 : 30,
@@ -689,7 +701,7 @@ export async function loadFacebookAutomationSettings(
           : numberValue(data.posts_per_day, defaults.postsPerDay, 0, 12),
       reelsPerWeek: numberValue(data.reels_per_week, defaults.reelsPerWeek, 0, 21),
       preferredPostingHours: numberArray(data.preferred_posting_hours, defaults.preferredPostingHours),
-      timeZone: clean(data.time_zone) || defaults.timeZone,
+      timeZone: validTimeZone(data.time_zone, defaults.timeZone),
       minimumQueueSize: numberValue(data.minimum_queue_size, defaults.minimumQueueSize, 0, 500),
       maximumQueueSize: numberValue(data.maximum_queue_size, defaults.maximumQueueSize, 1, 1000),
       maximumDailyPosts:
@@ -1742,7 +1754,7 @@ async function countFutureQueue(admin: SupabaseClient, brand: FacebookSocialBran
 }
 
 function dayBoundsInTimeZone(timeZone: string, date = new Date(), daySpan = 1) {
-  const zone = clean(timeZone) || "America/Moncton";
+  const zone = validTimeZone(timeZone);
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: zone,
     year: "numeric",
