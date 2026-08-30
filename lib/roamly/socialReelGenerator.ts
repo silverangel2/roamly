@@ -540,16 +540,21 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
     const videoFilter =
       `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v]`;
 
+    const roamlyThemePath = path.join(process.cwd(), "public", "audio", "reels", "roamly-theme.mp3");
+    const useRoamlyTheme = input.brand === "roamly" && existsSync(roamlyThemePath);
+
     await runProcess(ffmpegPath, [
       "-y",
 
       ...frames.flatMap((frame) => ["-i", frame]),
+      ...(useRoamlyTheme ? ["-stream_loop", "-1", "-i", roamlyThemePath] : []),
 
       "-filter_complex",
       videoFilter,
 
       "-map",
       "[v]",
+      ...(useRoamlyTheme ? ["-map", `${sceneCount}:a:0`] : []),
 
       "-t",
       String(totalSeconds),
@@ -562,7 +567,9 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
       "-pix_fmt",
       "yuv420p",
 
-      "-an",
+      ...(useRoamlyTheme
+        ? ["-c:a", "aac", "-b:a", "128k", "-af", "volume=0.22", "-shortest"]
+        : ["-an"]),
 
       outputPath
     ]);
