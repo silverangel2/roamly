@@ -9,10 +9,6 @@ import {
 import { calculateDistanceMeters, type LocationInput } from "@/lib/roamly/location";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
-import {
-  activityEndDate,
-  timezoneFromTripMetadata
-} from "@/lib/roamly/liveCompanion";
 
 export type LiveTestLocationMode = "first_activity" | "next_activity" | "hotel" | "far_away";
 export type LiveTestReminderType = "one_week_before" | "one_day_before" | "countdown_24h" | "travel_day_started";

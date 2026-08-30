@@ -2,6 +2,7 @@ export type LiveCoordinates = {
   latitude: number;
   longitude: number;
   accuracy?: number | null;
+  capturedAt?: string | null;
 };
 
 export type LiveLocationPermission = "granted" | "denied" | "prompt" | "unavailable";

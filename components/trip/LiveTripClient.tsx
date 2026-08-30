@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import { ensurePushSubscription } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityStartDate,
@@ -37,7 +38,67 @@ type SimulationResponse = {
   nearbyActivities?: Array<{ id?: string; title?: string; distance_meters?: number | null }>;
   upNextActivity?: { id?: string; title?: string; distance_meters?: number | null } | null;
   notificationCreated?: boolean;
+  demo?: LiveDemoServerState | null;
   error?: string | null;
+};
+
+type LiveDemoStop = {
+  id: string;
+  title: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  startAt: string;
+  status: ActivityRecord["status"];
+  distanceMeters?: number | null;
+  insideGeofence?: boolean;
+};
+
+type LiveDemoPushResult = {
+  ok: boolean;
+  sent: number;
+  failed: number;
+  status: "sent" | "no_subscription" | "not_configured" | "failed";
+};
+
+type LiveDemoServerState = {
+  active?: boolean;
+  sessionId?: string;
+  expiresAt?: string;
+  pushSubscription?: "active" | "missing";
+  nextStop?: {
+    id: string;
+    title: string;
+    radiusMeters: number;
+    distanceMeters: number | null;
+    insideGeofence: boolean;
+  } | null;
+  stops?: Array<{
+    id: string;
+    title: string;
+    radiusMeters: number;
+    distanceMeters: number | null;
+    insideGeofence: boolean;
+  }>;
+  lastEvent?: {
+    type: string;
+    title: string;
+    stopId: string | null;
+    createdAt: string | null;
+  } | null;
+  lastPushResult?: LiveDemoPushResult | null;
+};
+
+type LiveDemoState = {
+  sessionId: string;
+  startedAt: string;
+  expiresAt: string;
+  origin: LiveCoordinates;
+  stops: LiveDemoStop[];
+  pushSubscription: "unknown" | "active" | "missing";
+  lastGpsAt: string | null;
+  lastEvent: LiveDemoServerState["lastEvent"];
+  lastPushResult: LiveDemoPushResult | null;
 };
 
 type LiveTripClientProps = {
@@ -56,9 +117,12 @@ type LiveTripClientProps = {
   initialPermissionState?: LiveLocationPermission;
   initialLocation?: LiveCoordinates | null;
   bookingDetails?: LiveCompanionBookingDetail[];
+  liveDemoEnabled?: boolean;
 };
 
 const SIMULATED_LOCATION_KEY = "roamly_live_simulated_location";
+const LIVE_DEMO_STORAGE_KEY = "roamly_live_demo_state";
+const LIVE_DEMO_TTL_MS = 20 * 60_000;
 const ROUTE_FETCH_DEBOUNCE_MS = 1200;
 const MIN_LOCATION_DELTA_METERS = 75;
 
@@ -89,6 +153,12 @@ function countdownCopy(minutes: number | null) {
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+}
+
+function formatMeters(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "Waiting";
+  if (value < 1000) return `${Math.round(value)} m`;
+  return `${(value / 1000).toFixed(1)} km`;
 }
 
 function statusLabel(status: string | null | undefined) {
@@ -165,6 +235,93 @@ function offsetMeters(coords: { latitude: number; longitude: number }, meters: n
   };
 }
 
+function offsetCoordinates(coords: { latitude: number; longitude: number }, northMeters: number, eastMeters = 0) {
+  const latRadians = (coords.latitude * Math.PI) / 180;
+  const longitudeScale = Math.max(0.2, Math.cos(latRadians));
+  return {
+    latitude: coords.latitude + northMeters / 111_320,
+    longitude: coords.longitude + eastMeters / (111_320 * longitudeScale)
+  };
+}
+
+function demoStorageAvailable() {
+  return typeof window !== "undefined" && "localStorage" in window;
+}
+
+function readStoredDemoState(tripId: string): LiveDemoState | null {
+  if (!demoStorageAvailable()) return null;
+  try {
+    const raw = window.localStorage.getItem(LIVE_DEMO_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as LiveDemoState & { tripId?: string };
+    if (parsed.tripId && parsed.tripId !== tripId) return null;
+    if (!parsed.sessionId || !parsed.expiresAt || new Date(parsed.expiresAt).getTime() <= Date.now()) {
+      window.localStorage.removeItem(LIVE_DEMO_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredDemoState(tripId: string, state: LiveDemoState | null) {
+  if (!demoStorageAvailable()) return;
+  try {
+    if (!state) {
+      window.localStorage.removeItem(LIVE_DEMO_STORAGE_KEY);
+      return;
+    }
+    window.localStorage.setItem(LIVE_DEMO_STORAGE_KEY, JSON.stringify({ ...state, tripId }));
+  } catch {
+    // Demo state is best-effort. The server remains the source of event truth.
+  }
+}
+
+function demoPayload(state: LiveDemoState) {
+  return {
+    sessionId: state.sessionId,
+    startedAt: state.startedAt,
+    expiresAt: state.expiresAt,
+    stops: state.stops.map((stop) => ({
+      id: stop.id,
+      title: stop.title,
+      latitude: stop.latitude,
+      longitude: stop.longitude,
+      radiusMeters: stop.radiusMeters,
+      startAt: stop.startAt
+    }))
+  };
+}
+
+function makeDemoActivities(tripId: string, demo: LiveDemoState, timezone?: string | null): ActivityRecord[] {
+  return demo.stops.map((stop, index) => ({
+    id: stop.id,
+    trip_id: tripId,
+    day_number: 1,
+    time_label: formatClock(stop.startAt, timezone),
+    title: stop.title,
+    description: `Live Demo checkpoint ${index + 1}.`,
+    location_name: stop.title,
+    estimated_cost: null,
+    category: "live_demo",
+    map_query: stop.title,
+    status: stop.status
+  }));
+}
+
+function makeDemoPlaces(demo: LiveDemoState): LiveSimulatorPlace[] {
+  return demo.stops.map((stop) => ({
+    id: `activity:${stop.id}`,
+    title: stop.title,
+    kind: "activity" as const,
+    latitude: stop.latitude,
+    longitude: stop.longitude,
+    address: `${stop.title} temporary checkpoint`,
+    status: stop.status
+  }));
+}
+
 function activityPlace(activity: ActivityRecord, simulatorPlaces: LiveSimulatorPlace[]) {
   return (
     simulatorPlaces.find((place) => place.id === `activity:${activity.id}`) ||
@@ -203,7 +360,8 @@ export function LiveTripClient({
   backgroundLocationEnabled = false,
   initialPermissionState = "prompt",
   initialLocation = null,
-  bookingDetails = []
+  bookingDetails = [],
+  liveDemoEnabled = false
 }: LiveTripClientProps) {
   const [items, setItems] = useState(activities);
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
@@ -217,16 +375,35 @@ export function LiveTripClient({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [qaBusy, setQaBusy] = useState("");
+  const [demoState, setDemoState] = useState<LiveDemoState | null>(null);
+  const [demoBusy, setDemoBusy] = useState("");
+  const [demoError, setDemoError] = useState("");
+  const [demoNotice, setDemoNotice] = useState("");
   const [selectedPlaceId, setSelectedPlaceId] = useState(simulatorPlaces[0]?.id || "");
   const watchIdRef = useRef<number | null>(null);
   const lastSentRef = useRef<{ at: number; location: LiveCoordinates } | null>(null);
   const lastRouteKeyRef = useRef("");
   const routeTimerRef = useRef<number | null>(null);
+  const demoStateRef = useRef<LiveDemoState | null>(null);
+  const demoStartedWatchRef = useRef(false);
+
+  const demoActive = Boolean(demoState && liveDemoEnabled);
+  const activeActivities = useMemo(
+    () => (demoActive && demoState ? makeDemoActivities(tripId, demoState, timezone) : items),
+    [demoActive, demoState, items, timezone, tripId]
+  );
+  const activeSimulatorPlaces = useMemo(
+    () => (demoActive && demoState ? makeDemoPlaces(demoState) : simulatorPlaces),
+    [demoActive, demoState, simulatorPlaces]
+  );
+  const activeDestinationLabel = demoActive ? "Live Demo" : destinationLabel;
+  const activeTripStartDate = demoActive && demoState ? demoState.startedAt.slice(0, 10) : tripStartDate;
+  const activeTripEndDate = demoActive && demoState ? demoState.startedAt.slice(0, 10) : tripEndDate;
 
   const placeOptions = useMemo(() => {
     const byKey = new Map<string, LiveSimulatorPlace>();
-    for (const place of simulatorPlaces) byKey.set(place.id, place);
-    for (const activity of activities) {
+    for (const place of activeSimulatorPlaces) byKey.set(place.id, place);
+    for (const activity of activeActivities) {
       const id = `display:${activity.id}`;
       if (!byKey.has(id)) {
         byKey.set(id, {
@@ -241,11 +418,11 @@ export function LiveTripClient({
       }
     }
     return Array.from(byKey.values());
-  }, [activities, simulatorPlaces]);
+  }, [activeActivities, activeSimulatorPlaces]);
 
   const liveActivities = useMemo(() => {
-    return items.map((activity): LiveCompanionActivity => {
-      const place = activityPlace(activity, simulatorPlaces);
+    return activeActivities.map((activity): LiveCompanionActivity => {
+      const place = activityPlace(activity, activeSimulatorPlaces);
       const booking = bookingForActivity(activity, bookingDetails);
       const base: LiveCompanionActivity = {
         id: activity.id,
@@ -263,23 +440,23 @@ export function LiveTripClient({
       };
       return applyVerifiedBookingOverride(base, bookingDetails);
     });
-  }, [bookingDetails, items, simulatorPlaces]);
+  }, [activeActivities, activeSimulatorPlaces, bookingDetails]);
 
   const model = useMemo(
     () =>
       buildLiveCompanionState({
         trip: {
           id: tripId,
-          title: destinationLabel,
-          startDate: tripStartDate,
-          endDate: tripEndDate,
+          title: activeDestinationLabel,
+          startDate: activeTripStartDate,
+          endDate: activeTripEndDate,
           timezone,
           enabled: companionEnabled,
           pausedUntil: companionPausedUntil,
           destination: {
-            label: destinationLabel,
-            latitude: getNumber(simulatorPlaces.find((place) => place.kind === "destination")?.latitude),
-            longitude: getNumber(simulatorPlaces.find((place) => place.kind === "destination")?.longitude)
+            label: activeDestinationLabel,
+            latitude: getNumber(activeSimulatorPlaces.find((place) => place.kind === "destination")?.latitude),
+            longitude: getNumber(activeSimulatorPlaces.find((place) => place.kind === "destination")?.longitude)
           }
         },
         activities: liveActivities,
@@ -289,18 +466,18 @@ export function LiveTripClient({
         now: nowTick
       }),
     [
+      activeDestinationLabel,
+      activeSimulatorPlaces,
+      activeTripEndDate,
+      activeTripStartDate,
       companionEnabled,
       companionPausedUntil,
-      destinationLabel,
       liveActivities,
       location,
       permission,
       route,
-      simulatorPlaces,
       timezone,
-      tripEndDate,
       tripId,
-      tripStartDate,
       nowTick
     ]
   );
@@ -312,7 +489,7 @@ export function LiveTripClient({
     return direct || buildNavigationLinks({ destinationLabel: nextActivity?.title, address: primaryAddress(nextActivity) })[0]?.href || "";
   }, [nextActivity]);
   const timeline = useMemo(() => progressItems(currentActivity, nextActivity, liveActivities), [currentActivity, liveActivities, nextActivity]);
-  const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate, timezone }) : null;
+  const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
   const activeStep = currentActivity || nextActivity;
 
@@ -359,10 +536,39 @@ export function LiveTripClient({
     };
   }, []);
 
-  const sendLocationUpdate = useCallback(async (nextLocation: LiveCoordinates, force = false) => {
+  const applyDemoServerState = useCallback((serverDemo: LiveDemoServerState | null | undefined) => {
+    if (!serverDemo?.sessionId) return;
+    setDemoState((current) => {
+      if (!current || current.sessionId !== serverDemo.sessionId) return current;
+      const stops: LiveDemoStop[] = current.stops.map((stop) => {
+        const update = serverDemo.stops?.find((item) => item.id === stop.id);
+        const arrived = serverDemo.lastEvent?.stopId === stop.id && /nearby|arrival/i.test(serverDemo.lastEvent.type || "");
+        return {
+          ...stop,
+          distanceMeters: update?.distanceMeters ?? stop.distanceMeters ?? null,
+          insideGeofence: update?.insideGeofence ?? stop.insideGeofence ?? false,
+          status: arrived || update?.insideGeofence ? ("nearby" as const) : stop.status
+        };
+      });
+      const next = {
+        ...current,
+        pushSubscription: serverDemo.pushSubscription === "active" ? "active" as const : current.pushSubscription,
+        lastGpsAt: new Date().toISOString(),
+        lastEvent: serverDemo.lastEvent ?? current.lastEvent,
+        lastPushResult: serverDemo.lastPushResult ?? current.lastPushResult,
+        stops
+      };
+      demoStateRef.current = next;
+      writeStoredDemoState(tripId, next);
+      return next;
+    });
+  }, [tripId]);
+
+  const sendLocationUpdate = useCallback(async (nextLocation: LiveCoordinates, force = false, demoOverride?: LiveDemoState | null) => {
+    const demoForUpdate = demoOverride === undefined ? demoStateRef.current : demoOverride;
     const now = Date.now();
     const previous = lastSentRef.current;
-    if (!force && previous) {
+    if (!demoForUpdate && !force && previous) {
       const elapsed = now - previous.at;
       const distance = calculateDistanceMeters(
         previous.location.latitude,
@@ -386,11 +592,14 @@ export function LiveTripClient({
         latitude: nextLocation.latitude,
         longitude: nextLocation.longitude,
         accuracy: nextLocation.accuracy,
-        permissionState: "granted"
+        capturedAt: nextLocation.capturedAt,
+        permissionState: "granted",
+        ...(demoForUpdate ? { liveDemo: demoPayload(demoForUpdate) } : {})
       })
     });
     const data = await response.json().catch(() => null) as SimulationResponse | null;
     if (!response.ok || data?.error) throw new Error(data?.error || "Location update failed.");
+    if (demoForUpdate) applyDemoServerState(data?.demo);
     const nearbyTitles = new Set((data?.nearbyActivities || []).map((item) => item.title).filter(Boolean));
     if (nearbyTitles.size) {
       setItems((current) =>
@@ -401,7 +610,7 @@ export function LiveTripClient({
         )
       );
     }
-  }, [tripId]);
+  }, [applyDemoServerState, tripId]);
 
   const startForegroundLocation = useCallback(async () => {
     setError("");
@@ -425,7 +634,8 @@ export function LiveTripClient({
       const nextLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy
+        accuracy: position.coords.accuracy,
+        capturedAt: new Date(position.timestamp || Date.now()).toISOString()
       };
       setPermission("granted");
       setLocation(nextLocation);
@@ -448,7 +658,7 @@ export function LiveTripClient({
 
     if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current);
     watchIdRef.current = navigator.geolocation.watchPosition(handlePosition, handleError, {
-      enableHighAccuracy: false,
+      enableHighAccuracy: Boolean(demoStateRef.current),
       maximumAge: 120_000,
       timeout: 20_000
     });
@@ -461,6 +671,141 @@ export function LiveTripClient({
     }
     setWatching(false);
   }, []);
+
+  const stopLiveDemo = useCallback((expired = false) => {
+    writeStoredDemoState(tripId, null);
+    demoStateRef.current = null;
+    setDemoState(null);
+    setDemoBusy("");
+    setDemoError("");
+    if (demoStartedWatchRef.current) stopForegroundLocation();
+    demoStartedWatchRef.current = false;
+    setDemoNotice(expired ? "Live Demo expired." : "Live Demo stopped.");
+  }, [stopForegroundLocation, tripId]);
+
+  useEffect(() => {
+    if (!liveDemoEnabled) return;
+    const stored = readStoredDemoState(tripId);
+    if (!stored) return;
+    demoStateRef.current = stored;
+    setDemoState(stored);
+  }, [liveDemoEnabled, tripId]);
+
+  useEffect(() => {
+    demoStateRef.current = demoState;
+    if (!demoState) return;
+    writeStoredDemoState(tripId, demoState);
+    const expiresIn = new Date(demoState.expiresAt).getTime() - Date.now();
+    if (expiresIn <= 0) {
+      stopLiveDemo(true);
+      return;
+    }
+    const timer = window.setTimeout(() => stopLiveDemo(true), expiresIn);
+    return () => window.clearTimeout(timer);
+  }, [demoState, stopLiveDemo, tripId]);
+
+  function createDemoState(origin: LiveCoordinates): LiveDemoState {
+    const started = new Date();
+    const expires = new Date(started.getTime() + LIVE_DEMO_TTL_MS);
+    const sessionId = `live-demo-${started.getTime().toString(36)}`;
+    const offsets = [
+      { title: "Demo Stop 1", north: 0, east: 0, radius: 35, minutes: 0 },
+      { title: "Demo Stop 2", north: 85, east: 12, radius: 45, minutes: 3 },
+      { title: "Demo Stop 3", north: 155, east: 24, radius: 55, minutes: 6 }
+    ];
+    return {
+      sessionId,
+      startedAt: started.toISOString(),
+      expiresAt: expires.toISOString(),
+      origin,
+      pushSubscription: "active",
+      lastGpsAt: started.toISOString(),
+      lastEvent: null,
+      lastPushResult: null,
+      stops: offsets.map((stop, index) => {
+        const point = offsetCoordinates(origin, stop.north, stop.east);
+        return {
+          id: `demo-stop-${index + 1}`,
+          title: stop.title,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          radiusMeters: stop.radius,
+          startAt: new Date(started.getTime() + stop.minutes * 60_000).toISOString(),
+          status: "planned" as const,
+          distanceMeters: index === 0 ? 0 : null,
+          insideGeofence: index === 0
+        };
+      })
+    };
+  }
+
+  const getFreshPosition = useCallback(() => {
+    return new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 15_000,
+        maximumAge: 0
+      });
+    });
+  }, []);
+
+  async function startLiveDemo() {
+    if (!liveDemoEnabled) return;
+    setDemoBusy("starting");
+    setDemoError("");
+    setDemoNotice("");
+    setError("");
+
+    try {
+      if (!navigator.geolocation) {
+        throw new Error("This browser does not support location sensing.");
+      }
+
+      const push = await ensurePushSubscription();
+      if (!push.ok) throw new Error(push.error || "Push subscription could not be verified.");
+
+      const settingsResponse = await fetch("/api/roamly/location/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ locationTrackingEnabled: true, notificationEnabled: true })
+      });
+      const settingsData = await settingsResponse.json().catch(() => null);
+      if (!settingsResponse.ok) {
+        throw new Error(settingsData?.error || "Location settings could not be enabled.");
+      }
+
+      const position = await getFreshPosition();
+      const nextLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        capturedAt: new Date(position.timestamp || Date.now()).toISOString()
+      };
+      const nextDemo = createDemoState(nextLocation);
+      demoStateRef.current = nextDemo;
+      setDemoState(nextDemo);
+      writeStoredDemoState(tripId, nextDemo);
+      setPermission("granted");
+      setLocation(nextLocation);
+
+      await sendLocationUpdate(nextLocation, true, nextDemo);
+
+      const alreadyWatching = watchIdRef.current != null;
+      demoStartedWatchRef.current = !alreadyWatching;
+      if (!alreadyWatching) {
+        await startForegroundLocation();
+      }
+
+      setDemoNotice("Live Demo active. Walk toward Demo Stop 2, then Demo Stop 3.");
+    } catch (err) {
+      writeStoredDemoState(tripId, null);
+      demoStateRef.current = null;
+      setDemoState(null);
+      setDemoError(err instanceof Error ? err.message : "Live Demo could not start.");
+    } finally {
+      setDemoBusy("");
+    }
+  }
 
   useEffect(() => stopForegroundLocation, [stopForegroundLocation]);
 
@@ -559,9 +904,22 @@ export function LiveTripClient({
     }
   }
 
-  async function runAction(activityId: string, action: "check-in" | "skip" | "complete") {
+  const runAction = useCallback(async (activityId: string, action: "check-in" | "skip" | "complete", actionLocation?: LiveCoordinates | null) => {
     setBusy(activityId + action);
     setError("");
+    const activeDemo = demoStateRef.current;
+    if (activeDemo) {
+      const nextStatus: ActivityRecord["status"] = action === "check-in" ? "checked_in" : action === "skip" ? "skipped" : "completed";
+      const nextDemo: LiveDemoState = {
+        ...activeDemo,
+        stops: activeDemo.stops.map((stop) => (stop.id === activityId ? { ...stop, status: nextStatus } : stop))
+      };
+      demoStateRef.current = nextDemo;
+      setDemoState(nextDemo);
+      writeStoredDemoState(tripId, nextDemo);
+      setBusy("");
+      return;
+    }
     const endpoint =
       action === "check-in"
         ? "/api/roamly/activities/check-in"
@@ -577,24 +935,66 @@ export function LiveTripClient({
         body: JSON.stringify({
           tripId,
           activityId,
-          ...(location
+          ...(actionLocation
             ? {
-                latitude: location.latitude,
-                longitude: location.longitude,
-                accuracy: location.accuracy
+                latitude: actionLocation.latitude,
+                longitude: actionLocation.longitude,
+                accuracy: actionLocation.accuracy,
+                capturedAt: actionLocation.capturedAt
               }
             : {})
         })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not update activity.");
-      setItems((current) => current.map((item) => (item.id === activityId ? { ...item, status: nextStatus } : item)));
+      const updatedTitle = typeof data?.activity?.title === "string" ? data.activity.title : "";
+      setItems((current) => current.map((item) => (
+        item.id === activityId || (updatedTitle && item.title === updatedTitle)
+          ? { ...item, status: nextStatus }
+          : item
+      )));
+      setNotice(action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update activity.");
     } finally {
       setBusy("");
     }
-  }
+  }, [tripId]);
+
+  const notificationActionHandledRef = useRef<string>("");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const activityId = params.get("activity") || "";
+    const action = params.get("action") as "check-in" | "skip" | "complete" | null;
+    if (!activityId || !action || !["check-in", "skip", "complete"].includes(action)) return;
+    const key = `${activityId}:${action}`;
+    if (notificationActionHandledRef.current === key) return;
+    notificationActionHandledRef.current = key;
+
+    void (async () => {
+      try {
+        let actionLocation = location;
+        if (action === "check-in") {
+          if (!navigator.geolocation) throw new Error("Location permission is required to check in from a notification.");
+          const position = await getFreshPosition();
+          actionLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            capturedAt: new Date(position.timestamp || Date.now()).toISOString()
+          };
+          setLocation(actionLocation);
+        }
+        await runAction(activityId, action, actionLocation);
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("activity");
+        cleanUrl.searchParams.delete("action");
+        window.history.replaceState(null, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Notification action could not be completed.");
+      }
+    })();
+  }, [getFreshPosition, location, runAction]);
 
   function resolvePlace(place: LiveSimulatorPlace | null, fallbackLabel = "Simulated location") {
     const latitude = getNumber(place?.latitude);
@@ -675,6 +1075,30 @@ export function LiveTripClient({
       }
     }
   ];
+  const demoNextStop =
+    demoState?.stops.find((stop) => stop.status !== "nearby") ||
+    demoState?.stops[demoState.stops.length - 1] ||
+    null;
+  const demoRows = demoState
+    ? [
+        ["Demo", "Active"],
+        ["GPS", location ? "Connected" : watching ? "Waiting" : "Waiting"],
+        ["Push subscription", demoState.pushSubscription === "active" ? "Active" : demoState.pushSubscription === "missing" ? "Missing" : "Checking"],
+        ["Current accuracy", location?.accuracy != null ? formatMeters(location.accuracy) : "Waiting"],
+        ["Next demo stop", demoNextStop?.title || "Complete"],
+        ["Distance to next", formatMeters(demoNextStop?.distanceMeters)],
+        ["Geofence radius", demoNextStop ? formatMeters(demoNextStop.radiusMeters) : "Waiting"],
+        ["Inside geofence", demoNextStop?.insideGeofence ? "Yes" : "No"],
+        ["Last GPS update", demoState.lastGpsAt ? new Date(demoState.lastGpsAt).toLocaleTimeString() : "Waiting"],
+        ["Last Companion event", demoState.lastEvent?.title || "Waiting"],
+        [
+          "Last push result",
+          demoState.lastPushResult
+            ? `${demoState.lastPushResult.status} (${demoState.lastPushResult.sent} sent, ${demoState.lastPushResult.failed} failed)`
+            : "Waiting"
+        ]
+      ]
+    : [];
 
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-4 pb-28 md:pb-0">
@@ -683,7 +1107,7 @@ export function LiveTripClient({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-white/55">Live Companion</p>
-              <p className="mt-1 text-sm font-black">{destinationLabel || "Current trip"}</p>
+              <p className="mt-1 text-sm font-black">{activeDestinationLabel || "Current trip"}</p>
             </div>
             <span
               className={classNames(
@@ -791,7 +1215,7 @@ export function LiveTripClient({
                         <p className={classNames("truncate text-sm font-black", active ? "text-white" : "text-white/72")}>
                           {item.title}
                         </p>
-                        <p className="mt-0.5 text-xs font-bold text-white/45">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate, timezone })?.toISOString() || null, timezone)}</p>
+                        <p className="mt-0.5 text-xs font-bold text-white/45">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate: activeTripStartDate, timezone })?.toISOString() || null, timezone)}</p>
                       </div>
                     </div>
                   );
@@ -828,6 +1252,42 @@ export function LiveTripClient({
                 </button>
               </div>
             </section>
+
+            {liveDemoEnabled ? (
+              <section className="rounded-2xl border border-amber-200/30 bg-amber-200/10 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100/80">Live Demo</p>
+                    <p className="mt-1 text-sm font-black text-white">{demoState ? "Active" : "Ready"}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => (demoState ? stopLiveDemo() : void startLiveDemo())}
+                    disabled={Boolean(demoBusy)}
+                    className={classNames(
+                      "min-h-11 rounded-2xl px-3 py-2 text-xs font-black disabled:opacity-50",
+                      demoState ? "border border-white/20 bg-white/10 text-white" : "bg-amber-300 text-ink"
+                    )}
+                  >
+                    {demoBusy ? "Starting" : demoState ? "STOP LIVE DEMO" : "START LIVE DEMO"}
+                  </button>
+                </div>
+
+                {demoState ? (
+                  <div className="mt-3 grid gap-2">
+                    {demoRows.map(([label, value]) => (
+                      <div key={label} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 rounded-xl bg-black/15 px-3 py-2">
+                        <p className="text-[0.68rem] font-black uppercase tracking-[0.1em] text-white/45">{label}</p>
+                        <p className="min-w-0 break-words text-xs font-black text-white/85">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
+                {demoNotice ? <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs font-black leading-5 text-amber-50">{demoNotice}</p> : null}
+                {demoError ? <p className="mt-3 rounded-xl bg-coral/20 px-3 py-2 text-xs font-black leading-5 text-rose-100">{demoError}</p> : null}
+              </section>
+            ) : null}
           </div>
         </div>
       </section>

@@ -3,8 +3,24 @@ import { normalizeCoordinates } from "@/lib/roamly/location";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { activateTripIfNearby } from "@/lib/roamly/tripActivation";
 import { requireUser } from "@/lib/roamly/auth";
+import { getRoamlyAccessForUser } from "@/lib/roamly/access";
+import { processLiveCompanionDemoUpdate } from "@/lib/roamly/liveCompanionDemo";
 
 const permissionStates = new Set(["granted", "denied", "prompt"]);
+const MAX_LOCATION_AGE_MS = 10 * 60_000;
+const MAX_LOCATION_FUTURE_SKEW_MS = 2 * 60_000;
+
+function parseCapturedAt(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const date = new Date(value);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireUser();
@@ -16,11 +32,16 @@ export async function POST(request: NextRequest) {
       ? body.permissionState
       : "prompt";
   const tripId = typeof body.tripId === "string" && body.tripId.trim() ? body.tripId.trim() : undefined;
+  const liveDemoPayload =
+    body.liveDemo && typeof body.liveDemo === "object" && !Array.isArray(body.liveDemo)
+      ? body.liveDemo
+      : null;
   const location = normalizeCoordinates({
     latitude: body.latitude as number,
     longitude: body.longitude as number,
     accuracy: body.accuracy as number | null
   });
+  const capturedAt = parseCapturedAt(body.capturedAt);
 
   const existing = await auth.supabase
     .from("roamly_location_settings")
@@ -50,6 +71,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Valid latitude and longitude are required." }, { status: 400 });
   }
 
+  if (capturedAt) {
+    const age = Date.now() - capturedAt.getTime();
+    if (age > MAX_LOCATION_AGE_MS || age < -MAX_LOCATION_FUTURE_SKEW_MS) {
+      return NextResponse.json({
+        ok: true,
+        staleLocation: true,
+        tripActivated: false,
+        message: "Location update was too old to process."
+      });
+    }
+  }
+
   if (!existing.data?.location_tracking_enabled) {
     return NextResponse.json({
       ok: true,
@@ -72,15 +105,37 @@ export async function POST(request: NextRequest) {
     { onConflict: "user_id" }
   );
 
-  await recordTripEvent(auth.supabase, {
-    userId: auth.user.id,
-    eventType: "location_permission_granted",
-    eventTitle: "Location permission granted",
-    eventBody: "Roamly location permission is enabled for Live Trip Companion.",
-    latitude: location.latitude,
-    longitude: location.longitude,
-    metadata: { accuracy: location.accuracy }
-  });
+  /*
+   * watchPosition() calls this endpoint repeatedly.
+   * Coordinates still update continuously, but do not add a
+   * duplicate permission event for every GPS reading.
+   */
+
+
+  if (liveDemoPayload) {
+    const access = getRoamlyAccessForUser(auth.user.email);
+    if (!access.hasQaAccess) {
+      return NextResponse.json({ ok: false, error: "Live Demo is only available to tester/admin accounts." }, { status: 403 });
+    }
+    if (!tripId) {
+      return NextResponse.json({ ok: false, error: "Trip is required for Live Demo." }, { status: 400 });
+    }
+
+    const demo = await processLiveCompanionDemoUpdate({
+      supabase: auth.supabase,
+      userId: auth.user.id,
+      tripId,
+      location,
+      payload: liveDemoPayload
+    });
+
+    return NextResponse.json({
+      ok: demo.ok,
+      liveDemo: true,
+      demo: demo.ok ? demo.demo : null,
+      error: demo.ok ? null : demo.error
+    }, { status: demo.ok ? 200 : 400 });
+  }
 
   const activation = await activateTripIfNearby(auth.supabase, auth.user.id, location, tripId);
 

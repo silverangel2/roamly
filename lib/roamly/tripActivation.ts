@@ -6,11 +6,14 @@ import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import {
+  DEFAULT_LIVE_COMPANION_SETTINGS,
   activityEndDate,
+  activityStartDate,
   buildLiveCompanionState,
   evaluateNotificationDecision,
   isTodayWithinTripDates,
   selectNowAndNextActivity,
+  tripWindowState,
   timezoneFromTripMetadata,
   type LiveCompanionActivity,
   type LiveCoordinates,
@@ -41,6 +44,7 @@ export type TrackingTrip = {
   itinerary_generated_at: string | null;
   tracking_unlocked: boolean | null;
   live_companion_unlocked?: boolean | null;
+  trip_companion_status?: string | null;
   metadata: Record<string, unknown> | null;
 };
 
@@ -164,6 +168,183 @@ function hasValidCoordinates(
   );
 }
 
+function activitySortTime(activity: TrackingActivity, timezone: string) {
+  const start = activityStartDate({
+    activity: toLiveCompanionActivity(activity),
+    timezone
+  });
+  return start?.getTime() ?? Number.MAX_SAFE_INTEGER;
+}
+
+function compareActivitiesChronologically(timezone: string) {
+  return (a: TrackingActivity, b: TrackingActivity) => {
+    const diff = activitySortTime(a, timezone) - activitySortTime(b, timezone);
+    return diff || a.sort_order - b.sort_order || a.title.localeCompare(b.title);
+  };
+}
+
+function isActivityPastWindow(activity: TrackingActivity, timezone: string, now: Date) {
+  const end = activityEndDate({
+    activity: toLiveCompanionActivity(activity),
+    timezone
+  });
+  return Boolean(end && end.getTime() < now.getTime());
+}
+
+function isActivityReadyForNearby(activity: TrackingActivity, timezone: string, now: Date) {
+  const start = activityStartDate({
+    activity: toLiveCompanionActivity(activity),
+    timezone
+  });
+  if (!start) return true;
+  return start.getTime() - now.getTime() <= DEFAULT_LIVE_COMPANION_SETTINGS.reminderLeadMinutes * 60_000;
+}
+
+async function cancelOutstandingActivityEvents(
+  supabase: SupabaseClient,
+  params: {
+    userId: string;
+    tripId: string;
+    activityIds: string[];
+    completedAt: string;
+  }
+) {
+  if (!params.activityIds.length) return;
+  const { data } = await supabase
+    .from("roamly_trip_companion_events")
+    .select("id,metadata")
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .in("status", ["scheduled", "processing"])
+    .limit(200);
+
+  const ids = new Set(params.activityIds);
+  const eventIds = (data || [])
+    .filter((event) => {
+      const metadata = recordValue(event.metadata);
+      const activityId =
+        typeof metadata?.activityId === "string"
+          ? metadata.activityId
+          : typeof metadata?.activity_id === "string"
+            ? metadata.activity_id
+            : null;
+      return Boolean(activityId && ids.has(activityId));
+    })
+    .map((event) => event.id)
+    .filter((id): id is string => typeof id === "string");
+
+  if (!eventIds.length) return;
+  await supabase
+    .from("roamly_trip_companion_events")
+    .update({ status: "cancelled", completed_at: params.completedAt })
+    .in("id", eventIds);
+}
+
+async function expirePastActivities(
+  supabase: SupabaseClient,
+  params: {
+    trip: TrackingTrip;
+    userId: string;
+    timezone: string;
+    now: Date;
+  }
+) {
+  const { data: expirableActivities } = await supabase
+    .from("roamly_activities")
+    .select("*")
+    .eq("trip_id", params.trip.id)
+    .in("status", ["planned", "nearby"]);
+
+  const expiredActivities = ((expirableActivities || []) as TrackingActivity[])
+    .filter((activity) => isActivityPastWindow(activity, params.timezone, params.now));
+
+  if (!expiredActivities.length) return [] as string[];
+
+  const expiredActivityIds = expiredActivities.map((activity) => activity.id);
+  const expiredTitles = expiredActivities.map((activity) => activity.title).filter(Boolean);
+  const completedAt = params.now.toISOString();
+
+  await supabase
+    .from("roamly_activities")
+    .update({ status: "missed", completed_at: completedAt })
+    .eq("trip_id", params.trip.id)
+    .in("status", ["planned", "nearby"])
+    .in("id", expiredActivityIds);
+
+  if (expiredTitles.length) {
+    await supabase
+      .from("roamly_trip_activities")
+      .update({ status: "missed", completed_at: completedAt })
+      .eq("trip_id", params.trip.id)
+      .in("status", ["planned", "nearby", "active"])
+      .in("title", expiredTitles);
+  }
+
+  await cancelOutstandingActivityEvents(supabase, {
+    userId: params.userId,
+    tripId: params.trip.id,
+    activityIds: expiredActivityIds,
+    completedAt
+  });
+
+  return expiredActivityIds;
+}
+
+async function shutdownCompletedTripIfNeeded(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string,
+  now: Date
+) {
+  const { data } = await supabase
+    .from("roamly_trips")
+    .select("id,user_id,status,start_date,end_date,metadata,trip_companion_status")
+    .eq("id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const trip = data as TrackingTrip | null;
+  if (!trip) return false;
+  const state = tripWindowState({
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    timezone: timezoneFromTripMetadata(trip.metadata),
+    now
+  });
+  if (state !== "completed_trip") return false;
+
+  const completedAt = now.toISOString();
+  await supabase
+    .from("roamly_trips")
+    .update({
+      status: trip.status === "cancelled" || trip.status === "archived" ? trip.status : "completed",
+      trip_companion_status: "completed"
+    })
+    .eq("id", trip.id)
+    .eq("user_id", userId);
+
+  await supabase
+    .from("roamly_trip_companion_events")
+    .update({ status: "cancelled", completed_at: completedAt })
+    .eq("user_id", userId)
+    .eq("trip_id", trip.id)
+    .in("status", ["scheduled", "processing"]);
+
+  await supabase
+    .from("roamly_activities")
+    .update({ status: "missed", completed_at: completedAt })
+    .eq("trip_id", trip.id)
+    .in("status", ["planned", "nearby"]);
+
+  await supabase
+    .from("roamly_trip_activities")
+    .update({ status: "missed", completed_at: completedAt })
+    .eq("trip_id", trip.id)
+    .in("status", ["planned", "nearby", "active"]);
+
+  return true;
+}
+
 export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string, tripId?: string) {
   const today = todayIso();
   let query = supabase
@@ -171,7 +352,7 @@ export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: 
     .select("*")
     .eq("user_id", userId)
     .eq("itinerary_locked", true)
-    .eq("tracking_unlocked", true)
+    .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
     .in("status", ["locked", "active", "planned"])
     .or(`end_date.gte.${today},end_date.is.null`);
   if (tripId) query = query.eq("id", tripId);
@@ -208,19 +389,34 @@ export async function getCurrentDayRecord(supabase: SupabaseClient, trip: Tracki
   };
 }
 
-export async function findNearbyActivities(supabase: SupabaseClient, tripId: string, location: LocationInput) {
+export async function findNearbyActivities(
+  supabase: SupabaseClient,
+  tripId: string,
+  location: LocationInput,
+  options: { now?: Date; timezone?: string | null } = {}
+) {
+  const now = options.now || new Date();
+  const timezone = options.timezone || "UTC";
   const { data, error } = await supabase
     .from("roamly_activities")
     .select("*")
     .eq("trip_id", tripId)
-    .in("status", ["planned", "nearby", "checked_in"])
+    .in("status", ["planned", "nearby"])
     .not("latitude", "is", null)
     .not("longitude", "is", null)
     .order("sort_order", { ascending: true });
 
   if (error) return { activities: [], error: error.message };
 
-  const activities = ((data || []) as TrackingActivity[])
+  const openActivities = ((data || []) as TrackingActivity[])
+    .filter((activity) => !isActivityPastWindow(activity, timezone, now))
+    .sort(compareActivitiesChronologically(timezone));
+  const chronologicalTarget = openActivities.find((activity) =>
+    isActivityReadyForNearby(activity, timezone, now)
+  );
+
+  const activities = openActivities
+    .filter((activity) => Boolean(chronologicalTarget && activity.id === chronologicalTarget.id))
     .map((activity) => ({
       ...activity,
       distance_meters: calculateDistanceMeters(
@@ -239,7 +435,7 @@ export async function findNearbyActivities(supabase: SupabaseClient, tripId: str
         activity.radius_meters || 250
       )
     )
-    .sort((a, b) => (a.distance_meters || 0) - (b.distance_meters || 0));
+    .sort(compareActivitiesChronologically(timezone));
 
   return { activities };
 }
@@ -335,10 +531,17 @@ export async function activateTripIfNearby(
   tripId?: string,
   options?: ActivationOptions
 ) {
+  const processingNow =
+    options?.simulated === true && options.decisionNow
+      ? options.decisionNow
+      : new Date();
   const tripResult = await getActiveOrUpcomingTrip(supabase, userId, tripId);
   const trip = tripResult.trip;
 
   if (!trip) {
+    if (tripId) {
+      await shutdownCompletedTripIfNeeded(supabase, userId, tripId, processingNow);
+    }
     return {
       tripActivated: false,
       trip: null,
@@ -353,7 +556,7 @@ export async function activateTripIfNearby(
 
   const preferences = await getCompanionPreferences({ supabase, userId, tripId: trip.id });
   const pausedUntil = preferences.liveCompanionPausedUntil ? new Date(preferences.liveCompanionPausedUntil) : null;
-  if (!preferences.liveCompanionEnabled || (pausedUntil && pausedUntil.getTime() > Date.now())) {
+  if (!preferences.liveCompanionEnabled || (pausedUntil && pausedUntil.getTime() > processingNow.getTime())) {
     return {
       tripActivated: false,
       trip,
@@ -372,41 +575,23 @@ export async function activateTripIfNearby(
   // This runs before nearby sensing so an expired activity cannot be
   // rediscovered by GPS and generate another Live Companion alert.
   const tripTimezone = timezoneFromTripMetadata(trip.metadata);
-  const { data: expirableActivities } = await supabase
-    .from("roamly_activities")
-    .select("*")
-    .eq("trip_id", trip.id)
-    .in("status", ["planned", "nearby"]);
+  await expirePastActivities(supabase, {
+    trip,
+    userId,
+    timezone: tripTimezone,
+    now: processingNow
+  });
 
-  const expiredActivityIds = ((expirableActivities || []) as TrackingActivity[])
-    .filter((activity) => {
-      const end = activityEndDate({
-        activity: toLiveCompanionActivity(activity),
-        timezone: tripTimezone
-      });
-      const decisionNow =
-        options?.simulated === true && options.decisionNow
-          ? options.decisionNow
-          : new Date();
-
-      return Boolean(end && end.getTime() < decisionNow.getTime());
-    })
-    .map((activity) => activity.id);
-
-  if (expiredActivityIds.length) {
-    await supabase
-      .from("roamly_activities")
-      .update({ status: "missed" })
-      .eq("trip_id", trip.id)
-      .in("status", ["planned", "nearby"])
-      .in("id", expiredActivityIds);
-  }
-
-  const nearby = await findNearbyActivities(supabase, trip.id, location);
+  const nearby = await findNearbyActivities(supabase, trip.id, location, {
+    now: processingNow,
+    timezone: tripTimezone
+  });
   const currentDay = await getCurrentDayRecord(supabase, trip);
   const checked = await getCheckedActivities(supabase, trip.id);
   const upNext = await getUpNextActivity(supabase, trip.id, location);
   const wasTripActivatedNow = trip.status !== "active" && nearby.activities.length > 0;
+  let nearbyPushSent = false;
+  let companionEventId: string | null = null;
 
   if (nearby.activities.length) {
     const newlyNearby = nearby.activities.filter((activity) => activity.status === "planned");
@@ -422,12 +607,13 @@ export async function activateTripIfNearby(
   }
 
   if (wasTripActivatedNow) {
-    const now = new Date().toISOString();
+    const now = processingNow.toISOString();
     await supabase
       .from("roamly_trips")
       .update({
         status: "active",
-        activated_at: trip.activated_at || now
+        activated_at: trip.activated_at || now,
+        trip_companion_status: "active"
       })
       .eq("id", trip.id)
       .eq("user_id", userId);
@@ -444,10 +630,16 @@ export async function activateTripIfNearby(
       distanceMeters: nearby.activities[0]?.distance_meters,
       metadata: simulationMetadata(options, { dayNumber: currentDay.dayNumber })
     });
+  } else if (nearby.activities.length && trip.trip_companion_status !== "active") {
+    await supabase
+      .from("roamly_trips")
+      .update({ trip_companion_status: "active" })
+      .eq("id", trip.id)
+      .eq("user_id", userId);
   }
 
   if (nearby.activities[0]) {
-    const cooldownSince = new Date(Date.now() - 60 * 60_000).toISOString();
+    const cooldownSince = new Date(processingNow.getTime() - 60 * 60_000).toISOString();
     const duplicate = await supabase
       .from("roamly_trip_companion_events")
       .select("id,metadata,created_at")
@@ -528,8 +720,8 @@ export async function activateTripIfNearby(
       );
 
       if (Number(pushed.sent || 0) > 0) {
-        const now = new Date().toISOString();
-        await supabase
+        const now = processingNow.toISOString();
+        const companionEvent = await supabase
           .from("roamly_trip_companion_events")
           .insert({
             user_id: userId,
@@ -545,7 +737,11 @@ export async function activateTripIfNearby(
               distanceMeters: nearby.activities[0].distance_meters ?? null,
               notificationReason: "arrival_proximity"
             })
-          });
+          })
+          .select("id")
+          .maybeSingle();
+        nearbyPushSent = true;
+        companionEventId = companionEvent.data?.id || null;
       }
     }
   }
@@ -678,7 +874,7 @@ export async function activateTripIfNearby(
     }
 
     const liveNow =
-      new Date();
+      processingNow;
 
     const routeSelection =
       selectNowAndNextActivity({
@@ -804,6 +1000,18 @@ export async function activateTripIfNearby(
         `/trip/${activeTrip.id}/live?activity=${encodeURIComponent(
           liveActivityId
         )}`;
+      const maps =
+        liveActivity.latitude != null &&
+        liveActivity.longitude != null
+          ? {
+              appleMapsUrl:
+                `https://maps.apple.com/?daddr=${liveActivity.latitude},${liveActivity.longitude}`,
+              googleMapsUrl:
+                `https://www.google.com/maps/dir/?api=1&destination=${liveActivity.latitude},${liveActivity.longitude}`,
+              citymapperUrl:
+                `https://citymapper.com/directions?endcoord=${liveActivity.latitude},${liveActivity.longitude}`
+            }
+          : {};
 
       const decision =
         evaluateNotificationDecision({
@@ -814,6 +1022,8 @@ export async function activateTripIfNearby(
             liveActivity,
 
           history,
+          now:
+            liveNow,
 
           activeWindow:
             companionState.activeWindow,
@@ -862,7 +1072,19 @@ export async function activateTripIfNearby(
             body:
               params.body,
 
-            actionUrl
+            actionUrl,
+
+            ...maps,
+
+            checkInUrl:
+              `/trip/${activeTrip.id}/live?activity=${encodeURIComponent(
+                liveActivityId
+              )}&action=check-in`,
+
+            skipUrl:
+              `/trip/${activeTrip.id}/live?activity=${encodeURIComponent(
+                liveActivityId
+              )}&action=skip`
           },
           {
             sendEmail:
@@ -1137,8 +1359,8 @@ export async function activateTripIfNearby(
     nearbyActivities: nearby.activities,
     checkedActivities: checked.activities,
     upNextActivity: upNext.activity,
-    notificationCreated: Boolean(nearby.activities[0]),
-    companionEventId: null,
+    notificationCreated: nearbyPushSent,
+    companionEventId,
     notification,
     error: nearby.error || checked.error || upNext.error
   };

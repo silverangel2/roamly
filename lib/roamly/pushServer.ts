@@ -2,6 +2,8 @@ import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendTripReminderEmail } from "@/lib/roamly/email";
+import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { tripWindowState } from "@/lib/roamly/liveCompanion";
 
 export type NotificationPayload = {
   title: string;
@@ -23,6 +25,13 @@ function configureWebPush() {
   if (!publicKey || !privateKey) return false;
   webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:junel.abellana@gmail.com", publicKey, privateKey);
   return true;
+}
+
+function isExpiredSubscriptionError(error: unknown) {
+  const statusCode = typeof error === "object" && error !== null && "statusCode" in error
+    ? Number((error as { statusCode?: number }).statusCode)
+    : 0;
+  return statusCode === 404 || statusCode === 410;
 }
 
 export async function createInAppNotification(
@@ -157,34 +166,35 @@ export async function sendPushNotification(
     skipUrl: payload.skipUrl || null
   });
 
-  const results = await Promise.allSettled(
-    (subscriptions || []).map((subscription) =>
-      webpush.sendNotification(
-        {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.p256dh || "",
-            auth: subscription.auth || ""
-          }
-        },
+  const results = await Promise.all((subscriptions || []).map(async (subscription) => {
+    try {
+      await webpush.sendNotification(
+        { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh || "", auth: subscription.auth || "" } },
         body
-      )
-    )
-  );
+      );
+      return { ok: true as const, subscription };
+    } catch (error) {
+      return { ok: false as const, subscription, error };
+    }
+  }));
 
-  const failed = results.filter((result) => result.status === "rejected").length;
+  const failed = results.filter((result) => !result.ok).length;
+  const expiredEndpoints = results.filter((result) => !result.ok && isExpiredSubscriptionError(result.error)).map((result) => result.subscription.endpoint);
+  if (expiredEndpoints.length) {
+    await writer.from("roamly_push_subscriptions").update({ enabled: false }).in("endpoint", expiredEndpoints);
+  }
   if (notification.data?.id) {
-    const firstFailure = results.find((result) => result.status === "rejected");
+    const firstFailure = results.find((result) => !result.ok);
     await writer
       .from("roamly_notifications")
       .update({
         sent_at: failed < results.length ? new Date().toISOString() : null,
         push_status: failed < results.length ? "sent" : "failed",
         push_error:
-          firstFailure && firstFailure.status === "rejected"
-            ? firstFailure.reason instanceof Error
-              ? firstFailure.reason.message
-              : String(firstFailure.reason)
+          firstFailure && !firstFailure.ok
+            ? firstFailure.error instanceof Error
+              ? firstFailure.error.message
+              : String(firstFailure.error)
             : null
       })
       .eq("id", notification.data.id);
@@ -216,10 +226,12 @@ export async function sendScheduledTripNotifications() {
     .select("*")
     .eq("status", "scheduled")
     .lte("scheduled_for", now)
+    .order("scheduled_for", { ascending: true })
     .limit(50);
 
   if (error) return { ok: false, error: error.message };
   let sent = 0;
+  const touchedTrips = new Set<string>();
   for (const event of events || []) {
     const claimed = await supabase
       .from("roamly_trip_companion_events")
@@ -234,20 +246,45 @@ export async function sendScheduledTripNotifications() {
     const tripResult = event.trip_id
       ? await supabase
           .from("roamly_trips")
-          .select("tracking_unlocked")
+          .select("id,user_id,start_date,end_date,status,tracking_unlocked,live_companion_unlocked,trip_companion_status,metadata")
           .eq("id", event.trip_id)
           .eq("user_id", event.user_id)
           .maybeSingle()
       : { data: null };
-    if (
-      event.trip_id &&
-      !tripResult.data?.tracking_unlocked
-    ) {
+    if (event.trip_id && (!tripResult.data?.tracking_unlocked && !tripResult.data?.live_companion_unlocked)) {
       await supabase
         .from("roamly_trip_companion_events")
         .update({ status: "skipped", completed_at: new Date().toISOString() })
         .eq("id", event.id);
       continue;
+    }
+
+    if (event.trip_id && tripWindowState({
+      startDate: tripResult.data?.start_date,
+      endDate: tripResult.data?.end_date,
+      timezone: tripResult.data?.metadata?.timezone,
+      now: new Date()
+    }) === "completed_trip") {
+      await supabase.from("roamly_trips").update({ status: "completed", trip_companion_status: "completed" }).eq("id", event.trip_id);
+      await supabase.from("roamly_trip_companion_events").update({ status: "cancelled", completed_at: new Date().toISOString() }).eq("id", event.id);
+      continue;
+    }
+    if (event.trip_id) {
+      const tripKey = `${event.user_id}:${event.trip_id}`;
+      if (touchedTrips.has(tripKey)) {
+        await supabase.from("roamly_trip_companion_events").update({ status: "scheduled", scheduled_for: new Date(Date.now() + 15 * 60_000).toISOString() }).eq("id", event.id).eq("status", "processing");
+        continue;
+      }
+      touchedTrips.add(tripKey);
+      const preferences = await getCompanionPreferences({ supabase, userId: event.user_id, tripId: event.trip_id });
+      if (!preferences.liveCompanionEnabled) {
+        await supabase.from("roamly_trip_companion_events").update({ status: "skipped", completed_at: new Date().toISOString() }).eq("id", event.id);
+        continue;
+      }
+      if (preferences.liveCompanionPausedUntil && new Date(preferences.liveCompanionPausedUntil).getTime() > Date.now()) {
+        await supabase.from("roamly_trip_companion_events").update({ status: "scheduled", scheduled_for: preferences.liveCompanionPausedUntil }).eq("id", event.id).eq("status", "processing");
+        continue;
+      }
     }
 
     const delivery = await sendPushNotification(supabase, event.user_id, {

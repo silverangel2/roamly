@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   };
   if (!body.endpoint) return NextResponse.json({ ok: false, error: "Push endpoint is required." }, { status: 400 });
 
-  const { error } = await auth.supabase.from("roamly_push_subscriptions").upsert(
+  const { data, error } = await auth.supabase.from("roamly_push_subscriptions").upsert(
     {
       user_id: auth.user.id,
       endpoint: body.endpoint,
@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
       enabled: true
     },
     { onConflict: "endpoint" }
-  );
+  ).select("id").maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, deviceRegistered: true, subscriptionId: data?.id || null });
 }
