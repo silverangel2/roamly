@@ -1641,6 +1641,7 @@ export async function queueFacebookRuntimeProofReel(
   const normalizedBrand = normalizeFacebookBrand(brand);
   const config = facebookBrandConfig(normalizedBrand);
   const proofId = randomUUID();
+  const proofTag = proofId.replace(/-/g, "").slice(0, 12);
   const proofMoment = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(4, 14);
   const scheduledFor = new Date(Date.now() - 10 * 365 * 24 * 60 * 60 * 1000).toISOString();
   const link = new URL(config.primaryLink);
@@ -1662,7 +1663,7 @@ export async function queueFacebookRuntimeProofReel(
     .join("\n\n");
   const hashtags = uniqueHashtags(
     normalizedBrand === "reviewintel"
-      ? ["ReviewIntel", "SmartShopping", "ReviewAnalysis", "FakeReviews", "BeforeYouBuy", "FacebookReels", `RI${proofMoment}`]
+      ? ["ReviewIntel", "SmartShopping", "ReviewAnalysis", "FakeReviews", "BeforeYouBuy", "FacebookReels", `RI${proofTag}`]
       : [
           "Roamly",
           "TravelPlanning",
@@ -1673,7 +1674,7 @@ export async function queueFacebookRuntimeProofReel(
           "fypシ",
           "fypシ゚viralシ",
           "fypviralシ",
-          `Roamly${proofMoment}`
+          `Roamly${proofTag}`
         ]
   );
   const draft: GeneratedFacebookDraft = {
