@@ -590,7 +590,7 @@ function uniqueHashtags(values: string[]) {
           tag
             .replace(/^#/, "")
             .normalize("NFC")
-            .replace(/[^\\p{L}\\p{N}\\p{M}_]/gu, "")
+            .replace(/[^\p{L}\p{N}\p{M}_]/gu, "")
         )
         .filter(Boolean)
     )
