@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { extractAndMatchTravelEmailBooking } from "@/lib/roamly/bookingExtraction";
@@ -249,6 +249,51 @@ export function outlookRedirectUri(origin?: string | null) {
 
 export function createOAuthState() {
   return randomBytes(24).toString("base64url");
+}
+
+function oauthStateSigningSecret() {
+  return clean(process.env.ROAMLY_TOKEN_ENCRYPTION_KEY);
+}
+
+function signOAuthStatePayload(payload: string) {
+  const secret = oauthStateSigningSecret();
+  if (!secret) return "";
+  return createHmac("sha256", secret).update(payload).digest("base64url");
+}
+
+export function createGmailOAuthState(userId: string) {
+  const state = createOAuthState();
+  const payload = Buffer.from(
+    JSON.stringify({
+      state,
+      userId,
+      issuedAt: Date.now()
+    }),
+    "utf8"
+  ).toString("base64url");
+  const signature = signOAuthStatePayload(payload);
+  return {
+    state,
+    cookieValue: signature ? `${payload}.${signature}` : state
+  };
+}
+
+export function verifiedGmailOAuthStateUserId(cookieValue: string, state: string, maxAgeMs = 10 * 60_000) {
+  const [payload, signature] = cookieValue.split(".");
+  if (!payload || !signature || signature !== signOAuthStatePayload(payload)) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      state?: unknown;
+      userId?: unknown;
+      issuedAt?: unknown;
+    };
+    if (parsed.state !== state) return null;
+    if (typeof parsed.userId !== "string" || !parsed.userId) return null;
+    if (typeof parsed.issuedAt !== "number" || Date.now() - parsed.issuedAt > maxAgeMs) return null;
+    return parsed.userId;
+  } catch {
+    return null;
+  }
 }
 
 export function gmailAuthorizationUrl(params: { state: string; origin?: string | null }) {

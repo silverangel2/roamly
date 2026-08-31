@@ -37,7 +37,46 @@ function loadReminderModule() {
   return sandbox.module.exports;
 }
 
+function loadEmailConnectionModule() {
+  const source = read("lib/roamly/emailConnections.ts");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 }
+  }).outputText;
+  const sandbox = {
+    exports: {},
+    module: { exports: {} },
+    require(id) {
+      if (id === "@/lib/supabase/admin") return { createSupabaseAdminClient: () => null };
+      if (id === "@/lib/roamly/bookingExtraction") return { extractAndMatchTravelEmailBooking: async () => null };
+      if (id === "@/lib/roamly/travelEmailFiltering") {
+        return {
+          filterTravelEmail: () => ({ shouldProcess: false }),
+          recordTravelEmailFilterResult: async () => ({ saved: false, filter: { shouldProcess: false } })
+        };
+      }
+      return nodeRequire(id);
+    },
+    Buffer,
+    process,
+    URL,
+    Date,
+    AbortSignal,
+    fetch
+  };
+  sandbox.exports = sandbox.module.exports;
+  vm.runInNewContext(compiled, sandbox, { filename: "emailConnections.ts" });
+  return sandbox.module.exports;
+}
+
 const reminders = loadReminderModule();
+const emailConnections = loadEmailConnectionModule();
+process.env.ROAMLY_TOKEN_ENCRYPTION_KEY = "gmail-oauth-state-test-secret";
+const oauthState = emailConnections.createGmailOAuthState("user-a");
+assert.equal(typeof oauthState.state, "string", "Gmail OAuth state exposes an opaque URL state");
+assert.equal(typeof oauthState.cookieValue, "string", "Gmail OAuth state stores the signed user binding in a cookie");
+assert.notEqual(oauthState.state, oauthState.cookieValue, "Gmail OAuth user binding must not be exposed as the URL state");
+assert.equal(emailConnections.verifiedGmailOAuthStateUserId(oauthState.cookieValue, oauthState.state), "user-a", "Gmail OAuth signed cookie recovers the initiating user");
+assert.equal(emailConnections.verifiedGmailOAuthStateUserId(oauthState.cookieValue, "wrong-state"), null, "Gmail OAuth state mismatch is rejected");
 const trip = {
   id: "trip-a",
   user_id: "user-a",
