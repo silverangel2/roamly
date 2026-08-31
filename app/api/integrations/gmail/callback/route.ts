@@ -6,6 +6,7 @@ import {
   getGmailProfile,
   GMAIL_OAUTH_STATE_COOKIE,
   renewGmailWatch,
+  syncGmailConnection,
   upsertGmailConnection
 } from "@/lib/roamly/emailConnections";
 
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
       emailAddress: profile?.emailAddress || auth.user.email || null
     });
     if (!saved.connection) throw new Error(saved.error || "Gmail connection failed.");
+    await syncGmailConnection({ supabase: auth.supabase, userId: auth.user.id }).catch(() => null);
     await renewGmailWatch({ supabase: auth.supabase, connection: saved.connection }).catch(() => null);
     return NextResponse.redirect(new URL("/account?gmail=connected", request.url));
   } catch {

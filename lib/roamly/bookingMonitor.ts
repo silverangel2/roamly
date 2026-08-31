@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  syncGmailConnection,
-  syncOutlookConnection
+  syncGmailConnection
 } from "@/lib/roamly/emailConnections";
 import {
   airportGateAdapter,
@@ -17,7 +16,7 @@ import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrato
 type ConnectionRow = {
   id: string;
   user_id: string;
-  provider: "gmail" | "outlook";
+  provider: "gmail";
   last_synced_at: string | null;
 };
 
@@ -665,7 +664,7 @@ export async function runScheduledBookingMonitor() {
         "id,user_id,provider,last_synced_at"
       )
       .eq("connection_status", "connected")
-      .in("provider", ["gmail", "outlook"])
+      .eq("provider", "gmail")
       .or(
         `last_synced_at.is.null,last_synced_at.lte.${dueBefore}`
       )
@@ -695,16 +694,10 @@ export async function runScheduledBookingMonitor() {
 
     for (const connection of connections) {
       try {
-        const syncResult =
-          connection.provider === "gmail"
-            ? await syncGmailConnection({
-                supabase: admin,
-                userId: connection.user_id
-              })
-            : await syncOutlookConnection({
-                supabase: admin,
-                userId: connection.user_id
-              });
+        const syncResult = await syncGmailConnection({
+          supabase: admin,
+          userId: connection.user_id
+        });
 
         emailResults.push({
           connectionId: connection.id,

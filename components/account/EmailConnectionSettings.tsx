@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type EmailConnection = {
-  provider: "gmail" | "outlook";
+  provider: "gmail";
   email_address: string | null;
   connection_status: string;
   last_synced_at: string | null;
@@ -19,16 +19,6 @@ const PROVIDERS = [
     connectLabel: "Connect Gmail",
     syncLabel: "Sync Gmail",
     disconnectLabel: "Disconnect Gmail"
-  },
-  {
-    provider: "outlook" as const,
-    name: "Outlook",
-    connectPath: "/api/integrations/outlook/connect",
-    syncPath: "/api/integrations/outlook/sync",
-    disconnectPath: "/api/integrations/outlook/disconnect",
-    connectLabel: "Connect Outlook",
-    syncLabel: "Sync Outlook",
-    disconnectLabel: "Disconnect Outlook"
   }
 ];
 
@@ -83,11 +73,11 @@ export function EmailConnectionSettings() {
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <p className="text-sm font-black text-ink">Travel email import</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-          Roamly checks for travel confirmations and travel changes. Personal emails are not saved or used for advertising.
+          Connect Gmail so Roamly can find travel confirmations, keep saved trips updated, and use confirmed bookings for reminders. Personal emails are not saved or used for advertising.
         </p>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3">
         {PROVIDERS.map((provider) => {
           const connection = connectionByProvider.get(provider.provider);
           const connected = connection?.connection_status === "connected" || connection?.connection_status === "syncing";

@@ -2898,7 +2898,7 @@ const liveCompanionQaConsole = read("components/admin/LiveCompanionQaConsole.tsx
 ].forEach((needle) => assert.ok(liveCompanionQaConsole.includes(needle), `Live Companion QA console missing ${needle}`));
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
-["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsIncrementalSync", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>
+["EMAIL_PROVIDER_ADAPTERS", "Gmail", "supportsIncrementalSync"].forEach((needle) =>
   assert.ok(emailProviderAdapters.includes(needle), `email provider adapter registry missing ${needle}`)
 );
 
@@ -2932,25 +2932,20 @@ const gmailWebhookRoute = read("app/api/webhooks/gmail/route.ts");
   assert.ok(gmailWebhookRoute.includes(needle), `Gmail webhook route missing ${needle}`)
 );
 
-const outlookConnectRoute = read("app/api/integrations/outlook/connect/route.ts");
-["OUTLOOK_OAUTH_STATE_COOKIE", "outlookAuthorizationUrl", "requireUser"].forEach((needle) =>
-  assert.ok(outlookConnectRoute.includes(needle), `Outlook connect route missing ${needle}`)
-);
-
-const outlookCallbackRoute = read("app/api/integrations/outlook/callback/route.ts");
-["exchangeOutlookCodeForTokens", "getOutlookProfile", "upsertOutlookConnection", "renewOutlookSubscription"].forEach((needle) =>
-  assert.ok(outlookCallbackRoute.includes(needle), `Outlook callback route missing ${needle}`)
-);
-
-const outlookWebhookRoute = read("app/api/webhooks/outlook/route.ts");
-["ROAMLY_OUTLOOK_WEBHOOK_SECRET", "validationToken", "syncOutlookConnection"].forEach((needle) =>
-  assert.ok(outlookWebhookRoute.includes(needle), `Outlook webhook route missing ${needle}`)
-);
+const outlookRoutes = [
+  "app/api/integrations/outlook/connect/route.ts",
+  "app/api/integrations/outlook/callback/route.ts",
+  "app/api/integrations/outlook/disconnect/route.ts",
+  "app/api/integrations/outlook/sync/route.ts",
+  "app/api/webhooks/outlook/route.ts"
+].map(read).join("\n");
+assert.ok(outlookRoutes.includes("supports Gmail connections only") || outlookRoutes.includes("supports Gmail webhooks only"), "legacy Outlook routes must be disabled");
 
 const emailConnectionSettings = read("components/account/EmailConnectionSettings.tsx");
-["Connect Gmail", "Disconnect Gmail", "Sync Gmail", "Connect Outlook", "Disconnect Outlook", "Sync Outlook", "Personal emails are not saved or used for advertising."].forEach((needle) =>
+["Connect Gmail", "Disconnect Gmail", "Sync Gmail", "Personal emails are not saved or used for advertising."].forEach((needle) =>
   assert.ok(emailConnectionSettings.includes(needle), `email connection settings missing ${needle}`)
 );
+assert.ok(!emailConnectionSettings.includes("Connect Outlook"), "account page must not advertise Outlook");
 
 const accountPageWithEmailImport = read("app/account/page.tsx");
 assert.ok(accountPageWithEmailImport.includes("EmailConnectionSettings"), "account page must expose mailbox controls separately from Google login");

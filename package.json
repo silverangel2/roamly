@@ -11,6 +11,7 @@
     "test:facebook-autopost": "node scripts/facebook-autopost-regression-checks.mjs",
     "proof:facebook-reels": "node scripts/facebook-reel-runtime-proof.mjs",
     "test:roamly": "node scripts/roamly-core-checks.mjs",
+    "test:gmail-bookings": "node scripts/roamly-gmail-booking-reminder-checks.mjs",
     "test:pdf": "node scripts/roamly-pdf-checks.mjs",
     "test:tracking": "node scripts/roamly-tracking-checks.mjs",
     "test:production": "node scripts/roamly-production-checks.mjs"

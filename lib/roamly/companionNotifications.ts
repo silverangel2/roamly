@@ -1,11 +1,13 @@
+import { sendPushNotification } from "@/lib/roamly/pushServer";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendRoamlyEmail } from "@/lib/roamly/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type CompanionNotificationType =
   | "booking_detected"
   | "booking_confirmed"
+  | "trip_predeparture_7d"
+  | "trip_predeparture_1d"
   | "flight_delay"
   | "flight_cancelled"
   | "booking_changed"
@@ -185,7 +187,7 @@ export async function queueCompanionNotification(
       notification_id: null,
       notification_type: params.type,
       priority: params.priority,
-      channel: "email",
+      channel: "push",
       title: params.title,
       body: params.body,
       action_label: params.actionLabel || null,
@@ -306,24 +308,6 @@ export async function sendCompanionNotificationDelivery(
     };
   }
 
-  const userResult = await admin.auth.admin.getUserById(delivery.user_id);
-  const recipient = userResult.data.user?.email || "";
-
-  if (!recipient) {
-    await admin
-      .from("roamly_companion_notification_deliveries")
-      .update({
-        status: "suppressed",
-        suppression_reason: "User email is missing."
-      })
-      .eq("id", delivery.id);
-
-    return {
-      ok: false as const,
-      error: "User email is missing."
-    };
-  }
-
   if (delivery.attempt_count >= delivery.max_attempts) {
     return { ok: false as const, error: "COMPANION_DELIVERY_ATTEMPTS_EXHAUSTED", alreadyFinished: true };
   }
@@ -352,23 +336,109 @@ export async function sendCompanionNotificationDelivery(
 
   const template = renderCompanionEmail(claimedDelivery);
 
-  const result = await sendRoamlyEmail({
-    to: recipient,
-    subject: template.subject,
-    html: template.html,
-    text: template.text,
-    userId: claimedDelivery.user_id,
-    tripId: claimedDelivery.trip_id,
-    notificationId: claimedDelivery.notification_id,
-    idempotencyKey: claimedDelivery.idempotency_key,
-    metadata: {
-      type: claimedDelivery.notification_type,
-      template: "companion_transactional",
-      deliveryId: claimedDelivery.id,
-      isTest: claimedDelivery.is_test,
-      ...(claimedDelivery.metadata_json || {})
+  /*
+   * LIVE COMPANION
+   *
+   * One event = one individual push notification.
+   * No transactional email.
+   */
+  const companionMetadata =
+    (claimedDelivery.metadata_json || {}) as Record<string, unknown>;
+
+  const activityId = String(
+    companionMetadata.activity_id ||
+    companionMetadata.activityId ||
+    companionMetadata.itinerary_activity_id ||
+    companionMetadata.itineraryActivityId ||
+    ""
+  ).trim();
+
+  const tripId = claimedDelivery.trip_id ? String(claimedDelivery.trip_id).trim() : "";
+  const queuedActionUrl = claimedDelivery.action_url ? String(claimedDelivery.action_url).trim() : "";
+  const actionUrl = activityId && tripId
+    ? `/trip/${tripId}/companion?activity=${encodeURIComponent(activityId)}`
+    : queuedActionUrl || (tripId ? `/trip/${tripId}/companion` : "/notifications");
+
+  const pushResult = await sendPushNotification(
+    admin,
+    claimedDelivery.user_id,
+    {
+      tripId: tripId || null,
+      type: claimedDelivery.notification_type || "live_companion",
+      title: template.subject || "Roamly Live Companion",
+      body: String(template.text || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 280),
+      actionUrl
+    },
+    {
+      sendEmail: companionMetadata.send_email === true,
+      notificationId: claimedDelivery.notification_id || null
     }
-  });
+  );
+
+  const notificationId = claimedDelivery.notification_id
+    ? String(claimedDelivery.notification_id)
+    : pushResult.notification?.data?.id
+      ? String(pushResult.notification.data.id)
+      : null;
+
+  const sentCount =
+    Number(pushResult.sent || 0);
+
+  const pushAccepted =
+    sentCount > 0;
+
+  /*
+   * Preserve the existing queue result contract.
+   *
+   * IMPORTANT:
+   * Existing queue logic expects status = "captured".
+   */
+  const result = {
+    ok: pushAccepted,
+
+    status:
+      "captured" as const,
+
+    provider:
+      "web-push",
+
+    providerMessageId:
+      notificationId,
+
+    permanent:
+      false,
+
+    error:
+      pushAccepted
+        ? null
+        : String(
+            pushResult.error ||
+            "No enabled device push subscription accepted this Companion notification."
+          ),
+
+    metadata: {
+      channel:
+        "push",
+
+      actionUrl,
+
+      activityId:
+        activityId || null,
+
+      sent:
+        sentCount,
+
+      failed:
+        Number(pushResult.failed || 0),
+
+      notificationId,
+
+      pushResult
+    }
+  };
 
   if (result.ok) {
     const status = result.status === "captured" ? "captured" : "sent";

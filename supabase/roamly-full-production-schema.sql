@@ -1087,7 +1087,14 @@ alter table public.roamly_trip_companion_events
     'activity_checked_in',
     'activity_skipped',
     'activity_completed',
-    'test_notification'
+    'arrival_detected',
+    'departure_reminder',
+    'running_late',
+    'route_status',
+    'booking_schedule_changed',
+    'test_notification',
+    'trip_predeparture_7d',
+    'trip_predeparture_1d'
   )),
   add constraint roamly_trip_companion_events_status_check check (status in ('scheduled', 'processing', 'shown', 'completed', 'skipped', 'cancelled'));
 
@@ -1175,6 +1182,15 @@ create index if not exists roamly_trip_companion_events_trip_idx on public.roaml
 create index if not exists roamly_trip_companion_events_booking_idx on public.roamly_trip_companion_events (booking_id);
 create index if not exists roamly_trip_companion_events_type_idx on public.roamly_trip_companion_events (event_type);
 create index if not exists roamly_trip_companion_events_status_idx on public.roamly_trip_companion_events (status, scheduled_for);
+create unique index if not exists roamly_trip_predeparture_reminder_uidx
+  on public.roamly_trip_companion_events (
+    user_id,
+    trip_id,
+    event_type,
+    ((metadata ->> 'reminder_key'))
+  )
+  where event_type in ('trip_predeparture_7d', 'trip_predeparture_1d')
+    and metadata ? 'reminder_key';
 create unique index if not exists roamly_push_subscriptions_endpoint_key on public.roamly_push_subscriptions (endpoint);
 create index if not exists roamly_push_subscriptions_user_idx on public.roamly_push_subscriptions (user_id);
 create index if not exists roamly_push_subscriptions_endpoint_idx on public.roamly_push_subscriptions (endpoint);

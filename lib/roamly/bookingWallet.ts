@@ -38,7 +38,6 @@ export const TRIP_BOOKING_SOURCE_TYPES = [
   "screenshot",
   "email",
   "gmail",
-  "outlook",
   "affiliate",
   "provider",
   "provider_sync",
@@ -275,6 +274,7 @@ function canonicalBookingStatus(
   travelerConfirmed: boolean
 ) {
   if (status === "cancelled") return "cancelled";
+  if (status === "refunded") return "cancelled";
   if (status === "confirmed" || travelerConfirmed) return "booked";
   return "unknown";
 }
@@ -282,7 +282,14 @@ function canonicalBookingStatus(
 function canonicalBookingType(type: TripBookingType) {
   if (type === "activity") return "attraction";
   if (type === "rental_car") return "car_rental";
-  if (type === "transfer") return "transport";
+  if (
+    type === "train" ||
+    type === "bus" ||
+    type === "ferry" ||
+    type === "transfer"
+  ) {
+    return "transport";
+  }
   return type;
 }
 

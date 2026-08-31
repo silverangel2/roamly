@@ -286,7 +286,7 @@ assert.ok(
 
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
-["EMAIL_PROVIDER_ADAPTERS", "Gmail", "Outlook", "supportsWatchNotifications", "MICROSOFT_OUTLOOK_CLIENT_ID"].forEach((needle) =>
+["EMAIL_PROVIDER_ADAPTERS", "Gmail", "supportsWatchNotifications"].forEach((needle) =>
   assert.ok(emailProviderAdapters.includes(needle), `email provider adapter registry missing ${needle}`)
 );
 
@@ -299,14 +299,17 @@ assert.ok(gmailCallbackRoute.includes("GMAIL_OAUTH_STATE_COOKIE") && gmailCallba
 const gmailWebhookRoute = read("app/api/webhooks/gmail/route.ts");
 assert.ok(gmailWebhookRoute.includes("ROAMLY_GMAIL_WEBHOOK_SECRET") && gmailWebhookRoute.includes("syncGmailConnection"), "Gmail webhook route must verify and trigger cursor sync");
 
-const outlookCallbackRoute = read("app/api/integrations/outlook/callback/route.ts");
-assert.ok(outlookCallbackRoute.includes("OUTLOOK_OAUTH_STATE_COOKIE") && outlookCallbackRoute.includes("upsertOutlookConnection"), "Outlook callback must validate state and store encrypted tokens");
-
-const outlookWebhookRoute = read("app/api/webhooks/outlook/route.ts");
-assert.ok(outlookWebhookRoute.includes("ROAMLY_OUTLOOK_WEBHOOK_SECRET") && outlookWebhookRoute.includes("syncOutlookConnection"), "Outlook webhook route must verify and trigger delta sync");
+const outlookRoutes = [
+  "app/api/integrations/outlook/connect/route.ts",
+  "app/api/integrations/outlook/callback/route.ts",
+  "app/api/integrations/outlook/disconnect/route.ts",
+  "app/api/integrations/outlook/sync/route.ts",
+  "app/api/webhooks/outlook/route.ts"
+].map(read).join("\n");
+assert.ok(outlookRoutes.includes("supports Gmail connections only") || outlookRoutes.includes("supports Gmail webhooks only"), "legacy Outlook routes must be disabled");
 
 const emailConnectionSettings = read("components/account/EmailConnectionSettings.tsx");
-assert.ok(emailConnectionSettings.includes("Connect Gmail") && emailConnectionSettings.includes("Connect Outlook") && emailConnectionSettings.includes("Personal emails are not saved"), "account page must expose clear email privacy controls");
+assert.ok(emailConnectionSettings.includes("Connect Gmail") && !emailConnectionSettings.includes("Connect Outlook") && emailConnectionSettings.includes("Personal emails are not saved"), "account page must expose clear Gmail privacy controls");
 
 const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.ts").includes("ROAMLY_STRIPE_FEATURES_PRICE_ID"));

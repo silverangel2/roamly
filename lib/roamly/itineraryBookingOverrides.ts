@@ -12,6 +12,7 @@ type BookingOverrideRecord = {
   provider?: string | null;
   provider_name?: string | null;
   title?: string | null;
+  confirmation_number?: string | null;
   start_time?: string | null;
   start_at?: string | null;
   end_time?: string | null;
@@ -25,6 +26,8 @@ type BookingOverrideRecord = {
   traveler_confirmed?: boolean | null;
   booking_segments?: Array<Record<string, unknown>> | null;
 };
+
+const activeBookingStatuses = ["booked", "paid", "reserved", "confirmed", "modified", "completed"];
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -159,6 +162,74 @@ function bookingIsUsableFlight(booking: BookingOverrideRecord) {
     Boolean(bookingStart(booking)) &&
     (booking.traveler_confirmed === true || ["confirmed", "modified", "completed", "booked", "paid", "reserved"].includes(status))
   );
+}
+
+function bookingIsConfirmed(booking: BookingOverrideRecord) {
+  const status = clean(booking.booking_status).toLowerCase();
+  return Boolean(booking.id) && (booking.traveler_confirmed === true || activeBookingStatuses.includes(status) || status === "cancelled");
+}
+
+function bookingDate(booking: BookingOverrideRecord) {
+  return isoDate(bookingStart(booking) || booking.end_time || booking.end_at);
+}
+
+function nonFlightCategory(booking: BookingOverrideRecord): RoamlyActivitySeed["item_type"] {
+  const type = clean(booking.booking_type).toLowerCase();
+  if (type === "hotel") return "hotel";
+  if (type === "restaurant") return "meal";
+  if (["transport", "car_rental"].includes(type)) return "transfer";
+  return "activity";
+}
+
+function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, booking: BookingOverrideRecord) {
+  const date = bookingDate(booking);
+  if (!date || !booking.id) return { itinerary, changed: false };
+  const dayIndex = itinerary.daily_itinerary.findIndex((day, index) => day.date ? isoDate(day.date) === date : index === 0);
+  const index = dayIndex >= 0 ? dayIndex : 0;
+  const day = itinerary.daily_itinerary[index];
+  if (!day) return { itinerary, changed: false };
+  const timeline = [...(day.live_timeline || [])];
+  const marker = String(booking.id);
+  const markedIndex = timeline.findIndex((item) => String((item as unknown as Record<string, unknown>).booking_id || "") === marker);
+  const status = clean(booking.booking_status).toLowerCase();
+  const cancelled = status === "cancelled";
+  const provider = clean(booking.provider || booking.provider_name);
+  const title = clean(booking.title) || provider || "Confirmed reservation";
+  const reference = clean(booking.confirmation_number) || clean((booking.reservation_requirements || {}).confirmation_number);
+  const start = bookingStart(booking);
+  const startMinutes = minutesFromDate(start) ?? 9 * 60;
+  const item = {
+    time_label: formatTimeLabel(startMinutes),
+    startTime: formatTime24(startMinutes),
+    title: `${cancelled ? "Cancelled" : "Confirmed"}: ${title}`,
+    description: [
+      cancelled ? "This booking was cancelled; do not navigate to it." : "Confirmed booking; this replaces the itinerary recommendation as the actual reservation.",
+      provider,
+      reference ? `Reference ${reference}` : "",
+      clean(booking.destination || booking.origin)
+    ].filter(Boolean).join(" "),
+    location_name: clean(booking.destination || booking.origin || title),
+    estimated_cost: 0,
+    category: cancelled ? "Cancelled booking" : "Confirmed booking",
+    map_query: clean(booking.destination || booking.origin || title),
+    item_type: nonFlightCategory(booking),
+    booking_id: marker,
+    booking_status: cancelled ? "cancelled" : "confirmed",
+    booking_label: cancelled ? "Cancelled booking" : "Confirmed booking"
+  } as unknown as RoamlyActivitySeed;
+  if (markedIndex >= 0) timeline[markedIndex] = item;
+  else timeline.push(item);
+  const daily_itinerary = itinerary.daily_itinerary.map((entry, entryIndex) => entryIndex === index ? { ...entry, live_timeline: timeline } : entry);
+  return {
+    itinerary: {
+      ...itinerary,
+      daily_itinerary,
+      booking_status_summary: cancelled
+        ? "Cancelled bookings are marked and excluded from active trip guidance."
+        : "Confirmed reservations are authoritative; itinerary recommendations remain visible as history only."
+    },
+    changed: true
+  };
 }
 
 function flightItemIndex(items: RoamlyActivitySeed[]) {
@@ -309,6 +380,10 @@ export function applyConfirmedBookingOverrideToItinerary(
   itinerary: RoamlyItinerary,
   booking: BookingOverrideRecord
 ) {
+  if (!bookingIsConfirmed(booking)) return { itinerary, changed: false };
+  if (clean(booking.booking_type).toLowerCase() !== "flight") {
+    return applyNonFlightBookingOverrideToItinerary(itinerary, booking);
+  }
   if (!bookingIsUsableFlight(booking)) return { itinerary, changed: false };
   const startDate = isoDate(bookingStart(booking));
   const endDate = isoDate(bookingEnd(booking));
@@ -349,7 +424,7 @@ export async function applyStoredItineraryBookingOverride(params: {
   tripId: string;
   booking: BookingOverrideRecord;
 }) {
-  if (!bookingIsUsableFlight(params.booking)) return { ok: true as const, changed: false };
+  if (!bookingIsConfirmed(params.booking)) return { ok: true as const, changed: false };
   const { data, error } = await params.supabase
     .from("roamly_itineraries")
     .select("id,full_json")

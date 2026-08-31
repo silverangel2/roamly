@@ -564,7 +564,20 @@ export function scoreTripForEmailLookbackMatch(
 export function shouldAutoApplyEmailLookbackExtraction(params: {
   extraction: StructuredBookingExtraction;
   matchScore: number;
+  matchReasons?: string[];
 }) {
+  const exactExistingBookingMatch =
+    params.matchReasons?.includes("exact_existing_booking_match") ||
+    params.matchReasons?.includes("flight_number_time_existing_booking_match");
+
+  if (exactExistingBookingMatch) {
+    return (
+      params.extraction.overallConfidence >= 0.6 &&
+      params.matchScore >= 0.9 &&
+      Boolean(params.extraction.booking.confirmationCode || params.extraction.booking.flightNumber)
+    );
+  }
+
   return (
     params.extraction.overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE &&
     params.extraction.missingFields.length === 0 &&
@@ -729,7 +742,8 @@ export async function extractAndMatchTravelEmailBooking(params: {
   const existingBookingId = "existingBookingId" in match ? match.existingBookingId || null : null;
   const canAttach = shouldAutoApplyEmailLookbackExtraction({
     extraction,
-    matchScore: match.score
+    matchScore: match.score,
+    matchReasons
   });
   if (!canAttach) {
     await persistExtraction({
@@ -746,12 +760,7 @@ export async function extractAndMatchTravelEmailBooking(params: {
     return { attached: false, status: "needs_confirmation" as const, tripId: match.trip.id, extraction };
   }
 
-  const emailSource =
-    params.connection.provider === "gmail"
-      ? "gmail"
-      : params.connection.provider === "outlook"
-        ? "outlook"
-        : "email";
+  const emailSource = "gmail" as const;
   const existingReservationRequirements =
     "reservationRequirements" in extraction.booking &&
     extraction.booking.reservationRequirements &&

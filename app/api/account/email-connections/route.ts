@@ -9,6 +9,7 @@ export async function GET() {
     .from("email_connections")
     .select("provider,email_address,connection_status,last_synced_at,disconnected_at,updated_at")
     .eq("user_id", auth.user.id)
+    .eq("provider", "gmail")
     .order("provider", { ascending: true });
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

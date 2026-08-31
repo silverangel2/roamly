@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processQueuedCompanionNotifications } from "@/lib/roamly/companionNotifications";
+import { schedulePreTripReminders } from "@/lib/roamly/preTripReminders";
 import { sendScheduledTripNotifications } from "@/lib/roamly/pushServer";
-import { scheduleCompanionBriefings } from "@/lib/roamly/companionBriefings";
 
 export async function GET(request: NextRequest) {
   const secret = (
@@ -44,13 +44,27 @@ export async function GET(request: NextRequest) {
 
   const briefingResult =
     await Promise.resolve(
-      scheduleCompanionBriefings()
+      Promise.resolve({
+      ok: true,
+      scheduled: 0,
+      skipped: true,
+      reason: "Individual Live Companion push mode is enabled."
+    })
     ).catch((error) => ({
       ok: false,
       error:
         error instanceof Error
           ? error.message
           : "Companion briefing scheduling failed."
+    }));
+
+  const preTrip =
+    await schedulePreTripReminders().catch((error) => ({
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Pre-trip reminder scheduling failed."
     }));
 
   const [scheduledResult, companionResult] =
@@ -85,6 +99,7 @@ export async function GET(request: NextRequest) {
 
   const ok =
     briefingResult.ok === true &&
+    preTrip.ok === true &&
     scheduled.ok === true &&
     companion.ok === true;
 
@@ -92,6 +107,7 @@ export async function GET(request: NextRequest) {
     {
       ok,
       briefings: briefingResult,
+      preTrip,
       scheduled,
       companion,
       processedAt: new Date().toISOString()

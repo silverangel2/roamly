@@ -45,6 +45,9 @@ type ReconciliationBooking = {
 };
 
 const statusRank: Record<string, number> = {
+  booked: 100,
+  paid: 100,
+  reserved: 95,
   confirmed: 100,
   modified: 90,
   detected: 70,
@@ -53,7 +56,8 @@ const statusRank: Record<string, number> = {
   clicked: 20,
   completed: 10,
   cancelled: 0,
-  refunded: 0
+  refunded: 0,
+  unknown: 0
 };
 
 function clean(value: unknown) {
@@ -119,8 +123,8 @@ function mergeMissingFields(primary: ReconciliationBooking, duplicate: Reconcili
   const update: Record<string, unknown> = {};
   [
     "provider_booking_id",
-    "confirmation_code",
-    "start_time",
+    "confirmation_number",
+    "start_at",
     "origin",
     "destination",
     "flight_number"
