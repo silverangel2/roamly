@@ -55,6 +55,8 @@ assert(!/lavfi/.test(generator), "active Reel generator does not use lavfi audio
 assert(/source\?: string \| null/.test(automation), "media asset resolver models the top-level source column");
 assert(/select\("id,platform,status,title,media_url,asset_type,source,/.test(automation), "media asset resolver reads top-level source provenance");
 assert(/isLegacyRoamlyGeneratedVideoAsset/.test(automation), "legacy generated Roamly video classification is centralized");
+assert(/findPriorPublishedVisual/.test(automation) && /replaceRoamlyReelAudio/.test(automation), "legacy repair resolves a prior matching published visual and replaces audio only");
+assert(/audioRepairOnly: true/.test(automation) && /visualPreserved: true/.test(automation), "legacy repair records visual-preserved audio-only provenance");
 assert(/codex_roamly_premium_reel_campaign/.test(automation), "legacy campaign source is blocked");
 assert(/roamly-premium-reels-2026-08/.test(automation), "legacy campaignId/path is blocked even when source metadata is missing");
 assert(/return false;/.test(automation.slice(automation.indexOf("function pickAutomationMediaAsset"))), "automatic picking excludes legacy generated Roamly campaign videos");
