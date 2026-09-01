@@ -2273,19 +2273,6 @@ async function ensureReelVideo(
   const draftMetadata = objectValue(draft.metadata);
   const boundSourceId = clean(String(draftMetadata.sourceMediaAssetId || draftMetadata.sourceImageAssetId || ""));
   const boundSourceUrl = clean(String(draftMetadata.sourceMediaUrl || draftMetadata.sourceImageUrl || ""));
-  if (boundSourceId && draft.selected_media_asset_id && draft.selected_media_asset_id !== boundSourceId) {
-    const selectedMetadata = objectValue(selectedAsset?.metadata);
-    const selectedSourceId = clean(String(selectedMetadata.sourceMediaAssetId || selectedMetadata.sourceImageAssetId || ""));
-    if (selectedSourceId !== boundSourceId) {
-      throw new FacebookGraphError("The selected Reel asset is not bound to this draft's campaign photo.", false, {
-        draftId: draft.id,
-        boundSourceId,
-        selectedAssetId: draft.selected_media_asset_id,
-        selectedSourceId: selectedSourceId || null
-      });
-    }
-  }
-
   // Roamly photo campaigns are bound to the photo selected for this draft.
   // Resolve that photo before looking at selected_media_url so an old/generated
   // MP4 from this or another draft can never determine the visual.
