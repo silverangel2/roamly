@@ -147,6 +147,15 @@ type SocialMediaAssetRow = {
   created_at: string;
 };
 
+function metadataText(metadata: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  const value = objectValue(metadata);
+  for (const key of keys) {
+    const candidate = clean(String(value[key] || ""));
+    if (candidate) return candidate;
+  }
+  return "";
+}
+
 export type QueueWithDraft = {
   id: string;
   draft_id: string;
@@ -1298,8 +1307,15 @@ async function buildDrafts(
       brand
     });
     const hashtags = hashtagsFor(category, brand === "reviewintel" ? topic : destination, index, brand);
-    const suggestedMedia = "";
-    const selectedMediaUrl = "";
+    const campaignPhoto = brand === "roamly"
+      ? await pickCampaignPhotoAsset(admin, brand, destination, topic)
+      : null;
+    if (brand === "roamly" && !campaignPhoto) {
+      safety += 1;
+      continue;
+    }
+    const suggestedMedia = campaignPhoto?.media_url || "";
+    const selectedMediaUrl = campaignPhoto?.media_url || "";
     const conceptKey = `${brand}-${slug(category)}-${slug(topic)}-${slug(destination)}-${String(index).padStart(3, "0")}`;
     const draftBase = {
       contentType: category,
@@ -1312,7 +1328,7 @@ async function buildDrafts(
       onScreenText: onScreenTextFor(postFormat, category, hook, topic, brand),
       mediaDirection: mediaDirectionFor(postFormat, category, destination, topic, brand),
       suggestedMedia,
-      selectedMediaAssetId: null,
+      selectedMediaAssetId: campaignPhoto?.id || null,
       selectedMediaUrl,
       callToAction: cta,
       hashtags,
@@ -1324,6 +1340,11 @@ async function buildDrafts(
       scheduledFor: scheduledTimes[drafts.length] || new Date(Date.now() + (drafts.length + 1) * 86_400_000).toISOString(),
       metadata: withBrandMetadata(brand, {
         destination,
+        sourceMediaAssetId: campaignPhoto?.id || null,
+        sourceImageAssetId: campaignPhoto?.id || null,
+        sourceMediaUrl: campaignPhoto?.media_url || null,
+        sourceImageUrl: campaignPhoto?.media_url || null,
+        visualSelection: campaignPhoto ? "destination_matched_approved_photo" : null,
         promotional,
         affiliate: Boolean(affiliateLink),
         reelOnly: true,
@@ -2125,6 +2146,46 @@ async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSo
   return sortAutomationAssets(assets)[0] || null;
 }
 
+async function pickCampaignPhotoAsset(
+  admin: SupabaseClient,
+  brand: FacebookSocialBrand,
+  destination: string,
+  topic: string
+) {
+  const { data, error } = await admin
+    .from("roamly_social_media_assets")
+    .select("id,platform,status,title,media_url,asset_type,source,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
+    .eq("approved_for_automation", true)
+    .eq("excluded_from_automation", false)
+    .order("use_count", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.warn("[Roamly social] campaign photo selection failed", error.message);
+    return null;
+  }
+
+  const destinationKey = slug(destination);
+  const topicKey = slug(topic);
+  const candidates = ((data || []) as SocialMediaAssetRow[]).filter((asset) => {
+    if (!isApprovedAutomationAsset(asset, brand) || assetType(asset) !== "image") return false;
+    const metadata = objectValue(asset.metadata);
+    const assetDestination = slug(metadataText(metadata, "destination", "city", "location"));
+    const assetTopic = slug(metadataText(metadata, "topic", "theme", "contentKey", "conceptKey"));
+    const title = slug(asset.title || "");
+    const source = slug(asset.source || "");
+    return (
+      (assetDestination && assetDestination === destinationKey) ||
+      (assetTopic && (assetTopic === topicKey || assetTopic.includes(topicKey) || topicKey.includes(assetTopic))) ||
+      title.includes(destinationKey) ||
+      source.includes(destinationKey)
+    );
+  });
+
+  return sortAutomationAssets(candidates)[0] || null;
+}
+
 function draftHashtags(draft: SocialDraftRow) {
   return Array.isArray(draft.hashtags)
     ? draft.hashtags.map((tag) => tag.replace(/^#/, "")).filter(Boolean)
@@ -2144,7 +2205,8 @@ async function insertGeneratedReelMediaAsset(
   admin: SupabaseClient,
   draft: SocialDraftRow,
   config: FacebookBrandConfig,
-  video: Awaited<ReturnType<typeof generateFreshSocialReelVideo>>
+  video: Awaited<ReturnType<typeof generateFreshSocialReelVideo>>,
+  provenance: { sourceMediaAssetId?: string | null; sourceMediaUrl?: string | null } = {}
 ) {
   const { data, error } = await admin
     .from("roamly_social_media_assets")
@@ -2173,7 +2235,12 @@ async function insertGeneratedReelMediaAsset(
         public_url: video.publicUrl,
         object_path: video.objectPath,
         audio_track: video.audioTrack,
-        source_draft_id: draft.id
+        source_draft_id: draft.id,
+        sourceMediaAssetId: provenance.sourceMediaAssetId || null,
+        sourceImageAssetId: provenance.sourceMediaAssetId || null,
+        sourceMediaUrl: provenance.sourceMediaUrl || null,
+        sourceImageUrl: provenance.sourceMediaUrl || null,
+        sourceDraftId: draft.id
       })
     })
     .select("id")
@@ -2212,12 +2279,35 @@ async function ensureReelVideo(
   }
 
   const selectedAsset = (asset.data || null) as SocialMediaAssetRow | null;
-  const pickedAsset = !existingUrl && !selectedAsset
+  const draftMetadata = objectValue(draft.metadata);
+  const boundSourceId = clean(String(draftMetadata.sourceMediaAssetId || draftMetadata.sourceImageAssetId || ""));
+  const boundSourceUrl = clean(String(draftMetadata.sourceMediaUrl || draftMetadata.sourceImageUrl || ""));
+  if (boundSourceId && draft.selected_media_asset_id && draft.selected_media_asset_id !== boundSourceId) {
+    const selectedMetadata = objectValue(selectedAsset?.metadata);
+    const selectedSourceId = clean(String(selectedMetadata.sourceMediaAssetId || selectedMetadata.sourceImageAssetId || ""));
+    if (selectedSourceId !== boundSourceId) {
+      throw new FacebookGraphError("The selected Reel asset is not bound to this draft's campaign photo.", false, {
+        draftId: draft.id,
+        boundSourceId,
+        selectedAssetId: draft.selected_media_asset_id,
+        selectedSourceId: selectedSourceId || null
+      });
+    }
+  }
+  const pickedAsset = config.brand !== "roamly" && !existingUrl && !selectedAsset
     ? await pickAutomationMediaAsset(admin, config.brand)
     : null;
   let sourceAsset = selectedAsset || pickedAsset;
   let sourceUrl = existingUrl || assetUrl(sourceAsset);
   let sourceType = sourceAsset ? assetType(sourceAsset) : videoLooksSupported(sourceUrl) ? "video" : "";
+
+  if (config.brand === "roamly" && boundSourceId && sourceType === "video" && !sourceAsset) {
+    throw new FacebookGraphError("A photo-bound Roamly draft cannot use an untracked Reel MP4.", false, {
+      draftId: draft.id,
+      boundSourceId,
+      mediaUrl: sourceUrl
+    });
+  }
 
   if (sourceUrl && sourceType === "video") {
     /*
@@ -2330,7 +2420,8 @@ async function ensureReelVideo(
             admin,
             draft,
             config,
-            video
+            video,
+            { sourceMediaAssetId: originalPhoto.id, sourceMediaUrl: originalPhotoUrl }
           );
 
           const generatedReelVideo = {
@@ -2497,7 +2588,10 @@ async function ensureReelVideo(
       serviceKey,
       audioSeed: `${config.brand}:static-photo:${queueId}:${draft.id}:${sourceAsset?.id || Date.now()}`
     });
-    const mediaAssetId = await insertGeneratedReelMediaAsset(admin, draft, config, video);
+    const mediaAssetId = await insertGeneratedReelMediaAsset(admin, draft, config, video, {
+      sourceMediaAssetId: sourceAsset?.id || (boundSourceId || null),
+      sourceMediaUrl: sourceUrl || (boundSourceUrl || null)
+    });
     const generatedReelVideo = {
       filename: video.filename,
       objectPath: video.objectPath,
@@ -2570,6 +2664,14 @@ async function ensureReelVideo(
 
   if (sourceUrl) {
     throw new FacebookGraphError("The selected Facebook Reel media asset is unsupported.", false, { mediaUrl: sourceUrl, mediaType: sourceType || null });
+  }
+
+  if (config.brand === "roamly" && (boundSourceId || boundSourceUrl)) {
+    throw new FacebookGraphError("A campaign photo was bound to this draft but could not be resolved.", false, {
+      draftId: draft.id,
+      boundSourceId: boundSourceId || null,
+      boundSourceUrl: boundSourceUrl || null
+    });
   }
 
   const { supabaseUrl, serviceKey } = supabaseMediaConfig();
