@@ -55,12 +55,13 @@ assert(!/lavfi/.test(generator), "active Reel generator does not use lavfi audio
 assert(/source\?: string \| null/.test(automation), "media asset resolver models the top-level source column");
 assert(/select\("id,platform,status,title,media_url,asset_type,source,/.test(automation), "media asset resolver reads top-level source provenance");
 assert(/isLegacyRoamlyGeneratedVideoAsset/.test(automation), "legacy generated Roamly video classification is centralized");
-assert(/findPriorPublishedVisual/.test(automation) && /replaceRoamlyReelAudio/.test(automation), "legacy repair resolves a prior matching published visual and replaces audio only");
-assert(/audioRepairOnly: true/.test(automation) && /visualPreserved: true/.test(automation), "legacy repair records visual-preserved audio-only provenance");
+assert(!/findPriorPublishedVisual/.test(automation) && !/replaceRoamlyReelAudio/.test(automation), "visual path does not reuse prior published/generated MP4s");
+assert(/Generated Reels are outputs, never reusable visual sources/.test(automation), "generated Reel assets return to fresh generation");
+assert(/generateStaticSocialPosterReelVideo/.test(automation) && /generateFreshSocialReelVideo/.test(automation), "visual path retains photo and fresh Reel generation");
 assert(/codex_roamly_premium_reel_campaign/.test(automation), "legacy campaign source is blocked");
 assert(/roamly-premium-reels-2026-08/.test(automation), "legacy campaignId/path is blocked even when source metadata is missing");
 assert(/return false;/.test(automation.slice(automation.indexOf("function pickAutomationMediaAsset"))), "automatic picking excludes legacy generated Roamly campaign videos");
-assert(/ROAMLY_BLOCKED_STALE_GENERATED_REEL_AUDIO/.test(automation), "selected legacy generated Roamly videos are rejected before Meta upload when regeneration is unavailable");
+assert(/sourceUrl = \"\"/.test(automation) && /sourceType = \"\"/.test(automation), "selected generated MP4s are cleared before fresh generation");
 assert(/mode: "original_video"/.test(automation), "genuine uploaded/original videos still have an original_video pass-through path");
 assert(/proof_reel/.test(cron), "protected runtime proof action is available");
 assert(/runFacebookAutomationForAllBrands/.test(cron), "cron default can run both brands");

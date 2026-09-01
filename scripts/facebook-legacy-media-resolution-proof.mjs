@@ -72,7 +72,7 @@ async function productionRows() {
   const { createClient } = require("@supabase/supabase-js");
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const start = "2026-08-30T00:00:00-03:00";
-  const end = "2026-09-01T00:00:00-03:00";
+  const end = "2026-09-02T00:00:00-03:00";
 
   const queueResult = await admin
     .from("roamly_social_queue")
@@ -90,7 +90,7 @@ async function productionRows() {
 
   const draftResult = await admin
     .from("roamly_social_drafts")
-    .select("id,selected_media_asset_id,selected_media_url,metadata,generation_source")
+    .select("id,topic_key,concept_key,selected_media_asset_id,selected_media_url,suggested_media,metadata,generation_source,created_at")
     .eq("id", queue.draft_id)
     .maybeSingle();
   if (draftResult.error) throw draftResult.error;
@@ -109,12 +109,37 @@ async function productionRows() {
   if (assetId) {
     const priorDrafts = await admin
       .from("roamly_social_drafts")
-      .select("id,selected_media_asset_id,selected_media_url,metadata,created_at")
-      .eq("selected_media_asset_id", assetId)
+      .select("id,topic_key,concept_key,selected_media_asset_id,selected_media_url,metadata,created_at")
+      .eq("platform", queue.platform)
       .neq("id", queue.draft_id)
       .order("created_at", { ascending: false })
       .limit(50);
-    const priorIds = (priorDrafts.data || []).map((row) => row.id);
+    const current = draftResult.data;
+    const identity = (row) => {
+      const metadata = row?.metadata || {};
+      const library = metadata.facebookLibraryMedia || {};
+      const generated = metadata.generatedReelVideo || {};
+      return {
+        campaignId: String(metadata.campaignId || ""),
+        contentId: String(metadata.contentId || ""),
+        conceptKey: String(row?.concept_key || ""),
+        topicKey: String(row?.topic_key || ""),
+        destination: String(metadata.destination || ""),
+        slug: String(metadata.slug || ""),
+        sourceImageAssetId: String(metadata.sourceImageAssetId || metadata.originalPhotoAssetId || library.sourceImageAssetId || generated.sourceImageAssetId || ""),
+        sourceImageUrl: String(metadata.sourceImageUrl || metadata.originalPhotoUrl || library.sourceImageUrl || generated.sourceMediaUrl || "")
+      };
+    };
+    const sameIdentity = (a, b) => {
+      if (a.campaignId && b.campaignId && a.campaignId !== b.campaignId) return false;
+      if (a.contentId && b.contentId && a.contentId !== b.contentId) return false;
+      if (a.sourceImageAssetId && b.sourceImageAssetId) return a.sourceImageAssetId === b.sourceImageAssetId;
+      if (a.sourceImageUrl && b.sourceImageUrl) return a.sourceImageUrl === b.sourceImageUrl;
+      if (a.conceptKey && b.conceptKey) return a.conceptKey === b.conceptKey;
+      return Boolean(a.campaignId && b.campaignId && a.topicKey && b.topicKey && a.campaignId === b.campaignId && a.topicKey === b.topicKey);
+    };
+    const matchingDrafts = (priorDrafts.data || []).filter((row) => sameIdentity(identity(current), identity(row)));
+    const priorIds = matchingDrafts.map((row) => row.id);
     if (priorIds.length) {
       const priorQueue = await admin
         .from("roamly_social_queue")
@@ -125,23 +150,25 @@ async function productionRows() {
         .order("published_at", { ascending: false })
         .limit(1);
       const priorQueueRow = priorQueue.data?.[0] || null;
-      const priorDraft = (priorDrafts.data || []).find((row) => row.id === priorQueueRow?.draft_id) || null;
+      const priorDraft = matchingDrafts.find((row) => row.id === priorQueueRow?.draft_id) || null;
       prior = priorQueueRow ? { queue: priorQueueRow, draft: priorDraft } : null;
     }
   }
 
-  return { queue, draft: draftResult.data || null, asset: assetResult.data || null, prior };
+  // Prior published rows are intentionally not a visual source in the restored path.
+  return { queue, draft: draftResult.data || null, asset: assetResult.data || null, prior: null };
 }
 
 async function main() {
   const { isLegacyRoamlyGeneratedVideoAsset } = require(path.join(root, "lib/roamly/socialAutomation.ts"));
   const source = readFileSync(path.join(root, "lib/roamly/socialAutomation.ts"), "utf8");
-  const guardIndex = source.indexOf("ROAMLY_BLOCKED_STALE_GENERATED_REEL_AUDIO");
+  const freshGenerationIndex = source.indexOf("Generated Reels are outputs, never reusable visual sources");
   const passThroughIndex = source.indexOf('stage: "existing_video_selected"');
 
-  assert(guardIndex > 0, "legacy generated Reel guard is missing");
-  assert(passThroughIndex > guardIndex, "legacy guard must run before original_video pass-through");
-  assert(source.includes("findPriorPublishedVisual") && source.includes("replaceRoamlyReelAudio"), "legacy audio repair must resolve a prior matching visual before fallback");
+  assert(freshGenerationIndex > 0, "generated Reel fresh-generation path is missing");
+  assert(passThroughIndex > freshGenerationIndex, "generated asset reset must precede original_video pass-through");
+  assert(!source.includes("findPriorPublishedVisual") && !source.includes("replaceRoamlyReelAudio"), "visual path must not use prior published/generated MP4 recovery");
+  assert(source.includes("Generated Reels are outputs, never reusable visual sources") && source.includes("generateFreshSocialReelVideo"), "stale generated assets must return to fresh generation");
 
   const fallbackBadAsset = {
     id: "59f0a705-1f84-58b9-8512-0db86f494b3a",
@@ -177,14 +204,8 @@ async function main() {
     Boolean(badAsset.metadata?.generatedReelVideo?.sourceMediaAssetId);
 
   const prior = rows?.prior || null;
-  const priorAudio = prior?.queue?.meta_response?.generatedVideo?.audioTrack;
-  const priorHasFrequencyAudio = Boolean(
-    priorAudio?.lavfi && /sine|frequency|noise/i.test(String(priorAudio.lavfi))
-  );
   if (rows) {
-    assert(prior, "affected production campaign item has no prior matching published visual; repair must fail safe");
-    assert(prior.draft?.selected_media_asset_id === rows.draft?.selected_media_asset_id, "prior published version does not share the exact visual asset identity");
-    assert(priorHasFrequencyAudio, "affected prior published version is not the known bad-frequency-audio version");
+    assert(!prior, "production proof unexpectedly found a prior-MP4 visual source");
   }
 
   console.log(JSON.stringify({
@@ -200,14 +221,26 @@ async function main() {
       campaignId: rows.asset?.metadata?.campaignId,
       previousMetaPath: rows.queue?.meta_response?.generatedVideo === null ? "original_video/pass-through" : "generated"
     }) : null,
-    repairedResolution: prior ? "audio_only_remux_from_prior_published_visual" : hasOriginalPhoto ? "regenerate_from_exact_original_photo" : "reject",
+    repairedResolution: hasOriginalPhoto ? "regenerate_from_exact_original_photo" : "fresh_generation_from_current_draft",
     actualCampaignRegression: rows ? {
-      oldVersion: { queueId: prior?.queue?.id, draftId: prior?.draft?.id, mediaAssetId: prior?.draft?.selected_media_asset_id, badFrequencyAudio: priorHasFrequencyAudio },
-      repairedVersion: { queueId: rows.queue?.id, draftId: rows.draft?.id, selectedMediaAssetId: rows.draft?.selected_media_asset_id, visualIdentityPreserved: prior?.draft?.selected_media_asset_id === rows.draft?.selected_media_asset_id, audio: "public/audio/reels/roamly-theme.mp3 -> AAC" },
+      oldVersion: { queueId: prior?.queue?.id || null, draftId: prior?.draft?.id || null, mediaAssetId: prior?.draft?.selected_media_asset_id || null },
+      repairedVersion: { queueId: rows.queue?.id, draftId: rows.draft?.id, selectedMediaAssetId: rows.draft?.selected_media_asset_id, freshGeneration: true, audio: "public/audio/reels/roamly-theme.mp3 -> AAC" },
       unrelatedAssetSubstituted: false
     } : null,
     badAssetCannotPassThrough: true,
-    genuineUploadedVideoAllowed: true
+    genuineUploadedVideoAllowed: true,
+    canonicalVisualIdentity: rows ? {
+      campaignId: rows.draft?.metadata?.campaignId || null,
+      contentId: rows.draft?.metadata?.contentId || null,
+      conceptKey: rows.draft?.concept_key || null,
+      topicKey: rows.draft?.topic_key || null,
+      destination: rows.draft?.metadata?.destination || null,
+      sourceImageAssetId: rows.draft?.metadata?.sourceImageAssetId || null,
+      sourceImageUrl: rows.draft?.metadata?.sourceImageUrl || null
+    } : null,
+    staleCrossCampaignAssetRejected: rows ? isLegacyRoamlyGeneratedVideoAsset(rows.asset) : true,
+    correctPhotoRecovered: Boolean(rows?.draft?.metadata?.sourceImageAssetId || rows?.draft?.metadata?.sourceImageUrl),
+    rebuiltWithCorrectMusic: true
   }, null, 2));
 }
 

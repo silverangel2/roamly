@@ -4,7 +4,7 @@ import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/ama
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
 import { probeFacebookAccessibleUrl } from "@/lib/roamly/publicSocialStorage";
-import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
+import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
 
 import {
   getRoamlyFacebookConnectionStatus,
@@ -2187,52 +2187,6 @@ async function insertGeneratedReelMediaAsset(
   return (data?.id as string | undefined) || null;
 }
 
-async function findPriorPublishedVisual(
-  admin: SupabaseClient,
-  currentDraftId: string,
-  platform: string,
-  sourceMediaAssetId: string
-) {
-  if (!sourceMediaAssetId) return null;
-  const { data: drafts, error: draftsError } = await admin
-    .from("roamly_social_drafts")
-    .select("id,selected_media_asset_id,selected_media_url,metadata,created_at")
-    .eq("selected_media_asset_id", sourceMediaAssetId)
-    .neq("id", currentDraftId)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (draftsError || !drafts?.length) return null;
-
-  const draftIds = drafts.map((draft) => draft.id);
-  const { data: queues, error: queuesError } = await admin
-    .from("roamly_social_queue")
-    .select("id,draft_id,published_at,meta_response")
-    .eq("platform", platform)
-    .eq("queue_status", "published")
-    .in("draft_id", draftIds)
-    .order("published_at", { ascending: false })
-    .limit(20);
-  if (queuesError || !queues?.length) return null;
-
-  const prior = queues[0] as {
-    id: string;
-    draft_id: string;
-    published_at: string | null;
-    meta_response: Record<string, unknown> | null;
-  };
-  const priorDraft = drafts.find((draft) => draft.id === prior.draft_id);
-  const metaResponse = objectValue(prior.meta_response);
-  const mediaUrl = clean(String(metaResponse.mediaUrl || priorDraft?.selected_media_url || ""));
-  if (!mediaUrl || !videoLooksSupported(mediaUrl)) return null;
-  return {
-    queueId: prior.id,
-    draftId: prior.draft_id,
-    publishedAt: prior.published_at,
-    mediaUrl,
-    metadata: objectValue(priorDraft?.metadata)
-  };
-}
-
 async function ensureReelVideo(
   admin: SupabaseClient,
   queueId: string,
@@ -2261,9 +2215,9 @@ async function ensureReelVideo(
   const pickedAsset = !existingUrl && !selectedAsset
     ? await pickAutomationMediaAsset(admin, config.brand)
     : null;
-  const sourceAsset = selectedAsset || pickedAsset;
-  const sourceUrl = existingUrl || assetUrl(sourceAsset);
-  const sourceType = sourceAsset ? assetType(sourceAsset) : videoLooksSupported(sourceUrl) ? "video" : "";
+  let sourceAsset = selectedAsset || pickedAsset;
+  let sourceUrl = existingUrl || assetUrl(sourceAsset);
+  let sourceType = sourceAsset ? assetType(sourceAsset) : videoLooksSupported(sourceUrl) ? "video" : "";
 
   if (sourceUrl && sourceType === "video") {
     /*
@@ -2290,11 +2244,19 @@ async function ensureReelVideo(
 
       const rawOriginalSourceMediaAssetId =
         sourceAssetMetadata.sourceMediaAssetId ??
+        sourceAssetMetadata.sourceImageAssetId ??
+        sourceAssetMetadata.originalPhotoAssetId ??
         libraryMediaMetadata.sourceMediaAssetId ??
+        libraryMediaMetadata.sourceImageAssetId ??
         generatedReelMetadata.sourceMediaAssetId ??
+        generatedReelMetadata.sourceImageAssetId ??
         draftMetadata.sourceMediaAssetId ??
+        draftMetadata.sourceImageAssetId ??
+        draftMetadata.originalPhotoAssetId ??
         draftLibraryMediaMetadata.sourceMediaAssetId ??
+        draftLibraryMediaMetadata.sourceImageAssetId ??
         draftGeneratedReelMetadata.sourceMediaAssetId ??
+        draftGeneratedReelMetadata.sourceImageAssetId ??
         "";
 
       const originalSourceMediaAssetId = clean(
@@ -2426,142 +2388,20 @@ async function ensureReelVideo(
         }
       }
 
-      const priorPublishedVisual = await findPriorPublishedVisual(
-        admin,
-        draft.id,
-        config.platform,
-        sourceAsset.id
-      );
-      if (priorPublishedVisual) {
-        const { supabaseUrl, serviceKey } = supabaseMediaConfig();
-        if (!supabaseUrl || !serviceKey) {
-          throw new FacebookGraphError(
-            "Legacy Reel audio repair requires NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.",
-            false,
-            { priorQueueId: priorPublishedVisual.queueId }
-          );
-        }
-
-        console.log("[ROAMLY_REPAIR_LEGACY_REEL_AUDIO_ONLY]", {
-          queueId,
-          draftId: draft.id,
-          priorQueueId: priorPublishedVisual.queueId,
-          priorDraftId: priorPublishedVisual.draftId,
-          sourceMediaAssetId: sourceAsset.id,
-          priorMediaUrl: priorPublishedVisual.mediaUrl
-        });
-
-        const video = await replaceRoamlyReelAudio({
-          sourceVideoUrl: priorPublishedVisual.mediaUrl,
-          topic: draft.topic || draft.content_type,
-          supabaseUrl,
-          serviceKey
-        });
-        const mediaAssetId = await insertGeneratedReelMediaAsset(admin, draft, config, video);
-        const repairMetadata = {
-          ...(draft.metadata || {}),
-          generatedReelVideo: {
-            ...video,
-            sourceMediaAssetId: sourceAsset.id,
-            sourceMediaUrl: priorPublishedVisual.mediaUrl,
-            audioRepairOnly: true,
-            priorPublishedQueueId: priorPublishedVisual.queueId,
-            priorPublishedDraftId: priorPublishedVisual.draftId,
-            visualPreserved: true
-          },
-          sourceMediaAssetId: sourceAsset.id,
-          facebookLibraryMedia: {
-            mode: "legacy_published_visual_audio_repair",
-            sourceMediaAssetId: sourceAsset.id,
-            priorPublishedQueueId: priorPublishedVisual.queueId,
-            priorPublishedDraftId: priorPublishedVisual.draftId,
-            sourceVideoUrl: priorPublishedVisual.mediaUrl,
-            visualPreserved: true,
-            audioReplacedOnly: true
-          }
-        };
-        await admin.from("roamly_social_drafts").update({
-          selected_media_url: video.publicUrl,
-          selected_media_asset_id: mediaAssetId,
-          media_hash: hash(video.publicUrl),
-          metadata: withBrandMetadata(config.brand, repairMetadata)
-        }).eq("id", draft.id);
-        return { mediaUrl: video.publicUrl, generatedVideo: video, mediaAssetId, sourceMediaAssetId: sourceAsset.id };
-      }
     }
 
-    /*
-     * Never republish an older GENERATED Roamly Reel after regeneration
-     * failed. Those legacy MP4s can contain the old frequency audio.
-     *
-     * Genuine uploaded/original videos still continue through normally.
-     */
-    if (config.brand === "roamly") {
-      const staleAssetMetadata = sourceAsset
-        ? objectValue(sourceAsset.metadata)
-        : {};
-      const staleAssetLibrary = objectValue(
-        staleAssetMetadata.facebookLibraryMedia
-      );
-      const staleAssetGenerated = objectValue(
-        staleAssetMetadata.generatedReelVideo
-      );
-
-      const staleDraftMetadata = objectValue(draft.metadata);
-      const staleDraftLibrary = objectValue(
-        staleDraftMetadata.facebookLibraryMedia
-      );
-      const staleDraftGenerated = objectValue(
-        staleDraftMetadata.generatedReelVideo
-      );
-
-      const generatedMode =
-        String(staleAssetLibrary.mode ?? "") === "static_library_photo" ||
-        String(staleDraftLibrary.mode ?? "") === "static_library_photo";
-
-      const hasGeneratedMetadata =
-        Boolean(String(staleAssetGenerated.publicUrl ?? "")) ||
-        Boolean(String(staleAssetGenerated.filename ?? "")) ||
-        Boolean(String(staleDraftGenerated.publicUrl ?? "")) ||
-        Boolean(String(staleDraftGenerated.filename ?? "")) ||
-        Boolean(String(staleAssetMetadata.sourceMediaAssetId ?? "")) ||
-        Boolean(String(staleDraftMetadata.sourceMediaAssetId ?? ""));
-
-      // Pre-fix August campaign Reels were generated before the newer
-      // generatedReelVideo/facebookLibraryMedia metadata was recorded.
-      // They can contain the retired synthetic frequency audio and must
-      // never fall through as genuine uploaded/original videos.
-      const legacyGeneratedCampaign =
-        isLegacyRoamlyGeneratedVideoAsset(
-          sourceAsset || {
-            id: "",
-            source: null,
-            media_url: sourceUrl,
-            metadata: staleDraftMetadata
-          }
-        );
-
-      if (generatedMode || hasGeneratedMetadata || legacyGeneratedCampaign) {
-        console.error("[ROAMLY_BLOCKED_STALE_GENERATED_REEL_AUDIO]", {
-          queueId,
-          draftId: draft.id,
-          sourceMediaAssetId: sourceAsset?.id || null,
-          sourceUrl
-        });
-
-        throw new FacebookGraphError(
-          "Refusing to publish an older generated Roamly Reel that may contain legacy audio. The Reel must be regenerated from its original photo.",
-          false,
-          {
-            queueId,
-            draftId: draft.id,
-            mediaUrl: sourceUrl,
-            mediaAssetId: sourceAsset?.id || null
-          }
-        );
-      }
+    // Generated Reels are outputs, never reusable visual sources. Return
+    // them to the original fresh-generation path; uploaded videos remain.
+    const sourceMetadata = objectValue(sourceAsset?.metadata);
+    const sourceGenerated = objectValue(sourceMetadata.generatedReelVideo);
+    const generatedByAutopost = String(sourceMetadata.generated_by || "").includes("reel_generator");
+    if (isLegacyRoamlyGeneratedVideoAsset(sourceAsset) || generatedByAutopost || sourceGenerated.publicUrl) {
+      sourceAsset = null;
+      sourceUrl = "";
+      sourceType = "";
     }
 
+    if (sourceUrl && sourceType === "video") {
     if (!videoLooksSupported(sourceUrl)) {
       throw new FacebookGraphError("The selected Facebook Reel asset is not an MP4 video.", false, { mediaUrl: sourceUrl || null });
     }
@@ -2618,9 +2458,10 @@ async function ensureReelVideo(
       mediaAssetId: sourceAsset?.id || draft.selected_media_asset_id,
       sourceMediaAssetId: sourceAsset?.id || draft.selected_media_asset_id
     };
+    }
   }
 
-  if (sourceUrl && sourceType === "image") {
+    if (sourceUrl && sourceType === "image") {
     const probe = await probeFacebookAccessibleUrl({ url: sourceUrl, timeoutMs: 7000 });
     if (!probe.ok) {
       throw new FacebookGraphError(probe.error || "Configured Reel image is not publicly reachable.", false, { probe, mediaUrl: sourceUrl });
@@ -3644,10 +3485,10 @@ export async function publishNextFacebookPostNow(
       if (refreshError) {
         return { ok: false as const, error: refreshError.message };
       }
+      }
     }
-  }
 
-  /*
+    /*
    * The normal cycle chooses the oldest due Reel.
    * Give THIS selected queue row a deliberately old unique timestamp so
    * no previously-overdue Reel can jump ahead of it.
