@@ -1,5 +1,4 @@
 import { readFileSync } from "fs";
-import { spawnSync } from "child_process";
 
 function read(path) {
   return readFileSync(path, "utf8");
@@ -21,46 +20,6 @@ const controls = read("components/admin/social/FacebookAutomationControls.tsx");
 const automationPage = read("app/admin/social/automation/page.tsx");
 const runtimeProof = read("scripts/facebook-reel-runtime-proof.mjs");
 const legacySocial = read("lib/roamly/social.ts");
-
-// Deterministic fixture proof runs the same production selector used by
-// buildDrafts(). The rest of the pipeline is asserted below because it needs
-// Supabase/ffmpeg credentials that are intentionally unavailable locally.
-const fixtureProbe = spawnSync(process.execPath, [
-  "--experimental-strip-types",
-  "--input-type=module",
-  "-e",
-  `import { selectCampaignPhotoAsset } from "./lib/roamly/facebookCampaignMedia.ts";
-const assets = [
-  { id: "photo-cape", media_url: "https://cdn.test/cape.jpg", asset_type: "image", destination: "Cape Town", topic: "coastal road trips" },
-  { id: "photo-kyoto", media_url: "https://cdn.test/kyoto.jpg", asset_type: "image", destination: "Kyoto", topic: "food markets" },
-  { id: "photo-reyk", media_url: "https://cdn.test/reyk.jpg", asset_type: "image", destination: "Reykjavik", topic: "northern lights" },
-  { id: "wrong-destination", media_url: "https://cdn.test/wrong.jpg", asset_type: "image", destination: "Tokyo", topic: "coastal road trips" },
-  { id: "old-reel", media_url: "https://cdn.test/old.mp4", asset_type: "video", destination: "Cape Town", topic: "coastal road trips" }
-];
-const campaigns = [
-  { id: "campaign-cape", destination: "Cape Town", topic: "coastal road trips" },
-  { id: "campaign-kyoto", destination: "Kyoto", topic: "food markets" },
-  { id: "campaign-reyk", destination: "Reykjavik", topic: "northern lights" }
-];
-const drafts = campaigns.map((campaign) => {
-  const source = selectCampaignPhotoAsset(assets, campaign.destination, campaign.topic);
-  return { campaign, source, metadata: { campaignId: campaign.id, sourceMediaAssetId: source?.id || null, sourceImageUrl: source?.media_url || null } };
-});
-const generated = drafts.map((draft) => ({ draftId: draft.campaign.id, sourceMediaAssetId: draft.metadata.sourceMediaAssetId, sourceImageUrl: draft.metadata.sourceImageUrl, audio: "public/audio/reels/roamly-theme.mp3" }));
-const missing = selectCampaignPhotoAsset(assets, "Lisbon", "street art");
-const crossDestination = selectCampaignPhotoAsset(assets, "Cape Town", "food markets");
-console.log(JSON.stringify({ drafts, generated, missing, crossDestination, priorMp4: selectCampaignPhotoAsset(assets, "Cape Town", "coastal road trips")?.id === "old-reel" }));`
-], { cwd: process.cwd(), encoding: "utf8" });
-assert(fixtureProbe.status === 0, `deterministic campaign fixtures execute: ${fixtureProbe.stderr || ""}`);
-if (fixtureProbe.status === 0) {
-  const fixtures = JSON.parse(fixtureProbe.stdout.trim());
-  assert(fixtures.drafts.every((row) => row.source && row.metadata.sourceMediaAssetId === row.source.id), "three campaign contents select and bind matching source photos");
-  assert(fixtures.generated.every((row) => row.sourceMediaAssetId && row.sourceImageUrl && row.audio === "public/audio/reels/roamly-theme.mp3"), "fresh Reel inputs preserve exact draft-bound photos and theme audio");
-  assert(fixtures.generated.every((row) => row.draftId.startsWith("campaign-")), "generated media provenance belongs to the same campaign draft");
-  assert(fixtures.missing === null, "missing matching source image blocks the photo draft");
-  assert(fixtures.crossDestination === null, "cross-destination media is rejected");
-  assert(fixtures.priorMp4 === false, "previous generated MP4 is rejected as a photo source");
-}
 
 assert(/const FACEBOOK_BRANDS = \["roamly", "reviewintel"\]/.test(automation), "both Roamly and ReviewIntel brands are registered");
 assert(/return "reel";/.test(automation), "automatic Facebook queue generation is Reel-only");
@@ -114,8 +73,8 @@ assert(/body: JSON\.stringify\(\{ action: "save_settings", brand, settings/.test
 assert(/getFacebookAutomationSummaries/.test(automationPage) && /brand: "reviewintel"/.test(automationPage), "automation page exposes ReviewIntel controls");
 assert(/redactedEnvValue/.test(runtimeProof) && /sensitive\|redacted\|secret\|token\|private/.test(runtimeProof), "runtime proof ignores redacted env placeholders");
 assert(/cleanEnvValue/.test(automation) && /sensitive\|redacted\|secret\|token\|private/.test(automation), "automation config ignores redacted env placeholders");
-assert(/selectCampaignPhotoAsset/.test(automation) && /!campaignPhoto/.test(automation), "buildDrafts requires a matching campaign photo before draft creation");
-assert(/sourceMediaAssetId/.test(automation) && /sourceImageUrl/.test(automation) && /sourceDraftId/.test(automation), "source and generated Reel provenance are persisted on the draft/media asset");
+assert(/const suggestedMedia = ""/.test(automation) && /selectedMediaAssetId: null/.test(automation), "draft generation does not require campaign-photo provenance");
+assert(!/selectCampaignPhotoAsset/.test(automation) && !/campaign photo bound/.test(automation), "later campaign-photo gating is removed");
 
 if (process.exitCode) {
   process.exit(process.exitCode);
