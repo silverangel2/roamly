@@ -490,6 +490,7 @@ const rebalanced = itineraryBookingOverrideExports.applyConfirmedBookingOverride
     pre_trip_essentials: []
   },
   {
+    id: "persisted-flight-booking-id",
     booking_type: "flight",
     booking_status: "booked",
     provider_name: "Air Canada",

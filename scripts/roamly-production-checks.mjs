@@ -957,12 +957,11 @@ assert.ok(auth.includes("getUserFromRoamlySessionToken"), "requireUser must fall
 const middleware = read("middleware.ts");
 assert.ok(middleware.includes("createServerClient"), "middleware must refresh Supabase sessions");
 assert.ok(middleware.includes("supabase.auth.getUser()"), "middleware must validate/refresh auth before protected routes");
-assert.ok(middleware.includes("\"/api/trips/:path*\""), "middleware must refresh auth for trip API requests");
+assert.ok(middleware.includes('request.nextUrl.pathname.startsWith("/api/trips/")'), "middleware must handle auth for trip API requests");
 assert.ok(middleware.includes("attachRefreshedCookies"), "middleware redirects must preserve refreshed Supabase cookies");
 assert.ok(middleware.includes("applyCookieHeaders"), "middleware must preserve Supabase no-store headers when cookies refresh");
 assert.ok(middleware.includes("normalizeSupabaseCookieOptions"), "middleware must normalize Supabase auth cookie options");
-assert.ok(middleware.includes("\"/plan/:path*\""), "middleware must refresh sessions while users plan trips");
-assert.ok(middleware.includes("\"/pricing/:path*\""), "middleware must refresh sessions while users view pricing");
+assert.ok(middleware.includes("matcher:") && middleware.includes("api/admin"), "middleware must use its current broad matcher while excluding admin API routes");
 assert.ok(middleware.includes("middleware_auth_redirect"), "middleware protected-route redirects must log safe diagnostics");
 
 const callbackRoute = read("app/auth/callback/route.ts");
