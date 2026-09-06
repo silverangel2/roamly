@@ -4,7 +4,7 @@ import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/ama
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
 import { probeFacebookAccessibleUrl } from "@/lib/roamly/publicSocialStorage";
-import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
+import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
 import { selectCampaignPhotoAsset } from "@/lib/roamly/facebookCampaignMedia";
 
 import {
@@ -2168,6 +2168,34 @@ async function pickCampaignPhotoAsset(admin: SupabaseClient, brand: FacebookSoci
   return selectCampaignPhotoAsset(candidates, destination, topic);
 }
 
+async function findPriorPublishedVisual(admin: SupabaseClient, currentDraftId: string, platform: string, sourceMediaAssetId: string) {
+  if (!sourceMediaAssetId) return null;
+  const { data: drafts, error: draftsError } = await admin
+    .from("roamly_social_drafts")
+    .select("id,selected_media_url,metadata,created_at")
+    .eq("selected_media_asset_id", sourceMediaAssetId)
+    .neq("id", currentDraftId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (draftsError || !drafts?.length) return null;
+  const draftIds = drafts.map((draft) => draft.id);
+  const { data: queues, error: queuesError } = await admin
+    .from("roamly_social_queue")
+    .select("id,draft_id,published_at,meta_response")
+    .eq("platform", platform)
+    .eq("queue_status", "published")
+    .in("draft_id", draftIds)
+    .order("published_at", { ascending: false })
+    .limit(20);
+  if (queuesError || !queues?.length) return null;
+  const prior = queues[0] as { id: string; draft_id: string; published_at: string | null; meta_response: Record<string, unknown> | null };
+  const priorDraft = drafts.find((draft) => draft.id === prior.draft_id);
+  const metaResponse = objectValue(prior.meta_response);
+  const mediaUrl = clean(String(metaResponse.mediaUrl || priorDraft?.selected_media_url || ""));
+  if (!mediaUrl || !videoLooksSupported(mediaUrl)) return null;
+  return { queueId: prior.id, draftId: prior.draft_id, publishedAt: prior.published_at, mediaUrl };
+}
+
 function draftHashtags(draft: SocialDraftRow) {
   return Array.isArray(draft.hashtags)
     ? draft.hashtags.map((tag) => tag.replace(/^#/, "")).filter(Boolean)
@@ -2509,6 +2537,57 @@ async function ensureReelVideo(
     const sourceGenerated = objectValue(sourceMetadata.generatedReelVideo);
     const generatedByAutopost = String(sourceMetadata.generated_by || "").includes("reel_generator");
     if (!reusableExistingReel && (isLegacyRoamlyGeneratedVideoAsset(sourceAsset) || generatedByAutopost || sourceGenerated.publicUrl)) {
+      const sourceMediaAssetId = clean(String(
+        sourceAsset?.id || sourceMetadata.sourceMediaAssetId ||
+        sourceMetadata.sourceImageAssetId || draftMetadata.sourceMediaAssetId ||
+        draftMetadata.sourceImageAssetId || ""
+      ));
+      const priorPublishedVisual = await findPriorPublishedVisual(
+        admin,
+        draft.id,
+        config.platform,
+        sourceMediaAssetId
+      );
+      const { supabaseUrl, serviceKey } = supabaseMediaConfig();
+      if (priorPublishedVisual && supabaseUrl && serviceKey) {
+        console.log("[ROAMLY_REPAIR_LEGACY_REEL_AUDIO_ONLY]", {
+          queueId,
+          draftId: draft.id,
+          priorQueueId: priorPublishedVisual.queueId,
+          sourceMediaAssetId,
+          priorMediaUrl: priorPublishedVisual.mediaUrl
+        });
+        const video = await replaceRoamlyReelAudio({
+          sourceVideoUrl: priorPublishedVisual.mediaUrl,
+          topic: draft.topic || draft.content_type,
+          supabaseUrl,
+          serviceKey
+        });
+        const mediaAssetId = await insertGeneratedReelMediaAsset(admin, draft, config, video, {
+          sourceMediaAssetId,
+          sourceMediaUrl: priorPublishedVisual.mediaUrl
+        });
+        const repairMetadata = withBrandMetadata(config.brand, {
+          ...(draft.metadata || {}),
+          generatedReelVideo: { ...video, sourceMediaAssetId, sourceMediaUrl: priorPublishedVisual.mediaUrl, audioRepairOnly: true, visualPreserved: true },
+          sourceMediaAssetId,
+          facebookLibraryMedia: {
+            mode: "legacy_published_visual_audio_repair",
+            sourceMediaAssetId,
+            priorPublishedQueueId: priorPublishedVisual.queueId,
+            sourceVideoUrl: priorPublishedVisual.mediaUrl,
+            visualPreserved: true,
+            audioReplacedOnly: true
+          }
+        });
+        await admin.from("roamly_social_drafts").update({
+          selected_media_url: video.publicUrl,
+          selected_media_asset_id: mediaAssetId,
+          media_hash: hash(video.publicUrl),
+          metadata: repairMetadata
+        }).eq("id", draft.id);
+        return { mediaUrl: video.publicUrl, generatedVideo: video, mediaAssetId, sourceMediaAssetId };
+      }
       sourceAsset = null;
       sourceUrl = "";
       sourceType = "";

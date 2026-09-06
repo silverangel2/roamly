@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import { spawn } from "child_process";
 import { existsSync } from "fs";
-import { mkdir, readFile, rm, stat } from "fs/promises";
+import { mkdir, readFile, rm, stat, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import sharp from "sharp";
@@ -54,6 +54,14 @@ type GenerateStaticSocialPosterReelVideoInput = {
   supabaseUrl: string;
   serviceKey: string;
   audioSeed: string;
+  fetcher?: typeof fetch;
+};
+
+type ReplaceRoamlyReelAudioInput = {
+  sourceVideoUrl: string;
+  topic: string;
+  supabaseUrl: string;
+  serviceKey: string;
   fetcher?: typeof fetch;
 };
 
@@ -418,6 +426,63 @@ async function fetchImageBuffer(url: string, fetcher: typeof fetch) {
     throw new Error("Source media is not an image.");
   }
   return Buffer.from(await response.arrayBuffer());
+}
+
+async function fetchVideoBuffer(url: string, fetcher: typeof fetch) {
+  const response = await fetcher(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Source video returned HTTP ${response.status}.`);
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType && !/^video\/mp4/i.test(contentType) && !/^application\/octet-stream/i.test(contentType)) {
+    throw new Error("Source media is not an MP4 video.");
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (!buffer.length || buffer.length > publicSocialMaxBytes) {
+    throw new Error("Source video is empty or exceeds the Reel file-size limit.");
+  }
+  return buffer;
+}
+
+export async function replaceRoamlyReelAudio(input: ReplaceRoamlyReelAudioInput): Promise<SocialReelVideoResult> {
+  const fetcher = input.fetcher || fetch;
+  const audioTrack = approvedGeneratedAudioTracks[0];
+  const cleanTopic = safeFilenamePart(input.topic || "legacy-reel-audio-repair") || "legacy-reel-audio-repair";
+  const digest = createHash("sha1").update(`${input.sourceVideoUrl}-${audioTrack.sourcePath}`).digest("hex").slice(0, 10);
+  const filename = `roamly-audio-repair-${new Date().toISOString().slice(0, 10)}-${cleanTopic}-${digest}.mp4`;
+  const objectPath = `social/videos/roamly/${filename}`;
+  const tmpDir = path.join(os.tmpdir(), `roamly-audio-repair-${randomUUID()}`);
+  const sourcePath = path.join(tmpDir, "source.mp4");
+  const outputPath = path.join(tmpDir, filename);
+  await mkdir(tmpDir, { recursive: true });
+
+  try {
+    const source = await fetchVideoBuffer(input.sourceVideoUrl, fetcher);
+    await writeFile(sourcePath, source);
+    const ffmpegPath = await resolveFfmpegPath();
+    await runProcess(ffmpegPath, [
+      "-y", "-i", sourcePath,
+      "-stream_loop", "-1", "-i", resolveRoamlyThemePath(audioTrack),
+      "-map", "0:v:0", "-map", "1:a:0", "-map_metadata", "0",
+      "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
+      "-af", `volume=${audioTrack.volume}`, "-shortest", "-movflags", "+faststart",
+      outputPath
+    ]);
+    const validated = await probeGeneratedMp4(outputPath, resolveFfprobePath());
+    assertGeneratedRoamlyAudio({ probe: validated.probe, audioTrack });
+    const buffer = await readFile(outputPath);
+    const { storageBucket } = publicSocialMediaStorageBucket();
+    const publicUrl = await uploadPublicSupabaseObject({
+      supabaseUrl: cleanSupabaseUrl(input.supabaseUrl), serviceKey: input.serviceKey,
+      storageBucket, objectPath, body: new Blob([new Uint8Array(buffer)], { type: "video/mp4" }),
+      contentType: "video/mp4", allowedMimeTypes: ["video/mp4"], fileSizeLimit: publicSocialMaxBytes, fetcher
+    });
+    return {
+      filename, objectPath, publicUrl, size: buffer.length, width: validated.width,
+      height: validated.height, durationSeconds: validated.durationSeconds, mimeType: "video/mp4",
+      ffprobe: validated.probe, audioTrack
+    };
+  } finally {
+    await rm(tmpDir, { recursive: true, force: true }).catch(() => null);
+  }
 }
 
 export async function generateStaticSocialPosterReelVideo(input: GenerateStaticSocialPosterReelVideoInput): Promise<SocialReelVideoResult> {

@@ -29,6 +29,7 @@ assert(/facebookBrandConfig\(brand\)/.test(automation) || /facebookBrandConfig\(
 assert(/facebookEnabled: config\.facebookEnabled \|\| hasStoredConnection/.test(automation), "stored OAuth Page connections pass Facebook validation");
 assert(/reuseExistingReel: true/.test(automation), "Post now reuses the selected queued Reel");
 assert(/reusableExistingReel/.test(automation) && /selectedAudioTrack\.id === "roamly-theme"/.test(automation), "only current-audio Reel media bypasses generation");
+assert(/replaceRoamlyReelAudio/.test(automation) && /audioRepairOnly: true/.test(automation), "legacy Reels repair audio without rebuilding the visual");
 assert(/count: 100/.test(automation) && /POST_NOW_QUEUE_REFILL/.test(automation), "empty Post now queues refill the Reel library with 100 items");
 assert(/return type === "image" && isApprovedAutomationAsset\(asset, brand\)/.test(automation), "automatic Reel selection excludes arbitrary library videos");
 assert(/REVIEWINTEL_META_PAGE_ID/.test(automation), "ReviewIntel has its own Page ID env wiring");
@@ -60,7 +61,7 @@ assert(!/lavfi/.test(generator), "active Reel generator does not use lavfi audio
 assert(/source\?: string \| null/.test(automation), "media asset resolver models the top-level source column");
 assert(/select\("id,platform,status,title,media_url,asset_type,source,/.test(automation), "media asset resolver reads top-level source provenance");
 assert(/isLegacyRoamlyGeneratedVideoAsset/.test(automation), "legacy generated Roamly video classification is centralized");
-assert(!/findPriorPublishedVisual/.test(automation) && !/replaceRoamlyReelAudio/.test(automation), "visual path does not reuse prior published/generated MP4s");
+assert(/findPriorPublishedVisual/.test(automation) && /replaceRoamlyReelAudio/.test(automation), "legacy visuals can be preserved while repairing only their audio");
 assert(/Generated Reels are outputs, never reusable visual sources/.test(automation), "generated Reel assets return to fresh generation");
 assert(/generateStaticSocialPosterReelVideo/.test(automation) && /generateFreshSocialReelVideo/.test(automation), "visual path retains photo and fresh Reel generation");
 assert(/codex_roamly_premium_reel_campaign/.test(automation), "legacy campaign source is blocked");
