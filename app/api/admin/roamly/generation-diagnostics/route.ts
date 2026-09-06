@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 
 function cleanRecord(record: Record<string, unknown>) {
   const safe: Record<string, unknown> = {};
@@ -93,6 +94,9 @@ function finalStoredItinerary(value: unknown) {
 }
 
 export async function GET() {
+  const guard = await requireRoamlyAdmin();
+  if (!guard.ok) return guard.response;
+
   const supabase = createSupabaseAdminClient();
 
   if (!supabase) {

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 import { queueTableMissing, reconcileCompletedGenerationJobs } from "@/lib/roamly/generationQueue";
 import { recoverCompletedStoredGenerations } from "@/lib/roamly/generationFinalization";
 
 export async function POST(request: Request) {
+  const guard = await requireRoamlyAdmin();
+  if (!guard.ok) return guard.response;
+
   const url = new URL(request.url);
 
   if (url.searchParams.get("confirm") !== "repair-completed-generations") {

@@ -884,9 +884,19 @@ const generationDiagnosticsRoute = read("app/api/admin/roamly/generation-diagnos
 ["completionEmailQueued", "completionEmailSent", "completionEmailError", "itinerary_status", "finalStoredItinerary"].forEach((needle) =>
   assert.ok(generationDiagnosticsRoute.includes(needle), `generation diagnostics route missing ${needle}`)
 );
+assert.ok(generationDiagnosticsRoute.includes("requireRoamlyAdmin"), "generation diagnostics route must require Roamly Admin authorization");
+assert.ok(
+  generationDiagnosticsRoute.indexOf("requireRoamlyAdmin") < generationDiagnosticsRoute.indexOf("createSupabaseAdminClient()"),
+  "generation diagnostics route must authorize before reading diagnostic data"
+);
 
 const completedGenerationRepairRoute = read("app/api/admin/roamly/repair-completed-generations/route.ts");
 assert.ok(completedGenerationRepairRoute.includes("tripId") && completedGenerationRepairRoute.includes("recoverCompletedStoredGenerations"), "completed generation repair route must support targeted stored-itinerary recovery");
+assert.ok(completedGenerationRepairRoute.includes("requireRoamlyAdmin"), "completed generation repair route must require Roamly Admin authorization");
+assert.ok(
+  completedGenerationRepairRoute.indexOf("requireRoamlyAdmin") < completedGenerationRepairRoute.indexOf('url.searchParams.get("confirm")'),
+  "completed generation repair route must authorize before checking or acting on confirmation"
+);
 
 const vercelConfig = read("vercel.json");
 assert.ok(vercelConfig.includes("\"schedule\": \"*/5 * * * *\""), "Vercel itinerary generation cron must run every five minutes");
