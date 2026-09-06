@@ -2249,6 +2249,7 @@ async function ensureReelVideo(
 }> {
   const draftMetadata = objectValue(draft.metadata);
   const forceFreshGeneratedReel = draftMetadata.forceFreshGeneratedReel === true;
+  const reuseExistingReel = draftMetadata.reuseExistingReel === true;
   const existingUrl = forceFreshGeneratedReel
     ? ""
     : clean(draft.selected_media_url || draft.suggested_media);
@@ -2321,7 +2322,7 @@ async function ensureReelVideo(
      * If this MP4 was generated from one of Roamly's original library
      * photos, regenerate from THAT SAME PHOTO with the current renderer.
      */
-    if (config.brand === "roamly" && sourceAsset) {
+    if (config.brand === "roamly" && sourceAsset && !reuseExistingReel) {
       const sourceAssetMetadata = objectValue(sourceAsset.metadata);
       const libraryMediaMetadata = objectValue(
         sourceAssetMetadata.facebookLibraryMedia
@@ -2492,7 +2493,7 @@ async function ensureReelVideo(
     const sourceMetadata = objectValue(sourceAsset?.metadata);
     const sourceGenerated = objectValue(sourceMetadata.generatedReelVideo);
     const generatedByAutopost = String(sourceMetadata.generated_by || "").includes("reel_generator");
-    if (isLegacyRoamlyGeneratedVideoAsset(sourceAsset) || generatedByAutopost || sourceGenerated.publicUrl) {
+    if (!reuseExistingReel && (isLegacyRoamlyGeneratedVideoAsset(sourceAsset) || generatedByAutopost || sourceGenerated.publicUrl)) {
       sourceAsset = null;
       sourceUrl = "";
       sourceType = "";
@@ -3575,14 +3576,12 @@ export async function publishNextFacebookPostNow(
       const { error: refreshError } = await admin
         .from("roamly_social_drafts")
         .update({
-          // Post now must use the current Reel renderer so it cannot publish
-          // an old library video with the wrong dimensions or soundtrack.
-          selected_media_url: null,
-          selected_media_asset_id: null,
-          media_hash: null,
+          // Post now publishes the selected queued Reel as-is. This keeps the
+          // button independent from Reel generation when reusable media exists.
           metadata: {
             ...metadata,
-            forceFreshGeneratedReel: true,
+            reuseExistingReel: true,
+            forceFreshGeneratedReel: false,
             postNowSourceMediaUrl: sourceMediaUrl || null,
             postNowSourceMediaAssetId: sourceMediaAssetId
           },

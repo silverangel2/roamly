@@ -27,8 +27,8 @@ assert(/Automatic Facebook publishing is Reel-only/.test(automation), "non-Reel 
 assert(/blockedFallback/.test(automation), "blocked fallback is recorded in Meta response metadata");
 assert(/facebookBrandConfig\(brand\)/.test(automation) || /facebookBrandConfig\(normalizedBrand\)/.test(automation), "Meta calls resolve brand-specific page config");
 assert(/facebookEnabled: config\.facebookEnabled \|\| hasStoredConnection/.test(automation), "stored OAuth Page connections pass Facebook validation");
-assert(/forceFreshGeneratedReel: true/.test(automation), "Post now forces the current Reel renderer");
-assert(/forceFreshGeneratedReel/.test(automation) && /!forceFreshGeneratedReel/.test(automation), "forced fresh Reels cannot reuse selected library media");
+assert(/reuseExistingReel: true/.test(automation), "Post now reuses the selected queued Reel");
+assert(/reuseExistingReel/.test(automation) && /!reuseExistingReel/.test(automation), "only reusable Reel media bypasses generation");
 assert(/return type === "image" && isApprovedAutomationAsset\(asset, brand\)/.test(automation), "automatic Reel selection excludes arbitrary library videos");
 assert(/REVIEWINTEL_META_PAGE_ID/.test(automation), "ReviewIntel has its own Page ID env wiring");
 assert(/ROAMLY_META_PAGE_ID/.test(automation), "Roamly keeps its own Page ID env wiring");
