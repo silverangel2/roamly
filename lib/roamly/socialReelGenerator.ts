@@ -156,6 +156,13 @@ function resolveRoamlyThemePath(audioTrack: ApprovedAudioTrack) {
   return path.join(process.cwd(), audioTrack.sourcePath);
 }
 
+const roamlyThemePublicUrl = "https://roamlyhq.com/audio/reels/roamly-theme.mp3";
+
+function resolveRoamlyThemeInput(audioTrack: ApprovedAudioTrack) {
+  const localPath = resolveRoamlyThemePath(audioTrack);
+  return existsSync(localPath) ? localPath : roamlyThemePublicUrl;
+}
+
 function brandTheme(brand: SocialReelBrand) {
   if (brand === "reviewintel") {
     return {
@@ -460,7 +467,7 @@ export async function replaceRoamlyReelAudio(input: ReplaceRoamlyReelAudioInput)
     const ffmpegPath = await resolveFfmpegPath();
     await runProcess(ffmpegPath, [
       "-y", "-i", sourcePath,
-      "-stream_loop", "-1", "-i", resolveRoamlyThemePath(audioTrack),
+      "-stream_loop", "-1", "-i", resolveRoamlyThemeInput(audioTrack),
       "-map", "0:v:0", "-map", "1:a:0", "-map_metadata", "0",
       "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
       "-af", `volume=${audioTrack.volume}`, "-shortest", "-movflags", "+faststart",
@@ -488,8 +495,8 @@ export async function replaceRoamlyReelAudio(input: ReplaceRoamlyReelAudioInput)
 export async function generateStaticSocialPosterReelVideo(input: GenerateStaticSocialPosterReelVideoInput): Promise<SocialReelVideoResult> {
   const fetcher = input.fetcher || fetch;
   const audioTrack = selectApprovedAudioTrack(input.brand, input.audioSeed || input.topic || input.brand);
-  const roamlyThemePath = resolveRoamlyThemePath(audioTrack);
-  const useRoamlyTheme = input.brand === "roamly" && existsSync(roamlyThemePath);
+  const roamlyThemePath = resolveRoamlyThemeInput(audioTrack);
+  const useRoamlyTheme = input.brand === "roamly";
   const cleanTopic = safeFilenamePart(input.topic || "social-photo-reel") || "social-photo-reel";
   const digest = createHash("sha1")
     .update(`${input.brand}-${cleanTopic}-${input.sourceImageUrl}-${input.audioSeed}`)
@@ -639,8 +646,8 @@ export async function generateFreshSocialReelVideo(input: GenerateFreshSocialRee
     const videoFilter =
       `${sceneFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0,format=yuv420p[v]`;
 
-    const roamlyThemePath = resolveRoamlyThemePath(audioTrack);
-    const useRoamlyTheme = input.brand === "roamly" && existsSync(roamlyThemePath);
+    const roamlyThemePath = resolveRoamlyThemeInput(audioTrack);
+    const useRoamlyTheme = input.brand === "roamly";
 
     await runProcess(ffmpegPath, [
       "-y",

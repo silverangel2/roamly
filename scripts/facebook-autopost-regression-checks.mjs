@@ -53,6 +53,7 @@ assert(/manualReviewRequired/.test(automation) && /!settings\.manualReviewRequir
 assert(/@ffmpeg-installer\/(linux-x64|darwin-arm64)/.test(generator), "Reel generator uses deterministic platform ffmpeg binary");
 assert(/width = 1080/.test(generator) && /height = 1920/.test(generator), "generated video is vertical 9:16");
 assert(/sourcePath: "public\/audio\/reels\/roamly-theme\.mp3"/.test(generator), "Roamly generated Reels use the approved theme MP3");
+assert(/roamlyThemePublicUrl/.test(generator) && /resolveRoamlyThemeInput/.test(generator), "serverless Reel generation can reach the deployed theme MP3");
 assert(/"-c:a", "aac"/.test(generator), "Roamly generated Reels encode AAC audio");
 assert(/assertGeneratedRoamlyAudio/.test(generator), "Roamly generated Reels are validated for AAC audio before upload");
 assert(!/sine=/i.test(generator), "active Reel generator does not use sine audio");
