@@ -2196,6 +2196,29 @@ async function findPriorPublishedVisual(admin: SupabaseClient, currentDraftId: s
   return { queueId: prior.id, draftId: prior.draft_id, publishedAt: prior.published_at, mediaUrl };
 }
 
+async function findLatestPublishedVisual(admin: SupabaseClient, currentDraftId: string, platform: string) {
+  const { data, error } = await admin
+    .from("roamly_social_queue")
+    .select("id,draft_id,published_at,meta_response,draft:roamly_social_drafts!inner(id,selected_media_asset_id,selected_media_url)")
+    .eq("platform", platform)
+    .eq("queue_status", "published")
+    .neq("draft_id", currentDraftId)
+    .not("draft.selected_media_asset_id", "is", null)
+    .order("published_at", { ascending: false })
+    .limit(50);
+  if (error || !data?.length) return null;
+  for (const row of data as Array<Record<string, unknown>>) {
+    const draft = objectValue(row.draft);
+    const metaResponse = objectValue(row.meta_response);
+    const mediaUrl = clean(String(metaResponse.mediaUrl || draft.selected_media_url || ""));
+    const sourceMediaAssetId = clean(String(draft.selected_media_asset_id || ""));
+    if (mediaUrl && sourceMediaAssetId && videoLooksSupported(mediaUrl)) {
+      return { queueId: String(row.id), draftId: String(row.draft_id), mediaUrl, sourceMediaAssetId };
+    }
+  }
+  return null;
+}
+
 function draftHashtags(draft: SocialDraftRow) {
   return Array.isArray(draft.hashtags)
     ? draft.hashtags.map((tag) => tag.replace(/^#/, "")).filter(Boolean)
@@ -2357,6 +2380,52 @@ async function ensureReelVideo(
     sourceAsset = boundPhotoAsset;
     sourceUrl = boundPhotoUrl;
     sourceType = "image";
+  }
+
+  // Damaged Aug 19-era drafts may have no media at all. Reuse the last
+  // published visual and repair only its audio instead of rendering a blank
+  // text Reel from scratch.
+  if (!sourceUrl && config.brand === "roamly") {
+    const priorPublishedVisual = await findLatestPublishedVisual(admin, draft.id, config.platform);
+    const { supabaseUrl, serviceKey } = supabaseMediaConfig();
+    if (priorPublishedVisual && supabaseUrl && serviceKey) {
+      console.log("[ROAMLY_REPAIR_EMPTY_DRAFT_FROM_PUBLISHED_VISUAL]", {
+        queueId,
+        draftId: draft.id,
+        priorQueueId: priorPublishedVisual.queueId,
+        sourceMediaAssetId: priorPublishedVisual.sourceMediaAssetId
+      });
+      const video = await replaceRoamlyReelAudio({
+        sourceVideoUrl: priorPublishedVisual.mediaUrl,
+        topic: draft.topic || draft.content_type,
+        supabaseUrl,
+        serviceKey
+      });
+      const mediaAssetId = await insertGeneratedReelMediaAsset(admin, draft, config, video, {
+        sourceMediaAssetId: priorPublishedVisual.sourceMediaAssetId,
+        sourceMediaUrl: priorPublishedVisual.mediaUrl
+      });
+      const metadata = withBrandMetadata(config.brand, {
+        ...(draft.metadata || {}),
+        generatedReelVideo: { ...video, sourceMediaAssetId: priorPublishedVisual.sourceMediaAssetId, sourceMediaUrl: priorPublishedVisual.mediaUrl, audioRepairOnly: true, visualPreserved: true },
+        sourceMediaAssetId: priorPublishedVisual.sourceMediaAssetId,
+        facebookLibraryMedia: {
+          mode: "legacy_published_visual_audio_repair",
+          sourceMediaAssetId: priorPublishedVisual.sourceMediaAssetId,
+          priorPublishedQueueId: priorPublishedVisual.queueId,
+          sourceVideoUrl: priorPublishedVisual.mediaUrl,
+          visualPreserved: true,
+          audioReplacedOnly: true
+        }
+      });
+      await admin.from("roamly_social_drafts").update({
+        selected_media_url: video.publicUrl,
+        selected_media_asset_id: mediaAssetId,
+        media_hash: hash(video.publicUrl),
+        metadata
+      }).eq("id", draft.id);
+      return { mediaUrl: video.publicUrl, generatedVideo: video, mediaAssetId, sourceMediaAssetId: priorPublishedVisual.sourceMediaAssetId };
+    }
   }
 
   if (sourceUrl && sourceType === "video") {

@@ -62,6 +62,7 @@ assert(/source\?: string \| null/.test(automation), "media asset resolver models
 assert(/select\("id,platform,status,title,media_url,asset_type,source,/.test(automation), "media asset resolver reads top-level source provenance");
 assert(/isLegacyRoamlyGeneratedVideoAsset/.test(automation), "legacy generated Roamly video classification is centralized");
 assert(/findPriorPublishedVisual/.test(automation) && /replaceRoamlyReelAudio/.test(automation), "legacy visuals can be preserved while repairing only their audio");
+assert(/findLatestPublishedVisual/.test(automation) && /ROAMLY_REPAIR_EMPTY_DRAFT_FROM_PUBLISHED_VISUAL/.test(automation), "empty drafts fall back to the known published visual");
 assert(/Generated Reels are outputs, never reusable visual sources/.test(automation), "generated Reel assets return to fresh generation");
 assert(/generateStaticSocialPosterReelVideo/.test(automation) && /generateFreshSocialReelVideo/.test(automation), "visual path retains photo and fresh Reel generation");
 assert(/codex_roamly_premium_reel_campaign/.test(automation), "legacy campaign source is blocked");
