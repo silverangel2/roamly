@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { syncGmailConnection } from "@/lib/roamly/emailConnections";
 
@@ -32,17 +32,18 @@ export async function POST(request: NextRequest) {
   const emailAddress = typeof message.emailAddress === "string" ? message.emailAddress : "";
   if (!emailAddress) return NextResponse.json({ ok: true, processed: 0 });
 
-  const { data: connections } = await admin
-    .from("email_connections")
-    .select("user_id")
-    .eq("provider", "gmail")
-    .eq("email_address", emailAddress)
-    .neq("connection_status", "disconnected");
+  after(async () => {
+    const { data: connections } = await admin
+      .from("email_connections")
+      .select("user_id")
+      .eq("provider", "gmail")
+      .eq("email_address", emailAddress)
+      .neq("connection_status", "disconnected");
 
-  const results = [];
-  for (const connection of connections || []) {
-    results.push(await syncGmailConnection({ supabase: admin, userId: String((connection as { user_id: string }).user_id) }).catch((error) => ({ ok: false, error: error instanceof Error ? error.message : "GMAIL_SYNC_FAILED" })));
-  }
+    for (const connection of connections || []) {
+      await syncGmailConnection({ supabase: admin, userId: String((connection as { user_id: string }).user_id) }).catch(() => null);
+    }
+  });
 
-  return NextResponse.json({ ok: true, processed: results.length, results });
+  return NextResponse.json({ ok: true, accepted: true }, { status: 202 });
 }
