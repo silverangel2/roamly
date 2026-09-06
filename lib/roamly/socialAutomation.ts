@@ -2266,6 +2266,21 @@ async function ensureReelVideo(
   }
 
   const selectedAsset = (asset.data || null) as SocialMediaAssetRow | null;
+  const selectedAssetMetadata = objectValue(selectedAsset?.metadata);
+  const selectedGeneratedMetadata = objectValue(selectedAssetMetadata.generatedReelVideo);
+  const selectedAudioTrack = objectValue(selectedGeneratedMetadata.audioTrack);
+  const selectedLooksGenerated = Boolean(
+    selectedGeneratedMetadata.publicUrl ||
+    selectedGeneratedMetadata.filename ||
+    selectedAssetMetadata.generated_by ||
+    selectedAssetMetadata.sourceMediaAssetId ||
+    selectedAssetMetadata.sourceImageAssetId ||
+    selectedAssetMetadata.facebookLibraryMedia
+  );
+  const reusableExistingReel = reuseExistingReel && (
+    config.brand !== "roamly" ||
+    (!selectedLooksGenerated || selectedAudioTrack.id === "roamly-theme")
+  );
   // Preserve the campaign's source photo when regenerating an older Reel.
   // Post now stores this in postNow* metadata after clearing the old output.
   const boundSourceId = clean(String(
@@ -2322,7 +2337,7 @@ async function ensureReelVideo(
      * If this MP4 was generated from one of Roamly's original library
      * photos, regenerate from THAT SAME PHOTO with the current renderer.
      */
-    if (config.brand === "roamly" && sourceAsset && !reuseExistingReel) {
+    if (config.brand === "roamly" && sourceAsset && !reusableExistingReel) {
       const sourceAssetMetadata = objectValue(sourceAsset.metadata);
       const libraryMediaMetadata = objectValue(
         sourceAssetMetadata.facebookLibraryMedia
@@ -2493,7 +2508,7 @@ async function ensureReelVideo(
     const sourceMetadata = objectValue(sourceAsset?.metadata);
     const sourceGenerated = objectValue(sourceMetadata.generatedReelVideo);
     const generatedByAutopost = String(sourceMetadata.generated_by || "").includes("reel_generator");
-    if (!reuseExistingReel && (isLegacyRoamlyGeneratedVideoAsset(sourceAsset) || generatedByAutopost || sourceGenerated.publicUrl)) {
+    if (!reusableExistingReel && (isLegacyRoamlyGeneratedVideoAsset(sourceAsset) || generatedByAutopost || sourceGenerated.publicUrl)) {
       sourceAsset = null;
       sourceUrl = "";
       sourceType = "";
