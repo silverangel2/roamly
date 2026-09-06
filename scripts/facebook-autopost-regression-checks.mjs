@@ -77,8 +77,9 @@ assert(/body: JSON\.stringify\(\{ action: "save_settings", brand, settings/.test
 assert(/getFacebookAutomationSummaries/.test(automationPage) && /brand: "reviewintel"/.test(automationPage), "automation page exposes ReviewIntel controls");
 assert(/redactedEnvValue/.test(runtimeProof) && /sensitive\|redacted\|secret\|token\|private/.test(runtimeProof), "runtime proof ignores redacted env placeholders");
 assert(/cleanEnvValue/.test(automation) && /sensitive\|redacted\|secret\|token\|private/.test(automation), "automation config ignores redacted env placeholders");
-assert(/const suggestedMedia = ""/.test(automation) && /selectedMediaAssetId: null/.test(automation), "draft generation does not require campaign-photo provenance");
-assert(!/selectCampaignPhotoAsset/.test(automation) && !/campaign photo bound/.test(automation), "later campaign-photo gating is removed");
+assert(/selectCampaignPhotoAsset/.test(automation) && /!campaignPhoto/.test(automation), "buildDrafts requires a matching campaign photo before draft creation");
+assert(/sourceMediaAssetId/.test(automation) && /sourceImageUrl/.test(automation) && /sourceDraftId/.test(automation), "source and generated Reel provenance are persisted on the draft/media asset");
+assert(/postNowSourceMediaAssetId/.test(automation) && /boundSourceId/.test(automation), "Post now preserves the selected campaign photo while regenerating audio");
 
 if (process.exitCode) {
   process.exit(process.exitCode);
