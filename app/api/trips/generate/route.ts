@@ -317,7 +317,7 @@ function paymentRequiredResponse(tripId: string, message?: string) {
     {
       ok: false,
       error: "PAYMENT_REQUIRED",
-      message: message || "You’ve used your free itinerary. Unlock this trip to generate a new full itinerary.",
+      message: message || "You’ve already used your account’s free itinerary. Payment is required to generate another itinerary.",
       tripId,
       previewUrl: `/trip/${tripId}?payment=required`,
       checkout: {

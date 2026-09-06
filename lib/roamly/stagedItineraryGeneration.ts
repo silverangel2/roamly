@@ -1870,7 +1870,7 @@ async function completeGeneration(params: {
         lastErrorCode: "PAYMENT_REQUIRED"
       };
       await persistState({ supabase: params.supabase, trip: params.trip, state: failed });
-      throw new StagedGenerationError("Your free itinerary was already used. Unlock this itinerary to continue.", "PAYMENT_REQUIRED", 402, true);
+      throw new StagedGenerationError("Your account’s free itinerary has already been used. Payment is required to generate another itinerary.", "PAYMENT_REQUIRED", 402, true);
     }
   }
 

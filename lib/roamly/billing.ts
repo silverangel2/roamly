@@ -412,37 +412,14 @@ export async function hasUsedFreeItinerary(
     };
   }
 
-  const usedAt =
-    data?.free_itinerary_used_at
-      ? new Date(
-          data.free_itinerary_used_at
-        )
-      : null;
-
-  if (
-    !usedAt ||
-    Number.isNaN(usedAt.getTime())
-  ) {
-    return {
-      used: false,
-      error: null
-    };
-  }
-
-  const now = new Date();
-
-  const usedToday =
-    usedAt.getUTCFullYear() ===
-      now.getUTCFullYear() &&
-    usedAt.getUTCMonth() ===
-      now.getUTCMonth() &&
-    usedAt.getUTCDate() ===
-      now.getUTCDate();
-
   return {
-    used: usedToday,
+    used: isFreeItineraryConsumed(data?.free_itinerary_used_at),
     error: null
   };
+}
+
+export function isFreeItineraryConsumed(usedAt: string | null | undefined) {
+  return usedAt !== null && usedAt !== undefined;
 }
 
 export async function claimFreeItinerary(
@@ -454,10 +431,6 @@ export async function claimFreeItinerary(
     createSupabaseAdminClient() || supabase;
 
   const now = new Date().toISOString();
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-  const todayStartIso = todayStart.toISOString();
-
   const claimExisting = await writer
     .from("roamly_user_entitlements")
     .update({
@@ -467,9 +440,7 @@ export async function claimFreeItinerary(
       updated_at: now
     })
     .eq("user_id", userId)
-    .or(
-      `free_itinerary_used_at.is.null,free_itinerary_used_at.lt.${todayStartIso}`
-    )
+    .is("free_itinerary_used_at", null)
     .select("id")
     .maybeSingle();
 
@@ -497,20 +468,13 @@ export async function claimFreeItinerary(
           };
         }
 
-        if (existing?.free_itinerary_used_at) {
-          const usedAt = new Date(existing.free_itinerary_used_at);
-          if (
-            Number.isFinite(usedAt.getTime()) &&
-            usedAt >= todayStart
-          ) {
-            return {
-              data: null,
-              error: {
-                message:
-                  "FREE_ITINERARY_ALREADY_USED_TODAY"
-              }
-            };
-          }
+        if (isFreeItineraryConsumed(existing?.free_itinerary_used_at)) {
+          return {
+            data: null,
+            error: {
+              message: "FREE_ITINERARY_ALREADY_USED"
+            }
+          };
         }
 
         return writer
@@ -529,13 +493,13 @@ export async function claimFreeItinerary(
   if (writeResult.error) {
     const message = writeResult.error.message || "";
     const alreadyUsed =
-      message === "FREE_ITINERARY_ALREADY_USED_TODAY" ||
+      message === "FREE_ITINERARY_ALREADY_USED" ||
       /duplicate key|unique constraint|23505/i.test(message);
 
     return {
       ok: false as const,
       error: alreadyUsed
-        ? "FREE_ITINERARY_ALREADY_USED_TODAY"
+        ? "FREE_ITINERARY_ALREADY_USED"
         : message
     };
   }
@@ -544,7 +508,7 @@ export async function claimFreeItinerary(
     return {
       ok: false as const,
       error:
-        "FREE_ITINERARY_ALREADY_USED_TODAY"
+      "FREE_ITINERARY_ALREADY_USED"
     };
   }
 
@@ -554,8 +518,7 @@ export async function claimFreeItinerary(
       "free_itinerary_used",
     metadata: {
       tripId,
-      allowance: "daily",
-      timezone: "UTC"
+      allowance: "lifetime"
     }
   });
 
@@ -635,7 +598,7 @@ export async function canGenerateFinalItinerary(
     ok: false as const,
     status: 402,
     error: "PAYMENT_REQUIRED",
-    message: "You’ve used today’s free itinerary. You can generate another free itinerary tomorrow, or unlock this trip now.",
+    message: "You’ve already used your account’s free itinerary. Payment is required to generate another itinerary.",
     trip
   };
 }
@@ -875,7 +838,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
 
   const tripResult = await supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked")
+    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked,live_companion_unlocked")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -899,6 +862,10 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     update.tracking_paid_at = now;
     update.tracking_stripe_checkout_session_id = session.id;
     update.tracking_stripe_payment_intent_id = paymentIntentId(session);
+    update.live_companion_unlocked = true;
+    update.live_companion_unlocked_at = now;
+    update.live_companion_source = "paid";
+    update.trip_companion_status = "scheduled";
   }
 
   if (purchaseType === "bundle" && !tripAlreadyLocked) {
@@ -915,6 +882,10 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     update.tracking_paid_at = now;
     update.tracking_stripe_checkout_session_id = session.id;
     update.tracking_stripe_payment_intent_id = paymentIntentId(session);
+    update.live_companion_unlocked = true;
+    update.live_companion_unlocked_at = now;
+    update.live_companion_source = "bundle";
+    update.trip_companion_status = "scheduled";
   }
 
   if (Object.keys(update).length) {

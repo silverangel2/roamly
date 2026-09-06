@@ -61,6 +61,20 @@ function loadTsModule(entryFile) {
 }
 
 const billing = read("lib/roamly/billing.ts");
+assert.ok(billing.includes("export function isFreeItineraryConsumed"), "free entitlement consumption must be explicit");
+assert.ok(billing.includes('.is("free_itinerary_used_at", null)'), "free entitlement claim must only update an unconsumed allowance");
+assert.ok(!billing.includes("getUTCFullYear") && !billing.includes("getUTCMonth") && !billing.includes("getUTCDate"), "free entitlement must not use UTC-day reset logic");
+assert.ok(billing.includes('free_itinerary_trip_id:\n        tripId') || billing.includes('free_itinerary_trip_id: tripId'), "free entitlement claim must preserve the consuming trip id");
+assert.ok(billing.includes("Payment is required to generate another itinerary."), "used-free messaging must require payment for another itinerary");
+const entitlementExports = loadTsModule("lib/roamly/billing.ts");
+assert.equal(entitlementExports.isFreeItineraryConsumed(null), false, "first itinerary must be eligible when allowance is unused");
+assert.equal(entitlementExports.isFreeItineraryConsumed("2026-09-06T12:00:00.000Z"), true, "second itinerary same day must require payment");
+assert.equal(entitlementExports.isFreeItineraryConsumed("2026-09-07T12:00:00.000Z"), true, "second itinerary next day must require payment");
+assert.equal(entitlementExports.isFreeItineraryConsumed("2027-09-06T12:00:00.000Z"), true, "second itinerary later must require payment");
+assert.ok(/duplicate key|unique constraint|23505/.test(billing), "concurrent free claims must retain unique-constraint protection");
+assert.ok(billing.includes('trip.itinerary_payment_status === "paid"'), "paid itinerary access must remain valid");
+assert.ok(billing.includes('trip.itinerary_payment_status === "bundled"'), "bundle itinerary access must remain valid");
+assert.ok(billing.includes('trip.itinerary_unlock_source === "admin"'), "admin itinerary access must remain valid");
 assert.ok(billing.includes("validateStripePriceForPurchase"), "checkout must validate Stripe Prices server-side");
 assert.ok(billing.includes("STRIPE_PRICE_MISSING"), "missing Stripe Price IDs must return a specific safe error");
 assert.ok(billing.includes("STRIPE_PRICE_AMOUNT_MISMATCH"), "Stripe Price amount mismatch must be detected");

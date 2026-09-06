@@ -2368,7 +2368,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
               ) : null}
               {generationRequiresPayment ? (
-                <NoticeBanner tone="coral">You have used your free itinerary. Unlock this trip to generate a new full itinerary.</NoticeBanner>
+                <NoticeBanner tone="coral">Your account’s free itinerary has already been used. Payment is required to generate another itinerary.</NoticeBanner>
               ) : null}
               {generationPanelVisible && generationProgress ? (
                 <StagedGenerationProgress
