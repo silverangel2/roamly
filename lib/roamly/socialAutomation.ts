@@ -1920,9 +1920,15 @@ async function facebookBrandConfigForPosting(
   }
 
   const stored = await getRoamlyFacebookCredentialsForPosting();
+  const hasStoredConnection =
+    stored.source === "connected-facebook-oauth" &&
+    Boolean(stored.pageId && stored.accessToken);
 
   return {
     ...config,
+    // A stored OAuth Page connection is valid even when the legacy
+    // environment toggle is absent or disabled.
+    facebookEnabled: config.facebookEnabled || hasStoredConnection,
     pageId: stored.pageId || config.pageId,
     pageAccessToken: stored.accessToken || config.pageAccessToken
   };
@@ -2121,7 +2127,10 @@ async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSo
     if (brand === "roamly" && type === "video" && isLegacyRoamlyGeneratedVideoAsset(asset)) {
       return false;
     }
-    return (type === "video" || type === "image") && isApprovedAutomationAsset(asset, brand);
+    // Automatic queue generation must go through the current Reel renderer.
+    // Library videos can carry arbitrary dimensions and embedded audio, so
+    // only approved images are eligible for automatic visual selection.
+    return type === "image" && isApprovedAutomationAsset(asset, brand);
   });
 
   return sortAutomationAssets(assets)[0] || null;
@@ -2206,8 +2215,12 @@ async function ensureReelVideo(
   mediaAssetId?: string | null;
   sourceMediaAssetId?: string | null;
 }> {
-  const existingUrl = clean(draft.selected_media_url || draft.suggested_media);
-  const asset = draft.selected_media_asset_id
+  const draftMetadata = objectValue(draft.metadata);
+  const forceFreshGeneratedReel = draftMetadata.forceFreshGeneratedReel === true;
+  const existingUrl = forceFreshGeneratedReel
+    ? ""
+    : clean(draft.selected_media_url || draft.suggested_media);
+  const asset = !forceFreshGeneratedReel && draft.selected_media_asset_id
     ? await admin
         .from("roamly_social_media_assets")
         .select("id,platform,status,title,media_url,asset_type,source,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
@@ -2220,7 +2233,7 @@ async function ensureReelVideo(
   }
 
   const selectedAsset = (asset.data || null) as SocialMediaAssetRow | null;
-  const pickedAsset = !existingUrl && !selectedAsset
+  const pickedAsset = !forceFreshGeneratedReel && !existingUrl && !selectedAsset
     ? await pickAutomationMediaAsset(admin, config.brand)
     : null;
   let sourceAsset = selectedAsset || pickedAsset;
@@ -3487,9 +3500,17 @@ export async function publishNextFacebookPostNow(
       const { error: refreshError } = await admin
         .from("roamly_social_drafts")
         .update({
-          selected_media_url: sourceMediaUrl || null,
-          selected_media_asset_id: sourceMediaAssetId,
-          media_hash: sourceMediaUrl ? hash(sourceMediaUrl) : null,
+          // Post now must use the current Reel renderer so it cannot publish
+          // an old library video with the wrong dimensions or soundtrack.
+          selected_media_url: null,
+          selected_media_asset_id: null,
+          media_hash: null,
+          metadata: {
+            ...metadata,
+            forceFreshGeneratedReel: true,
+            postNowSourceMediaUrl: sourceMediaUrl || null,
+            postNowSourceMediaAssetId: sourceMediaAssetId
+          },
           hashtags: refreshedHashtags
         })
         .eq("id", data.draft_id);
