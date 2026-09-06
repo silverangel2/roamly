@@ -3456,7 +3456,7 @@ export async function publishNextFacebookPostNow(
 
   const normalizedBrand = normalizeFacebookBrand(brand);
 
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from("roamly_social_queue")
     .select("id,draft_id,draft:roamly_social_drafts!inner(post_format)")
     .in("platform", brandQueuePlatforms(normalizedBrand))
@@ -3473,44 +3473,43 @@ export async function publishNextFacebookPostNow(
     };
   }
 
-  if (!data && normalizedBrand === "roamly") {
-    console.log("[POST_NOW_FRESH_QUEUE_CREATE]", {
+  if (!data) {
+    console.log("[POST_NOW_QUEUE_REFILL]", {
       brand: normalizedBrand,
-      reason: "No scheduled Roamly Reel available"
+      reason: "No scheduled Reel available",
+      count: 100
     });
 
-    const fresh = await queueFacebookRuntimeProofReel(
-      admin,
-      "roamly",
-      actorEmail || "post_now"
-    );
+    const refill = await generateFacebookQueue(admin, {
+      count: 100,
+      actorEmail: actorEmail || "post_now",
+      source: "admin",
+      brand: normalizedBrand
+    });
 
-    if (!fresh.ok) {
+    if (!refill.ok || !refill.created) {
       return {
         ok: false as const,
-        error: fresh.error || "Could not create a fresh Roamly Reel."
+        error: refill.error || "Could not refill the Facebook Reel library."
       };
     }
 
-    console.log("[POST_NOW_FRESH_QUEUE_CREATED]", {
-      queueId: fresh.queueId,
-      draftId: fresh.draftId
+    console.log("[POST_NOW_QUEUE_REFILLED]", {
+      brand: normalizedBrand,
+      created: refill.created,
+      scheduled: refill.scheduled
     });
 
-    const result = await runFacebookAutomationCycle(admin, {
-      trigger: "admin",
-      force: true,
-      limit: 1,
-      brand: "roamly"
-    });
-
-    return {
-      ok: result.ok,
-      freshCreated: true,
-      queueId: fresh.queueId,
-      draftId: fresh.draftId,
-      result
-    };
+    ({ data, error } = await admin
+      .from("roamly_social_queue")
+      .select("id,draft_id,draft:roamly_social_drafts!inner(post_format)")
+      .in("platform", brandQueuePlatforms(normalizedBrand))
+      .eq("queue_status", "scheduled")
+      .eq("draft.post_format", "reel")
+      .order("scheduled_for", { ascending: true })
+      .limit(1)
+      .maybeSingle());
+    if (error) return { ok: false as const, error: error.message };
   }
 
   if (!data) {

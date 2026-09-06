@@ -29,6 +29,7 @@ assert(/facebookBrandConfig\(brand\)/.test(automation) || /facebookBrandConfig\(
 assert(/facebookEnabled: config\.facebookEnabled \|\| hasStoredConnection/.test(automation), "stored OAuth Page connections pass Facebook validation");
 assert(/reuseExistingReel: true/.test(automation), "Post now reuses the selected queued Reel");
 assert(/reuseExistingReel/.test(automation) && /!reuseExistingReel/.test(automation), "only reusable Reel media bypasses generation");
+assert(/count: 100/.test(automation) && /POST_NOW_QUEUE_REFILL/.test(automation), "empty Post now queues refill the Reel library with 100 items");
 assert(/return type === "image" && isApprovedAutomationAsset\(asset, brand\)/.test(automation), "automatic Reel selection excludes arbitrary library videos");
 assert(/REVIEWINTEL_META_PAGE_ID/.test(automation), "ReviewIntel has its own Page ID env wiring");
 assert(/ROAMLY_META_PAGE_ID/.test(automation), "Roamly keeps its own Page ID env wiring");
