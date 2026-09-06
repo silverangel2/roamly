@@ -2204,7 +2204,10 @@ async function findLatestPublishedVisual(admin: SupabaseClient, currentDraftId: 
     .eq("queue_status", "published")
     .neq("draft_id", currentDraftId)
     .not("draft.selected_media_asset_id", "is", null)
-    .order("published_at", { ascending: false })
+    // The Aug 19 published Reel is the known-good visual baseline. Newer
+    // generated outputs may have damaged visuals/audio and must not become
+    // the fallback source for an empty draft.
+    .order("published_at", { ascending: true })
     .limit(50);
   if (error || !data?.length) return null;
   for (const row of data as Array<Record<string, unknown>>) {
