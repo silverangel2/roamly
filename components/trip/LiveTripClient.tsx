@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
-import { ensurePushSubscription, isSupportedMobileEnvironment } from "@/lib/roamly/pushClient";
+import { ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, isSupportedMobileEnvironment } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityStartDate,
@@ -126,6 +126,12 @@ const LIVE_DEMO_STORAGE_KEY = "roamly_live_demo_state";
 const LIVE_DEMO_TTL_MS = 20 * 60_000;
 const ROUTE_FETCH_DEBOUNCE_MS = 1200;
 const MIN_LOCATION_DELTA_METERS = 75;
+const LIVE_SETUP_STORAGE_PREFIX = "roamly_live_companion_setup:";
+
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -366,6 +372,7 @@ export function LiveTripClient({
 }: LiveTripClientProps) {
   const [items, setItems] = useState(activities);
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
+  const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
   const [location, setLocation] = useState<LiveCoordinates | null>(initialLocation);
   const [watching, setWatching] = useState(false);
   const [route, setRoute] = useState<LiveRouteStatus>(() => fallbackRouteStatus(null));
@@ -381,6 +388,9 @@ export function LiveTripClient({
   const [demoError, setDemoError] = useState("");
   const [demoNotice, setDemoNotice] = useState("");
   const [setupComplete, setSetupComplete] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState(simulatorPlaces[0]?.id || "");
   const watchIdRef = useRef<number | null>(null);
   const lastSentRef = useRef<{ at: number; location: LiveCoordinates } | null>(null);
@@ -501,6 +511,32 @@ export function LiveTripClient({
     timezone,
     now: nowTick
   });
+
+  const setupStorageKey = `${LIVE_SETUP_STORAGE_PREFIX}${tripId}`;
+
+  useEffect(() => {
+    const refreshInstallState = () => {
+      const capability = getPushCapabilityState();
+      setIsStandalone(capability.isStandalone);
+      if (capability.isStandalone && window.localStorage.getItem(setupStorageKey) === "complete") {
+        setSetupComplete(true);
+      }
+    };
+    refreshInstallState();
+    void getNotificationPermissionState().then((state) => setNotificationPermission(state));
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setDeferredInstallPrompt(event as InstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("pageshow", refreshInstallState);
+    document.addEventListener("visibilitychange", refreshInstallState);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("pageshow", refreshInstallState);
+      document.removeEventListener("visibilitychange", refreshInstallState);
+    };
+  }, [setupStorageKey]);
 
   useEffect(() => {
     setItems(activities);
@@ -644,6 +680,7 @@ export function LiveTripClient({
       setLocation(nextLocation);
       setWatching(true);
       setSetupComplete(true);
+      window.localStorage.setItem(setupStorageKey, "complete");
       void fetch("/api/roamly/location/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -676,16 +713,35 @@ export function LiveTripClient({
       maximumAge: 120_000,
       timeout: 20_000
     });
-  }, [sendLocationUpdate, tripId]);
+  }, [sendLocationUpdate, setupStorageKey, tripId]);
+
+  async function startInstall() {
+    if (deferredInstallPrompt) {
+      await deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice.catch(() => undefined);
+      setDeferredInstallPrompt(null);
+      return;
+    }
+    setInstallGuideOpen(true);
+  }
 
   const setupLiveCompanion = useCallback(async () => {
     setBusy("setup");
     setError("");
     setNotice("");
     try {
-      if (!mobileRuntime) throw new Error("Live Companion setup is available on a supported mobile browser or installed Roamly app.");
+      if (!mobileRuntime) throw new Error("Live Companion runs on your phone. Open this trip on your phone to finish setup.");
       const push = await ensurePushSubscription();
-      if (!push.ok) throw new Error(push.error || "Push setup could not be completed.");
+      if (!push.ok) {
+        const currentNotificationPermission = await getNotificationPermissionState();
+        setNotificationPermission(currentNotificationPermission);
+        throw new Error(
+          currentNotificationPermission === "denied"
+            ? "Notifications are blocked. In your phone settings, allow notifications for Roamly, then return here."
+            : push.error || "Notifications could not be enabled."
+        );
+      }
+      setNotificationPermission("granted");
       await startForegroundLocation();
       setNotice("Live Companion setup is continuing: allow location when your phone asks.");
     } catch (err) {
@@ -1269,18 +1325,55 @@ export function LiveTripClient({
             <section className="rounded-2xl border border-white/10 bg-white/8 p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">Live Companion setup</p>
               {!mobileRuntime ? (
-                <p className="mt-2 text-sm font-black text-amber-100">Live Companion runs on mobile. Open this trip on your phone to set it up.</p>
-              ) : !setupComplete && !watching ? (
+                <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
+                  <h3 className="text-lg font-black text-amber-100">Live Companion runs on your phone</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Open this trip on your phone to finish setup.</p>
+                </div>
+              ) : !isStandalone ? (
+                <div className="mt-3 rounded-2xl border border-amber-200/30 bg-amber-200/15 p-4">
+                  <h3 className="text-xl font-black text-amber-100">Activate Live Companion</h3>
+                  <p className="mt-2 text-sm font-bold leading-6 text-white/80">Install Roamly on your Home Screen to receive Live Companion trip alerts.</p>
+                  <button type="button" onClick={() => void startInstall()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink">
+                    Install Roamly
+                  </button>
+                  {installGuideOpen ? (
+                    <div className="mt-4 rounded-2xl bg-white p-4 text-ink">
+                      <h4 className="text-lg font-black">Install Roamly</h4>
+                      {getPushCapabilityState().isIOS ? (
+                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
+                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the Share button <span aria-label="Share" role="img">□↑</span> in Safari.</li>
+                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap Add to Home Screen <span aria-label="Home Screen" role="img">⌂</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap Add.</li>
+                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon.</li>
+                        </ol>
+                      ) : (
+                        <p className="mt-3 text-sm font-bold leading-6 text-slate-600">Use your browser&apos;s install option, then open Roamly from the new Home Screen icon.</p>
+                      )}
+                      <button type="button" onClick={() => setInstallGuideOpen(false)} className="mt-4 min-h-11 w-full rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white">Got it</button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : setupComplete ? (
+                <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
+                  <h3 className="text-xl font-black text-white">Live Companion is on</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Roamly will help you stay on track during your trip.</p>
+                </div>
+              ) : !watching ? (
                 <>
-                  <p className="mt-2 text-sm font-black">One-time setup: add Roamly to your iPhone Home Screen first when prompted, then allow notifications and location.</p>
-                  <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-3 min-h-11 rounded-2xl bg-white px-3 py-2 text-xs font-black text-ink disabled:opacity-50">
-                    {busy === "setup" ? "Setting up…" : "Set up Live Companion"}
+                  <div className="mt-3 grid gap-2 text-sm font-black text-white/85">
+                    <p>Step 1 — Notifications <span className="float-right text-white/55">{notificationPermission === "granted" ? "Ready" : "Next"}</span></p>
+                    <p>Step 2 — Location <span className="float-right text-white/55">{permission === "granted" ? "Ready" : "Next"}</span></p>
+                    <p>Step 3 — Ready</p>
+                  </div>
+                  <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                    {busy === "setup" ? "Setting up…" : "Continue setup"}
                   </button>
                 </>
               ) : null}
               <p className="mt-2 text-xs font-bold leading-5 text-white/55">
-                {watching ? "Foreground location sensing is active while Roamly is open." : permission === "granted" ? "Location permission is ready; sensing resumes automatically in an eligible trip window." : "Location permission is required during setup."}
+                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
               </p>
+              {error ? <p className="mt-3 rounded-2xl bg-coral/20 px-4 py-3 text-sm font-black leading-6 text-coral-100">{error}</p> : null}
             </section>
 
             {liveDemoEnabled ? (

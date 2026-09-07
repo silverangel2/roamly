@@ -2943,6 +2943,43 @@ const liveCompanionQaConsole = read("components/admin/LiveCompanionQaConsole.tsx
   "darkMode"
 ].forEach((needle) => assert.ok(liveCompanionQaConsole.includes(needle), `Live Companion QA console missing ${needle}`));
 
+const liveTripClient = read("components/trip/LiveTripClient.tsx");
+const pushClient = read("lib/roamly/pushClient.ts");
+[
+  "Activate Live Companion",
+  "Install Roamly",
+  "Tap the Share button",
+  "Add to Home Screen",
+  "Step 1 — Notifications",
+  "Step 2 — Location",
+  "Step 3 — Ready",
+  "Live Companion is on",
+  "Live Companion runs on your phone",
+  "beforeinstallprompt",
+  "LIVE_SETUP_STORAGE_PREFIX"
+].forEach((needle) => assert.ok(liveTripClient.includes(needle), `customer Live Companion setup missing ${needle}`));
+assert.ok(pushClient.includes("display-mode: standalone"), "Home Screen standalone detection is missing");
+assert.ok(!liveTripClient.includes("installation is automatic"), "iOS setup must not claim installation is automatic");
+
+const adminFieldTest = read("components/admin/AdminLiveTestConsole.tsx");
+[
+  "A. Prepare test",
+  "B. Test on phone",
+  "Test the real Live Companion on your phone",
+  "Desktop Admin prepares and observes the test only",
+  "PHONE&apos;S REAL LOCATION",
+  "No simulated GPS is used",
+  "Open/Copy mobile test link",
+  "Test trip ready",
+  "Mobile setup completed",
+  "Push subscription active",
+  "Location received",
+  "Last detected activity",
+  "Last push/delivery",
+  "Last Check-in/Skip",
+  "Waiting / Not detected"
+].forEach((needle) => assert.ok(adminFieldTest.includes(needle), `Admin field test UX missing ${needle}`));
+
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "supportsIncrementalSync"].forEach((needle) =>
   assert.ok(emailProviderAdapters.includes(needle), `email provider adapter registry missing ${needle}`)

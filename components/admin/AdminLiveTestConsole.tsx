@@ -62,6 +62,15 @@ type NotificationRow = {
   created_at: string | null;
 };
 
+type LocationSetting = {
+  user_id: string | null;
+  location_tracking_enabled: boolean | null;
+  notification_enabled: boolean | null;
+  last_permission_state: string | null;
+  last_seen_at: string | null;
+  updated_at: string | null;
+};
+
 const actions = [
   ["simulate_one_week_before", "Simulate 1 week before trip"],
   ["simulate_one_day_before", "Simulate 1 day before trip"],
@@ -103,19 +112,22 @@ export function AdminLiveTestConsole({
   activities,
   bookings,
   pushSubscriptions,
-  notifications
+  notifications,
+  locationSettings
 }: {
   trips: Trip[];
   activities: Activity[];
   bookings: Booking[];
   pushSubscriptions: PushSubscription[];
   notifications: NotificationRow[];
+  locationSettings: LocationSetting[];
 }) {
   const [tripId, setTripId] = useState(trips[0]?.id || "");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [browserPermission, setBrowserPermission] = useState("unknown");
+  const [mobileLinkCopied, setMobileLinkCopied] = useState(false);
 
   const selectedTrip = trips.find((trip) => trip.id === tripId) || null;
   const tripActivities = useMemo(() => activities.filter((activity) => activity.trip_id === tripId), [activities, tripId]);
@@ -135,6 +147,18 @@ export function AdminLiveTestConsole({
       ) || null,
     [notifications, tripId]
   );
+  const locationSetting = locationSettings.find((setting) => setting.user_id === selectedTrip?.user_id) || null;
+  const activeActivity = tripActivities.find((activity) => ["nearby", "checked_in", "completed", "skipped"].includes(activity.status)) || null;
+  const lastCheckinSkip = tripActivities.find((activity) => ["checked_in", "skipped"].includes(activity.status)) || null;
+  const mobileTestLink = typeof window !== "undefined" && tripId
+    ? `${window.location.origin}/trip/${tripId}/live?fieldTest=1`
+    : `/trip/${tripId}/live?fieldTest=1`;
+
+  async function copyMobileTestLink() {
+    await navigator.clipboard?.writeText(mobileTestLink);
+    setMobileLinkCopied(true);
+    window.setTimeout(() => setMobileLinkCopied(false), 1800);
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -234,6 +258,8 @@ export function AdminLiveTestConsole({
   return (
     <div className="grid gap-5">
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">A. Prepare test</p>
+        <h2 className="mt-2 text-xl font-black text-ink">Seed and inspect the Saint John test</h2>
         <label className="block">
           <span className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Select recent trip</span>
           <select
@@ -273,8 +299,7 @@ export function AdminLiveTestConsole({
           </button>
 
           <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-            Creates a protected admin-only trip with scheduled activities for the
-            Production Live Companion lifecycle test. It does not modify customer trips.
+            Seed/reset the Saint John test trip here, then inspect status and evidence below. This desktop page prepares and observes the test only.
           </p>
         </div>
 
@@ -300,6 +325,7 @@ export function AdminLiveTestConsole({
       <section>
         {selectedTrip?.metadata?.field_test === true ? (
           <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">B. Test on phone</p>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
@@ -323,9 +349,17 @@ export function AdminLiveTestConsole({
                 Phone field test
               </p>
 
-              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                Open the real Live Companion on your phone. Your phone provides the
-                GPS and receives the notifications; this admin page only monitors the test.
+              <h4 className="mt-2 text-lg font-black text-slate-900">Test the real Live Companion on your phone</h4>
+              <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
+                <li>1. Open the test trip on your phone.</li>
+                <li>2. Install Roamly on your Home Screen when prompted.</li>
+                <li>3. Launch Roamly from the Home Screen.</li>
+                <li>4. Allow notifications and location.</li>
+                <li>5. Walk or drive normally.</li>
+                <li>6. Roamly should automatically detect and progress through the Saint John test activities.</li>
+              </ol>
+              <p className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black leading-6 text-ocean">
+                Field mode uses your PHONE&apos;S REAL LOCATION. No simulated GPS is used. Desktop Admin prepares and observes the test only; Desktop Admin is NOT the Live Companion runtime.
               </p>
 
               {typeof window !== "undefined" && tripId ? (
@@ -351,9 +385,17 @@ export function AdminLiveTestConsole({
                 Open Field Test on Phone
               </a>
 
+              <button
+                type="button"
+                onClick={() => void copyMobileTestLink()}
+                className="mt-2 block w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink"
+              >
+                {mobileLinkCopied ? "Mobile test link copied" : "Open/Copy mobile test link"}
+              </button>
+
               <p className="mt-2 text-xs font-bold text-slate-500">
-                On your phone, use this same Roamly address and trip. Do not use simulated location.
-              </p>
+              Use the phone link above. Desktop controls below are preparation/observation only.
+            </p>
             </div>
 
             <div className="mt-5 grid gap-3">
@@ -404,14 +446,33 @@ export function AdminLiveTestConsole({
                 ))}
             </div>
 
-            <p className="mt-4 rounded-2xl bg-sun/15 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
-              Field mode must use your actual browser location. Walk or drive normally;
-              Roamly should detect approaching, arrival, check-in/skip and progression
-              without simulated GPS.
-            </p>
+            <div className="mt-5 rounded-2xl border border-cloud bg-mist/50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean">Field-test status</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  ["Test trip ready", selectedTrip.tracking_unlocked === true && selectedTrip.itinerary_status === "locked" ? "Ready" : "Waiting / Not detected"],
+                  ["Mobile setup completed", activePushSubscriptions.length > 0 && locationSetting?.location_tracking_enabled === true ? "Ready" : "Waiting / Not detected"],
+                  ["Push subscription active", activePushSubscriptions.length > 0 ? "Ready" : "Waiting / Not detected"],
+                  ["Location received", locationSetting?.last_seen_at ? new Date(locationSetting.last_seen_at).toLocaleString() : "Waiting / Not detected"],
+                  ["Live Companion active", locationSetting?.location_tracking_enabled === true ? "Ready" : "Waiting / Not detected"],
+                  ["Last detected activity", activeActivity?.title || "Waiting / Not detected"],
+                  ["Last push/delivery", latestPushResult?.push_status || "Waiting / Not detected"],
+                  ["Last Check-in/Skip", lastCheckinSkip?.title ? `${lastCheckinSkip.title} (${lastCheckinSkip.status})` : "Waiting / Not detected"]
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-xl bg-white px-3 py-2">
+                    <p className="text-[0.68rem] font-black uppercase tracking-[0.1em] text-slate-500">{label}</p>
+                    <p className="mt-1 text-sm font-black text-slate-900">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
         ) : null}
 
+        <div className="rounded-2xl border border-sun/40 bg-sun/10 p-4">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-900">Desktop preparation control</p>
+          <p className="mt-1 text-sm font-bold leading-6 text-amber-900">This control is for Admin setup/observation. It is not the Live Companion runtime. Run the real phone test above for phone notifications.</p>
+        </div>
         <NotificationPermissionCard qaTripId={tripId || undefined} />
         <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
           This is Roamly&apos;s real notification registration. Enable reminders
