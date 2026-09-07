@@ -16,7 +16,7 @@ export default async function AdminLiveTestPage() {
 
   const tripIds = (trips || []).map((trip) => trip.id);
   const userIds = Array.from(new Set((trips || []).map((trip) => trip.user_id).filter(Boolean)));
-  const [{ data: activities }, { data: bookings }, { data: pushSubscriptions }, { data: recentNotifications }] = await Promise.all([
+  const [{ data: activities }, { data: bookings }, { data: pushSubscriptions }, { data: recentNotifications }, { data: locationSettings }] = await Promise.all([
     tripIds.length
       ? state.admin
           .from("roamly_activities")
@@ -34,7 +34,7 @@ export default async function AdminLiveTestPage() {
     userIds.length
       ? state.admin
           .from("roamly_push_subscriptions")
-          .select("id,user_id,enabled,user_agent,created_at,updated_at")
+          .select("id,user_id,trip_id,enabled,user_agent,created_at,updated_at")
           .in("user_id", userIds)
           .order("updated_at", { ascending: false, nullsFirst: false })
       : Promise.resolve({ data: [] }),
@@ -45,6 +45,12 @@ export default async function AdminLiveTestPage() {
           .in("trip_id", tripIds)
           .order("created_at", { ascending: false })
           .limit(80)
+      : Promise.resolve({ data: [] }),
+    userIds.length
+      ? state.admin
+          .from("roamly_location_settings")
+          .select("user_id,location_tracking_enabled,notification_enabled,last_permission_state,last_seen_at,updated_at")
+          .in("user_id", userIds)
       : Promise.resolve({ data: [] })
   ]);
 
@@ -69,6 +75,7 @@ export default async function AdminLiveTestPage() {
             bookings={bookings || []}
             pushSubscriptions={pushSubscriptions || []}
             notifications={recentNotifications || []}
+            locationSettings={locationSettings || []}
           />
         </section>
       )}

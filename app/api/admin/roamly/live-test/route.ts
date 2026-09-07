@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
     }
     if (action === "send_test_push_notification") {
       const result = await sendTestPushNotification(tripId);
-      return NextResponse.json({ ok: true, action, ...result });
+      const { ok, httpStatus, ...rest } = result;
+      return NextResponse.json({ ok, action, test: "push_diagnostic", ...rest }, { status: ok ? 200 : httpStatus || 502 });
     }
     if (action === "simulate_check_in") {
       const result = await simulateCheckIn(tripId);

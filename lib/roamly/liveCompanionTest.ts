@@ -411,27 +411,41 @@ export async function sendTestInAppNotification(tripId: string) {
 export async function sendTestPushNotification(tripId: string) {
   const supabase = admin();
   const trip = await getTrip(supabase, tripId);
-  const { count } = await supabase
+  const tripMetadata = trip.metadata && typeof trip.metadata === "object"
+    ? trip.metadata as Record<string, unknown>
+    : {};
+  if (tripMetadata.admin_test !== true || tripMetadata.field_test !== true) {
+    return { ok: false, error: "Push test is restricted to the prepared field-test phone.", httpStatus: 403 };
+  }
+  const { data: subscription, error: subscriptionError } = await supabase
     .from("roamly_push_subscriptions")
-    .select("id", { count: "exact", head: true })
+    .select("id")
     .eq("user_id", trip.user_id)
+    .eq("trip_id", tripId)
     .eq("enabled", true);
+  if (subscriptionError) return { ok: false, error: subscriptionError.message, httpStatus: 500 };
+  if (!subscription?.[0]?.id) {
+    return { ok: false, error: "No push subscription registered for this phone", httpStatus: 404 };
+  }
   const push = await sendPushNotification(supabase, trip.user_id || "", {
     tripId,
     type: "test_notification",
-    title: "Roamly push test",
-    body: "If push is enabled, this verifies the browser subscription.",
+    title: "Roamly Test",
+    body: "Push notifications are working on this phone.",
     actionUrl: `/trip/${tripId}/live`
-  });
+  }, { sendEmail: false, createNotification: false, subscriptionIds: [subscription[0].id] });
+  const error = push.error
+    ? /not configured/i.test(push.error)
+      ? "Push configuration unavailable"
+      : push.sent
+        ? push.error
+        : "Push provider rejected the subscription"
+    : null;
   return {
-    pushAttempted: true,
-    pushStatus: push.ok ? "sent" : count ? "failed" : "no_subscription",
-    pushError: push.error || null,
-    pushSent: "sent" in push ? push.sent : 0,
-    pushFailed: "failed" in push ? push.failed : 0,
-    notificationCreated: !push.notification?.error,
-    message: count ? null : "No push subscription found. In-app notification was created.",
-    debug: await buildLiveCompanionDebugReport(tripId)
+    ok: push.ok === true && push.sent === 1,
+    message: push.ok === true && push.sent === 1 ? "Test notification sent" : error || "Push provider rejected the subscription",
+    error,
+    httpStatus: push.ok === true && push.sent === 1 ? 200 : error === "Push configuration unavailable" ? 503 : 502
   };
 }
 

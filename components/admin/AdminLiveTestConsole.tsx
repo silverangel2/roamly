@@ -45,6 +45,7 @@ type Booking = {
 type PushSubscription = {
   id: string;
   user_id: string | null;
+  trip_id: string | null;
   enabled: boolean | null;
   user_agent: string | null;
   created_at: string | null;
@@ -136,9 +137,12 @@ export function AdminLiveTestConsole({
   const activePushSubscriptions = useMemo(
     () =>
       pushSubscriptions.filter(
-        (subscription) => subscription.user_id === selectedTrip?.user_id && subscription.enabled !== false
+        (subscription) =>
+          subscription.user_id === selectedTrip?.user_id &&
+          subscription.trip_id === selectedTrip?.id &&
+          subscription.enabled !== false
       ),
-    [pushSubscriptions, selectedTrip?.user_id]
+    [pushSubscriptions, selectedTrip?.id, selectedTrip?.user_id]
   );
   const latestPushResult = useMemo(
     () =>
@@ -282,6 +286,29 @@ export function AdminLiveTestConsole({
             <ResultPill label="This browser permission" value={browserPermission} />
             <ResultPill label="Last push status" value={latestPushResult?.push_status || "none"} />
             <ResultPill label="Last push error" value={latestPushResult?.push_error || "none"} />
+          </div>
+        ) : null}
+        {selectedTrip?.metadata?.field_test === true ? (
+          <div className="mt-5 rounded-2xl border-2 border-ocean/25 bg-ocean/5 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Phone push</p>
+                <p className="mt-1 text-lg font-black text-slate-900">
+                  {activePushSubscriptions.length ? "Ready" : "Not registered"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => run("send_test_push_notification")}
+                disabled={Boolean(busy) || !activePushSubscriptions.length}
+                className="min-h-11 rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
+              >
+                {busy === "send_test_push_notification" ? "Sending..." : "Send test notification"}
+              </button>
+            </div>
+            <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+              Sends only to this prepared field-test phone through the production Web Push service worker path.
+            </p>
           </div>
         ) : null}
         {selectedTrip && !activePushSubscriptions.length ? (
@@ -509,6 +536,11 @@ export function AdminLiveTestConsole({
 
       {result ? (
         <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+          {result.test === "push_diagnostic" ? (
+            <div className={`rounded-2xl px-4 py-3 text-sm font-black ${result.ok === true ? "bg-ocean/10 text-ocean" : "bg-coral/10 text-coral"}`}>
+              {String(result.message || result.error || "Push test failed.")}
+            </div>
+          ) : null}
           {result.test === "production_live_companion_lifecycle" ? (
             <div className="mb-5">
               <div
@@ -560,23 +592,27 @@ export function AdminLiveTestConsole({
             </div>
           ) : null}
 
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Latest result</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <ResultPill label="Trip activated" value={result.tripActivated} />
-            <ResultPill label="Nearby detected" value={Array.isArray(result.nearbyActivities) ? result.nearbyActivities.length : 0} />
-            <ResultPill label="Notification created" value={result.notificationCreated} />
-            <ResultPill label="Push status" value={result.pushStatus || "not_attempted"} />
-            <ResultPill label="Checked in" value={result.activityCheckedIn} />
-            <ResultPill label="Skipped" value={result.activitySkipped} />
-            <ResultPill label="Completed" value={result.activityCompleted} />
-            <ResultPill label="Distance meters" value={result.distanceMeters} />
-          </div>
-          {typeof result.message === "string" ? (
-            <p className="mt-4 rounded-2xl bg-sun/10 px-4 py-3 text-sm font-black text-amber-800">{result.message}</p>
+          {result.test !== "push_diagnostic" ? (
+            <>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Latest result</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <ResultPill label="Trip activated" value={result.tripActivated} />
+                <ResultPill label="Nearby detected" value={Array.isArray(result.nearbyActivities) ? result.nearbyActivities.length : 0} />
+                <ResultPill label="Notification created" value={result.notificationCreated} />
+                <ResultPill label="Push status" value={result.pushStatus || "not_attempted"} />
+                <ResultPill label="Checked in" value={result.activityCheckedIn} />
+                <ResultPill label="Skipped" value={result.activitySkipped} />
+                <ResultPill label="Completed" value={result.activityCompleted} />
+                <ResultPill label="Distance meters" value={result.distanceMeters} />
+              </div>
+              {typeof result.message === "string" ? (
+                <p className="mt-4 rounded-2xl bg-sun/10 px-4 py-3 text-sm font-black text-amber-800">{result.message}</p>
+              ) : null}
+              <pre className="mt-4 max-h-96 overflow-auto rounded-2xl bg-ink p-4 text-xs font-bold leading-5 text-white/80">
+                {JSON.stringify(result.debug || result, null, 2)}
+              </pre>
+            </>
           ) : null}
-          <pre className="mt-4 max-h-96 overflow-auto rounded-2xl bg-ink p-4 text-xs font-bold leading-5 text-white/80">
-            {JSON.stringify(result.debug || result, null, 2)}
-          </pre>
         </section>
       ) : null}
 

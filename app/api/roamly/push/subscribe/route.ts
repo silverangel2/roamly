@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
   const { data, error } = await auth.supabase.from("roamly_push_subscriptions").upsert(
     {
       user_id: auth.userId,
+      trip_id: tripId || null,
       endpoint: body.endpoint,
       p256dh: body.keys?.p256dh || null,
       auth: body.keys?.auth || null,

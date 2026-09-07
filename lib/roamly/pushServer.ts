@@ -106,6 +106,7 @@ export async function sendPushNotification(
     sendEmail?: boolean;
     notificationId?: string | null;
     createNotification?: boolean;
+    subscriptionIds?: string[];
   } = {}
 ) {
   const writer = createSupabaseAdminClient() || supabase;
@@ -164,11 +165,13 @@ export async function sendPushNotification(
     return { ok: false, error: "Web push is not configured.", notification, emailResult };
   }
 
-  const { data: subscriptions, error } = await writer
+  let subscriptionsQuery = writer
     .from("roamly_push_subscriptions")
     .select("*")
     .eq("user_id", userId)
     .eq("enabled", true);
+  if (options.subscriptionIds?.length) subscriptionsQuery = subscriptionsQuery.in("id", options.subscriptionIds);
+  const { data: subscriptions, error } = await subscriptionsQuery;
   if (error) {
     if (notification.data?.id) {
       await writer.from("roamly_notifications").update({ push_status: "failed", push_error: error.message }).eq("id", notification.data.id);
