@@ -53,17 +53,19 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireUserOrFieldTest();
+  const tripId = request.nextUrl.searchParams.get("tripId") || undefined;
+  const auth = await requireUserOrFieldTest(tripId);
   if (!auth.ok) return auth.response;
   const endpoint = request.nextUrl.searchParams.get("endpoint") || "";
   if (!endpoint) return NextResponse.json({ ok: true, deviceRegistered: false });
-  const { data, error } = await auth.supabase
+  let query = auth.supabase
     .from("roamly_push_subscriptions")
     .select("id")
     .eq("user_id", auth.userId)
     .eq("endpoint", endpoint)
-    .eq("enabled", true)
-    .maybeSingle();
+    .eq("enabled", true);
+  if (tripId) query = query.eq("trip_id", tripId);
+  const { data, error } = await query.maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, deviceRegistered: Boolean(data?.id), subscriptionId: data?.id || null });
 }

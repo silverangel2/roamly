@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
-import { ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment } from "@/lib/roamly/pushClient";
+import { ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityStartDate,
@@ -192,9 +192,7 @@ function statusLabel(status: string | null | undefined) {
 
 function routeCopy(route: LiveRouteStatus) {
   if (route.status === "verified") return `${route.durationMinutes} min ${route.mode}`;
-  if (route.status === "offline") return "Offline";
-  if (route.status === "permission_denied") return "Location denied";
-  return "Route unavailable";
+  return "";
 }
 
 function primaryAddress(activity: LiveCompanionActivity | null) {
@@ -532,7 +530,7 @@ export function LiveTripClient({
       const capability = getPushCapabilityState();
       const [currentNotificationPermission, currentPushReady, currentLocationPermission] = await Promise.all([
         getNotificationPermissionState(),
-        capability.isStandalone ? hasPushSubscription() : Promise.resolve(false),
+        capability.isStandalone ? hasPushSubscription(fieldTestMode ? tripId : undefined) : Promise.resolve(false),
         getBrowserLocationPermission()
       ]);
       if (!alive) return;
@@ -564,7 +562,7 @@ export function LiveTripClient({
       window.removeEventListener("pageshow", onPageShow);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [permission]);
+  }, [fieldTestMode, permission, tripId]);
 
   useEffect(() => {
     setItems(activities);
@@ -707,8 +705,7 @@ export function LiveTripClient({
       setPermission("granted");
       setLocation(nextLocation);
       setWatching(true);
-      setSetupComplete(true);
-      setPushReady(true);
+      setSetupComplete(!fieldTestMode);
       void fetch("/api/roamly/location/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -741,7 +738,7 @@ export function LiveTripClient({
       maximumAge: 120_000,
       timeout: 20_000
     });
-  }, [sendLocationUpdate, tripId]);
+  }, [fieldTestMode, sendLocationUpdate, tripId]);
 
   async function startInstall() {
     if (deferredInstallPrompt) {
@@ -752,6 +749,30 @@ export function LiveTripClient({
     }
     setInstallGuideOpen(true);
   }
+
+  const enableFieldTestNotifications = useCallback(async () => {
+    setBusy("notifications");
+    setError("");
+    setNotice("");
+    try {
+      const permissionResult = await requestNotificationPermission();
+      setNotificationPermission(permissionResult);
+      if (permissionResult !== "granted") {
+        if (permissionResult === "denied") {
+          throw new Error("Notifications are blocked. In iPhone Settings, allow notifications for Roamly, then return here.");
+        }
+        throw new Error("Notifications could not be enabled on this device.");
+      }
+      const push = await ensurePushSubscription(tripId);
+      if (!push.ok) throw new Error(push.error || "Push subscription could not be registered. Try again.");
+      setPushReady(true);
+      setNotice("Notifications ready");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Push subscription could not be registered. Try again.");
+    } finally {
+      setBusy("");
+    }
+  }, [tripId]);
 
   const setupLiveCompanion = useCallback(async () => {
     setBusy("setup");
@@ -1273,10 +1294,12 @@ export function LiveTripClient({
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Leave by</p>
                 <p className="mt-1 text-sm font-black">{model.leaveBy ? formatClock(model.leaveBy, timezone) : "Open Maps"}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Route</p>
-                <p className="mt-1 text-sm font-black">{routeBusy ? "Checking" : routeCopy(model.route)}</p>
-              </div>
+              {model.route.status === "verified" ? (
+                <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
+                  <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Route</p>
+                  <p className="mt-1 text-sm font-black">{routeBusy ? "Checking" : routeCopy(model.route)}</p>
+                </div>
+              ) : null}
             </div>
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
@@ -1382,9 +1405,40 @@ export function LiveTripClient({
                     </div>
                   ) : null}
                 </div>
+              ) : fieldTestMode && notificationPermission === "default" ? (
+                <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
+                  <h3 className="text-xl font-black text-amber-100">Notifications need your permission</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Allow notifications so this phone can receive the field-test alert.</p>
+                  <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                    {busy === "notifications" ? "Enabling…" : "Enable notifications"}
+                  </button>
+                </div>
+              ) : fieldTestMode && notificationPermission === "denied" ? (
+                <div className="mt-3 rounded-2xl bg-coral/20 p-4">
+                  <h3 className="text-xl font-black text-coral-100">Notifications are blocked</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-white/80">In iPhone Settings, allow notifications for Roamly, then return to this field test. Roamly will not ask again here.</p>
+                </div>
+              ) : fieldTestMode && notificationPermission === "granted" && !pushReady ? (
+                <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
+                  <h3 className="text-xl font-black text-amber-100">Register this phone</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Permission is granted, but the phone is not registered with Roamly yet.</p>
+                  <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                    {busy === "notifications" ? "Registering…" : "Retry registration"}
+                  </button>
+                </div>
+              ) : fieldTestMode && pushReady && !setupComplete ? (
+                <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
+                  <h3 className="text-xl font-black text-white">Notifications ready</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">This phone is registered. Continue with location setup for the field test.</p>
+                  {!watching ? (
+                    <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                      {busy === "setup" ? "Setting up…" : permission !== "granted" ? "Allow location" : "Open Live Companion"}
+                    </button>
+                  ) : null}
+                </div>
               ) : setupComplete ? (
                 <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
-                  <h3 className="text-xl font-black text-white">Live Companion is on</h3>
+                  <h3 className="text-xl font-black text-white">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
                   <p className="mt-1 text-sm font-bold leading-6 text-white/75">Roamly will help you stay on track during your trip.</p>
                 </div>
               ) : !watching ? (
@@ -1395,7 +1449,7 @@ export function LiveTripClient({
                     <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
                   </div>
                   <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
-                    {busy === "setup" ? "Setting up…" : fieldTestMode ? !pushReady ? "Allow notifications" : permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
+                    {busy === "setup" ? "Setting up…" : fieldTestMode ? permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
                   </button>
                 </>
               ) : null}
@@ -1466,7 +1520,7 @@ export function LiveTripClient({
           <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
             <p>Start: {formatClock(nextStart?.toISOString() || null, timezone)}</p>
             <p>Address: {primaryAddress(nextActivity)}</p>
-            <p>Route: {routeCopy(model.route)}</p>
+            {model.route.status === "verified" ? <p>Route: {routeCopy(model.route)}</p> : null}
           </div>
         </article>
 

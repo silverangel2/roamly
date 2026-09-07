@@ -75,14 +75,15 @@ export async function getNotificationPermissionState() {
   return Notification.permission;
 }
 
-export async function hasPushSubscription() {
+export async function hasPushSubscription(qaTripId?: string) {
   const capability = getPushCapabilityState();
   if (!capability.serviceWorkerSupported || !capability.pushManagerSupported) return false;
   const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
   if (!registration) return false;
   const subscription = await registration.pushManager.getSubscription().catch(() => null);
   if (!subscription) return false;
-  const response = await fetchWithSupabaseAuth(`/api/roamly/push/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`, { method: "GET" }).catch(() => null);
+  const tripQuery = qaTripId ? `&tripId=${encodeURIComponent(qaTripId)}` : "";
+  const response = await fetchWithSupabaseAuth(`/api/roamly/push/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}${tripQuery}`, { method: "GET" }).catch(() => null);
   if (!response?.ok) return false;
   const data = await response.json().catch(() => null);
   return data?.deviceRegistered === true;
