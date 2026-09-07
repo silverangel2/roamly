@@ -2946,7 +2946,7 @@ const liveCompanionQaConsole = read("components/admin/LiveCompanionQaConsole.tsx
 const liveTripClient = read("components/trip/LiveTripClient.tsx");
 const pushClient = read("lib/roamly/pushClient.ts");
 [
-  "Activate Live Companion",
+  "Install Roamly on your Home Screen",
   "Install Roamly",
   "Tap the Share button",
   "Add to Home Screen",
@@ -2956,9 +2956,17 @@ const pushClient = read("lib/roamly/pushClient.ts");
   "Live Companion is on",
   "Live Companion runs on your phone",
   "beforeinstallprompt",
-  "LIVE_SETUP_STORAGE_PREFIX"
+  "getPushCapabilityState",
+  "hasPushSubscription",
+  "pushReady"
 ].forEach((needle) => assert.ok(liveTripClient.includes(needle), `customer Live Companion setup missing ${needle}`));
 assert.ok(pushClient.includes("display-mode: standalone"), "Home Screen standalone detection is missing");
+assert.ok(pushClient.includes("navigator as Navigator & { standalone?: boolean }"), "iOS standalone detection is missing");
+assert.ok(!liveTripClient.includes('localStorage.getItem(setupStorageKey) === "complete"'), "localStorage must not prove installation");
+assert.ok(liveTripClient.includes("ensurePushSubscription(fieldTestMode ? tripId : undefined)"), "field test must register push through the shared production path with its trip context");
+assert.ok(liveTripClient.includes("ensurePushSubscription()"), "Live Companion must use the production push subscription path");
+assert.ok(liveTripClient.includes("navigator.geolocation.watchPosition"), "field test must use real browser GPS");
+assert.ok(liveTripClient.includes("mapsUrlForActivity") && liveTripClient.includes("Check in"), "customer and field test must retain shared activity actions");
 assert.ok(!liveTripClient.includes("installation is automatic"), "iOS setup must not claim installation is automatic");
 
 const adminFieldTest = read("components/admin/AdminLiveTestConsole.tsx");
@@ -2983,10 +2991,22 @@ const adminFieldTest = read("components/admin/AdminLiveTestConsole.tsx");
 const fieldTestEntry = read("app/field-test/[id]/page.tsx");
 [
   "field-test",
-  "hasQaAccess",
   "metadata?.field_test",
-  "/trip/${id}/live?fieldTest=1"
+  "getFieldTestSession",
+  "LiveTripClient"
 ].forEach((needle) => assert.ok(fieldTestEntry.includes(needle), `Dedicated field-test entry missing ${needle}`));
+const fieldTestAccess = read("lib/roamly/fieldTestAccess.ts");
+[
+  "randomBytes(32)",
+  "createHmac(\"sha256\", fieldTestSecret())",
+  "field_test_capability_hash",
+  "field_test_capability_expires_at",
+  "timingSafeEqual",
+  "ROAMLY_FIELD_TEST_COOKIE",
+  "fieldTestCapabilityIsValid",
+  "tripId"
+].forEach((needle) => assert.ok(fieldTestAccess.includes(needle), `Field-test capability security missing ${needle}`));
+assert.ok(fieldTestAccess.includes("httpOnly"), "Field-test capability must exchange into an HttpOnly cookie");
 const liveFieldTestPage = read("app/trip/[id]/live/page.tsx");
 [
   "fieldTestRequested",
@@ -2997,9 +3017,32 @@ const liveFieldTestPage = read("app/trip/[id]/live/page.tsx");
   "Exit field test",
   "fieldTestMode"
 ].forEach((needle) => assert.ok(liveFieldTestPage.includes(needle), `Field-test runtime wrapper missing ${needle}`));
-assert.ok(adminFieldTest.includes("/field-test/${tripId}"), "Admin mobile link must target the dedicated field-test entry");
+assert.ok(adminFieldTest.includes("data.mobileLink"), "Admin mobile link must target the prepared dedicated field-test entry");
+assert.ok(adminFieldTest.includes("setPreparedMobileLink(`${window.location.origin}${data.mobileLink}`)"), "Admin mobile link must come from prepare response");
+assert.ok(adminFieldTest.includes("const mobileTestLink = preparedMobileLink"), "Admin mobile link must require a prepared capability URL");
+assert.ok(adminFieldTest.includes("disabled={!hasPreparedMobileLink}"), "Copy link must be disabled before field-test preparation");
+assert.ok(adminFieldTest.includes("Prepare the field test first."), "Admin must explain the prepare-first state");
+assert.ok(!adminFieldTest.includes("/field-test/${tripId}`\n    : `/field-test/${tripId}"), "Admin must not fall back to a raw field-test URL");
+assert.ok(!adminFieldTest.includes("/trip/${tripId}/live?fieldTest=1"), "Admin must not link directly to owner-protected live route");
 assert.ok(liveTripClient.includes("fieldTestMode"), "Field-test entry must use the shared customer Live Companion runtime");
 assert.ok(liveTripClient.includes("liveDemoEnabled={false}") || liveTripClient.includes("liveDemoEnabled = false"), "Field test must not enable simulated Live Demo mode");
+assert.ok(fieldTestAccess.includes("process.env.ROAMLY_FIELD_TEST_SECRET?.trim()"), "Field-test secret must be dedicated");
+assert.ok(!fieldTestAccess.includes("SUPABASE_SERVICE_ROLE_KEY"), "Field-test access must not use the Supabase service role key");
+assert.ok(!fieldTestAccess.includes("ROAMLY_ADMIN_SESSION_SECRET"), "Field-test access must not use the Admin session secret");
+assert.ok(fieldTestAccess.includes("ROAMLY_FIELD_TEST_SECRET_NOT_CONFIGURED"), "Missing field-test secret must fail closed");
+const locationUpdateRoute = read("app/api/roamly/location/update/route.ts");
+assert.ok(locationUpdateRoute.includes("auth.fieldTest"), "Location update must distinguish field-test sessions");
+assert.ok(locationUpdateRoute.includes('"liveDemo"'), "Field-test location updates must block Live Demo payloads");
+assert.ok(locationUpdateRoute.includes('"simulatedLatitude"'), "Field-test location updates must block simulated coordinates");
+assert.ok(locationUpdateRoute.includes("real browser GPS only"), "Field-test location update error must require real GPS");
+const pushSubscribeRoute = read("app/api/roamly/push/subscribe/route.ts");
+assert.ok(pushSubscribeRoute.includes("requireUserOrFieldTest(tripId)"), "Field-test push must use the capability-authenticated production subscribe route");
+assert.ok(pushSubscribeRoute.includes("tripId?: string"), "Push subscribe route must accept field-test trip context");
+const simulateRoute = read("app/api/roamly/location/simulate/route.ts");
+assert.ok(simulateRoute.includes("requireUser"), "Internal simulator must require ordinary authenticated QA/admin access");
+assert.ok(!simulateRoute.includes("requireUserOrFieldTest"), "Field-test capability must not reach internal simulator");
+const productionEnvChecks = read("scripts/check-roamly-production-env.mjs");
+assert.ok(productionEnvChecks.includes('keys: ["ROAMLY_FIELD_TEST_SECRET"]'), "Production readiness must check the field-test secret");
 
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "supportsIncrementalSync"].forEach((needle) =>

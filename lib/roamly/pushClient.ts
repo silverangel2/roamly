@@ -75,6 +75,14 @@ export async function getNotificationPermissionState() {
   return Notification.permission;
 }
 
+export async function hasPushSubscription() {
+  const capability = getPushCapabilityState();
+  if (!capability.serviceWorkerSupported || !capability.pushManagerSupported) return false;
+  const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
+  if (!registration) return false;
+  return Boolean(await registration.pushManager.getSubscription().catch(() => null));
+}
+
 export async function requestNotificationPermission() {
   const capability = getPushCapabilityState();
   if (capability.requiresHomeScreenInstall) return "requires_home_screen" as const;
@@ -126,7 +134,7 @@ export async function subscribeToPushNotifications(qaTripId?: string) {
   return { ok: true, deviceRegistered: data?.deviceRegistered === true, subscriptionId: data?.subscriptionId || null };
 }
 
-export async function ensurePushSubscription() {
+export async function ensurePushSubscription(qaTripId?: string) {
   const capability = getPushCapabilityState();
   if (!capability.canSubscribe) {
     return {
@@ -152,11 +160,14 @@ export async function ensurePushSubscription() {
       applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
     }));
 
-  const response = await fetchWithSupabaseAuth("/api/roamly/push/subscribe", {
+  const response = await fetchWithSupabaseAuth(
+    qaTripId ? "/api/admin/roamly/push/subscribe" : "/api/roamly/push/subscribe",
+    {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(subscription.toJSON())
-  });
+    body: JSON.stringify(qaTripId ? { tripId: qaTripId, ...subscription.toJSON() } : subscription.toJSON())
+    }
+  );
   const data = await response.json().catch(() => null);
   if (!response.ok) return { ok: false, error: data?.error || "Push subscription failed." };
   return { ok: true, deviceRegistered: data?.deviceRegistered === true, subscriptionId: data?.subscriptionId || null };

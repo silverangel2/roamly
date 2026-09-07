@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
+import { createFieldTestCapability } from "@/lib/roamly/fieldTestAccess";
 
 const activities = [
   {
@@ -41,6 +42,18 @@ export async function POST() {
 
   const today = new Date().toISOString().slice(0, 10);
   const now = new Date().toISOString();
+  let capability;
+  try {
+    capability = createFieldTestCapability();
+  } catch (error) {
+    if (error instanceof Error && error.message === "ROAMLY_FIELD_TEST_SECRET_NOT_CONFIGURED") {
+      return NextResponse.json(
+        { ok: false, error: "Field-test preparation is unavailable: ROAMLY_FIELD_TEST_SECRET is not configured." },
+        { status: 500 }
+      );
+    }
+    throw error;
+  }
 
   const previous = await guard.admin
     .from("roamly_trips")
@@ -82,6 +95,8 @@ export async function POST() {
       metadata: {
         admin_test: true,
         field_test: true,
+        field_test_capability_hash: capability.capabilityHash,
+        field_test_capability_expires_at: capability.expiresAt,
         real_location_required: true,
         timezone: "America/Moncton",
         planning: {
@@ -191,6 +206,7 @@ export async function POST() {
     mode: "real_field_test",
     timezone: "America/Moncton",
     simulatedLocation: false,
+    mobileLink: `/field-test/${trip.id}?capability=${encodeURIComponent(capability.capability)}`,
     retiredFieldTestTrips: previousIds.length,
     activities: activities.map((a) => a.title)
   });

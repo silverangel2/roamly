@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeCoordinates } from "@/lib/roamly/location";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { activateTripIfNearby } from "@/lib/roamly/tripActivation";
-import { requireUser } from "@/lib/roamly/auth";
+import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { processLiveCompanionDemoUpdate } from "@/lib/roamly/liveCompanionDemo";
 
@@ -23,15 +23,35 @@ function parseCapturedAt(value: unknown) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser();
-  if (!auth.ok) return auth.response;
-
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const permissionState =
     typeof body.permissionState === "string" && permissionStates.has(body.permissionState)
       ? body.permissionState
       : "prompt";
   const tripId = typeof body.tripId === "string" && body.tripId.trim() ? body.tripId.trim() : undefined;
+  const auth = await requireUserOrFieldTest(tripId);
+  if (!auth.ok) return auth.response;
+  if (auth.fieldTest && !tripId) {
+    return NextResponse.json({ ok: false, error: "Field-test trip is required." }, { status: 400 });
+  }
+  if (auth.fieldTest) {
+    const simulatedPayloadKeys = [
+      "liveDemo",
+      "simulated",
+      "simulation",
+      "simulationMode",
+      "demoOverride",
+      "simulatedLatitude",
+      "simulatedLongitude",
+      "simulatedLocation"
+    ];
+    if (simulatedPayloadKeys.some((key) => body[key] !== undefined)) {
+      return NextResponse.json(
+        { ok: false, error: "Field-test location updates accept real browser GPS only." },
+        { status: 403 }
+      );
+    }
+  }
   const liveDemoPayload =
     body.liveDemo && typeof body.liveDemo === "object" && !Array.isArray(body.liveDemo)
       ? body.liveDemo
@@ -46,20 +66,20 @@ export async function POST(request: NextRequest) {
   const existing = await auth.supabase
     .from("roamly_location_settings")
     .select("location_tracking_enabled,notification_enabled")
-    .eq("user_id", auth.user.id)
+    .eq("user_id", auth.userId)
     .maybeSingle();
 
   if (permissionState !== "granted") {
     await auth.supabase.from("roamly_location_settings").upsert(
       {
-        user_id: auth.user.id,
+        user_id: auth.userId,
         location_tracking_enabled: false,
         last_permission_state: permissionState
       },
       { onConflict: "user_id" }
     );
     await recordTripEvent(auth.supabase, {
-      userId: auth.user.id,
+      userId: auth.userId,
       eventType: permissionState === "denied" ? "location_permission_denied" : "location_permission_prompt",
       eventTitle: "Location permission updated",
       eventBody: `Permission state: ${permissionState}`
@@ -94,7 +114,7 @@ export async function POST(request: NextRequest) {
 
   await auth.supabase.from("roamly_location_settings").upsert(
     {
-      user_id: auth.user.id,
+      user_id: auth.userId,
       location_tracking_enabled: true,
       notification_enabled: existing.data.notification_enabled ?? true,
       last_permission_state: "granted",
@@ -113,8 +133,8 @@ export async function POST(request: NextRequest) {
 
 
   if (liveDemoPayload) {
-    const access = getRoamlyAccessForUser(auth.user.email);
-    if (!access.hasQaAccess) {
+    const access = auth.fieldTest ? { hasQaAccess: true } : getRoamlyAccessForUser(auth.userEmail);
+    if (!access.hasQaAccess || !tripId) {
       return NextResponse.json({ ok: false, error: "Live Demo is only available to tester/admin accounts." }, { status: 403 });
     }
     if (!tripId) {
@@ -123,7 +143,7 @@ export async function POST(request: NextRequest) {
 
     const demo = await processLiveCompanionDemoUpdate({
       supabase: auth.supabase,
-      userId: auth.user.id,
+      userId: auth.userId,
       tripId,
       location,
       payload: liveDemoPayload
@@ -137,7 +157,7 @@ export async function POST(request: NextRequest) {
     }, { status: demo.ok ? 200 : 400 });
   }
 
-  const activation = await activateTripIfNearby(auth.supabase, auth.user.id, location, tripId);
+  const activation = await activateTripIfNearby(auth.supabase, auth.userId, location, tripId);
 
   return NextResponse.json({
     ok: true,

@@ -128,6 +128,7 @@ export function AdminLiveTestConsole({
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [browserPermission, setBrowserPermission] = useState("unknown");
   const [mobileLinkCopied, setMobileLinkCopied] = useState(false);
+  const [preparedMobileLink, setPreparedMobileLink] = useState<string | null>(null);
 
   const selectedTrip = trips.find((trip) => trip.id === tripId) || null;
   const tripActivities = useMemo(() => activities.filter((activity) => activity.trip_id === tripId), [activities, tripId]);
@@ -150,11 +151,11 @@ export function AdminLiveTestConsole({
   const locationSetting = locationSettings.find((setting) => setting.user_id === selectedTrip?.user_id) || null;
   const activeActivity = tripActivities.find((activity) => ["nearby", "checked_in", "completed", "skipped"].includes(activity.status)) || null;
   const lastCheckinSkip = tripActivities.find((activity) => ["checked_in", "skipped"].includes(activity.status)) || null;
-  const mobileTestLink = typeof window !== "undefined" && tripId
-    ? `${window.location.origin}/field-test/${tripId}`
-    : `/field-test/${tripId}`;
+  const mobileTestLink = preparedMobileLink;
+  const hasPreparedMobileLink = Boolean(mobileTestLink);
 
   async function copyMobileTestLink() {
+    if (!mobileTestLink) return;
     await navigator.clipboard?.writeText(mobileTestLink);
     setMobileLinkCopied(true);
     window.setTimeout(() => setMobileLinkCopied(false), 1800);
@@ -223,7 +224,11 @@ export function AdminLiveTestConsole({
         throw new Error(data?.error || "Could not create Saint John field test.");
       }
 
-      window.location.reload();
+      if (typeof data?.tripId === "string" && typeof data?.mobileLink === "string") {
+        setTripId(data.tripId);
+        setPreparedMobileLink(`${window.location.origin}${data.mobileLink}`);
+        setResult({ ok: true, test: "field_test_prepared", message: "Prepare and monitor on desktop. Run the real Live Companion on your phone." });
+      }
     } catch (err) {
       setError(
         err instanceof Error
@@ -264,7 +269,10 @@ export function AdminLiveTestConsole({
           <span className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Select recent trip</span>
           <select
             value={tripId}
-            onChange={(event) => setTripId(event.target.value)}
+            onChange={(event) => {
+              setTripId(event.target.value);
+              setPreparedMobileLink(null);
+            }}
             className="mt-3 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink outline-none focus:border-ocean"
           >
             {trips.map((trip) => (
@@ -323,7 +331,7 @@ export function AdminLiveTestConsole({
       </section>
 
       <section>
-        {selectedTrip?.metadata?.field_test === true ? (
+        {(selectedTrip?.metadata?.field_test === true || preparedMobileLink) ? (
           <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Section B <span className="sr-only">B. Test on phone</span></p>
             <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-ocean">TEST ON YOUR PHONE</p>
@@ -363,10 +371,10 @@ export function AdminLiveTestConsole({
                 Field mode uses your PHONE&apos;S REAL LOCATION. No simulated GPS is used. Desktop Admin prepares and observes the test only; Desktop Admin is NOT the Live Companion runtime.
               </p>
 
-              {typeof window !== "undefined" && tripId ? (
+              {hasPreparedMobileLink ? (
                 <div className="mt-4 flex justify-center rounded-2xl bg-white p-4">
                   <QRCodeSVG
-                  value={`${(process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "")}/field-test/${tripId}`}
+                    value={mobileTestLink as string}
                     size={180}
                     level="M"
                   />
@@ -378,10 +386,14 @@ export function AdminLiveTestConsole({
               </p>
 
               <a
-                href={`/trip/${tripId}/live?fieldTest=1`}
+                href={hasPreparedMobileLink ? mobileTestLink || undefined : undefined}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 block w-full rounded-2xl bg-ink px-5 py-3 text-center text-sm font-black text-white"
+                aria-disabled={!hasPreparedMobileLink}
+                className={`mt-3 block w-full rounded-2xl px-5 py-3 text-center text-sm font-black text-white ${hasPreparedMobileLink ? "bg-ink" : "cursor-not-allowed bg-slate-300"}`}
+                onClick={(event) => {
+                  if (!hasPreparedMobileLink) event.preventDefault();
+                }}
               >
                 Open mobile field test
               </a>
@@ -390,10 +402,15 @@ export function AdminLiveTestConsole({
                 type="button"
                 onClick={() => void copyMobileTestLink()}
                 aria-label="Open/Copy mobile test link"
-                className="mt-2 block w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink"
+                disabled={!hasPreparedMobileLink}
+                className="mt-2 block w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mobileLinkCopied ? "Mobile field-test link copied" : "Copy mobile field-test link"}
               </button>
+
+              {!hasPreparedMobileLink ? (
+                <p className="mt-2 text-sm font-black text-amber-800">Prepare the field test first.</p>
+              ) : null}
 
               <p className="mt-2 text-xs font-bold text-slate-500">
               Use the phone link above. Desktop controls below are preparation/observation only.
@@ -452,7 +469,7 @@ export function AdminLiveTestConsole({
               <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean">Field-test status</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {[
-                  ["Test trip ready", selectedTrip.tracking_unlocked === true && selectedTrip.itinerary_status === "locked" ? "Ready" : "Waiting / Not detected"],
+                  ["Test trip ready", selectedTrip?.tracking_unlocked === true && selectedTrip?.itinerary_status === "locked" ? "Ready" : "Waiting / Not detected"],
                   ["Mobile setup completed", activePushSubscriptions.length > 0 && locationSetting?.location_tracking_enabled === true ? "Ready" : "Waiting / Not detected"],
                   ["Push subscription active", activePushSubscriptions.length > 0 ? "Ready" : "Waiting / Not detected"],
                   ["Location received", locationSetting?.last_seen_at ? new Date(locationSetting.last_seen_at).toLocaleString() : "Waiting / Not detected"],

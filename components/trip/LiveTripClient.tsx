@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
-import { ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, isSupportedMobileEnvironment } from "@/lib/roamly/pushClient";
+import { ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityStartDate,
@@ -127,7 +127,6 @@ const LIVE_DEMO_STORAGE_KEY = "roamly_live_demo_state";
 const LIVE_DEMO_TTL_MS = 20 * 60_000;
 const ROUTE_FETCH_DEBOUNCE_MS = 1200;
 const MIN_LOCATION_DELTA_METERS = 75;
-const LIVE_SETUP_STORAGE_PREFIX = "roamly_live_companion_setup:";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -136,6 +135,16 @@ type InstallPromptEvent = Event & {
 
 function classNames(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+async function getBrowserLocationPermission(): Promise<LiveLocationPermission | null> {
+  if (typeof navigator === "undefined" || !navigator.permissions?.query) return null;
+  try {
+    const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+    return status.state === "granted" || status.state === "denied" ? status.state : "prompt";
+  } catch {
+    return null;
+  }
 }
 
 function getNumber(value: unknown) {
@@ -375,6 +384,7 @@ export function LiveTripClient({
   const [items, setItems] = useState(activities);
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
   const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
+  const [pushReady, setPushReady] = useState(false);
   const [location, setLocation] = useState<LiveCoordinates | null>(initialLocation);
   const [watching, setWatching] = useState(false);
   const [route, setRoute] = useState<LiveRouteStatus>(() => fallbackRouteStatus(null));
@@ -514,31 +524,45 @@ export function LiveTripClient({
     now: nowTick
   });
 
-  const setupStorageKey = `${LIVE_SETUP_STORAGE_PREFIX}${tripId}`;
-
   useEffect(() => {
-    const refreshInstallState = () => {
+    let alive = true;
+    const refreshInstallState = async () => {
       const capability = getPushCapabilityState();
+      const [currentNotificationPermission, currentPushReady, currentLocationPermission] = await Promise.all([
+        getNotificationPermissionState(),
+        capability.isStandalone ? hasPushSubscription() : Promise.resolve(false),
+        getBrowserLocationPermission()
+      ]);
+      if (!alive) return;
+      const resolvedLocationPermission = currentLocationPermission || permission;
       setIsStandalone(capability.isStandalone);
-      if (capability.isStandalone && window.localStorage.getItem(setupStorageKey) === "complete") {
-        setSetupComplete(true);
-      }
+      setNotificationPermission(currentNotificationPermission);
+      setPushReady(currentPushReady);
+      setPermission(resolvedLocationPermission);
+      setSetupComplete(
+        capability.isStandalone &&
+          currentNotificationPermission === "granted" &&
+          currentPushReady &&
+          resolvedLocationPermission === "granted"
+      );
     };
-    refreshInstallState();
-    void getNotificationPermissionState().then((state) => setNotificationPermission(state));
+    void refreshInstallState();
     const onBeforeInstallPrompt = (event: Event) => {
       event.preventDefault();
       setDeferredInstallPrompt(event as InstallPromptEvent);
     };
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    window.addEventListener("pageshow", refreshInstallState);
-    document.addEventListener("visibilitychange", refreshInstallState);
+    const onPageShow = () => void refreshInstallState();
+    const onVisibilityChange = () => void refreshInstallState();
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
+      alive = false;
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-      window.removeEventListener("pageshow", refreshInstallState);
-      document.removeEventListener("visibilitychange", refreshInstallState);
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [setupStorageKey]);
+  }, [permission]);
 
   useEffect(() => {
     setItems(activities);
@@ -682,7 +706,7 @@ export function LiveTripClient({
       setLocation(nextLocation);
       setWatching(true);
       setSetupComplete(true);
-      window.localStorage.setItem(setupStorageKey, "complete");
+      setPushReady(true);
       void fetch("/api/roamly/location/settings", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
@@ -715,7 +739,7 @@ export function LiveTripClient({
       maximumAge: 120_000,
       timeout: 20_000
     });
-  }, [sendLocationUpdate, setupStorageKey, tripId]);
+  }, [sendLocationUpdate, tripId]);
 
   async function startInstall() {
     if (deferredInstallPrompt) {
@@ -733,7 +757,7 @@ export function LiveTripClient({
     setNotice("");
     try {
       if (!mobileRuntime) throw new Error("Live Companion runs on your phone. Open this trip on your phone to finish setup.");
-      const push = await ensurePushSubscription();
+      const push = await ensurePushSubscription(fieldTestMode ? tripId : undefined);
       if (!push.ok) {
         const currentNotificationPermission = await getNotificationPermissionState();
         setNotificationPermission(currentNotificationPermission);
@@ -744,6 +768,7 @@ export function LiveTripClient({
         );
       }
       setNotificationPermission("granted");
+      setPushReady(true);
       await startForegroundLocation();
       setNotice("Live Companion setup is continuing: allow location when your phone asks.");
     } catch (err) {
@@ -751,7 +776,7 @@ export function LiveTripClient({
     } finally {
       setBusy("");
     }
-  }, [mobileRuntime, startForegroundLocation]);
+  }, [fieldTestMode, mobileRuntime, startForegroundLocation, tripId]);
 
   const stopForegroundLocation = useCallback(() => {
     if (watchIdRef.current != null && navigator.geolocation) {
@@ -1333,7 +1358,7 @@ export function LiveTripClient({
                 </div>
               ) : !isStandalone ? (
                 <div className="mt-3 rounded-2xl border border-amber-200/30 bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-100">{fieldTestMode ? "Install Roamly" : "Activate Live Companion"}</h3>
+                  <h3 className="text-xl font-black text-amber-100">Install Roamly on your Home Screen</h3>
                   <p className="mt-2 text-sm font-bold leading-6 text-white/80">{fieldTestMode ? "Live Companion works from the Roamly Home Screen app." : "Install Roamly on your Home Screen to receive Live Companion trip alerts."}</p>
                   <button type="button" onClick={() => void startInstall()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink">
                     Install Roamly
@@ -1363,17 +1388,17 @@ export function LiveTripClient({
               ) : !watching ? (
                 <>
                   <div className="mt-3 grid gap-2 text-sm font-black text-white/85">
-                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-white/55">{notificationPermission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-white/55">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
                     <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-white/55">{permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
                     <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
                   </div>
                   <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
-                    {busy === "setup" ? "Setting up…" : fieldTestMode ? notificationPermission !== "granted" ? "Allow notifications" : permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
+                    {busy === "setup" ? "Setting up…" : fieldTestMode ? !pushReady ? "Allow notifications" : permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
                   </button>
                 </>
               ) : null}
               <p className="mt-2 text-xs font-bold leading-5 text-white/55">
-                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
+                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
               </p>
               {error ? <p className="mt-3 rounded-2xl bg-coral/20 px-4 py-3 text-sm font-black leading-6 text-coral-100">{error}</p> : null}
             </section>

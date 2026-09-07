@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/roamly/auth";
+import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import {
   getCompanionPreferences,
   type CompanionControlMode
@@ -37,18 +37,17 @@ export async function GET(
   _request: Request,
   context: RouteContext
 ) {
-  const auth = await requireUser();
+  const { id } = await context.params;
+  const auth = await requireUserOrFieldTest(id);
   if (!auth.ok) return auth.response;
 
-  const { id } = await context.params;
-
-  const ownedTrip = await auth.supabase.from("roamly_trips").select("id").eq("id", id).eq("user_id", auth.user.id).maybeSingle();
+  const ownedTrip = await auth.supabase.from("roamly_trips").select("id").eq("id", id).eq("user_id", auth.userId).maybeSingle();
   if (ownedTrip.error) return NextResponse.json({ ok: false, error: ownedTrip.error.message }, { status: 400 });
   if (!ownedTrip.data) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
   const preferences = await getCompanionPreferences({
     supabase: auth.supabase,
-    userId: auth.user.id,
+    userId: auth.userId,
     tripId: id
   });
 
@@ -62,12 +61,11 @@ export async function PUT(
   request: Request,
   context: RouteContext
 ) {
-  const auth = await requireUser();
+  const { id } = await context.params;
+  const auth = await requireUserOrFieldTest(id);
   if (!auth.ok) return auth.response;
 
-  const { id } = await context.params;
-
-  const ownedTrip = await auth.supabase.from("roamly_trips").select("id").eq("id", id).eq("user_id", auth.user.id).maybeSingle();
+  const ownedTrip = await auth.supabase.from("roamly_trips").select("id").eq("id", id).eq("user_id", auth.userId).maybeSingle();
   if (ownedTrip.error) return NextResponse.json({ ok: false, error: ownedTrip.error.message }, { status: 400 });
   if (!ownedTrip.data) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
@@ -105,12 +103,12 @@ export async function PUT(
       : null;
   const currentPreferences = await getCompanionPreferences({
     supabase: auth.supabase,
-    userId: auth.user.id,
+    userId: auth.userId,
     tripId: id
   });
 
   const row = {
-    user_id: auth.user.id,
+    user_id: auth.userId,
     trip_id: id,
     control_mode: body.controlMode ?? currentPreferences.controlMode,
     allow_free_schedule_changes:
@@ -152,7 +150,7 @@ export async function PUT(
   const existing = await auth.supabase
     .from("roamly_companion_preferences")
     .select("id")
-    .eq("user_id", auth.user.id)
+    .eq("user_id", auth.userId)
     .eq("trip_id", id)
     .maybeSingle();
   const result = existing.data?.id
@@ -168,7 +166,7 @@ export async function PUT(
 
   const preferences = await getCompanionPreferences({
     supabase: auth.supabase,
-    userId: auth.user.id,
+    userId: auth.userId,
     tripId: id
   });
 
