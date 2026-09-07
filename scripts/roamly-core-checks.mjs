@@ -72,6 +72,37 @@ assert.equal(entitlementExports.isFreeItineraryConsumed("2026-09-06T12:00:00.000
 assert.equal(entitlementExports.isFreeItineraryConsumed("2026-09-07T12:00:00.000Z"), true, "second itinerary next day must require payment");
 assert.equal(entitlementExports.isFreeItineraryConsumed("2027-09-06T12:00:00.000Z"), true, "second itinerary later must require payment");
 assert.ok(/duplicate key|unique constraint|23505/.test(billing), "concurrent free claims must retain unique-constraint protection");
+
+const companionNotifications = read("lib/roamly/companionNotifications.ts");
+const companionIdentityMigration = read("supabase/migrations/20260907_roamly_live_companion_notification_identity.sql");
+const liveCompanionIdentity = loadTsModule("lib/roamly/companionNotifications.ts").liveCompanionNotificationIdentity;
+const sameCanonicalEvent = liveCompanionIdentity({ userId: "u", tripId: "t", activityId: "a", eventType: "nearby_activity" });
+const otherCanonicalEvent = liveCompanionIdentity({ userId: "u", tripId: "t", activityId: "b", eventType: "nearby_activity" });
+assert.equal(sameCanonicalEvent, liveCompanionIdentity({ userId: "u", tripId: "t", activityId: "a", eventType: "nearby_activity" }), "same Live Companion event must have one canonical identity");
+assert.notEqual(sameCanonicalEvent, otherCanonicalEvent, "different Live Companion activities must remain independently identifiable");
+assert.ok(companionNotifications.includes("live_companion_identity: liveCompanionIdentity"), "Live Companion claims must persist the canonical identity");
+assert.ok(companionNotifications.includes("liveCompanionIdentity ? \"live_companion_identity\" : \"idempotency_key\""), "uniqueness conflicts must resolve through the canonical Live Companion identity");
+assert.ok(companionIdentityMigration.includes("create unique index if not exists roamly_live_companion_delivery_identity_uidx"), "Live Companion identity must be database-unique");
+assert.ok(companionIdentityMigration.includes("where live_companion_identity is not null") && companionIdentityMigration.includes("notification_type in ('nearby_activity', 'next_activity', 'leave_by', 'late', 'arrival')"), "Live Companion uniqueness must be scoped and nullable outside the scope");
+assert.ok(companionIdentityMigration.includes("partition by live_companion_identity") && companionIdentityMigration.includes("set live_companion_identity = null"), "legacy identity conflicts must be preserved without blocking the additive index");
+
+const claimedCanonicalIdentities = new Set();
+async function simulateConcurrentDeliveryAttempt(identity) {
+  await Promise.resolve();
+  if (claimedCanonicalIdentities.has(identity)) return false;
+  claimedCanonicalIdentities.add(identity);
+  return true;
+}
+const sameEventClaims = await Promise.all([
+  simulateConcurrentDeliveryAttempt(sameCanonicalEvent),
+  simulateConcurrentDeliveryAttempt(sameCanonicalEvent)
+]);
+assert.equal(sameEventClaims.filter(Boolean).length, 1, "concurrent attempts for one canonical Live Companion event must permit at most one delivery");
+const differentEventClaims = await Promise.all([
+  simulateConcurrentDeliveryAttempt(otherCanonicalEvent),
+  simulateConcurrentDeliveryAttempt(liveCompanionIdentity({ userId: "u", tripId: "t", activityId: "c", eventType: "nearby_activity" }))
+]);
+assert.equal(differentEventClaims.filter(Boolean).length, 2, "different Live Companion activities must remain independently deliverable");
 assert.ok(billing.includes('trip.itinerary_payment_status === "paid"'), "paid itinerary access must remain valid");
 assert.ok(billing.includes('trip.itinerary_payment_status === "bundled"'), "bundle itinerary access must remain valid");
 assert.ok(billing.includes('trip.itinerary_unlock_source === "admin"'), "admin itinerary access must remain valid");

@@ -331,8 +331,7 @@ export function selectNowAndNextActivity(params: {
   now?: string | Date;
 }) {
   const now = toDate(params.now || new Date()) || new Date();
-  const activeStatuses = new Set(["active", "nearby", "checked_in"]);
-  const doneStatuses = new Set(["completed", "skipped", "missed", "cancelled"]);
+  const doneStatuses = new Set(["completed", "checked_in", "skipped", "missed", "expired", "cancelled"]);
   const sorted = params.activities
     .filter((activity) => !doneStatuses.has(String(activity.status || "").toLowerCase()))
     .map((activity, index) => ({
@@ -347,16 +346,11 @@ export function selectNowAndNextActivity(params: {
       return aTime === bTime ? a.index - b.index : aTime - bTime;
     });
 
-  const statusNow = sorted.find(({ activity }) => activeStatuses.has(String(activity.status || "").toLowerCase()));
-  const timeNow = sorted.find(({ start, end }) => start && end && start.getTime() <= now.getTime() && end.getTime() >= now.getTime());
-  const previousRecent = sorted
-    .filter(({ start }) => start && start.getTime() <= now.getTime())
-    .sort((a, b) => (b.start?.getTime() || 0) - (a.start?.getTime() || 0))[0];
-  const nowActivity = statusNow?.activity || timeNow?.activity || previousRecent?.activity || null;
-  const nextActivity =
-    sorted.find(({ activity, start }) => activity.id !== nowActivity?.id && (!start || start.getTime() >= now.getTime()))?.activity ||
-    sorted.find(({ activity }) => activity.id !== nowActivity?.id)?.activity ||
-    null;
+  // Progression is a queue: the first unresolved activity owns the current
+  // target, regardless of GPS proximity or a later row's active-looking status.
+  const first = sorted[0];
+  const nowActivity = first && (!first.start || first.start.getTime() <= now.getTime()) ? first.activity : null;
+  const nextActivity = sorted.find(({ activity }) => activity.id !== nowActivity?.id)?.activity || null;
 
   return { now: nowActivity, next: nextActivity };
 }

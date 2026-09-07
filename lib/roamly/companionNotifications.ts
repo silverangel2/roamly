@@ -4,6 +4,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type CompanionNotificationType =
+  | "nearby_activity"
+  | "next_activity"
+  | "leave_by"
+  | "late"
+  | "arrival"
   | "booking_detected"
   | "booking_confirmed"
   | "trip_predeparture_7d"
@@ -43,6 +48,7 @@ type QueueCompanionNotificationParams = {
   isTest?: boolean;
   metadata?: Record<string, unknown>;
   dedupeParts?: unknown[];
+  idempotencyKey?: string;
 };
 
 type DeliveryRow = {
@@ -61,6 +67,7 @@ type DeliveryRow = {
   action_url: string | null;
   status: string;
   idempotency_key: string;
+  live_companion_identity: string | null;
   attempt_count: number;
   max_attempts: number;
   next_attempt_at: string;
@@ -72,6 +79,21 @@ function hash(value: unknown): string {
   return createHash("sha256")
     .update(JSON.stringify(value))
     .digest("hex");
+}
+
+export function liveCompanionNotificationIdentity(params: {
+  userId: string;
+  tripId: string;
+  activityId: string;
+  eventType: string;
+}) {
+  return hash([
+    "live_companion",
+    params.userId,
+    params.tripId,
+    params.activityId,
+    params.eventType
+  ]);
 }
 
 function escapeHtml(value: string): string {
@@ -163,7 +185,7 @@ function retryDelaySeconds(attempt: number): number {
 export async function queueCompanionNotification(
   params: QueueCompanionNotificationParams
 ) {
-  const idempotencyKey = hash([
+  const idempotencyKey = params.idempotencyKey || hash([
     "roamly_companion_notification",
     params.userId,
     params.tripId || null,
@@ -172,6 +194,16 @@ export async function queueCompanionNotification(
     params.repairProposalId || null,
     ...(params.dedupeParts || [])
   ]);
+  const liveCompanionTypes = new Set<CompanionNotificationType>([
+    "nearby_activity",
+    "next_activity",
+    "leave_by",
+    "late",
+    "arrival"
+  ]);
+  const liveCompanionIdentity = liveCompanionTypes.has(params.type)
+    ? idempotencyKey
+    : null;
 
   // Claim the unique delivery row before creating the in-app notification.
   // A read-then-insert sequence creates duplicate notifications when two cron
@@ -194,6 +226,7 @@ export async function queueCompanionNotification(
       action_url: params.actionUrl || null,
       status: "queued",
       idempotency_key: idempotencyKey,
+      live_companion_identity: liveCompanionIdentity,
       scheduled_for: params.scheduledFor || new Date().toISOString(),
       next_attempt_at: params.scheduledFor || new Date().toISOString(),
       is_test: params.isTest === true,
@@ -207,7 +240,10 @@ export async function queueCompanionNotification(
       const existing = await params.supabase
         .from("roamly_companion_notification_deliveries")
         .select("*")
-        .eq("idempotency_key", idempotencyKey)
+        .eq(
+          liveCompanionIdentity ? "live_companion_identity" : "idempotency_key",
+          liveCompanionIdentity || idempotencyKey
+        )
         .maybeSingle();
       if (existing.data) {
         return { ok: true as const, delivery: existing.data, deduplicated: true };
@@ -356,8 +392,10 @@ export async function sendCompanionNotificationDelivery(
   const tripId = claimedDelivery.trip_id ? String(claimedDelivery.trip_id).trim() : "";
   const queuedActionUrl = claimedDelivery.action_url ? String(claimedDelivery.action_url).trim() : "";
   const actionUrl = activityId && tripId
-    ? `/trip/${tripId}/companion?activity=${encodeURIComponent(activityId)}`
+    ? `/trip/${tripId}/live?activity=${encodeURIComponent(activityId)}`
     : queuedActionUrl || (tripId ? `/trip/${tripId}/companion` : "/notifications");
+  const latitude = typeof companionMetadata.latitude === "number" ? companionMetadata.latitude : null;
+  const longitude = typeof companionMetadata.longitude === "number" ? companionMetadata.longitude : null;
 
   const pushResult = await sendPushNotification(
     admin,
@@ -370,7 +408,12 @@ export async function sendCompanionNotificationDelivery(
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 280),
-      actionUrl
+      actionUrl,
+      checkInUrl: activityId && tripId ? `/trip/${tripId}/companion?activity=${encodeURIComponent(activityId)}&action=check-in` : null,
+      skipUrl: activityId && tripId ? `/trip/${tripId}/companion?activity=${encodeURIComponent(activityId)}&action=skip` : null,
+      appleMapsUrl: latitude != null && longitude != null ? `https://maps.apple.com/?daddr=${latitude},${longitude}` : null,
+      googleMapsUrl: latitude != null && longitude != null ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}` : null,
+      citymapperUrl: latitude != null && longitude != null ? `https://citymapper.com/directions?endcoord=${latitude},${longitude}` : null
     },
     {
       sendEmail: companionMetadata.send_email === true,

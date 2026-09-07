@@ -40,6 +40,21 @@ export async function POST() {
   if (!guard.ok) return guard.response;
 
   const today = new Date().toISOString().slice(0, 10);
+  const now = new Date().toISOString();
+
+  const previous = await guard.admin
+    .from("roamly_trips")
+    .select("id")
+    .eq("user_id", guard.user.id)
+    .contains("metadata", { admin_test: true, field_test: true })
+    .neq("trip_companion_status", "completed");
+  const previousIds = (previous.data || []).map((row) => row.id).filter(Boolean);
+  if (previousIds.length) {
+    await guard.admin
+      .from("roamly_trips")
+      .update({ status: "completed", trip_companion_status: "completed" })
+      .in("id", previousIds);
+  }
 
   const { data: trip, error: tripError } = await guard.admin
     .from("roamly_trips")
@@ -55,10 +70,15 @@ export async function POST() {
       status: "locked",
       itinerary_status: "locked",
       itinerary_locked: true,
-      itinerary_locked_at: new Date().toISOString(),
-      itinerary_generated_at: new Date().toISOString(),
+      itinerary_locked_at: now,
+      itinerary_generated_at: now,
       tracking_unlocked: true,
       tracking_unlock_source: "admin",
+      tracking_paid_at: now,
+      live_companion_unlocked: true,
+      live_companion_unlocked_at: now,
+      live_companion_source: "admin",
+      trip_companion_status: "scheduled",
       metadata: {
         admin_test: true,
         field_test: true,
@@ -148,12 +168,30 @@ export async function POST() {
     );
   }
 
+  const displayRows = rows.map((row) => ({
+    trip_id: trip.id,
+    day_number: 1,
+    time_label: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Moncton", hour: "numeric", minute: "2-digit" }).format(new Date(row.scheduled_start)),
+    title: row.title,
+    description: row.description,
+    location_name: row.address,
+    category: row.category,
+    map_query: row.address,
+    status: "planned",
+    metadata: row.metadata
+  }));
+  const { error: displayError } = await guard.admin.from("roamly_trip_activities").insert(displayRows);
+  if (displayError) {
+    return NextResponse.json({ ok: false, error: displayError.message }, { status: 500 });
+  }
+
   return NextResponse.json({
     ok: true,
     tripId: trip.id,
     mode: "real_field_test",
     timezone: "America/Moncton",
     simulatedLocation: false,
+    retiredFieldTestTrips: previousIds.length,
     activities: activities.map((a) => a.title)
   });
 }

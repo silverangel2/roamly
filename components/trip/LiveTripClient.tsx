@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
-import { ensurePushSubscription } from "@/lib/roamly/pushClient";
+import { ensurePushSubscription, isSupportedMobileEnvironment } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityStartDate,
@@ -11,6 +11,7 @@ import {
   buildLiveCompanionState,
   calculateDistanceMeters,
   fallbackRouteStatus,
+  isTodayWithinTripDates,
   mapsUrlForActivity,
   type LiveBookingDetails,
   type LiveCompanionActivity,
@@ -379,6 +380,7 @@ export function LiveTripClient({
   const [demoBusy, setDemoBusy] = useState("");
   const [demoError, setDemoError] = useState("");
   const [demoNotice, setDemoNotice] = useState("");
+  const [setupComplete, setSetupComplete] = useState(false);
   const [selectedPlaceId, setSelectedPlaceId] = useState(simulatorPlaces[0]?.id || "");
   const watchIdRef = useRef<number | null>(null);
   const lastSentRef = useRef<{ at: number; location: LiveCoordinates } | null>(null);
@@ -492,6 +494,13 @@ export function LiveTripClient({
   const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
   const activeStep = currentActivity || nextActivity;
+  const mobileRuntime = typeof navigator !== "undefined" && isSupportedMobileEnvironment();
+  const tripWindowActive = isTodayWithinTripDates({
+    startDate: activeTripStartDate,
+    endDate: activeTripEndDate,
+    timezone,
+    now: nowTick
+  });
 
   useEffect(() => {
     setItems(activities);
@@ -620,16 +629,10 @@ export function LiveTripClient({
       setError("This browser does not support location sensing.");
       return;
     }
-    try {
-      await fetch("/api/roamly/location/settings", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locationTrackingEnabled: true, notificationEnabled: true })
-      });
-    } catch {
-      setNotice("Location permission can still be requested, but account settings could not be refreshed.");
+    if (!isSupportedMobileEnvironment()) {
+      setError("Live Companion runs on a supported mobile browser or installed Roamly app.");
+      return;
     }
-
     const handlePosition = (position: GeolocationPosition) => {
       const nextLocation = {
         latitude: position.coords.latitude,
@@ -640,6 +643,17 @@ export function LiveTripClient({
       setPermission("granted");
       setLocation(nextLocation);
       setWatching(true);
+      setSetupComplete(true);
+      void fetch("/api/roamly/location/settings", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ locationTrackingEnabled: true, notificationEnabled: true })
+      }).catch(() => undefined);
+      void fetch(`/api/trips/${tripId}/companion/preferences`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ liveCompanionEnabled: true })
+      }).catch(() => undefined);
       void sendLocationUpdate(nextLocation).catch((err) => {
         setNotice(err instanceof Error ? err.message : "Location update failed.");
       });
@@ -663,6 +677,23 @@ export function LiveTripClient({
       timeout: 20_000
     });
   }, [sendLocationUpdate, tripId]);
+
+  const setupLiveCompanion = useCallback(async () => {
+    setBusy("setup");
+    setError("");
+    setNotice("");
+    try {
+      if (!mobileRuntime) throw new Error("Live Companion setup is available on a supported mobile browser or installed Roamly app.");
+      const push = await ensurePushSubscription();
+      if (!push.ok) throw new Error(push.error || "Push setup could not be completed.");
+      await startForegroundLocation();
+      setNotice("Live Companion setup is continuing: allow location when your phone asks.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Live Companion setup could not be completed.");
+    } finally {
+      setBusy("");
+    }
+  }, [mobileRuntime, startForegroundLocation]);
 
   const stopForegroundLocation = useCallback(() => {
     if (watchIdRef.current != null && navigator.geolocation) {
@@ -808,6 +839,18 @@ export function LiveTripClient({
   }
 
   useEffect(() => stopForegroundLocation, [stopForegroundLocation]);
+
+  // Resume foreground sensing after reload when permission is already granted.
+  // The trip-window guard prevents sensing before or after the eligible window.
+  useEffect(() => {
+    if (!mobileRuntime || !tripWindowActive || paused || companionEnabled === false || permission !== "granted" || watching) return;
+    void startForegroundLocation();
+  }, [companionEnabled, mobileRuntime, paused, permission, startForegroundLocation, tripWindowActive, watching]);
+
+  useEffect(() => {
+    if (tripWindowActive && !paused && companionEnabled !== false) return;
+    stopForegroundLocation();
+  }, [companionEnabled, paused, stopForegroundLocation, tripWindowActive]);
 
   useEffect(() => {
     if (!nextActivity) return;
@@ -1224,33 +1267,20 @@ export function LiveTripClient({
             </section>
 
             <section className="rounded-2xl border border-white/10 bg-white/8 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">Location</p>
-              <p className="mt-2 text-sm font-black">
-                {watching ? "Foreground active" : permission === "granted" ? "Permission granted" : statusLabel(model.activationStatus)}
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">Live Companion setup</p>
+              {!mobileRuntime ? (
+                <p className="mt-2 text-sm font-black text-amber-100">Live Companion runs on mobile. Open this trip on your phone to set it up.</p>
+              ) : !setupComplete && !watching ? (
+                <>
+                  <p className="mt-2 text-sm font-black">One-time setup: add Roamly to your iPhone Home Screen first when prompted, then allow notifications and location.</p>
+                  <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-3 min-h-11 rounded-2xl bg-white px-3 py-2 text-xs font-black text-ink disabled:opacity-50">
+                    {busy === "setup" ? "Setting up…" : "Set up Live Companion"}
+                  </button>
+                </>
+              ) : null}
+              <p className="mt-2 text-xs font-bold leading-5 text-white/55">
+                {watching ? "Foreground location sensing is active while Roamly is open." : permission === "granted" ? "Location permission is ready; sensing resumes automatically in an eligible trip window." : "Location permission is required during setup."}
               </p>
-              <p className="mt-1 text-xs font-bold leading-5 text-white/55">
-                {backgroundLocationEnabled
-                  ? "Background location is allowed only when supported by the device."
-                  : "Using foreground location while this screen is open."}
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => void startForegroundLocation()}
-                  disabled={watching || paused || companionEnabled === false}
-                  className="min-h-11 rounded-2xl bg-white px-3 py-2 text-xs font-black text-ink disabled:opacity-50"
-                >
-                  {watching ? "Watching" : "Use location"}
-                </button>
-                <button
-                  type="button"
-                  onClick={stopForegroundLocation}
-                  disabled={!watching}
-                  className="min-h-11 rounded-2xl border border-white/15 bg-white/8 px-3 py-2 text-xs font-black text-white disabled:opacity-50"
-                >
-                  Stop
-                </button>
-              </div>
             </section>
 
             {liveDemoEnabled ? (

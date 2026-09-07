@@ -22,7 +22,12 @@ type CompanionTrip = {
   end_date: string | null;
   days_count?: number | null;
   live_companion_unlocked?: boolean | null;
+  live_companion_unlocked_at?: string | null;
+  live_companion_source?: string | null;
+  trip_companion_status?: string | null;
   tracking_unlocked?: boolean | null;
+  tracking_unlock_source?: string | null;
+  tracking_paid_at?: string | null;
   metadata?: Record<string, unknown> | null;
 };
 
@@ -63,7 +68,7 @@ export function tripHasLiveCompanionUnlock(trip: Pick<CompanionTrip, "live_compa
 export async function isLiveCompanionUnlocked(supabase: SupabaseClient, tripId: string) {
   const { data, error } = await supabase
     .from("roamly_trips")
-    .select("tracking_unlocked")
+    .select("tracking_unlocked,live_companion_unlocked")
     .eq("id", tripId)
     .maybeSingle();
   if (error) return { unlocked: false, error: error.message };
@@ -303,6 +308,10 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
   await reader
     .from("roamly_trips")
     .update({
+      trip_companion_status:
+        trip.trip_companion_status === "active" || trip.trip_companion_status === "completed"
+          ? trip.trip_companion_status
+          : "scheduled",
       metadata: {
         ...(trip.metadata || {}),
         companion: {
@@ -334,29 +343,49 @@ export async function unlockLiveCompanion(
 ) {
   const writer = createSupabaseAdminClient() || supabase;
   const now = new Date().toISOString();
-  const { data: trip, error } = await writer
+  const { data: existing, error: readError } = await writer
+    .from("roamly_trips")
+    .select("id,user_id,tracking_unlocked,tracking_unlock_source,tracking_paid_at,live_companion_unlocked,live_companion_unlocked_at,live_companion_source,trip_companion_status")
+    .eq("id", tripId)
+    .maybeSingle();
+
+  if (readError) return { ok: false, error: readError.message };
+  if (!existing) return { ok: false, error: "Trip not found." };
+
+  const trip = existing as CompanionTrip;
+  const shouldRecordUnlock = trip.live_companion_unlocked !== true;
+  const companionStatus =
+    trip.trip_companion_status === "active" || trip.trip_companion_status === "completed"
+      ? trip.trip_companion_status
+      : "scheduled";
+
+  const { error } = await writer
     .from("roamly_trips")
     .update({
       tracking_unlocked: true,
       tracking_unlock_source: source,
-      tracking_paid_at: now
+      tracking_paid_at: trip.tracking_paid_at || now,
+      live_companion_unlocked: true,
+      live_companion_unlocked_at: trip.live_companion_unlocked_at || now,
+      live_companion_source: source,
+      trip_companion_status: companionStatus
     })
     .eq("id", tripId)
-    .select("id,user_id")
-    .maybeSingle();
+    .eq("user_id", trip.user_id);
 
   if (error) return { ok: false, error: error.message };
-  if (!trip) return { ok: false, error: "Trip not found." };
 
   await scheduleCompanionEvents(writer, tripId);
-  await recordTripEvent(writer, {
-    userId: trip.user_id,
-    tripId,
-    eventType: "live_companion_unlocked",
-    eventTitle: "Live Trip Companion unlocked",
-    eventBody: "Live Trip Companion is ready for this trip.",
-    metadata: { source }
-  });
+  if (shouldRecordUnlock) {
+    await recordTripEvent(writer, {
+      userId: trip.user_id,
+      tripId,
+      eventType: "live_companion_unlocked",
+      eventTitle: "Live Trip Companion unlocked",
+      eventBody: "Live Trip Companion is ready for this trip.",
+      metadata: { source }
+    });
+  }
   return { ok: true };
 }
 

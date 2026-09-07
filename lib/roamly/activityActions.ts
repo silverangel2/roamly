@@ -67,7 +67,7 @@ const actionConfig = {
 async function getTripForAction(supabase: SupabaseClient, tripId: string, userId?: string | null, userEmail?: string | null) {
   let query = supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked")
+    .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked,live_companion_unlocked")
     .eq("id", tripId);
   if (userId) query = query.eq("user_id", userId);
   const { data, error } = await query.maybeSingle();
@@ -157,12 +157,30 @@ function buildActionUpdate(action: RoamlyActivityAction) {
   return {
     status: config.status,
     checked_in_at: action === "check_in" ? now : undefined,
-    completed_at: action === "complete" ? now : undefined
+    completed_at: action === "complete" || action === "skip" ? now : undefined
   };
 }
 
 function cleanUpdate(input: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
+}
+
+async function cancelOutstandingEventsForActivity(supabase: SupabaseClient, userId: string, tripId: string, activityIds: string[]) {
+  const ids = new Set(activityIds.filter(Boolean));
+  if (!ids.size) return;
+  const { data } = await supabase
+    .from("roamly_trip_companion_events")
+    .select("id,activity_id,metadata")
+    .eq("user_id", userId)
+    .eq("trip_id", tripId)
+    .in("status", ["scheduled", "processing"]);
+  const eventIds = (data || []).filter((event) => {
+    const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata as Record<string, unknown> : {};
+    return (typeof event.activity_id === "string" && ids.has(event.activity_id)) || (typeof metadata.activityId === "string" && ids.has(metadata.activityId));
+  }).map((event) => event.id).filter(Boolean);
+  if (eventIds.length) {
+    await supabase.from("roamly_trip_companion_events").update({ status: "cancelled", completed_at: new Date().toISOString() }).in("id", eventIds);
+  }
 }
 
 async function writeCompanionActivityEvent(
@@ -285,6 +303,13 @@ export async function performActivityAction(
 
   const failed = results.find((result) => result.error);
   if (failed?.error) return { ok: false as const, error: failed.error.message };
+
+  await cancelOutstandingEventsForActivity(
+    supabase,
+    tripResult.trip.user_id,
+    params.tripId,
+    [params.activityId, loaded.trackingActivity?.id || "", loaded.displayActivity?.id || ""]
+  );
 
   const config = actionConfig[params.action];
   const tripEvent = await recordTripEvent(supabase, {

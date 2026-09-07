@@ -158,6 +158,10 @@ export async function sendPushNotification(
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body || "",
+    tripId: payload.tripId || null,
+    eventId: payload.eventId || null,
+    eventType: payload.type || null,
+    activityId: payload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1] || null,
     actionUrl: payload.actionUrl || "/notifications",
     appleMapsUrl: payload.appleMapsUrl || null,
     googleMapsUrl: payload.googleMapsUrl || null,
@@ -287,15 +291,69 @@ export async function sendScheduledTripNotifications() {
       }
     }
 
-    const delivery = await sendPushNotification(supabase, event.user_id, {
+    const eventMetadata = event.metadata && typeof event.metadata === "object"
+      ? event.metadata as Record<string, unknown>
+      : {};
+    const activityId = typeof eventMetadata.activityId === "string"
+      ? eventMetadata.activityId
+      : typeof eventMetadata.activity_id === "string"
+        ? eventMetadata.activity_id
+        : null;
+    const liveEventTypes = new Set(["nearby_activity", "up_next_activity", "departure_reminder", "running_late", "arrival_detected"]);
+    const liveNotificationType = event.event_type === "up_next_activity"
+      ? "next_activity"
+      : event.event_type === "departure_reminder"
+        ? "leave_by"
+        : event.event_type === "running_late"
+          ? "late"
+          : event.event_type === "arrival_detected"
+            ? "arrival"
+            : event.event_type;
+
+    let delivery;
+    if (event.trip_id && activityId && liveEventTypes.has(event.event_type)) {
+      const { liveCompanionNotificationIdentity, queueCompanionNotification, sendCompanionNotificationDelivery } = await import("@/lib/roamly/companionNotifications");
+      const queued = await queueCompanionNotification({
+        supabase,
+        userId: event.user_id,
+        tripId: event.trip_id,
+        companionEventId: event.id,
+        type: liveNotificationType as "nearby_activity" | "next_activity" | "leave_by" | "late" | "arrival",
+        priority: "routine",
+        title: event.title || "Roamly reminder",
+        body: event.body,
+        actionUrl: `/trip/${event.trip_id}/live?activity=${encodeURIComponent(activityId)}`,
+        metadata: { ...eventMetadata, activityId, send_email: false, source: "scheduler" },
+        idempotencyKey: liveCompanionNotificationIdentity({
+          userId: event.user_id,
+          tripId: event.trip_id,
+          activityId,
+          eventType: liveNotificationType
+        }),
+        dedupeParts: [liveCompanionNotificationIdentity({
+          userId: event.user_id,
+          tripId: event.trip_id,
+          activityId,
+          eventType: liveNotificationType
+        })]
+      });
+      delivery = queued.ok && queued.delivery?.id
+        ? await sendCompanionNotificationDelivery(queued.delivery.id)
+        : queued;
+    } else {
+      delivery = await sendPushNotification(supabase, event.user_id, {
       title: event.title || "Roamly reminder",
       body: event.body,
       actionUrl: event.trip_id ? `/trip/${event.trip_id}/live` : "/notifications",
       type: event.event_type,
       tripId: event.trip_id,
       eventId: event.id
-    });
-    if (delivery.ok && (delivery.sent ?? 0) > 0) {
+      });
+    }
+    const pushAccepted = "sent" in delivery
+      ? delivery.ok && (delivery.sent ?? 0) > 0
+      : delivery.ok;
+    if (pushAccepted) {
       sent += 1;
       await supabase
         .from("roamly_trip_companion_events")

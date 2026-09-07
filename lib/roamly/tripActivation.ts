@@ -1,4 +1,9 @@
 import { sendPushNotification } from "@/lib/roamly/pushServer";
+import {
+  liveCompanionNotificationIdentity,
+  queueCompanionNotification,
+  sendCompanionNotificationDelivery
+} from "@/lib/roamly/companionNotifications";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateDistanceMeters, isWithinRadius, type LocationInput } from "@/lib/roamly/location";
 import { recordTripEvent } from "@/lib/roamly/events";
@@ -253,7 +258,7 @@ async function expirePastActivities(
     .from("roamly_activities")
     .select("*")
     .eq("trip_id", params.trip.id)
-    .in("status", ["planned", "nearby"]);
+    .in("status", ["planned", "active", "nearby"]);
 
   const expiredActivities = ((expirableActivities || []) as TrackingActivity[])
     .filter((activity) => isActivityPastWindow(activity, params.timezone, params.now));
@@ -268,7 +273,7 @@ async function expirePastActivities(
     .from("roamly_activities")
     .update({ status: "missed", completed_at: completedAt })
     .eq("trip_id", params.trip.id)
-    .in("status", ["planned", "nearby"])
+    .in("status", ["planned", "active", "nearby"])
     .in("id", expiredActivityIds);
 
   if (expiredTitles.length) {
@@ -401,7 +406,7 @@ export async function findNearbyActivities(
     .from("roamly_activities")
     .select("*")
     .eq("trip_id", tripId)
-    .in("status", ["planned", "nearby"])
+    .in("status", ["planned", "active", "nearby"])
     .not("latitude", "is", null)
     .not("longitude", "is", null)
     .order("sort_order", { ascending: true });
@@ -458,7 +463,7 @@ export async function getUpNextActivity(supabase: SupabaseClient, tripId: string
     .from("roamly_activities")
     .select("*")
     .eq("trip_id", tripId)
-    .not("status", "in", "(completed,skipped,missed)")
+    .not("status", "in", "(completed,checked_in,skipped,missed,cancelled)")
     .order("scheduled_start", { ascending: true, nullsFirst: false })
     .order("sort_order", { ascending: true })
     .limit(30);
@@ -473,23 +478,7 @@ export async function getUpNextActivity(supabase: SupabaseClient, tripId: string
     };
   });
 
-  return {
-    activity: activities.sort((a, b) => {
-      const priority = (activity: TrackingActivity) => {
-        if (activity.scheduled_start) return 0;
-        if (activity.status === "nearby") return 1;
-        if (activity.status === "checked_in") return 2;
-        return 3;
-      };
-      const priorityDiff = priority(a) - priority(b);
-      if (priorityDiff) return priorityDiff;
-      if (a.scheduled_start && b.scheduled_start) {
-        return new Date(a.scheduled_start).getTime() - new Date(b.scheduled_start).getTime();
-      }
-      if (a.distance_meters != null && b.distance_meters != null) return a.distance_meters - b.distance_meters;
-      return a.sort_order - b.sort_order;
-    })[0] || null
-  };
+  return { activity: activities[0] || null };
 }
 
 export function buildTripNotificationPayload(params: {
@@ -677,49 +666,44 @@ export async function activateTripIfNearby(
        * Send this immediately to the phone notification wall.
        * Do not send email.
        */
-      const pushed = await sendPushNotification(
+      const nearbyActivity = nearby.activities[0];
+      const queued = await queueCompanionNotification({
         supabase,
         userId,
-        {
-          tripId: trip.id,
-          type: "nearby_activity",
-          title: `You're nearby: ${nearby.activities[0].title}`,
-          body: "You're close to your next planned activity. Open Roamly when you're ready.",
-          actionUrl:
-            `/trip/${trip.id}/live?activity=${encodeURIComponent(
-              nearby.activities[0].id
-            )}`,
-          appleMapsUrl:
-            nearby.activities[0].latitude != null &&
-            nearby.activities[0].longitude != null
-              ? `https://maps.apple.com/?daddr=${nearby.activities[0].latitude},${nearby.activities[0].longitude}`
-              : null,
-          googleMapsUrl:
-            nearby.activities[0].latitude != null &&
-            nearby.activities[0].longitude != null
-              ? `https://www.google.com/maps/dir/?api=1&destination=${nearby.activities[0].latitude},${nearby.activities[0].longitude}`
-              : null,
-          citymapperUrl:
-            nearby.activities[0].latitude != null &&
-            nearby.activities[0].longitude != null
-              ? `https://citymapper.com/directions?endcoord=${nearby.activities[0].latitude},${nearby.activities[0].longitude}`
-              : null,
-          checkInUrl:
-            `/trip/${trip.id}/live?activity=${encodeURIComponent(
-              nearby.activities[0].id
-            )}&action=check-in`,
-          skipUrl:
-            `/trip/${trip.id}/live?activity=${encodeURIComponent(
-              nearby.activities[0].id
-            )}&action=skip`
+        tripId: trip.id,
+        type: "nearby_activity",
+        priority: "routine",
+        title: `You're nearby: ${nearbyActivity.title}`,
+        body: "You're close to your next planned activity. Open Roamly when you're ready.",
+        actionUrl: `/trip/${trip.id}/live?activity=${encodeURIComponent(nearbyActivity.id)}`,
+        scheduledFor: processingNow.toISOString(),
+        metadata: {
+          activityId: nearbyActivity.id,
+          latitude: nearbyActivity.latitude,
+          longitude: nearbyActivity.longitude,
+          send_email: false,
+          source: "location"
         },
-        {
-          sendEmail: false,
-          createNotification: false
-        }
-      );
+        idempotencyKey: liveCompanionNotificationIdentity({
+          userId,
+          tripId: trip.id,
+          activityId: nearbyActivity.id,
+          eventType: "nearby_activity"
+        }),
+        dedupeParts: [
+          liveCompanionNotificationIdentity({
+            userId,
+            tripId: trip.id,
+            activityId: nearbyActivity.id,
+            eventType: "nearby_activity"
+          })
+        ]
+      });
+      const pushed = queued.ok && queued.delivery?.id
+        ? await sendCompanionNotificationDelivery(queued.delivery.id)
+        : queued;
 
-      if (Number(pushed.sent || 0) > 0) {
+      if (pushed.ok && !queued.deduplicated) {
         const now = processingNow.toISOString();
         const companionEvent = await supabase
           .from("roamly_trip_companion_events")
@@ -733,8 +717,8 @@ export async function activateTripIfNearby(
             completed_at: now,
             status: "shown",
             metadata: simulationMetadata(options, {
-              activityId: nearby.activities[0].id,
-              distanceMeters: nearby.activities[0].distance_meters ?? null,
+              activityId: nearbyActivity.id,
+              distanceMeters: nearbyActivity.distance_meters ?? null,
               notificationReason: "arrival_proximity"
             })
           })

@@ -42,6 +42,10 @@ export async function GET(
 
   const { id } = await context.params;
 
+  const ownedTrip = await auth.supabase.from("roamly_trips").select("id").eq("id", id).eq("user_id", auth.user.id).maybeSingle();
+  if (ownedTrip.error) return NextResponse.json({ ok: false, error: ownedTrip.error.message }, { status: 400 });
+  if (!ownedTrip.data) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
+
   const preferences = await getCompanionPreferences({
     supabase: auth.supabase,
     userId: auth.user.id,
@@ -62,6 +66,10 @@ export async function PUT(
   if (!auth.ok) return auth.response;
 
   const { id } = await context.params;
+
+  const ownedTrip = await auth.supabase.from("roamly_trips").select("id").eq("id", id).eq("user_id", auth.user.id).maybeSingle();
+  if (ownedTrip.error) return NextResponse.json({ ok: false, error: ownedTrip.error.message }, { status: 400 });
+  if (!ownedTrip.data) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
   let body: UpdateBody;
 
@@ -141,13 +149,15 @@ export async function PUT(
       body.backgroundLocationEnabled ?? currentPreferences.backgroundLocationEnabled
   };
 
-  const result = await auth.supabase
+  const existing = await auth.supabase
     .from("roamly_companion_preferences")
-    .upsert(row, {
-      onConflict: "user_id,trip_id"
-    })
-    .select("*")
-    .single();
+    .select("id")
+    .eq("user_id", auth.user.id)
+    .eq("trip_id", id)
+    .maybeSingle();
+  const result = existing.data?.id
+    ? await auth.supabase.from("roamly_companion_preferences").update(row).eq("id", existing.data.id).select("*").single()
+    : await auth.supabase.from("roamly_companion_preferences").insert(row).select("*").single();
 
   if (result.error) {
     return NextResponse.json(

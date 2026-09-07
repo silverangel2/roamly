@@ -40,6 +40,10 @@ self.addEventListener("push", (event) => {
     actions,
     requireInteraction: true,
     data: {
+      tripId: data.tripId || null,
+      activityId: data.activityId || null,
+      eventId: data.eventId || null,
+      eventType: data.eventType || null,
       actionUrl: data.actionUrl || "/notifications",
       googleMapsUrl: data.googleMapsUrl || null,
       appleMapsUrl: data.appleMapsUrl || null,

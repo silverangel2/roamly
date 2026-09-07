@@ -21,6 +21,13 @@ export type PushCapabilityState = {
   canSubscribe: boolean;
 };
 
+export function isSupportedMobileEnvironment() {
+  if (typeof window === "undefined") return false;
+  const userAgent = navigator.userAgent || "";
+  const touchMac = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(userAgent) || touchMac;
+}
+
 function isIOSDevice() {
   const platform = navigator.platform || "";
   return /iPad|iPhone|iPod/.test(navigator.userAgent || "") ||
