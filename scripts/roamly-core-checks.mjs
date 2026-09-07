@@ -3131,4 +3131,64 @@ assert.ok(!emailConnectionSettings.includes("Connect Outlook"), "account page mu
 const accountPageWithEmailImport = read("app/account/page.tsx");
 assert.ok(accountPageWithEmailImport.includes("EmailConnectionSettings"), "account page must expose mailbox controls separately from Google login");
 
+// Server-time Live Companion lifecycle regression coverage.
+const lifecycleWorker = read("lib/roamly/liveCompanionLifecycle.ts");
+const lifecycleCron = read("app/api/cron/roamly-live-companion/route.ts");
+const lifecycleMigration = read("supabase/migrations/20260907_roamly_live_companion_activity_start.sql");
+const lifecycleLive = loadTsModule("lib/roamly/liveCompanion.ts");
+const lifecycleIdentity = loadTsModule("lib/roamly/companionNotifications.ts").liveCompanionNotificationIdentity;
+const lifecycleActivity = (id, start, end, status = "planned") => ({
+  id,
+  title: id,
+  startAt: start,
+  endAt: end,
+  status
+});
+const nineMinutesAhead = new Date("2026-09-07T12:09:00.000Z");
+const nineMinuteSelection = lifecycleLive.selectNowAndNextActivity({
+  activities: [lifecycleActivity("kings-square", "2026-09-07T12:18:00.000Z", "2026-09-07T13:18:00.000Z")],
+  now: nineMinutesAhead
+});
+assert.equal(nineMinuteSelection.next.id, "kings-square", "upcoming activity remains eligible for pre-start notification");
+assert.equal(lifecycleLive.evaluateNotificationDecision({
+  eventType: "next_activity",
+  activity: nineMinuteSelection.next,
+  activeWindow: true,
+  history: [],
+  now: nineMinutesAhead,
+  reason: "pre_start"
+}).notificationSent, true, "9-minute upcoming notification can send once");
+const atStart = new Date("2026-09-07T12:18:00.000Z");
+const startSelection = lifecycleLive.selectNowAndNextActivity({
+  activities: [lifecycleActivity("kings-square", "2026-09-07T12:18:00.000Z", "2026-09-07T13:18:00.000Z")],
+  now: atStart
+});
+assert.equal(startSelection.now.id, "kings-square", "same activity crosses from upcoming to now at scheduled start");
+assert.notEqual(
+  lifecycleIdentity({ userId: "u", tripId: "t", activityId: "kings-square", eventType: "next_activity" }),
+  lifecycleIdentity({ userId: "u", tripId: "t", activityId: "kings-square", eventType: "activity_start" }),
+  "start identity is independent from pre-start identity"
+);
+assert.ok(lifecycleWorker.includes('eventType: "activity_start"') && lifecycleWorker.includes("liveCompanionNotificationIdentity"), "start notification has a durable distinct identity");
+assert.ok(lifecycleWorker.includes("queueCompanionNotification") && lifecycleWorker.includes("sendCompanionNotificationDelivery"), "repeated lifecycle runs use the durable queue claim path");
+assert.ok(!lifecycleWorker.includes("LocationInput") && !lifecycleWorker.includes("activateTripIfNearby"), "server-time start does not require GPS activation");
+const advanced = lifecycleLive.selectNowAndNextActivity({
+  activities: [
+    lifecycleActivity("old", "2026-09-07T10:00:00.000Z", "2026-09-07T11:00:00.000Z", "missed"),
+    lifecycleActivity("next", "2026-09-07T11:30:00.000Z", "2026-09-07T12:30:00.000Z")
+  ],
+  now: new Date("2026-09-07T11:45:00.000Z")
+});
+assert.equal(advanced.now.id, "next", "expired unresolved activity advances chronology");
+assert.notEqual(
+  lifecycleIdentity({ userId: "u", tripId: "t", activityId: "a", eventType: "activity_start" }),
+  lifecycleIdentity({ userId: "u", tripId: "t", activityId: "b", eventType: "activity_start" }),
+  "different activities transition independently"
+);
+assert.ok(lifecycleWorker.includes("roamly_activities") && lifecycleWorker.includes('status: "missed"'), "time lifecycle expires unresolved activities");
+assert.ok(lifecycleWorker.includes("getCompanionPreferences") && lifecycleWorker.includes("roamly_trips"), "field test and customers use the same trip lifecycle engine");
+assert.ok(lifecycleWorker.includes("sendCompanionNotificationDelivery") && lifecycleWorker.includes("queueCompanionNotification"), "production Companion push pipeline is reused");
+assert.ok(lifecycleCron.includes("ROAMLY_NOTIFICATION_CRON_SECRET") && lifecycleCron.includes("Unauthorized cron"), "lifecycle cron uses existing protected authorization");
+assert.ok(lifecycleMigration.includes("activity_start") && lifecycleMigration.includes("roamly_companion_notification_deliveries") && lifecycleMigration.includes("create unique index if not exists roamly_live_companion_delivery_identity_uidx"), "activity start schema addition is forward-only and scoped");
+
 console.log("Roamly core checks passed.");

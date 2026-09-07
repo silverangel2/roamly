@@ -133,6 +133,7 @@ function isLiveNotificationType(
 ): value is LiveNotificationType {
   return (
     value === "trip_active" ||
+    value === "activity_start" ||
     value === "leave_by" ||
     value === "arrival" ||
     value === "late" ||
@@ -148,6 +149,7 @@ function companionEventTypeForLiveNotification(
   if (value === "leave_by") return "departure_reminder";
   if (value === "late") return "running_late";
   if (value === "arrival") return "arrival_detected";
+  if (value === "activity_start") return "activity_start";
   return "up_next_activity";
 }
 
