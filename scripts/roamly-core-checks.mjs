@@ -2977,7 +2977,12 @@ const adminFieldTest = read("components/admin/AdminLiveTestConsole.tsx");
   "Desktop Admin prepares and observes the test only",
   "PHONE&apos;S REAL LOCATION",
   "No simulated GPS is used",
-  "Open/Copy mobile test link",
+  "Prepare Saint John field test",
+  "Run field test on this phone",
+  "Copy phone test link",
+  "Ready for phone test",
+  "Phone test link expired or unavailable.",
+  "Prepare the Saint John field test to create a new secure phone link.",
   "Test trip ready",
   "Mobile setup completed",
   "Push subscription active",
@@ -3018,10 +3023,12 @@ const liveFieldTestPage = read("app/trip/[id]/live/page.tsx");
   "fieldTestMode"
 ].forEach((needle) => assert.ok(liveFieldTestPage.includes(needle), `Field-test runtime wrapper missing ${needle}`));
 assert.ok(adminFieldTest.includes("data.mobileLink"), "Admin mobile link must target the prepared dedicated field-test entry");
-assert.ok(adminFieldTest.includes("setPreparedMobileLink(`${window.location.origin}${data.mobileLink}`)"), "Admin mobile link must come from prepare response");
+assert.ok(adminFieldTest.includes("setPreparedMobileLink(nextMobileLink)"), "Admin mobile link must come from prepare response");
 assert.ok(adminFieldTest.includes("const mobileTestLink = preparedMobileLink"), "Admin mobile link must require a prepared capability URL");
-assert.ok(adminFieldTest.includes("disabled={!hasPreparedMobileLink}"), "Copy link must be disabled before field-test preparation");
-assert.ok(adminFieldTest.includes("Prepare the field test first."), "Admin must explain the prepare-first state");
+assert.ok(adminFieldTest.includes("new URL(data.mobileLink, window.location.origin).toString()"), "Admin must normalize the returned mobile link");
+assert.ok(adminFieldTest.includes("finally {\n      setBusy(\"\");"), "Admin preparation must always clear busy state");
+assert.ok(!adminFieldTest.includes("Create / Reset Live Companion QA Trip"), "Saint John field test must have one preparation control");
+assert.ok(!adminFieldTest.includes("Open mobile field test"), "Admin must not show a disabled mysterious open control");
 assert.ok(!adminFieldTest.includes("/field-test/${tripId}`\n    : `/field-test/${tripId}"), "Admin must not fall back to a raw field-test URL");
 assert.ok(!adminFieldTest.includes("/trip/${tripId}/live?fieldTest=1"), "Admin must not link directly to owner-protected live route");
 assert.ok(liveTripClient.includes("fieldTestMode"), "Field-test entry must use the shared customer Live Companion runtime");

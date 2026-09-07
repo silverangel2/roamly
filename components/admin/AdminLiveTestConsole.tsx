@@ -170,44 +170,11 @@ export function AdminLiveTestConsole({
     setBrowserPermission(Notification.permission);
   }, []);
 
-  async function createQaTrip() {
-    setBusy("seed_qa_trip");
-    setError("");
-    setResult(null);
-
-    try {
-      const response = await fetchWithSupabaseAuth("/api/admin/roamly/seed-demo", {
-        method: "POST",
-        credentials: "include"
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        throw new Error(data?.error || "Could not create the controlled QA trip.");
-      }
-
-      setResult({
-        ok: true,
-        test: "qa_trip_created",
-        message: "Controlled Live Companion QA trip created. Refreshing..."
-      });
-
-      window.location.reload();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Could not create the controlled QA trip."
-      );
-      setBusy("");
-    }
-  }
-
   async function createSaintJohnFieldTest() {
     setBusy("seed_field_test");
     setError("");
     setResult(null);
+    setPreparedMobileLink(null);
 
     try {
       const response = await fetchWithSupabaseAuth(
@@ -224,17 +191,22 @@ export function AdminLiveTestConsole({
         throw new Error(data?.error || "Could not create Saint John field test.");
       }
 
-      if (typeof data?.tripId === "string" && typeof data?.mobileLink === "string") {
-        setTripId(data.tripId);
-        setPreparedMobileLink(`${window.location.origin}${data.mobileLink}`);
-        setResult({ ok: true, test: "field_test_prepared", message: "Prepare and monitor on desktop. Run the real Live Companion on your phone." });
+      if (typeof data?.tripId !== "string" || typeof data?.mobileLink !== "string" || !data.mobileLink) {
+        throw new Error("Field-test preparation returned no usable phone link.");
       }
+
+      const nextMobileLink = new URL(data.mobileLink, window.location.origin).toString();
+      setTripId(data.tripId);
+      setPreparedMobileLink(nextMobileLink);
+      setResult({ ok: true, test: "field_test_prepared", message: "Ready for phone test" });
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : "Could not create Saint John field test."
       );
+      setBusy("");
+    } finally {
       setBusy("");
     }
   }
@@ -286,24 +258,13 @@ export function AdminLiveTestConsole({
         <div className="mt-4">
           <button
             type="button"
-            onClick={createQaTrip}
-            disabled={Boolean(busy)}
-            className="rounded-2xl border border-ocean/30 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean transition hover:-translate-y-0.5 disabled:opacity-60"
-          >
-            {busy === "seed_qa_trip"
-              ? "Creating QA trip..."
-              : "Create / Reset Live Companion QA Trip"}
-          </button>
-
-          <button
-            type="button"
             onClick={createSaintJohnFieldTest}
             disabled={Boolean(busy)}
-            className="ml-2 rounded-2xl border border-ocean/30 bg-white px-4 py-3 text-sm font-black text-ocean transition hover:-translate-y-0.5 disabled:opacity-60"
+            className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
           >
             {busy === "seed_field_test"
-              ? "Creating Saint John test..."
-              : "Prepare/reset test"}
+              ? "Preparing Saint John field test..."
+              : "Prepare Saint John field test"}
           </button>
 
           <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
@@ -373,6 +334,7 @@ export function AdminLiveTestConsole({
 
               {hasPreparedMobileLink ? (
                 <div className="mt-4 flex justify-center rounded-2xl bg-white p-4">
+                  <div className="sr-only">QR code</div>
                   <QRCodeSVG
                     value={mobileTestLink as string}
                     size={180}
@@ -381,36 +343,31 @@ export function AdminLiveTestConsole({
                 </div>
               ) : null}
 
-              <p className="mt-2 text-center text-xs font-bold text-slate-500">
-                Scan with your phone camera
-              </p>
-
-              <a
-                href={hasPreparedMobileLink ? mobileTestLink || undefined : undefined}
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={!hasPreparedMobileLink}
-                className={`mt-3 block w-full rounded-2xl px-5 py-3 text-center text-sm font-black text-white ${hasPreparedMobileLink ? "bg-ink" : "cursor-not-allowed bg-slate-300"}`}
-                onClick={(event) => {
-                  if (!hasPreparedMobileLink) event.preventDefault();
-                }}
-              >
-                Open mobile field test
-              </a>
-
-              <button
-                type="button"
-                onClick={() => void copyMobileTestLink()}
-                aria-label="Open/Copy mobile test link"
-                disabled={!hasPreparedMobileLink}
-                className="mt-2 block w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {mobileLinkCopied ? "Mobile field-test link copied" : "Copy mobile field-test link"}
-              </button>
-
-              {!hasPreparedMobileLink ? (
-                <p className="mt-2 text-sm font-black text-amber-800">Prepare the field test first.</p>
-              ) : null}
+              {hasPreparedMobileLink ? (
+                <>
+                  <p className="mt-2 text-center text-xs font-bold text-slate-500">Scan the QR code with your phone camera</p>
+                  <button
+                    type="button"
+                    onClick={() => window.location.assign(mobileTestLink as string)}
+                    className="mt-3 block w-full rounded-2xl bg-ink px-5 py-3 text-center text-sm font-black text-white transition hover:-translate-y-0.5"
+                  >
+                    Run field test on this phone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyMobileTestLink()}
+                    className="mt-2 block w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink"
+                  >
+                    {mobileLinkCopied ? "Phone test link copied" : "Copy phone test link"}
+                  </button>
+                  <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-center text-sm font-black text-ocean">Ready for phone test</p>
+                </>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-sun/15 px-4 py-3 text-sm font-black leading-6 text-amber-900">
+                  <p>Phone test link expired or unavailable.</p>
+                  <p>Prepare the Saint John field test to create a new secure phone link.</p>
+                </div>
+              )}
 
               <p className="mt-2 text-xs font-bold text-slate-500">
               Use the phone link above. Desktop controls below are preparation/observation only.
