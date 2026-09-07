@@ -2980,6 +2980,27 @@ const adminFieldTest = read("components/admin/AdminLiveTestConsole.tsx");
   "Waiting / Not detected"
 ].forEach((needle) => assert.ok(adminFieldTest.includes(needle), `Admin field test UX missing ${needle}`));
 
+const fieldTestEntry = read("app/field-test/[id]/page.tsx");
+[
+  "field-test",
+  "hasQaAccess",
+  "metadata?.field_test",
+  "/trip/${id}/live?fieldTest=1"
+].forEach((needle) => assert.ok(fieldTestEntry.includes(needle), `Dedicated field-test entry missing ${needle}`));
+const liveFieldTestPage = read("app/trip/[id]/live/page.tsx");
+[
+  "fieldTestRequested",
+  "fieldTestMode",
+  "Admin field test • Saint John",
+  "LIVE COMPANION FIELD TEST",
+  "Saint John",
+  "Exit field test",
+  "fieldTestMode"
+].forEach((needle) => assert.ok(liveFieldTestPage.includes(needle), `Field-test runtime wrapper missing ${needle}`));
+assert.ok(adminFieldTest.includes("/field-test/${tripId}"), "Admin mobile link must target the dedicated field-test entry");
+assert.ok(liveTripClient.includes("fieldTestMode"), "Field-test entry must use the shared customer Live Companion runtime");
+assert.ok(liveTripClient.includes("liveDemoEnabled={false}") || liveTripClient.includes("liveDemoEnabled = false"), "Field test must not enable simulated Live Demo mode");
+
 const emailProviderAdapters = read("lib/roamly/emailProviderAdapters.ts");
 ["EMAIL_PROVIDER_ADAPTERS", "Gmail", "supportsIncrementalSync"].forEach((needle) =>
   assert.ok(emailProviderAdapters.includes(needle), `email provider adapter registry missing ${needle}`)

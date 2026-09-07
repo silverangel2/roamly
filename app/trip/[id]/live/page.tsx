@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { NotificationPermissionCard } from "@/components/roamly/NotificationPermissionCard";
 import { TripBookingsList } from "@/components/roamly/TripBookingsManager";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { Badge } from "@/components/ui/Badge";
@@ -95,13 +94,22 @@ function localizeActivityRecords(activities: ActivityRecord[], itinerary: Roamly
   });
 }
 
-export default async function LiveTripPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LiveTripPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const search = searchParams ? await searchParams : {};
+  const fieldTestRequested = search.fieldTest === "1";
   const locale = await getServerLocale();
   const current = await getCurrentUser();
 
   if (current.configured && !current.user) {
-    redirect(`/login?next=${encodeURIComponent(`/trip/${id}/live`)}`);
+    const next = fieldTestRequested ? `/field-test/${id}` : `/trip/${id}/live`;
+    redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
   if (!current.configured || !current.user) {
@@ -123,6 +131,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
   if (!bundle.data) redirect("/dashboard?tripAccess=denied");
   const locked = isTripLocked(bundle.data.trip);
   const companionUnlocked = tripHasTrackingUnlock(bundle.data.trip);
+  const fieldTestMode = fieldTestRequested && access.hasQaAccess && bundle.data.trip.metadata?.field_test === true;
   if (!locked || (!companionUnlocked && !access.hasQaAccess)) redirect(`/trip/${id}`);
   if (access.hasQaAccess && locked && !companionUnlocked) {
     await unlockLiveCompanion(supabase, id, "admin");
@@ -258,6 +267,52 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
     }
   ];
 
+  if (fieldTestMode) {
+    return (
+      <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
+        <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-ink px-4 py-3 text-white shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Admin field test • Saint John</p>
+              <p className="mt-1 text-sm font-black text-white/85">Real Roamly Live Companion runtime</p>
+            </div>
+            <a href={`/trip/${id}`} className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-white">Exit field test</a>
+          </div>
+        </section>
+        <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-6 shadow-soft">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Admin-controlled mobile setup</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight text-ink">LIVE COMPANION FIELD TEST</h1>
+          <p className="mt-2 text-2xl font-black text-ocean">Saint John</p>
+          <p className="mt-3 text-sm font-bold leading-6 text-slate-600">This is the Admin field test using the real Roamly Live Companion.</p>
+          <div className="mt-5 grid gap-3 text-sm font-black text-slate-700 sm:grid-cols-3">
+            <div className="rounded-2xl bg-mist p-4"><span className="text-ocean">STEP 1</span><br />Install Roamly</div>
+            <div className="rounded-2xl bg-mist p-4"><span className="text-ocean">STEP 2</span><br />Notifications</div>
+            <div className="rounded-2xl bg-mist p-4"><span className="text-ocean">STEP 3</span><br />Location</div>
+          </div>
+        </section>
+        <LiveTripClient
+          tripId={id}
+          activities={dayActivities}
+          checklist={bundle.data.checklist}
+          canSimulateLocation={false}
+          destinationLabel={destinationLabel}
+          simulatorPlaces={simulatorPlaces}
+          tripStartDate={bundle.data.trip.start_date}
+          tripEndDate={bundle.data.trip.end_date}
+          timezone={tripTimezone}
+          companionEnabled={preferences.liveCompanionEnabled}
+          companionPausedUntil={preferences.liveCompanionPausedUntil}
+          backgroundLocationEnabled={preferences.backgroundLocationEnabled}
+          initialPermissionState={permissionState}
+          initialLocation={latestLocation}
+          bookingDetails={bookingDetails}
+          liveDemoEnabled={false}
+          fieldTestMode
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -305,7 +360,11 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
             {companion.nextEvent?.body || "Roamly will keep your in-app timeline ready. Phone reminders are optional."}
           </p>
         </Card>
-        <NotificationPermissionCard />
+        <Card>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Phone alerts</p>
+          <h2 className="mt-2 text-xl font-black text-ink">Live Companion setup is below</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Complete the one-time mobile setup in the Live Companion panel. Phone push is the primary alert channel.</p>
+        </Card>
       </section>
 
       <section className="mb-5">
@@ -394,7 +453,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         tripId={id}
         activities={dayActivities}
         checklist={bundle.data.checklist}
-        canSimulateLocation={access.hasQaAccess}
+        canSimulateLocation={false}
         destinationLabel={destinationLabel}
         simulatorPlaces={simulatorPlaces}
         tripStartDate={bundle.data.trip.start_date}
@@ -406,6 +465,7 @@ export default async function LiveTripPage({ params }: { params: Promise<{ id: s
         initialPermissionState={permissionState}
         initialLocation={latestLocation}
         bookingDetails={bookingDetails}
+        liveDemoEnabled={false}
       />
     </main>
   );

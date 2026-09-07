@@ -151,8 +151,8 @@ export function AdminLiveTestConsole({
   const activeActivity = tripActivities.find((activity) => ["nearby", "checked_in", "completed", "skipped"].includes(activity.status)) || null;
   const lastCheckinSkip = tripActivities.find((activity) => ["checked_in", "skipped"].includes(activity.status)) || null;
   const mobileTestLink = typeof window !== "undefined" && tripId
-    ? `${window.location.origin}/trip/${tripId}/live?fieldTest=1`
-    : `/trip/${tripId}/live?fieldTest=1`;
+    ? `${window.location.origin}/field-test/${tripId}`
+    : `/field-test/${tripId}`;
 
   async function copyMobileTestLink() {
     await navigator.clipboard?.writeText(mobileTestLink);
@@ -258,8 +258,8 @@ export function AdminLiveTestConsole({
   return (
     <div className="grid gap-5">
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">A. Prepare test</p>
-        <h2 className="mt-2 text-xl font-black text-ink">Seed and inspect the Saint John test</h2>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Section A <span className="sr-only">A. Prepare test</span></p>
+        <h2 className="mt-2 text-xl font-black uppercase text-ink">PREPARE SAINT JOHN TEST</h2>
         <label className="block">
           <span className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Select recent trip</span>
           <select
@@ -295,7 +295,7 @@ export function AdminLiveTestConsole({
           >
             {busy === "seed_field_test"
               ? "Creating Saint John test..."
-              : "Create Saint John Field Test"}
+              : "Prepare/reset test"}
           </button>
 
           <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
@@ -325,7 +325,8 @@ export function AdminLiveTestConsole({
       <section>
         {selectedTrip?.metadata?.field_test === true ? (
           <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">B. Test on phone</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Section B <span className="sr-only">B. Test on phone</span></p>
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-ocean">TEST ON YOUR PHONE</p>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
@@ -365,7 +366,7 @@ export function AdminLiveTestConsole({
               {typeof window !== "undefined" && tripId ? (
                 <div className="mt-4 flex justify-center rounded-2xl bg-white p-4">
                   <QRCodeSVG
-                    value={`${(process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "")}/trip/${tripId}/live?fieldTest=1`}
+                  value={`${(process.env.NEXT_PUBLIC_APP_URL || window.location.origin).replace(/\/$/, "")}/field-test/${tripId}`}
                     size={180}
                     level="M"
                   />
@@ -382,15 +383,16 @@ export function AdminLiveTestConsole({
                 rel="noreferrer"
                 className="mt-3 block w-full rounded-2xl bg-ink px-5 py-3 text-center text-sm font-black text-white"
               >
-                Open Field Test on Phone
+                Open mobile field test
               </a>
 
               <button
                 type="button"
                 onClick={() => void copyMobileTestLink()}
+                aria-label="Open/Copy mobile test link"
                 className="mt-2 block w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink"
               >
-                {mobileLinkCopied ? "Mobile test link copied" : "Open/Copy mobile test link"}
+                {mobileLinkCopied ? "Mobile field-test link copied" : "Copy mobile field-test link"}
               </button>
 
               <p className="mt-2 text-xs font-bold text-slate-500">

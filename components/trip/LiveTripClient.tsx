@@ -119,6 +119,7 @@ type LiveTripClientProps = {
   initialLocation?: LiveCoordinates | null;
   bookingDetails?: LiveCompanionBookingDetail[];
   liveDemoEnabled?: boolean;
+  fieldTestMode?: boolean;
 };
 
 const SIMULATED_LOCATION_KEY = "roamly_live_simulated_location";
@@ -368,7 +369,8 @@ export function LiveTripClient({
   initialPermissionState = "prompt",
   initialLocation = null,
   bookingDetails = [],
-  liveDemoEnabled = false
+  liveDemoEnabled = false,
+  fieldTestMode = false
 }: LiveTripClientProps) {
   const [items, setItems] = useState(activities);
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
@@ -1323,7 +1325,7 @@ export function LiveTripClient({
             </section>
 
             <section className="rounded-2xl border border-white/10 bg-white/8 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">Live Companion setup</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">{fieldTestMode ? "Field test setup" : "Live Companion setup"}</p>
               {!mobileRuntime ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
                   <h3 className="text-lg font-black text-amber-100">Live Companion runs on your phone</h3>
@@ -1331,8 +1333,8 @@ export function LiveTripClient({
                 </div>
               ) : !isStandalone ? (
                 <div className="mt-3 rounded-2xl border border-amber-200/30 bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-100">Activate Live Companion</h3>
-                  <p className="mt-2 text-sm font-bold leading-6 text-white/80">Install Roamly on your Home Screen to receive Live Companion trip alerts.</p>
+                  <h3 className="text-xl font-black text-amber-100">{fieldTestMode ? "Install Roamly" : "Activate Live Companion"}</h3>
+                  <p className="mt-2 text-sm font-bold leading-6 text-white/80">{fieldTestMode ? "Live Companion works from the Roamly Home Screen app." : "Install Roamly on your Home Screen to receive Live Companion trip alerts."}</p>
                   <button type="button" onClick={() => void startInstall()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink">
                     Install Roamly
                   </button>
@@ -1361,12 +1363,12 @@ export function LiveTripClient({
               ) : !watching ? (
                 <>
                   <div className="mt-3 grid gap-2 text-sm font-black text-white/85">
-                    <p>Step 1 — Notifications <span className="float-right text-white/55">{notificationPermission === "granted" ? "Ready" : "Next"}</span></p>
-                    <p>Step 2 — Location <span className="float-right text-white/55">{permission === "granted" ? "Ready" : "Next"}</span></p>
-                    <p>Step 3 — Ready</p>
+                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-white/55">{notificationPermission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-white/55">{permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                    <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
                   </div>
                   <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
-                    {busy === "setup" ? "Setting up…" : "Continue setup"}
+                    {busy === "setup" ? "Setting up…" : fieldTestMode ? notificationPermission !== "granted" ? "Allow notifications" : permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
                   </button>
                 </>
               ) : null}
