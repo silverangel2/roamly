@@ -3188,7 +3188,7 @@ assert.notEqual(
 assert.ok(lifecycleWorker.includes("roamly_activities") && lifecycleWorker.includes('status: "missed"'), "time lifecycle expires unresolved activities");
 assert.ok(lifecycleWorker.includes("getCompanionPreferences") && lifecycleWorker.includes("roamly_trips"), "field test and customers use the same trip lifecycle engine");
 assert.ok(lifecycleWorker.includes("sendCompanionNotificationDelivery") && lifecycleWorker.includes("queueCompanionNotification"), "production Companion push pipeline is reused");
-assert.ok(lifecycleCron.includes("ROAMLY_NOTIFICATION_CRON_SECRET") && lifecycleCron.includes("Unauthorized cron"), "lifecycle cron uses existing protected authorization");
+assert.ok(lifecycleCron.includes("process.env.CRON_SECRET") && lifecycleCron.includes("Unauthorized cron"), "lifecycle cron uses Vercel CRON_SECRET authorization");
 assert.ok(lifecycleMigration.includes("activity_start") && lifecycleMigration.includes("roamly_companion_notification_deliveries") && lifecycleMigration.includes("create unique index if not exists roamly_live_companion_delivery_identity_uidx"), "activity start schema addition is forward-only and scoped");
 
 console.log("Roamly core checks passed.");
