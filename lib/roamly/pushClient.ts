@@ -80,7 +80,12 @@ export async function hasPushSubscription() {
   if (!capability.serviceWorkerSupported || !capability.pushManagerSupported) return false;
   const registration = await navigator.serviceWorker.getRegistration().catch(() => null);
   if (!registration) return false;
-  return Boolean(await registration.pushManager.getSubscription().catch(() => null));
+  const subscription = await registration.pushManager.getSubscription().catch(() => null);
+  if (!subscription) return false;
+  const response = await fetchWithSupabaseAuth(`/api/roamly/push/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`, { method: "GET" }).catch(() => null);
+  if (!response?.ok) return false;
+  const data = await response.json().catch(() => null);
+  return data?.deviceRegistered === true;
 }
 
 export async function requestNotificationPermission() {
@@ -104,21 +109,19 @@ export async function subscribeToPushNotifications(qaTripId?: string) {
   if (!vapidPublicKey) {
     return { ok: false, error: "VAPID public key is not configured." };
   }
-  const permission = await requestNotificationPermission();
-  if (permission !== "granted") return { ok: false, error: "Notification permission was not granted." };
-
   const registration = await navigator.serviceWorker.register("/sw.js");
-  const subscription = await registration.pushManager.getSubscription() || await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-    });
+  const existing = await registration.pushManager.getSubscription();
+  const permission = existing ? Notification.permission : await requestNotificationPermission();
+  if (permission !== "granted") return { ok: false, error: "Notification permission was not granted." };
+  const subscription = existing || await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+  });
 
   const payload = subscription.toJSON();
 
   const response = await fetchWithSupabaseAuth(
-    qaTripId
-      ? "/api/admin/roamly/push/subscribe"
-      : "/api/roamly/push/subscribe",
+    "/api/roamly/push/subscribe",
     {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -131,7 +134,8 @@ export async function subscribeToPushNotifications(qaTripId?: string) {
   );
   const data = await response.json().catch(() => null);
   if (!response.ok) return { ok: false, error: data?.error || "Push subscription failed." };
-  return { ok: true, deviceRegistered: data?.deviceRegistered === true, subscriptionId: data?.subscriptionId || null };
+  if (data?.deviceRegistered !== true || !data?.subscriptionId) return { ok: false, error: "Push subscription was not persisted." };
+  return { ok: true, deviceRegistered: true, subscriptionId: data.subscriptionId };
 }
 
 export async function ensurePushSubscription(qaTripId?: string) {
@@ -148,11 +152,10 @@ export async function ensurePushSubscription(qaTripId?: string) {
   if (!vapidPublicKey) {
     return { ok: false, error: "VAPID public key is not configured." };
   }
-  const permission = await requestNotificationPermission();
-  if (permission !== "granted") return { ok: false, error: "Notification permission was not granted." };
-
   const registration = await navigator.serviceWorker.register("/sw.js");
   const existing = await registration.pushManager.getSubscription();
+  const permission = existing ? Notification.permission : await requestNotificationPermission();
+  if (permission !== "granted") return { ok: false, error: "Notification permission was not granted." };
   const subscription =
     existing ||
     (await registration.pushManager.subscribe({
@@ -161,7 +164,7 @@ export async function ensurePushSubscription(qaTripId?: string) {
     }));
 
   const response = await fetchWithSupabaseAuth(
-    qaTripId ? "/api/admin/roamly/push/subscribe" : "/api/roamly/push/subscribe",
+    "/api/roamly/push/subscribe",
     {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -170,15 +173,21 @@ export async function ensurePushSubscription(qaTripId?: string) {
   );
   const data = await response.json().catch(() => null);
   if (!response.ok) return { ok: false, error: data?.error || "Push subscription failed." };
-  return { ok: true, deviceRegistered: data?.deviceRegistered === true, subscriptionId: data?.subscriptionId || null };
+  if (data?.deviceRegistered !== true || !data?.subscriptionId) return { ok: false, error: "Push subscription was not persisted." };
+  return { ok: true, deviceRegistered: true, subscriptionId: data.subscriptionId };
 }
 
-export async function unsubscribeFromPushNotifications() {
+export async function unsubscribeFromPushNotifications(qaTripId?: string) {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return { ok: true };
   const registration = await navigator.serviceWorker.ready.catch(() => null);
   const subscription = await registration?.pushManager.getSubscription();
+  const endpoint = subscription?.endpoint || null;
   await subscription?.unsubscribe();
-  const response = await fetchWithSupabaseAuth("/api/roamly/push/unsubscribe", { method: "POST" });
+  const response = await fetchWithSupabaseAuth("/api/roamly/push/unsubscribe", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(qaTripId ? { tripId: qaTripId, endpoint } : { endpoint })
+  });
   const data = await response.json().catch(() => null);
   if (!response.ok) return { ok: false, error: data?.error || "Push unsubscribe failed." };
   return { ok: true };

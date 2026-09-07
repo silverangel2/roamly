@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  getPushCapabilityState,
   getNotificationPermissionState,
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications
@@ -16,8 +17,11 @@ export function NotificationPermissionCard({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [permission, setPermission] = useState("unknown");
+  const [requiresHomeScreen, setRequiresHomeScreen] = useState(false);
 
   useEffect(() => {
+    const capability = getPushCapabilityState();
+    setRequiresHomeScreen(capability.requiresHomeScreenInstall);
     let alive = true;
     void getNotificationPermissionState().then((state) => {
       if (alive) setPermission(state);
@@ -35,7 +39,7 @@ export function NotificationPermissionCard({
     setBusy(false);
     if (result.ok) {
       setPermission("granted");
-      setNotice("Phone/browser reminders are enabled. In-app notifications always stay available.");
+      setNotice(result.deviceRegistered ? "Phone reminders are enabled and this device is registered with Roamly." : "Phone/browser reminders are enabled.");
     } else {
       const state = await getNotificationPermissionState();
       setPermission(state);
@@ -47,7 +51,7 @@ export function NotificationPermissionCard({
     setBusy(true);
     setError("");
     setNotice("");
-    const result = await unsubscribeFromPushNotifications();
+    const result = await unsubscribeFromPushNotifications(qaTripId);
     setBusy(false);
     if (result.ok) {
       const state = await getNotificationPermissionState();
@@ -61,11 +65,12 @@ export function NotificationPermissionCard({
   async function check() {
     const state = await getNotificationPermissionState();
     setPermission(state);
-    setNotice(`Current browser permission: ${state}`);
+    setNotice(requiresHomeScreen ? "On iPhone, add Roamly to the Home Screen and open it from that icon before enabling reminders." : `Current browser permission: ${state}`);
   }
 
   const isDenied = permission === "denied";
   const isGranted = permission === "granted";
+  const isUnsupported = permission === "unsupported";
 
   return (
     <div className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
@@ -77,6 +82,14 @@ export function NotificationPermissionCard({
       {isDenied ? (
         <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
           Phone reminders are blocked. You can still use in-app notifications in Roamly.
+        </p>
+      ) : isUnsupported ? (
+        <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
+          OS notifications are unavailable in this browser or on this device. Use a supported browser, or install Roamly on your iPhone Home Screen.
+        </p>
+      ) : requiresHomeScreen ? (
+        <p className="mt-3 rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
+          On iPhone, tap Share, Add to Home Screen, then open Roamly from the new icon to enable phone reminders.
         </p>
       ) : isGranted ? (
         <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">

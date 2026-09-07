@@ -1061,14 +1061,14 @@ export async function activateTripIfNearby(
             ...maps,
 
             checkInUrl:
-              `/trip/${activeTrip.id}/live?activity=${encodeURIComponent(
+              `/api/roamly/activities/check-in?tripId=${encodeURIComponent(activeTrip.id)}&activityId=${encodeURIComponent(
                 liveActivityId
-              )}&action=check-in`,
+              )}`,
 
             skipUrl:
-              `/trip/${activeTrip.id}/live?activity=${encodeURIComponent(
+              `/api/roamly/activities/skip?tripId=${encodeURIComponent(activeTrip.id)}&activityId=${encodeURIComponent(
                 liveActivityId
-              )}&action=skip`
+              )}`
           },
           {
             sendEmail:

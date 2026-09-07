@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/roamly/auth";
+import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 
 export async function GET() {
-  const auth = await requireUser();
+  const auth = await requireUserOrFieldTest();
   if (!auth.ok) return auth.response;
 
   const { data: settings, error } = await auth.supabase
     .from("roamly_location_settings")
     .select("*")
-    .eq("user_id", auth.user.id)
+    .eq("user_id", auth.userId)
     .maybeSingle();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await requireUser();
+  const auth = await requireUserOrFieldTest();
   if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -35,7 +35,7 @@ export async function PATCH(request: NextRequest) {
     .from("roamly_location_settings")
     .upsert(
       {
-        user_id: auth.user.id,
+        user_id: auth.userId,
         location_tracking_enabled: locationTrackingEnabled,
         notification_enabled: notificationEnabled
       },

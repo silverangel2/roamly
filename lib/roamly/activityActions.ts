@@ -151,6 +151,19 @@ async function loadActivity(supabase: SupabaseClient, tripId: string, activityId
   };
 }
 
+async function getEarliestUnresolvedActivity(supabase: SupabaseClient, tripId: string) {
+  const { data, error } = await supabase
+    .from("roamly_activities")
+    .select("id,title,scheduled_start")
+    .eq("trip_id", tripId)
+    .not("status", "in", "(completed,checked_in,skipped,missed,cancelled)")
+    .order("scheduled_start", { ascending: true, nullsFirst: false })
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return { activity: data as { id: string; title: string; scheduled_start: string | null } | null, error };
+}
+
 function buildActionUpdate(action: RoamlyActivityAction) {
   const now = new Date().toISOString();
   const config = actionConfig[action];
@@ -254,6 +267,18 @@ export async function performActivityAction(
 
   const loaded = await loadActivity(supabase, params.tripId, params.activityId);
   if (!loaded) return { ok: false as const, error: "Activity not found." };
+
+  if (params.action === "check_in" || params.action === "skip") {
+    const earliest = await getEarliestUnresolvedActivity(supabase, params.tripId);
+    if (earliest.error) return { ok: false as const, error: earliest.error.message };
+    const trackingId = loaded.trackingActivity?.id || params.activityId;
+    if (earliest.activity && earliest.activity.id !== trackingId && earliest.activity.title !== loaded.title) {
+      return { ok: false as const, error: "Complete or skip the earlier activity before moving ahead." };
+    }
+    if (earliest.activity?.scheduled_start && Date.parse(earliest.activity.scheduled_start) > Date.now()) {
+      return { ok: false as const, error: "This activity is not eligible yet." };
+    }
+  }
 
   const tracking = loaded.trackingActivity;
   const distance =

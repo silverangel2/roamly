@@ -506,16 +506,18 @@ export function LiveTripClient({
     ]
   );
 
-  const currentActivity = model.now || liveActivities[0] || null;
+  const currentActivity = model.now || null;
   const nextActivity = model.next || liveActivities.find((item) => item.id !== currentActivity?.id) || null;
   const mapsHref = useMemo(() => {
-    const direct = nextActivity ? mapsUrlForActivity(nextActivity) : "";
-    return direct || buildNavigationLinks({ destinationLabel: nextActivity?.title, address: primaryAddress(nextActivity) })[0]?.href || "";
-  }, [nextActivity]);
+    const mapsTarget = currentActivity;
+    const direct = mapsTarget ? mapsUrlForActivity(mapsTarget) : "";
+    return direct || buildNavigationLinks({ destinationLabel: mapsTarget?.title, address: primaryAddress(mapsTarget) })[0]?.href || "";
+  }, [currentActivity]);
   const timeline = useMemo(() => progressItems(currentActivity, nextActivity, liveActivities), [currentActivity, liveActivities, nextActivity]);
   const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
   const activeStep = currentActivity || nextActivity;
+  const actionableActivityId = currentActivity?.id || null;
   const mobileRuntime = typeof navigator !== "undefined" && isSupportedMobileEnvironment();
   const tripWindowActive = isTodayWithinTripDates({
     startDate: activeTripStartDate,
@@ -1519,7 +1521,7 @@ export function LiveTripClient({
               <button
                 type="button"
                 onClick={() => void runAction(activity.id, "check-in")}
-                disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(activity.status))}
+                disabled={Boolean(busy) || activity.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activity.status))}
                 className="min-h-11 shrink-0 rounded-2xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-45"
               >
                 Check in
@@ -1531,7 +1533,7 @@ export function LiveTripClient({
                 <button
                   type="button"
                   onClick={() => void runAction(activity.id, "complete")}
-                  disabled={Boolean(busy) || ["completed", "skipped"].includes(String(activity.status))}
+                  disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
                   className="min-h-11 rounded-2xl bg-ink px-3 py-2 text-xs font-black text-white disabled:opacity-45 dark:bg-white dark:text-ink"
                 >
                   Mark done
@@ -1539,7 +1541,7 @@ export function LiveTripClient({
                 <button
                   type="button"
                   onClick={() => void runAction(activity.id, "skip")}
-                  disabled={Boolean(busy) || ["completed", "skipped"].includes(String(activity.status))}
+                  disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
                   className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-45 dark:border-white/10 dark:bg-white/10 dark:text-white"
                 >
                   Skip
@@ -1589,7 +1591,7 @@ export function LiveTripClient({
             <button
               type="button"
               onClick={() => void runAction(activeStep.id, "check-in")}
-              disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(activeStep.status))}
+              disabled={Boolean(busy) || activeStep.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activeStep.status))}
               className="min-h-12 rounded-2xl bg-ocean px-3 py-2 text-sm font-black text-white disabled:opacity-45"
             >
               Check in

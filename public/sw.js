@@ -1,7 +1,8 @@
 self.addEventListener("push", (event) => {
   let data = {};
   try {
-    data = event.data ? event.data.json() : {};
+    const parsed = event.data ? event.data.json() : {};
+    data = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
   } catch {
     data = {};
   }
@@ -60,13 +61,20 @@ self.addEventListener("notificationclick", (event) => {
   const data = event.notification.data || {};
 
   let url = data.actionUrl || "/notifications";
+  const openExternal = (target) => {
+    event.waitUntil(clients.openWindow(target));
+    event.notification.close();
+  };
 
   if (event.action === "google_maps" && data.googleMapsUrl) {
-    url = data.googleMapsUrl;
+    openExternal(data.googleMapsUrl);
+    return;
   } else if (event.action === "apple_maps" && data.appleMapsUrl) {
-    url = data.appleMapsUrl;
+    openExternal(data.appleMapsUrl);
+    return;
   } else if (event.action === "citymapper" && data.citymapperUrl) {
-    url = data.citymapperUrl;
+    openExternal(data.citymapperUrl);
+    return;
   } else if (event.action === "check_in" && data.checkInUrl) {
     url = data.checkInUrl;
   } else if (event.action === "skip" && data.skipUrl) {
@@ -74,5 +82,19 @@ self.addEventListener("notificationclick", (event) => {
   }
 
   event.notification.close();
-  event.waitUntil(clients.openWindow(url));
+  event.waitUntil((async () => {
+    const destination = new URL(url, self.location.origin);
+    if (destination.origin !== self.location.origin) {
+      await clients.openWindow("/notifications");
+      return;
+    }
+    const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    const roamlyWindow = windows.find((client) => client.url.startsWith(self.location.origin));
+    if (roamlyWindow) {
+      await roamlyWindow.navigate(destination.href);
+      await roamlyWindow.focus();
+      return;
+    }
+    await clients.openWindow(destination.href);
+  })());
 });

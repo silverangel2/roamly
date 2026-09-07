@@ -34,6 +34,36 @@ function isExpiredSubscriptionError(error: unknown) {
   return statusCode === 404 || statusCode === 410;
 }
 
+function fieldTestUrl(tripId: string, activityId: string | null, action?: string) {
+  const url = new URL(`/field-test/${encodeURIComponent(tripId)}`, "https://roamly.invalid");
+  if (activityId) url.searchParams.set("activity", activityId);
+  if (action) url.searchParams.set("action", action);
+  return `${url.pathname}${url.search}`;
+}
+
+function activityActionUrl(tripId: string, activityId: string, action: "check-in" | "skip") {
+  const route = action === "check-in" ? "/api/roamly/activities/check-in" : "/api/roamly/activities/skip";
+  const url = new URL(route, "https://roamly.invalid");
+  url.searchParams.set("tripId", tripId);
+  url.searchParams.set("activityId", activityId);
+  return `${url.pathname}${url.search}`;
+}
+
+async function secureNotificationPayload(writer: SupabaseClient, payload: NotificationPayload) {
+  const tripId = payload.tripId ? String(payload.tripId).trim() : "";
+  if (!tripId) return payload;
+  const { data } = await writer.from("roamly_trips").select("metadata").eq("id", tripId).maybeSingle();
+  const metadata = data?.metadata && typeof data.metadata === "object" ? data.metadata as Record<string, unknown> : {};
+  if (metadata.field_test !== true || metadata.admin_test !== true) return payload;
+  const activityId = payload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1] || null;
+  return {
+    ...payload,
+    actionUrl: fieldTestUrl(tripId, activityId),
+    checkInUrl: activityId ? activityActionUrl(tripId, activityId, "check-in") : null,
+    skipUrl: activityId ? activityActionUrl(tripId, activityId, "skip") : null
+  };
+}
+
 export async function createInAppNotification(
   supabase: SupabaseClient,
   params: {
@@ -79,6 +109,7 @@ export async function sendPushNotification(
   } = {}
 ) {
   const writer = createSupabaseAdminClient() || supabase;
+  const securedPayload = await secureNotificationPayload(writer, payload);
   const configured = configureWebPush();
   const existingNotificationId = options.notificationId ? String(options.notificationId).trim() : "";
   const createNotification = options.createNotification !== false;
@@ -88,12 +119,12 @@ export async function sendPushNotification(
       ? { data: null, error: null }
     : await createInAppNotification(writer, {
         userId,
-        tripId: payload.tripId || null,
+        tripId: securedPayload.tripId || null,
         eventId: payload.eventId || null,
-        type: payload.type || "trip_reminder",
-        title: payload.title,
-        body: payload.body || null,
-        actionUrl: payload.actionUrl || null,
+        type: securedPayload.type || "trip_reminder",
+        title: securedPayload.title,
+        body: securedPayload.body || null,
+        actionUrl: securedPayload.actionUrl || null,
         status: "unread",
         metadata: { pushConfigured: configured, pushStatus: configured ? "pending" : "not_configured" }
       });
@@ -112,7 +143,7 @@ export async function sendPushNotification(
     options.sendEmail !== false && notificationId
       ? await sendTripReminderEmail({
           userId,
-          tripId: payload.tripId || null,
+          tripId: securedPayload.tripId || null,
           notificationId
         }).catch((error) => ({
           ok: false,
@@ -156,18 +187,18 @@ export async function sendPushNotification(
   }
 
   const body = JSON.stringify({
-    title: payload.title,
-    body: payload.body || "",
-    tripId: payload.tripId || null,
-    eventId: payload.eventId || null,
-    eventType: payload.type || null,
-    activityId: payload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1] || null,
-    actionUrl: payload.actionUrl || "/notifications",
-    appleMapsUrl: payload.appleMapsUrl || null,
-    googleMapsUrl: payload.googleMapsUrl || null,
-    citymapperUrl: payload.citymapperUrl || null,
-    checkInUrl: payload.checkInUrl || null,
-    skipUrl: payload.skipUrl || null
+    title: securedPayload.title,
+    body: securedPayload.body || "",
+    tripId: securedPayload.tripId || null,
+    eventId: securedPayload.eventId || null,
+    eventType: securedPayload.type || null,
+    activityId: securedPayload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1] || null,
+    actionUrl: securedPayload.actionUrl || "/notifications",
+    appleMapsUrl: securedPayload.appleMapsUrl || null,
+    googleMapsUrl: securedPayload.googleMapsUrl || null,
+    citymapperUrl: securedPayload.citymapperUrl || null,
+    checkInUrl: securedPayload.checkInUrl || null,
+    skipUrl: securedPayload.skipUrl || null
   });
 
   const results = await Promise.all((subscriptions || []).map(async (subscription) => {
@@ -214,10 +245,12 @@ export async function markNotificationRead(supabase: SupabaseClient, userId: str
     .eq("user_id", userId);
 }
 
-export async function disablePushSubscription(supabase: SupabaseClient, userId: string, endpoint?: string) {
-  let query = supabase.from("roamly_push_subscriptions").update({ enabled: false }).eq("user_id", userId);
-  if (endpoint) query = query.eq("endpoint", endpoint);
-  return query;
+export async function disablePushSubscription(supabase: SupabaseClient, userId: string, endpoint: string) {
+  return supabase
+    .from("roamly_push_subscriptions")
+    .update({ enabled: false })
+    .eq("user_id", userId)
+    .eq("endpoint", endpoint);
 }
 
 export async function sendScheduledTripNotifications() {

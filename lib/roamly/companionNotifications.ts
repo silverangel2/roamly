@@ -409,8 +409,8 @@ export async function sendCompanionNotificationDelivery(
         .trim()
         .slice(0, 280),
       actionUrl,
-      checkInUrl: activityId && tripId ? `/trip/${tripId}/companion?activity=${encodeURIComponent(activityId)}&action=check-in` : null,
-      skipUrl: activityId && tripId ? `/trip/${tripId}/companion?activity=${encodeURIComponent(activityId)}&action=skip` : null,
+      checkInUrl: activityId && tripId ? `/api/roamly/activities/check-in?tripId=${encodeURIComponent(tripId)}&activityId=${encodeURIComponent(activityId)}` : null,
+      skipUrl: activityId && tripId ? `/api/roamly/activities/skip?tripId=${encodeURIComponent(tripId)}&activityId=${encodeURIComponent(activityId)}` : null,
       appleMapsUrl: latitude != null && longitude != null ? `https://maps.apple.com/?daddr=${latitude},${longitude}` : null,
       googleMapsUrl: latitude != null && longitude != null ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}` : null,
       citymapperUrl: latitude != null && longitude != null ? `https://citymapper.com/directions?endcoord=${latitude},${longitude}` : null
