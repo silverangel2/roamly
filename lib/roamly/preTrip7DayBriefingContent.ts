@@ -20,6 +20,21 @@ export type PreTrip7DayContentInput = {
   tripPath: string;
 };
 
+function clean(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function tripStartFromDate(startDate: string | null | undefined, timezone: string) {
+  const date = clean(startDate).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const [year, month, day] = date.split("-").map(Number);
+  const guess = new Date(Date.UTC(year, month - 1, day, 9, 0));
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(guess);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const actual = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"));
+  return new Date(guess.getTime() + Date.UTC(year, month - 1, day, 9, 0) - actual);
+}
+
 export function preTrip7DayWindow(tripStart: Date, now: Date) {
   const target = new Date(tripStart.getTime() - 7 * 24 * 60 * 60 * 1000);
   const usefulUntil = new Date(target.getTime() + 36 * 60 * 60 * 1000);
@@ -28,10 +43,6 @@ export function preTrip7DayWindow(tripStart: Date, now: Date) {
     usefulUntil,
     eligible: now.getTime() >= target.getTime() && now.getTime() < usefulUntil.getTime() && now.getTime() < tripStart.getTime()
   };
-}
-
-function clean(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
 }
 
 function activeBooking(booking: PreTrip7DayBooking) {

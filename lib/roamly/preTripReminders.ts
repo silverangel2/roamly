@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { queueCompanionNotification } from "@/lib/roamly/companionNotifications";
 import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { schedulePreTrip7DayBriefing } from "@/lib/roamly/preTrip7DayBriefing";
+import { schedulePreTrip1DayBriefing } from "@/lib/roamly/preTrip1DayBriefing";
 
 export const PRETRIP_REMINDER_TYPES = [
   "trip_predeparture_7d",
@@ -21,6 +22,7 @@ type TripReminderRow = {
   destination_city: string | null;
   start_date: string | null;
   end_date?: string | null;
+  special_notes?: string | null;
   status: string | null;
   itinerary_status?: string | null;
   metadata: Record<string, unknown> | null;
@@ -387,7 +389,7 @@ export async function schedulePreTripReminders(params?: {
 
   const { data, error } = await supabase
     .from("roamly_trips")
-    .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,status,itinerary_status,metadata")
+    .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,special_notes,status,itinerary_status,metadata")
     .not("start_date", "is", null)
     .gte("start_date", startLower)
     .lte("start_date", startUpper)
@@ -412,7 +414,7 @@ export async function schedulePreTripReminders(params?: {
       const dueTypes = duePreTripReminderTypes({
         tripStart: start.start,
         now
-      }).filter((type) => type !== "trip_predeparture_7d");
+      }).filter((type) => !["trip_predeparture_7d", "trip_predeparture_1d"].includes(type));
       results.push({
         tripId: trip.id,
         type: "trip_predeparture_7d",
@@ -420,6 +422,16 @@ export async function schedulePreTripReminders(params?: {
           supabase,
           trip,
           confirmedBookings,
+          now
+        })
+      });
+      results.push({
+        tripId: trip.id,
+        type: "trip_predeparture_1d",
+        result: await schedulePreTrip1DayBriefing({
+          supabase,
+          trip,
+          bookings: confirmedBookings,
           now
         })
       });

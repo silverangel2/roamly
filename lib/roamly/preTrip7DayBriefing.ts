@@ -4,7 +4,7 @@ import { getRoamlySupportEmail, sendRoamlyEmail } from "@/lib/roamly/email";
 import { claimCommunication, completeCommunication, failCommunication } from "@/lib/roamly/communicationOrchestration";
 import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
-import { buildPreTrip7DayBriefingContent, preTrip7DayWindow, type PreTrip7DayBooking } from "@/lib/roamly/preTrip7DayBriefingContent";
+import { buildPreTrip7DayBriefingContent, preTrip7DayWindow, tripStartFromDate, type PreTrip7DayBooking } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { communicationLogicalKey } from "@/lib/roamly/communicationPolicy";
 
 type PreTrip7DayTrip = {
@@ -24,17 +24,6 @@ function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function localTripStart(trip: PreTrip7DayTrip, timezone: string) {
-  const date = clean(trip.start_date).slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-  const [year, month, day] = date.split("-").map(Number);
-  const guess = new Date(Date.UTC(year, month - 1, day, 9, 0));
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(guess);
-  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
-  const actual = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"));
-  return new Date(guess.getTime() + Date.UTC(year, month - 1, day, 9, 0) - actual);
-}
-
 function mustDoFromTrip(trip: PreTrip7DayTrip) {
   const planning = trip.metadata?.planning;
   if (!planning || typeof planning !== "object" || Array.isArray(planning)) return null;
@@ -52,7 +41,7 @@ export async function schedulePreTrip7DayBriefing(params: {
   const now = params.now || new Date();
   if (["archived", "cancelled", "completed"].includes(clean(params.trip.status)) || clean(params.trip.itinerary_status) === "cancelled") return { ok: true as const, scheduled: false, suppressed: "TRIP_NOT_ACTIVE" as const };
   const timezone = timezoneFromTripMetadata(params.trip.metadata || {}, "UTC");
-  const tripStart = localTripStart(params.trip, timezone);
+  const tripStart = tripStartFromDate(params.trip.start_date, timezone);
   if (!tripStart) return { ok: true as const, scheduled: false, suppressed: "TRIP_DATE_INVALID" as const };
   const window = preTrip7DayWindow(tripStart, now);
   if (!window.eligible) return { ok: true as const, scheduled: false, suppressed: "OUTSIDE_T7_WINDOW" as const };
@@ -87,7 +76,7 @@ export async function schedulePreTrip7DayBriefing(params: {
     .eq("user_id", params.trip.user_id)
     .maybeSingle();
   const currentTimezone = latestTrip.data ? timezoneFromTripMetadata((latestTrip.data as PreTrip7DayTrip).metadata || {}, "UTC") : timezone;
-  const currentStart = latestTrip.data ? localTripStart(latestTrip.data as PreTrip7DayTrip, currentTimezone) : null;
+  const currentStart = latestTrip.data ? tripStartFromDate((latestTrip.data as PreTrip7DayTrip).start_date, currentTimezone) : null;
   const currentWindow = currentStart ? preTrip7DayWindow(currentStart, params.now || new Date()) : null;
   if (latestTrip.error || !latestTrip.data || ["archived", "cancelled", "completed"].includes(clean(latestTrip.data.status)) || clean(latestTrip.data.itinerary_status) === "cancelled" || !currentWindow?.eligible) {
     await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "PRETRIP_7D_NO_LONGER_USEFUL", retryable: true });

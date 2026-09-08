@@ -81,6 +81,6 @@ assert.equal(implementation.includes("queueCompanionNotification"), false);
 assert.equal(implementation.includes("send_email"), false);
 assert.match(implementation, /params\.now/);
 assert.match(scheduler, /schedulePreTrip7DayBriefing/);
-assert.match(scheduler, /filter\(\(type\) => type !== "trip_predeparture_7d"\)/);
+assert.match(scheduler, /filter\(\(type\) => !\["trip_predeparture_7d", "trip_predeparture_1d"\]\.includes\(type\)\)/);
 
 console.log("Pre-trip 7-day briefing checks passed.");
