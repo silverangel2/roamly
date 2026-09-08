@@ -5,6 +5,7 @@ import { queueCompanionNotification } from "@/lib/roamly/companionNotifications"
 import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { schedulePreTrip7DayBriefing } from "@/lib/roamly/preTrip7DayBriefing";
 import { schedulePreTrip1DayBriefing } from "@/lib/roamly/preTrip1DayBriefing";
+import { scheduleTravelDayBriefing } from "@/lib/roamly/travelDayBriefing";
 
 export const PRETRIP_REMINDER_TYPES = [
   "trip_predeparture_7d",
@@ -429,6 +430,16 @@ export async function schedulePreTripReminders(params?: {
         tripId: trip.id,
         type: "trip_predeparture_1d",
         result: await schedulePreTrip1DayBriefing({
+          supabase,
+          trip,
+          bookings: confirmedBookings,
+          now
+        })
+      });
+      results.push({
+        tripId: trip.id,
+        type: "travel_day",
+        result: await scheduleTravelDayBriefing({
           supabase,
           trip,
           bookings: confirmedBookings,
