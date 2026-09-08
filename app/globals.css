@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   --font-geist-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --background: #f7fcff;
   --foreground: #102033;
@@ -48,19 +49,6 @@ select {
 
 .safe-bottom {
   padding-bottom: max(5.5rem, env(safe-area-inset-bottom));
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #07111f;
-    --foreground: #eef7fb;
-  }
-
-  html,
-  body {
-    background: var(--background);
-    color: var(--foreground);
-  }
 }
 
 .glass-panel {
