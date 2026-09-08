@@ -6,6 +6,7 @@ import { createStripeClient } from "@/lib/stripe";
 import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
+import { sendPurchaseActivationCommunication } from "@/lib/roamly/purchaseActivationCommunication";
 
 export type RoamlyPurchaseType = "itinerary_unlock" | "tracking_addon" | "bundle";
 export type RoamlyItineraryUnlockSource = "free" | "paid" | "bundle" | "admin";
@@ -1017,6 +1018,14 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
       paymentIntentId: paymentIntentId(session)
     }
   });
+
+  await sendPurchaseActivationCommunication({
+    supabase,
+    userId,
+    tripId,
+    checkoutSessionId: session.id,
+    purchaseType
+  }).catch(() => null);
 
   return { ok: true, purchaseType };
 }
