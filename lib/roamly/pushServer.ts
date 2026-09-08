@@ -11,6 +11,8 @@ export type NotificationPayload = {
   actionUrl?: string | null;
   type?: string;
   tripId?: string | null;
+  activityId?: string | null;
+  tag?: string | null;
   eventId?: string | null;
   appleMapsUrl?: string | null;
   googleMapsUrl?: string | null;
@@ -195,7 +197,10 @@ export async function sendPushNotification(
     tripId: securedPayload.tripId || null,
     eventId: securedPayload.eventId || null,
     eventType: securedPayload.type || null,
-    activityId: securedPayload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1] || null,
+    activityId: securedPayload.activityId || securedPayload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1] || null,
+    tag: securedPayload.tag || (securedPayload.tripId && (securedPayload.activityId || securedPayload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1])
+      ? `roamly-activity-${securedPayload.tripId}-${securedPayload.activityId || securedPayload.actionUrl?.match(/[?&]activity=([^&]+)/)?.[1]}`
+      : null),
     actionUrl: securedPayload.actionUrl || "/notifications",
     appleMapsUrl: securedPayload.appleMapsUrl || null,
     googleMapsUrl: securedPayload.googleMapsUrl || null,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
+import { clearActivityNotification } from "@/lib/roamly/pushClient";
 
 export function NearbyActivityCard({
   tripId,
@@ -50,7 +51,10 @@ export function NearbyActivityCard({
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) setError(data?.error || "Check-in failed.");
-      else setNotice("Checked in.");
+      else {
+        void clearActivityNotification(tripId, activity.id);
+        setNotice("Checked in.");
+      }
       setBusy("");
     });
   }
@@ -65,7 +69,10 @@ export function NearbyActivityCard({
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) setError(data?.error || "Could not complete activity.");
-    else setNotice("Marked completed.");
+    else {
+      void clearActivityNotification(tripId, activity.id);
+      setNotice("Marked completed.");
+    }
     setBusy("");
   }
 
@@ -79,7 +86,10 @@ export function NearbyActivityCard({
     });
     const data = await response.json().catch(() => null);
     if (!response.ok) setError(data?.error || "Could not skip activity.");
-    else setNotice("Skipped.");
+    else {
+      void clearActivityNotification(tripId, activity.id);
+      setNotice("Skipped.");
+    }
     setBusy("");
   }
 

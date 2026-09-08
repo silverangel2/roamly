@@ -21,6 +21,16 @@ export type PushCapabilityState = {
   canSubscribe: boolean;
 };
 
+export async function clearActivityNotification(tripId: string, activityId: string) {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  const registration = await navigator.serviceWorker.ready.catch(() => null);
+  registration?.active?.postMessage({
+    type: "clear_activity_notification",
+    tripId,
+    activityId
+  });
+}
+
 export function isSupportedMobileEnvironment() {
   if (typeof window === "undefined") return false;
   const userAgent = navigator.userAgent || "";

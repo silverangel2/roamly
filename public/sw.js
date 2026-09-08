@@ -8,6 +8,9 @@ self.addEventListener("push", (event) => {
   }
 
   const title = data.title || "Roamly reminder";
+  const activityTag = data.tripId && data.activityId
+    ? `roamly-activity-${data.tripId}-${data.activityId}`
+    : null;
 
   const actions = [];
 
@@ -38,6 +41,7 @@ self.addEventListener("push", (event) => {
     body: data.body || "Open Roamly to see what is next.",
     icon: "/icon.svg",
     badge: "/icon.svg",
+    tag: data.tag || activityTag || undefined,
     actions,
     requireInteraction: true,
     data: {
@@ -55,6 +59,17 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("message", (event) => {
+  const message = event.data || {};
+  if (message.type !== "clear_activity_notification" || !message.tripId || !message.activityId) return;
+  const tag = `roamly-activity-${message.tripId}-${message.activityId}`;
+  event.waitUntil(
+    self.registration.getNotifications({ tag }).then((notifications) => {
+      notifications.forEach((notification) => notification.close());
+    })
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

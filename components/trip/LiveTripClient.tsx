@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
-import { ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
+import { clearActivityNotification, ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityStartDate,
@@ -1123,6 +1123,7 @@ export function LiveTripClient({
           ? { ...item, status: nextStatus }
           : item
       )));
+      void clearActivityNotification(tripId, activityId);
       setNotice(action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not update activity.");
