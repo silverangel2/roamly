@@ -58,6 +58,7 @@ type GmailHistoryResponse = {
     messagesAdded?: Array<{ message?: { id?: string } }>;
     messages?: Array<{ id?: string }>;
   }>;
+  error?: { code?: number; status?: string; message?: string };
 };
 
 type GmailMessagePart = {
@@ -134,7 +135,8 @@ async function releaseEmailSync(params: {
       sync_lease_expires_at: null
     })
     .eq("id", params.connectionId)
-    .eq("sync_lease_token", params.leaseToken);
+    .eq("sync_lease_token", params.leaseToken)
+    .neq("connection_status", "disconnected");
 }
 
 async function providerFetchJson<T>(url: string | URL, init?: RequestInit) {
@@ -186,6 +188,21 @@ function gmailPartText(part?: GmailMessagePart | null): string[] {
 
 function gmailMessageBodyText(message: GmailMessageMetadataResponse) {
   return gmailPartText(message.payload).join("\n").replace(/\s+/g, " ").trim().slice(0, EMAIL_LOOKBACK_BODY_TEXT_LIMIT);
+}
+
+function gmailFailureKind(response: Response, data: GmailHistoryResponse) {
+  const message = clean(data.error?.message).toLowerCase();
+  if (response.status === 401 || response.status === 403) return "auth" as const;
+  if (response.status === 404 || (response.status === 400 && /history|start history|historyid/.test(message))) return "invalid_cursor" as const;
+  if (response.status === 408 || response.status === 429 || response.status >= 500) return "transient" as const;
+  return "other" as const;
+}
+
+function gmailLookbackUrl() {
+  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  url.searchParams.set("q", "newer_than:30d (confirmation OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in)");
+  url.searchParams.set("maxResults", String(EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC));
+  return url;
 }
 
 function appUrl(requestOrigin?: string | null) {
@@ -452,7 +469,7 @@ async function recordGmailTravelMessage(params: {
   const { response, data: message } = await providerFetchJson<GmailMessageMetadataResponse>(url, {
     headers: { authorization: `Bearer ${params.accessToken}` }
   });
-  if (!response.ok) return { saved: false, error: "GMAIL_MESSAGE_METADATA_FAILED" };
+  if (!response.ok) return { saved: false, retryable: true, error: "GMAIL_MESSAGE_METADATA_FAILED" };
   const metadata = {
       provider: GMAIL_PROVIDER,
       messageId: message.id || params.messageId,
@@ -477,15 +494,16 @@ async function recordGmailTravelMessage(params: {
     metadata: enrichedMetadata
   });
   if (saved.saved && saved.filter.shouldProcess) {
-    await extractAndMatchTravelEmailBooking({
+    const extraction = await extractAndMatchTravelEmailBooking({
       supabase: params.supabase,
       connection: params.connection,
       metadata: enrichedMetadata,
       filter: saved.filter,
       emailMessageId: saved.messageRecordId
-    }).catch(() => null);
+    }).catch(() => ({ error: "GMAIL_BOOKING_EXTRACTION_FAILED" }));
+    return { ...saved, retryable: Boolean(extraction?.error) };
   }
-  return saved;
+  return { ...saved, retryable: !saved.saved };
 }
 
 async function fetchGmailTravelBodyText(params: {
@@ -524,7 +542,7 @@ async function recordOutlookTravelMessages(params: {
       connection: params.connection,
       metadata
     });
-    if (saved.saved && saved.filter.shouldProcess) {
+  if (saved.saved && saved.filter.shouldProcess) {
       await extractAndMatchTravelEmailBooking({
         supabase: params.supabase,
         connection: params.connection,
@@ -760,7 +778,7 @@ export async function renewGmailWatch(params: {
   if (!response.ok) return { ok: false as const, skipped: false as const, error: "GMAIL_WATCH_FAILED" };
 
   const writer = createSupabaseAdminClient() || params.supabase;
-  await writer.from("email_watch_subscriptions").upsert(
+  const watchSaved = await writer.from("email_watch_subscriptions").upsert(
     {
       email_connection_id: params.connection.id,
       provider: GMAIL_PROVIDER,
@@ -771,7 +789,8 @@ export async function renewGmailWatch(params: {
     },
     { onConflict: "email_connection_id,provider" }
   );
-  await writer.from("email_sync_cursors").upsert(
+  if (watchSaved.error) return { ok: false as const, skipped: false as const, error: watchSaved.error.message };
+  const cursorSaved = await writer.from("email_sync_cursors").upsert(
     {
       email_connection_id: params.connection.id,
       provider: GMAIL_PROVIDER,
@@ -780,7 +799,125 @@ export async function renewGmailWatch(params: {
     },
     { onConflict: "email_connection_id,provider" }
   );
+  if (cursorSaved.error) return { ok: false as const, skipped: false as const, error: cursorSaved.error.message };
   return { ok: true as const, skipped: false as const, historyId: data.historyId || null };
+}
+
+export async function renewDueGmailWatches(params: { supabase: SupabaseClient; limit?: number }) {
+  const writer = createSupabaseAdminClient() || params.supabase;
+  const horizon = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const watches = await writer
+    .from("email_watch_subscriptions")
+    .select("id,email_connection_id")
+    .eq("provider", GMAIL_PROVIDER)
+    .in("status", ["active", "renewal_due", "expired", "error"])
+    .not("expiration_time", "is", null)
+    .lte("expiration_time", horizon)
+    .order("expiration_time", { ascending: true })
+    .limit(params.limit || 25);
+  if (watches.error) return { ok: false as const, renewed: 0, failed: 1, error: watches.error.message };
+
+  let renewed = 0;
+  let failed = 0;
+  for (const watch of watches.data || []) {
+    const connectionResult = await writer
+      .from("email_connections")
+      .select("*")
+      .eq("id", watch.email_connection_id)
+      .eq("provider", GMAIL_PROVIDER)
+      .eq("connection_status", "connected")
+      .maybeSingle();
+    if (connectionResult.error || !connectionResult.data) {
+      failed += 1;
+      await writer.from("email_watch_subscriptions").update({ status: "error" }).eq("id", watch.id);
+      continue;
+    }
+    try {
+      const result = await renewGmailWatch({ supabase: writer, connection: connectionResult.data as EmailConnectionRecord });
+      if (result.ok) renewed += 1;
+      else {
+        failed += 1;
+        await writer.from("email_watch_subscriptions").update({ status: "error" }).eq("id", watch.id);
+      }
+    } catch {
+      failed += 1;
+      await writer.from("email_watch_subscriptions").update({ status: "error" }).eq("id", watch.id);
+    }
+  }
+  return { ok: failed === 0, renewed, failed, error: null };
+}
+
+async function processGmailMessageIds(params: {
+  supabase: SupabaseClient;
+  connection: EmailConnectionRecord;
+  accessToken: string;
+  messageIds: string[];
+}) {
+  let retryable = false;
+  for (const messageId of params.messageIds) {
+    const processed = await recordGmailTravelMessage({
+      supabase: params.supabase,
+      connection: params.connection,
+      accessToken: params.accessToken,
+      messageId
+    }).catch(() => ({ retryable: true }));
+    if (processed.retryable) retryable = true;
+  }
+  return { retryable, processed: params.messageIds.length };
+}
+
+async function markGmailReauthorizationRequired(supabase: SupabaseClient, connectionId: string) {
+  await supabase
+    .from("email_connections")
+    .update({ connection_status: "disconnected", disconnected_at: new Date().toISOString() })
+    .eq("id", connectionId);
+}
+
+async function recoverGmailHistoryCursor(params: {
+  supabase: SupabaseClient;
+  connection: EmailConnectionRecord;
+  accessToken: string;
+}) {
+  console.warn("Roamly Gmail history cursor recovery started", { connectionId: params.connection.id });
+  const { response, data } = await providerFetchJson<GmailHistoryResponse>(gmailLookbackUrl(), {
+    headers: { authorization: `Bearer ${params.accessToken}` }
+  });
+  if (!response.ok) {
+    const kind = gmailFailureKind(response, data);
+    if (kind === "auth") await markGmailReauthorizationRequired(params.supabase, params.connection.id);
+    console.warn("Roamly Gmail history cursor recovery failed", { connectionId: params.connection.id, kind });
+    return { ok: false as const, error: kind === "auth" ? "GMAIL_REAUTH_REQUIRED" : "GMAIL_CURSOR_RECOVERY_FAILED", processed: 0 };
+  }
+
+  const processed = await processGmailMessageIds({
+    supabase: params.supabase,
+    connection: params.connection,
+    accessToken: params.accessToken,
+    messageIds: gmailMessageIds(data)
+  });
+  if (processed.retryable) {
+    console.warn("Roamly Gmail history cursor recovery requires retry", { connectionId: params.connection.id, processed: processed.processed });
+    return { ok: false as const, error: "GMAIL_CURSOR_RECOVERY_RETRY", processed: processed.processed };
+  }
+
+  const checkpoint = await providerFetchJson<{ historyId?: string; error?: { message?: string } }>("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+    headers: { authorization: `Bearer ${params.accessToken}` }
+  });
+  if (!checkpoint.response.ok || !clean(checkpoint.data.historyId)) {
+    const kind = gmailFailureKind(checkpoint.response, checkpoint.data as GmailHistoryResponse);
+    if (kind === "auth") await markGmailReauthorizationRequired(params.supabase, params.connection.id);
+    console.warn("Roamly Gmail history cursor checkpoint failed", { connectionId: params.connection.id, kind });
+    return { ok: false as const, error: kind === "auth" ? "GMAIL_REAUTH_REQUIRED" : "GMAIL_CURSOR_CHECKPOINT_FAILED", processed: processed.processed };
+  }
+  const cursorSaved = await params.supabase.from("email_sync_cursors").upsert({
+    email_connection_id: params.connection.id,
+    provider: GMAIL_PROVIDER,
+    history_id_or_delta_token: checkpoint.data.historyId,
+    last_processed_at: new Date().toISOString()
+  }, { onConflict: "email_connection_id,provider" });
+  if (cursorSaved.error) return { ok: false as const, error: "GMAIL_CURSOR_CHECKPOINT_FAILED", processed: processed.processed };
+  console.warn("Roamly Gmail history cursor recovery completed", { connectionId: params.connection.id, processed: processed.processed });
+  return { ok: true as const, error: null, processed: processed.processed, recovered: true as const };
 }
 
 async function syncGmailConnectionUnlocked(params: {
@@ -800,7 +937,17 @@ async function syncGmailConnectionUnlocked(params: {
   if (!data) return { ok: false, error: "GMAIL_NOT_CONNECTED", processed: 0 };
 
   const connection = data as EmailConnectionRecord;
-  const accessToken = await accessTokenForConnection(writer, connection);
+  let accessToken: string;
+  try {
+    accessToken = await accessTokenForConnection(writer, connection);
+  } catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (!message || message.includes("reconnected") || message.includes("invalid_grant") || message.includes("revoked")) {
+      await markGmailReauthorizationRequired(writer, connection.id);
+      return { ok: false, error: "GMAIL_REAUTH_REQUIRED", processed: 0 };
+    }
+    return { ok: false, error: "GMAIL_TOKEN_REFRESH_RETRY", processed: 0 };
+  }
   const { data: cursor } = await writer
     .from("email_sync_cursors")
     .select("history_id_or_delta_token")
@@ -810,21 +957,28 @@ async function syncGmailConnectionUnlocked(params: {
   const historyId = clean((cursor as { history_id_or_delta_token?: string | null } | null)?.history_id_or_delta_token);
   const url = historyId
     ? new URL("https://gmail.googleapis.com/gmail/v1/users/me/history")
-    : new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+    : gmailLookbackUrl();
   if (historyId) {
     url.searchParams.set("startHistoryId", historyId);
     url.searchParams.set("historyTypes", "messageAdded");
-  } else {
-    url.searchParams.set("q", "newer_than:30d (confirmation OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in)");
-    url.searchParams.set("maxResults", String(EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC));
   }
   const { response, data: result } = await providerFetchJson<GmailHistoryResponse>(url, {
     headers: { authorization: `Bearer ${accessToken}` }
   });
-  if (!response.ok) return { ok: false, error: "GMAIL_SYNC_FAILED", processed: 0 };
+  if (!response.ok) {
+    const kind = gmailFailureKind(response, result);
+    if (kind === "invalid_cursor" && historyId) return recoverGmailHistoryCursor({ supabase: writer, connection, accessToken });
+    if (kind === "auth") {
+      await markGmailReauthorizationRequired(writer, connection.id);
+      return { ok: false, error: "GMAIL_REAUTH_REQUIRED", processed: 0 };
+    }
+    return { ok: false, error: kind === "transient" ? "GMAIL_SYNC_RETRY" : "GMAIL_SYNC_FAILED", processed: 0 };
+  }
   const messageIds = gmailMessageIds(result);
-  for (const messageId of messageIds) {
-    await recordGmailTravelMessage({ supabase: writer, connection, accessToken, messageId }).catch(() => null);
+  const processed = await processGmailMessageIds({ supabase: writer, connection, accessToken, messageIds });
+  const retryable = processed.retryable;
+  if (retryable) {
+    return { ok: false, error: "GMAIL_BOOKING_PROCESSING_RETRY", processed: messageIds.length };
   }
   const nextCursor = result.historyId || historyId;
   await writer.from("email_sync_cursors").upsert(

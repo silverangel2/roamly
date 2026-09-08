@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  syncGmailConnection
+  syncGmailConnection,
+  renewDueGmailWatches
 } from "@/lib/roamly/emailConnections";
 import {
   airportGateAdapter,
@@ -653,6 +654,7 @@ export async function runScheduledBookingMonitor() {
     runInsert.data?.id as string | undefined;
 
   try {
+    const watchRenewal = await renewDueGmailWatches({ supabase: admin, limit: 25 });
     const dueBefore = new Date(
       Date.now() -
         SYNC_INTERVAL_MINUTES * 60_000
@@ -782,6 +784,7 @@ export async function runScheduledBookingMonitor() {
       messagesProcessed,
       emailFailures,
       emailResults,
+      watchRenewal,
 
       flightsFound:
         flightMonitor.flightsFound,

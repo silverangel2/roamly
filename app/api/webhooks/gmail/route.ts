@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 function authorized(request: NextRequest) {
   const secret = process.env.ROAMLY_GMAIL_WEBHOOK_SECRET?.trim();
   if (!secret) return false;
-  return request.headers.get("x-roamly-gmail-webhook-secret") === secret || request.nextUrl.searchParams.get("token") === secret;
+  return request.headers.get("x-roamly-gmail-webhook-secret") === secret;
 }
 
 function decodedMessage(data?: string | null) {

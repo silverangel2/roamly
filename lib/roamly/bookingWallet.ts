@@ -99,7 +99,14 @@ export type TripBookingInput = {
   cancellationTerms?: string | null;
   travelerConfirmed?: boolean | null;
   lastSyncedAt?: string | null;
+  metadata?: Record<string, unknown> | null;
   segments?: BookingSegmentInput[] | null;
+  reconciliation?: {
+    connectionId: string;
+    sourceMessageId: string;
+    sourceEventAt: string;
+    decision?: "applied" | "needs_review" | "ignored";
+  } | null;
 };
 
 export type TripBookingRecord = {
@@ -444,6 +451,7 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
       new Date().toISOString(),
 
     metadata: {
+      ...safeJson(input.metadata),
       recommendationId: nullableText(input.recommendationId),
       affiliateClickId: nullableText(input.affiliateClickId),
       affiliateConversionId: nullableText(
@@ -795,6 +803,65 @@ async function findMatchingCanonicalBooking(params: {
   };
 }
 
+function bookingRevisionPatch(booking: Record<string, unknown>) {
+  return {
+    booking_status: booking.booking_status,
+    provider_name: booking.provider_name,
+    provider_booking_id: booking.provider_booking_id,
+    confirmation_number: booking.confirmation_number,
+    title: booking.title,
+    start_at: booking.start_at,
+    end_at: booking.end_at,
+    origin: booking.origin,
+    destination: booking.destination,
+    flight_number: booking.flight_number,
+    terminal: booking.terminal,
+    gate: booking.gate,
+    room_type: booking.room_type,
+    check_in_at: booking.check_in_at,
+    check_out_at: booking.check_out_at,
+    metadata: booking.metadata || {}
+  };
+}
+
+async function applyGmailBookingRevision(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  bookingId: string;
+  previousBooking: Record<string, unknown>;
+  booking: Record<string, unknown>;
+  reconciliation: NonNullable<TripBookingInput["reconciliation"]>;
+}) {
+  const changedFields = Object.keys(bookingRevisionPatch(params.booking)).filter((key) => {
+    const previous = params.previousBooking[key];
+    const next = params.booking[key];
+    return JSON.stringify(previous ?? null) !== JSON.stringify(next ?? null);
+  });
+  const result = await params.supabase.rpc("roamly_apply_gmail_booking_revision", {
+    p_booking_id: params.bookingId,
+    p_user_id: params.userId,
+    p_trip_id: params.tripId,
+    p_source_connection_id: params.reconciliation.connectionId,
+    p_source_message_id: params.reconciliation.sourceMessageId,
+    p_source_event_at: params.reconciliation.sourceEventAt,
+    p_decision: params.reconciliation.decision || "applied",
+    p_booking_patch: bookingRevisionPatch(params.booking),
+    p_changed_fields: changedFields
+  });
+  if (result.error) return { ok: false as const, error: result.error.message };
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row) return { ok: false as const, error: "Booking revision returned no result." };
+  return {
+    ok: true as const,
+    applied: row.applied === true,
+    duplicate: row.duplicate === true,
+    stale: row.stale === true,
+    needsReview: row.needs_review === true,
+    version: typeof row.reconciliation_version === "number" ? row.reconciliation_version : null
+  };
+}
+
 export async function createTripBooking(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -832,8 +899,36 @@ export async function createTripBooking(params: {
 
   const previousBooking = match.booking;
 
+  if (previousBooking && params.input.reconciliation) {
+    const revision = await applyGmailBookingRevision({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      bookingId: String(previousBooking.id),
+      previousBooking,
+      booking,
+      reconciliation: params.input.reconciliation
+    });
+    if (!revision.ok) return { booking: null, error: revision.error };
+    if (!revision.applied) {
+      return {
+        booking: canonicalRowToTripBookingRecord(previousBooking),
+        error: null,
+        reconciliation: revision
+      };
+    }
+  }
+
   const writeResult = previousBooking
-    ? await params.supabase
+    ? params.input.reconciliation
+      ? await params.supabase
+        .from("roamly_bookings")
+        .select("*")
+        .eq("id", String(previousBooking.id))
+        .eq("user_id", params.userId)
+        .eq("trip_id", params.tripId)
+        .single()
+      : await params.supabase
         .from("roamly_bookings")
         .update({
           ...booking,
@@ -848,12 +943,39 @@ export async function createTripBooking(params: {
         .insert({
           ...booking,
           user_id: params.userId,
-          trip_id: params.tripId
+          trip_id: params.tripId,
+          source_connection_id: params.input.reconciliation?.connectionId || null,
+          source_message_id: params.input.reconciliation?.sourceMessageId || null,
+          reconciliation_status: params.input.reconciliation?.decision || "applied"
         })
         .select("*")
         .single();
 
   if (writeResult.error) {
+    if (!previousBooking && params.input.reconciliation) {
+      const duplicate = await params.supabase
+        .from("roamly_bookings")
+        .select("*")
+        .eq("user_id", params.userId)
+        .eq("trip_id", params.tripId)
+        .eq("source_connection_id", params.input.reconciliation.connectionId)
+        .eq("source_message_id", params.input.reconciliation.sourceMessageId)
+        .maybeSingle();
+      if (!duplicate.error && duplicate.data) {
+        return {
+          booking: canonicalRowToTripBookingRecord(duplicate.data as Record<string, unknown>),
+          error: null,
+          reconciliation: {
+            ok: true as const,
+            applied: false,
+            duplicate: true,
+            stale: false,
+            needsReview: false,
+            version: Number(duplicate.data.reconciliation_version || 0)
+          }
+        };
+      }
+    }
     return {
       booking: null,
       error: writeResult.error.message
@@ -862,6 +984,29 @@ export async function createTripBooking(params: {
 
   const savedRow =
     writeResult.data as unknown as Record<string, unknown>;
+
+  if (!previousBooking && params.input.reconciliation) {
+    const revision = await applyGmailBookingRevision({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      bookingId: String(savedRow.id),
+      previousBooking: savedRow,
+      booking,
+      reconciliation: params.input.reconciliation
+    });
+    if (!revision.ok) return { booking: null, error: revision.error };
+    if (!revision.applied) return { booking: canonicalRowToTripBookingRecord(savedRow), error: null, reconciliation: revision };
+    const refreshed = await params.supabase
+      .from("roamly_bookings")
+      .select("*")
+      .eq("id", String(savedRow.id))
+      .eq("user_id", params.userId)
+      .eq("trip_id", params.tripId)
+      .single();
+    if (refreshed.error) return { booking: null, error: refreshed.error.message };
+    Object.assign(savedRow, refreshed.data as Record<string, unknown>);
+  }
 
   const createdBooking =
     canonicalRowToTripBookingRecord(savedRow);

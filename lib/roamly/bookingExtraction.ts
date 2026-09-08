@@ -74,6 +74,15 @@ function asStringArray(value: unknown) {
   return Array.isArray(value) ? value.map(clean).filter(Boolean) : [];
 }
 
+function dateParts(value: string) {
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return [Number(iso[1]), Number(iso[2]), Number(iso[3])] as const;
+  const named = value.match(/^(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Sept(?:ember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+(\d{1,2}),?\s*(\d{4})$/i);
+  if (!named) return null;
+  const month = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].findIndex((prefix) => named[1].toLowerCase().startsWith(prefix));
+  return month < 0 ? null : [Number(named[3]), month + 1, Number(named[2])] as const;
+}
+
 function field<T>(
   value: T | null,
   confidence: number,
@@ -109,8 +118,14 @@ function providerName(metadata: TravelEmailMetadata, filter: TravelEmailFilterRe
 function dateHintToIso(value?: string | null) {
   const text = clean(value);
   if (!text) return null;
-  const dateOnly = text.match(/^\d{4}-\d{2}-\d{2}$/)?.[0];
-  if (dateOnly) return `${dateOnly}T00:00:00.000Z`;
+  const dateOnly = dateParts(text);
+  if (dateOnly) return new Date(Date.UTC(dateOnly[0], dateOnly[1] - 1, dateOnly[2])).toISOString();
+  if (/\d[T ]\d/.test(text) && !/[zZ]|[+-]\d{2}:?\d{2}(?:\b|$)/.test(text)) {
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if (!match) return null;
+    const [, year, month, day, hour, minute, second = "0"] = match;
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second))).toISOString();
+  }
   const parsed = new Date(text);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
@@ -119,9 +134,32 @@ function dateTimeHintToIso(dateHint?: string | null, timeHint?: string | null) {
   const dateText = clean(dateHint);
   const timeText = clean(timeHint);
   if (!dateText) return null;
+  if (timeText && !/[zZ]|[+-]\d{2}:?\d{2}(?:\b|$)/.test(`${dateText} ${timeText}`)) {
+    const match = timeText.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+    const dateMatch = dateParts(dateText);
+    if (!match || !dateMatch) return null;
+    let hour = Number(match[1]);
+    if (match[4]?.toUpperCase() === "PM" && hour < 12) hour += 12;
+    if (match[4]?.toUpperCase() === "AM" && hour === 12) hour = 0;
+    return new Date(Date.UTC(dateMatch[0], dateMatch[1] - 1, dateMatch[2], hour, Number(match[2]), Number(match[3] || 0))).toISOString();
+  }
   const direct = dateHintToIso(timeText ? `${dateText} ${timeText}` : dateText);
   if (direct) return direct;
   return dateHintToIso(dateText);
+}
+
+function hasStrongCancellationEvidence(metadata: TravelEmailMetadata, confirmationCode: string | null, provider: string | null) {
+  const subject = clean(metadata.subject);
+  return Boolean(
+    confirmationCode &&
+    provider &&
+    /(?:cancellation confirmation|booking .*cancelled|reservation .*cancelled|flight .*cancelled|your .*cancelled)/i.test(subject)
+  );
+}
+
+function hasUnresolvedTimezone(date?: string | null, time?: string | null) {
+  const text = `${clean(date)} ${clean(time)}`;
+  return Boolean(text.trim()) && !/[zZ]|[+-]\d{2}:?\d{2}(?:\b|$)/.test(text);
 }
 
 function textFromMetadata(metadata: TravelEmailMetadata) {
@@ -341,12 +379,18 @@ export function deterministicBookingExtraction(params: {
     bookingType === "flight" && !flightNumber ? "flight_number" : ""
   ].filter(Boolean);
   const requiresUserApproval = requiresApprovalForEvent(eventTypes, bookingType, status);
+  const strongCancellationEvidence = hasStrongCancellationEvidence(params.metadata, confirmationCode, provider);
+  const timezoneUnresolved = hasUnresolvedTimezone(dateHints[0], timeHints[0]);
 
   return {
     extractionMethod: "deterministic",
     overallConfidence: Math.round(overallConfidence * 100) / 100,
     missingFields,
-    matchReasons: [...params.filter.reasons, ...eventTypes.map((event) => `event:${event}`)],
+    matchReasons: [
+      ...params.filter.reasons,
+      ...eventTypes.map((event) => `event:${event}`),
+      ...(strongCancellationEvidence ? ["verified_cancellation"] : [])
+    ],
     eventTypes,
     requiresUserApproval,
     fields: {
@@ -372,6 +416,7 @@ export function deterministicBookingExtraction(params: {
       confirmationCode,
       sourceType: "email",
       sourceReference: `email:${params.metadata.provider}:${params.metadata.messageId}`,
+      metadata: timezoneUnresolved ? { timezone_unresolved: true } : {},
       title,
       startTime,
       endTime,
@@ -448,6 +493,8 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
   const title = clean(parsed.title) || clean(metadata.subject) || "Travel booking";
   const bookingStatus = clean(parsed.booking_status) || "needs_confirmation";
   const eventTypes = inferredEventTypes(textFromMetadata(metadata), {});
+  const strongCancellationEvidence = hasStrongCancellationEvidence(metadata, clean(parsed.confirmation_code) || null, clean(parsed.provider) || null);
+  const timezoneUnresolved = hasUnresolvedTimezone(clean(parsed.start_time));
   const startTime = dateHintToIso(clean(parsed.start_time));
   const endTime = dateHintToIso(clean(parsed.end_time));
   const flightNumber = clean(parsed.flight_number) || null;
@@ -462,7 +509,7 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
     extractionMethod: "ai_structured" as const,
     overallConfidence: Math.max(0, Math.min(1, confidence)),
     missingFields: asStringArray(parsed.missing_fields),
-    matchReasons: ["ai_structured_extraction"],
+    matchReasons: ["ai_structured_extraction", ...(strongCancellationEvidence ? ["verified_cancellation"] : [])],
     eventTypes,
     requiresUserApproval: requiresApprovalForEvent(eventTypes, bookingType, bookingStatus),
     fields: {
@@ -488,6 +535,7 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
       confirmationCode: clean(parsed.confirmation_code) || null,
       sourceType: "email",
       sourceReference: `email:${metadata.provider}:${metadata.messageId}`,
+      metadata: timezoneUnresolved ? { timezone_unresolved: true } : {},
       title,
       startTime,
       endTime,
@@ -571,6 +619,12 @@ export function shouldAutoApplyEmailLookbackExtraction(params: {
     params.matchReasons?.includes("flight_number_time_existing_booking_match");
 
   if (exactExistingBookingMatch) {
+    const cancellationVerified =
+      params.matchReasons?.includes("verified_cancellation") ||
+      params.extraction.matchReasons.includes("verified_cancellation");
+    if (["cancelled", "refunded"].includes(params.extraction.booking.bookingStatus || "") && !cancellationVerified) {
+      return false;
+    }
     return (
       params.extraction.overallConfidence >= 0.6 &&
       params.matchScore >= 0.9 &&
@@ -601,7 +655,10 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
       .eq(column, value)
       .order("updated_at", { ascending: false })
       .limit(3);
-    return (data || [])[0] as Record<string, unknown> | undefined;
+    const rows = (data || []) as Record<string, unknown>[];
+    const tripIds = [...new Set(rows.map((row) => String(row.trip_id || "")).filter(Boolean))];
+    if (tripIds.length > 1) return { ambiguous: true as const };
+    return rows[0];
   }
 
   const direct =
@@ -626,8 +683,11 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
       .gte("start_at", new Date(startMs - 12 * 60 * 60 * 1000).toISOString())
       .lte("start_at", new Date(startMs + 12 * 60 * 60 * 1000).toISOString())
       .order("updated_at", { ascending: false })
-      .limit(1);
-    const row = (data || [])[0] as Record<string, unknown> | undefined;
+      .limit(3);
+    const rows = (data || []) as Record<string, unknown>[];
+    const tripIds = [...new Set(rows.map((item) => String(item.trip_id || "")).filter(Boolean))];
+    if (tripIds.length > 1) return { ambiguous: true as const };
+    const row = rows[0];
     if (row?.trip_id) {
       return {
         tripId: String(row.trip_id),
@@ -651,6 +711,7 @@ async function bestTripMatch(supabase: SupabaseClient, userId: string, extractio
     .order("start_date", { ascending: true, nullsFirst: false })
     .limit(20);
   const trips = (data || []) as TripMatchRecord[];
+  if (existing?.ambiguous) return null;
   if (existing) {
     const trip = trips.find((candidate) => candidate.id === existing.tripId);
     if (trip) return { trip, score: existing.score, reasons: existing.reasons, existingBookingId: existing.bookingId };
@@ -660,6 +721,8 @@ async function bestTripMatch(supabase: SupabaseClient, userId: string, extractio
     .sort((a, b) => b.score - a.score);
   const best = scored[0];
   if (!best || best.score < EMAIL_LOOKBACK_TRIP_MATCH_THRESHOLD) return null;
+  const runnerUp = scored[1];
+  if (runnerUp && best.score === runnerUp.score) return null;
   if (!best.reasons.includes("trip_date_overlap")) return null;
   if (!best.reasons.includes("destination_text_match") && !best.reasons.includes("single_trip_date_window")) return null;
   return best;
@@ -781,6 +844,12 @@ export async function extractAndMatchTravelEmailBooking(params: {
         params.metadata.messageId ||
         params.emailMessageId ||
         null,
+      reconciliation: {
+        connectionId: params.connection.id,
+        sourceMessageId: params.metadata.messageId,
+        sourceEventAt: params.metadata.receivedAt || new Date().toISOString(),
+        decision: "applied"
+      },
       bookingStatus:
         extraction.booking.bookingStatus ||
         "confirmed",
@@ -799,6 +868,22 @@ export async function extractAndMatchTravelEmailBooking(params: {
   });
 
   const bookingId = saved.booking?.id || null;
+
+  if (saved.reconciliation && saved.reconciliation.applied !== true) {
+    await persistExtraction({
+      supabase: writer,
+      connection: params.connection,
+      emailMessageId: params.emailMessageId || null,
+      extraction,
+      tripId: match.trip.id,
+      matchedBookingId: existingBookingId,
+      matchStatus: "needs_confirmation",
+      matchReasons: [...extraction.matchReasons, ...matchReasons, saved.reconciliation.stale ? "stale_source_event" : "duplicate_source_message"],
+      autoApplyAllowed: true,
+      requiresUserApproval: true
+    });
+    return { attached: false, status: "needs_confirmation" as const, tripId: match.trip.id, extraction };
+  }
 
   if (saved.error) {
     await persistExtraction({
