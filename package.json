@@ -21,6 +21,7 @@
     "test:pretrip-7d-briefing": "node --experimental-strip-types scripts/roamly-pretrip-7d-briefing-checks.mjs",
     "test:pretrip-1d-briefing": "node --experimental-strip-types scripts/roamly-pretrip-1d-briefing-checks.mjs",
     "test:travel-day-briefing": "node --experimental-strip-types scripts/roamly-travel-day-briefing-checks.mjs",
+    "test:daily-trip-briefing": "node --experimental-strip-types scripts/roamly-daily-trip-briefing-checks.mjs",
     "test:gmail-bookings": "node scripts/roamly-gmail-booking-reminder-checks.mjs",
     "test:gmail-reconciliation": "node scripts/roamly-gmail-reconciliation-checks.mjs",
     "test:pdf": "node scripts/roamly-pdf-checks.mjs",

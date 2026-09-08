@@ -6,6 +6,7 @@ import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { schedulePreTrip7DayBriefing } from "@/lib/roamly/preTrip7DayBriefing";
 import { schedulePreTrip1DayBriefing } from "@/lib/roamly/preTrip1DayBriefing";
 import { scheduleTravelDayBriefing } from "@/lib/roamly/travelDayBriefing";
+import { scheduleDailyTripBriefing } from "@/lib/roamly/dailyTripBriefing";
 
 export const PRETRIP_REMINDER_TYPES = [
   "trip_predeparture_7d",
@@ -392,8 +393,8 @@ export async function schedulePreTripReminders(params?: {
     .from("roamly_trips")
     .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,special_notes,status,itinerary_status,metadata")
     .not("start_date", "is", null)
-    .gte("start_date", startLower)
     .lte("start_date", startUpper)
+    .or(`end_date.gte.${startLower},start_date.gte.${startLower}`)
     .neq("status", "archived")
     .neq("status", "cancelled")
     .order("start_date", { ascending: true })
@@ -440,6 +441,16 @@ export async function schedulePreTripReminders(params?: {
         tripId: trip.id,
         type: "travel_day",
         result: await scheduleTravelDayBriefing({
+          supabase,
+          trip,
+          bookings: confirmedBookings,
+          now
+        })
+      });
+      results.push({
+        tripId: trip.id,
+        type: "daily_trip_briefing",
+        result: await scheduleDailyTripBriefing({
           supabase,
           trip,
           bookings: confirmedBookings,
