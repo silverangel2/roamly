@@ -17,6 +17,8 @@
     "test:operational-owner-alerts": "node --experimental-strip-types scripts/roamly-operational-owner-alert-checks.mjs",
     "test:silent-failure-detectors": "node --experimental-strip-types scripts/roamly-silent-failure-detector-checks.mjs",
     "test:gmail-staleness-detector": "node --experimental-strip-types scripts/roamly-gmail-staleness-detector-checks.mjs",
+    "test:booking-monitor-bootstrap": "node --experimental-strip-types scripts/roamly-booking-monitor-bootstrap-checks.mjs",
+    "test:booking-monitor-health": "node --experimental-strip-types scripts/roamly-booking-monitor-health-checks.mjs",
     "test:live-companion-clock": "node scripts/roamly-live-companion-clock-checks.mjs",
     "test:communication-orchestration": "node --experimental-strip-types scripts/roamly-communication-orchestration-checks.mjs",
     "test:notification-cron-security": "node --experimental-strip-types scripts/roamly-notification-cron-security-checks.mjs",
