@@ -1206,10 +1206,10 @@ export async function activateTripIfNearby(
 
         body:
           nextLiveActivity.address
-            ? `📍 ${nextLiveActivity.address} · starts in ${minutes} min`
+            ? `📍 ${nextLiveActivity.address} · starts in ${minutes} min. Tap to open directions.`
             : nextLiveActivity.latitude != null && nextLiveActivity.longitude != null
-              ? `📍 ${nextLiveActivity.latitude}, ${nextLiveActivity.longitude} · starts in ${minutes} min`
-            : `Starts in ${minutes} min.`,
+              ? `📍 ${nextLiveActivity.latitude}, ${nextLiveActivity.longitude} · starts in ${minutes} min. Tap to open directions.`
+            : `Starts in ${minutes} min. Tap to open directions.`,
 
         reason:
           minutes <= 15

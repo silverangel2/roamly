@@ -120,8 +120,8 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
         priority: "routine",
         title: `Starting soon: ${current.title}`,
         body: locationLabel
-          ? `📍 ${locationLabel} · starts in ${countdownMinutes} min`
-          : `Starts in ${countdownMinutes} min.`,
+          ? `📍 ${locationLabel} · starts in ${countdownMinutes} min. Tap to open directions.`
+          : `Starts in ${countdownMinutes} min. Tap to open directions.`,
         actionUrl: `/trip/${trip.id}/live?activity=${encodeURIComponent(current.id)}`,
         scheduledFor: now.toISOString(),
         metadata: {
