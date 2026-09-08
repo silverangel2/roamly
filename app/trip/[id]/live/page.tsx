@@ -270,13 +270,13 @@ export default async function LiveTripPage({
   if (fieldTestMode) {
     return (
       <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
-        <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-ink px-4 py-3 text-white shadow-soft">
+        <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-white px-4 py-3 text-ink shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Admin field test • Saint John</p>
-              <p className="mt-1 text-sm font-black text-white/85">Real Roamly Live Companion runtime</p>
+              <p className="mt-1 text-sm font-black text-slate-600">Real Roamly Live Companion runtime</p>
             </div>
-            <a href={`/trip/${id}`} className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black text-white">Exit field test</a>
+            <a href={`/trip/${id}`} className="rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white">Exit field test</a>
           </div>
         </section>
         <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-6 shadow-soft">

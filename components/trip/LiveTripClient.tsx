@@ -401,6 +401,7 @@ export function LiveTripClient({
   const [isStandalone, setIsStandalone] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [deepLinkedActivityId, setDeepLinkedActivityId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState(simulatorPlaces[0]?.id || "");
   const watchIdRef = useRef<number | null>(null);
   const lastSentRef = useRef<{ at: number; location: LiveCoordinates } | null>(null);
@@ -1141,6 +1142,24 @@ export function LiveTripClient({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const activityId = params.get("activity") || "";
+    const action = params.get("action");
+    if (!activityId || action) return;
+
+    const activity = liveActivities.find((item) => item.id === activityId);
+    if (!activity) return;
+
+    setDeepLinkedActivityId(activity.id);
+    requestAnimationFrame(() => {
+      const target = document.getElementById(`live-activity-${activity.id}`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus({ preventScroll: true });
+    });
+  }, [liveActivities]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const activityId = params.get("activity") || "";
     const action = params.get("action") as "check-in" | "skip" | "complete" | null;
     if (!activityId || !action || !["check-in", "skip", "complete"].includes(action)) return;
     const key = `${activityId}:${action}`;
@@ -1278,19 +1297,19 @@ export function LiveTripClient({
 
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-4 pb-28 md:pb-0">
-      <section className="overflow-hidden rounded-[1.25rem] bg-ink text-white shadow-[0_18px_50px_rgba(16,32,51,0.24)] dark:bg-slate-950">
-        <div className="border-b border-white/10 px-4 py-3">
+      <section className="overflow-hidden rounded-[1.25rem] border border-cloud bg-white text-ink shadow-[0_18px_50px_rgba(16,32,51,0.12)]">
+        <div className="border-b border-cloud px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-white/55">Live Companion</p>
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-slate-500">Live Companion</p>
               <p className="mt-1 text-sm font-black">{activeDestinationLabel || "Current trip"}</p>
             </div>
             <span
               className={classNames(
                 "rounded-full border px-3 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.1em]",
                 model.activationStatus === "active"
-                  ? "border-emerald-300/40 bg-emerald-400/15 text-emerald-100"
-                  : "border-white/15 bg-white/10 text-white/80"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-cloud bg-mist text-slate-600"
               )}
             >
               {statusLabel(model.activationStatus)}
@@ -1304,43 +1323,43 @@ export function LiveTripClient({
             <h1 className="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
               {currentActivity?.title || "Schedule ready"}
             </h1>
-            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-white/72">
+            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-slate-600">
               {currentActivity?.shortDescription || model.activationReason}
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Next</p>
+              <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
                 <p className="mt-1 truncate text-sm font-black">{nextActivity?.title || "Flexible"}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Countdown</p>
+              <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Countdown</p>
                 <p className="mt-1 text-sm font-black">{countdownCopy(model.countdownMinutes)}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Leave by</p>
+              <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Leave by</p>
                 <p className="mt-1 text-sm font-black">{model.leaveBy ? formatClock(model.leaveBy, timezone) : "Open Maps"}</p>
               </div>
               {model.route.status === "verified" ? (
-                <div className="rounded-2xl border border-white/10 bg-white/8 px-3 py-3">
-                  <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Route</p>
+                <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
+                  <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Route</p>
                   <p className="mt-1 text-sm font-black">{routeBusy ? "Checking" : routeCopy(model.route)}</p>
                 </div>
               ) : null}
             </div>
 
-            <div className="mt-5 rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-white/45">Address</p>
+            <div className="mt-5 rounded-2xl border border-cloud bg-mist px-4 py-3">
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Address</p>
               <p className="mt-1 text-sm font-black leading-5">{primaryAddress(nextActivity || currentActivity)}</p>
               {nextActivity?.openingHours ? (
-                <p className="mt-2 text-xs font-bold text-white/60">Hours: {nextActivity.openingHours}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">Hours: {nextActivity.openingHours}</p>
               ) : null}
             </div>
 
             {(nextActivity?.booking?.reference || nextActivity?.booking?.provider || nextActivity?.booking?.gate || nextActivity?.booking?.terminal) ? (
-              <details className="mt-3 rounded-2xl border border-white/10 bg-white/8 px-4 py-3">
-                <summary className="cursor-pointer text-sm font-black text-white">Booking details</summary>
-                <div className="mt-3 grid gap-2 text-sm font-semibold text-white/72">
+              <details className="mt-3 rounded-2xl border border-cloud bg-mist px-4 py-3">
+                <summary className="cursor-pointer text-sm font-black text-ink">Booking details</summary>
+                <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-600">
                   {[
                     ["Provider", nextActivity.booking?.provider],
                     ["Reference", nextActivity.booking?.reference],
@@ -1349,8 +1368,8 @@ export function LiveTripClient({
                   ]
                     .filter((row): row is [string, string] => Boolean(row[1]))
                     .map(([label, value]) => (
-                      <p key={label} className="rounded-xl bg-white/8 px-3 py-2">
-                        <span className="text-white/45">{label}: </span>
+                      <p key={label} className="rounded-xl bg-white px-3 py-2">
+                        <span className="text-slate-500">{label}: </span>
                         {value}
                       </p>
                     ))}
@@ -1372,10 +1391,10 @@ export function LiveTripClient({
           </div>
 
           <div className="grid gap-3">
-            <section className="rounded-2xl border border-white/10 bg-white/8 p-4">
+            <section className="rounded-2xl border border-cloud bg-mist p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">Progress</p>
-                <p className="text-xs font-black text-white/55">{formatClock(nextStart?.toISOString() || null, timezone)}</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Progress</p>
+                <p className="text-xs font-black text-slate-500">{formatClock(nextStart?.toISOString() || null, timezone)}</p>
               </div>
               <div className="mt-4 grid gap-3">
                 {timeline.map((item) => {
@@ -1386,14 +1405,14 @@ export function LiveTripClient({
                       <span
                         className={classNames(
                           "mt-1 h-3 w-3 rounded-full border",
-                          active ? "border-lagoon bg-lagoon" : upcoming ? "border-sun bg-sun" : "border-white/30 bg-white/10"
+                          active ? "border-lagoon bg-lagoon" : upcoming ? "border-sun bg-sun" : "border-slate-300 bg-white"
                         )}
                       />
                       <div className="min-w-0">
-                        <p className={classNames("truncate text-sm font-black", active ? "text-white" : "text-white/72")}>
+                        <p className={classNames("truncate text-sm font-black", active ? "text-ink" : "text-slate-600")}>
                           {item.title}
                         </p>
-                        <p className="mt-0.5 text-xs font-bold text-white/45">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate: activeTripStartDate, timezone })?.toISOString() || null, timezone)}</p>
+                        <p className="mt-0.5 text-xs font-bold text-slate-500">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate: activeTripStartDate, timezone })?.toISOString() || null, timezone)}</p>
                       </div>
                     </div>
                   );
@@ -1401,17 +1420,17 @@ export function LiveTripClient({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-white/10 bg-white/8 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-white/55">{fieldTestMode ? "Field test setup" : "Live Companion setup"}</p>
+            <section className="rounded-2xl border border-cloud bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? "Field test setup" : "Live Companion setup"}</p>
               {!mobileRuntime ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-lg font-black text-amber-100">Live Companion runs on your phone</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Open this trip on your phone to finish setup.</p>
+                  <h3 className="text-lg font-black text-amber-900">Live Companion runs on your phone</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Open this trip on your phone to finish setup.</p>
                 </div>
               ) : !isStandalone ? (
                 <div className="mt-3 rounded-2xl border border-amber-200/30 bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-100">Install Roamly on your Home Screen</h3>
-                  <p className="mt-2 text-sm font-bold leading-6 text-white/80">{fieldTestMode ? "Live Companion works from the Roamly Home Screen app." : "Install Roamly on your Home Screen to receive Live Companion trip alerts."}</p>
+                  <h3 className="text-xl font-black text-amber-900">Install Roamly on your Home Screen</h3>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{fieldTestMode ? "Live Companion works from the Roamly Home Screen app." : "Install Roamly on your Home Screen to receive Live Companion trip alerts."}</p>
                   <button type="button" onClick={() => void startInstall()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink">
                     Install Roamly
                   </button>
@@ -1428,35 +1447,35 @@ export function LiveTripClient({
                       ) : (
                         <p className="mt-3 text-sm font-bold leading-6 text-slate-600">Use your browser&apos;s install option, then open Roamly from the new Home Screen icon.</p>
                       )}
-                      <button type="button" onClick={() => setInstallGuideOpen(false)} className="mt-4 min-h-11 w-full rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white">Got it</button>
+                      <button type="button" onClick={() => setInstallGuideOpen(false)} className="mt-4 min-h-11 w-full rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white">Got it</button>
                     </div>
                   ) : null}
                 </div>
               ) : fieldTestMode && notificationPermission === "default" ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-100">Notifications need your permission</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Allow notifications so this phone can receive the field-test alert.</p>
+                  <h3 className="text-xl font-black text-amber-900">Notifications need your permission</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Allow notifications so this phone can receive the field-test alert.</p>
                   <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
                     {busy === "notifications" ? "Enabling…" : "Enable notifications"}
                   </button>
                 </div>
               ) : fieldTestMode && notificationPermission === "denied" ? (
                 <div className="mt-3 rounded-2xl bg-coral/20 p-4">
-                  <h3 className="text-xl font-black text-coral-100">Notifications are blocked</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-white/80">In iPhone Settings, allow notifications for Roamly, then return to this field test. Roamly will not ask again here.</p>
+                  <h3 className="text-xl font-black text-coral">Notifications are blocked</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">In iPhone Settings, allow notifications for Roamly, then return to this field test. Roamly will not ask again here.</p>
                 </div>
               ) : fieldTestMode && notificationPermission === "granted" && !pushReady ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-100">Register this phone</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Permission is granted, but the phone is not registered with Roamly yet.</p>
+                  <h3 className="text-xl font-black text-amber-900">Register this phone</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Permission is granted, but the phone is not registered with Roamly yet.</p>
                   <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
                     {busy === "notifications" ? "Registering…" : "Retry registration"}
                   </button>
                 </div>
               ) : fieldTestMode && pushReady && !setupComplete ? (
                 <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
-                  <h3 className="text-xl font-black text-white">Notifications ready</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">This phone is registered. Continue with location setup for the field test.</p>
+                  <h3 className="text-xl font-black text-ocean">Notifications ready</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">This phone is registered. Continue with location setup for the field test.</p>
                   {!watching ? (
                     <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
                       {busy === "setup" ? "Setting up…" : permission !== "granted" ? "Allow location" : "Open Live Companion"}
@@ -1465,14 +1484,14 @@ export function LiveTripClient({
                 </div>
               ) : setupComplete ? (
                 <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
-                  <h3 className="text-xl font-black text-white">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-white/75">Roamly will help you stay on track during your trip.</p>
+                  <h3 className="text-xl font-black text-ocean">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Roamly will help you stay on track during your trip.</p>
                 </div>
               ) : !watching ? (
                 <>
-                  <div className="mt-3 grid gap-2 text-sm font-black text-white/85">
-                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-white/55">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
-                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-white/55">{permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                  <div className="mt-3 grid gap-2 text-sm font-black text-slate-700">
+                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-slate-500">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-slate-500">{permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
                     <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
                   </div>
                   <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
@@ -1480,10 +1499,10 @@ export function LiveTripClient({
                   </button>
                 </>
               ) : null}
-              <p className="mt-2 text-xs font-bold leading-5 text-white/55">
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
                 {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
               </p>
-              {error ? <p className="mt-3 rounded-2xl bg-coral/20 px-4 py-3 text-sm font-black leading-6 text-coral-100">{error}</p> : null}
+              {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black leading-6 text-coral">{error}</p> : null}
             </section>
 
             {liveDemoEnabled ? (
@@ -1499,7 +1518,7 @@ export function LiveTripClient({
                     disabled={Boolean(demoBusy)}
                     className={classNames(
                       "min-h-11 rounded-2xl px-3 py-2 text-xs font-black disabled:opacity-50",
-                      demoState ? "border border-white/20 bg-white/10 text-white" : "bg-amber-300 text-ink"
+                      demoState ? "border border-cloud bg-white text-ink" : "bg-amber-300 text-ink"
                     )}
                   >
                     {demoBusy ? "Starting" : demoState ? "STOP LIVE DEMO" : "START LIVE DEMO"}
@@ -1509,16 +1528,16 @@ export function LiveTripClient({
                 {demoState ? (
                   <div className="mt-3 grid gap-2">
                     {demoRows.map(([label, value]) => (
-                      <div key={label} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 rounded-xl bg-black/15 px-3 py-2">
-                        <p className="text-[0.68rem] font-black uppercase tracking-[0.1em] text-white/45">{label}</p>
-                        <p className="min-w-0 break-words text-xs font-black text-white/85">{value}</p>
+                      <div key={label} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 rounded-xl border border-cloud bg-white px-3 py-2">
+                        <p className="text-[0.68rem] font-black uppercase tracking-[0.1em] text-slate-500">{label}</p>
+                        <p className="min-w-0 break-words text-xs font-black text-slate-700">{value}</p>
                       </div>
                     ))}
                   </div>
                 ) : null}
 
-                {demoNotice ? <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-xs font-black leading-5 text-amber-50">{demoNotice}</p> : null}
-                {demoError ? <p className="mt-3 rounded-xl bg-coral/20 px-3 py-2 text-xs font-black leading-5 text-rose-100">{demoError}</p> : null}
+                {demoNotice ? <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-black leading-5 text-amber-900">{demoNotice}</p> : null}
+                {demoError ? <p className="mt-3 rounded-xl bg-coral/10 px-3 py-2 text-xs font-black leading-5 text-coral">{demoError}</p> : null}
               </section>
             ) : null}
           </div>
@@ -1528,52 +1547,52 @@ export function LiveTripClient({
       {model.alerts.length || error || notice ? (
         <section className="grid gap-2">
           {model.alerts.slice(0, 2).map((alert) => (
-            <p key={alert} className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-black leading-6 text-amber-900 dark:border-amber-300/25 dark:bg-amber-300/10 dark:text-amber-100">
+            <p key={alert} className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-black leading-6 text-amber-900">
               {alert}
             </p>
           ))}
-          {notice ? <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean dark:text-cyan-100">{notice}</p> : null}
-          {error ? <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral dark:text-rose-100">{error}</p> : null}
+          {notice ? <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+          {error ? <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
         </section>
       ) : null}
 
       <section className="grid gap-3 md:grid-cols-[1fr_0.75fr]">
-        <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 dark:text-white">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-200">Next</p>
-          <h2 className="mt-2 text-xl font-black text-ink dark:text-white">{nextActivity?.title || "Flexible time"}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
+        <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next</p>
+          <h2 className="mt-2 text-xl font-black text-ink">{nextActivity?.title || "Flexible time"}</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
             {nextActivity?.shortDescription || "Use this window for rest, food, or travel buffer."}
           </p>
-          <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+          <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
             <p>Start: {formatClock(nextStart?.toISOString() || null, timezone)}</p>
             <p>Address: {primaryAddress(nextActivity)}</p>
             {model.route.status === "verified" ? <p>Route: {routeCopy(model.route)}</p> : null}
           </div>
         </article>
 
-        <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950 dark:text-white">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean dark:text-cyan-200">Controls</p>
+        <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Controls</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => void pauseCompanion()}
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 dark:border-white/10 dark:bg-white/10 dark:text-white"
+              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700"
             >
               Pause
             </button>
             <button
               type="button"
               onClick={() => void resumeCompanion()}
-              className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean dark:text-cyan-100"
+              className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean"
             >
               Resume
             </button>
           </div>
-          <details className="mt-3 rounded-2xl bg-mist px-3 py-3 dark:bg-white/10">
-            <summary className="cursor-pointer text-sm font-black text-ink dark:text-white">Essentials</summary>
+          <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
+            <summary className="cursor-pointer text-sm font-black text-ink">Essentials</summary>
             <div className="mt-3 grid gap-2">
               {checklist.slice(0, 5).map((item) => (
-                <p key={item.id} className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                <p key={item.id} className="text-sm font-bold text-slate-600">
                   {item.is_done ? "Done: " : ""}{item.item}
                 </p>
               ))}
@@ -1586,18 +1605,22 @@ export function LiveTripClient({
         {liveActivities.slice(0, 6).map((activity) => (
           <article
             key={activity.id}
+            id={`live-activity-${activity.id}`}
+            tabIndex={deepLinkedActivityId === activity.id ? -1 : undefined}
             className={classNames(
-              "rounded-[1.15rem] border bg-white p-4 shadow-[0_10px_28px_rgba(16,32,51,0.05)] dark:bg-slate-950",
-              activity.id === currentActivity?.id ? "border-ocean/35" : "border-cloud dark:border-white/10"
+              "rounded-[1.15rem] border bg-white p-4 shadow-[0_10px_28px_rgba(16,32,51,0.05)] transition-shadow",
+              deepLinkedActivityId === activity.id
+                ? "border-ocean bg-ocean/5 shadow-[0_0_0_3px_rgba(20,132,184,0.18),0_12px_32px_rgba(20,132,184,0.12)]"
+                : activity.id === currentActivity?.id ? "border-ocean/35" : "border-cloud"
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean dark:text-cyan-200">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
                   {activity.timeLabel || "Flexible"} · {activity.id === currentActivity?.id ? "Now" : activity.id === nextActivity?.id ? "Next" : activity.status || "Planned"}
                 </p>
-                <h3 className="mt-1 text-lg font-black text-ink dark:text-white">{activity.title}</h3>
-                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{activity.shortDescription}</p>
+                <h3 className="mt-1 text-lg font-black text-ink">{activity.title}</h3>
+                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">{activity.shortDescription}</p>
               </div>
               <button
                 type="button"
@@ -1608,14 +1631,14 @@ export function LiveTripClient({
                 Check in
               </button>
             </div>
-            <details className="mt-3 rounded-2xl bg-mist px-3 py-3 dark:bg-white/10">
-              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500 dark:text-slate-300">More</summary>
+            <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
+              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">More</summary>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => void runAction(activity.id, "complete")}
                   disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
-                  className="min-h-11 rounded-2xl bg-ink px-3 py-2 text-xs font-black text-white disabled:opacity-45 dark:bg-white dark:text-ink"
+                  className="min-h-11 rounded-2xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-45"
                 >
                   Mark done
                 </button>
@@ -1623,7 +1646,7 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => void runAction(activity.id, "skip")}
                   disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
-                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-45 dark:border-white/10 dark:bg-white/10 dark:text-white"
+                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-45"
                 >
                   Skip
                 </button>
@@ -1634,13 +1657,13 @@ export function LiveTripClient({
       </section>
 
       {canSimulateLocation ? (
-        <details className="rounded-[1.25rem] border border-ocean/20 bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
-          <summary className="cursor-pointer text-sm font-black text-ocean dark:text-cyan-200">Tester location tools</summary>
+        <details className="rounded-[1.25rem] border border-ocean/20 bg-white p-4 shadow-soft">
+          <summary className="cursor-pointer text-sm font-black text-ocean">Tester location tools</summary>
           <div className="mt-4 grid gap-3">
             <select
               value={selectedPlaceId}
               onChange={(event) => setSelectedPlaceId(event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-cloud bg-white px-3 py-2 text-sm font-black text-ink dark:border-white/10 dark:bg-slate-900 dark:text-white"
+              className="min-h-11 w-full rounded-2xl border border-cloud bg-white px-3 py-2 text-sm font-black text-ink"
             >
               {placeOptions.map((place) => (
                 <option key={place.id} value={place.id}>{place.title}</option>
@@ -1656,7 +1679,7 @@ export function LiveTripClient({
                     const coords = action.custom ? action.custom() : resolvePlace(action.place, action.label);
                     void activateSimulatedLocation({ latitude: coords.latitude, longitude: coords.longitude, label: coords.label || action.label, target: coords.target });
                   }}
-                  className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/5 px-3 py-2 text-xs font-black text-ocean disabled:opacity-60 dark:text-cyan-100"
+                  className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/5 px-3 py-2 text-xs font-black text-ocean disabled:opacity-60"
                 >
                   {qaBusy === action.label ? "Running" : action.label}
                 </button>
@@ -1667,7 +1690,7 @@ export function LiveTripClient({
       ) : null}
 
       {activeStep ? (
-        <section className="fixed inset-x-3 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] z-30 rounded-[1.15rem] border border-white/80 bg-white/96 p-2 shadow-soft backdrop-blur md:hidden dark:border-white/10 dark:bg-slate-950/96">
+        <section className="fixed inset-x-3 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] z-30 rounded-[1.15rem] border border-cloud bg-white/96 p-2 shadow-soft backdrop-blur md:hidden">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <button
               type="button"
@@ -1682,7 +1705,7 @@ export function LiveTripClient({
               target={mapsHref ? "_blank" : undefined}
               rel={mapsHref ? "noreferrer" : undefined}
               className={classNames(
-                "flex min-h-12 items-center justify-center rounded-2xl bg-ink px-4 py-2 text-sm font-black text-white dark:bg-white dark:text-ink",
+                "flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-4 py-2 text-sm font-black text-white",
                 !mapsHref && "pointer-events-none opacity-45"
               )}
             >
