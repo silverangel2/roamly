@@ -64,7 +64,6 @@ export async function GET(request: NextRequest) {
     .eq("user_id", auth.userId)
     .eq("endpoint", endpoint)
     .eq("enabled", true);
-  if (tripId) query = query.eq("trip_id", tripId);
   const { data, error } = await query.maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, deviceRegistered: Boolean(data?.id), subscriptionId: data?.id || null });

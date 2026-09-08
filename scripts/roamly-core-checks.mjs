@@ -3055,7 +3055,7 @@ const pushSubscribeRoute = read("app/api/roamly/push/subscribe/route.ts");
 assert.ok(pushSubscribeRoute.includes("requireUserOrFieldTest(tripId)"), "Field-test push must use the capability-authenticated production subscribe route");
 assert.ok(pushSubscribeRoute.includes("tripId?: string"), "Push subscribe route must accept field-test trip context");
 assert.ok(pushSubscribeRoute.includes("trip_id: tripId || null"), "Field-test push subscriptions must retain their prepared-trip scope");
-assert.ok(pushSubscribeRoute.includes('if (tripId) query = query.eq("trip_id", tripId)'), "Field-test subscription verification must retain trip scope");
+assert.ok(!pushSubscribeRoute.includes('query = query.eq("trip_id", tripId)'), "Push readiness must recognize an account device subscription across trips");
 const adminLiveTestRoute = read("app/api/admin/roamly/live-test/route.ts");
 const adminLiveTestConsole = read("components/admin/AdminLiveTestConsole.tsx");
 const liveCompanionTest = read("lib/roamly/liveCompanionTest.ts");

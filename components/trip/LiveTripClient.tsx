@@ -528,11 +528,13 @@ export function LiveTripClient({
     let alive = true;
     const refreshInstallState = async () => {
       const capability = getPushCapabilityState();
-      const [currentNotificationPermission, currentPushReady, currentLocationPermission] = await Promise.all([
-        getNotificationPermissionState(),
-        capability.isStandalone ? hasPushSubscription(fieldTestMode ? tripId : undefined) : Promise.resolve(false),
-        getBrowserLocationPermission()
-      ]);
+      const currentNotificationPermission = await getNotificationPermissionState();
+      const currentPushReady = capability.isStandalone
+        ? currentNotificationPermission === "granted"
+          ? (await ensurePushSubscription(fieldTestMode ? tripId : undefined)).ok
+          : await hasPushSubscription(fieldTestMode ? tripId : undefined)
+        : false;
+      const currentLocationPermission = await getBrowserLocationPermission();
       if (!alive) return;
       const resolvedLocationPermission = currentLocationPermission || permission;
       setIsStandalone(capability.isStandalone);
@@ -755,7 +757,10 @@ export function LiveTripClient({
     setError("");
     setNotice("");
     try {
-      const permissionResult = await requestNotificationPermission();
+      const currentPermission = await getNotificationPermissionState();
+      const permissionResult = currentPermission === "granted"
+        ? currentPermission
+        : await requestNotificationPermission();
       setNotificationPermission(permissionResult);
       if (permissionResult !== "granted") {
         if (permissionResult === "denied") {
