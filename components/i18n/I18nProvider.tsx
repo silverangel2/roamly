@@ -2,8 +2,9 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  normalizeLocale,
-  supportedLocales,
+  ROAMLY_LOCALE_COOKIE,
+  ROAMLY_LOCALE_STORAGE_KEY,
+  resolveRoamlyLocale,
   translateExactText,
   translateKey,
   type RoamlyLocale
@@ -23,7 +24,7 @@ function cookieLocale() {
   return document.cookie
     .split(";")
     .map((item) => item.trim())
-    .find((item) => item.startsWith("roamly_lang="))
+    .find((item) => item.startsWith(`${ROAMLY_LOCALE_COOKIE}=`))
     ?.split("=")[1];
 }
 
@@ -31,15 +32,20 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<RoamlyLocale>("en");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("roamly_lang") || cookieLocale();
-    setLocaleState(stored ? normalizeLocale(stored) : "en");
+    const cookie = cookieLocale();
+    const stored = window.localStorage.getItem(ROAMLY_LOCALE_STORAGE_KEY);
+    setLocaleState(resolveRoamlyLocale({
+      persistedLocale: cookie,
+      storedLocale: stored,
+      browserLocale: navigator.language
+    }));
   }, []);
 
   const setLocale = (nextLocale: RoamlyLocale) => {
-    const safeLocale = supportedLocales.includes(nextLocale) ? nextLocale : normalizeLocale(nextLocale);
+    const safeLocale = resolveRoamlyLocale({ explicitLocale: nextLocale });
     setLocaleState(safeLocale);
-    window.localStorage.setItem("roamly_lang", safeLocale);
-    document.cookie = `roamly_lang=${safeLocale}; path=/; max-age=31536000; samesite=lax`;
+    window.localStorage.setItem(ROAMLY_LOCALE_STORAGE_KEY, safeLocale);
+    document.cookie = `${ROAMLY_LOCALE_COOKIE}=${safeLocale}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = safeLocale;
   };
 

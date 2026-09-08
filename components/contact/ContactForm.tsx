@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { localizeCustomerError } from "@/lib/i18n";
 
 const categories = [
-  ["support", "Support"],
-  ["billing", "Billing"],
-  ["itinerary", "Itinerary"],
-  ["partner", "Partner"],
-  ["bug", "Bug"],
-  ["other", "Other"]
+  ["support", "support"], ["billing", "billing"], ["itinerary", "itinerary"], ["partner", "partner"], ["bug", "bug"], ["other", "other"]
 ] as const;
 
 type ContactFormProps = {
@@ -16,6 +13,7 @@ type ContactFormProps = {
 };
 
 export function ContactForm({ supportEmail }: ContactFormProps) {
+  const { locale, t } = useI18n();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [category, setCategory] = useState("support");
@@ -41,10 +39,10 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data?.error || "Message could not be sent.");
+        throw new Error(data?.error || t("ui.email.contactSendFailed"));
       }
 
-      setNotice(data?.message || "Thanks - your message was received.");
+      setNotice(data?.message || t("ui.email.contactReceived"));
       setName("");
       setEmail("");
       setCategory("support");
@@ -52,7 +50,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       setSubject("");
       setMessage("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Message could not be sent.");
+      setError(localizeCustomerError(locale, err, "ui.email.contactSendFailed"));
     } finally {
       setBusy(false);
     }
@@ -62,7 +60,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
     <form onSubmit={submit} className="grid gap-4 rounded-[1.5rem] border border-cloud bg-white/92 p-5 shadow-soft">
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="text-sm font-black text-ink">Name</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contactName")}</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -72,7 +70,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-black text-ink">Email</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contactEmail")}</span>
           <input
             value={email}
             onChange={(event) => setEmail(event.target.value)}
@@ -86,32 +84,32 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
 
       <div className="grid gap-4 sm:grid-cols-[0.8fr_1.2fr]">
         <label className="block">
-          <span className="text-sm font-black text-ink">Category</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contactCategory")}</span>
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
             className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
           >
-            {categories.map(([value, label]) => (
+            {categories.map(([value]) => (
               <option key={value} value={value}>
-                {label}
+                {t(`ui.email.contactCategory_${value}`)}
               </option>
             ))}
           </select>
         </label>
         <label className="block">
-          <span className="text-sm font-black text-ink">Trip ID</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contactTripId")}</span>
           <input
             value={tripId}
             onChange={(event) => setTripId(event.target.value)}
-            placeholder="Optional"
+            placeholder={t("ui.booking.optional")}
             className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
           />
         </label>
       </div>
 
       <label className="block">
-        <span className="text-sm font-black text-ink">Subject</span>
+        <span className="text-sm font-black text-ink">{t("ui.email.contactSubject")}</span>
         <input
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
@@ -122,7 +120,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       </label>
 
       <label className="block">
-        <span className="text-sm font-black text-ink">Message</span>
+        <span className="text-sm font-black text-ink">{t("ui.email.contactMessage")}</span>
         <textarea
           value={message}
           onChange={(event) => setMessage(event.target.value)}
@@ -134,14 +132,14 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold leading-5 text-slate-500">
-          Need help by email? Contact {supportEmail}.
+          {t("ui.email.contactSupport", "Need help by email? Contact {email}.").replace("{email}", supportEmail)}
         </p>
         <button
           type="submit"
           disabled={busy}
           className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-60"
         >
-          {busy ? "Sending..." : "Send message"}
+          {busy ? t("ui.status.sending") : t("ui.email.contactSend")}
         </button>
       </div>
 

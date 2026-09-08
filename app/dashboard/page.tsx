@@ -8,6 +8,8 @@ import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 
 type DashboardTrip = {
   id: string;
@@ -29,12 +31,12 @@ type DashboardTrip = {
   created_at: string;
 };
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, locale: RoamlyLocale) {
   if (!value) return "Flexible dates";
-  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+  return formatRoamlyDate(value, locale, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function TripCard({ trip }: { trip: DashboardTrip }) {
+function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale }) {
   const locked = isTripLocked(trip);
   const hasTracking = tripHasTrackingUnlock(trip);
   const href = hasTracking ? `/trip/${trip.id}/live` : `/trip/${trip.id}`;
@@ -50,7 +52,7 @@ function TripCard({ trip }: { trip: DashboardTrip }) {
           </p>
           <h3 className="mt-2 text-xl font-black text-ink">{trip.title || destination}</h3>
           <p className="mt-1 text-sm font-bold text-slate-500">
-            {formatDate(trip.start_date)} · {daysCount || "?"} days
+            {formatDate(trip.start_date, locale)} · {daysCount || "?"} days
           </p>
         </div>
         <span className="rounded-full bg-mist px-3 py-2 text-xs font-black text-slate-600">
@@ -71,6 +73,7 @@ function TripCard({ trip }: { trip: DashboardTrip }) {
 }
 
 export default async function DashboardPage() {
+  const locale = await getServerLocale();
   const current = await getCurrentUser();
 
   if (!current.configured) {
@@ -168,7 +171,7 @@ export default async function DashboardPage() {
         {typedTrips.length ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {typedTrips.map((trip) => (
-              <TripCard key={trip.id} trip={trip} />
+              <TripCard key={trip.id} trip={trip} locale={locale} />
             ))}
           </div>
         ) : (

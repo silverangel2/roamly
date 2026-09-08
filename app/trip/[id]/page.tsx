@@ -94,23 +94,23 @@ function compact(value: string | null | undefined, fallback: string, max = 190) 
   return `${text.slice(0, max - 1).trim()}...`;
 }
 
-function formatTripDate(value?: string | null) {
+function formatTripDate(value?: string | null, locale = "en") {
   if (!value) return "";
   const date = new Date(`${value}T00:00:00`);
   if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric"
   }).format(date);
 }
 
-function formatBookingTimestamp(value: unknown) {
+function formatBookingTimestamp(value: unknown, locale = "en") {
   const text = getString(value);
   if (!text) return "";
   const date = new Date(text);
   if (!Number.isFinite(date.getTime())) return text;
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -118,8 +118,8 @@ function formatBookingTimestamp(value: unknown) {
   }).format(date);
 }
 
-function bookingDetailText(booking: Record<string, unknown>) {
-  const timestamp = formatBookingTimestamp(booking.start_at);
+function bookingDetailText(booking: Record<string, unknown>, locale = "en") {
+  const timestamp = formatBookingTimestamp(booking.start_at, locale);
   const legacyDate = getString(booking.start_date);
   const legacyTime = getString(booking.start_time);
   const legacyTimestamp = [legacyDate, legacyTime].filter(Boolean).join(" ");
@@ -130,9 +130,9 @@ function bookingDetailText(booking: Record<string, unknown>) {
   ].filter(Boolean).join(" · ");
 }
 
-function formatDateRange(trip: RoamlyTripRecord) {
-  const start = formatTripDate(trip.start_date);
-  const end = formatTripDate(trip.end_date);
+function formatDateRange(trip: RoamlyTripRecord, locale = "en") {
+  const start = formatTripDate(trip.start_date, locale);
+  const end = formatTripDate(trip.end_date, locale);
   if (start && end) return start === end ? start : `${start} - ${end}`;
   return start || end || "Dates flexible";
 }
@@ -556,10 +556,12 @@ function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
 
 function DayTimelineCard({
   day,
-  currency
+  currency,
+  locale
 }: {
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
+  locale: string;
 }) {
   const timelineItems = buildDisplayTimelineItems(day);
   const places = [
@@ -581,7 +583,7 @@ function DayTimelineCard({
           <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
             Day {day.day_number}
             {day.city ? ` · ${day.city}` : ""}
-            {day.date ? ` · ${formatTripDate(day.date)}` : ""}
+            {day.date ? ` · ${formatTripDate(day.date, locale)}` : ""}
           </p>
           <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">{day.title}</h3>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
@@ -2011,7 +2013,8 @@ function CompactPrintItinerary({
   currency,
   budgetDisplay,
   travelStyle,
-  dayCount
+  dayCount,
+  locale
 }: {
   trip: RoamlyTripRecord;
   itinerary: RoamlyItinerary;
@@ -2022,6 +2025,7 @@ function CompactPrintItinerary({
   budgetDisplay: string;
   travelStyle: string;
   dayCount: number;
+  locale: string;
 }) {
   const recommendedTransport = recommendedTransportFromItinerary(itinerary);
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
@@ -2048,7 +2052,7 @@ function CompactPrintItinerary({
         <p className="roamly-pdf-summary">{compact(itinerary.destination_summary, "Trip plan", 240)}</p>
         <div className="roamly-pdf-info-grid">
           <PrintInfoCell label="Destination" value={destinationLabel} />
-          <PrintInfoCell label="Dates" value={formatDateRange(trip)} />
+          <PrintInfoCell label="Dates" value={formatDateRange(trip, locale)} />
           <PrintInfoCell label="Travellers" value={travelerSummary(trip)} />
           <PrintInfoCell label="Days" value={dayCount ? `${dayCount} days` : "Flexible"} />
           <PrintInfoCell label="Budget" value={budgetDisplay} />
@@ -2111,7 +2115,7 @@ function CompactPrintItinerary({
                 {bookings.slice(0, 8).map((booking, index) => (
                   <li key={`print-booking-${index}`}>
                     <strong>{getString(booking.title) || "Saved booking"}</strong>
-                    <span>{bookingDetailText(booking)}</span>
+                    <span>{bookingDetailText(booking, locale)}</span>
                   </li>
                 ))}
               </ul>
@@ -2390,7 +2394,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Dates</p>
-                  <p className="mt-1 text-sm font-black text-ink">{formatDateRange(trip)}</p>
+                  <p className="mt-1 text-sm font-black text-ink">{formatDateRange(trip, locale)}</p>
                 </div>
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Days</p>
@@ -2523,7 +2527,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                         return (
                           <div key={dayNumber} className={`roamly-day-panel roamly-day-panel-${dayNumber}`}>
                             {day ? (
-                              <DayTimelineCard day={day} currency={currency} />
+                              <DayTimelineCard day={day} currency={currency} locale={locale} />
                             ) : (
                               <BuildingDayCard
                                 dayNumber={dayNumber}
@@ -2617,6 +2621,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             budgetDisplay={budgetDisplay}
             travelStyle={travelStyle}
             dayCount={dayCount}
+            locale={locale}
           />
         ) : null}
       </div>

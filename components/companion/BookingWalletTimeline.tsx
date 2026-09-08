@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/lib/roamly/bookingWallet";
 import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking } from "@/lib/roamly/bookingWallet";
+import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 
 type BookingWalletTimelineProps = {
   tripId: string;
@@ -8,6 +9,7 @@ type BookingWalletTimelineProps = {
   destinationLabel: string;
   bookings: TripBookingRecord[];
   companionUnlocked?: boolean;
+  locale: RoamlyLocale;
 };
 
 const statusCopy: Record<TripBookingStatus, string> = {
@@ -48,28 +50,23 @@ function BookingIcon({ type }: { type: TripBookingType }) {
   );
 }
 
-function formatDateTime(value: string | null) {
+function formatDateTime(value: string | null, locale: RoamlyLocale) {
   if (!value) return "Date not set";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Date not set";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(date);
+  return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-function formatDateRange(booking: TripBookingRecord) {
+function formatDateRange(booking: TripBookingRecord, locale: RoamlyLocale) {
   const start = booking.check_in_time || booking.start_time;
   const end = booking.check_out_time || booking.end_time;
   if (!start && !end) return "Date not set";
-  if (!end) return formatDateTime(start);
+  if (!end) return formatDateTime(start, locale);
   const startDate = new Date(start || "");
   const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return formatDateTime(start);
-  const formatter = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" });
-  return `${formatter.format(startDate)}-${formatter.format(endDate)}`;
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return formatDateTime(start, locale);
+  const formatter = (date: Date) => formatRoamlyDate(date, locale, { month: "short", day: "numeric" });
+  return `${formatter(startDate)}-${formatter(endDate)}`;
 }
 
 function routeLine(booking: TripBookingRecord) {
@@ -79,21 +76,17 @@ function routeLine(booking: TripBookingRecord) {
   return booking.provider || "Booking";
 }
 
-function primaryDetail(booking: TripBookingRecord) {
-  if (booking.booking_type === "hotel") return formatDateRange(booking);
-  return formatDateTime(booking.start_time || booking.check_in_time);
+function primaryDetail(booking: TripBookingRecord, locale: RoamlyLocale) {
+  if (booking.booking_type === "hotel") return formatDateRange(booking, locale);
+  return formatDateTime(booking.start_time || booking.check_in_time, locale);
 }
 
-function money(booking: TripBookingRecord) {
+function money(booking: TripBookingRecord, locale: RoamlyLocale) {
   if (booking.total_price == null || !booking.currency) return null;
-  return new Intl.NumberFormat("en", {
-    style: "currency",
-    currency: booking.currency,
-    maximumFractionDigits: 0
-  }).format(booking.total_price);
+  return formatRoamlyCurrency(booking.total_price, booking.currency, locale, { maximumFractionDigits: 0 });
 }
 
-function detailRows(booking: TripBookingRecord) {
+function detailRows(booking: TripBookingRecord, locale: RoamlyLocale) {
   return [
     ["Confirmation", booking.confirmation_code],
     ["Flight", booking.flight_number],
@@ -101,8 +94,8 @@ function detailRows(booking: TripBookingRecord) {
     ["Gate", booking.gate],
     ["Room", booking.room_type],
     ["Address", booking.address],
-    ["Price", money(booking)],
-    ["Cancellation", booking.cancellation_deadline ? formatDateTime(booking.cancellation_deadline) : booking.cancellation_terms]
+    ["Price", money(booking, locale)],
+    ["Cancellation", booking.cancellation_deadline ? formatDateTime(booking.cancellation_deadline, locale) : booking.cancellation_terms]
   ].filter((row): row is [string, string] => Boolean(row[1]));
 }
 
@@ -120,7 +113,7 @@ function navLinkClass(active = false) {
   return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ink text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
-export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, bookings, companionUnlocked = false }: BookingWalletTimelineProps) {
+export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, bookings, companionUnlocked = false, locale }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
@@ -163,7 +156,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
             <div className="min-w-0">
               <h2 className="text-2xl font-black text-ink">{next.title}</h2>
               <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(next)}</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(next)}</p>
+              <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(next, locale)}</p>
             </div>
           </div>
         </section>
@@ -173,7 +166,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
         {activeBookings.length ? (
           <div className="grid gap-3">
             {activeBookings.map((booking) => {
-              const rows = detailRows(booking);
+              const rows = detailRows(booking, locale);
               return (
                 <article key={booking.id} className="rounded-[1.1rem] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
                   <div className="flex items-start gap-3">
@@ -183,7 +176,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
                         <div className="min-w-0">
                           <h3 className="truncate text-lg font-black text-ink">{booking.provider || booking.title}</h3>
                           <p className="mt-1 text-base font-black text-slate-700">{routeLine(booking)}</p>
-                          <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking)}</p>
+                          <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
                         </div>
                         <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-sm font-black ${statusClass(booking.booking_status)}`}>
                           {statusCopy[booking.booking_status]}

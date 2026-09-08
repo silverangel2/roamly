@@ -2459,16 +2459,16 @@ assert.ok(bookingWalletTimeline.includes("/bookings/add"), "Booking Wallet Add b
 
 const manualBookingForm = read("components/companion/ManualBookingForm.tsx");
 [
-  "Upload confirmation",
-  "Enter manually",
-  "Review booking",
-  "Check this field",
-  "Airline",
-  "Flight number",
-  "Hotel name",
-  "Check-in",
-  "Check-out",
-  "Save booking",
+  "ui.booking.upload",
+  "ui.booking.manual",
+  "ui.booking.review",
+  "ui.booking.checkField",
+  "ui.booking.airline",
+  "ui.booking.flightNumber",
+  "ui.booking.hotelName",
+  "ui.booking.checkIn",
+  "ui.booking.checkOut",
+  "ui.booking.saveWhatBooked",
   `/api/trips/${"${tripId}"}/bookings/extract`,
   `/api/trips/${"${tripId}"}/bookings`
 ].forEach((needle) => assert.ok(manualBookingForm.includes(needle), `manual booking form missing ${needle}`));
@@ -2975,7 +2975,7 @@ assert.ok(pushClient.includes("getSubscription()") && pushClient.includes("pushM
 assert.ok(pushClient.includes('"/api/roamly/push/subscribe"') && pushClient.includes("NEXT_PUBLIC_VAPID_PUBLIC_KEY"), "field test must reuse production VAPID and subscribe infrastructure");
 assert.ok(liveTripClient.includes("ensurePushSubscription()"), "Live Companion must use the production push subscription path");
 assert.ok(liveTripClient.includes("navigator.geolocation.watchPosition"), "field test must use real browser GPS");
-assert.ok(liveTripClient.includes("mapsUrlForActivity") && liveTripClient.includes("Check in"), "customer and field test must retain shared activity actions");
+assert.ok(liveTripClient.includes("mapsUrlForActivity") && liveTripClient.includes("ui.actions.checkIn"), "customer and field test must retain shared activity actions");
 assert.ok(!liveTripClient.includes("installation is automatic"), "iOS setup must not claim installation is automatic");
 
 const adminFieldTest = read("components/admin/AdminLiveTestConsole.tsx");

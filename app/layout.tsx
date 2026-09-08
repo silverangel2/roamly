@@ -3,6 +3,7 @@ import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { AiraloImpactScript } from "@/components/roamly/AiraloImpactScript";
 import { TravelpayoutsDriveScript } from "@/components/roamly/TravelpayoutsDriveScript";
+import { getServerLocale } from "@/lib/i18n-server";
 
 export const metadata: Metadata = {
   title: {
@@ -29,9 +30,10 @@ export const viewport: Viewport = {
   themeColor: "#0f766e"
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getServerLocale();
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body>
         <AiraloImpactScript />
         <TravelpayoutsDriveScript />

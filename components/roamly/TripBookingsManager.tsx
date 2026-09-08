@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type Booking = {
   id?: string;
@@ -36,48 +38,36 @@ type Booking = {
 
 const bookingTypes = ["flight", "hotel", "attraction", "restaurant", "transport", "car_rental", "event", "other"];
 
-function formatMoney(cents?: number | null, currency = "CAD") {
+function formatMoney(cents: number | null | undefined, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
   if (cents == null) return "No cost saved";
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: (currency || "CAD").toUpperCase(),
-    maximumFractionDigits: 0
-  }).format(cents / 100);
+  return formatRoamlyCurrency(cents / 100, (currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
 }
 
 function bookingProvider(booking: Booking) {
   return booking.provider_name || booking.provider || "";
 }
 
-function bookingCostLabel(booking: Booking) {
-  if (typeof booking.amount_cents === "number") return formatMoney(booking.amount_cents, booking.currency || "CAD");
+function bookingCostLabel(booking: Booking, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
+  if (typeof booking.amount_cents === "number") return formatMoney(booking.amount_cents, booking.currency || "CAD", locale);
   if (typeof booking.total_price === "number") {
-    return new Intl.NumberFormat("en-CA", {
-      style: "currency",
-      currency: (booking.currency || "CAD").toUpperCase(),
-      maximumFractionDigits: 0
-    }).format(booking.total_price);
+    return formatRoamlyCurrency(booking.total_price, (booking.currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
   }
   return "No cost saved";
 }
 
-function bookingWhen(booking: Booking) {
+function bookingWhen(booking: Booking, locale: Parameters<typeof formatRoamlyDate>[1]) {
   const timestamp = booking.start_at || booking.start_time || "";
   if (timestamp && timestamp.includes("T")) {
     const date = new Date(timestamp);
     if (Number.isFinite(date.getTime())) {
-      return new Intl.DateTimeFormat("en-CA", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit"
-      }).format(date);
+      return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     }
   }
   return [booking.start_date, booking.start_time].filter(Boolean).join(" ");
 }
 
 export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
+  const { locale } = useI18n();
   const committed = bookings
     .filter((booking) => booking.booking_status !== "cancelled")
     .reduce((sum, booking) => sum + (booking.amount_cents || (booking.total_price ? Math.round(booking.total_price * 100) : 0)), 0);
@@ -85,7 +75,7 @@ export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
   return (
     <div className="rounded-[1.5rem] border border-cloud bg-mist p-4">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Committed budget</p>
-      <p className="mt-2 text-3xl font-black text-ink">{formatMoney(committed)}</p>
+      <p className="mt-2 text-3xl font-black text-ink">{formatMoney(committed, "CAD", locale)}</p>
       <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
         Confirmed bookings count as committed cost. Price estimates stay separate.
       </p>
@@ -118,6 +108,7 @@ function Field({
 }
 
 export function TripBookingsList({ tripId, bookings }: { tripId: string; bookings: Booking[] }) {
+  const { locale } = useI18n();
   void tripId;
   if (!bookings.length) {
     return (
@@ -144,12 +135,12 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean dark:text-cyan-200">{booking.booking_type}</p>
                 <h3 className="mt-1 text-lg font-black text-ink dark:text-white">{booking.title || "Booking"}</h3>
                 <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">
-                  {[bookingProvider(booking), booking.flight_number, bookingWhen(booking)].filter(Boolean).join(" · ")}
+                  {[bookingProvider(booking), booking.flight_number, bookingWhen(booking, locale)].filter(Boolean).join(" · ")}
                 </p>
                 {address ? <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">{address}</p> : null}
               </div>
               <div className="w-fit rounded-full bg-mist px-3 py-2 text-xs font-black text-ink dark:bg-white/10 dark:text-white">
-                {bookingCostLabel(booking)}
+                {bookingCostLabel(booking, locale)}
               </div>
             </div>
             <details className="mt-3 rounded-2xl bg-mist px-3 py-3 dark:bg-white/10">

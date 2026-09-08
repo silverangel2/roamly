@@ -14,7 +14,10 @@
     "test:gmail-bookings": "node scripts/roamly-gmail-booking-reminder-checks.mjs",
     "test:pdf": "node scripts/roamly-pdf-checks.mjs",
     "test:tracking": "node scripts/roamly-tracking-checks.mjs",
-    "test:production": "node scripts/roamly-production-checks.mjs"
+    "test:production": "node scripts/roamly-production-checks.mjs",
+    "test:i18n": "node scripts/roamly-i18n-integrity-check.mjs",
+    "test:customer-i18n": "node scripts/roamly-customer-i18n-check.mjs",
+    "test:itinerary-language": "node scripts/roamly-itinerary-language-check.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

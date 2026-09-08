@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
-const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "SELECT", "OPTION", "CODE", "PRE"]);
+const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "CODE", "PRE"]);
 
 function shouldSkip(node: Text) {
   const parent = node.parentElement;
@@ -21,6 +21,7 @@ function preserveWhitespace(original: string, translated: string) {
 export function TranslatedTextBoundary({ children }: { children: React.ReactNode }) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const originals = useRef(new WeakMap<Text, string>());
+  const attributeOriginals = useRef(new WeakMap<Element, Map<string, string>>());
   const { locale, translateText } = useI18n();
 
   useEffect(() => {
@@ -45,6 +46,19 @@ export function TranslatedTextBoundary({ children }: { children: React.ReactNode
       while (current) {
         translateNode(current as Text);
         current = walker.nextNode();
+      }
+      const elements = target instanceof Element ? [target, ...Array.from(target.querySelectorAll("*"))] : [];
+      for (const element of elements) {
+        if (element.closest("[data-no-translate]") || SKIP_TAGS.has(element.tagName)) continue;
+        for (const attribute of ["aria-label", "title", "alt", "placeholder"]) {
+          const value = element.getAttribute(attribute);
+          if (!value || !value.trim()) continue;
+          const originalsForElement = attributeOriginals.current.get(element) || new Map<string, string>();
+          if (!originalsForElement.has(attribute)) originalsForElement.set(attribute, value);
+          attributeOriginals.current.set(element, originalsForElement);
+          const base = originalsForElement.get(attribute) || value;
+          element.setAttribute(attribute, translateText(base.trim()));
+        }
       }
     }
 

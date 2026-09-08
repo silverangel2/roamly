@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { localizeCustomerError } from "@/lib/i18n";
 
 type FeedbackMode = "post_trip" | "in_trip";
 
@@ -41,6 +43,7 @@ function ScoreSelect({
 }
 
 export function TripFeedbackForm({ tripId }: { tripId: string }) {
+  const { locale, t } = useI18n();
   const [mode, setMode] = useState<FeedbackMode>("post_trip");
   const [overallSatisfaction, setOverallSatisfaction] = useState<number | null>(null);
   const [transportationSatisfaction, setTransportationSatisfaction] = useState<number | null>(null);
@@ -94,13 +97,13 @@ export function TripFeedbackForm({ tripId }: { tripId: string }) {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok === false) {
-        setError(data.error || "Feedback could not be saved.");
+        setError(localizeCustomerError(locale, data.error, "ui.status.feedbackSaveFailed"));
         return;
       }
-      setMessage(data.message || "Feedback saved.");
+      setMessage(data.message ? localizeCustomerError(locale, data.message, "ui.status.feedbackSaved") : t("ui.status.feedbackSaved"));
       setLearned(Array.isArray(data.proposedPreferences) ? data.proposedPreferences : []);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Feedback could not be saved.");
+      setError(localizeCustomerError(locale, saveError, "ui.status.feedbackSaveFailed"));
     } finally {
       setSaving(false);
     }

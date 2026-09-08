@@ -38,9 +38,10 @@
       "translateItinerary": "旅程を翻訳",
       "sendItinerary": "旅程を送信",
       "close": "閉じる",
-      "closeEmailModal": "メール画面を閉じる"
+      "closeEmailModal": "メール画面を閉じる",
+      "removeTrip": "旅行を削除", "open":"開く", "markRead":"既読にする"
     },
-    "status": {
+    "status": {"now":"現在","countdown":"カウントダウン","leaveBy":"出発時刻","route":"ルート","progress":"進捗","hours":"営業時間","details":"予約の詳細","provider":"提供元","reference":"参照番号","openMaps":"地図で開く",
       "working": "処理中...",
       "loading": "読み込み中...",
       "empty": "まだ何もありません。",
@@ -53,11 +54,20 @@
       "emailNotConfigured": "メール送信はまだ設定されていません。PDFを書き出すか、旅のリンクをコピーできます。",
       "itineraryEmailSent": "旅程メールを送信しました。",
       "emailSendFailed": "旅程メールを送信できませんでした。",
-      "sending": "送信中..."
+      "sending": "送信中...", "saving": "保存中…", "terminal": "ターミナル", "noActiveTrip": "アクティブな旅行はありません", "nothingLive": "まだライブ状態ではありません。", "unlockCompanion": "まずライブトラベルコンパニオンを解除すると、Roamlyが旅行を案内します。", "checkedActivities": "確認済みアクティビティ", "currentDay": "今日", "nearbyNow": "現在地周辺", "noNearbyActivity": "近くにアクティビティが見つかりません。", "nearbyUpdate": "保存した立ち寄り先の近くに到着すると、Roamlyが更新します。",
+      "unexpectedError": "問題が発生しました。", "noCheckedActivities": "確認済みのアクティビティはまだありません。", "dayNumber": "{day}日目", "noTimelineActivities": "この日のタイムライン活動はまだ保存されていません。",
+      "tripRemovalFailed": "この旅行を削除できませんでした。", "inAppOnly":"アプリ内のみ","emailSent":"メール送信済み","sendingEmail":"メール送信中","retryingEmail":"メール再送中","emailQueued":"メール待機中","deliveryIssue":"配信の問題","inAppAvailable":"アプリ内で利用可能","notificationTimeline":"通知タイムライン","unread":"未読","alertEmailUnavailable":"アラートはここで確認できますが、メールを配信できませんでした。","noNotifications":"通知はまだありません。",
+      "feedbackSaved": "フィードバックを保存しました。", "companionControl":"コンパニオン設定","howCompanionHelps":"Roamlyにどのような支援を求めますか？","companionControlMode":"コンパニオン操作モード","suggestChanges":"変更を提案","suggestChangesDescription":"Roamlyは旅程を変更する前に確認します。","fixSimpleChanges":"簡単な変更を修正","fixSimpleChangesDescription":"Roamlyは無料で低リスクな時間変更や柔軟な予定を調整できます。","fixWithinRules":"自分のルール内で修正","fixWithinRulesDescription":"Roamlyは設定した範囲内で承認済みの変更を行えます。","companionLoadFailed":"コンパニオン設定を読み込めませんでした。","companionSaveFailed":"コンパニオン設定を保存できませんでした。","companionSaved":"コンパニオン設定を保存しました。","settingNotSaved":"設定を保存できませんでした。もう一度お試しください。","pauseDescription":"一時停止するとライブ案内と通知が停止します。バックグラウンド位置情報は任意です。","pause":"一時停止","resume":"再開","disable":"無効にする","backgroundOn":"バックグラウンド有効","backgroundOff":"バックグラウンド無効","off":"オフ","paused":"一時停止中","ready":"準備完了","companionPaused":"コンパニオンを1時間停止しました。","companionResumed":"コンパニオンを再開しました。","companionDisabled":"コンパニオンを無効にしました。","backgroundDisabled":"バックグラウンド位置情報を無効にしました。","backgroundSaved":"バックグラウンド位置情報の設定を保存しました。","liveCompanion":"ライブコンパニオン","phoneReminders":"スマホのリマインダー","enablePhoneReminders":"スマホのリマインダーを有効にする","phoneRemindersDescription":"Roamlyは荷物、書類、チェックイン時刻、旅行中の次の予定をお知らせできます。","phoneRemindersBlocked":"スマホのリマインダーがブロックされています。Roamly内の通知は引き続き利用できます。","notificationsUnavailable":"このブラウザまたは端末ではOS通知を利用できません。対応ブラウザを使うか、iPhoneのホーム画面にRoamlyを追加してください。","homeScreenReminder":"iPhoneでは共有、ホーム画面に追加の順にタップし、新しいアイコンからRoamlyを開いてください。","phoneRemindersEnabled":"スマホ／ブラウザのリマインダーが有効です。","phoneRemindersEnabledShort":"スマホのリマインダーが有効です。","phoneRemindersOff":"スマホ／ブラウザのリマインダーをオフにしました。アプリ内通知は引き続き機能します。","phoneRemindersPermission":"アプリ内通知は自動的に機能します。スマホのリマインダーにはこの端末でブラウザの許可が必要です。","phoneRemindersRegistered":"リマインダーが有効になり、この端末がRoamlyに登録されました。","pushEnableFailed":"プッシュ通知を有効にできませんでした。","pushDisableFailed":"プッシュ通知を無効にできませんでした。","browserPermission":"現在のブラウザ権限","registerQaPush":"QAプッシュを登録","turnOff":"オフにする","checkState":"状態を確認",
+      "feedbackSaveFailed": "フィードバックを保存できませんでした。",
+      "removing": "削除中…",
+      "flexibleDates": "日付は柔軟に設定",
+      "days": "日", "upNextNearby": "近くの次の予定", "noNextActivity": "次のアクティビティはまだ準備できていません。", "metersAway": "{distance}m先"
     },
     "email": {
       "sendTripDocument": "この旅のドキュメントを送信",
-      "recipientEmail": "宛先メール"
+      "recipientEmail": "宛先メール",
+      "contact": {"contactName":"名前","contactEmail":"メールアドレス","contactCategory":"カテゴリ","contactTripId":"旅行ID","contactSubject":"件名","contactMessage":"メッセージ","contactSupport":"メールでサポートが必要ですか？{email}までご連絡ください。","contactSend":"メッセージを送信","contactSendFailed":"メッセージを送信できませんでした。","contactReceived":"ありがとうございます。メッセージを受け取りました。","contactCategory_support":"サポート","contactCategory_billing":"請求","contactCategory_itinerary":"旅程","contactCategory_partner":"パートナー","contactCategory_bug":"不具合","contactCategory_other":"その他"},
+      "booking": {"flight":"フライト","hotel":"ホテル","activity":"アクティビティ","restaurant":"レストラン","other":"その他","checkField":"この項目を確認","add":"予約を追加","saveWhatBooked":"予約内容を保存","enterOrUpload":"入力するか、確認書をアップロードしてください。","upload":"確認書をアップロード","manual":"手動で入力","back":"予約に戻る","review":"予約を確認","needsChecking":"保存する前に確認が必要な項目があります。","confirmDetails":"保存する前に内容を確認してください。","airline":"航空会社","flightNumber":"便名","from":"出発地","to":"到着地","airlineCode":"航空会社コード","gate":"搭乗口","confirmationCode":"確認コード","address":"住所","location":"場所","hotelName":"ホテル名","name":"名前","date":"日付","departureTime":"出発時刻","arrivalDate":"到着日","arrivalTime":"到着時刻","baggage":"手荷物","duration":"所要時間","checkIn":"チェックイン","checkOut":"チェックアウト","optional":"任意"}
     }
   },
   "text": {
@@ -434,6 +444,17 @@
     "Missing": "未設定",
     "Optional": "任意",
     "Needs setup": "設定が必要",
+    "Back home": "ホームに戻る", "Welcome back": "おかえりなさい", "Log in": "ログイン", "Sign up": "登録", "Notifications": "通知",
+    "No active trip notifications yet.": "現在アクティブな旅行通知はありません。", "Open dashboard": "ダッシュボードを開く", "Bookings": "予約",
+    "No bookings yet": "予約はまだありません", "Confirmed": "確認済み", "Available": "利用可能", "Optional": "任意", "Add booking": "予約を追加",
+    "Save booking": "予約を保存", "Saving...": "保存中…", "Airline": "航空会社", "Flight number": "便名",
+    "From": "出発地", "To": "到着地", "Confirmation code": "確認コード", "Address": "住所", "Location": "場所",
+    "Live Trip Companion": "ライブトラベルコンパニオン", "Return to trip": "旅行に戻る", "Setup": "設定", "Plan trip": "旅行を計画",
+    "Details": "詳細", "Features": "機能", "Start planning": "計画を始める", "How it works": "使い方",
+    "Terms": "利用規約", "Privacy": "プライバシー", "Contact": "お問い合わせ", "Building your itinerary": "旅程を作成中",
+    "Itinerary generation failed.": "旅程の生成に失敗しました。", "No itinerary yet.": "旅程はまだありません。",
+    "Plan my trip": "旅行を計画する", "Open planner": "プランナーを開く", "Check in": "チェックイン", "Skip": "スキップ",
+    "Open Maps": "マップを開く", "Enable notifications": "通知を有効にする", "Notifications are blocked.": "通知がブロックされています。",
     "Total estimate": "合計見積もり",
     "Premium AI travel planning": "Premium AI travel planning",
     "Plan smarter trips with AI that understands your budget.": "Plan smarter trips with AI that understands your budget.",

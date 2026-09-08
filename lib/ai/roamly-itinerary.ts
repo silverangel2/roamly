@@ -17,6 +17,7 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { describeTravelEssentialsContext } from "@/lib/roamly/amazonAffiliate";
+import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION } from "@/lib/roamly/generationLanguage";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -397,6 +398,8 @@ export function buildPrompt(payload: TripPlannerPayload, validationErrors: strin
 
   return `Create a practical travel itinerary for Roamly.
 
+${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
+
 Traveler input:
 - Trip type: ${payload.tripType === "multi_city" ? "multi-city trip" : "single destination"}
 - Route: ${routeSummary(payload)}
@@ -647,6 +650,8 @@ function buildCompactPrompt(payload: TripPlannerPayload, validationErrors: strin
 
   return `Return ONLY valid JSON for a paid Roamly itinerary. Keep all strings concise for mobile cards.
 
+${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
+
 Trip:
 - Language: ${outputLanguage}
 - Route: ${routeSummary(payload)}
@@ -828,6 +833,7 @@ const translationPreserveKeys = new Set([
 
 function shouldPreserveString(key: string, value: string) {
   if (translationPreserveKeys.has(key)) return true;
+  if (/^(Amazon|Stay22|Travelpayouts|Google Maps|Apple Maps|Citymapper|Roamly|Airalo)$/i.test(value)) return true;
   if (/url$/i.test(key)) return true;
   if (/^https?:\/\//i.test(value)) return true;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
@@ -886,7 +892,7 @@ export async function translateRoamlyItinerary(params: {
           {
             role: "system",
             content:
-              "You translate Roamly itinerary JSON. Return strict JSON only. Preserve all keys, structure, prices, dates, URLs, IDs, enum values, and provider names."
+              `${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(params.language)} You are translating an existing itinerary. Translate only Roamly-owned descriptive prose; never translate protected structured facts or official names.`
           },
           {
             role: "user",

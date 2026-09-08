@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { localizeCustomerError } from "@/lib/i18n";
 import { clearActivityNotification, ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
@@ -151,11 +153,11 @@ function getNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function formatClock(value: string | null | undefined, timezone?: string | null) {
+function formatClock(value: string | null | undefined, timezone?: string | null, locale = "en") {
   if (!value) return "Not set";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value || "Not set";
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(locale, {
     hour: "numeric",
     minute: "2-digit",
     timeZone: timezone || undefined
@@ -379,6 +381,7 @@ export function LiveTripClient({
   liveDemoEnabled = false,
   fieldTestMode = false
 }: LiveTripClientProps) {
+  const { t, locale } = useI18n();
   const [items, setItems] = useState(activities);
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
   const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
@@ -774,7 +777,7 @@ export function LiveTripClient({
       setPushReady(true);
       setNotice("Notifications ready");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Push subscription could not be registered. Try again.");
+      setError(localizeCustomerError(locale, err));
     } finally {
       setBusy("");
     }
@@ -801,7 +804,7 @@ export function LiveTripClient({
       await startForegroundLocation();
       setNotice("Live Companion setup is continuing: allow location when your phone asks.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Live Companion setup could not be completed.");
+      setError(localizeCustomerError(locale, err));
     } finally {
       setBusy("");
     }
@@ -944,7 +947,7 @@ export function LiveTripClient({
       writeStoredDemoState(tripId, null);
       demoStateRef.current = null;
       setDemoState(null);
-      setDemoError(err instanceof Error ? err.message : "Live Demo could not start.");
+      setDemoError(localizeCustomerError(locale, err));
     } finally {
       setDemoBusy("");
     }
@@ -1067,7 +1070,7 @@ export function LiveTripClient({
       stopForegroundLocation();
       setNotice("Live Companion paused for 1 hour.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not pause Live Companion.");
+      setError(localizeCustomerError(locale, err));
     }
   }
 
@@ -1076,7 +1079,7 @@ export function LiveTripClient({
       await saveLiveControls({ liveCompanionEnabled: true, liveCompanionPausedUntil: null });
       setNotice("Live Companion resumed. Refresh if the paused badge remains.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resume Live Companion.");
+      setError(localizeCustomerError(locale, err));
     }
   }
 
@@ -1132,7 +1135,7 @@ export function LiveTripClient({
       void clearActivityNotification(tripId, activityId);
       setNotice(action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update activity.");
+      setError(localizeCustomerError(locale, err));
     } finally {
       setBusy("");
     }
@@ -1186,7 +1189,7 @@ export function LiveTripClient({
         cleanUrl.searchParams.delete("action");
         window.history.replaceState(null, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Notification action could not be completed.");
+        setError(localizeCustomerError(locale, err));
       }
     })();
   }, [getFreshPosition, location, runAction]);
@@ -1239,7 +1242,7 @@ export function LiveTripClient({
         );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not simulate location.");
+      setError(localizeCustomerError(locale, err));
     } finally {
       setQaBusy("");
     }
@@ -1301,8 +1304,8 @@ export function LiveTripClient({
         <div className="border-b border-cloud px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-slate-500">Live Companion</p>
-              <p className="mt-1 text-sm font-black">{activeDestinationLabel || "Current trip"}</p>
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-slate-500">{t("ui.status.liveCompanion")}</p>
+              <p className="mt-1 text-sm font-black">{activeDestinationLabel || t("ui.nav.trips")}</p>
             </div>
             <span
               className={classNames(
@@ -1319,9 +1322,9 @@ export function LiveTripClient({
 
         <div className="grid gap-4 p-4 md:grid-cols-[1.15fr_0.85fr] md:p-6">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">Now</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{t("ui.status.now", "Now")}</p>
             <h1 className="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
-              {currentActivity?.title || "Schedule ready"}
+              {currentActivity?.title || t("ui.status.ready")}
             </h1>
             <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-slate-600">
               {currentActivity?.shortDescription || model.activationReason}
@@ -1333,12 +1336,12 @@ export function LiveTripClient({
                 <p className="mt-1 truncate text-sm font-black">{nextActivity?.title || "Flexible"}</p>
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Countdown</p>
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.status.countdown", "Countdown")}</p>
                 <p className="mt-1 text-sm font-black">{countdownCopy(model.countdownMinutes)}</p>
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Leave by</p>
-                <p className="mt-1 text-sm font-black">{model.leaveBy ? formatClock(model.leaveBy, timezone) : "Open Maps"}</p>
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.status.leaveBy", "Leave by")}</p>
+                <p className="mt-1 text-sm font-black">{model.leaveBy ? formatClock(model.leaveBy, timezone, locale) : t("ui.status.openMaps")}</p>
               </div>
               {model.route.status === "verified" ? (
                 <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
@@ -1349,22 +1352,22 @@ export function LiveTripClient({
             </div>
 
             <div className="mt-5 rounded-2xl border border-cloud bg-mist px-4 py-3">
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Address</p>
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.booking.address")}</p>
               <p className="mt-1 text-sm font-black leading-5">{primaryAddress(nextActivity || currentActivity)}</p>
               {nextActivity?.openingHours ? (
-                <p className="mt-2 text-xs font-bold text-slate-500">Hours: {nextActivity.openingHours}</p>
+                <p className="mt-2 text-xs font-bold text-slate-500">{t("ui.status.hours")}: {nextActivity.openingHours}</p>
               ) : null}
             </div>
 
             {(nextActivity?.booking?.reference || nextActivity?.booking?.provider || nextActivity?.booking?.gate || nextActivity?.booking?.terminal) ? (
               <details className="mt-3 rounded-2xl border border-cloud bg-mist px-4 py-3">
-                <summary className="cursor-pointer text-sm font-black text-ink">Booking details</summary>
+                <summary className="cursor-pointer text-sm font-black text-ink">{t("ui.status.details")}</summary>
                 <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-600">
                   {[
-                    ["Provider", nextActivity.booking?.provider],
-                    ["Reference", nextActivity.booking?.reference],
-                    ["Terminal", nextActivity.booking?.terminal],
-                    ["Gate", nextActivity.booking?.gate]
+                    [t("ui.status.provider"), nextActivity.booking?.provider],
+                    [t("ui.status.reference"), nextActivity.booking?.reference],
+                    [t("ui.status.terminal"), nextActivity.booking?.terminal],
+                    [t("ui.booking.gate"), nextActivity.booking?.gate]
                   ]
                     .filter((row): row is [string, string] => Boolean(row[1]))
                     .map(([label, value]) => (
@@ -1386,15 +1389,15 @@ export function LiveTripClient({
                 !mapsHref && "pointer-events-none opacity-50"
               )}
             >
-              Open in Maps
+              {t("ui.status.openMaps")}
             </a>
           </div>
 
           <div className="grid gap-3">
             <section className="rounded-2xl border border-cloud bg-mist p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Progress</p>
-                <p className="text-xs font-black text-slate-500">{formatClock(nextStart?.toISOString() || null, timezone)}</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t("ui.status.progress", "Progress")}</p>
+                <p className="text-xs font-black text-slate-500">{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p>
               </div>
               <div className="mt-4 grid gap-3">
                 {timeline.map((item) => {
@@ -1412,7 +1415,7 @@ export function LiveTripClient({
                         <p className={classNames("truncate text-sm font-black", active ? "text-ink" : "text-slate-600")}>
                           {item.title}
                         </p>
-                        <p className="mt-0.5 text-xs font-bold text-slate-500">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate: activeTripStartDate, timezone })?.toISOString() || null, timezone)}</p>
+                        <p className="mt-0.5 text-xs font-bold text-slate-500">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate: activeTripStartDate, timezone })?.toISOString() || null, timezone, locale)}</p>
                       </div>
                     </div>
                   );
@@ -1421,7 +1424,7 @@ export function LiveTripClient({
             </section>
 
             <section className="rounded-2xl border border-cloud bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? "Field test setup" : "Live Companion setup"}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
               {!mobileRuntime ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
                   <h3 className="text-lg font-black text-amber-900">Live Companion runs on your phone</h3>
@@ -1564,7 +1567,7 @@ export function LiveTripClient({
             {nextActivity?.shortDescription || "Use this window for rest, food, or travel buffer."}
           </p>
           <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
-            <p>Start: {formatClock(nextStart?.toISOString() || null, timezone)}</p>
+            <p>Start: {formatClock(nextStart?.toISOString() || null, timezone, locale)}</p>
             <p>Address: {primaryAddress(nextActivity)}</p>
             {model.route.status === "verified" ? <p>Route: {routeCopy(model.route)}</p> : null}
           </div>
@@ -1628,7 +1631,7 @@ export function LiveTripClient({
                 disabled={Boolean(busy) || activity.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activity.status))}
                 className="min-h-11 shrink-0 rounded-2xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-45"
               >
-                Check in
+                {t("ui.actions.checkIn")}
               </button>
             </div>
             <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
@@ -1640,7 +1643,7 @@ export function LiveTripClient({
                   disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
                   className="min-h-11 rounded-2xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-45"
                 >
-                  Mark done
+                  {t("ui.actions.markDone")}
                 </button>
                 <button
                   type="button"
@@ -1648,7 +1651,7 @@ export function LiveTripClient({
                   disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
                   className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-45"
                 >
-                  Skip
+                  {t("ui.actions.skip")}
                 </button>
               </div>
             </details>
@@ -1698,7 +1701,7 @@ export function LiveTripClient({
               disabled={Boolean(busy) || activeStep.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activeStep.status))}
               className="min-h-12 rounded-2xl bg-ocean px-3 py-2 text-sm font-black text-white disabled:opacity-45"
             >
-              Check in
+              {t("ui.actions.checkIn")}
             </button>
             <a
               href={mapsHref || "#"}
@@ -1709,7 +1712,7 @@ export function LiveTripClient({
                 !mapsHref && "pointer-events-none opacity-45"
               )}
             >
-              Open in Maps
+              {t("ui.status.openMaps")}
             </a>
           </div>
         </section>

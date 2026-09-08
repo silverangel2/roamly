@@ -19,6 +19,7 @@ import {
   type RoamlyPreTripEssential
 } from "@/lib/roamly/amazonAffiliate";
 import { crossBorderTravelDocumentReminders, crossBorderTravelNotes, detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
+import { localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
 import {
   applyRoamlyItineraryIntelligence,
   mergeShortTransfersIntoFollowingActivity
@@ -817,7 +818,7 @@ export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary,
       live_timeline: timeline
     };
   });
-  return applyRoamlyItineraryIntelligence({ ...itinerary, daily_itinerary: days }, payload);
+  return localizeGeneratedExactText(applyRoamlyItineraryIntelligence({ ...itinerary, daily_itinerary: days }, payload), payload.language) as RoamlyItinerary;
 }
 
 function timelineHasTransferBetweenMajorItems(day: RoamlyDayPlan) {
@@ -2299,7 +2300,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
     generation_note: cleanString(record.generation_note, "")
   };
 
-  return applyRoamlyItineraryIntelligence(normalized, payload);
+  return localizeGeneratedExactText(applyRoamlyItineraryIntelligence(normalized, payload), payload.language) as RoamlyItinerary;
 }
 
 export function getTripDayFromDate(startDate: string | null | undefined, daysCount: number | null | undefined) {

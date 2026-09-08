@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type CompanionControlMode =
   | "suggest_changes"
@@ -29,18 +30,18 @@ type ModeOption = {
 const OPTIONS: ModeOption[] = [
   {
     value: "suggest_changes",
-    title: "Suggest changes",
-    description: "Roamly asks before changing your itinerary."
+    title: "suggestChanges",
+    description: "suggestChangesDescription"
   },
   {
     value: "fix_simple_changes",
-    title: "Fix simple changes",
-    description: "Roamly may adjust free, low-risk timing and flexible plans."
+    title: "fixSimpleChanges",
+    description: "fixSimpleChangesDescription"
   },
   {
     value: "fix_within_rules",
-    title: "Fix within my rules",
-    description: "Roamly may make approved changes within your limits."
+    title: "fixWithinRules",
+    description: "fixWithinRulesDescription"
   }
 ];
 
@@ -49,6 +50,7 @@ export function CompanionControlCard({
 }: {
   tripId: string;
 }) {
+  const { t } = useI18n();
   const [preferences, setPreferences] =
     useState<Preferences | null>(null);
   const [selectedMode, setSelectedMode] =
@@ -73,7 +75,7 @@ export function CompanionControlCard({
 
         if (!response.ok || !result?.ok) {
           throw new Error(
-            result?.error || "Could not load Companion settings."
+            result?.error || t("ui.status.companionLoadFailed")
           );
         }
 
@@ -83,7 +85,7 @@ export function CompanionControlCard({
         }
       } catch {
         if (!cancelled) {
-          setMessage("Companion settings could not be loaded.");
+          setMessage(t("ui.status.companionLoadFailed"));
         }
       }
     }
@@ -93,7 +95,7 @@ export function CompanionControlCard({
     return () => {
       cancelled = true;
     };
-  }, [tripId]);
+  }, [t, tripId]);
 
   async function saveMode(mode: CompanionControlMode) {
     const previousMode = selectedMode;
@@ -140,16 +142,16 @@ export function CompanionControlCard({
 
       if (!response.ok || !result?.ok) {
         throw new Error(
-          result?.error || "Could not save Companion settings."
+          result?.error || t("ui.status.companionSaveFailed")
         );
       }
 
       setPreferences(result.preferences);
       setSelectedMode(result.preferences.controlMode);
-      setMessage("Companion preference saved.");
+      setMessage(t("ui.status.companionSaved"));
     } catch {
       setSelectedMode(previousMode);
-      setMessage("Your setting was not saved. Please try again.");
+      setMessage(t("ui.status.settingNotSaved"));
     } finally {
       setSaving(false);
     }
@@ -227,19 +229,19 @@ export function CompanionControlCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
-            Companion control
+          {t("ui.status.companionControl")}
           </p>
           <h2
             id="companion-control-title"
             className="mt-2 text-xl font-black text-ink"
           >
-            How should Roamly help?
+            {t("ui.status.howCompanionHelps")}
           </h2>
         </div>
 
         {saving ? (
           <span className="text-xs font-bold text-slate-500">
-            Saving…
+            {t("ui.status.saving")}
           </span>
         ) : null}
       </div>
@@ -247,7 +249,7 @@ export function CompanionControlCard({
       <div
         className="mt-4 grid gap-2"
         role="radiogroup"
-        aria-label="Companion control mode"
+        aria-label={t("ui.status.companionControlMode")}
       >
         {OPTIONS.map((option) => {
           const selected = selectedMode === option.value;
@@ -286,10 +288,10 @@ export function CompanionControlCard({
 
                 <span>
                   <span className="block text-sm font-black text-ink">
-                    {option.title}
+                    {t(`ui.status.${option.title}`)}
                   </span>
                   <span className="mt-1 block text-xs font-bold leading-5 text-slate-500">
-                    {option.description}
+                    {t(`ui.status.${option.description}`)}
                   </span>
                 </span>
               </span>
@@ -302,15 +304,15 @@ export function CompanionControlCard({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-black text-ink">
-              Live Companion{" "}
+              {t("ui.status.liveCompanion")} {" "}
               {preferences?.liveCompanionEnabled === false
-                ? "off"
+                ? t("ui.status.off")
                 : isPaused
-                  ? "paused"
-                  : "ready"}
+                  ? t("ui.status.paused")
+                  : t("ui.status.ready")}
             </p>
             <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-              Pause stops live prompts and notifications. Background location is opt-in and only used when supported.
+              {t("ui.status.pauseDescription")}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
@@ -323,12 +325,12 @@ export function CompanionControlCard({
                     liveCompanionEnabled: true,
                     liveCompanionPausedUntil: new Date(Date.now() + 60 * 60_000).toISOString()
                   },
-                  "Live Companion paused for 1 hour."
+                  t("ui.status.companionPaused")
                 )
               }
               className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-60"
             >
-              Pause
+              {t("ui.status.pause")}
             </button>
             <button
               type="button"
@@ -339,12 +341,12 @@ export function CompanionControlCard({
                     liveCompanionEnabled: true,
                     liveCompanionPausedUntil: null
                   },
-                  "Live Companion resumed."
+                  t("ui.status.companionResumed")
                 )
               }
               className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean disabled:opacity-60"
             >
-              Resume
+              {t("ui.status.resume")}
             </button>
             <button
               type="button"
@@ -355,12 +357,12 @@ export function CompanionControlCard({
                     liveCompanionEnabled: false,
                     liveCompanionPausedUntil: null
                   },
-                  "Live Companion disabled."
+                  t("ui.status.companionDisabled")
                 )
               }
               className="min-h-11 rounded-2xl border border-coral/20 bg-coral/10 px-3 py-2 text-xs font-black text-coral disabled:opacity-60"
             >
-              Disable
+              {t("ui.status.disable")}
             </button>
             <button
               type="button"
@@ -371,13 +373,13 @@ export function CompanionControlCard({
                     backgroundLocationEnabled: !preferences?.backgroundLocationEnabled
                   },
                   preferences?.backgroundLocationEnabled
-                    ? "Background location disabled."
-                    : "Background location preference saved."
+                    ? t("ui.status.backgroundDisabled")
+                    : t("ui.status.backgroundSaved")
                 )
               }
               className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-60"
             >
-              {preferences?.backgroundLocationEnabled ? "Background on" : "Background off"}
+              {preferences?.backgroundLocationEnabled ? t("ui.status.backgroundOn") : t("ui.status.backgroundOff")}
             </button>
           </div>
         </div>

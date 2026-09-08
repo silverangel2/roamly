@@ -1,9 +1,13 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/I18nProvider";
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
 
 export function CheckedActivitiesList({ activities }: { activities: TrackingActivity[] }) {
+  const { t } = useI18n();
   return (
     <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Checked activities</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.checkedActivities")}</p>
       <div className="mt-4 grid gap-3">
         {activities.length ? (
           activities.map((activity) => (
@@ -16,7 +20,7 @@ export function CheckedActivitiesList({ activities }: { activities: TrackingActi
           ))
         ) : (
           <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-            No activities checked yet.
+            {t("ui.status.noCheckedActivities")}
           </p>
         )}
       </div>

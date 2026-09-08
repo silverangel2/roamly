@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getTripDayFromDate, type RoamlyItinerary } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
+import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
@@ -24,13 +25,9 @@ import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
 import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
 import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
 
-function formatMoney(cents: number | null, currency = "CAD") {
+function formatMoney(cents: number | null, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
   if (cents == null) return "Not set";
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: (currency || "CAD").toUpperCase(),
-    maximumFractionDigits: 0
-  }).format(cents / 100);
+  return formatRoamlyCurrency(cents / 100, (currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
 }
 
 function daysUntil(date: string | null) {
@@ -342,10 +339,10 @@ export default async function LiveTripPage({
         <Card>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
-            {formatMoney(remainingBudgetCents, budgetCurrency)}
+            {formatMoney(remainingBudgetCents, budgetCurrency, locale)}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Booked items: {formatMoney(committedBudgetCents, budgetCurrency)}
+                  Booked items: {formatMoney(committedBudgetCents, budgetCurrency, locale)}
           </p>
         </Card>
       </section>
@@ -390,7 +387,7 @@ export default async function LiveTripPage({
               <article key={event.id} className="rounded-2xl bg-mist px-4 py-3">
                 <p className="text-sm font-black text-ink">{event.title || event.event_type}</p>
                 <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                  {[event.status, event.scheduled_for ? new Date(event.scheduled_for).toLocaleString("en-CA") : null]
+                  {[event.status, event.scheduled_for ? formatRoamlyDate(event.scheduled_for, locale, { dateStyle: "medium", timeStyle: "short" }) : null]
                     .filter(Boolean)
                     .join(" - ")}
                 </p>

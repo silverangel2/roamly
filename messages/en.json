@@ -38,9 +38,10 @@
       "translateItinerary": "Translate itinerary",
       "sendItinerary": "Send itinerary",
       "close": "Close",
-      "closeEmailModal": "Close email modal"
+      "closeEmailModal": "Close email modal",
+      "removeTrip": "Remove trip", "open":"Open", "markRead":"Mark read"
     },
-    "status": {
+    "status": {"now":"Now","countdown":"Countdown","leaveBy":"Leave by","route":"Route","progress":"Progress","hours":"Hours","details":"Booking details","provider":"Provider","reference":"Reference","openMaps":"Open in Maps",
       "working": "Working...",
       "loading": "Loading...",
       "empty": "Nothing here yet.",
@@ -53,11 +54,20 @@
       "emailNotConfigured": "Email sending is not configured yet. You can export the PDF or copy the trip link.",
       "itineraryEmailSent": "Itinerary email sent.",
       "emailSendFailed": "Could not send itinerary email.",
-      "sending": "Sending..."
+      "sending": "Sending...", "saving": "Saving...", "terminal": "Terminal", "noActiveTrip": "No active trip", "nothingLive": "Nothing is live yet.", "unlockCompanion": "Unlock Live Trip Companion first, then Roamly can guide the day.", "checkedActivities": "Checked activities", "currentDay": "Current day", "nearbyNow": "Nearby now", "noNearbyActivity": "No nearby activity detected.", "nearbyUpdate": "Roamly will update this when you arrive near a saved stop.",
+      "unexpectedError": "Something went wrong.", "noCheckedActivities": "No activities checked yet.", "dayNumber": "Day {day}", "noTimelineActivities": "No timeline activities are saved for this day yet.",
+      "tripRemovalFailed": "Could not remove this trip.", "inAppOnly":"In-app only","emailSent":"Email sent","sendingEmail":"Sending email","retryingEmail":"Retrying email","emailQueued":"Email queued","deliveryIssue":"Delivery issue","inAppAvailable":"In-app available","notificationTimeline":"Notification timeline","unread":"Unread","alertEmailUnavailable":"The alert is still available here, but its email could not be delivered.","noNotifications":"No notifications yet.",
+      "feedbackSaved": "Feedback saved.", "companionControl":"Companion control","howCompanionHelps":"How should Roamly help?","companionControlMode":"Companion control mode","suggestChanges":"Suggest changes","suggestChangesDescription":"Roamly asks before changing your itinerary.","fixSimpleChanges":"Fix simple changes","fixSimpleChangesDescription":"Roamly may adjust free, low-risk timing and flexible plans.","fixWithinRules":"Fix within my rules","fixWithinRulesDescription":"Roamly may make approved changes within your limits.","companionLoadFailed":"Companion settings could not be loaded.","companionSaveFailed":"Could not save Companion settings.","companionSaved":"Companion preference saved.","settingNotSaved":"Your setting was not saved. Please try again.","pauseDescription":"Pause stops live prompts and notifications. Background location is opt-in and only used when supported.","pause":"Pause","resume":"Resume","disable":"Disable","backgroundOn":"Background on","backgroundOff":"Background off","off":"off","paused":"paused","ready":"ready","companionPaused":"Live Companion paused for 1 hour.","companionResumed":"Live Companion resumed.","companionDisabled":"Live Companion disabled.","backgroundDisabled":"Background location disabled.","backgroundSaved":"Background location preference saved.","liveCompanion":"Live Companion","phoneReminders":"Phone reminders","enablePhoneReminders":"Enable phone reminders","phoneRemindersDescription":"Roamly can remind you about packing, documents, check-in times, and what’s up next during your trip.","phoneRemindersBlocked":"Phone reminders are blocked. You can still use in-app notifications in Roamly.","notificationsUnavailable":"OS notifications are unavailable in this browser or on this device. Use a supported browser, or install Roamly on your iPhone Home Screen.","homeScreenReminder":"On iPhone, tap Share, Add to Home Screen, then open Roamly from the new icon to enable phone reminders.","phoneRemindersEnabled":"Phone/browser reminders are enabled.","phoneRemindersEnabledShort":"Phone reminders are enabled.","phoneRemindersOff":"Phone/browser reminders are off. In-app notifications still work.","phoneRemindersPermission":"In-app notifications work automatically. Phone reminders need browser permission on this device.","phoneRemindersRegistered":"Phone reminders are enabled and this device is registered with Roamly.","pushEnableFailed":"Push notifications could not be enabled.","pushDisableFailed":"Could not disable push notifications.","browserPermission":"Current browser permission","registerQaPush":"Register QA push","turnOff":"Turn off","checkState":"Check state",
+      "feedbackSaveFailed": "Feedback could not be saved.",
+      "removing": "Removing…",
+      "flexibleDates": "Flexible dates",
+      "days": "days", "upNextNearby": "Up next nearby", "noNextActivity": "No next activity is ready yet.", "metersAway": "{distance} m away"
     },
     "email": {
       "sendTripDocument": "Send this trip document",
-      "recipientEmail": "Recipient email"
+      "recipientEmail": "Recipient email",
+      "contact": {"contactName":"Name","contactEmail":"Email","contactCategory":"Category","contactTripId":"Trip ID","contactSubject":"Subject","contactMessage":"Message","contactSupport":"Need help by email? Contact {email}.","contactSend":"Send message","contactSendFailed":"Message could not be sent.","contactReceived":"Thanks - your message was received.","contactCategory_support":"Support","contactCategory_billing":"Billing","contactCategory_itinerary":"Itinerary","contactCategory_partner":"Partner","contactCategory_bug":"Bug","contactCategory_other":"Other"},
+      "booking": {"flight":"Flight","hotel":"Hotel","activity":"Activity","restaurant":"Restaurant","other":"Other","checkField":"Check this field","add":"Add booking","saveWhatBooked":"Save what you booked","enterOrUpload":"Enter it yourself or upload a confirmation.","upload":"Upload confirmation","manual":"Enter manually","back":"Back to bookings","review":"Review booking","needsChecking":"Some fields need checking before saving.","confirmDetails":"Confirm these details before saving.","airline":"Airline","flightNumber":"Flight number","from":"From","to":"To","airlineCode":"Airline code","gate":"Gate","confirmationCode":"Confirmation code","address":"Address","location":"Location","hotelName":"Hotel name","name":"Name","date":"Date","departureTime":"Departure time","arrivalDate":"Arrival date","arrivalTime":"Arrival time","baggage":"Baggage","duration":"Duration","checkIn":"Check-in","checkOut":"Check-out","optional":"Optional"}
     }
   },
   "text": {
@@ -730,6 +740,49 @@
     "Missing": "Missing",
     "Optional": "Optional",
     "Needs setup": "Needs setup",
-    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly may earn a commission when you book or shop through partner links. This does not change your price."
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly may earn a commission when you book or shop through partner links. This does not change your price.",
+    "Back home": "Back home",
+    "Welcome back": "Welcome back",
+    "Log in": "Log in",
+    "Sign up": "Sign up",
+    "Notifications": "Notifications",
+    "No active trip notifications yet.": "No active trip notifications yet.",
+    "Open dashboard": "Open dashboard",
+    "Bookings": "Bookings",
+    "No bookings yet": "No bookings yet",
+    "Confirmed": "Confirmed",
+    "Available": "Available",
+    "Optional": "Optional",
+    "Add booking": "Add booking",
+    "Save booking": "Save booking",
+    "Saving...": "Saving...",
+    "Airline": "Airline",
+    "Flight number": "Flight number",
+    "From": "From",
+    "To": "To",
+    "Confirmation code": "Confirmation code",
+    "Address": "Address",
+    "Location": "Location",
+    "Live Trip Companion": "Live Trip Companion",
+    "Return to trip": "Return to trip",
+    "Setup": "Setup",
+    "Plan trip": "Plan trip",
+    "Details": "Details",
+    "Features": "Features",
+    "Start planning": "Start planning",
+    "How it works": "How it works",
+    "Terms": "Terms",
+    "Privacy": "Privacy",
+    "Contact": "Contact",
+    "Building your itinerary": "Building your itinerary",
+    "Itinerary generation failed.": "Itinerary generation failed.",
+    "No itinerary yet.": "No itinerary yet.",
+    "Plan my trip": "Plan my trip",
+    "Open planner": "Open planner",
+    "Check in": "Check in",
+    "Skip": "Skip",
+    "Open Maps": "Open Maps",
+    "Enable notifications": "Enable notifications",
+    "Notifications are blocked.": "Notifications are blocked."
   }
 }

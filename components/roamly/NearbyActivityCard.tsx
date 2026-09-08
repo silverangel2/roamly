@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
 import { clearActivityNotification } from "@/lib/roamly/pushClient";
 
@@ -11,6 +12,7 @@ export function NearbyActivityCard({
   tripId: string;
   activity: TrackingActivity | null;
 }) {
+  const { t } = useI18n();
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -96,16 +98,16 @@ export function NearbyActivityCard({
   if (!activity) {
     return (
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Nearby now</p>
-        <h2 className="mt-2 text-2xl font-black text-ink">No nearby activity detected.</h2>
-        <p className="mt-2 text-sm font-bold text-slate-500">Roamly will update this when you arrive near a saved stop.</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{t("ui.status.nearbyNow")}</p>
+        <h2 className="mt-2 text-2xl font-black text-ink">{t("ui.status.noNearbyActivity")}</h2>
+        <p className="mt-2 text-sm font-bold text-slate-500">{t("ui.status.nearbyUpdate")}</p>
       </section>
     );
   }
 
   return (
     <section className="rounded-[1.75rem] border border-ocean/20 bg-white/95 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Nearby now</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.nearbyNow")}</p>
       <h2 className="mt-2 text-2xl font-black text-ink">{activity.title}</h2>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{activity.description}</p>
       {activity.distance_meters != null ? (

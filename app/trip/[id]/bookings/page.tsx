@@ -4,6 +4,7 @@ import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, isMissingTableError } from "@/lib/trips";
+import { getServerLocale } from "@/lib/i18n-server";
 import { legacyRoamlyBookingToWallet, listTripBookings, stableBookingKey, type TripBookingRecord } from "@/lib/roamly/bookingWallet";
 
 function mergeBookings(wallet: TripBookingRecord[], legacy: TripBookingRecord[]) {
@@ -68,6 +69,7 @@ export default async function TripBookingsPage({ params }: { params: Promise<{ i
   const trip = bundle.data.trip;
   const destinationLabel = getTripDestinationLabel(trip) || "Your trip";
   const tripTitle = trip.title || destinationLabel;
+  const locale = await getServerLocale();
 
   return (
     <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
@@ -77,6 +79,7 @@ export default async function TripBookingsPage({ params }: { params: Promise<{ i
         destinationLabel={destinationLabel}
         bookings={mergeBookings(walletBookings, legacyBookings)}
         companionUnlocked={tripHasTrackingUnlock(trip)}
+        locale={locale}
       />
     </main>
   );

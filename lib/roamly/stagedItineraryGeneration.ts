@@ -30,6 +30,7 @@ import {
   summarizeItineraryShape
 } from "@/lib/roamly/generationDiagnostics";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
 
 export type StagedGenerationStatus =
   | "queued"
@@ -831,6 +832,8 @@ function compactPriceSummary(value: Record<string, unknown> | null | undefined) 
 function outlinePrompt(payload: TripPlannerPayload, state: StagedGenerationState) {
   return `Create only a compact structured outline for a Roamly trip. Do not create timeline items, descriptions, prices, or URLs.
 
+${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
+
 Trip:
 - Route: ${routeText(payload)}
 - Dates: ${payload.startDate} to ${payload.endDate}
@@ -886,6 +889,8 @@ function dayBatchPrompt(params: {
   const { payload, outline, days, previousEndingLocation, nextStartRequirement, usedAttractions, state } = params;
   const dayNumbers = days.map((day) => day.dayNumber);
   return `Return compact JSON for this Roamly day batch. No URLs, markdown, prices-as-text, or extra prose.
+
+${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
 Trip: ${outline.tripSummary}
 Route: ${routeText(payload)}
@@ -1486,7 +1491,9 @@ function assembleItinerary(state: StagedGenerationState): RoamlyItinerary {
       ? "Generated through Roamly staged AI generation."
       : "Generation is in progress. Completed days are shown as they pass validation."
   };
-  return enrichItineraryBookingSuggestions(repairItineraryForTravelRequirements(raw, payload), payload);
+  const repaired = repairItineraryForTravelRequirements(raw, payload);
+  const enriched = enrichItineraryBookingSuggestions(repaired, payload);
+  return localizeGeneratedExactText(enriched, payload.language) as RoamlyItinerary;
 }
 
 async function persistState(params: {

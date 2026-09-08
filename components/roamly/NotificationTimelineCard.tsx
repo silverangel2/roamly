@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type NotificationItem = {
   id: string;
@@ -13,17 +14,17 @@ type NotificationItem = {
   delivery_status?: string | null;
 };
 
-function deliveryLabel(status?: string | null) {
+function deliveryLabel(status: string | null | undefined, t: (key: string, fallback?: string) => string) {
   if (!status) {
     return {
-      label: "In-app only",
+      label: t("ui.status.inAppOnly"),
       className: "bg-white text-slate-500 ring-1 ring-cloud"
     };
   }
 
   if (["sent", "delivered", "captured"].includes(status)) {
     return {
-      label: "Email sent",
+      label: t("ui.status.emailSent"),
       className:
         "bg-emerald-100 text-emerald-800"
     };
@@ -31,7 +32,7 @@ function deliveryLabel(status?: string | null) {
 
   if (status === "sending") {
     return {
-      label: "Sending email",
+      label: t("ui.status.sendingEmail"),
       className:
         "bg-sky-100 text-sky-800"
     };
@@ -41,8 +42,8 @@ function deliveryLabel(status?: string | null) {
     return {
       label:
         status === "retrying"
-          ? "Retrying email"
-          : "Email queued",
+          ? t("ui.status.retryingEmail")
+          : t("ui.status.emailQueued"),
       className:
         "bg-amber-100 text-amber-800"
     };
@@ -50,14 +51,14 @@ function deliveryLabel(status?: string | null) {
 
   if (["failed", "suppressed"].includes(status)) {
     return {
-      label: "Delivery issue",
+      label: t("ui.status.deliveryIssue"),
       className:
         "bg-coral/10 text-coral"
     };
   }
 
   return {
-    label: "In-app available",
+    label: t("ui.status.inAppAvailable"),
     className:
       "bg-white text-slate-500 ring-1 ring-cloud"
   };
@@ -76,6 +77,7 @@ export function NotificationTimelineCard({
 }: {
   initialItems: NotificationItem[];
 }) {
+  const { t } = useI18n();
   const [items, setItems] =
     useState(initialItems);
 
@@ -108,7 +110,7 @@ export function NotificationTimelineCard({
   return (
     <div className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
-        Notification timeline
+        {t("ui.status.notificationTimeline")}
       </p>
 
       <div className="mt-4 grid gap-3">
@@ -116,7 +118,7 @@ export function NotificationTimelineCard({
           items.map((item) => {
             const delivery =
               deliveryLabel(
-                item.delivery_status
+                item.delivery_status, t
               );
 
             return (
@@ -141,7 +143,7 @@ export function NotificationTimelineCard({
 
                       {item.status !== "read" ? (
                         <span className="rounded-full bg-ocean/10 px-2.5 py-1 text-[11px] font-black text-ocean">
-                          Unread
+                          {t("ui.status.unread")}
                         </span>
                       ) : null}
                     </div>
@@ -160,8 +162,7 @@ export function NotificationTimelineCard({
                       item.delivery_status || ""
                     ) ? (
                       <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-600 ring-1 ring-cloud">
-                        The alert is still available here,
-                        but its email could not be delivered.
+                        {t("ui.status.alertEmailUnavailable")}
                       </p>
                     ) : null}
                   </div>
@@ -172,7 +173,7 @@ export function NotificationTimelineCard({
                         href={item.action_url}
                         className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
                       >
-                        Open
+                        {t("ui.actions.open")}
                       </a>
                     ) : null}
 
@@ -184,7 +185,7 @@ export function NotificationTimelineCard({
                         }
                         className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20"
                       >
-                        Mark read
+                        {t("ui.actions.markRead")}
                       </button>
                     ) : null}
                   </div>
@@ -194,7 +195,7 @@ export function NotificationTimelineCard({
           })
         ) : (
           <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-            No notifications yet.
+            {t("ui.status.noNotifications")}
           </p>
         )}
       </div>

@@ -2,8 +2,11 @@
 
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { localizeCustomerError } from "@/lib/i18n";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const { locale } = useI18n();
   return (
     <main className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-5xl items-center justify-center px-4 py-10">
       <Card className="w-full max-w-lg">
@@ -13,7 +16,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           Try again. If it repeats, this screen is ready to catch the failure without breaking the whole app.
         </p>
         {process.env.NODE_ENV === "development" ? (
-          <p className="mt-3 rounded-2xl bg-mist p-3 text-xs font-bold text-slate-500">{error.message}</p>
+        <p className="mt-3 rounded-2xl bg-mist p-3 text-xs font-bold text-slate-500">{localizeCustomerError(locale, error)}</p>
         ) : null}
         <div className="mt-5 flex flex-col gap-3 sm:flex-row">
           <button onClick={reset} className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400">

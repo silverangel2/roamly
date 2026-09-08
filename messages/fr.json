@@ -38,9 +38,10 @@
       "translateItinerary": "Traduire l'itinéraire",
       "sendItinerary": "Envoyer l'itinéraire",
       "close": "Fermer",
-      "closeEmailModal": "Fermer la fenêtre d'e-mail"
+      "closeEmailModal": "Fermer la fenêtre d'e-mail",
+      "removeTrip": "Supprimer le voyage", "open":"Ouvrir", "markRead":"Marquer comme lu"
     },
-    "status": {
+    "status": {"now":"Maintenant","countdown":"Compte à rebours","leaveBy":"Départ à","route":"Itinéraire","progress":"Progression","hours":"Horaires","details":"Détails de la réservation","provider":"Fournisseur","reference":"Référence","openMaps":"Ouvrir dans Maps",
       "working": "Traitement...",
       "loading": "Chargement...",
       "empty": "Rien ici pour le moment.",
@@ -53,11 +54,20 @@
       "emailNotConfigured": "L'envoi d'e-mails n'est pas encore configuré. Vous pouvez exporter le PDF ou copier le lien du voyage.",
       "itineraryEmailSent": "E-mail d’itinéraire envoyé.",
       "emailSendFailed": "Impossible d'envoyer l'e-mail d'itinéraire.",
-      "sending": "Envoi..."
+      "sending": "Envoi...", "saving": "Enregistrement…", "terminal": "Terminal", "noActiveTrip": "Aucun voyage actif", "nothingLive": "Rien n’est encore actif.", "unlockCompanion": "Déverrouillez d’abord le compagnon de voyage en direct pour que Roamly vous guide.", "checkedActivities": "Activités vérifiées", "currentDay": "Jour actuel", "nearbyNow": "À proximité", "noNearbyActivity": "Aucune activité à proximité détectée.", "nearbyUpdate": "Roamly mettra cette information à jour lorsque vous arriverez près d’une étape enregistrée.",
+      "unexpectedError": "Une erreur s’est produite.", "noCheckedActivities": "Aucune activité n’a encore été vérifiée.", "dayNumber": "Jour {day}", "noTimelineActivities": "Aucune activité n’est encore enregistrée pour ce jour.",
+      "tripRemovalFailed": "Impossible de supprimer ce voyage.", "inAppOnly":"Dans l’application uniquement","emailSent":"E-mail envoyé","sendingEmail":"Envoi de l’e-mail","retryingEmail":"Nouvel envoi de l’e-mail","emailQueued":"E-mail en attente","deliveryIssue":"Problème de livraison","inAppAvailable":"Disponible dans l’application","notificationTimeline":"Chronologie des notifications","unread":"Non lu","alertEmailUnavailable":"L’alerte reste disponible ici, mais son e-mail n’a pas pu être livré.","noNotifications":"Aucune notification pour le moment.",
+      "feedbackSaved": "Commentaires enregistrés.", "companionControl":"Contrôle du compagnon","howCompanionHelps":"Comment Roamly doit-il vous aider ?","companionControlMode":"Mode de contrôle du compagnon","suggestChanges":"Suggérer des changements","suggestChangesDescription":"Roamly demande votre accord avant de modifier l’itinéraire.","fixSimpleChanges":"Corriger les changements simples","fixSimpleChangesDescription":"Roamly peut ajuster les horaires gratuits et flexibles à faible risque.","fixWithinRules":"Respecter mes règles","fixWithinRulesDescription":"Roamly peut appliquer les changements approuvés dans vos limites.","companionLoadFailed":"Impossible de charger les paramètres du compagnon.","companionSaveFailed":"Impossible d’enregistrer les paramètres du compagnon.","companionSaved":"Préférence du compagnon enregistrée.","settingNotSaved":"Votre réglage n’a pas été enregistré. Réessayez.","pauseDescription":"La pause arrête les invites et notifications en direct. La localisation en arrière-plan est facultative.","pause":"Pause","resume":"Reprendre","disable":"Désactiver","backgroundOn":"Arrière-plan activé","backgroundOff":"Arrière-plan désactivé","off":"désactivé","paused":"en pause","ready":"prêt","companionPaused":"Compagnon en pause pendant 1 heure.","companionResumed":"Compagnon repris.","companionDisabled":"Compagnon désactivé.","backgroundDisabled":"Localisation en arrière-plan désactivée.","backgroundSaved":"Préférence de localisation enregistrée.","liveCompanion":"Compagnon en direct","phoneReminders":"Rappels sur le téléphone","enablePhoneReminders":"Activer les rappels sur le téléphone","phoneRemindersDescription":"Roamly peut vous rappeler vos bagages, documents, heures d’enregistrement et prochaines étapes du voyage.","phoneRemindersBlocked":"Les rappels du téléphone sont bloqués. Les notifications dans Roamly restent disponibles.","notificationsUnavailable":"Les notifications du système sont indisponibles dans ce navigateur ou appareil. Utilisez un navigateur compatible ou installez Roamly sur l’écran d’accueil de votre iPhone.","homeScreenReminder":"Sur iPhone, touchez Partager, Ajouter à l’écran d’accueil, puis ouvrez Roamly avec la nouvelle icône.","phoneRemindersEnabled":"Rappels du téléphone/navigateur activés.","phoneRemindersEnabledShort":"Rappels du téléphone activés.","phoneRemindersOff":"Rappels du téléphone/navigateur désactivés. Les notifications dans l’application fonctionnent toujours.","phoneRemindersPermission":"Les notifications dans l’application fonctionnent automatiquement. Les rappels nécessitent l’autorisation du navigateur.","phoneRemindersRegistered":"Les rappels sont activés et cet appareil est enregistré auprès de Roamly.","pushEnableFailed":"Impossible d’activer les notifications push.","pushDisableFailed":"Impossible de désactiver les notifications push.","browserPermission":"Autorisation actuelle du navigateur","registerQaPush":"Enregistrer le push QA","turnOff":"Désactiver","checkState":"Vérifier l’état",
+      "feedbackSaveFailed": "Impossible d’enregistrer les commentaires.",
+      "removing": "Suppression…",
+      "flexibleDates": "Dates flexibles",
+      "days": "jours", "upNextNearby": "À proximité ensuite", "noNextActivity": "Aucune prochaine activité n’est prête pour le moment.", "metersAway": "À {distance} m"
     },
     "email": {
       "sendTripDocument": "Envoyer ce document de voyage",
-      "recipientEmail": "E-mail du destinataire"
+      "recipientEmail": "E-mail du destinataire",
+      "contact": {"contactName":"Nom","contactEmail":"E-mail","contactCategory":"Catégorie","contactTripId":"ID du voyage","contactSubject":"Objet","contactMessage":"Message","contactSupport":"Besoin d’aide par e-mail ? Contactez {email}.","contactSend":"Envoyer le message","contactSendFailed":"Impossible d’envoyer le message.","contactReceived":"Merci — votre message a bien été reçu.","contactCategory_support":"Assistance","contactCategory_billing":"Facturation","contactCategory_itinerary":"Itinéraire","contactCategory_partner":"Partenaire","contactCategory_bug":"Bug","contactCategory_other":"Autre"},
+      "booking": {"flight":"Vol","hotel":"Hôtel","activity":"Activité","restaurant":"Restaurant","other":"Autre","checkField":"Vérifier ce champ","add":"Ajouter une réservation","saveWhatBooked":"Enregistrer votre réservation","enterOrUpload":"Saisissez-le ou importez une confirmation.","upload":"Importer une confirmation","manual":"Saisir manuellement","back":"Retour aux réservations","review":"Vérifier la réservation","needsChecking":"Certains champs doivent être vérifiés avant l’enregistrement.","confirmDetails":"Confirmez ces informations avant l’enregistrement.","airline":"Compagnie aérienne","flightNumber":"Numéro de vol","from":"De","to":"À","airlineCode":"Code de la compagnie","gate":"Porte","confirmationCode":"Code de confirmation","address":"Adresse","location":"Lieu","hotelName":"Nom de l’hôtel","name":"Nom","date":"Date","departureTime":"Heure de départ","arrivalDate":"Date d’arrivée","arrivalTime":"Heure d’arrivée","baggage":"Bagages","duration":"Durée","checkIn":"Arrivée","checkOut":"Départ","optional":"Facultatif"}
     }
   },
   "text": {
@@ -434,6 +444,18 @@
     "Missing": "Manquant",
     "Optional": "Optionnel",
     "Needs setup": "Configuration requise",
+    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly peut gagner une commission lorsque vous réservez ou achetez via des liens partenaires. Cela ne change pas votre prix.",
+    "Back home": "Retour à l’accueil", "Welcome back": "Bon retour", "Log in": "Se connecter", "Sign up": "S’inscrire", "Notifications": "Notifications",
+    "No active trip notifications yet.": "Aucune notification de voyage active pour le moment.", "Open dashboard": "Ouvrir le tableau de bord", "Bookings": "Réservations",
+    "No bookings yet": "Aucune réservation pour le moment", "Confirmed": "Confirmé", "Available": "Disponible", "Optional": "Facultatif", "Add booking": "Ajouter une réservation",
+    "Save booking": "Enregistrer la réservation", "Saving...": "Enregistrement…", "Airline": "Compagnie aérienne", "Flight number": "Numéro de vol",
+    "From": "De", "To": "À", "Confirmation code": "Code de confirmation", "Address": "Adresse", "Location": "Lieu",
+    "Live Trip Companion": "Compagnon de voyage en direct", "Return to trip": "Retour au voyage", "Setup": "Configuration", "Plan trip": "Planifier le voyage",
+    "Details": "Détails", "Features": "Fonctionnalités", "Start planning": "Commencer à planifier", "How it works": "Comment ça marche",
+    "Terms": "Conditions", "Privacy": "Confidentialité", "Contact": "Contact", "Building your itinerary": "Création de votre itinéraire",
+    "Itinerary generation failed.": "La génération de l’itinéraire a échoué.", "No itinerary yet.": "Aucun itinéraire pour le moment.",
+    "Plan my trip": "Planifier mon voyage", "Open planner": "Ouvrir le planificateur", "Check in": "Enregistrement", "Skip": "Passer",
+    "Open Maps": "Ouvrir Maps", "Enable notifications": "Activer les notifications", "Notifications are blocked.": "Les notifications sont bloquées.",
     "Total estimate": "Estimation totale",
     "Premium AI travel planning": "Premium AI travel planning",
     "Plan smarter trips with AI that understands your budget.": "Plan smarter trips with AI that understands your budget.",
@@ -728,8 +750,6 @@
     "Launch readiness": "Préparation au lancement",
     "Ready": "Prêt",
     "Missing": "Manquant",
-    "Optional": "Facultatif",
-    "Needs setup": "Configuration requise",
-    "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly peut gagner une commission lorsque vous réservez ou achetez via des liens partenaires. Cela ne change pas votre prix."
+    "Optional": "Facultatif"
   }
 }

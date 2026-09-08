@@ -38,9 +38,10 @@
       "translateItinerary": "翻译行程",
       "sendItinerary": "发送行程",
       "close": "关闭",
-      "closeEmailModal": "关闭邮件窗口"
+      "closeEmailModal": "关闭邮件窗口",
+      "removeTrip": "删除行程", "open":"打开", "markRead":"标记为已读"
     },
-    "status": {
+    "status": {"now":"现在","countdown":"倒计时","leaveBy":"出发时间","route":"路线","progress":"进度","hours":"营业时间","details":"预订详情","provider":"提供商","reference":"参考号","openMaps":"在地图中打开",
       "working": "处理中...",
       "loading": "加载中...",
       "empty": "这里还没有内容。",
@@ -53,11 +54,20 @@
       "emailNotConfigured": "邮件发送尚未配置。你可以导出 PDF 或复制旅程链接。",
       "itineraryEmailSent": "行程邮件已发送。",
       "emailSendFailed": "无法发送行程邮件。",
-      "sending": "正在发送..."
+      "sending": "正在发送...", "saving": "正在保存…", "terminal": "航站楼", "noActiveTrip": "暂无活动中的行程", "nothingLive": "目前还没有实时内容。", "unlockCompanion": "请先解锁实时旅行助手，Roamly才能引导您的行程。", "checkedActivities": "已检查的活动", "currentDay": "当天", "nearbyNow": "附近现在", "noNearbyActivity": "未检测到附近活动。", "nearbyUpdate": "到达已保存的地点附近后，Roamly会更新这里。",
+      "unexpectedError": "出了点问题。", "noCheckedActivities": "尚未检查任何活动。", "dayNumber": "第 {day} 天", "noTimelineActivities": "当天还没有保存的时间线活动。",
+      "tripRemovalFailed": "无法删除此行程。", "inAppOnly":"仅限应用内","emailSent":"邮件已发送","sendingEmail":"正在发送邮件","retryingEmail":"正在重试发送邮件","emailQueued":"邮件已排队","deliveryIssue":"发送问题","inAppAvailable":"应用内可用","notificationTimeline":"通知时间线","unread":"未读","alertEmailUnavailable":"您仍可在此查看提醒，但邮件发送失败。","noNotifications":"暂无通知。",
+      "feedbackSaved": "反馈已保存。", "companionControl":"助手控制","howCompanionHelps":"Roamly应如何帮助您？","companionControlMode":"助手控制模式","suggestChanges":"建议更改","suggestChangesDescription":"Roamly会在更改行程前征求您的同意。","fixSimpleChanges":"修复简单更改","fixSimpleChangesDescription":"Roamly可以调整免费的低风险时间安排和灵活计划。","fixWithinRules":"按我的规则修复","fixWithinRulesDescription":"Roamly可以在您的限制内执行已批准的更改。","companionLoadFailed":"无法加载助手设置。","companionSaveFailed":"无法保存助手设置。","companionSaved":"助手偏好已保存。","settingNotSaved":"设置未保存，请重试。","pauseDescription":"暂停会停止实时提示和通知。后台位置功能是可选的。","pause":"暂停","resume":"继续","disable":"停用","backgroundOn":"后台已开启","backgroundOff":"后台已关闭","off":"关闭","paused":"已暂停","ready":"准备就绪","companionPaused":"助手已暂停1小时。","companionResumed":"助手已恢复。","companionDisabled":"助手已停用。","backgroundDisabled":"后台位置已停用。","backgroundSaved":"后台位置偏好已保存。","liveCompanion":"实时助手","phoneReminders":"手机提醒","enablePhoneReminders":"开启手机提醒","phoneRemindersDescription":"Roamly可以提醒您准备行李、文件、办理入住时间以及旅途中的下一项安排。","phoneRemindersBlocked":"手机提醒已被阻止。您仍可使用Roamly内的通知。","notificationsUnavailable":"此浏览器或设备不支持系统通知。请使用受支持的浏览器，或将Roamly安装到iPhone主屏幕。","homeScreenReminder":"在iPhone上依次点击分享、添加到主屏幕，然后从新图标打开Roamly。","phoneRemindersEnabled":"手机／浏览器提醒已开启。","phoneRemindersEnabledShort":"手机提醒已开启。","phoneRemindersOff":"手机／浏览器提醒已关闭。应用内通知仍可使用。","phoneRemindersPermission":"应用内通知会自动运行。手机提醒需要此设备上的浏览器权限。","phoneRemindersRegistered":"手机提醒已开启，此设备已注册到Roamly。","pushEnableFailed":"无法开启推送通知。","pushDisableFailed":"无法关闭推送通知。","browserPermission":"当前浏览器权限","registerQaPush":"注册QA推送","turnOff":"关闭","checkState":"检查状态",
+      "feedbackSaveFailed": "无法保存反馈。",
+      "removing": "正在删除…",
+      "flexibleDates": "日期灵活",
+      "days": "天", "upNextNearby": "附近的下一项", "noNextActivity": "暂无准备好的下一项活动。", "metersAway": "距此 {distance} 米"
     },
     "email": {
       "sendTripDocument": "发送这份旅程文档",
-      "recipientEmail": "收件人邮箱"
+      "recipientEmail": "收件人邮箱",
+      "contact": {"contactName":"姓名","contactEmail":"邮箱","contactCategory":"类别","contactTripId":"行程 ID","contactSubject":"主题","contactMessage":"消息","contactSupport":"需要通过邮件获得帮助？请联系 {email}。","contactSend":"发送消息","contactSendFailed":"无法发送消息。","contactReceived":"谢谢，我们已收到您的消息。","contactCategory_support":"支持","contactCategory_billing":"账单","contactCategory_itinerary":"行程","contactCategory_partner":"合作伙伴","contactCategory_bug":"错误","contactCategory_other":"其他"},
+      "booking": {"flight":"航班","hotel":"酒店","activity":"活动","restaurant":"餐厅","other":"其他","checkField":"请检查此字段","add":"添加预订","saveWhatBooked":"保存预订内容","enterOrUpload":"请手动输入或上传确认信息。","upload":"上传确认信息","manual":"手动输入","back":"返回预订","review":"检查预订","needsChecking":"保存前需要检查部分字段。","confirmDetails":"保存前请确认这些信息。","airline":"航空公司","flightNumber":"航班号","from":"出发地","to":"目的地","airlineCode":"航空公司代码","gate":"登机口","confirmationCode":"确认码","address":"地址","location":"位置","hotelName":"酒店名称","name":"姓名","date":"日期","departureTime":"出发时间","arrivalDate":"到达日期","arrivalTime":"到达时间","baggage":"行李","duration":"时长","checkIn":"入住","checkOut":"退房","optional":"可选"}
     }
   },
   "text": {
@@ -434,6 +444,17 @@
     "Missing": "缺失",
     "Optional": "可选",
     "Needs setup": "需要设置",
+    "Back home": "返回首页", "Welcome back": "欢迎回来", "Log in": "登录", "Sign up": "注册", "Notifications": "通知",
+    "No active trip notifications yet.": "暂无活动中的旅行通知。", "Open dashboard": "打开控制面板", "Bookings": "预订",
+    "No bookings yet": "暂无预订", "Confirmed": "已确认", "Available": "可用", "Optional": "可选", "Add booking": "添加预订",
+    "Save booking": "保存预订", "Saving...": "正在保存…", "Airline": "航空公司", "Flight number": "航班号",
+    "From": "出发地", "To": "目的地", "Confirmation code": "确认码", "Address": "地址", "Location": "位置",
+    "Live Trip Companion": "实时旅行助手", "Return to trip": "返回行程", "Setup": "设置", "Plan trip": "规划旅行",
+    "Details": "详情", "Features": "功能", "Start planning": "开始规划", "How it works": "使用方法",
+    "Terms": "条款", "Privacy": "隐私", "Contact": "联系我们", "Building your itinerary": "正在生成行程",
+    "Itinerary generation failed.": "行程生成失败。", "No itinerary yet.": "暂无行程。",
+    "Plan my trip": "规划我的旅行", "Open planner": "打开规划器", "Check in": "签到", "Skip": "跳过",
+    "Open Maps": "打开地图", "Enable notifications": "启用通知", "Notifications are blocked.": "通知已被阻止。",
     "Total estimate": "总估算",
     "Premium AI travel planning": "Premium AI travel planning",
     "Plan smarter trips with AI that understands your budget.": "Plan smarter trips with AI that understands your budget.",

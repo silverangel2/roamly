@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { localizeCustomerError } from "@/lib/i18n";
 
 type DeleteTripButtonProps = {
   tripId: string;
@@ -10,6 +12,7 @@ type DeleteTripButtonProps = {
 
 export function DeleteTripButton({ tripId, tripTitle }: DeleteTripButtonProps) {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [isDeleting, setIsDeleting] = useState(false);
 
   async function deleteTrip() {
@@ -30,15 +33,13 @@ export function DeleteTripButton({ tripId, tripTitle }: DeleteTripButtonProps) {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        throw new Error(data?.error || "Could not remove this trip.");
+        throw new Error(data?.error || t("ui.status.tripRemovalFailed"));
       }
 
       router.refresh();
     } catch (error) {
       window.alert(
-        error instanceof Error
-          ? error.message
-          : "Could not remove this trip."
+        localizeCustomerError(locale, error, "ui.status.tripRemovalFailed")
       );
     } finally {
       setIsDeleting(false);
@@ -52,7 +53,7 @@ export function DeleteTripButton({ tripId, tripTitle }: DeleteTripButtonProps) {
       disabled={isDeleting}
       className="mt-3 w-full rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-black text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {isDeleting ? "Removing…" : "Remove trip"}
+      {isDeleting ? t("ui.status.removing") : t("ui.actions.removeTrip", "Remove trip")}
     </button>
   );
 }

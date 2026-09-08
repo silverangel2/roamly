@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { AccommodationDecision } from "@/lib/roamly/accommodationIntelligence";
 import type { TransportationDecision } from "@/lib/roamly/transportationIntelligence";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION } from "@/lib/roamly/generationLanguage";
 
 export type DailyEvidenceStatus = "verified_live" | "recently_retrieved" | "estimated" | "unknown";
 
@@ -180,10 +181,11 @@ export function validateDailyItineraryBatch(days: DailyItineraryDay[], expectedD
   return { ok: errors.length === 0, errors };
 }
 
-function systemPrompt() {
+function systemPrompt(locale?: string | null) {
   return [
     "You are Roamly Brain's daily itinerary planner.",
     "Return only strict JSON with a top-level days array.",
+    ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(locale),
     "Use only supplied evidence for provider-backed facts like opening hours, prices, live availability, ratings, and weather.",
     "Mark facts as verified_live, recently_retrieved, estimated, or unknown.",
     "Respect arrival/departure limits, hotel/base location, pace, budget, meals, rest, geographic clustering, and accessibility notes when supplied."
@@ -241,7 +243,7 @@ export async function generateDailyItineraryBatch(params: {
     temperature: 0.3,
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: systemPrompt() },
+      { role: "system", content: systemPrompt(params.payload.language) },
       {
         role: "user",
         content: userPrompt({

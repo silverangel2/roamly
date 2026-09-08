@@ -64,6 +64,11 @@ export function BookingRecommendationButton({
       href={trackedHref}
       target={isExternal ? "_blank" : undefined}
       rel={isExternal ? "noopener noreferrer sponsored" : undefined}
+      aria-label={
+        category === "hotel"
+          ? `${label} — opens booking provider`
+          : label
+      }
       onClick={() =>
         trackBookingClick({
           trip_id: tripId,

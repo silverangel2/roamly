@@ -1,6 +1,7 @@
 "use client";
 
 import { buildNavigationLinks, type NavigationDestination } from "@/lib/roamly/navigationLinks";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type NavigationButtonsProps = NavigationDestination & {
   tripId?: string;
@@ -9,6 +10,7 @@ type NavigationButtonsProps = NavigationDestination & {
 };
 
 export function NavigationButtons({ tripId, className = "", showHeading = false, ...destination }: NavigationButtonsProps) {
+  const { t } = useI18n();
   const links = buildNavigationLinks(destination);
   if (!links.length) return null;
 
@@ -28,7 +30,7 @@ export function NavigationButtons({ tripId, className = "", showHeading = false,
 
   return (
     <div className={className}>
-      {showHeading ? <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">Navigate</p> : null}
+      {showHeading ? <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">{t("ui.actions.directions")}</p> : null}
       <div className="flex flex-wrap gap-2">
         {links.map((link) => (
           <a

@@ -7,6 +7,7 @@ import {
   startStagedItineraryGeneration
 } from "@/lib/roamly/stagedItineraryGeneration";
 import { normalizeLocale } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/i18n-server";
 import {
   canGenerateFinalItinerary,
   markTripAsQaTester,
@@ -144,7 +145,7 @@ function cleanTravelers(value: unknown, travelersCount: number): TravelerDetails
   return { adults, children, infants };
 }
 
-function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
+function cleanPayload(body: Record<string, unknown>, requestLocale?: string): TripPlannerPayload {
   const startDate = getString(body.startDate || body.start_date);
   const endDate = getString(body.endDate || body.end_date);
   const explicitDays = getPositiveNumber(body.daysCount ?? body.days_count);
@@ -214,13 +215,13 @@ function cleanPayload(body: Record<string, unknown>): TripPlannerPayload {
     accessibilityNeeds: getString(body.accessibilityNeeds || body.accessibility_needs),
     dietaryPreference: getString(body.dietaryPreference || body.dietary_preference),
     specialNotes: getString(body.specialNotes),
-    language: normalizeLocale(getString(body.language)),
+    language: normalizeLocale(requestLocale || getString(body.language)),
     priceDiscoveryId: getString(body.priceDiscoveryId) || null,
     budgetConstraint: getString(body.budgetConstraint)
   };
 }
 
-function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPlannerPayload {
+function payloadFromTrip(trip: Record<string, unknown>, language?: string): TripPlannerPayload {
   const planning = getTripPlanningMetadata(trip.metadata);
   const destinationStops = cleanStops(planning.destinationStops || planning.destination_stops);
   const tripType = getTripType(planning.tripType || planning.trip_type || (destinationStops.length >= 2 ? "multi_city" : "single_destination"));
@@ -276,7 +277,7 @@ function payloadFromTrip(trip: Record<string, unknown>, language = "en"): TripPl
     accessibilityNeeds: getString(planning.accessibilityNeeds || planning.accessibility_needs),
     dietaryPreference: getString(planning.dietaryPreference || planning.dietary_preference),
     specialNotes: getFirstString(trip.special_notes, planning.specialNotes, planning.special_notes),
-    language: normalizeLocale(language),
+    language: normalizeLocale(language || getString(planning.language)),
     priceDiscoveryId: getFirstString(trip.latest_price_discovery_id, planning.priceDiscoveryId, planning.price_discovery_id) || null
   };
 }
@@ -879,6 +880,7 @@ export async function POST(request: NextRequest) {
   const access = getRoamlyAccessForUser(user.email);
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const requestLocale = getRequestLocale(request, getString(body.language));
   const existingTripId = getString(body.tripId);
   logGenerationDiagnostic("generation_route_body_parsed", {
     requestId,
@@ -919,7 +921,7 @@ export async function POST(request: NextRequest) {
       }
       if (!trip) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
-      const payload = payloadFromTrip(trip as Record<string, unknown>, getString(body.language));
+      const payload = payloadFromTrip(trip as Record<string, unknown>, requestLocale);
       const validation = validatePayload(payload);
       if (typeof validation === "object") return invalidTripDatesResponse(validation);
       if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
@@ -935,7 +937,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const payload = cleanPayload(body);
+    const payload = cleanPayload(body, requestLocale);
     const validation = validatePayload(payload);
     if (typeof validation === "object") return invalidTripDatesResponse(validation);
     if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });

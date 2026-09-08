@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/I18nProvider";
 import type { TrackingActivity, TrackingDay } from "@/lib/roamly/tripActivation";
 
 function statusClass(status: string) {
@@ -15,10 +18,11 @@ export function CurrentDayTimeline({
   dayNumber: number;
   activities: TrackingActivity[];
 }) {
+  const { t } = useI18n();
   return (
     <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Current day</p>
-      <h2 className="mt-2 text-2xl font-black text-ink">{day?.title || `Day ${dayNumber}`}</h2>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.currentDay")}</p>
+      <h2 className="mt-2 text-2xl font-black text-ink">{day?.title || t("ui.status.dayNumber", "Day {day}").replace("{day}", String(dayNumber))}</h2>
       {day?.summary ? <p className="mt-2 text-sm font-bold leading-6 text-slate-500">{day.summary}</p> : null}
       <div className="mt-4 grid gap-3">
         {activities.length ? (
@@ -37,7 +41,7 @@ export function CurrentDayTimeline({
           ))
         ) : (
           <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-            No timeline activities are saved for this day yet.
+            {t("ui.status.noTimelineActivities")}
           </p>
         )}
       </div>

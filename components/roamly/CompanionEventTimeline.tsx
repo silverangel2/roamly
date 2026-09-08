@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { formatRoamlyDate } from "@/lib/i18n";
 
 type CompanionEventItem = {
   id: string;
@@ -133,7 +135,7 @@ function severityClass(
   return "bg-slate-100 text-slate-600";
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, locale: Parameters<typeof formatRoamlyDate>[1]) {
   if (!value) return "—";
 
   const date = new Date(value);
@@ -142,7 +144,7 @@ function formatDate(value: string | null) {
     return value;
   }
 
-  return date.toLocaleString();
+  return formatRoamlyDate(date, locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
 export default function CompanionEventTimeline({
@@ -150,6 +152,7 @@ export default function CompanionEventTimeline({
 }: {
   tripId: string;
 }) {
+  const { locale } = useI18n();
   const [events, setEvents] = useState<
     CompanionEventItem[]
   >([]);
@@ -277,7 +280,7 @@ export default function CompanionEventTimeline({
                 </div>
 
                 <p className="shrink-0 text-xs font-bold text-slate-400">
-                  {formatDate(event.detectedAt)}
+                      {formatDate(event.detectedAt, locale)}
                 </p>
               </div>
 
@@ -312,7 +315,7 @@ export default function CompanionEventTimeline({
 
               {event.resolvedAt ? (
                 <p className="mt-4 text-xs font-bold text-slate-400">
-                  Resolved {formatDate(event.resolvedAt)}
+                  Resolved {formatDate(event.resolvedAt, locale)}
                 </p>
               ) : null}
             </article>

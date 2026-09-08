@@ -38,9 +38,10 @@
       "translateItinerary": "Traducir itinerario",
       "sendItinerary": "Enviar itinerario",
       "close": "Cerrar",
-      "closeEmailModal": "Cerrar ventana de correo"
+      "closeEmailModal": "Cerrar ventana de correo",
+      "removeTrip": "Eliminar viaje", "open":"Abrir", "markRead":"Marcar como leído"
     },
-    "status": {
+    "status": {"now":"Ahora","countdown":"Cuenta atrás","leaveBy":"Salir a las","route":"Ruta","progress":"Progreso","hours":"Horario","details":"Detalles de la reserva","provider":"Proveedor","reference":"Referencia","openMaps":"Abrir en Maps",
       "working": "Procesando...",
       "loading": "Cargando...",
       "empty": "Nada por aquí todavía.",
@@ -53,11 +54,20 @@
       "emailNotConfigured": "El envío de correos aún no está configurado. Puedes exportar el PDF o copiar el enlace del viaje.",
       "itineraryEmailSent": "Correo del itinerario enviado.",
       "emailSendFailed": "No se pudo enviar el correo del itinerario.",
-      "sending": "Enviando..."
+      "sending": "Enviando...", "saving": "Guardando…", "terminal": "Terminal", "noActiveTrip": "No hay viaje activo", "nothingLive": "Aún no hay nada activo.", "unlockCompanion": "Desbloquea primero el compañero de viaje en directo para que Roamly te guíe.", "checkedActivities": "Actividades revisadas", "currentDay": "Día actual", "nearbyNow": "Cerca ahora", "noNearbyActivity": "No se detectó ninguna actividad cercana.", "nearbyUpdate": "Roamly actualizará esto cuando llegues cerca de una parada guardada.",
+      "unexpectedError": "Algo salió mal.", "noCheckedActivities": "Aún no se ha revisado ninguna actividad.", "dayNumber": "Día {day}", "noTimelineActivities": "Aún no hay actividades guardadas para este día.",
+      "tripRemovalFailed": "No se pudo eliminar este viaje.", "inAppOnly":"Solo en la aplicación","emailSent":"Correo enviado","sendingEmail":"Enviando correo","retryingEmail":"Reintentando correo","emailQueued":"Correo en cola","deliveryIssue":"Problema de entrega","inAppAvailable":"Disponible en la aplicación","notificationTimeline":"Cronología de notificaciones","unread":"No leído","alertEmailUnavailable":"La alerta sigue disponible aquí, pero no se pudo entregar el correo.","noNotifications":"Aún no hay notificaciones.",
+      "feedbackSaved": "Comentarios guardados.", "companionControl":"Control del compañero","howCompanionHelps":"¿Cómo debe ayudarte Roamly?","companionControlMode":"Modo de control del compañero","suggestChanges":"Sugerir cambios","suggestChangesDescription":"Roamly pregunta antes de cambiar tu itinerario.","fixSimpleChanges":"Corregir cambios simples","fixSimpleChangesDescription":"Roamly puede ajustar horarios gratuitos y planes flexibles de bajo riesgo.","fixWithinRules":"Corregir según mis reglas","fixWithinRulesDescription":"Roamly puede aplicar cambios aprobados dentro de tus límites.","companionLoadFailed":"No se pudieron cargar los ajustes del compañero.","companionSaveFailed":"No se pudieron guardar los ajustes del compañero.","companionSaved":"Preferencia del compañero guardada.","settingNotSaved":"No se guardó tu ajuste. Inténtalo de nuevo.","pauseDescription":"La pausa detiene las indicaciones y notificaciones en directo. La ubicación en segundo plano es opcional.","pause":"Pausar","resume":"Reanudar","disable":"Desactivar","backgroundOn":"Segundo plano activado","backgroundOff":"Segundo plano desactivado","off":"desactivado","paused":"en pausa","ready":"listo","companionPaused":"Compañero pausado durante 1 hora.","companionResumed":"Compañero reanudado.","companionDisabled":"Compañero desactivado.","backgroundDisabled":"Ubicación en segundo plano desactivada.","backgroundSaved":"Preferencia de ubicación guardada.","liveCompanion":"Compañero en directo","phoneReminders":"Rappels","enablePhoneReminders":"Activar recordatorios del teléfono","phoneRemindersDescription":"Roamly puede recordarte el equipaje, los documentos, las horas de registro y lo que sigue durante tu viaje.","phoneRemindersBlocked":"Los recordatorios del teléfono están bloqueados. Las notificaciones dentro de Roamly siguen disponibles.","notificationsUnavailable":"Las notificaciones del sistema no están disponibles en este navegador o dispositivo. Usa un navegador compatible o instala Roamly en la pantalla de inicio del iPhone.","homeScreenReminder":"En iPhone, toca Compartir, Añadir a pantalla de inicio y abre Roamly desde el nuevo icono.","phoneRemindersEnabled":"Recordatorios del teléfono/navegador activados.","phoneRemindersEnabledShort":"Recordatorios del teléfono activados.","phoneRemindersOff":"Recordatorios del teléfono/navegador desactivados. Las notificaciones dentro de la aplicación siguen funcionando.","phoneRemindersPermission":"Las notificaciones dentro de la aplicación funcionan automáticamente. Los recordatorios necesitan permiso del navegador.","phoneRemindersRegistered":"Los recordatorios están activados y este dispositivo está registrado en Roamly.","pushEnableFailed":"No se pudieron activar las notificaciones push.","pushDisableFailed":"No se pudieron desactivar las notificaciones push.","browserPermission":"Permiso actual del navegador","registerQaPush":"Registrar push de QA","turnOff":"Desactivar","checkState":"Comprobar estado",
+      "feedbackSaveFailed": "No se pudieron guardar los comentarios.",
+      "removing": "Eliminando…",
+      "flexibleDates": "Fechas flexibles",
+      "days": "días", "upNextNearby": "Lo siguiente cerca", "noNextActivity": "Aún no hay una próxima actividad lista.", "metersAway": "A {distance} m"
     },
     "email": {
       "sendTripDocument": "Enviar este documento del viaje",
-      "recipientEmail": "Correo del destinatario"
+      "recipientEmail": "Correo del destinatario",
+      "contact": {"contactName":"Nombre","contactEmail":"Correo electrónico","contactCategory":"Categoría","contactTripId":"ID del viaje","contactSubject":"Asunto","contactMessage":"Mensaje","contactSupport":"¿Necesitas ayuda por correo? Contacta con {email}.","contactSend":"Enviar mensaje","contactSendFailed":"No se pudo enviar el mensaje.","contactReceived":"Gracias: hemos recibido tu mensaje.","contactCategory_support":"Soporte","contactCategory_billing":"Facturación","contactCategory_itinerary":"Itinerario","contactCategory_partner":"Socio","contactCategory_bug":"Error","contactCategory_other":"Otro"},
+      "booking": {"flight":"Vuelo","hotel":"Hotel","activity":"Actividad","restaurant":"Restaurante","other":"Otro","checkField":"Revisa este campo","add":"Añadir reserva","saveWhatBooked":"Guarda tu reserva","enterOrUpload":"Introdúcela o sube una confirmación.","upload":"Subir confirmación","manual":"Introducir manualmente","back":"Volver a las reservas","review":"Revisar reserva","needsChecking":"Algunos campos deben revisarse antes de guardar.","confirmDetails":"Confirma estos datos antes de guardar.","airline":"Aerolínea","flightNumber":"Número de vuelo","from":"Desde","to":"Hasta","airlineCode":"Código de aerolínea","gate":"Puerta","confirmationCode":"Código de confirmación","address":"Dirección","location":"Ubicación","hotelName":"Nombre del hotel","name":"Nombre","date":"Fecha","departureTime":"Hora de salida","arrivalDate":"Fecha de llegada","arrivalTime":"Hora de llegada","baggage":"Equipaje","duration":"Duración","checkIn":"Entrada","checkOut":"Salida","optional":"Opcional"}
     }
   },
   "text": {
@@ -730,6 +740,17 @@
     "Missing": "Falta",
     "Optional": "Opcional",
     "Needs setup": "Necesita configuración",
+    "Back home": "Volver al inicio", "Welcome back": "Bienvenido de nuevo", "Log in": "Iniciar sesión", "Sign up": "Registrarse", "Notifications": "Notificaciones",
+    "No active trip notifications yet.": "Aún no hay notificaciones activas del viaje.", "Open dashboard": "Abrir el panel", "Bookings": "Reservas",
+    "No bookings yet": "Aún no hay reservas", "Confirmed": "Confirmado", "Available": "Disponible", "Optional": "Opcional", "Add booking": "Añadir reserva",
+    "Save booking": "Guardar reserva", "Saving...": "Guardando…", "Airline": "Aerolínea", "Flight number": "Número de vuelo",
+    "From": "Desde", "To": "Hasta", "Confirmation code": "Código de confirmación", "Address": "Dirección", "Location": "Ubicación",
+    "Live Trip Companion": "Compañero de viaje en directo", "Return to trip": "Volver al viaje", "Setup": "Configuración", "Plan trip": "Planificar viaje",
+    "Details": "Detalles", "Features": "Funciones", "Start planning": "Empezar a planificar", "How it works": "Cómo funciona",
+    "Terms": "Términos", "Privacy": "Privacidad", "Contact": "Contacto", "Building your itinerary": "Creando tu itinerario",
+    "Itinerary generation failed.": "La generación del itinerario falló.", "No itinerary yet.": "Aún no hay itinerario.",
+    "Plan my trip": "Planificar mi viaje", "Open planner": "Abrir planificador", "Check in": "Registrar llegada", "Skip": "Omitir",
+    "Open Maps": "Abrir Maps", "Enable notifications": "Activar notificaciones", "Notifications are blocked.": "Las notificaciones están bloqueadas.",
     "Roamly may earn a commission when you book or shop through partner links. This does not change your price.": "Roamly puede ganar una comisión cuando reservas o compras mediante enlaces de socios. Esto no cambia tu precio."
   }
 }

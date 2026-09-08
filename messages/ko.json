@@ -38,9 +38,10 @@
       "translateItinerary": "일정 번역",
       "sendItinerary": "일정 보내기",
       "close": "닫기",
-      "closeEmailModal": "이메일 창 닫기"
+      "closeEmailModal": "이메일 창 닫기",
+      "removeTrip": "여행 삭제", "open":"열기", "markRead":"읽음으로 표시"
     },
-    "status": {
+    "status": {"now":"현재","countdown":"카운트다운","leaveBy":"출발 시간","route":"경로","progress":"진행 상황","hours":"운영 시간","details":"예약 세부 정보","provider":"제공업체","reference":"참조 번호","openMaps":"지도에서 열기",
       "working": "처리 중...",
       "loading": "불러오는 중...",
       "empty": "아직 항목이 없습니다.",
@@ -53,11 +54,20 @@
       "emailNotConfigured": "이메일 전송이 아직 설정되지 않았습니다. PDF를 내보내거나 여행 링크를 복사할 수 있습니다.",
       "itineraryEmailSent": "일정 이메일을 보냈습니다.",
       "emailSendFailed": "일정 이메일을 보낼 수 없습니다.",
-      "sending": "보내는 중..."
+      "sending": "보내는 중...", "saving": "저장 중…", "terminal": "터미널", "noActiveTrip": "활성 여행 없음", "nothingLive": "아직 진행 중인 항목이 없습니다.", "unlockCompanion": "먼저 라이브 여행 컴패니언을 잠금 해제하면 Roamly가 하루를 안내합니다.", "checkedActivities": "확인한 활동", "currentDay": "현재 날짜", "nearbyNow": "현재 주변", "noNearbyActivity": "주변 활동을 찾지 못했습니다.", "nearbyUpdate": "저장된 장소 근처에 도착하면 Roamly가 업데이트합니다.",
+      "unexpectedError": "문제가 발생했습니다.", "noCheckedActivities": "아직 확인한 활동이 없습니다.", "dayNumber": "{day}일차", "noTimelineActivities": "이 날짜에 저장된 타임라인 활동이 아직 없습니다.",
+      "tripRemovalFailed": "이 여행을 삭제할 수 없습니다.", "inAppOnly":"앱에서만 이용 가능","emailSent":"이메일 전송됨","sendingEmail":"이메일 전송 중","retryingEmail":"이메일 재시도 중","emailQueued":"이메일 대기 중","deliveryIssue":"전송 문제","inAppAvailable":"앱에서 이용 가능","notificationTimeline":"알림 타임라인","unread":"읽지 않음","alertEmailUnavailable":"알림은 여기에서 확인할 수 있지만 이메일을 전송하지 못했습니다.","noNotifications":"아직 알림이 없습니다.",
+      "feedbackSaved": "피드백이 저장되었습니다.", "companionControl":"컴패니언 제어","howCompanionHelps":"Roamly가 어떻게 도와드릴까요?","companionControlMode":"컴패니언 제어 모드","suggestChanges":"변경 제안","suggestChangesDescription":"Roamly는 일정을 변경하기 전에 확인합니다.","fixSimpleChanges":"간단한 변경 수정","fixSimpleChangesDescription":"Roamly는 무료이고 위험이 낮은 시간과 유연한 계획을 조정할 수 있습니다.","fixWithinRules":"내 규칙에 따라 수정","fixWithinRulesDescription":"Roamly는 한도 내에서 승인된 변경을 적용할 수 있습니다.","companionLoadFailed":"컴패니언 설정을 불러오지 못했습니다.","companionSaveFailed":"컴패니언 설정을 저장하지 못했습니다.","companionSaved":"컴패니언 설정이 저장되었습니다.","settingNotSaved":"설정이 저장되지 않았습니다. 다시 시도하세요.","pauseDescription":"일시정지하면 실시간 안내와 알림이 중지됩니다. 백그라운드 위치는 선택 사항입니다.","pause":"일시정지","resume":"재개","disable":"사용 안 함","backgroundOn":"백그라운드 켜짐","backgroundOff":"백그라운드 꺼짐","off":"꺼짐","paused":"일시정지됨","ready":"준비됨","companionPaused":"컴패니언을 1시간 일시정지했습니다.","companionResumed":"컴패니언을 재개했습니다.","companionDisabled":"컴패니언을 사용하지 않습니다.","backgroundDisabled":"백그라운드 위치를 사용하지 않습니다.","backgroundSaved":"백그라운드 위치 설정이 저장되었습니다.","liveCompanion":"라이브 컴패니언","phoneReminders":"휴대폰 알림","enablePhoneReminders":"휴대폰 알림 켜기","phoneRemindersDescription":"Roamly는 여행 중 짐, 서류, 체크인 시간과 다음 일정을 알려드릴 수 있습니다.","phoneRemindersBlocked":"휴대폰 알림이 차단되었습니다. Roamly 인앱 알림은 계속 사용할 수 있습니다.","notificationsUnavailable":"이 브라우저나 기기에서는 OS 알림을 사용할 수 없습니다. 지원되는 브라우저를 사용하거나 iPhone 홈 화면에 Roamly를 설치하세요.","homeScreenReminder":"iPhone에서 공유, 홈 화면에 추가를 차례로 탭한 뒤 새 아이콘으로 Roamly를 여세요.","phoneRemindersEnabled":"휴대폰/브라우저 알림이 켜졌습니다.","phoneRemindersEnabledShort":"휴대폰 알림이 켜졌습니다.","phoneRemindersOff":"휴대폰/브라우저 알림이 꺼졌습니다. 인앱 알림은 계속 작동합니다.","phoneRemindersPermission":"인앱 알림은 자동으로 작동합니다. 휴대폰 알림에는 이 기기의 브라우저 권한이 필요합니다.","phoneRemindersRegistered":"알림이 켜졌고 이 기기가 Roamly에 등록되었습니다.","pushEnableFailed":"푸시 알림을 켤 수 없습니다.","pushDisableFailed":"푸시 알림을 끌 수 없습니다.","browserPermission":"현재 브라우저 권한","registerQaPush":"QA 푸시 등록","turnOff":"끄기","checkState":"상태 확인",
+      "feedbackSaveFailed": "피드백을 저장할 수 없습니다.",
+      "removing": "삭제 중…",
+      "flexibleDates": "날짜 유연하게",
+      "days": "일", "upNextNearby": "주변의 다음 일정", "noNextActivity": "아직 다음 활동이 준비되지 않았습니다.", "metersAway": "{distance}m 거리"
     },
     "email": {
       "sendTripDocument": "이 여행 문서 보내기",
-      "recipientEmail": "받는 사람 이메일"
+      "recipientEmail": "받는 사람 이메일",
+      "contact": {"contactName":"이름","contactEmail":"이메일","contactCategory":"카테고리","contactTripId":"여행 ID","contactSubject":"제목","contactMessage":"메시지","contactSupport":"이메일 도움이 필요하신가요? {email}으로 연락하세요.","contactSend":"메시지 보내기","contactSendFailed":"메시지를 보낼 수 없습니다.","contactReceived":"감사합니다. 메시지를 받았습니다.","contactCategory_support":"지원","contactCategory_billing":"결제","contactCategory_itinerary":"여행 일정","contactCategory_partner":"파트너","contactCategory_bug":"버그","contactCategory_other":"기타"},
+      "booking": {"flight":"항공편","hotel":"호텔","activity":"활동","restaurant":"레스토랑","other":"기타","checkField":"이 항목을 확인하세요","add":"예약 추가","saveWhatBooked":"예약한 내용 저장","enterOrUpload":"직접 입력하거나 확인서를 업로드하세요.","upload":"확인서 업로드","manual":"직접 입력","back":"예약으로 돌아가기","review":"예약 검토","needsChecking":"저장하기 전에 일부 항목을 확인해야 합니다.","confirmDetails":"저장하기 전에 이 내용을 확인하세요.","airline":"항공사","flightNumber":"항공편 번호","from":"출발지","to":"도착지","airlineCode":"항공사 코드","gate":"게이트","confirmationCode":"확인 코드","address":"주소","location":"위치","hotelName":"호텔 이름","name":"이름","date":"날짜","departureTime":"출발 시간","arrivalDate":"도착 날짜","arrivalTime":"도착 시간","baggage":"수하물","duration":"소요 시간","checkIn":"체크인","checkOut":"체크아웃","optional":"선택 사항"}
     }
   },
   "text": {
@@ -434,6 +444,17 @@
     "Missing": "누락",
     "Optional": "선택 사항",
     "Needs setup": "설정 필요",
+    "Back home": "홈으로 돌아가기", "Welcome back": "다시 오신 것을 환영합니다", "Log in": "로그인", "Sign up": "가입", "Notifications": "알림",
+    "No active trip notifications yet.": "활성화된 여행 알림이 아직 없습니다.", "Open dashboard": "대시보드 열기", "Bookings": "예약",
+    "No bookings yet": "아직 예약이 없습니다", "Confirmed": "확인됨", "Available": "사용 가능", "Optional": "선택 사항", "Add booking": "예약 추가",
+    "Save booking": "예약 저장", "Saving...": "저장 중…", "Airline": "항공사", "Flight number": "항공편 번호",
+    "From": "출발지", "To": "도착지", "Confirmation code": "확인 코드", "Address": "주소", "Location": "위치",
+    "Live Trip Companion": "라이브 여행 컴패니언", "Return to trip": "여행으로 돌아가기", "Setup": "설정", "Plan trip": "여행 계획",
+    "Details": "세부 정보", "Features": "기능", "Start planning": "계획 시작", "How it works": "사용 방법",
+    "Terms": "약관", "Privacy": "개인정보 보호", "Contact": "문의", "Building your itinerary": "여행 일정 생성 중",
+    "Itinerary generation failed.": "여행 일정 생성에 실패했습니다.", "No itinerary yet.": "아직 일정이 없습니다.",
+    "Plan my trip": "여행 계획하기", "Open planner": "플래너 열기", "Check in": "체크인", "Skip": "건너뛰기",
+    "Open Maps": "지도 열기", "Enable notifications": "알림 활성화", "Notifications are blocked.": "알림이 차단되어 있습니다.",
     "Total estimate": "총 예상액",
     "Premium AI travel planning": "Premium AI travel planning",
     "Plan smarter trips with AI that understands your budget.": "Plan smarter trips with AI that understands your budget.",

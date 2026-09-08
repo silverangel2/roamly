@@ -1,4 +1,6 @@
 import { TripPlanForm } from "@/components/plan/TripPlanForm";
+import { getServerLocale } from "@/lib/i18n-server";
+import { translateKey } from "@/lib/i18n";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -15,6 +17,7 @@ const promiseCards = [
 ];
 
 export default async function PlanPage() {
+  const locale = await getServerLocale();
   const current = await getCurrentUser();
   const supabase = current.user ? await createSupabaseServerClient() : null;
   const [, free] =
@@ -32,7 +35,7 @@ export default async function PlanPage() {
     <main className="safe-bottom mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
       <section className="grid gap-4 lg:grid-cols-[0.68fr_1.32fr] lg:items-start">
         <div className="space-y-3 lg:sticky lg:top-20">
-          <Badge>Plan trip</Badge>
+          <Badge>{translateKey(locale, "ui.nav.planTrip", "Plan trip")}</Badge>
           {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <div>
             <h1 className="max-w-2xl text-3xl font-black leading-tight tracking-tight text-ink sm:text-5xl">

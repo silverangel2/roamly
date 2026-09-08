@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { localizeCustomerError } from "@/lib/i18n";
 
 type BookingKind = "flight" | "hotel" | "activity" | "restaurant" | "other";
 
@@ -31,11 +33,8 @@ type ManualBookingFormProps = {
 };
 
 const bookingKinds: Array<{ value: BookingKind; label: string }> = [
-  { value: "flight", label: "Flight" },
-  { value: "hotel", label: "Hotel" },
-  { value: "activity", label: "Activity" },
-  { value: "restaurant", label: "Restaurant" },
-  { value: "other", label: "Other" }
+  { value: "flight", label: "flight" }, { value: "hotel", label: "hotel" }, { value: "activity", label: "activity" },
+  { value: "restaurant", label: "restaurant" }, { value: "other", label: "other" }
 ];
 
 function toDateTime(date: string, time = "", fallbackTime = "") {
@@ -66,6 +65,7 @@ function Field({
   uncertain?: boolean;
   placeholder?: string;
 }) {
+  const { t } = useI18n();
   return (
     <label className="block">
       <span className="text-sm font-black text-slate-700">{label}</span>
@@ -76,13 +76,14 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         className={fieldClass(uncertain)}
       />
-      {uncertain ? <span className="mt-1 block text-sm font-bold text-amber-700">Check this field</span> : null}
+      {uncertain ? <span className="mt-1 block text-sm font-bold text-amber-700">{t("ui.booking.checkField")}</span> : null}
     </label>
   );
 }
 
 export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
   const router = useRouter();
+  const { locale, t } = useI18n();
   const [kind, setKind] = useState<BookingKind>("flight");
   const [provider, setProvider] = useState("");
   const [title, setTitle] = useState("");
@@ -141,10 +142,10 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
       form.append("file", file);
       const response = await fetch(`/api/trips/${tripId}/bookings/extract`, { method: "POST", body: form });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.message || data?.error || "We could not read that file.");
+      if (!response.ok) throw new Error(data?.message || data?.error || t("ui.status.unexpectedError"));
       applyReview(data.booking);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We could not read that file.");
+      setError(localizeCustomerError(locale, err));
     } finally {
       setBusy(false);
     }
@@ -152,7 +153,7 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
 
   async function save() {
     if (!canSave) {
-      setError("Add the required booking details first.");
+      setError(t("ui.booking.needsChecking"));
       return;
     }
     setBusy(true);
@@ -208,11 +209,11 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
         })
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.message || data?.error || "We could not save this booking.");
+      if (!response.ok) throw new Error(data?.message || data?.error || t("ui.status.unexpectedError"));
       router.push(`/trip/${tripId}/bookings`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "We could not save this booking.");
+      setError(localizeCustomerError(locale, err));
     } finally {
       setBusy(false);
     }
@@ -221,28 +222,28 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-5 sm:px-6 sm:py-8">
       <section className="rounded-[1.15rem] border border-slate-200 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,0.07)] sm:p-7">
-        <p className="text-sm font-black text-ocean">Add booking</p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">Save what you booked</h1>
-        <p className="mt-2 text-base font-semibold leading-7 text-slate-600">Enter it yourself or upload a confirmation.</p>
+        <p className="text-sm font-black text-ocean">{t("ui.booking.add")}</p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">{t("ui.booking.saveWhatBooked")}</h1>
+        <p className="mt-2 text-base font-semibold leading-7 text-slate-600">{t("ui.booking.enterOrUpload")}</p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <label className="flex min-h-14 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-ink">
             <input type="file" accept="image/*,application/pdf" className="sr-only" onChange={(event) => void upload(event.target.files?.[0])} />
-            Upload confirmation
+            {t("ui.booking.upload")}
           </label>
           <button type="button" onClick={() => setReview(null)} className="min-h-14 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-ink">
-            Enter manually
+            {t("ui.booking.manual")}
           </button>
           <a href={`/trip/${tripId}/bookings`} className="flex min-h-14 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-ink">
-            Back to bookings
+            {t("ui.booking.back")}
           </a>
         </div>
 
         {review ? (
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-black text-amber-800">Review booking</p>
+            <p className="text-sm font-black text-amber-800">{t("ui.booking.review")}</p>
             <p className="mt-1 text-sm font-bold text-amber-800">
-              {uncertain ? "Some fields need checking before saving." : "Confirm these details before saving."}
+              {uncertain ? t("ui.booking.needsChecking") : t("ui.booking.confirmDetails")}
             </p>
           </div>
         ) : null}
@@ -257,7 +258,7 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
                 kind === item.value ? "bg-ink text-white" : "border border-slate-200 bg-white text-slate-700"
               }`}
             >
-              {item.label}
+              {t(`ui.booking.${item.label}`)}
             </button>
           ))}
         </div>
@@ -265,47 +266,47 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
         <div className="mt-5 grid gap-4">
           {kind === "flight" ? (
             <>
-              <Field label="Airline" value={provider} onChange={setProvider} uncertain={uncertain && !provider} placeholder="Air Canada" />
-              <Field label="Flight number" value={flightNumber} onChange={setFlightNumber} uncertain={uncertain && !flightNumber} placeholder="AC870" />
+              <Field label={t("ui.booking.airline")} value={provider} onChange={setProvider} uncertain={uncertain && !provider} placeholder="Air Canada" />
+              <Field label={t("ui.booking.flightNumber")} value={flightNumber} onChange={setFlightNumber} uncertain={uncertain && !flightNumber} placeholder="AC870" />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Date" type="date" value={startDate} onChange={setStartDate} uncertain={uncertain && !startDate} />
-                <Field label="Departure time" type="time" value={startTime} onChange={setStartTime} />
+                <Field label={t("ui.booking.date")} type="date" value={startDate} onChange={setStartDate} uncertain={uncertain && !startDate} />
+                <Field label={t("ui.booking.departureTime")} type="time" value={startTime} onChange={setStartTime} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Arrival date" type="date" value={endDate} onChange={setEndDate} placeholder={startDate} />
-                <Field label="Arrival time" type="time" value={endTime} onChange={setEndTime} />
+                <Field label={t("ui.booking.arrivalDate")} type="date" value={endDate} onChange={setEndDate} placeholder={startDate} />
+                <Field label={t("ui.booking.arrivalTime")} type="time" value={endTime} onChange={setEndTime} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="From" value={origin} onChange={setOrigin} uncertain={uncertain && !origin} placeholder="YUL" />
-                <Field label="To" value={destination} onChange={setDestination} uncertain={uncertain && !destination} placeholder="CDG" />
+                <Field label={t("ui.booking.from")} value={origin} onChange={setOrigin} uncertain={uncertain && !origin} placeholder="YUL" />
+                <Field label={t("ui.booking.to")} value={destination} onChange={setDestination} uncertain={uncertain && !destination} placeholder="CDG" />
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="Airline code" value={airlineCode} onChange={setAirlineCode} placeholder="AC" />
-                <Field label="Terminal" value={terminal} onChange={setTerminal} placeholder="1" />
-                <Field label="Gate" value={gate} onChange={setGate} placeholder="A12" />
+                <Field label={t("ui.booking.airlineCode")} value={airlineCode} onChange={setAirlineCode} placeholder="AC" />
+                <Field label={t("ui.status.terminal", "Terminal")} value={terminal} onChange={setTerminal} placeholder="1" />
+                <Field label={t("ui.booking.gate")} value={gate} onChange={setGate} placeholder="A12" />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Baggage" value={baggage} onChange={setBaggage} placeholder="1 checked bag" />
-                <Field label="Duration" value={duration} onChange={setDuration} placeholder="5h 40m" />
+                <Field label={t("ui.booking.baggage")} value={baggage} onChange={setBaggage} placeholder="1 checked bag" />
+                <Field label={t("ui.booking.duration")} value={duration} onChange={setDuration} placeholder="5h 40m" />
               </div>
-              <Field label="Confirmation code" value={confirmationCode} onChange={setConfirmationCode} placeholder="Optional" />
+              <Field label={t("ui.booking.confirmationCode")} value={confirmationCode} onChange={setConfirmationCode} placeholder={t("ui.booking.optional")} />
             </>
           ) : kind === "hotel" ? (
             <>
-              <Field label="Hotel name" value={provider} onChange={setProvider} uncertain={uncertain && !provider} />
+              <Field label={t("ui.booking.hotelName")} value={provider} onChange={setProvider} uncertain={uncertain && !provider} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Check-in" type="date" value={startDate} onChange={setStartDate} uncertain={uncertain && !startDate} />
-                <Field label="Check-out" type="date" value={endDate} onChange={setEndDate} uncertain={uncertain && !endDate} />
+                <Field label={t("ui.booking.checkIn")} type="date" value={startDate} onChange={setStartDate} uncertain={uncertain && !startDate} />
+                <Field label={t("ui.booking.checkOut")} type="date" value={endDate} onChange={setEndDate} uncertain={uncertain && !endDate} />
               </div>
-              <Field label="Address" value={address} onChange={setAddress} placeholder="Optional" />
-              <Field label="Confirmation code" value={confirmationCode} onChange={setConfirmationCode} placeholder="Optional" />
+              <Field label={t("ui.booking.address")} value={address} onChange={setAddress} placeholder={t("ui.booking.optional")} />
+              <Field label={t("ui.booking.confirmationCode")} value={confirmationCode} onChange={setConfirmationCode} placeholder={t("ui.booking.optional")} />
             </>
           ) : (
             <>
-              <Field label="Name" value={title} onChange={setTitle} uncertain={uncertain && !title} />
-              <Field label="Date" type="date" value={startDate} onChange={setStartDate} uncertain={uncertain && !startDate} />
-              <Field label="Location" value={address} onChange={setAddress} placeholder="Optional" />
-              <Field label="Confirmation code" value={confirmationCode} onChange={setConfirmationCode} placeholder="Optional" />
+              <Field label={t("ui.booking.name")} value={title} onChange={setTitle} uncertain={uncertain && !title} />
+              <Field label={t("ui.booking.date")} type="date" value={startDate} onChange={setStartDate} uncertain={uncertain && !startDate} />
+              <Field label={t("ui.booking.location")} value={address} onChange={setAddress} placeholder={t("ui.booking.optional")} />
+              <Field label={t("ui.booking.confirmationCode")} value={confirmationCode} onChange={setConfirmationCode} placeholder={t("ui.booking.optional")} />
             </>
           )}
         </div>
@@ -318,7 +319,7 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
           disabled={busy || !canSave}
           className="mt-6 min-h-14 w-full rounded-2xl bg-ink px-5 py-3 text-base font-black text-white disabled:opacity-50 sm:w-auto"
         >
-          {busy ? "Saving..." : "Save booking"}
+          {busy ? t("ui.status.saving") : t("ui.booking.saveWhatBooked")}
         </button>
       </section>
     </div>

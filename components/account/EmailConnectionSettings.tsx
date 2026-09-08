@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
+import { formatRoamlyDate } from "@/lib/i18n";
 
 type EmailConnection = {
   provider: "gmail";
@@ -22,19 +24,15 @@ const PROVIDERS = [
   }
 ];
 
-function formatSync(value: string | null) {
+function formatSync(value: string | null, locale: Parameters<typeof formatRoamlyDate>[1]) {
   if (!value) return "Not synced yet";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Not synced yet";
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(date);
+  return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 export function EmailConnectionSettings() {
+  const { locale } = useI18n();
   const [connections, setConnections] = useState<EmailConnection[]>([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -88,7 +86,7 @@ export function EmailConnectionSettings() {
               <p className="text-sm font-black text-ink">{provider.name}</p>
               <p className="mt-2 text-sm font-bold text-slate-500">
                 {connected
-                  ? `${connection?.email_address || provider.name} connected · Last sync ${formatSync(connection?.last_synced_at || null)}`
+                  ? `${connection?.email_address || provider.name} connected · Last sync ${formatSync(connection?.last_synced_at || null, locale)}`
                   : "Not connected"}
               </p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">

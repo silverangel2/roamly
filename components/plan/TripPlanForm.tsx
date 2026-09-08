@@ -21,6 +21,7 @@ import {
 } from "@/lib/roamly/places";
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { formatRoamlyNumber } from "@/lib/i18n";
 import {
   fetchWithSupabaseAuth,
   resolveBrowserAuthState,
@@ -340,16 +341,16 @@ function formatMoney(cents: number | null, currency: string) {
   return formatBudgetMoneyCents(cents, currency);
 }
 
-function formatTransportMoney(amount: number | null | undefined, currency: string) {
+function formatTransportMoney(amount: number | null | undefined, currency: string, locale: Parameters<typeof formatRoamlyNumber>[1]) {
   if (amount == null || !Number.isFinite(amount)) return "Search-ready";
-  return `${currency} ${Math.round(amount).toLocaleString("en-CA")}`;
+  return `${currency} ${formatRoamlyNumber(Math.round(amount), locale)}`;
 }
 
-function formatTransportOption(option: TransportOption | null | undefined, fallbackCurrency: string) {
+function formatTransportOption(option: TransportOption | null | undefined, fallbackCurrency: string, locale: Parameters<typeof formatRoamlyNumber>[1]) {
   if (!option) return "Compare transport before booking.";
   const currency = option.currency || fallbackCurrency;
-  const min = formatTransportMoney(option.estimated_cost_min, currency);
-  const max = formatTransportMoney(option.estimated_cost_max, currency);
+  const min = formatTransportMoney(option.estimated_cost_min, currency, locale);
+  const max = formatTransportMoney(option.estimated_cost_max, currency, locale);
   const range = option.estimated_cost_min != null && option.estimated_cost_max != null ? `${min}-${max}` : min !== "Search-ready" ? min : max;
   return `${option.title}: ${range}. ${option.why_recommended}`;
 }
@@ -1403,7 +1404,7 @@ export function TripPlanForm({
     : null;
   const priceDiscoveryRows = priceDiscovery
     ? [
-        ["User budget", payload.budgetAmount ? `${priceDiscovery.budgetCurrency} ${payload.budgetAmount.toLocaleString("en-CA")}` : "Not set"],
+        ["User budget", payload.budgetAmount ? `${priceDiscovery.budgetCurrency} ${formatRoamlyNumber(payload.budgetAmount, locale)}` : "Not set"],
         [
           "Selected transport",
           `${formatMoney(priceDiscovery.selectedTransportEstimateCents ?? priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)}${
@@ -1829,7 +1830,7 @@ export function TripPlanForm({
                   </div>
                   <p className="mt-2 text-sm font-black text-ink">{option.budget_fit === "best" ? translateText("Recommended") + ": " : ""}{option.title}</p>
                   <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                    {formatTransportOption(option, priceDiscovery.budgetCurrency)}
+                    {formatTransportOption(option, priceDiscovery.budgetCurrency, locale)}
                   </p>
                 </div>
               ))}

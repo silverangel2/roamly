@@ -198,7 +198,7 @@ assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must 
 assert.ok(bookingWalletTimeline.includes("/bookings/add"), "Booking Wallet must link to the add-booking flow");
 
 const manualBookingForm = read("components/companion/ManualBookingForm.tsx");
-["Upload confirmation", "Enter manually", "Review booking", "Airline", "Flight number", "Hotel name", "Save booking"].forEach((needle) =>
+["ui.booking.upload", "ui.booking.manual", "ui.booking.review", "ui.booking.airline", "ui.booking.flightNumber", "ui.booking.hotelName", "ui.booking.saveWhatBooked"].forEach((needle) =>
   assert.ok(manualBookingForm.includes(needle), `manual booking form missing ${needle}`)
 );
 
