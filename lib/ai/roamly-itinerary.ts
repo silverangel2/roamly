@@ -17,7 +17,7 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { describeTravelEssentialsContext } from "@/lib/roamly/amazonAffiliate";
-import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION } from "@/lib/roamly/generationLanguage";
+import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT } from "@/lib/roamly/generationLanguage";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -400,6 +400,8 @@ export function buildPrompt(payload: TripPlannerPayload, validationErrors: strin
 
 ${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
+${ROAMLY_TRAVELER_PRIORITY_CONTRACT}
+
 Traveler input:
 - Trip type: ${payload.tripType === "multi_city" ? "multi-city trip" : "single destination"}
 - Route: ${routeSummary(payload)}
@@ -652,6 +654,8 @@ function buildCompactPrompt(payload: TripPlannerPayload, validationErrors: strin
 
 ${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
+${ROAMLY_TRAVELER_PRIORITY_CONTRACT}
+
 Trip:
 - Language: ${outputLanguage}
 - Route: ${routeSummary(payload)}
@@ -892,7 +896,7 @@ export async function translateRoamlyItinerary(params: {
           {
             role: "system",
             content:
-              `${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(params.language)} You are translating an existing itinerary. Translate only Roamly-owned descriptive prose; never translate protected structured facts or official names.`
+              `${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(params.language)}\n\n${ROAMLY_TRAVELER_PRIORITY_CONTRACT} You are translating an existing itinerary. Translate only Roamly-owned descriptive prose; never translate protected structured facts or official names.`
           },
           {
             role: "user",

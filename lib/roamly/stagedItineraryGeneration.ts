@@ -30,7 +30,7 @@ import {
   summarizeItineraryShape
 } from "@/lib/roamly/generationDiagnostics";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
-import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
+import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT, localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
 
 export type StagedGenerationStatus =
   | "queued"
@@ -834,6 +834,8 @@ function outlinePrompt(payload: TripPlannerPayload, state: StagedGenerationState
 
 ${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
+${ROAMLY_TRAVELER_PRIORITY_CONTRACT}
+
 Trip:
 - Route: ${routeText(payload)}
 - Dates: ${payload.startDate} to ${payload.endDate}
@@ -845,6 +847,8 @@ Trip:
 - Interests: ${(payload.interests || []).join(", ") || "balanced"}
 - Accommodation: ${payload.accommodationPreference}; transport: ${payload.transportationPreference}
 - Accessibility/diet: ${payload.accessibilityNeeds || "none"}; ${payload.dietaryPreference || "none"}
+- Traveler must-do events, booking comments, and special requests: ${payload.specialNotes || "none"}
+- Confirmed bookings: ${JSON.stringify(payload.confirmedBookings || [])}
 - Price summary: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
 - Verified place candidates: ${JSON.stringify(verifiedCandidatesForPrompt(payload, state, 10))}
 
@@ -892,6 +896,8 @@ function dayBatchPrompt(params: {
 
 ${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
+${ROAMLY_TRAVELER_PRIORITY_CONTRACT}
+
 Trip: ${outline.tripSummary}
 Route: ${routeText(payload)}
 Base: ${outline.hotelAreaRecommendation}
@@ -900,6 +906,8 @@ Prev end: ${previousEndingLocation || outline.hotelAreaRecommendation}
 Next start: ${nextStartRequirement || "hotel/base by evening when practical"}
 Avoid repeats: ${usedAttractions.slice(0, 12).join(" | ") || "none"}
 Prefs: ${payload.travelStyle}; ${payload.pace}; ${payload.walkingTolerance}; ${(payload.interests || []).join(", ") || "balanced"}
+Traveler anchors: ${payload.specialNotes || "none"}
+Confirmed bookings: ${JSON.stringify(payload.confirmedBookings || [])}
 Budget cues: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
 Verified candidates: ${JSON.stringify(verifiedCandidatesForPrompt(payload, state, 12))}
 

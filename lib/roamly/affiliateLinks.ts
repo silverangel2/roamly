@@ -565,15 +565,19 @@ function timelineAffiliateCategory(item: RoamlyItinerary["daily_itinerary"][numb
   return item.booking_label ? "activity" : null;
 }
 
-function ctaLabelForTimeline(category: AffiliateCategory, label?: string | null) {
+function ctaLabelForTimeline(category: AffiliateCategory, label?: string | null, provider?: string | null, hasAffiliate = false) {
   const cleaned = cleanStringValue(label);
-  if (cleaned) return cleaned;
-  if (category === "flight") return "Compare flights";
-  if (category === "hotel") return "Find a hotel";
-  if (category === "transport") return "Book transfer";
+  const normalizedProvider = cleanStringValue(provider).toLowerCase();
+  if (hasAffiliate && normalizedProvider === "stay22") return "Check availability";
+  if (hasAffiliate && normalizedProvider === "travelpayouts") return "View flight options";
+  if (hasAffiliate && normalizedProvider === "klook") return "View on Klook";
+  if (category === "flight") return "View flight options";
+  if (category === "hotel") return "Check availability";
+  if (category === "transport") return "Open route";
   if (category === "esim") return "Get an eSIM";
   if (category === "product") return "Shop travel gear";
-  return "Book activity";
+  if (cleaned && !/^(book|reserve|find)\b/i.test(cleaned)) return cleaned;
+  return category === "attraction" || category === "ticket" ? "Search for tickets" : "Search activity";
 }
 
 type ItineraryTransportOption = NonNullable<RoamlyItinerary["estimated_budget_breakdown"]["transport_options"]>[number];
@@ -723,11 +727,11 @@ function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPay
       return {
         ...item,
         affiliate_category: category === "activity" || category === "ticket" ? "attraction" : category === "esim" || category === "product" ? category : (category as typeof item.affiliate_category),
-        booking_label: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel),
+        booking_label: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel, resolved.provider, resolved.disclosureRequired),
         booking: {
           provider: resolved.provider,
           url: href,
-          ctaLabel: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel),
+          ctaLabel: ctaLabelForTimeline(category, item.booking_label || resolved.ctaLabel, resolved.provider, resolved.disclosureRequired),
           disclosureRequired: resolved.disclosureRequired
         }
       };
@@ -1250,6 +1254,7 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
         affiliate_provider: affiliateProvider,
         affiliate_disclosure: hasAffiliateUrl ? affiliateDisclosure : "",
         has_affiliate_url: hasAffiliateUrl,
+        booking_label: ctaLabelForTimeline(linkCategory, suggestion.booking_label, affiliateProvider, hasAffiliateUrl),
         url_type: hasAffiliateUrl ? "affiliate" : "normal_search",
         booking_status:
           market?.metadata && typeof market.metadata === "object" && (market.metadata as Record<string, unknown>).source === "user_uploaded_confirmation"

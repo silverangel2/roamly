@@ -323,9 +323,28 @@ function fixMealTiming(item: RoamlyActivitySeed) {
   };
 }
 
-function visiblePriority(item: RoamlyActivitySeed) {
+function travelerAnchorTokens(payload: TripPlannerPayload) {
+  const confirmed = (payload.confirmedBookings || [])
+    .flatMap((booking) => [booking.title, booking.provider_name, booking.address, booking.city])
+    .filter((value): value is string => Boolean(value));
+  return `${payload.specialNotes || ""} ${confirmed.join(" ")}`
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 5);
+}
+
+function isTravelerAnchor(item: RoamlyActivitySeed, payload: TripPlannerPayload) {
+  const tokens = travelerAnchorTokens(payload);
+  if (tokens.length < 2) return false;
+  const itemText = `${item.title} ${item.description} ${item.location_name}`.toLowerCase();
+  const matches = new Set(tokens.filter((token) => itemText.includes(token)));
+  return matches.size >= Math.min(3, tokens.length);
+}
+
+function visiblePriority(item: RoamlyActivitySeed, payload: TripPlannerPayload) {
   const type = timelineType(item);
   const text = `${item.title} ${item.description}`.toLowerCase();
+  if (isTravelerAnchor(item, payload)) return 0;
   if (type === "travel" && /\b(return travel|flight|train|bus|drive|departure|arrival)\b/.test(text)) return 0;
   if (type === "hotel") return 1;
   if (type === "activity" || type === "booking") return 2;
@@ -336,11 +355,11 @@ function visiblePriority(item: RoamlyActivitySeed) {
   return 8;
 }
 
-function capPrimaryItems(items: RoamlyActivitySeed[]) {
+function capPrimaryItems(items: RoamlyActivitySeed[], payload: TripPlannerPayload) {
   if (items.length <= MAX_PRIMARY_TIMELINE_ITEMS) return items;
   const keepIndexes = new Set(
     items
-      .map((item, index) => ({ index, priority: visiblePriority(item) }))
+      .map((item, index) => ({ index, priority: visiblePriority(item, payload) }))
       .sort((a, b) => a.priority - b.priority || a.index - b.index)
       .slice(0, MAX_PRIMARY_TIMELINE_ITEMS)
       .map((item) => item.index)
@@ -353,13 +372,13 @@ function normalizeTimeline(items: RoamlyActivitySeed[], payload: TripPlannerPayl
     .map((item) => ({ ...item, item_type: timelineType(item) }))
     .map((item) => applyMarketIdentity(item, payload, marketResults, usedMarketIds))
     .map(fixMealTiming);
-  return capPrimaryItems(mergeShortTransfersIntoFollowingActivity(identityFixed));
+  return capPrimaryItems(mergeShortTransfersIntoFollowingActivity(identityFixed), payload);
 }
 
 function suggestedLabel(category: RoamlyBookingCategory, result?: TravelMarketResult | null) {
-  if (category === "flight") return result?.price_type === "live_partner" ? "Open provider" : "Search flights";
-  if (category === "hotel") return "Search hotels";
-  if (category === "attraction" || category === "tour") return result?.source === "klook" ? "Book activity" : "Search activity";
+  if (category === "flight") return result?.price_type === "live_partner" ? "View flight" : "Search flights";
+  if (category === "hotel") return "Check availability";
+  if (category === "attraction" || category === "tour") return result?.source === "klook" ? "View on Klook" : category === "attraction" ? "Search for tickets" : "Search activity";
   if (category === "restaurant") return "View on Google Maps";
   if (category === "transport" || category === "car_rental") return "Open route";
   return "Search";

@@ -29,13 +29,11 @@ export type AffiliateNeutralOption = {
   affiliateValue?: number;
 };
 
-const NEAR_TIE_POINTS = 1.5;
+const NEAR_TIE_POINTS = 0;
 
 export function rankAffiliateNeutralOptions<T extends AffiliateNeutralOption>(options: T[]) {
   return [...options].sort((a, b) => {
     const scoreDelta = b.customerScore - a.customerScore;
-    if (Math.abs(scoreDelta) > NEAR_TIE_POINTS) return scoreDelta;
-    if (a.affiliateAvailable !== b.affiliateAvailable) return a.affiliateAvailable ? -1 : 1;
     return scoreDelta;
   });
 }

@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { AccommodationDecision } from "@/lib/roamly/accommodationIntelligence";
 import type { TransportationDecision } from "@/lib/roamly/transportationIntelligence";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
-import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION } from "@/lib/roamly/generationLanguage";
+import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT } from "@/lib/roamly/generationLanguage";
 
 export type DailyEvidenceStatus = "verified_live" | "recently_retrieved" | "estimated" | "unknown";
 
@@ -186,6 +186,7 @@ function systemPrompt(locale?: string | null) {
     "You are Roamly Brain's daily itinerary planner.",
     "Return only strict JSON with a top-level days array.",
     ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(locale),
+    ROAMLY_TRAVELER_PRIORITY_CONTRACT,
     "Use only supplied evidence for provider-backed facts like opening hours, prices, live availability, ratings, and weather.",
     "Mark facts as verified_live, recently_retrieved, estimated, or unknown.",
     "Respect arrival/departure limits, hotel/base location, pace, budget, meals, rest, geographic clustering, and accessibility notes when supplied."

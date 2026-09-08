@@ -8,6 +8,14 @@ export const ROAMLY_GENERATION_LANGUAGE_INSTRUCTION = (locale: RoamlyLocale | st
   return `Language contract: write ALL Roamly descriptive and customer-facing prose in ${names[selected]}. Preserve official proper nouns exactly, including hotel names, airline names, business and restaurant names, airport codes, addresses, booking/reference codes, provider/brand names (Amazon, Stay22, Travelpayouts, Google Maps, Apple Maps, Citymapper), product/model names, and URLs. JSON keys and schema remain unchanged; localize only customer-facing values. Return valid JSON matching the required schema.`;
 };
 
+export const ROAMLY_TRAVELER_PRIORITY_CONTRACT = `Traveler priority contract:
+1. Confirmed bookings are fixed anchors and must not be moved, replaced, or treated as recommendations.
+2. Explicit traveler must-do events, booking comments, special requests, festivals, concerts, appointments, and named activities are primary itinerary anchors.
+3. Build the itinerary around those anchors, reserving known dates, times, venues, travel buffers, and nearby logistics first.
+4. Generic recommendations fill only the remaining time.
+5. Affiliate relationships, payout, or provider availability must never override traveler intent or objective fit.
+6. If an explicit request cannot be verified or is impossible, preserve it as a must-do requiring verification, explain the conflict, and propose the nearest feasible alternative; never silently drop it or invent a time, price, availability, or booking.`;
+
 const protectedKeys = new Set([
   "id", "activity_id", "booking_id", "trip_id", "user_id", "url", "href", "normal_search_url", "affiliate_url",
   "amazon_url", "map_query", "search_query", "currency", "provider", "provider_or_search_source", "affiliate_provider",
