@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 import { createFieldTestCapability } from "@/lib/roamly/fieldTestAccess";
+import { localDateInTimeZone } from "@/lib/roamly/liveCompanion";
+
+const SAINT_JOHN_TIMEZONE = "America/Moncton";
 
 const activities = [
   {
@@ -40,8 +43,10 @@ export async function POST() {
   const guard = await requireRoamlyAdmin();
   if (!guard.ok) return guard.response;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const now = new Date().toISOString();
+  const preparedAt = new Date();
+  const now = preparedAt.toISOString();
+  // The seed destination determines this test trip's local calendar date.
+  const saintJohnDate = localDateInTimeZone(preparedAt, SAINT_JOHN_TIMEZONE);
   let capability;
   try {
     capability = createFieldTestCapability();
@@ -78,8 +83,8 @@ export async function POST() {
       destination_country: "Canada",
       destination_region: "New Brunswick",
       destination_city: "Saint John",
-      start_date: today,
-      end_date: today,
+      start_date: saintJohnDate,
+      end_date: saintJohnDate,
       status: "locked",
       itinerary_status: "locked",
       itinerary_locked: true,
@@ -98,12 +103,13 @@ export async function POST() {
         field_test_capability_hash: capability.capabilityHash,
         field_test_capability_expires_at: capability.expiresAt,
         real_location_required: true,
-        timezone: "America/Moncton",
+        timezone: SAINT_JOHN_TIMEZONE,
         planning: {
           destination: "Saint John",
           destinationCity: "Saint John",
           destinationCountry: "Canada",
           destinationRegion: "New Brunswick",
+          timezone: SAINT_JOHN_TIMEZONE,
           daysCount: 1,
           budgetCurrency: "CAD"
         }
@@ -140,8 +146,7 @@ export async function POST() {
   // Real field-test schedule.
   // Production Live Companion still evaluates these timestamps using the
   // trip timezone. No simulated GPS or lifecycle clock is used by field mode.
-  const base = new Date();
-  base.setMinutes(base.getMinutes() + 10, 0, 0);
+  const base = new Date(preparedAt.getTime() - 60 * 1000);
 
   const rows = activities.map((activity, index) => {
     const start = new Date(base.getTime() + index * 45 * 60 * 1000);
@@ -186,7 +191,7 @@ export async function POST() {
   const displayRows = rows.map((row) => ({
     trip_id: trip.id,
     day_number: 1,
-    time_label: new Intl.DateTimeFormat("en-CA", { timeZone: "America/Moncton", hour: "numeric", minute: "2-digit" }).format(new Date(row.scheduled_start)),
+    time_label: new Intl.DateTimeFormat("en-CA", { timeZone: SAINT_JOHN_TIMEZONE, hour: "numeric", minute: "2-digit" }).format(new Date(row.scheduled_start)),
     title: row.title,
     description: row.description,
     location_name: row.address,
@@ -204,7 +209,7 @@ export async function POST() {
     ok: true,
     tripId: trip.id,
     mode: "real_field_test",
-    timezone: "America/Moncton",
+    timezone: SAINT_JOHN_TIMEZONE,
     simulatedLocation: false,
     mobileLink: `/field-test/${trip.id}?capability=${encodeURIComponent(capability.capability)}`,
     retiredFieldTestTrips: previousIds.length,
