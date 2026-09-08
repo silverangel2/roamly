@@ -86,6 +86,7 @@ export type LiveCompanionSettings = {
 
 export type LiveNotificationType =
   | "trip_active"
+  | "activity_start"
   | "leave_by"
   | "arrival"
   | "late"
