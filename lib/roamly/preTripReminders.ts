@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { queueCompanionNotification } from "@/lib/roamly/companionNotifications";
 import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import { schedulePreTrip7DayBriefing } from "@/lib/roamly/preTrip7DayBriefing";
 
 export const PRETRIP_REMINDER_TYPES = [
   "trip_predeparture_7d",
@@ -19,6 +20,7 @@ type TripReminderRow = {
   destination_name: string | null;
   destination_city: string | null;
   start_date: string | null;
+  end_date?: string | null;
   status: string | null;
   itinerary_status?: string | null;
   metadata: Record<string, unknown> | null;
@@ -380,12 +382,12 @@ export async function schedulePreTripReminders(params?: {
   if (!supabase) return { ok: false as const, error: "Supabase service role is not configured." };
 
   const now = params?.now || new Date();
-  const startLower = new Date(now.getTime() - 36 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const startUpper = new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const startLower = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const startUpper = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const { data, error } = await supabase
     .from("roamly_trips")
-    .select("id,user_id,title,destination,destination_name,destination_city,start_date,status,itinerary_status,metadata")
+    .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,status,itinerary_status,metadata")
     .not("start_date", "is", null)
     .gte("start_date", startLower)
     .lte("start_date", startUpper)
@@ -410,6 +412,16 @@ export async function schedulePreTripReminders(params?: {
       const dueTypes = duePreTripReminderTypes({
         tripStart: start.start,
         now
+      }).filter((type) => type !== "trip_predeparture_7d");
+      results.push({
+        tripId: trip.id,
+        type: "trip_predeparture_7d",
+        result: await schedulePreTrip7DayBriefing({
+          supabase,
+          trip,
+          confirmedBookings,
+          now
+        })
       });
       for (const type of dueTypes) {
         results.push({
@@ -440,7 +452,7 @@ export async function schedulePreTripReminders(params?: {
     ok: failures === 0,
     processedTrips: (data || []).length,
     scheduled: scheduledResults.filter((result) => "result" in result && result.result?.scheduled).length,
-    deduplicated: scheduledResults.filter((result) => "result" in result && result.result?.deduplicated).length,
+    deduplicated: scheduledResults.filter((result) => "result" in result && result.result && "deduplicated" in result.result && result.result.deduplicated === true).length,
     failures,
     results
   };
