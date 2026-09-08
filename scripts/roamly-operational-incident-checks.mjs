@@ -5,6 +5,7 @@ import path from "node:path";
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read("supabase/migrations/20260908_roamly_operational_incidents.sql");
+const ownerAlertMigration = read("supabase/migrations/20260908_roamly_operational_owner_alert_claim.sql");
 const recorder = read("lib/roamly/operationalIncidents.ts");
 const stripe = read("app/api/stripe/webhook/route.ts");
 const gmail = read("app/api/webhooks/gmail/route.ts");
@@ -20,6 +21,22 @@ assert.match(migration, /create or replace function public\.roamly_cleanup_opera
 assert.match(migration, /revoke all on function public\.roamly_record_operational_event/);
 assert.match(migration, /grant execute on function public\.roamly_record_operational_event[\s\S]*to service_role/);
 assert.doesNotMatch(migration, /payload|oauth|authorization|password|card|gmail body/i);
+
+assert.match(ownerAlertMigration, /add column if not exists owner_alert_generation bigint/);
+assert.match(ownerAlertMigration, /owner_alert_claimed_generation bigint/);
+assert.match(ownerAlertMigration, /owner_alert_claim_token uuid/);
+assert.match(ownerAlertMigration, /owner_alert_claimed_at timestamptz/);
+assert.match(ownerAlertMigration, /owner_alert_sent_at timestamptz/);
+assert.match(ownerAlertMigration, /create or replace function public\.roamly_claim_operational_incident_owner_alert/);
+assert.match(ownerAlertMigration, /owner_alert_generation = p_expected_generation/);
+assert.match(ownerAlertMigration, /owner_alert_claimed_generation is distinct from p_expected_generation/);
+assert.match(ownerAlertMigration, /status = 'open'/);
+assert.match(ownerAlertMigration, /severity in \('high', 'critical'\)/);
+assert.match(ownerAlertMigration, /revoke all on function public\.roamly_claim_operational_incident_owner_alert\(uuid, bigint\) from public, anon, authenticated/);
+assert.match(ownerAlertMigration, /grant execute on function public\.roamly_claim_operational_incident_owner_alert\(uuid, bigint\) to service_role/);
+assert.match(ownerAlertMigration, /set search_path = public/);
+assert.match(ownerAlertMigration, /Existing incidents predate owner alerting/);
+assert.doesNotMatch(ownerAlertMigration, /sendRoamlyEmail|nodemailer|ROAMLY_OWNER_ALERT_EMAIL|drop table|truncate table|delete from public\.roamly_operational_incidents/i);
 
 assert.match(recorder, /OPERATIONAL_SEVERITIES/);
 assert.match(recorder, /OPERATIONAL_SUBSYSTEMS/);
@@ -69,6 +86,29 @@ assert.equal(recurrence.current.count, 3);
 assert.equal(recoveryStatus, "resolved");
 assert.equal(recurrence.current.status, "open");
 assert.equal(recurrence.current.first, 1);
+
+const ownerAlert = { status: "open", severity: "high", generation: 1, claimedGeneration: null };
+function claimOwnerAlert(state, expectedGeneration) {
+  if (state.status !== "open" || !["high", "critical"].includes(state.severity) || state.generation !== expectedGeneration || state.claimedGeneration === expectedGeneration) return false;
+  state.claimedGeneration = expectedGeneration;
+  return true;
+}
+const concurrentClaims = await Promise.all([
+  Promise.resolve().then(() => claimOwnerAlert(ownerAlert, 1)),
+  Promise.resolve().then(() => claimOwnerAlert(ownerAlert, 1))
+]);
+assert.equal(concurrentClaims.filter(Boolean).length, 1, "compare-and-set claim permits one winner");
+assert.equal(claimOwnerAlert(ownerAlert, 1), false, "same occurrence cannot be claimed twice");
+assert.equal(claimOwnerAlert({ status: "open", severity: "medium", generation: 1, claimedGeneration: null }, 1), false, "medium cannot claim immediate alert");
+assert.equal(claimOwnerAlert({ status: "resolved", severity: "critical", generation: 1, claimedGeneration: null }, 1), false, "resolved incident cannot claim alert");
+const reopened = { status: "resolved", severity: "critical", generation: 1, claimedGeneration: 1 };
+assert.equal(claimOwnerAlert(reopened, 1), false, "recovered occurrence remains closed");
+reopened.status = "open";
+reopened.generation = 2;
+reopened.claimedGeneration = null;
+assert.equal(claimOwnerAlert(reopened, 1), false, "stale occurrence claimant cannot claim reopened incident");
+assert.equal(claimOwnerAlert(reopened, 2), true, "reopened occurrence can claim once");
+assert.equal(claimOwnerAlert(reopened, 2), false, "reopened occurrence cannot be claimed twice");
 
 const allowed = { operation: "webhook", failure_class: "timeout", attempt_count: 2, password: "secret", huge: "ignored" };
 assert.equal(Object.keys(allowed).filter((key) => ["operation", "failure_class", "attempt_count"].includes(key)).length, 3);
