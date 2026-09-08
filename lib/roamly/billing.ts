@@ -984,33 +984,60 @@ export async function createBillingPortalSession(
   return { ok: true as const, url: session.url };
 }
 
-async function hasProcessedStripeEvent(supabase: SupabaseClient, eventId: string) {
-  const existing = await supabase
-    .from("roamly_app_events")
-    .select("id")
-    .eq("event_type", "stripe_webhook_event_processed")
-    .contains("metadata", { stripe_event_id: eventId })
-    .limit(1)
-    .maybeSingle();
-  if (existing.error) return false;
-  return Boolean(existing.data);
+type StripeWebhookClaim = {
+  claimStatus: string;
+  claimed: boolean;
+  claimToken: string | null;
+  attemptCount: number;
+};
+
+async function claimStripeWebhookEvent(supabase: SupabaseClient, event: Stripe.Event) {
+  const result = await supabase.rpc("roamly_claim_stripe_webhook_event", {
+    p_stripe_event_id: event.id,
+    p_event_type: event.type,
+    p_stale_after_seconds: 900
+  });
+  if (result.error) return { ok: false as const, error: result.error.message };
+
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row) return { ok: false as const, error: "Stripe webhook claim returned no state." };
+
+  return {
+    ok: true as const,
+    claim: {
+      claimStatus: typeof row.claim_status === "string" ? row.claim_status : "unknown",
+      claimed: row.claimed === true,
+      claimToken: typeof row.claim_token === "string" ? row.claim_token : null,
+      attemptCount: typeof row.attempt_count === "number" ? row.attempt_count : 0
+    } satisfies StripeWebhookClaim
+  };
 }
 
-async function markStripeEventProcessed(
-  supabase: SupabaseClient,
-  event: Stripe.Event,
-  metadata: Record<string, unknown> = {}
-) {
-  await recordAppEvent(supabase, {
-    userId: typeof metadata.userId === "string" ? metadata.userId : null,
-    eventType: "stripe_webhook_event_processed",
-    metadata: {
-      stripe_event_id: event.id,
-      stripe_event_type: event.type,
-      stripe_mode: event.livemode ? "live" : "test",
-      ...metadata
-    }
+async function completeStripeWebhookEvent(supabase: SupabaseClient, eventId: string, claimToken: string) {
+  const result = await supabase.rpc("roamly_complete_stripe_webhook_event", {
+    p_stripe_event_id: eventId,
+    p_claim_token: claimToken
   });
+  if (result.error) return { ok: false as const, error: result.error.message };
+  return {
+    ok: result.data === true,
+    error: result.data === true ? undefined : "Stripe webhook claim was lost before completion."
+  } as const;
+}
+
+async function failStripeWebhookEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+  claimToken: string,
+  error: string
+) {
+  const result = await supabase.rpc("roamly_fail_stripe_webhook_event", {
+    p_stripe_event_id: eventId,
+    p_claim_token: claimToken,
+    p_error_code: "PROCESSING_FAILED",
+    p_error_message: error.slice(0, 500)
+  });
+  return !result.error && result.data === true;
 }
 
 function checkoutSessionFromEvent(event: Stripe.Event) {
@@ -1138,57 +1165,58 @@ async function recordPaymentIntentWebhook(
 }
 
 export async function handleStripeWebhookEvent(supabase: SupabaseClient, event: Stripe.Event) {
-  if (await hasProcessedStripeEvent(supabase, event.id)) {
-    return { ok: true as const, duplicate: true as const };
+  const claimResult = await claimStripeWebhookEvent(supabase, event);
+  if (!claimResult.ok) return claimResult;
+  if (!claimResult.claim.claimed || !claimResult.claim.claimToken) {
+    return { ok: true as const, duplicate: true as const, claimStatus: claimResult.claim.claimStatus };
   }
 
-  let result: { ok: boolean; error?: string; purchaseType?: RoamlyPurchaseType } = { ok: true };
-  const metadata: Record<string, unknown> = {};
+  try {
+    let result: { ok: boolean; error?: string; purchaseType?: RoamlyPurchaseType } = { ok: true };
 
-  if (event.type === "checkout.session.completed") {
-    const session = checkoutSessionFromEvent(event);
-    metadata.checkoutSessionId = session.id;
-    metadata.userId = session.metadata?.user_id || session.metadata?.userId || null;
-    metadata.tripId = session.metadata?.trip_id || session.metadata?.tripId || null;
-    result = await applyPaidItineraryPurchase(supabase, session);
-  } else if (event.type === "checkout.session.expired") {
-    const session = checkoutSessionFromEvent(event);
-    metadata.checkoutSessionId = session.id;
-    metadata.userId = session.metadata?.user_id || session.metadata?.userId || null;
-    metadata.tripId = session.metadata?.trip_id || session.metadata?.tripId || null;
-    result = await markCheckoutSessionExpired(supabase, session);
-  } else if (
-    event.type === "customer.subscription.created" ||
-    event.type === "customer.subscription.updated" ||
-    event.type === "customer.subscription.deleted"
-  ) {
-    result = await recordSubscriptionWebhook(supabase, event);
-  } else if (
-    event.type === "invoice.payment_succeeded" ||
-    event.type === "invoice.payment_failed"
-  ) {
-    result = await recordInvoiceWebhook(supabase, event);
-  } else if (
-    event.type === "payment_intent.succeeded" ||
-    event.type === "payment_intent.payment_failed"
-  ) {
-    const paymentIntent = event.data.object as Stripe.PaymentIntent;
-    metadata.paymentIntentId = paymentIntent.id;
-    metadata.userId =
-      paymentIntent.metadata?.user_id ||
-      paymentIntent.metadata?.userId ||
-      null;
-    metadata.tripId =
-      paymentIntent.metadata?.trip_id ||
-      paymentIntent.metadata?.tripId ||
-      null;
+    if (event.type === "checkout.session.completed") {
+      result = await applyPaidItineraryPurchase(supabase, checkoutSessionFromEvent(event));
+    } else if (event.type === "checkout.session.expired") {
+      result = await markCheckoutSessionExpired(supabase, checkoutSessionFromEvent(event));
+    } else if (
+      event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated" ||
+      event.type === "customer.subscription.deleted"
+    ) {
+      result = await recordSubscriptionWebhook(supabase, event);
+    } else if (
+      event.type === "invoice.payment_succeeded" ||
+      event.type === "invoice.payment_failed"
+    ) {
+      result = await recordInvoiceWebhook(supabase, event);
+    } else if (
+      event.type === "payment_intent.succeeded" ||
+      event.type === "payment_intent.payment_failed"
+    ) {
+      result = await recordPaymentIntentWebhook(supabase, event);
+    }
 
-    result = await recordPaymentIntentWebhook(supabase, event);
+    if (!result.ok) {
+      await failStripeWebhookEvent(supabase, event.id, claimResult.claim.claimToken, result.error || "Stripe webhook processing failed.");
+      return result;
+    }
+
+    const completed = await completeStripeWebhookEvent(supabase, event.id, claimResult.claim.claimToken);
+    if (!completed.ok) {
+      await failStripeWebhookEvent(
+        supabase,
+        event.id,
+        claimResult.claim.claimToken,
+        completed.error || "Stripe webhook claim was lost before completion."
+      );
+      return completed;
+    }
+    return { ok: true as const, duplicate: false as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Stripe webhook processing failed.";
+    await failStripeWebhookEvent(supabase, event.id, claimResult.claim.claimToken, message);
+    return { ok: false as const, error: message };
   }
-
-  if (!result.ok) return result;
-  await markStripeEventProcessed(supabase, event, metadata);
-  return { ok: true as const, duplicate: false as const };
 }
 
 export async function getStripeBillingDiagnostics() {

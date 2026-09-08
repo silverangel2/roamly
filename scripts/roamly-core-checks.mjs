@@ -61,6 +61,7 @@ function loadTsModule(entryFile) {
 }
 
 const billing = read("lib/roamly/billing.ts");
+const stripeWebhookMigration = read("supabase/migrations/20260908_roamly_stripe_webhook_idempotency.sql");
 assert.ok(billing.includes("export function isFreeItineraryConsumed"), "free entitlement consumption must be explicit");
 assert.ok(billing.includes('.is("free_itinerary_used_at", null)'), "free entitlement claim must only update an unconsumed allowance");
 assert.ok(!billing.includes("getUTCFullYear") && !billing.includes("getUTCMonth") && !billing.includes("getUTCDate"), "free entitlement must not use UTC-day reset logic");
@@ -114,7 +115,12 @@ assert.ok(billing.includes("getOrCreateStripeCustomer"), "checkout must create o
 assert.ok(billing.includes("findReusablePendingCheckoutSession"), "checkout must reuse open pending sessions to reduce duplicate checkout attempts");
 assert.ok(!billing.includes("price_data"), "production checkout must not silently fall back to inline Stripe price_data");
 assert.ok(billing.includes("handleStripeWebhookEvent"), "Stripe webhooks must use centralized processing");
-assert.ok(billing.includes("stripe_webhook_event_processed"), "Stripe webhook events must be idempotent");
+assert.ok(
+  billing.includes("claimStripeWebhookEvent") &&
+    stripeWebhookMigration.includes("roamly_claim_stripe_webhook_event") &&
+    stripeWebhookMigration.includes("stripe_event_id text primary key"),
+  "Stripe webhook events must be atomically idempotent"
+);
 assert.ok(billing.includes("invoice.payment_succeeded") && billing.includes("invoice.payment_failed"), "invoice webhooks must be handled");
 assert.ok(billing.includes("customer.subscription.updated") && billing.includes("customer.subscription.deleted"), "subscription lifecycle webhooks must be handled");
 
