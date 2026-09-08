@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { processQueuedCompanionNotifications } from "@/lib/roamly/companionNotifications";
 import { schedulePreTripReminders } from "@/lib/roamly/preTripReminders";
 import { sendScheduledTripNotifications } from "@/lib/roamly/pushServer";
+import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
 
 export async function GET(request: NextRequest) {
   const secret = (
@@ -9,18 +10,6 @@ export async function GET(request: NextRequest) {
     process.env.CRON_SECRET ||
     ""
   ).trim();
-
-  const headerSecret =
-    request.headers.get("x-cron-secret")?.trim() ||
-    request.headers
-      .get("authorization")
-      ?.replace(/^Bearer\s+/i, "")
-      .trim() ||
-    "";
-
-  const providedSecret =
-    request.nextUrl.searchParams.get("secret")?.trim() ||
-    headerSecret;
 
   if (!secret) {
     return NextResponse.json(
@@ -32,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (providedSecret !== secret) {
+  if (!isCronRequestAuthorized(request.headers, secret)) {
     return NextResponse.json(
       {
         ok: false,
