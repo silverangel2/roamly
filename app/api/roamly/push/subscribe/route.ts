@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   if (!auth.ok) return auth.response;
   const endpoint = request.nextUrl.searchParams.get("endpoint") || "";
   if (!endpoint) return NextResponse.json({ ok: true, deviceRegistered: false });
-  let query = auth.supabase
+  const query = auth.supabase
     .from("roamly_push_subscriptions")
     .select("id")
     .eq("user_id", auth.userId)
