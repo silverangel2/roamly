@@ -16,7 +16,14 @@ import {
 } from "@/lib/roamly/companionNotifications";
 import type { TrackingActivity, TrackingTrip } from "@/lib/roamly/tripActivation";
 
-type LifecycleActivity = Pick<TrackingActivity, "id" | "title" | "scheduled_start" | "scheduled_end" | "sort_order" | "status" | "description" | "address" | "latitude" | "longitude" | "radius_meters">;
+type LifecycleActivity = Pick<TrackingActivity, "id" | "title" | "scheduled_start" | "scheduled_end" | "sort_order" | "status" | "description" | "address" | "city" | "region" | "country" | "latitude" | "longitude" | "radius_meters">;
+
+function storedPlaceLabel(activity: LifecycleActivity) {
+  return [activity.address, activity.city, activity.region, activity.country]
+    .map((value) => typeof value === "string" ? value.trim() : "")
+    .filter(Boolean)
+    .join(", ");
+}
 
 function liveActivity(activity: LifecycleActivity): LiveCompanionActivity {
   return {
@@ -101,6 +108,10 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
   if (start && start.getTime() > now.getTime()) {
     const countdownMinutes = Math.max(1, Math.round((start.getTime() - now.getTime()) / 60_000));
     if (countdownMinutes <= 30) {
+      const placeLabel = storedPlaceLabel(current);
+      const locationLabel = placeLabel || (current.latitude != null && current.longitude != null
+        ? `${current.latitude}, ${current.longitude}`
+        : "");
       const queued = await queueCompanionNotification({
         supabase: admin,
         userId: trip.user_id,
@@ -108,10 +119,21 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
         type: "next_activity",
         priority: "routine",
         title: `Starting soon: ${current.title}`,
-        body: `Starts in ${countdownMinutes} min.`,
+        body: locationLabel
+          ? `📍 ${locationLabel} · starts in ${countdownMinutes} min`
+          : `Starts in ${countdownMinutes} min.`,
         actionUrl: `/trip/${trip.id}/live?activity=${encodeURIComponent(current.id)}`,
         scheduledFor: now.toISOString(),
-        metadata: { activityId: current.id, send_email: false, source: "server_time_lifecycle", notificationReason: "activity_starting_soon", countdownMinutes },
+        metadata: {
+          activityId: current.id,
+          send_email: false,
+          source: "server_time_lifecycle",
+          notificationReason: "activity_starting_soon",
+          countdownMinutes,
+          locationLabel: placeLabel || null,
+          latitude: current.latitude,
+          longitude: current.longitude
+        },
         idempotencyKey: identity,
         dedupeParts: [identity]
       });

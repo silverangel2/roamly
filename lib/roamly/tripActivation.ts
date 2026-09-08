@@ -987,15 +987,16 @@ export async function activateTripIfNearby(
           liveActivityId
         )}`;
       const maps =
-        liveActivity.latitude != null &&
-        liveActivity.longitude != null
+        (liveActivity.latitude != null && liveActivity.longitude != null) || liveActivity.address
           ? {
               appleMapsUrl:
-                `https://maps.apple.com/?daddr=${liveActivity.latitude},${liveActivity.longitude}`,
+                `https://maps.apple.com/?daddr=${encodeURIComponent(liveActivity.latitude != null && liveActivity.longitude != null ? `${liveActivity.latitude},${liveActivity.longitude}` : liveActivity.address || "")}`,
               googleMapsUrl:
-                `https://www.google.com/maps/dir/?api=1&destination=${liveActivity.latitude},${liveActivity.longitude}`,
+                `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(liveActivity.latitude != null && liveActivity.longitude != null ? `${liveActivity.latitude},${liveActivity.longitude}` : liveActivity.address || "")}`,
               citymapperUrl:
-                `https://citymapper.com/directions?endcoord=${liveActivity.latitude},${liveActivity.longitude}`
+                liveActivity.latitude != null && liveActivity.longitude != null
+                  ? `https://citymapper.com/directions?endcoord=${encodeURIComponent(`${liveActivity.latitude},${liveActivity.longitude}`)}`
+                  : `https://citymapper.com/directions?endaddress=${encodeURIComponent(liveActivity.address || "")}`
             }
           : {};
 
@@ -1204,7 +1205,11 @@ export async function activateTripIfNearby(
             : `Up next: ${nextLiveTitle}`,
 
         body:
-          `Starts in ${minutes} min.`,
+          nextLiveActivity.address
+            ? `📍 ${nextLiveActivity.address} · starts in ${minutes} min`
+            : nextLiveActivity.latitude != null && nextLiveActivity.longitude != null
+              ? `📍 ${nextLiveActivity.latitude}, ${nextLiveActivity.longitude} · starts in ${minutes} min`
+            : `Starts in ${minutes} min.`,
 
         reason:
           minutes <= 15

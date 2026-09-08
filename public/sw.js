@@ -19,7 +19,7 @@ self.addEventListener("push", (event) => {
   }
 
   if (data.appleMapsUrl) {
-    actions.push({ action: "apple_maps", title: "Maps" });
+    actions.push({ action: "apple_maps", title: "Open Maps" });
   }
 
   if (data.citymapperUrl) {

@@ -112,7 +112,12 @@ export async function sendPushNotification(
   } = {}
 ) {
   const writer = createSupabaseAdminClient() || supabase;
-  const securedPayload = await secureNotificationPayload(writer, payload);
+  const actionScopedPayload = payload.type === "activity_start"
+    ? { ...payload, appleMapsUrl: null, googleMapsUrl: null, citymapperUrl: null }
+    : payload.type === "next_activity"
+      ? { ...payload, checkInUrl: null, skipUrl: null }
+      : payload;
+  const securedPayload = await secureNotificationPayload(writer, actionScopedPayload);
   const configured = configureWebPush();
   const existingNotificationId = options.notificationId ? String(options.notificationId).trim() : "";
   const createNotification = options.createNotification !== false;

@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type CompanionNotificationType =
   | "nearby_activity"
+  | "activity_start"
   | "next_activity"
   | "leave_by"
   | "late"
@@ -196,6 +197,7 @@ export async function queueCompanionNotification(
   ]);
   const liveCompanionTypes = new Set<CompanionNotificationType>([
     "nearby_activity",
+    "activity_start",
     "next_activity",
     "leave_by",
     "late",
@@ -396,6 +398,17 @@ export async function sendCompanionNotificationDelivery(
     : queuedActionUrl || (tripId ? `/trip/${tripId}/companion` : "/notifications");
   const latitude = typeof companionMetadata.latitude === "number" ? companionMetadata.latitude : null;
   const longitude = typeof companionMetadata.longitude === "number" ? companionMetadata.longitude : null;
+  const locationLabel = typeof companionMetadata.locationLabel === "string"
+    ? companionMetadata.locationLabel.trim()
+    : "";
+  const destination = latitude != null && longitude != null
+    ? `${latitude},${longitude}`
+    : locationLabel;
+  const citymapperDestination = latitude != null && longitude != null
+    ? `endcoord=${encodeURIComponent(destination)}`
+    : `endaddress=${encodeURIComponent(destination)}`;
+  const isStartingSoon = claimedDelivery.notification_type === "next_activity";
+  const isNow = claimedDelivery.notification_type === "activity_start";
 
   const pushResult = await sendPushNotification(
     admin,
@@ -409,11 +422,11 @@ export async function sendCompanionNotificationDelivery(
         .trim()
         .slice(0, 280),
       actionUrl,
-      checkInUrl: activityId && tripId ? `/api/roamly/activities/check-in?tripId=${encodeURIComponent(tripId)}&activityId=${encodeURIComponent(activityId)}` : null,
-      skipUrl: activityId && tripId ? `/api/roamly/activities/skip?tripId=${encodeURIComponent(tripId)}&activityId=${encodeURIComponent(activityId)}` : null,
-      appleMapsUrl: latitude != null && longitude != null ? `https://maps.apple.com/?daddr=${latitude},${longitude}` : null,
-      googleMapsUrl: latitude != null && longitude != null ? `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}` : null,
-      citymapperUrl: latitude != null && longitude != null ? `https://citymapper.com/directions?endcoord=${latitude},${longitude}` : null
+      checkInUrl: isNow && activityId && tripId ? `/api/roamly/activities/check-in?tripId=${encodeURIComponent(tripId)}&activityId=${encodeURIComponent(activityId)}` : null,
+      skipUrl: isNow && activityId && tripId ? `/api/roamly/activities/skip?tripId=${encodeURIComponent(tripId)}&activityId=${encodeURIComponent(activityId)}` : null,
+      appleMapsUrl: isStartingSoon && destination ? `https://maps.apple.com/?daddr=${encodeURIComponent(destination)}` : null,
+      googleMapsUrl: isStartingSoon && destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` : null,
+      citymapperUrl: isStartingSoon && destination ? `https://citymapper.com/directions?${citymapperDestination}` : null
     },
     {
       sendEmail: companionMetadata.send_email === true,
