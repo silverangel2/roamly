@@ -539,6 +539,43 @@ export async function markFreeItineraryUsed(
   );
 }
 
+async function canUsePaidItineraryEntitlement(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string,
+  trip: { status?: string | null; start_date?: string | null; end_date?: string | null }
+) {
+  const result = await supabase
+    .from("roamly_itinerary_purchases")
+    .select("status,billing_state,subscription_status,subscription_current_period_end")
+    .eq("user_id", userId)
+    .eq("trip_id", tripId)
+    .in("purchase_type", ["itinerary_unlock", "bundle"]);
+  if (result.error) return { ok: false as const, error: result.error.message };
+
+  const paidPurchases = result.data || [];
+  if (!paidPurchases.length) return { ok: true as const, allowed: true as const };
+  if (isTripCurrentlyActive(trip)) {
+    return {
+      ok: true as const,
+      allowed: paidPurchases.some((purchase) => purchase.status === "paid")
+    };
+  }
+  const now = Date.now();
+  return {
+    ok: true as const,
+    allowed: paidPurchases.some(
+      (purchase) => {
+        if (purchase.status !== "paid" || !["active", "partially_refunded"].includes(purchase.billing_state || "active")) return false;
+        const terminalSubscription = ["canceled", "unpaid", "incomplete_expired"].includes(purchase.subscription_status || "");
+        if (!terminalSubscription) return true;
+        const periodEnd = purchase.subscription_current_period_end ? Date.parse(purchase.subscription_current_period_end) : NaN;
+        return Number.isFinite(periodEnd) && periodEnd > now;
+      }
+    )
+  };
+}
+
 export async function canGenerateFinalItinerary(
   supabase: SupabaseClient,
   userId: string,
@@ -571,6 +608,20 @@ export async function canGenerateFinalItinerary(
       message: "This itinerary is already being generated.",
       trip
     };
+  }
+
+  if (trip.itinerary_payment_status === "paid" || trip.itinerary_payment_status === "bundled" || trip.itinerary_unlock_source === "paid" || trip.itinerary_unlock_source === "bundle") {
+    const billingAccess = await canUsePaidItineraryEntitlement(supabase, userId, tripId, trip);
+    if (!billingAccess.ok) return { ok: false as const, status: 500, error: billingAccess.error };
+    if (!billingAccess.allowed) {
+      return {
+        ok: false as const,
+        status: 402,
+        error: "PAYMENT_REQUIRED",
+        message: "This paid itinerary entitlement is no longer active.",
+        trip
+      };
+    }
   }
 
   if (trip.itinerary_payment_status === "paid" || trip.itinerary_unlock_source === "paid") {
@@ -907,6 +958,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
       currency: session.currency || roamlyConfig.currency,
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: paymentIntentId(session),
+      stripe_subscription_id: stripeObjectId(session.subscription),
       status: "paid",
       paid_at: now,
       metadata: { stripe_status: session.status }
@@ -1040,6 +1092,240 @@ async function failStripeWebhookEvent(
   return !result.error && result.data === true;
 }
 
+type StripeBillingPurchase = {
+  id: string;
+  user_id: string;
+  trip_id: string;
+  purchase_type: RoamlyPurchaseType;
+  status: string;
+  amount_cents: number;
+  billing_state: "active" | "partially_refunded" | "refunded" | "disputed" | "revoked";
+  refunded_amount_cents: number;
+  stripe_subscription_id?: string | null;
+  subscription_status?: string | null;
+  subscription_current_period_end?: string | null;
+};
+
+function stripeObjectId(value: unknown) {
+  return typeof value === "string"
+    ? value
+    : value && typeof value === "object" && "id" in value && typeof value.id === "string"
+      ? value.id
+      : null;
+}
+
+function stripeEventTimestamp(event: Stripe.Event) {
+  return new Date(event.created * 1000).toISOString();
+}
+
+function billingStatePriority(state: string) {
+  if (state === "disputed") return 10;
+  if (state === "active") return 20;
+  if (state === "partially_refunded") return 30;
+  if (state === "refunded") return 40;
+  if (state === "revoked") return 50;
+  return 0;
+}
+
+function isTripCurrentlyActive(trip: { status?: string | null; start_date?: string | null; end_date?: string | null }) {
+  if (["completed", "cancelled", "archived"].includes(trip.status || "")) return false;
+  if (trip.status === "active") return true;
+  const today = new Date().toISOString().slice(0, 10);
+  return Boolean(trip.start_date && trip.end_date && trip.start_date <= today && trip.end_date >= today);
+}
+
+async function findStripeBillingPurchase(supabase: SupabaseClient, paymentIntentId: string) {
+  const result = await supabase
+    .from("roamly_itinerary_purchases")
+    .select("id,user_id,trip_id,purchase_type,status,amount_cents,billing_state,refunded_amount_cents")
+    .eq("stripe_payment_intent_id", paymentIntentId)
+    .maybeSingle();
+  if (result.error) return { ok: false as const, error: result.error.message };
+  if (!result.data) return { ok: true as const, purchase: null };
+  return { ok: true as const, purchase: result.data as StripeBillingPurchase };
+}
+
+async function findStripeSubscriptionPurchase(supabase: SupabaseClient, subscriptionId: string) {
+  const result = await supabase
+    .from("roamly_itinerary_purchases")
+    .select("id,user_id,trip_id,purchase_type,status,amount_cents,billing_state,refunded_amount_cents,stripe_subscription_id,subscription_status,subscription_current_period_end")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+  if (result.error) return { ok: false as const, error: result.error.message };
+  if (!result.data) return { ok: true as const, purchase: null };
+  return { ok: true as const, purchase: result.data as StripeBillingPurchase };
+}
+
+async function recordBillingReconciliationFailure(
+  supabase: SupabaseClient,
+  event: Stripe.Event,
+  reason: string,
+  paymentIntentId?: string | null
+) {
+  await recordAppEvent(supabase, {
+    eventType: "stripe_billing_reconciliation_failed",
+    metadata: {
+      stripeEventId: event.id,
+      stripeEventType: event.type,
+      paymentIntentId: paymentIntentId || null,
+      reason: reason.slice(0, 240)
+    }
+  });
+  return { ok: true as const, reconciliation: "unmapped" as const };
+}
+
+async function applyTripBillingEntitlementPolicy(
+  supabase: SupabaseClient,
+  purchase: StripeBillingPurchase,
+  billingState: StripeBillingPurchase["billing_state"]
+) {
+  const tripResult = await supabase
+    .from("roamly_trips")
+    .select("id,user_id,status,start_date,end_date,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,tracking_unlock_source,live_companion_unlocked,metadata")
+    .eq("id", purchase.trip_id)
+    .eq("user_id", purchase.user_id)
+    .maybeSingle();
+  if (tripResult.error) return { ok: false as const, error: tripResult.error.message };
+  if (!tripResult.data) return { ok: false as const, error: "Billing purchase trip was not found for its owner." };
+
+  const trip = tripResult.data;
+  const activeTrip = isTripCurrentlyActive(trip);
+  if (billingState === "disputed") return { ok: true as const, deferred: false as const };
+  const shouldRevoke = billingState === "refunded" || billingState === "revoked";
+  const shouldRestore = billingState === "active" || billingState === "partially_refunded";
+  if (activeTrip && shouldRevoke) return { ok: true as const, deferred: true as const };
+
+  const siblingResult = await supabase
+    .from("roamly_itinerary_purchases")
+    .select("id,purchase_type,billing_state,status")
+    .eq("trip_id", purchase.trip_id)
+    .eq("user_id", purchase.user_id)
+    .eq("status", "paid");
+  if (siblingResult.error) return { ok: false as const, error: siblingResult.error.message };
+
+  const activePurchases = (siblingResult.data || []).filter(
+    (row) => row.id !== purchase.id && ["active", "partially_refunded"].includes(row.billing_state)
+  );
+  const hasActiveItineraryPurchase = activePurchases.some(
+    (row) => row.purchase_type === "itinerary_unlock" || row.purchase_type === "bundle"
+  );
+  const hasActiveTrackingPurchase = activePurchases.some(
+    (row) => row.purchase_type === "tracking_addon" || row.purchase_type === "bundle"
+  );
+  const update: Record<string, unknown> = {};
+  const source = purchase.purchase_type === "bundle" ? "bundle" : "paid";
+
+  if (purchase.purchase_type === "itinerary_unlock" || purchase.purchase_type === "bundle") {
+    if (shouldRevoke && !hasActiveItineraryPurchase && ["paid", "bundle"].includes(trip.itinerary_unlock_source || "")) {
+      update.itinerary_payment_status = "unpaid";
+      update.itinerary_unlock_source = null;
+    } else if (shouldRestore && ["paid", "bundle", null].includes(trip.itinerary_unlock_source)) {
+      update.itinerary_payment_status = source === "bundle" ? "bundled" : "paid";
+      update.itinerary_unlock_source = source;
+    }
+  }
+
+  if (purchase.purchase_type === "tracking_addon" || purchase.purchase_type === "bundle") {
+    if (shouldRevoke && !hasActiveTrackingPurchase && ["paid", "bundle"].includes(trip.tracking_unlock_source || "")) {
+      update.tracking_unlocked = false;
+      update.live_companion_unlocked = false;
+      update.tracking_unlock_source = null;
+    } else if (shouldRestore && ["paid", "bundle", null].includes(trip.tracking_unlock_source)) {
+      update.tracking_unlocked = true;
+      update.live_companion_unlocked = true;
+      update.tracking_unlock_source = source;
+    }
+  }
+
+  if (!Object.keys(update).length) return { ok: true as const, deferred: false as const };
+  const updated = await supabase
+    .from("roamly_trips")
+    .update(update)
+    .eq("id", purchase.trip_id)
+    .eq("user_id", purchase.user_id);
+  if (updated.error) return { ok: false as const, error: updated.error.message };
+  return { ok: true as const, deferred: false as const };
+}
+
+async function applyStripeBillingState(
+  supabase: SupabaseClient,
+  event: Stripe.Event,
+  purchase: StripeBillingPurchase,
+  state: StripeBillingPurchase["billing_state"],
+  refundedAmountCents: number,
+  reason: string,
+  disputeId?: string | null,
+  subscription?: { id: string; status: string; currentPeriodEnd: string | null } | null
+) {
+  const result = await supabase.rpc("roamly_apply_stripe_billing_state", {
+    p_stripe_event_id: event.id,
+    p_purchase_id: purchase.id,
+    p_stripe_event_type: event.type,
+    p_billing_state: state,
+    p_stripe_event_created_at: stripeEventTimestamp(event),
+    p_state_priority: billingStatePriority(state),
+    p_refunded_amount_cents: refundedAmountCents,
+    p_billing_reason: reason,
+    p_stripe_dispute_id: disputeId || null,
+    p_subscription_id: subscription?.id || null,
+    p_subscription_status: subscription?.status || null,
+    p_subscription_current_period_end: subscription?.currentPeriodEnd || null
+  });
+  if (result.error) return { ok: false as const, error: result.error.message };
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row) return { ok: false as const, error: "Stripe billing state transition returned no result." };
+  if (row.duplicate === true || row.stale === true || row.applied !== true) {
+    return { ok: true as const, applied: false as const, reason: row.duplicate ? "duplicate" : "stale" };
+  }
+
+  const policy = await applyTripBillingEntitlementPolicy(supabase, purchase, row.current_billing_state || state);
+  if (!policy.ok) return policy;
+  return { ok: true as const, applied: true as const, deferred: policy.deferred };
+}
+
+async function handleStripeRefundEvent(supabase: SupabaseClient, event: Stripe.Event) {
+  const charge = event.data.object as Stripe.Charge;
+  const paymentIntentId = stripeObjectId(charge.payment_intent);
+  if (!paymentIntentId) return recordBillingReconciliationFailure(supabase, event, "Refund charge has no payment intent.");
+  const purchaseResult = await findStripeBillingPurchase(supabase, paymentIntentId);
+  if (!purchaseResult.ok) return purchaseResult;
+  if (!purchaseResult.purchase) return recordBillingReconciliationFailure(supabase, event, "Refund payment intent did not map to a Roamly purchase.", paymentIntentId);
+
+  const refundedAmount = Math.max(0, charge.amount_refunded || 0);
+  const fullyRefunded = charge.refunded === true || refundedAmount >= charge.amount;
+  return applyStripeBillingState(
+    supabase,
+    event,
+    purchaseResult.purchase,
+    fullyRefunded ? "refunded" : "partially_refunded",
+    refundedAmount,
+    fullyRefunded ? "Stripe charge fully refunded" : "Stripe charge partially refunded"
+  );
+}
+
+async function handleStripeDisputeEvent(supabase: SupabaseClient, event: Stripe.Event) {
+  const dispute = event.data.object as Stripe.Dispute;
+  const paymentIntentId = stripeObjectId((dispute as Stripe.Dispute & { payment_intent?: unknown }).payment_intent);
+  if (!paymentIntentId) return recordBillingReconciliationFailure(supabase, event, "Dispute has no payment intent.");
+  const purchaseResult = await findStripeBillingPurchase(supabase, paymentIntentId);
+  if (!purchaseResult.ok) return purchaseResult;
+  if (!purchaseResult.purchase) return recordBillingReconciliationFailure(supabase, event, "Dispute payment intent did not map to a Roamly purchase.", paymentIntentId);
+
+  if (event.type === "charge.dispute.closed" && dispute.status !== "won" && dispute.status !== "lost") {
+    return recordBillingReconciliationFailure(supabase, event, "Dispute closed without a final won/lost status.", paymentIntentId);
+  }
+  const state = event.type === "charge.dispute.created" ? "disputed" : dispute.status === "won" ? "active" : "revoked";
+  return applyStripeBillingState(
+    supabase,
+    event,
+    purchaseResult.purchase,
+    state,
+    purchaseResult.purchase.refunded_amount_cents || 0,
+    `Stripe dispute ${event.type === "charge.dispute.created" ? "opened" : dispute.status}`,
+    dispute.id
+  );
+}
+
 function checkoutSessionFromEvent(event: Stripe.Event) {
   return event.data.object as Stripe.Checkout.Session;
 }
@@ -1052,29 +1338,66 @@ function invoiceFromEvent(event: Stripe.Event) {
   return event.data.object as Stripe.Invoice;
 }
 
+function subscriptionPeriodEnd(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? new Date(value * 1000).toISOString()
+    : null;
+}
+
+function subscriptionIsPaidThrough(periodEnd: string | null) {
+  return Boolean(periodEnd && new Date(periodEnd).getTime() > Date.now());
+}
+
 async function markCheckoutSessionExpired(supabase: SupabaseClient, session: Stripe.Checkout.Session) {
-  await supabase
+  const purchaseUpdate = await supabase
     .from("roamly_itinerary_purchases")
     .update({
       status: "expired",
       metadata: { stripe_status: session.status, expired_at: new Date().toISOString() }
     })
     .eq("stripe_checkout_session_id", session.id);
-  await supabase
+  if (purchaseUpdate.error) return { ok: false as const, error: purchaseUpdate.error.message };
+  const paymentUpdate = await supabase
     .from("roamly_trip_payments")
     .update({ status: "expired" })
     .eq("stripe_session_id", session.id);
+  if (paymentUpdate.error) return { ok: false as const, error: paymentUpdate.error.message };
   return { ok: true as const };
 }
 
 async function recordSubscriptionWebhook(supabase: SupabaseClient, event: Stripe.Event) {
   const subscription = subscriptionFromEvent(event);
-  const userId = subscription.metadata?.user_id || subscription.metadata?.userId || null;
-  const tripId = subscription.metadata?.trip_id || subscription.metadata?.tripId || null;
-  const purchaseType = normalizePurchaseType(subscription.metadata?.purchase_type || subscription.metadata?.checkoutKind);
+  let purchaseResult = await findStripeSubscriptionPurchase(supabase, subscription.id);
+  if (purchaseResult.ok && !purchaseResult.purchase) {
+    const userId = subscription.metadata?.user_id || subscription.metadata?.userId || null;
+    const tripId = subscription.metadata?.trip_id || subscription.metadata?.tripId || null;
+    const purchaseType = normalizePurchaseType(subscription.metadata?.purchase_type || subscription.metadata?.checkoutKind);
+    if (userId && tripId) {
+      const pending = await supabase
+        .from("roamly_itinerary_purchases")
+        .select("id,user_id,trip_id,purchase_type,status,amount_cents,billing_state,refunded_amount_cents,stripe_subscription_id,subscription_status,subscription_current_period_end")
+        .eq("user_id", userId)
+        .eq("trip_id", tripId)
+        .eq("purchase_type", purchaseType)
+        .in("status", ["pending", "paid"])
+        .is("stripe_subscription_id", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (pending.error) return { ok: false as const, error: pending.error.message };
+      if (pending.data) purchaseResult = { ok: true as const, purchase: pending.data as StripeBillingPurchase };
+    }
+  }
+  if (!purchaseResult.ok) return purchaseResult;
+  if (!purchaseResult.purchase) return recordBillingReconciliationFailure(supabase, event, "Subscription did not map to a Roamly purchase.");
+
+  const periodEnd = subscriptionPeriodEnd((subscription as Stripe.Subscription & { current_period_end?: unknown }).current_period_end);
+  const status = subscription.status;
+  const terminal = status === "canceled" || status === "unpaid" || status === "incomplete_expired";
+  const state = terminal && !subscriptionIsPaidThrough(periodEnd) ? "revoked" : "active";
 
   await recordAppEvent(supabase, {
-    userId,
+    userId: purchaseResult.purchase.user_id,
     eventType: "stripe_subscription_sync",
     metadata: {
       stripe_event_id: event.id,
@@ -1082,31 +1405,28 @@ async function recordSubscriptionWebhook(supabase: SupabaseClient, event: Stripe
       stripe_subscription_id: subscription.id,
       stripe_customer_id: typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id,
       stripe_status: subscription.status,
-      tripId,
-      purchaseType
+      tripId: purchaseResult.purchase.trip_id,
+      purchaseType: purchaseResult.purchase.purchase_type,
+      subscription_current_period_end: periodEnd
     }
   });
 
-  if (tripId && userId && (subscription.status === "canceled" || subscription.status === "unpaid" || subscription.status === "incomplete_expired")) {
-    await supabase
-      .from("roamly_itinerary_purchases")
-      .update({
-        metadata: {
-          stripe_subscription_id: subscription.id,
-          stripe_subscription_status: subscription.status,
-          synced_at: new Date().toISOString()
-        }
-      })
-      .eq("user_id", userId)
-      .eq("trip_id", tripId)
-      .eq("purchase_type", purchaseType);
-  }
-
-  return { ok: true as const };
+  return applyStripeBillingState(
+    supabase,
+    event,
+    purchaseResult.purchase,
+    state,
+    purchaseResult.purchase.refunded_amount_cents || 0,
+    `Stripe subscription ${status}`,
+    null,
+    { id: subscription.id, status, currentPeriodEnd: periodEnd }
+  );
 }
 
 async function recordInvoiceWebhook(supabase: SupabaseClient, event: Stripe.Event) {
   const invoice = invoiceFromEvent(event);
+  const invoiceWithSubscription = invoice as Stripe.Invoice & { subscription?: unknown; period_end?: unknown };
+  const subscriptionId = stripeObjectId(invoiceWithSubscription.subscription);
   await recordAppEvent(supabase, {
     userId: null,
     eventType: "stripe_invoice_sync",
@@ -1119,7 +1439,22 @@ async function recordInvoiceWebhook(supabase: SupabaseClient, event: Stripe.Even
       stripe_paid: (invoice as Stripe.Invoice & { paid?: boolean }).paid === true
     }
   });
-  return { ok: true as const };
+  if (!subscriptionId) return { ok: true as const };
+  const purchaseResult = await findStripeSubscriptionPurchase(supabase, subscriptionId);
+  if (!purchaseResult.ok) return purchaseResult;
+  if (!purchaseResult.purchase) return recordBillingReconciliationFailure(supabase, event, "Invoice subscription did not map to a Roamly purchase.");
+  const periodEnd = subscriptionPeriodEnd(invoiceWithSubscription.period_end);
+  const state = "active" as const;
+  return applyStripeBillingState(
+    supabase,
+    event,
+    purchaseResult.purchase,
+    state,
+    purchaseResult.purchase.refunded_amount_cents || 0,
+    `Stripe invoice ${event.type === "invoice.payment_failed" ? "payment failed" : "payment succeeded"}`,
+    null,
+    { id: subscriptionId, status: event.type === "invoice.payment_failed" ? "past_due" : "active", currentPeriodEnd: periodEnd }
+  );
 }
 
 async function recordPaymentIntentWebhook(
@@ -1178,6 +1513,10 @@ export async function handleStripeWebhookEvent(supabase: SupabaseClient, event: 
       result = await applyPaidItineraryPurchase(supabase, checkoutSessionFromEvent(event));
     } else if (event.type === "checkout.session.expired") {
       result = await markCheckoutSessionExpired(supabase, checkoutSessionFromEvent(event));
+    } else if (event.type === "charge.refunded") {
+      result = await handleStripeRefundEvent(supabase, event);
+    } else if (event.type === "charge.dispute.created" || event.type === "charge.dispute.closed") {
+      result = await handleStripeDisputeEvent(supabase, event);
     } else if (
       event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.updated" ||
