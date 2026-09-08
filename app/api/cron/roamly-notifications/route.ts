@@ -3,6 +3,7 @@ import { processQueuedCompanionNotifications } from "@/lib/roamly/companionNotif
 import { schedulePreTripReminders } from "@/lib/roamly/preTripReminders";
 import { sendScheduledTripNotifications } from "@/lib/roamly/pushServer";
 import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
+import { runPaidActivationMissingDetector } from "@/lib/roamly/silentFailureDetectors";
 
 export async function GET(request: NextRequest) {
   const secret = (
@@ -47,14 +48,16 @@ export async function GET(request: NextRequest) {
           : "Companion briefing scheduling failed."
     }));
 
-  const preTrip =
-    await schedulePreTripReminders().catch((error) => ({
+  const [preTrip, paidActivation] = await Promise.all([
+    schedulePreTripReminders().catch((error) => ({
       ok: false,
       error:
         error instanceof Error
           ? error.message
           : "Pre-trip reminder scheduling failed."
-    }));
+    })),
+    runPaidActivationMissingDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }))
+  ]);
 
   const [scheduledResult, companionResult] =
     await Promise.allSettled([
@@ -97,6 +100,7 @@ export async function GET(request: NextRequest) {
       ok,
       briefings: briefingResult,
       preTrip,
+      paidActivation,
       scheduled,
       companion,
       processedAt: new Date().toISOString()

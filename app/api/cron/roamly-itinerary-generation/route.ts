@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getGenerationWorkerSecrets } from "@/lib/roamly/stagedGenerationBackground";
 import { processGenerationQueue } from "@/lib/roamly/generationWorker";
+import { runStuckGenerationDetector } from "@/lib/roamly/silentFailureDetectors";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -39,8 +40,9 @@ export async function POST(request: NextRequest) {
         }
       : undefined
   });
+  const detector = await runStuckGenerationDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
 
-  return NextResponse.json(summary, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ ...summary, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
 }
 
 export async function GET(request: NextRequest) {
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
     reason: "vercel_cron_wake",
     executionDeadlineMs
   });
+  const detector = await runStuckGenerationDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
 
-  return NextResponse.json(summary, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ ...summary, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
 }
