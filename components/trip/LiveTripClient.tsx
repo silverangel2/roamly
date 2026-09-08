@@ -954,6 +954,27 @@ export function LiveTripClient({
   }, [companionEnabled, mobileRuntime, paused, permission, startForegroundLocation, tripWindowActive, watching]);
 
   useEffect(() => {
+    if (!tripWindowActive || paused || companionEnabled === false) return;
+    let active = true;
+    const evaluateTimeLifecycle = () => {
+      void fetch(`/api/trips/${tripId}/live-companion/time-lifecycle`, { method: "POST" })
+        .then((response) => {
+          if (!active || response.ok) return;
+          throw new Error("Time lifecycle evaluation failed.");
+        })
+        .catch(() => undefined);
+    };
+    evaluateTimeLifecycle();
+    window.addEventListener("pageshow", evaluateTimeLifecycle);
+    document.addEventListener("visibilitychange", evaluateTimeLifecycle);
+    return () => {
+      active = false;
+      window.removeEventListener("pageshow", evaluateTimeLifecycle);
+      document.removeEventListener("visibilitychange", evaluateTimeLifecycle);
+    };
+  }, [companionEnabled, paused, tripId, tripWindowActive]);
+
+  useEffect(() => {
     if (tripWindowActive && !paused && companionEnabled !== false) return;
     stopForegroundLocation();
   }, [companionEnabled, paused, stopForegroundLocation, tripWindowActive]);

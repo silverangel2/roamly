@@ -90,7 +90,7 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
   if (!current) return { expired, started: 0, skipped: "no_unresolved_activity" };
 
   const start = activityStartDate({ activity: liveActivity(current), tripStartDate: trip.start_date, timezone });
-  if (start && start.getTime() > now.getTime()) return { expired, started: 0, skipped: "upcoming" };
+  const identity = liveCompanionNotificationIdentity({ userId: trip.user_id, tripId: trip.id, activityId: current.id, eventType: "next_activity" });
 
   await admin.from("roamly_trips").update({
     status: "active",
@@ -98,7 +98,31 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
     trip_companion_status: "active"
   }).eq("id", trip.id).eq("user_id", trip.user_id).in("status", ["locked", "planned", "active"]);
 
-  const identity = liveCompanionNotificationIdentity({ userId: trip.user_id, tripId: trip.id, activityId: current.id, eventType: "activity_start" });
+  if (start && start.getTime() > now.getTime()) {
+    const countdownMinutes = Math.max(1, Math.round((start.getTime() - now.getTime()) / 60_000));
+    if (countdownMinutes <= 30) {
+      const queued = await queueCompanionNotification({
+        supabase: admin,
+        userId: trip.user_id,
+        tripId: trip.id,
+        type: "next_activity",
+        priority: "routine",
+        title: `Starting soon: ${current.title}`,
+        body: `Starts in ${countdownMinutes} min.`,
+        actionUrl: `/trip/${trip.id}/live?activity=${encodeURIComponent(current.id)}`,
+        scheduledFor: now.toISOString(),
+        metadata: { activityId: current.id, send_email: false, source: "server_time_lifecycle", notificationReason: "activity_starting_soon", countdownMinutes },
+        idempotencyKey: identity,
+        dedupeParts: [identity]
+      });
+      if (!queued.ok || !queued.delivery?.id) return { expired, started: 0, skipped: queued.error || "queue_failed" };
+      const pushed = queued.deduplicated ? { ok: true } : await sendCompanionNotificationDelivery(queued.delivery.id);
+      return { expired, started: 0, upcoming: pushed.ok ? 1 : 0, skipped: queued.deduplicated ? "already_delivered_or_queued" : undefined };
+    }
+    return { expired, started: 0, skipped: "upcoming" };
+  }
+
+  const startIdentity = liveCompanionNotificationIdentity({ userId: trip.user_id, tripId: trip.id, activityId: current.id, eventType: "activity_start" });
   const queued = await queueCompanionNotification({
     supabase: admin,
     userId: trip.user_id,
@@ -110,8 +134,8 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
     actionUrl: `/trip/${trip.id}/live?activity=${encodeURIComponent(current.id)}`,
     scheduledFor: now.toISOString(),
     metadata: { activityId: current.id, send_email: false, source: "server_time_lifecycle" },
-    idempotencyKey: identity,
-    dedupeParts: [identity]
+    idempotencyKey: startIdentity,
+    dedupeParts: [startIdentity]
   });
   if (!queued.ok || !queued.delivery?.id) return { expired, started: 0, skipped: queued.error || "queue_failed" };
   const pushed = queued.deduplicated ? { ok: true } : await sendCompanionNotificationDelivery(queued.delivery.id);
@@ -133,4 +157,25 @@ export async function processLiveCompanionTimeLifecycle(params: { now?: Date; li
     }
   }
   return { ok: true as const, processed: results.length, results };
+}
+
+export async function processLiveCompanionTimeLifecycleForTrip(tripId: string, userId: string) {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return { ok: false as const, error: "Supabase service role is not configured." };
+  const tripResult = await admin
+    .from("roamly_trips")
+    .select("*")
+    .eq("id", tripId)
+    .eq("user_id", userId)
+    .eq("itinerary_locked", true)
+    .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
+    .in("status", ["locked", "active", "planned"])
+    .maybeSingle();
+  if (tripResult.error) return { ok: false as const, error: tripResult.error.message };
+  if (!tripResult.data) return { ok: true as const, processed: 0, result: { skipped: "trip_not_eligible" } };
+  try {
+    return { ok: true as const, processed: 1, result: await processTrip(admin, tripResult.data as TrackingTrip, new Date()) };
+  } catch (error) {
+    return { ok: false as const, processed: 1, error: error instanceof Error ? error.message : "Lifecycle processing failed." };
+  }
 }
