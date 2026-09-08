@@ -2,6 +2,7 @@ import { sendPushNotification } from "@/lib/roamly/pushServer";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { activityEndDate, activityStartDate, tripWindowState, timezoneFromTripMetadata, type LiveCompanionActivity } from "@/lib/roamly/liveCompanion";
 
 export type CompanionNotificationType =
   | "nearby_activity"
@@ -75,6 +76,41 @@ type DeliveryRow = {
   is_test: boolean;
   metadata_json: Record<string, unknown> | null;
 };
+
+const LIVE_ACTIVITY_NOTIFICATION_TYPES = new Set<CompanionNotificationType>(["next_activity", "activity_start"]);
+const TERMINAL_ACTIVITY_STATUSES = new Set(["completed", "skipped", "missed", "expired", "cancelled"]);
+
+async function validateLiveActivityDelivery(admin: SupabaseClient, delivery: DeliveryRow, now: Date) {
+  if (!LIVE_ACTIVITY_NOTIFICATION_TYPES.has(delivery.notification_type)) return { valid: true as const };
+  const metadata = (delivery.metadata_json || {}) as Record<string, unknown>;
+  const activityId = String(metadata.activity_id || metadata.activityId || metadata.itinerary_activity_id || metadata.itineraryActivityId || "").trim();
+  if (!delivery.trip_id || !activityId) return { valid: false as const, reason: "missing_live_activity_reference" };
+
+  const [tripResult, activityResult] = await Promise.all([
+    admin.from("roamly_trips").select("id,user_id,status,start_date,end_date,metadata,itinerary_locked,tracking_unlocked,live_companion_unlocked").eq("id", delivery.trip_id).eq("user_id", delivery.user_id).maybeSingle(),
+    admin.from("roamly_activities").select("id,title,status,scheduled_start,scheduled_end").eq("id", activityId).eq("trip_id", delivery.trip_id).maybeSingle()
+  ]);
+  if (tripResult.error) throw new Error(tripResult.error.message);
+  if (activityResult.error) throw new Error(activityResult.error.message);
+  const trip = tripResult.data as { status?: string | null; start_date?: string | null; end_date?: string | null; metadata?: unknown; itinerary_locked?: boolean | null; tracking_unlocked?: boolean | null; live_companion_unlocked?: boolean | null } | null;
+  const activity = activityResult.data as { id: string; title?: string | null; status?: string | null; scheduled_start?: string | null; scheduled_end?: string | null } | null;
+  if (!trip || ["completed", "cancelled", "archived"].includes(String(trip.status || "").toLowerCase())) return { valid: false as const, reason: "trip_not_eligible" };
+  if (trip.itinerary_locked !== true || (trip.tracking_unlocked !== true && trip.live_companion_unlocked !== true)) return { valid: false as const, reason: "companion_not_eligible" };
+  const timezone = timezoneFromTripMetadata(trip.metadata);
+  if (tripWindowState({ startDate: trip.start_date, endDate: trip.end_date, timezone, now }) !== "active") return { valid: false as const, reason: "outside_trip_window" };
+  if (!activity || TERMINAL_ACTIVITY_STATUSES.has(String(activity.status || "").toLowerCase())) return { valid: false as const, reason: "activity_terminal" };
+  const liveActivity: LiveCompanionActivity = { id: activity.id, title: activity.title || "", status: activity.status, startAt: activity.scheduled_start, endAt: activity.scheduled_end };
+  const start = activityStartDate({ activity: liveActivity, timezone });
+  const end = activityEndDate({ activity: liveActivity, timezone });
+  if (!start || !end) return { valid: false as const, reason: "activity_time_unavailable" };
+  if (delivery.notification_type === "next_activity") {
+    const minutes = (start.getTime() - now.getTime()) / 60_000;
+    return minutes > 0 && minutes <= 30 ? { valid: true as const } : { valid: false as const, reason: "starting_soon_window_passed" };
+  }
+  return start.getTime() <= now.getTime() && end.getTime() > now.getTime()
+    ? { valid: true as const }
+    : { valid: false as const, reason: "activity_window_passed" };
+}
 
 function hash(value: unknown): string {
   return createHash("sha256")
@@ -371,6 +407,26 @@ export async function sendCompanionNotificationDelivery(
 
   const claimedDelivery = claimed.data as DeliveryRow;
   const claimedAttempt = claimedDelivery.attempt_count;
+
+  try {
+    const validation = await validateLiveActivityDelivery(admin, claimedDelivery, new Date());
+    if (!validation.valid) {
+      await admin
+        .from("roamly_companion_notification_deliveries")
+        .update({ status: "suppressed", suppression_reason: `Stale Live Companion delivery: ${validation.reason}` })
+        .eq("id", claimedDelivery.id)
+        .eq("status", "sending");
+      return { ok: true as const, suppressed: true, reason: validation.reason };
+    }
+  } catch (error) {
+    const nextAttempt = new Date(Date.now() + retryDelaySeconds(claimedAttempt) * 1000).toISOString();
+    await admin
+      .from("roamly_companion_notification_deliveries")
+      .update({ status: "retrying", next_attempt_at: nextAttempt, last_error: error instanceof Error ? error.message : "Live Companion validation failed." })
+      .eq("id", claimedDelivery.id)
+      .eq("status", "sending");
+    return { ok: false as const, error: "LIVE_COMPANION_VALIDATION_FAILED", retryable: true };
+  }
 
   const template = renderCompanionEmail(claimedDelivery);
 

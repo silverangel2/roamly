@@ -99,7 +99,7 @@ type ActivationOptions = {
 };
 
 export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date"> & { days_count?: number | null }) {
-  return getTripDayFromDate(trip.start_date, trip.days_count || null);
+  return getTripDayFromDate(trip.start_date, trip.days_count || null, timezoneFromTripMetadata((trip as TrackingTrip).metadata));
 }
 
 function todayIso() {

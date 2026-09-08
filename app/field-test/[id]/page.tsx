@@ -34,7 +34,7 @@ export default async function AdminFieldTestEntry({ params, searchParams }: { pa
   ]);
 
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "Saint John";
-  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, getTripDaysCount(bundle.data.trip) || null);
+  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, getTripDaysCount(bundle.data.trip) || null, timezoneFromTripMetadata(bundle.data.trip.metadata));
   const activities = groupActivitiesByDay(bundle.data.activities)[currentDay] || bundle.data.activities;
   const initialPermissionState = (locationSettings?.last_permission_state || "prompt") as "prompt" | "granted" | "denied" | "unavailable";
   const initialLocation = typeof locationSettings?.last_seen_latitude === "number" && typeof locationSettings?.last_seen_longitude === "number"

@@ -2303,11 +2303,23 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
   return localizeGeneratedExactText(applyRoamlyItineraryIntelligence(normalized, payload), payload.language) as RoamlyItinerary;
 }
 
-export function getTripDayFromDate(startDate: string | null | undefined, daysCount: number | null | undefined) {
+export function getTripDayFromDate(
+  startDate: string | null | undefined,
+  daysCount: number | null | undefined,
+  timezone = "UTC",
+  now = new Date()
+) {
   if (!startDate) return 1;
-  const start = new Date(`${startDate}T00:00:00`);
-  const now = new Date();
-  if (!Number.isFinite(start.getTime())) return 1;
-  const diff = Math.floor((now.getTime() - start.getTime()) / 86_400_000) + 1;
+  const start = new Date(`${startDate.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(now.getTime())) return 1;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+  const today = Date.UTC(value("year"), value("month") - 1, value("day"));
+  const diff = Math.floor((today - start.getTime()) / 86_400_000) + 1;
   return Math.min(Math.max(diff, 1), clampTripDays(daysCount));
 }

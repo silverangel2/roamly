@@ -142,7 +142,7 @@ export default async function LiveTripPage({
   const localizedActivities = localizeActivityRecords(bundle.data.activities, localizedFull);
   const daysCount = getTripDaysCount(bundle.data.trip);
   const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
-  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null);
+  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, timezoneFromTripMetadata(bundle.data.trip.metadata));
   const activitiesByDay = groupActivitiesByDay(localizedActivities);
   const dayActivities = activitiesByDay[currentDay] || bundle.data.activities.slice(0, 4);
   const nextActivity =
