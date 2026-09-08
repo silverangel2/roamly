@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createStripeClient } from "@/lib/payments";
 import { handleStripeWebhookEvent } from "@/lib/roamly/billing";
+import { operationalOpaqueId, recordOperationalEvent, safeOperationalError } from "@/lib/roamly/operationalIncidents";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: NextRequest) {
@@ -29,6 +30,15 @@ export async function POST(request: NextRequest) {
 
   const result = await handleStripeWebhookEvent(supabase, event);
   if (!result.ok) {
+    void recordOperationalEvent({
+      severity: "high",
+      subsystem: "billing",
+      eventCode: "stripe_webhook_processing_failed",
+      fingerprintParts: ["stripe_webhook", event.type, "processing_failure"],
+      eventKey: operationalOpaqueId(["stripe", event.id, "processing_failure"]),
+      correlationId: operationalOpaqueId(["stripe-correlation", event.id]),
+      safeMetadata: { operation: "stripe_webhook", stage: "handler", ...safeOperationalError(result.error) }
+    });
     console.error("[Roamly] Stripe webhook sync failed", {
       eventType: event.type,
       eventId: event.id,

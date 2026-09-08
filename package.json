@@ -13,6 +13,7 @@
     "test:roamly": "node scripts/roamly-core-checks.mjs",
     "test:stripe-webhook-idempotency": "node scripts/roamly-stripe-webhook-idempotency-checks.mjs",
     "test:stripe-refund-lifecycle": "node scripts/roamly-refund-entitlement-checks.mjs",
+    "test:operational-incidents": "node scripts/roamly-operational-incident-checks.mjs",
     "test:gmail-bookings": "node scripts/roamly-gmail-booking-reminder-checks.mjs",
     "test:gmail-reconciliation": "node scripts/roamly-gmail-reconciliation-checks.mjs",
     "test:pdf": "node scripts/roamly-pdf-checks.mjs",
