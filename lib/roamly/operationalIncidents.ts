@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { deliverOwnerOperationalAlert } from "@/lib/roamly/ownerOperationalAlerts";
 
 export const OPERATIONAL_SEVERITIES = ["critical", "high", "medium", "low", "info"] as const;
 export const OPERATIONAL_SUBSYSTEMS = ["auth", "billing", "trip_generation", "gmail", "bookings", "providers", "customer_email", "live_companion", "background_jobs", "security"] as const;
@@ -127,7 +128,25 @@ export async function recordOperationalEvent(params: {
       console.warn("[Roamly operational] recorder unavailable", { subsystem: params.subsystem, eventCode: params.eventCode });
       return { ok: false as const, error: "OPERATIONAL_RECORD_FAILED" };
     }
-    return { ok: true as const, data: Array.isArray(result.data) ? result.data[0] : result.data };
+    const data = Array.isArray(result.data) ? result.data[0] : result.data;
+    if (params.kind !== "recovery" && data?.incident_id && data?.event_id && !data?.duplicate && (params.severity === "high" || params.severity === "critical")) {
+      try {
+        const incidentResult = await admin
+          .from("roamly_operational_incidents")
+          .select("id,severity,subsystem,event_code,status,occurrence_count,first_seen_at,last_seen_at,deployment_id,commit_sha,latest_safe_metadata,owner_alert_generation")
+          .eq("id", data.incident_id)
+          .eq("last_event_id", data.event_id)
+          .maybeSingle();
+        if (!incidentResult.error && incidentResult.data) {
+          void deliverOwnerOperationalAlert({ supabase: admin, incident: incidentResult.data }).catch(() => {
+            console.warn("[Roamly owner alert] alert layer unavailable", { incidentId: data.incident_id });
+          });
+        }
+      } catch {
+        console.warn("[Roamly owner alert] incident lookup unavailable", { incidentId: data.incident_id });
+      }
+    }
+    return { ok: true as const, data };
   } catch {
     console.warn("[Roamly operational] recorder unavailable", { subsystem: params.subsystem, eventCode: params.eventCode });
     return { ok: false as const, error: "OPERATIONAL_RECORD_FAILED" };

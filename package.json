@@ -14,6 +14,7 @@
     "test:stripe-webhook-idempotency": "node scripts/roamly-stripe-webhook-idempotency-checks.mjs",
     "test:stripe-refund-lifecycle": "node scripts/roamly-refund-entitlement-checks.mjs",
     "test:operational-incidents": "node scripts/roamly-operational-incident-checks.mjs",
+    "test:operational-owner-alerts": "node --experimental-strip-types scripts/roamly-operational-owner-alert-checks.mjs",
     "test:live-companion-clock": "node scripts/roamly-live-companion-clock-checks.mjs",
     "test:communication-orchestration": "node --experimental-strip-types scripts/roamly-communication-orchestration-checks.mjs",
     "test:notification-cron-security": "node --experimental-strip-types scripts/roamly-notification-cron-security-checks.mjs",
