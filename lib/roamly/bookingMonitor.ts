@@ -13,6 +13,7 @@ import {
   type NormalizedLiveFlightStatus
 } from "@/lib/roamly/liveProviderAdapters";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
+import { runGmailStalenessDetector } from "@/lib/roamly/gmailStalenessDetector";
 
 type ConnectionRow = {
   id: string;
@@ -745,6 +746,13 @@ export async function runScheduledBookingMonitor() {
       emailFailures +
       flightMonitor.failures;
 
+    const gmailStaleness = await runGmailStalenessDetector({ supabase: admin }).catch(() => ({
+      ok: false,
+      detected: 0,
+      recovered: 0,
+      error: "GMAIL_STALENESS_DETECTOR_FAILED"
+    }));
+
     const status =
       totalFailures === 0
         ? "completed"
@@ -785,6 +793,7 @@ export async function runScheduledBookingMonitor() {
       emailFailures,
       emailResults,
       watchRenewal,
+      gmailStaleness,
 
       flightsFound:
         flightMonitor.flightsFound,

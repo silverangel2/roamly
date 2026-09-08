@@ -981,7 +981,7 @@ async function syncGmailConnectionUnlocked(params: {
     return { ok: false, error: "GMAIL_BOOKING_PROCESSING_RETRY", processed: messageIds.length };
   }
   const nextCursor = result.historyId || historyId;
-  await writer.from("email_sync_cursors").upsert(
+  const cursorSaved = await writer.from("email_sync_cursors").upsert(
     {
       email_connection_id: connection.id,
       provider: GMAIL_PROVIDER,
@@ -990,11 +990,14 @@ async function syncGmailConnectionUnlocked(params: {
     },
     { onConflict: "email_connection_id,provider" }
   );
-  await writer
+  if (cursorSaved.error) return { ok: false, error: "GMAIL_CURSOR_CHECKPOINT_FAILED", processed: messageIds.length };
+  const syncedAt = new Date().toISOString();
+  const connectionSaved = await writer
     .from("email_connections")
-    .update({ last_synced_at: new Date().toISOString() })
+    .update({ last_synced_at: syncedAt })
     .eq("id", connection.id)
     .eq("sync_lease_token", params.leaseToken);
+  if (connectionSaved.error) return { ok: false, error: "GMAIL_SYNC_CHECKPOINT_FAILED", processed: messageIds.length };
 
   return {
     ok: true,
