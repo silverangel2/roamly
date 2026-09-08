@@ -146,7 +146,7 @@ export async function POST() {
   // Real field-test schedule.
   // Production Live Companion still evaluates these timestamps using the
   // trip timezone. No simulated GPS or lifecycle clock is used by field mode.
-  const base = new Date(preparedAt.getTime() - 60 * 1000);
+  const base = new Date(preparedAt.getTime() + 5 * 60 * 1000);
 
   const rows = activities.map((activity, index) => {
     const start = new Date(base.getTime() + index * 45 * 60 * 1000);
