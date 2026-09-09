@@ -4,6 +4,7 @@ import { schedulePreTripReminders } from "@/lib/roamly/preTripReminders";
 import { sendScheduledTripNotifications } from "@/lib/roamly/pushServer";
 import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
 import { runPaidActivationMissingDetector } from "@/lib/roamly/silentFailureDetectors";
+import { recordNotificationSchedulerSuccess } from "@/lib/roamly/communicationHealth";
 
 export async function GET(request: NextRequest) {
   const secret = (
@@ -95,9 +96,16 @@ export async function GET(request: NextRequest) {
     scheduled.ok === true &&
     companion.ok === true;
 
+  // Health is recorded only after all required notification work succeeds.
+  // A monitoring write failure must not change the established cron response.
+  const notificationHealthRecorded = ok
+    ? await recordNotificationSchedulerSuccess()
+    : false;
+
   return NextResponse.json(
     {
       ok,
+      notificationHealthRecorded,
       briefings: briefingResult,
       preTrip,
       paidActivation,

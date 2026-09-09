@@ -19,6 +19,7 @@
     "test:gmail-staleness-detector": "node --experimental-strip-types scripts/roamly-gmail-staleness-detector-checks.mjs",
     "test:booking-monitor-bootstrap": "node --experimental-strip-types scripts/roamly-booking-monitor-bootstrap-checks.mjs",
     "test:booking-monitor-health": "node --experimental-strip-types scripts/roamly-booking-monitor-health-checks.mjs",
+    "test:communication-health-foundation": "node --experimental-strip-types scripts/roamly-communication-health-foundation-checks.mjs",
     "test:live-companion-clock": "node scripts/roamly-live-companion-clock-checks.mjs",
     "test:communication-orchestration": "node --experimental-strip-types scripts/roamly-communication-orchestration-checks.mjs",
     "test:notification-cron-security": "node --experimental-strip-types scripts/roamly-notification-cron-security-checks.mjs",
