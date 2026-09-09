@@ -84,6 +84,8 @@ assert(/cleanEnvValue/.test(automation) && /sensitive\|redacted\|secret\|token\|
 assert(/selectCampaignPhotoAsset/.test(automation) && /!campaignPhoto/.test(automation), "buildDrafts requires a matching campaign photo before draft creation");
 assert(/sourceMediaAssetId/.test(automation) && /sourceImageUrl/.test(automation) && /sourceDraftId/.test(automation), "source and generated Reel provenance are persisted on the draft/media asset");
 assert(/postNowSourceMediaAssetId/.test(automation) && /boundSourceId/.test(automation), "Post now preserves the selected campaign photo while regenerating audio");
+assert(/const notBefore = undefined/.test(automation), "automatic Roamly publishing allows bounded catch-up for overdue scheduled slots");
+assert(/runLimit[\s\S]*normalizedBrand === "roamly"[\s\S]*\? 1/.test(automation), "automatic Roamly catch-up remains capped at one post per run");
 
 if (process.exitCode) {
   process.exit(process.exitCode);

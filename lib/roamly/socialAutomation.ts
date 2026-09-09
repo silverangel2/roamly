@@ -3509,10 +3509,9 @@ export async function runFacebookAutomationCycle(
       normalizedBrand === "roamly" && trigger === "cron" && !force
         ? 1
         : limit;
-    const notBefore =
-      normalizedBrand === "roamly" && trigger === "cron" && !force
-        ? new Date(Date.now() - 2 * 60 * 60_000).toISOString()
-        : undefined;
+    // A missed scheduled slot must remain eligible for bounded catch-up.
+    // The daily limit and runLimit still cap automatic publishing at one post.
+    const notBefore = undefined;
     const due = await getDueQueue(
       admin,
       Math.min(runLimit, remainingToday),
