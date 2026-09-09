@@ -23,6 +23,7 @@
     "test:live-companion-clock": "node scripts/roamly-live-companion-clock-checks.mjs",
     "test:communication-orchestration": "node --experimental-strip-types scripts/roamly-communication-orchestration-checks.mjs",
     "test:notification-cron-security": "node --experimental-strip-types scripts/roamly-notification-cron-security-checks.mjs",
+    "test:affiliate-redirect-security": "node --experimental-strip-types scripts/roamly-affiliate-redirect-checks.mjs",
     "test:purchase-activation-communication": "node --experimental-strip-types scripts/roamly-purchase-activation-communication-checks.mjs",
     "test:pretrip-7d-briefing": "node --experimental-strip-types scripts/roamly-pretrip-7d-briefing-checks.mjs",
     "test:pretrip-1d-briefing": "node --experimental-strip-types scripts/roamly-pretrip-1d-briefing-checks.mjs",

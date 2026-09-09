@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
-import { safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { safeAffiliateRedirectUrl } from "@/lib/roamly/affiliateRedirect";
 import { createAffiliateClick } from "@/lib/roamly/affiliateTracking";
 
 export const runtime = "nodejs";
@@ -10,10 +10,11 @@ function text(request: NextRequest, key: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const affiliateUrl = safeExternalUrl(text(request, "affiliateUrl"));
-  const destinationUrl = safeExternalUrl(text(request, "destinationUrl")) || affiliateUrl;
+  const affiliateUrl = safeAffiliateRedirectUrl(text(request, "affiliateUrl"));
+  const rawDestinationUrl = text(request, "destinationUrl");
+  const destinationUrl = rawDestinationUrl ? safeAffiliateRedirectUrl(rawDestinationUrl) : affiliateUrl;
   if (!affiliateUrl || !destinationUrl) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.json({ ok: false, error: "INVALID_AFFILIATE_URL" }, { status: 400 });
   }
 
   const auth = await requireUser();
