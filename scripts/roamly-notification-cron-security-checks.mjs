@@ -43,6 +43,8 @@ assert.equal(
 
 const route = await readFile("app/api/cron/roamly-notifications/route.ts", "utf8");
 assert.doesNotMatch(route, /searchParams\.get\(["'](?:secret|token|cronSecret)["']\)/, "route does not accept query secrets");
+assert.match(route, /process\.env\.CRON_SECRET/, "notification cron uses Vercel's CRON_SECRET");
+assert.doesNotMatch(route, /ROAMLY_NOTIFICATION_CRON_SECRET/, "legacy notification secret does not control scheduler auth");
 assert.match(route, /schedulePreTripReminders/, "cron business handler remains wired");
 assert.match(route, /sendScheduledTripNotifications/, "scheduled notification handler remains wired");
 assert.match(route, /processQueuedCompanionNotifications/, "Companion queue handler remains wired");

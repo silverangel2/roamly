@@ -7,11 +7,7 @@ import { runPaidActivationMissingDetector } from "@/lib/roamly/silentFailureDete
 import { recordNotificationSchedulerSuccess } from "@/lib/roamly/communicationHealth";
 
 export async function GET(request: NextRequest) {
-  const secret = (
-    process.env.ROAMLY_NOTIFICATION_CRON_SECRET ||
-    process.env.CRON_SECRET ||
-    ""
-  ).trim();
+  const secret = (process.env.CRON_SECRET || "").trim();
 
   if (!secret) {
     return NextResponse.json(
