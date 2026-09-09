@@ -1,20 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runScheduledBookingMonitor } from "@/lib/roamly/bookingMonitor";
+import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
 
 export const maxDuration = 300;
-
-function cronSecret(request: NextRequest) {
-  return (
-    request.headers
-      .get("authorization")
-      ?.replace(/^Bearer\s+/i, "")
-      .trim() ||
-    request.headers
-      .get("x-cron-secret")
-      ?.trim() ||
-    ""
-  );
-}
 
 export async function GET(request: NextRequest) {
   const expected = (
@@ -33,7 +21,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (cronSecret(request) !== expected) {
+  if (!isCronRequestAuthorized(request.headers, expected)) {
     return NextResponse.json(
       {
         ok: false,

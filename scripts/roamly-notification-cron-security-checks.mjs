@@ -53,8 +53,7 @@ for (const [path, handler] of [
 ]) {
   const affectedRoute = await readFile(path, "utf8");
   assert.doesNotMatch(affectedRoute, /searchParams\.get\(["'](?:secret|token|cronSecret)["']\)/, `${path} rejects query secrets`);
-  assert.match(affectedRoute, /\.get\("authorization"\)/, `${path} retains Authorization authentication`);
-  assert.match(affectedRoute, /\.get\("x-cron-secret"\)/, `${path} retains protected header authentication`);
+  assert.match(affectedRoute, /isCronRequestAuthorized/, `${path} uses the hardened header-auth helper`);
   assert.match(affectedRoute, /process\.env\.(?:ROAMLY_NOTIFICATION_CRON_SECRET|CRON_SECRET)/, `${path} retains configured secret contract`);
   assert.match(affectedRoute, new RegExp(handler), `${path} keeps its normal handler`);
 }
