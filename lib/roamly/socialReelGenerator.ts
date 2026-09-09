@@ -5,6 +5,7 @@ import { mkdir, readFile, rm, stat, writeFile } from "fs/promises";
 import os from "os";
 import path from "path";
 import sharp from "sharp";
+import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
 import ffprobeInstaller from "ffprobe-static";
 import { publicSocialMediaStorageBucket, uploadPublicSupabaseObject } from "@/lib/roamly/publicSocialStorage";
 
@@ -314,6 +315,7 @@ function runProcess(command: string, args: string[]) {
 async function resolveFfmpegPath() {
   const candidates = [
     process.env.FFMPEG_PATH?.trim(),
+    (ffmpegInstaller as { path?: string }).path || "",
     process.platform === "linux" ? path.join(process.cwd(), "node_modules/@ffmpeg-installer/linux-x64/ffmpeg") : "",
     process.platform === "darwin" && process.arch === "arm64" ? path.join(process.cwd(), "node_modules/@ffmpeg-installer/darwin-arm64/ffmpeg") : "",
     process.platform === "darwin" ? path.join(process.cwd(), "node_modules/@ffmpeg-installer/darwin-x64/ffmpeg") : ""

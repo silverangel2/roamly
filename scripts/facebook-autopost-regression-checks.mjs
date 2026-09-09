@@ -51,6 +51,7 @@ assert(/facebook_reel_id/.test(automation) && /facebook_url/.test(automation), "
 assert(/automaticRetryLimit/.test(automation) && /nextAttempt <= retryLimit/.test(automation), "retry logic remains bounded by settings");
 assert(/manualReviewRequired/.test(automation) && /!settings\.manualReviewRequired/.test(automation), "manual approval flow is respected before publishing");
 assert(/@ffmpeg-installer\/(linux-x64|darwin-arm64)/.test(generator), "Reel generator uses deterministic platform ffmpeg binary");
+assert(/@ffmpeg-installer\/ffmpeg/.test(generator) && /ffmpegInstaller.*path/.test(generator), "Reel generator uses the packaged installer path in deployed runtimes");
 assert(/width = 1080/.test(generator) && /height = 1920/.test(generator), "generated video is vertical 9:16");
 assert(/sourcePath: "public\/audio\/reels\/roamly-theme\.mp3"/.test(generator), "Roamly generated Reels use the approved theme MP3");
 assert(/roamlyThemePublicUrl/.test(generator) && /resolveRoamlyThemeInput/.test(generator), "serverless Reel generation can reach the deployed theme MP3");
