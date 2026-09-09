@@ -6,7 +6,6 @@ export async function GET(request: NextRequest) {
   const provided = (
     request.headers.get("x-cron-secret")?.trim() ||
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ||
-    request.nextUrl.searchParams.get("secret")?.trim() ||
     ""
   );
   if (!expected) return NextResponse.json({ ok: false, error: "Notification cron secret is not configured." }, { status: 503 });

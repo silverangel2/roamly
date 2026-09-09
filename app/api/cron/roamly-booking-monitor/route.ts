@@ -12,9 +12,6 @@ function cronSecret(request: NextRequest) {
     request.headers
       .get("x-cron-secret")
       ?.trim() ||
-    request.nextUrl.searchParams
-      .get("secret")
-      ?.trim() ||
     ""
   );
 }

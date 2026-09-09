@@ -47,4 +47,16 @@ assert.match(route, /schedulePreTripReminders/, "cron business handler remains w
 assert.match(route, /sendScheduledTripNotifications/, "scheduled notification handler remains wired");
 assert.match(route, /processQueuedCompanionNotifications/, "Companion queue handler remains wired");
 
-console.log("Notification cron header-auth security checks passed.");
+for (const [path, handler] of [
+  ["app/api/cron/roamly-booking-monitor/route.ts", "runScheduledBookingMonitor"],
+  ["app/api/cron/roamly-live-companion/route.ts", "processLiveCompanionTimeLifecycle"]
+]) {
+  const affectedRoute = await readFile(path, "utf8");
+  assert.doesNotMatch(affectedRoute, /searchParams\.get\(["'](?:secret|token|cronSecret)["']\)/, `${path} rejects query secrets`);
+  assert.match(affectedRoute, /\.get\("authorization"\)/, `${path} retains Authorization authentication`);
+  assert.match(affectedRoute, /\.get\("x-cron-secret"\)/, `${path} retains protected header authentication`);
+  assert.match(affectedRoute, /process\.env\.(?:ROAMLY_NOTIFICATION_CRON_SECRET|CRON_SECRET)/, `${path} retains configured secret contract`);
+  assert.match(affectedRoute, new RegExp(handler), `${path} keeps its normal handler`);
+}
+
+console.log("Cron header-auth security checks passed.");
