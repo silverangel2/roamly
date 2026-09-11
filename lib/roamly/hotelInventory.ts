@@ -1,7 +1,28 @@
 import type { HotelCandidate as BaseHotelCandidate } from "@/lib/roamly/candidateDecisionCore";
 import type { HotelConstraints, TripPlannerPayload } from "@/lib/trip-planner";
 
-type HotelCandidate = BaseHotelCandidate & { providerProductId?: string | null };
+type HotelCandidate = BaseHotelCandidate & {
+  providerPropertyId?: string | null;
+  providerProductId?: string | null;
+  address?: string | null;
+  coordinates?: { latitude: number; longitude: number } | null;
+  neighborhood?: string | null;
+  quality?: number | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
+  roomDescription?: string | null;
+  occupancy?: { travelers: number; rooms: number; childAges: number[] } | null;
+  amenities?: string[];
+  pricePerNight?: number | null;
+  totalStayPrice?: number | null;
+  taxesFees?: number | null;
+  taxInclusionStatus?: "included" | "excluded" | "unknown";
+  feeInclusionStatus?: "included" | "excluded" | "unknown";
+  currency?: string;
+  availabilityStatus?: "available" | "unverified" | "unknown";
+  cancellationPolicy?: string | null;
+  expiresAt?: string | null;
+};
 
 export type HotelInventoryState = "OK" | "PROVIDER_NOT_CONFIGURED" | "TIMEOUT" | "RATE_LIMITED" | "NO_RESULTS" | "EXACT_PROPERTY_NOT_FOUND" | "EXACT_PROPERTY_AMBIGUOUS" | "NO_AVAILABLE_RATE" | "MALFORMED_PROVIDER_RESPONSE" | "STALE_RATE" | "CURRENCY_MISMATCH";
 export type HotelInventorySearchInput = {
