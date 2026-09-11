@@ -54,6 +54,14 @@ function stableUuid(value) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function isPrivateOrCustomerPath(value) {
   return /(^|[/\\])(?:customer|customers|private|trip|trips|gmail|uploads|profile|profiles)([/\\]|$)/i.test(clean(value));
 }
@@ -226,7 +234,7 @@ async function ingest({ dryRun, production }) {
     existingObjects = new Set((objects.data || []).map((row) => row.name));
   }
   const metadataMatches = (existing, record) =>
-    JSON.stringify(existing?.metadata || {}) === JSON.stringify(record.metadata) &&
+    stableJson(existing?.metadata || {}) === stableJson(record.metadata) &&
     existing?.asset_type === record.asset_type &&
     existing?.platform === record.platform &&
     existing?.status === record.status &&
