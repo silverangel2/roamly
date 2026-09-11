@@ -17,6 +17,7 @@ import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import { searchTripMarketPrices, type TravelMarketCategory, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
 import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
 import {
   finalizeStagedGenerationNotification,
@@ -825,8 +826,14 @@ function compactPriceSummary(value: Record<string, unknown> | null | undefined) 
     crossBorderWarnings: Array.isArray(value.crossBorderWarnings) ? value.crossBorderWarnings.slice(0, 4) : [],
     currencyChange: value.currencyChange,
     originCurrency: value.originCurrency,
-    destinationCurrency: value.destinationCurrency
+    destinationCurrency: value.destinationCurrency,
+    groundedDecision: value.groundedDecision
   };
+}
+
+function groundedDecisionForPrompt(state: StagedGenerationState) {
+  const decision = getRecord(state.priceDiscovery)?.groundedDecision;
+  return decision ? candidateDecisionForAi(decision as never) : null;
 }
 
 function outlinePrompt(payload: TripPlannerPayload, state: StagedGenerationState) {
@@ -850,6 +857,7 @@ Trip:
 - Traveler must-do events, booking comments, and special requests: ${payload.specialNotes || "none"}
 - Confirmed bookings: ${JSON.stringify(payload.confirmedBookings || [])}
 - Price summary: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
+- Grounded decision: ${JSON.stringify(groundedDecisionForPrompt(state))}
 - Verified place candidates: ${JSON.stringify(verifiedCandidatesForPrompt(payload, state, 10))}
 
 Return strict JSON:
@@ -909,6 +917,7 @@ Prefs: ${payload.travelStyle}; ${payload.pace}; ${payload.walkingTolerance}; ${(
 Traveler anchors: ${payload.specialNotes || "none"}
 Confirmed bookings: ${JSON.stringify(payload.confirmedBookings || [])}
 Budget cues: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
+Grounded decision: ${JSON.stringify(groundedDecisionForPrompt(state))}
 Verified candidates: ${JSON.stringify(verifiedCandidatesForPrompt(payload, state, 12))}
 
 JSON shape:
@@ -929,6 +938,9 @@ JSON shape:
       "items": [
         {
           "id": "day-${dayNumbers[0]}-item-1",
+          "candidateId": "selected candidate id or null",
+          "source": "candidate source or DISCOVERY_SUGGESTION",
+          "factualStatus": "verified | search_ready | DISCOVERY_SUGGESTION",
           "time_label": "09:00",
           "startTime": "09:00",
           "endTime": "10:30",
@@ -957,6 +969,8 @@ Rules:
 - Return exactly ${days.length} day objects.
 - Use 4 to 6 ordered items per day.
 - Prefer exact verified candidate names for attractions, tours, restaurants, hotels, and transport anchors.
+- Only selected grounded candidates may be represented as factual inventory. Preserve candidateId, source, and factualStatus when used.
+- Any idea not tied to a selected candidate is DISCOVERY_SUGGESTION; do not add price, availability, provider, schedule, or booking claims.
 - Prefer Klook/provider activity results when suitable; use Google/Maps/search-only wording only when no verified candidate fits.
 - Never invent flight numbers, live prices, live availability, booking status, gates, or terminals.
 - Do not use generic titles or locations such as "local bistro", "museum or gallery", "nightlife district", or "hotel room".
@@ -1027,6 +1041,11 @@ function cleanItem(raw: unknown, fallbackTitle: string): RoamlyActivitySeed {
       : "activity"
   ) as NonNullable<RoamlyActivitySeed["item_type"]>;
   return {
+    candidateId: getString(item.candidateId, "") || undefined,
+    source: getString(item.source, "") || undefined,
+    factualStatus: ["verified", "search_ready", "estimated", "unknown", "DISCOVERY_SUGGESTION"].includes(getString(item.factualStatus, ""))
+      ? getString(item.factualStatus, "") as RoamlyActivitySeed["factualStatus"]
+      : "DISCOVERY_SUGGESTION",
     time_label: getString(item.time_label ?? item.timeLabel, getString(item.startTime ?? item.start_time, "09:00")),
     startTime: getString(item.startTime ?? item.start_time, ""),
     endTime: getString(item.endTime ?? item.end_time, ""),
@@ -1113,6 +1132,9 @@ function marketCandidateItem(
           ? "Transport"
           : "Activity";
   return {
+    candidateId: result.id,
+    source: result.provider || result.source,
+    factualStatus: result.price_type === "live_partner" ? "verified" : "search_ready",
     time_label: formatRepairTimeLabel(startMinutes),
     startTime: formatRepairTime24(startMinutes),
     endTime: formatRepairTime24(endMinutes),
@@ -1630,13 +1652,28 @@ export async function prepareStagedGenerationContext(params: {
     confirmedBookings: confirmedBookings.bookings,
     marketResults: marketSearch.results
   });
+  const groundedDecision = optimizeGroundedDecision({
+    decision: buildGroundedDecisionCore({
+      payload: params.payload,
+      marketResults: marketSearch.results,
+      confirmedBookings: confirmedBookings.bookings
+    }),
+    payload: params.payload,
+    confirmedBookings: confirmedBookings.bookings,
+    allowances: [
+      { category: "food", description: "Food allowance", amount: discovery.foodEstimateCents / 100, source: "Roamly planning estimate", status: "estimated" },
+      { category: "local_transport", description: "Local transport allowance", amount: discovery.localTransportEstimateCents / 100, source: "Roamly planning estimate", status: "estimated" },
+      { category: "buffer", description: "Trip safety buffer", amount: discovery.bufferEstimateCents / 100, source: "Roamly planning estimate", status: "estimated" }
+    ]
+  });
+  const groundedDiscovery = { ...discovery, groundedDecision };
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,
     { userId: params.userId, tripId: params.tripId, ...params.payload },
-    discovery
+    groundedDiscovery
   );
   return {
-    priceDiscovery: discovery as unknown as Record<string, unknown>,
+    priceDiscovery: groundedDiscovery as unknown as Record<string, unknown>,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
     budgetConstraint: buildBudgetConstraintForItinerary(discovery),
     confirmedBookings: confirmedBookings.bookings

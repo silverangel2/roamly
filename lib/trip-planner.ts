@@ -76,6 +76,70 @@ export type TravelerDetails = {
   infants?: number;
 };
 
+export type ConstraintPriority = "hard" | "soft";
+
+export type TravelConstraint<T> = {
+  value: T;
+  priority: ConstraintPriority;
+};
+
+export type ExplicitTravelRequirement =
+  | { type: "activity"; request: string; priority: ConstraintPriority; date?: string; time?: string }
+  | { type: "hotel"; request: string; priority: ConstraintPriority }
+  | { type: "flight"; airline?: string; airport?: string; priority: ConstraintPriority };
+
+export type FlightConstraints = {
+  origin?: TravelConstraint<string>;
+  destination?: TravelConstraint<string>;
+  departureDate?: TravelConstraint<string>;
+  returnDate?: TravelConstraint<string>;
+  travelerCount?: TravelConstraint<number>;
+  cabin?: TravelConstraint<string>;
+  preferredAirlines?: string[];
+  requiredAirlines?: string[];
+  excludedAirlines?: string[];
+  preferredAirports?: string[];
+  requiredAirports?: string[];
+  maxStops?: TravelConstraint<number>;
+  nonstopRequired?: TravelConstraint<boolean>;
+  departureTimeWindow?: TravelConstraint<{ start: string; end: string }>;
+  arrivalTimeWindow?: TravelConstraint<{ start: string; end: string }>;
+  baggageRequirement?: TravelConstraint<string>;
+};
+
+export type HotelConstraints = {
+  destination?: TravelConstraint<string>;
+  checkIn?: TravelConstraint<string>;
+  checkOut?: TravelConstraint<string>;
+  travelers?: TravelConstraint<number>;
+  rooms?: TravelConstraint<number>;
+  exactPropertyRequest?: TravelConstraint<string>;
+  preferredNeighborhood?: string;
+  requiredNeighborhood?: TravelConstraint<string>;
+  minimumQuality?: TravelConstraint<number>;
+  maximumNightlyPrice?: TravelConstraint<number>;
+  requiredAmenities?: TravelConstraint<string[]>;
+  preferredAmenities?: string[];
+  parkingRequired?: TravelConstraint<boolean>;
+  accessibilityRequirements?: TravelConstraint<string[]>;
+};
+
+export type ActivityConstraints = {
+  explicitRequestedActivities?: ExplicitTravelRequirement[];
+  mustDoActivities?: ExplicitTravelRequirement[];
+  preferredActivities?: string[];
+  dateConstraints?: TravelConstraint<string[]>;
+  timeConstraints?: TravelConstraint<string[]>;
+  budgetLimit?: TravelConstraint<number>;
+  accessibilityRequirements?: TravelConstraint<string[]>;
+};
+
+export type TravelConstraints = {
+  flight?: FlightConstraints;
+  hotel?: HotelConstraints;
+  activity?: ActivityConstraints;
+};
+
 export type TripPlannerPayload = {
   tripType?: TripType;
   origin?: string;
@@ -123,6 +187,8 @@ export type TripPlannerPayload = {
   budgetConstraint?: string;
   priceDiscoveryId?: string | null;
   priceDiscovery?: Record<string, unknown>;
+  constraints?: TravelConstraints;
+  explicitRequirements?: ExplicitTravelRequirement[];
   confirmedBookings?: Array<{
     booking_type?: string | null;
     title?: string | null;

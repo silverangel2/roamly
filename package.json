@@ -13,6 +13,7 @@
     "test:roamly-marketing-images": "node scripts/roamly-marketing-photo-ingestion-checks.mjs",
     "proof:facebook-reels": "node scripts/facebook-reel-runtime-proof.mjs",
     "test:roamly": "node scripts/roamly-core-checks.mjs",
+    "test:candidate-decision": "node --experimental-strip-types scripts/roamly-candidate-decision-checks.mjs",
     "test:stripe-webhook-idempotency": "node scripts/roamly-stripe-webhook-idempotency-checks.mjs",
     "test:stripe-refund-lifecycle": "node scripts/roamly-refund-entitlement-checks.mjs",
     "test:operational-incidents": "node scripts/roamly-operational-incident-checks.mjs",

@@ -76,6 +76,9 @@ export type BudgetBreakdown = {
 };
 
 export type RoamlyActivitySeed = {
+  candidateId?: string;
+  source?: string;
+  factualStatus?: "verified" | "search_ready" | "estimated" | "unknown" | "DISCOVERY_SUGGESTION";
   time_label: string;
   startTime?: string;
   endTime?: string;
