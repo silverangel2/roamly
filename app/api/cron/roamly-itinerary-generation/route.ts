@@ -4,6 +4,7 @@ import { getGenerationWorkerSecrets } from "@/lib/roamly/stagedGenerationBackgro
 import { processGenerationQueue } from "@/lib/roamly/generationWorker";
 import { runStuckGenerationDetector } from "@/lib/roamly/silentFailureDetectors";
 import { runBookingMonitorHealthDetector } from "@/lib/roamly/bookingMonitorHealth";
+import { runCommunicationStuckDetector } from "@/lib/roamly/communicationStuckDetector";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
   });
   const detector = await runStuckGenerationDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
   const bookingMonitorHealth = await runBookingMonitorHealthDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
+  const communicationStuck = await runCommunicationStuckDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
 
-  return NextResponse.json({ ...summary, silentFailureDetector: detector, bookingMonitorHealth }, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ ...summary, silentFailureDetector: detector, bookingMonitorHealth, communicationStuck }, { status: summary.ok ? 200 : 500 });
 }
