@@ -23,19 +23,21 @@ function isImage(asset: CampaignPhotoCandidate) {
   return type === "image" || type === "photo" || /\.(png|jpe?g|webp)(\?|$)/i.test(text(asset.media_url));
 }
 
-/** Select only an approved, destination/topic-bound photo for an automatic campaign item. */
+/** Prefer a destination/topic-bound photo, then use the approved image pool when the draft has no matching binding. */
 export function selectCampaignPhotoAsset<T extends CampaignPhotoCandidate>(assets: T[], destination: string, topic: string) {
   const destinationKey = slug(destination);
   const topicKey = slug(topic);
-  return [...assets].filter((asset) => {
+  const eligible = [...assets].filter((asset) => {
     if (!asset.id || !text(asset.media_url) || !isImage(asset)) return false;
+    return true;
+  });
+  const bound = eligible.filter((asset) => {
     const metadata = asset.metadata || {};
     const assetDestination = slug(asset.destination || metadataText(metadata, "destination", "city", "location"));
     const assetTopic = slug(asset.topic || metadataText(metadata, "topic", "theme", "contentKey", "conceptKey"));
-    if (assetDestination && assetDestination !== destinationKey) return false;
-    if (assetTopic && assetTopic !== topicKey) return false;
-    return Boolean((assetDestination && assetDestination === destinationKey) || (assetTopic && assetTopic === topicKey));
-  }).sort((a, b) => {
+    return (assetDestination && assetDestination === destinationKey) || (assetTopic && assetTopic === topicKey);
+  });
+  return (bound.length ? bound : eligible).sort((a, b) => {
     const useDiff = Number(a.use_count || 0) - Number(b.use_count || 0);
     if (useDiff) return useDiff;
     const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;

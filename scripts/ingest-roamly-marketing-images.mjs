@@ -9,6 +9,7 @@ const campaignId = "roamly-premium-reels-2026-08";
 const campaignDir = path.join(root, "content/social/roamly-25-day-reel-campaign");
 const sourceDir = path.join(campaignDir, "sources");
 const manifestPath = path.join(campaignDir, "marketing-image-rights.json");
+const campaignPlanPath = path.join(campaignDir, "roamly-25-day-reel-campaign-2026-08-04.json");
 const productionProjectRef = "ikrfkpnbtkdohoxnbphu";
 const storageBucket = "roamly-social-public";
 const allowedTypes = new Map([
@@ -92,6 +93,12 @@ function assetRecord({ source, contentHash, objectPath, publicUrl, declaration, 
       rightsBasis: declaration.rightsBasis,
       marketingUseAllowed: declaration.marketingUseAllowed,
       publicSocialUseAllowed: declaration.publicSocialUseAllowed,
+      provenanceVerified: declaration.provenanceVerified || null,
+      generator: declaration.generator || null,
+      model: declaration.model || null,
+      modelSoftwareAgent: declaration.modelSoftwareAgent || declaration.model || null,
+      digitalSourceType: declaration.digitalSourceType || null,
+      introducedCommit: declaration.introducedCommit || null,
       attribution: declaration.attribution || null,
       sourceReference: declaration.sourceReference || null,
       destination: campaign?.destination || null,
@@ -99,6 +106,22 @@ function assetRecord({ source, contentHash, objectPath, publicUrl, declaration, 
       ingestion: "explicit_marketing_rights_manifest"
     }
   };
+}
+
+async function readCampaignSourceMap() {
+  const plan = JSON.parse(await readFile(campaignPlanPath, "utf8"));
+  const sourceMap = new Map();
+  for (const post of Array.isArray(plan.posts) ? plan.posts : []) {
+    for (const sourcePlate of Array.isArray(post.sourcePlates) ? post.sourcePlates : []) {
+      sourceMap.set(path.basename(sourcePlate), {
+        destination: clean(post.destination),
+        topic: clean(post.theme),
+        dayNumber: post.dayNumber ?? null,
+        campaignId: plan.campaignId || campaignId
+      });
+    }
+  }
+  return sourceMap;
 }
 
 async function readManifest() {
@@ -109,7 +132,7 @@ async function readManifest() {
   return manifest;
 }
 
-async function scanSources(manifest) {
+async function scanSources(manifest, sourceMap) {
   const declarations = new Map(manifest.assets.map((entry) => [clean(entry.source), entry]));
   const files = (await readdir(sourceDir)).filter((name) => allowedTypes.has(path.extname(name).toLowerCase())).sort();
   const accepted = [];
@@ -132,7 +155,15 @@ async function scanSources(manifest) {
       rejected.push({ source: name, reason: "unsupported or invalid image content" });
       continue;
     }
-    accepted.push({ source: name, filePath, buffer, contentHash: hash(buffer), contentType: type.contentType, declaration });
+    accepted.push({
+      source: name,
+      filePath,
+      buffer,
+      contentHash: hash(buffer),
+      contentType: type.contentType,
+      declaration,
+      campaign: sourceMap.get(name) || null
+    });
   }
   return { files, accepted, rejected };
 }
@@ -158,16 +189,71 @@ function projectRefFromUrl(value) {
 async function ingest({ dryRun, production }) {
   await loadEnvFile(path.join(root, ".env.local"));
   const manifest = await readManifest();
-  const scanned = await scanSources(manifest);
+  const sourceMap = await readCampaignSourceMap();
+  const scanned = await scanSources(manifest, sourceMap);
   const deduped = deduplicateApprovedAssets(scanned.accepted);
+  const supabaseUrl = clean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const serviceKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const projectRef = projectRefFromUrl(supabaseUrl);
+  const records = deduped.unique.map((entry) => {
+    const ext = path.extname(entry.source).toLowerCase();
+    const objectPath = `social/images/roamly/${campaignId}/${entry.contentHash}${ext}`;
+    const publicUrl = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/${storageBucket}/${objectPath}`;
+    return {
+      entry,
+      objectPath,
+      publicUrl,
+      record: assetRecord({ source: entry.source, contentHash: entry.contentHash, objectPath, publicUrl, declaration: entry.declaration, campaign: entry.campaign })
+    };
+  });
+  let existingRows = new Map();
+  let existingObjects = new Set();
+  if (production) {
+    if (!supabaseUrl || !serviceKey) throw new Error("Supabase credentials are required for production inspection.");
+    if (projectRef !== productionProjectRef) throw new Error(`Refusing production ingestion for project ${projectRef || "unknown"}.`);
+    const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const ids = records.map(({ record }) => record.id);
+    if (ids.length) {
+      const existing = await db
+        .from("roamly_social_media_assets")
+        .select("id,asset_type,platform,status,approved_for_automation,excluded_from_automation,metadata")
+        .in("id", ids);
+      if (existing.error) throw new Error(`Existing asset lookup failed: ${existing.error.message}`);
+      existingRows = new Map((existing.data || []).map((row) => [row.id, row]));
+    }
+    const objects = await db.storage.from(storageBucket).list(`social/images/roamly/${campaignId}`, { limit: 200 });
+    if (objects.error) throw new Error(`Existing storage lookup failed: ${objects.error.message}`);
+    existingObjects = new Set((objects.data || []).map((row) => row.name));
+  }
+  const metadataMatches = (existing, record) =>
+    JSON.stringify(existing?.metadata || {}) === JSON.stringify(record.metadata) &&
+    existing?.asset_type === record.asset_type &&
+    existing?.platform === record.platform &&
+    existing?.status === record.status &&
+    existing?.approved_for_automation === record.approved_for_automation &&
+    existing?.excluded_from_automation === record.excluded_from_automation;
+  const recordUpdate = (record) => ({
+    platform: record.platform,
+    status: record.status,
+    title: record.title,
+    media_url: record.media_url,
+    asset_type: record.asset_type,
+    approved_for_automation: record.approved_for_automation,
+    excluded_from_automation: record.excluded_from_automation,
+    source: record.source,
+    rights_note: record.rights_note,
+    metadata: record.metadata
+  });
   const summary = {
     sourcePlatesScanned: scanned.files.length,
     rightsApproved: scanned.accepted.length,
     rightsRejectedOrUnverified: scanned.rejected.length,
     uniqueApproved: deduped.unique.length,
     duplicates: deduped.duplicates.length,
-    wouldUpload: deduped.unique.length,
-    wouldRegister: deduped.unique.length,
+    existing: production ? existingRows.size : 0,
+    wouldUpload: production ? records.filter(({ objectPath }) => !existingObjects.has(path.basename(objectPath))).length : records.length,
+    wouldRegister: production ? records.filter(({ record }) => !existingRows.has(record.id)).length : records.length,
+    wouldUpdate: production ? records.filter(({ record }) => existingRows.has(record.id) && !metadataMatches(existingRows.get(record.id), record)).length : 0,
     uploaded: 0,
     registered: 0,
     alreadyPresent: 0,
@@ -175,31 +261,27 @@ async function ingest({ dryRun, production }) {
   };
 
   if (!dryRun && deduped.unique.length) {
-    const supabaseUrl = clean(process.env.NEXT_PUBLIC_SUPABASE_URL);
-    const serviceKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
     if (!supabaseUrl || !serviceKey) throw new Error("Supabase credentials are required for non-dry-run ingestion.");
-    const projectRef = projectRefFromUrl(supabaseUrl);
     if (production && projectRef !== productionProjectRef) throw new Error(`Refusing production ingestion for project ${projectRef || "unknown"}.`);
     if (!production) throw new Error("Pass --production for an explicit verified production ingestion.");
     const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    for (const entry of deduped.unique) {
-      const ext = path.extname(entry.source).toLowerCase();
-      const objectPath = `social/images/roamly/${campaignId}/${entry.contentHash}${ext}`;
-      const publicUrl = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/${storageBucket}/${objectPath}`;
-      const uploaded = await db.storage.from(storageBucket).upload(objectPath, entry.buffer, { contentType: entry.contentType, cacheControl: "31536000", upsert: true });
-      if (uploaded.error) throw new Error(`Upload failed for ${entry.source}: ${uploaded.error.message}`);
-      const campaign = { destination: "Roamly campaign", topic: campaignId };
-      const record = assetRecord({ source: entry.source, contentHash: entry.contentHash, objectPath, publicUrl, declaration: entry.declaration, campaign });
-      const existing = await db.from("roamly_social_media_assets").select("id").eq("id", record.id).maybeSingle();
-      if (existing.error) throw new Error(`Registration lookup failed for ${entry.source}: ${existing.error.message}`);
-      if (existing.data) {
-        summary.alreadyPresent += 1;
+    for (const { entry, objectPath, record } of records) {
+      if (!existingObjects.has(path.basename(objectPath))) {
+        const uploaded = await db.storage.from(storageBucket).upload(objectPath, entry.buffer, { contentType: entry.contentType, cacheControl: "31536000", upsert: false });
+        if (uploaded.error) throw new Error(`Upload failed for ${entry.source}: ${uploaded.error.message}`);
+        summary.uploaded += 1;
       } else {
+        summary.alreadyPresent += 1;
+      }
+      const existing = existingRows.get(record.id);
+      if (!existing) {
         const registered = await db.from("roamly_social_media_assets").insert(record);
         if (registered.error) throw new Error(`Registration failed for ${entry.source}: ${registered.error.message}`);
         summary.registered += 1;
+      } else if (!metadataMatches(existing, record)) {
+        const updated = await db.from("roamly_social_media_assets").update(recordUpdate(record)).eq("id", record.id);
+        if (updated.error) throw new Error(`Reconciliation failed for ${entry.source}: ${updated.error.message}`);
       }
-      summary.uploaded += 1;
     }
   }
 
