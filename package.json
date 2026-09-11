@@ -9,6 +9,8 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test:facebook-autopost": "node scripts/facebook-autopost-regression-checks.mjs",
+    "ingest:roamly-marketing-images": "node scripts/ingest-roamly-marketing-images.mjs",
+    "test:roamly-marketing-images": "node scripts/roamly-marketing-photo-ingestion-checks.mjs",
     "proof:facebook-reels": "node scripts/facebook-reel-runtime-proof.mjs",
     "test:roamly": "node scripts/roamly-core-checks.mjs",
     "test:stripe-webhook-idempotency": "node scripts/roamly-stripe-webhook-idempotency-checks.mjs",

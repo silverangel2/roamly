@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "roamly-premium-reels-2026-08",
+  "sourceDirectory": "sources",
+  "policy": "Deny by default. Every source plate must have an explicit approved rights declaration before public marketing ingestion.",
+  "assets": []
+}
