@@ -1,5 +1,7 @@
-import type { HotelCandidate } from "@/lib/roamly/candidateDecisionCore";
+import type { HotelCandidate as BaseHotelCandidate } from "@/lib/roamly/candidateDecisionCore";
 import type { HotelConstraints, TripPlannerPayload } from "@/lib/trip-planner";
+
+type HotelCandidate = BaseHotelCandidate & { providerProductId?: string | null };
 
 export type HotelInventoryState = "OK" | "PROVIDER_NOT_CONFIGURED" | "TIMEOUT" | "RATE_LIMITED" | "NO_RESULTS" | "EXACT_PROPERTY_NOT_FOUND" | "EXACT_PROPERTY_AMBIGUOUS" | "NO_AVAILABLE_RATE" | "MALFORMED_PROVIDER_RESPONSE" | "STALE_RATE" | "CURRENCY_MISMATCH";
 export type HotelInventorySearchInput = {
