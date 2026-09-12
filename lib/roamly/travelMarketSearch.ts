@@ -27,7 +27,7 @@ import {
   safeConsumerTravelUrl,
   validateTravelResultForDisplay
 } from "@/lib/roamly/travelResultValidation";
-import type { TripPlannerPayload } from "@/lib/trip-planner";
+import type { TravelerDetails, TripPlannerPayload } from "@/lib/trip-planner";
 import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelCandidate } from "@/lib/roamly/hotelInventory";
 
 export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "restaurant" | "transport";
@@ -1053,7 +1053,7 @@ export async function revalidateSelectedHotelMarketResult(
     checkIn: selected.start_date || payload.startDate,
     checkOut: selected.end_date || payload.endDate,
     roomDescription: null,
-    occupancy: { travelers: selected.travelers || payload.travelersCount || 1, rooms: selected.rooms || payload.rooms || 1, childAges: payload.travelers?.childAges || [] },
+    occupancy: { travelers: selected.travelers || payload.travelersCount || 1, rooms: selected.rooms || payload.rooms || 1, childAges: (payload.travelers as TravelerDetails & { childAges?: number[] })?.childAges || [] },
     amenities: [],
     pricePerNight: null,
     totalStayPrice: selected.price_amount ?? null,
@@ -1442,7 +1442,7 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
       minimum_quality: payload.constraints?.hotel?.minimumQuality?.value ?? null,
       accessibility_requirements: payload.constraints?.hotel?.accessibilityRequirements?.value || [],
       maximum_nightly_price: payload.constraints?.hotel?.maximumNightlyPrice?.value ?? null,
-      child_ages: payload.travelers?.childAges || []
+      child_ages: (payload.travelers as TravelerDetails & { childAges?: number[] })?.childAges || []
     });
 
     if (payload.budgetIncludesActivities !== false) {
