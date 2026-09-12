@@ -21,7 +21,12 @@ import { scheduleStagedGenerationAdvance } from "@/lib/roamly/stagedGenerationBa
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isMissingTableError } from "@/lib/trips";
 import { normalizeCustomPlace, type NormalizedPlace } from "@/lib/roamly/places";
-import { buildTripPlanningMetadata, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
+import {
+  buildTripPlanningMetadata,
+  getTripPlanningMetadata,
+  normalizeExplicitRequirements,
+  normalizeTravelConstraints
+} from "@/lib/roamly/tripMetadata";
 import {
   getPublicSupabaseHost,
   logGenerationDiagnostic,
@@ -217,7 +222,9 @@ function cleanPayload(body: Record<string, unknown>, requestLocale?: string): Tr
     specialNotes: getString(body.specialNotes),
     language: normalizeLocale(requestLocale || getString(body.language)),
     priceDiscoveryId: getString(body.priceDiscoveryId) || null,
-    budgetConstraint: getString(body.budgetConstraint)
+    budgetConstraint: getString(body.budgetConstraint),
+    constraints: normalizeTravelConstraints(body.constraints),
+    explicitRequirements: normalizeExplicitRequirements(body.explicitRequirements)
   };
 }
 
@@ -278,7 +285,10 @@ function payloadFromTrip(trip: Record<string, unknown>, language?: string): Trip
     dietaryPreference: getString(planning.dietaryPreference || planning.dietary_preference),
     specialNotes: getFirstString(trip.special_notes, planning.specialNotes, planning.special_notes),
     language: normalizeLocale(language || getString(planning.language)),
-    priceDiscoveryId: getFirstString(trip.latest_price_discovery_id, planning.priceDiscoveryId, planning.price_discovery_id) || null
+    priceDiscoveryId: getFirstString(trip.latest_price_discovery_id, planning.priceDiscoveryId, planning.price_discovery_id) || null,
+    budgetConstraint: getString(planning.budgetConstraint || planning.budget_constraint) || undefined,
+    constraints: normalizeTravelConstraints(planning.constraints),
+    explicitRequirements: normalizeExplicitRequirements(planning.explicitRequirements || planning.explicit_requirements)
   };
 }
 
