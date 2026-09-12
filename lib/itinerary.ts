@@ -113,6 +113,8 @@ export type RoamlyBookingStatus = "suggested" | "user_uploaded" | "needs_booking
 export type RoamlyBookingSuggestion = {
   candidateId?: string;
   provider_property_id?: string | null;
+  provider_action_url?: string | null;
+  provider_action_origin?: "provider_response";
   factual_status?: "verified" | "search_ready" | "estimated" | "unknown" | "DISCOVERY_SUGGESTION";
   category: RoamlyBookingCategory;
   booking_category: RoamlyBookingCategory;
@@ -2065,7 +2067,7 @@ function bookingSuggestionFallbackUrl(
 
 function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggestion[], payload: TripPlannerPayload) {
   if (!Array.isArray(value)) return fallback;
-  const cleaned = value
+  const cleaned: RoamlyBookingSuggestion[] = value
     .map((item) => {
       const record = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
       const category = cleanBookingCategory(record.category || record.booking_category);
@@ -2077,6 +2079,8 @@ function cleanBookingSuggestions(value: unknown, fallback: RoamlyBookingSuggesti
       return {
         candidateId: cleanOptionalString(record.candidateId),
         provider_property_id: cleanOptionalString(record.provider_property_id || record.providerPropertyId),
+        provider_action_url: null,
+        provider_action_origin: undefined,
         factual_status: cleanFactualStatus(record.factual_status || record.factualStatus),
         category,
         booking_category: category,

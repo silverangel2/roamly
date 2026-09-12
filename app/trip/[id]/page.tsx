@@ -1123,6 +1123,17 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     ? ""
     : rawAffiliate;
   if (category === "hotel") {
+    if (suggestion.provider_action_origin === "provider_response" && suggestion.factual_status === "verified") {
+      const providerAction = safeBookingUrl(suggestion.provider_action_url);
+      if (providerAction) {
+        return {
+          href: providerAction,
+          provider: bookingProvider(suggestion, "Booking.com"),
+          hasAffiliateUrl: false,
+          urlType: "normal_search" as BookingUrlType
+        };
+      }
+    }
     const stay22Fallback = buildStay22HotelFallbackUrl(suggestion, trip);
     if (affiliate && isCompleteStay22HotelContext(affiliate, suggestion, trip)) {
       return {
