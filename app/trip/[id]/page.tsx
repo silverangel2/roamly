@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
+import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshButton";
@@ -1458,6 +1459,7 @@ function BookingRecommendationCard({
     : suggestion.location || suggestion.neighborhood || suggestion.city || title;
   const statusBadge = bookingStatusBadge(category, suggestion);
   const actionLabel = bookingActionLabel(category, suggestion, link);
+  const guardedHotelAction = category === "hotel" && suggestion.provider_action_origin === "provider_response" && suggestion.factual_status === "verified";
 
   return (
     <article className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
@@ -1489,16 +1491,20 @@ function BookingRecommendationCard({
           {category === "hotel" || category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-2 lg:items-end">
-          <BookingRecommendationButton
-            href={link.href}
-            label={actionLabel}
-            tripId={tripId}
-            category={category}
-            title={title}
-            provider={link.provider}
-            hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
-            urlType={link.urlType}
-          />
+          {guardedHotelAction ? (
+            <GuardedHotelActionButton tripId={tripId} label={actionLabel} />
+          ) : (
+            <BookingRecommendationButton
+              href={link.href}
+              label={actionLabel}
+              tripId={tripId}
+              category={category}
+              title={title}
+              provider={link.provider}
+              hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
+              urlType={link.urlType}
+            />
+          )}
           <p className="roamly-print-only hidden text-xs font-black text-ocean">
             Search: {actionLabel}
           </p>
@@ -2571,6 +2577,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary="Only the recommended transport, stay, flights, and important activities." />
                   <div className="mb-4">
                     <MarketPriceRefreshButton tripId={id} />
+                    {one(search.hotel_action) === "price_changed" ? <p className="mt-2 text-sm font-bold text-slate-700">Hotel price changed. Review the updated hotel price before continuing.</p> : null}
+                    {one(search.hotel_action) === "unavailable" ? <p className="mt-2 text-sm font-bold text-coral">The selected hotel is no longer available for these dates.</p> : null}
+                    {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
                   </div>
                   <BookingPlan itinerary={full} trip={trip} tripId={id} />
                   <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
