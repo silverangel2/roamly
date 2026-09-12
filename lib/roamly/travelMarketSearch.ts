@@ -979,6 +979,8 @@ function hotelInventoryToMarketResults(result: HotelInventoryResult, request: Tr
       providerPayload: {
         property_id: candidate.providerPropertyId,
         product_id: candidate.providerProductId,
+        representative_product_id: candidate.representativeProviderProductId,
+        product_options: candidate.productOptions,
         address: candidate.address,
         neighborhood: candidate.neighborhood,
         coordinates: candidate.coordinates,

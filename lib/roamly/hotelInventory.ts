@@ -4,6 +4,8 @@ import type { HotelConstraints, TripPlannerPayload } from "@/lib/trip-planner";
 export type HotelCandidate = BaseHotelCandidate & {
   providerPropertyId?: string | null;
   providerProductId?: string | null;
+  productOptions?: HotelProductOption[];
+  representativeProviderProductId?: string | null;
   address?: string | null;
   coordinates?: { latitude: number; longitude: number } | null;
   neighborhood?: string | null;
@@ -22,6 +24,19 @@ export type HotelCandidate = BaseHotelCandidate & {
   availabilityStatus?: "available" | "unverified" | "unknown";
   cancellationPolicy?: string | null;
   expiresAt?: string | null;
+};
+
+export type HotelProductOption = {
+  providerProductId: string | null;
+  roomDescription: string | null;
+  totalStayPrice: number | null;
+  currency: string | null;
+  taxesFees: number | null;
+  taxInclusionStatus: "included" | "excluded" | "unknown";
+  feeInclusionStatus: "included" | "excluded" | "unknown";
+  availabilityStatus: "available" | "unverified" | "unknown";
+  cancellationPolicy: string | null;
+  deepLink: string | null;
 };
 
 export type HotelInventoryState = "OK" | "PROVIDER_NOT_CONFIGURED" | "TIMEOUT" | "RATE_LIMITED" | "NO_RESULTS" | "EXACT_PROPERTY_NOT_FOUND" | "EXACT_PROPERTY_AMBIGUOUS" | "NO_AVAILABLE_RATE" | "MALFORMED_PROVIDER_RESPONSE" | "STALE_RATE" | "CURRENCY_MISMATCH";
@@ -68,11 +83,12 @@ export async function revalidateBookingHotelCandidate(
 
 type FetchLike = typeof fetch;
 type Charge = { amount?: number | string | null; currency?: string | null; included?: boolean | null; chargeable_online?: boolean | null; type?: string | null };
-type BookingProduct = { id: string | number; room?: string | { name?: string | null; description?: string | null; amenities?: string[] } | null; price?: { total?: number | string | null; display?: number | string | null; charges?: Charge[] | null } | null; number_available_at_this_price?: number | null; inventory?: { type?: string | null; number?: number | null } | null; policies?: { cancellation?: Record<string, unknown> | null; payment?: Record<string, unknown> | null } | null; url?: string | { app?: string | null; web?: string | null } | null };
+type BookingProduct = { id?: string | number | null; room?: string | { name?: string | null; description?: string | null; amenities?: string[] } | null; price?: { total?: number | string | null; display?: number | string | null; currency?: string | { accommodation?: string; booker?: string } | null; charges?: Charge[] | null } | null; number_available_at_this_price?: number | null; inventory?: { type?: string | null; number?: number | null } | null; policies?: { cancellation?: Record<string, unknown> | null; payment?: Record<string, unknown> | null } | null; url?: string | { app?: string | null; web?: string | null } | null };
 type BookingProperty = { id: string; name?: string | null; address?: string | null; coordinates?: { latitude?: number; longitude?: number } | null; neighborhood?: string | null; stars?: number | null; amenities?: string[]; products?: BookingProduct[]; url?: string | { app?: string | null; web?: string | null } | null; deepLinkUrl?: string | { app?: string | null; web?: string | null } | null; currency?: string | { accommodation?: string; booker?: string } | null };
 
 function text(value: unknown) { return typeof value === "string" || typeof value === "number" ? String(value).trim() : ""; }
 function num(value: unknown) { const n = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN; return Number.isFinite(n) ? n : null; }
+function money(value: unknown) { const n = num(value); return n != null && n >= 0 ? n : null; }
 function enabled() { return text(process.env.ROAMLY_HOTEL_INVENTORY_PROVIDER).toLowerCase() === "booking" && Boolean(text(process.env.BOOKING_DEMAND_API_TOKEN) && text(process.env.BOOKING_DEMAND_AFFILIATE_ID)); }
 export function hotelInventoryConfigured() { return enabled(); }
 function now() { return new Date(); }
@@ -89,7 +105,6 @@ export function hotelInventoryInputFromPayload(payload: TripPlannerPayload): Hot
 function bookingUrl(value: unknown) { if (typeof value === "string") return value.trim() || null; if (value && typeof value === "object") { const row = value as Record<string, unknown>; return text(row.web) || text(row.app) || null; } return null; }
 function currency(value: unknown, fallback?: unknown) { if (typeof value === "string") return value.toUpperCase(); if (value && typeof value === "object") return text((value as Record<string, unknown>).accommodation || (value as Record<string, unknown>).booker).toUpperCase(); return text(fallback).toUpperCase(); }
 function roomText(room: BookingProduct["room"]) { return typeof room === "object" && room ? text(room.description) || text(room.name) || null : null; }
-function roomAmenities(room: BookingProduct["room"]) { return typeof room === "object" && room ? (room.amenities || []).filter((x): x is string => typeof x === "string") : []; }
 
 function requestBody(input: HotelInventorySearchInput, propertyIds?: string[], availability = false) {
   const guests: Record<string, unknown> = { number_of_adults: input.travelers, number_of_rooms: input.rooms }; if (input.childAges?.length) guests.children = input.childAges;
@@ -116,7 +131,7 @@ function propertyRows(payload: unknown): { rows: BookingProperty[]; currency?: s
     const rating = row.rating && typeof row.rating === "object" ? row.rating as Record<string, unknown> : {};
     const nameValue = row.name;
     const name = typeof nameValue === "object" && nameValue ? text(Object.values(nameValue as Record<string, unknown>)[0]) : text(nameValue);
-    rows.push({ id, name: name || null, address: address || null, coordinates: coordinates ? { latitude: num(coordinates.latitude) ?? undefined, longitude: num(coordinates.longitude) ?? undefined } : null, neighborhood: text(row.neighborhood) || null, stars: num(row.stars) ?? num(rating.stars), amenities: Array.isArray(row.amenities) ? row.amenities.filter((x): x is string => typeof x === "string") : [], products: Array.isArray(row.products) ? row.products.filter((x): x is BookingProduct => Boolean(x && typeof x === "object" && text((x as Record<string, unknown>).id))) : [], url: row.url as BookingProperty["url"], deepLinkUrl: row.deep_link_url as BookingProperty["deepLinkUrl"], currency: row.currency as BookingProperty["currency"] });
+    rows.push({ id, name: name || null, address: address || null, coordinates: coordinates ? { latitude: num(coordinates.latitude) ?? undefined, longitude: num(coordinates.longitude) ?? undefined } : null, neighborhood: text(row.neighborhood) || null, stars: num(row.stars) ?? num(rating.stars), amenities: Array.isArray(row.amenities) ? row.amenities.filter((x): x is string => typeof x === "string") : [], products: Array.isArray(row.products) ? row.products.filter((x): x is BookingProduct => Boolean(x && typeof x === "object")) : [], url: row.url as BookingProperty["url"], deepLinkUrl: row.deep_link_url as BookingProperty["deepLinkUrl"], currency: row.currency as BookingProperty["currency"] });
   }
   return { rows, currency: currency(root.currency) || undefined };
 }
@@ -128,8 +143,44 @@ export function resolveBookingPropertyMatch(query: string, properties: Array<{ i
 function chargeTotal(charges: Charge[] | null | undefined) { const values = (charges || []).map(x => num(x.amount)).filter((x): x is number => x != null); return values.length === (charges || []).length && values.length ? values.reduce((a, b) => a + b, 0) : null; }
 function inclusion(charges: Charge[] | null | undefined) { if (!charges?.length) return "unknown" as const; if (charges.every(x => x.included === true)) return "included" as const; if (charges.every(x => x.included === false)) return "excluded" as const; return "unknown" as const; }
 function cancellationText(policy: Record<string, unknown> | null | undefined) { if (!policy) return null; const type = text(policy.type).toLowerCase(); return type.includes("non") ? "non-refundable" : type.includes("free") || policy.free_cancellation_until ? "refundable/conditional" : type || "conditional/unknown"; }
-function candidateFromBooking(property: BookingProperty, product: BookingProduct | undefined, input: HotelInventorySearchInput, searchedAt: string, expires: string, responseCurrency?: string): HotelCandidate | null { if (!product?.id || !property.name) return null; const price = product.price; const total = num(price?.total); const charges = price?.charges || []; const available = product.number_available_at_this_price != null ? product.number_available_at_this_price > 0 : text(product.inventory?.type).toLowerCase() === "available"; const n = nights(input.checkIn, input.checkOut); const cur = currency(property.currency, responseCurrency || input.currency); return { candidateId: `booking:${property.id}:${product.id}`, category: "hotel", source: "Booking.com Demand API", sourceType: "provider_api", searchedAt, factualStatus: "verified", bookingStatus: "bookable", deepLink: bookingUrl(product.url) || bookingUrl(property.deepLinkUrl) || bookingUrl(property.url), providerPropertyId: property.id, providerProductId: text(product.id), name: property.name, address: property.address || null, coordinates: property.coordinates?.latitude != null && property.coordinates?.longitude != null ? { latitude: property.coordinates.latitude, longitude: property.coordinates.longitude } : null, neighborhood: property.neighborhood || null, quality: property.stars ?? null, checkIn: input.checkIn, checkOut: input.checkOut, roomDescription: roomText(product.room), occupancy: { travelers: input.travelers, rooms: input.rooms, childAges: input.childAges || [] }, amenities: [...(property.amenities || []), ...roomAmenities(product.room)], pricePerNight: total != null && n ? total / n : null, totalStayPrice: total, taxesFees: chargeTotal(charges), taxInclusionStatus: inclusion(charges), feeInclusionStatus: inclusion(charges), currency: cur || input.currency, availabilityStatus: available ? "available" : "unknown", cancellationPolicy: cancellationText(product.policies?.cancellation), expiresAt: expires }; }
-export function normalizeBookingAccommodationResponse(payload: unknown, input: HotelInventorySearchInput, searchedAt: string, expires: string): HotelCandidate[] | null { const parsed = propertyRows(payload); if (!parsed) return null; return parsed.rows.flatMap(p => { const c = candidateFromBooking(p, p.products?.[0], input, searchedAt, expires, parsed.currency); return c ? [c] : []; }); }
+function productOption(product: BookingProduct, propertyCurrency: string, input: HotelInventorySearchInput): HotelProductOption {
+  const price = product.price;
+  const charges = price?.charges || [];
+  const total = money(price?.total);
+  const available = product.number_available_at_this_price != null
+    ? product.number_available_at_this_price > 0
+    : text(product.inventory?.type).toLowerCase() === "available" ? true : "unknown";
+  return {
+    providerProductId: text(product.id) || null,
+    roomDescription: roomText(product.room),
+    totalStayPrice: total,
+    currency: currency(product.price?.currency, propertyCurrency || input.currency) || null,
+    taxesFees: chargeTotal(charges),
+    taxInclusionStatus: inclusion(charges),
+    feeInclusionStatus: inclusion(charges),
+    availabilityStatus: available === true ? "available" : available === "unknown" ? "unknown" : "unverified",
+    cancellationPolicy: cancellationText(product.policies?.cancellation),
+    deepLink: bookingUrl(product.url)
+  };
+}
+
+function candidateFromBooking(property: BookingProperty, input: HotelInventorySearchInput, searchedAt: string, expires: string, responseCurrency?: string): HotelCandidate | null {
+  if (!property.name || !property.products?.length) return null;
+  const propertyCurrency = currency(property.currency, responseCurrency || input.currency);
+  const n = nights(input.checkIn, input.checkOut);
+  const options = property.products.map((product) => productOption(product, propertyCurrency, input));
+  const comparable = options.filter((option) => option.totalStayPrice != null && option.currency === propertyCurrency);
+  const comparableRepresentative = [...comparable].sort((a, b) => (a.totalStayPrice! - b.totalStayPrice!) || (a.providerProductId || "").localeCompare(b.providerProductId || ""))[0] || null;
+  const representative = comparableRepresentative
+    || options.find((option) => option.providerProductId)
+    || options[0];
+  const representativeId = representative?.providerProductId || null;
+  const total = comparableRepresentative?.totalStayPrice ?? null;
+  const deepLink = representative?.deepLink || bookingUrl(property.deepLinkUrl) || bookingUrl(property.url);
+  const availabilityStatus = representative?.availabilityStatus || "unknown";
+  return { candidateId: `booking:${property.id}`, category: "hotel", source: "Booking.com Demand API", sourceType: "provider_api", searchedAt, factualStatus: "verified", bookingStatus: "bookable", deepLink, providerPropertyId: property.id, providerProductId: representativeId, representativeProviderProductId: representativeId, productOptions: options, name: property.name, address: property.address || null, coordinates: property.coordinates?.latitude != null && property.coordinates?.longitude != null ? { latitude: property.coordinates.latitude, longitude: property.coordinates.longitude } : null, neighborhood: property.neighborhood || null, quality: property.stars ?? null, checkIn: input.checkIn, checkOut: input.checkOut, roomDescription: representative?.roomDescription || null, occupancy: { travelers: input.travelers, rooms: input.rooms, childAges: input.childAges || [] }, amenities: property.amenities || [], pricePerNight: total != null && n ? total / n : null, totalStayPrice: total, taxesFees: representative?.taxesFees ?? null, taxInclusionStatus: representative?.taxInclusionStatus || "unknown", feeInclusionStatus: representative?.feeInclusionStatus || "unknown", currency: representative?.currency || propertyCurrency || input.currency, availabilityStatus, cancellationPolicy: representative?.cancellationPolicy || null, expiresAt: expires };
+}
+export function normalizeBookingAccommodationResponse(payload: unknown, input: HotelInventorySearchInput, searchedAt: string, expires: string): HotelCandidate[] | null { const parsed = propertyRows(payload); if (!parsed) return null; return parsed.rows.flatMap(p => { const c = candidateFromBooking(p, input, searchedAt, expires, parsed.currency); return c ? [c] : []; }); }
 function mergePropertyDetails(searchPayload: unknown, detailsPayload: unknown): unknown {
   const search = propertyRows(searchPayload); const details = propertyRows(detailsPayload); if (!search || !details) return searchPayload;
   const byId = new Map(details.rows.map(row => [row.id, row]));
