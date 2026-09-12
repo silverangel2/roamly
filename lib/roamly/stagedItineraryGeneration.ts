@@ -8,6 +8,7 @@ import {
   type RoamlyDayPlan,
   type RoamlyItinerary
 } from "@/lib/itinerary";
+import { enforceSelectedHotelIdentity } from "@/lib/roamly/selectedHotelIdentity";
 import { normalizeLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import { markFreeItineraryUsed, lockGeneratedItinerary } from "@/lib/roamly/billing";
@@ -1523,7 +1524,7 @@ function assembleItinerary(state: StagedGenerationState): RoamlyItinerary {
   };
   const repaired = repairItineraryForTravelRequirements(raw, payload);
   const enriched = enrichItineraryBookingSuggestions(repaired, payload);
-  return localizeGeneratedExactText(enriched, payload.language) as RoamlyItinerary;
+  return localizeGeneratedExactText(enforceSelectedHotelIdentity(enriched, state), payload.language) as RoamlyItinerary;
 }
 
 async function persistState(params: {
