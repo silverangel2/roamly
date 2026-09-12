@@ -1,7 +1,7 @@
 import type { HotelCandidate as BaseHotelCandidate } from "@/lib/roamly/candidateDecisionCore";
 import type { HotelConstraints, TripPlannerPayload } from "@/lib/trip-planner";
 
-type HotelCandidate = BaseHotelCandidate & {
+export type HotelCandidate = BaseHotelCandidate & {
   providerPropertyId?: string | null;
   providerProductId?: string | null;
   address?: string | null;
@@ -32,6 +32,39 @@ export type HotelPropertyMatch = { status: "EXACT" | "STRONG_MATCH" | "AMBIGUOUS
 export type HotelLocationMatch = { status: "EXACT" | "STRONG_MATCH" | "AMBIGUOUS" | "NOT_FOUND"; providerLocationId: number | null; providerLocationType: "city" | "district" | "region" | "airport" | "landmark" | "hotel" | null; canonicalName: string | null; coordinates: { latitude: number; longitude: number } | null; confidence: number; source: "booking_autocomplete" };
 export type HotelInventoryResult = { state: HotelInventoryState; provider: "booking_demand"; candidates: HotelCandidate[]; searchedAt: string; expiresAt: string; warning?: string };
 export type HotelInventoryProvider = { searchHotels(input: HotelInventorySearchInput): Promise<HotelInventoryResult>; resolveLocation(input: { query: string; country: string }): Promise<HotelLocationMatch>; resolveProperty(input: HotelInventorySearchInput): Promise<HotelPropertyMatch>; getPropertyAvailability(input: HotelInventorySearchInput & { providerPropertyId: string }): Promise<HotelInventoryResult>; getRates(input: HotelInventorySearchInput & { providerPropertyId: string }): Promise<HotelInventoryResult> };
+
+export function hotelCandidateIsFresh(candidate: Pick<HotelCandidate, "expiresAt">, at = new Date()) {
+  if (!candidate.expiresAt) return false;
+  const expires = Date.parse(candidate.expiresAt);
+  return Number.isFinite(expires) && expires > at.getTime();
+}
+
+export type HotelRevalidationResult =
+  | { status: "fresh"; candidate: HotelCandidate }
+  | { status: "refreshed"; candidate: HotelCandidate }
+  | { status: "unavailable"; candidate: null; warning: string }
+  | { status: "unknown"; candidate: null; warning: string };
+
+export async function revalidateBookingHotelCandidate(
+  provider: Pick<HotelInventoryProvider, "getPropertyAvailability">,
+  input: HotelInventorySearchInput,
+  candidate: HotelCandidate,
+  at = new Date()
+): Promise<HotelRevalidationResult> {
+  if (hotelCandidateIsFresh(candidate, at)) return { status: "fresh", candidate };
+  if (candidate.sourceType !== "provider_api" || candidate.source !== "Booking.com Demand API" || !candidate.providerPropertyId) {
+    return { status: "unknown", candidate: null, warning: "Selected hotel is stale and cannot be revalidated as Booking.com inventory." };
+  }
+  const result = await provider.getPropertyAvailability({
+    ...input,
+    exactPropertyRequest: null,
+    providerPropertyId: candidate.providerPropertyId
+  });
+  const refreshed = result.candidates.find((item) => item.providerPropertyId === candidate.providerPropertyId) || null;
+  if (result.state === "OK" && refreshed) return { status: "refreshed", candidate: refreshed };
+  if (result.state === "NO_AVAILABLE_RATE") return { status: "unavailable", candidate: null, warning: "The selected hotel no longer has an available rate for this stay." };
+  return { status: "unknown", candidate: null, warning: result.warning || "The selected hotel could not be revalidated." };
+}
 
 type FetchLike = typeof fetch;
 type Charge = { amount?: number | string | null; currency?: string | null; included?: boolean | null; chargeable_online?: boolean | null; type?: string | null };

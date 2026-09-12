@@ -28,11 +28,13 @@ import {
   validateTravelResultForDisplay
 } from "@/lib/roamly/travelResultValidation";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelCandidate } from "@/lib/roamly/hotelInventory";
 
 export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "restaurant" | "transport";
 export type TravelMarketSource =
   | "travelpayouts"
   | "stay22"
+  | "booking_demand"
   | "klook"
   | "roamly_internal"
   | "fallback_estimate";
@@ -83,6 +85,36 @@ export type TravelMarketSearchRequest = {
   title?: string | null;
   currency?: string | null;
   interests?: string[];
+  exact_property_request?: string | null;
+  neighborhood?: string | null;
+  required_amenities?: string[];
+  preferred_amenities?: string[];
+  parking_required?: boolean | null;
+  minimum_quality?: number | null;
+  accessibility_requirements?: string[];
+  maximum_nightly_price?: number | null;
+  child_ages?: number[];
+};
+
+export type SelectedHotelRevalidationResult = {
+  candidateId?: string | null;
+  providerPropertyId?: string | null;
+  provider?: string | null;
+  source?: string | null;
+  title?: string | null;
+  destination?: string | null;
+  city?: string | null;
+  country?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  travelers?: number | null;
+  rooms?: number | null;
+  currency?: string | null;
+  price_amount?: number | null;
+  booking_url?: string | null;
+  searched_at?: string | null;
+  expires_at?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type TravelMarketSearchResponse = {
@@ -151,6 +183,10 @@ function normalizeKeyPart(value: unknown) {
     .replace(/\s+/g, " ");
 }
 
+function hotelSearchProviderKey() {
+  return hotelInventoryConfigured() ? "booking_demand" : "stay22_or_discovery";
+}
+
 export function buildTravelMarketSearchKey(input: TravelMarketSearchRequest) {
   return [
     input.category,
@@ -162,6 +198,14 @@ export function buildTravelMarketSearchKey(input: TravelMarketSearchRequest) {
     positiveInteger(input.travelers, 0),
     positiveInteger(input.rooms, 0),
     input.room_type,
+    input.exact_property_request,
+    input.neighborhood,
+    input.required_amenities?.join(","),
+    input.parking_required,
+    input.minimum_quality,
+    input.maximum_nightly_price,
+    input.child_ages?.join(","),
+    input.category === "hotel" ? hotelSearchProviderKey() : "",
     cleanCurrency(input.currency)
   ]
     .map(normalizeKeyPart)
@@ -460,7 +504,7 @@ function klookApiConfigured() {
 function providerConfigured(request: TravelMarketSearchRequest) {
   const category = request.category;
   if (category === "flight") return travelpayoutsAffiliateConfigured();
-  if (category === "hotel") return stay22AffiliateConfigured();
+  if (category === "hotel") return hotelInventoryConfigured() || stay22AffiliateConfigured();
   if (category === "attraction" || category === "tour") {
     return klookAffiliateConfigured();
   }
@@ -477,6 +521,7 @@ function liveProviderConfigured(request: TravelMarketSearchRequest) {
   if (category === "transport") {
     return klookApiConfigured() && isKlookTransportSearch(request);
   }
+  if (category === "hotel") return hotelInventoryConfigured();
   return false;
 }
 
@@ -866,6 +911,36 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
 
 async function liveProviderResults(request: TravelMarketSearchRequest) {
   if (request.category === "flight") return searchTravelpayouts(request);
+  if (request.category === "hotel") {
+    const provider = createBookingDemandProvider();
+    const destination = request.destination || request.city || "";
+    const location = request.country ? await provider.resolveLocation({ query: destination, country: request.country }) : null;
+    if (!location || !["EXACT", "STRONG_MATCH"].includes(location.status) || location.providerLocationId == null) return [];
+    const result = await provider.searchHotels({
+      destination: request.destination || request.city,
+      checkIn: cleanDate(request.start_date),
+      checkOut: cleanDate(request.end_date),
+      travelers: positiveInteger(request.travelers, 1),
+      rooms: positiveInteger(request.rooms, 1),
+      children: request.child_ages?.length || 0,
+      childAges: request.child_ages || [],
+      currency: cleanCurrency(request.currency),
+      providerLocationId: location.providerLocationId,
+      providerLocationType: location.providerLocationType,
+      bookerCountry: clean(process.env.BOOKING_DEMAND_BOOKER_COUNTRY).toLowerCase() || null,
+      exactPropertyRequest: request.exact_property_request,
+      neighborhood: request.neighborhood,
+      constraints: {
+        exactPropertyRequest: request.exact_property_request ? { value: request.exact_property_request, priority: "hard" } : undefined,
+        requiredNeighborhood: request.neighborhood ? { value: request.neighborhood, priority: "hard" } : undefined,
+        requiredAmenities: request.required_amenities?.length ? { value: request.required_amenities, priority: "hard" } : undefined,
+        parkingRequired: request.parking_required == null ? undefined : { value: request.parking_required, priority: "hard" },
+        minimumQuality: request.minimum_quality == null ? undefined : { value: request.minimum_quality, priority: "hard" },
+        maximumNightlyPrice: request.maximum_nightly_price == null ? undefined : { value: request.maximum_nightly_price, priority: "hard" }
+      }
+    });
+    return hotelInventoryToMarketResults(result, request);
+  }
   if (request.category === "attraction" || request.category === "tour") {
     const providers = await Promise.allSettled([searchKlook(request)]);
     return providers.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
@@ -874,6 +949,144 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
     return searchKlook(request);
   }
   return [];
+}
+
+function hotelInventoryToMarketResults(result: HotelInventoryResult, request: TravelMarketSearchRequest): TravelMarketResult[] {
+  return result.candidates.map((candidate) => ({
+    id: candidate.candidateId,
+    category: "hotel",
+    title: candidate.name,
+    provider: candidate.source,
+    source: "booking_demand",
+    destination: request.destination || request.city || undefined,
+    city: request.city || request.destination || undefined,
+    country: request.country || undefined,
+    start_date: request.start_date || undefined,
+    end_date: request.end_date || undefined,
+    travelers: request.travelers || undefined,
+    rooms: request.rooms || undefined,
+    room_type: candidate.roomDescription || request.room_type || undefined,
+    price_amount: candidate.totalStayPrice ?? undefined,
+    currency: candidate.currency,
+    price_type: candidate.expiresAt && new Date(candidate.expiresAt).getTime() > Date.now() && candidate.totalStayPrice !== null ? "live_partner" : "unknown",
+    confidence: candidate.factualStatus === "verified" ? "high" : "low",
+    booking_url: candidate.deepLink || undefined,
+    searched_at: result.searchedAt,
+    expires_at: result.expiresAt,
+    metadata: {
+      retrieval_provider: "provider_api",
+      hotel_inventory_state: result.state,
+      providerPayload: {
+        property_id: candidate.providerPropertyId,
+        product_id: candidate.providerProductId,
+        address: candidate.address,
+        neighborhood: candidate.neighborhood,
+        coordinates: candidate.coordinates,
+        amenities: candidate.amenities,
+        quality: candidate.quality,
+        taxes_fees: candidate.taxesFees,
+        taxes_included: candidate.taxInclusionStatus === "included" ? true : candidate.taxInclusionStatus === "excluded" ? false : null,
+        fees_included: candidate.feeInclusionStatus === "included" ? true : candidate.feeInclusionStatus === "excluded" ? false : null,
+        cancellation_policy: candidate.cancellationPolicy,
+        availability_status: candidate.availabilityStatus,
+        expires_at: candidate.expiresAt
+      }
+    }
+  }));
+}
+
+function staleSelectedHotelMarketResult(selected: SelectedHotelRevalidationResult, warning: string, state: string) {
+  return {
+    id: selected.candidateId || `booking:stale:${selected.providerPropertyId || "unknown"}`,
+    category: "hotel" as const,
+    title: selected.title || "Selected hotel",
+    provider: selected.provider || "Booking.com Demand API",
+    source: "booking_demand" as const,
+    destination: selected.destination || undefined,
+    city: selected.city || undefined,
+    country: selected.country || undefined,
+    start_date: selected.start_date || undefined,
+    end_date: selected.end_date || undefined,
+    travelers: selected.travelers || undefined,
+    rooms: selected.rooms || undefined,
+    currency: cleanCurrency(selected.currency),
+    price_type: "unknown" as const,
+    confidence: "low" as const,
+    booking_url: selected.booking_url || undefined,
+    searched_at: selected.searched_at || nowIso(),
+    expires_at: selected.expires_at || nowIso(),
+    metadata: {
+      ...(selected.metadata || {}),
+      providerPayload: {
+        ...((selected.metadata?.providerPayload as Record<string, unknown> | undefined) || {}),
+        property_id: selected.providerPropertyId || null,
+        availability_status: state === "unavailable" ? "unavailable" : "unknown",
+        revalidation_status: state,
+        revalidation_warning: warning
+      }
+    }
+  } satisfies TravelMarketResult;
+}
+
+export async function revalidateSelectedHotelMarketResult(
+  payload: TripPlannerPayload,
+  selected: SelectedHotelRevalidationResult,
+  at = new Date(),
+  provider = createBookingDemandProvider()
+): Promise<{ status: "fresh" | "refreshed" | "unavailable" | "unknown"; results: TravelMarketResult[]; warning?: string }> {
+  const oldCandidate = {
+    candidateId: selected.candidateId || "selected-hotel",
+    category: "hotel" as const,
+    source: "Booking.com Demand API",
+    sourceType: "provider_api" as const,
+    searchedAt: selected.searched_at || null,
+    factualStatus: "verified" as const,
+    bookingStatus: "bookable" as const,
+    deepLink: selected.booking_url || null,
+    providerPropertyId: selected.providerPropertyId || null,
+    providerProductId: null,
+    name: selected.title || "Selected hotel",
+    address: null,
+    coordinates: null,
+    neighborhood: null,
+    quality: null,
+    checkIn: selected.start_date || payload.startDate,
+    checkOut: selected.end_date || payload.endDate,
+    roomDescription: null,
+    occupancy: { travelers: selected.travelers || payload.travelersCount || 1, rooms: selected.rooms || payload.rooms || 1, childAges: payload.travelers?.childAges || [] },
+    amenities: [],
+    pricePerNight: null,
+    totalStayPrice: selected.price_amount ?? null,
+    taxesFees: null,
+    taxInclusionStatus: "unknown" as const,
+    feeInclusionStatus: "unknown" as const,
+    currency: cleanCurrency(selected.currency || payload.budgetCurrency),
+    availabilityStatus: "available" as const,
+    cancellationPolicy: null,
+    expiresAt: selected.expires_at || null
+  } as HotelCandidate;
+  if (hotelCandidateIsFresh(oldCandidate, at)) return { status: "fresh", results: [selected as TravelMarketResult] };
+  const result = await revalidateBookingHotelCandidate(provider, hotelInventoryInputFromPayload(payload), oldCandidate, at);
+  if (result.status === "refreshed") {
+    const request: TravelMarketSearchRequest = {
+      category: "hotel",
+      destination: selected.destination || payload.destination,
+      city: selected.city || payload.destinationCity || payload.destination,
+      country: selected.country || payload.destinationCountry,
+      start_date: payload.startDate,
+      end_date: payload.endDate,
+      travelers: payload.travelersCount || payload.travelers?.adults || 1,
+      rooms: payload.rooms || 1,
+      currency: payload.budgetCurrency || "CAD"
+    };
+    return { status: "refreshed", results: hotelInventoryToMarketResults({ state: "OK", provider: "booking_demand", candidates: [result.candidate], searchedAt: result.candidate.searchedAt || nowIso(), expiresAt: result.candidate.expiresAt || nowIso() }, request) };
+  }
+  const warning = "warning" in result ? result.warning : "The selected hotel could not be revalidated.";
+  return {
+    status: result.status,
+    results: [staleSelectedHotelMarketResult(selected, warning, result.status)],
+    warning
+  };
 }
 
 function shouldAttemptProviderAfterNative(request: TravelMarketSearchRequest, nativeResults: TravelMarketResult[]) {
@@ -994,7 +1207,7 @@ export async function searchTravelMarket(
   const liveConfigured = liveProviderConfigured(normalized);
 
   if (!options.forceRefresh) {
-    const cached = await cachedResults(options.supabase, searchKey);
+    const cached = (await cachedResults(options.supabase, searchKey)).filter((result) => normalized.category !== "hotel" || !liveConfigured || result.source === "booking_demand");
     if (cached.length) {
       const results = dedupeMarketResults(cached.map(attachStaticTravelEvidence), MAX_RESULTS_PER_SEARCH, normalized);
       if (results.length) {
@@ -1011,16 +1224,27 @@ export async function searchTravelMarket(
     }
   }
 
-  let nativeResults: TravelMarketResult[] = [];
-  try {
-    nativeResults = await searchReviewIntelNative(normalized);
-  } catch (error) {
-    console.warn("[Roamly market] ReviewIntel native retrieval failed", error);
-  }
-
   let providerResults: TravelMarketResult[] = [];
   let providerAttempted = false;
-  if (shouldAttemptProviderAfterNative(normalized, nativeResults) && liveConfigured && marketEnabled()) {
+  if (normalized.category === "hotel" && liveConfigured && marketEnabled()) {
+    providerAttempted = true;
+    try {
+      providerResults = await liveProviderResults(normalized);
+    } catch (error) {
+      console.error("[Roamly market] provider search failed", error);
+    }
+  }
+
+  let nativeResults: TravelMarketResult[] = [];
+  if (!providerResults.length) {
+    try {
+      nativeResults = await searchReviewIntelNative(normalized);
+    } catch (error) {
+      console.warn("[Roamly market] ReviewIntel native retrieval failed", error);
+    }
+  }
+
+  if (!providerResults.length && shouldAttemptProviderAfterNative(normalized, nativeResults) && liveConfigured && marketEnabled()) {
     providerAttempted = true;
     try {
       providerResults = await liveProviderResults(normalized);
@@ -1209,7 +1433,16 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
       travelers,
       rooms: payload.rooms || 1,
       room_type: payload.bedPreference && payload.bedPreference !== "No preference" ? payload.bedPreference : "Standard queen room",
-      currency
+      currency,
+      exact_property_request: payload.constraints?.hotel?.exactPropertyRequest?.value || payload.explicitRequirements?.find((item) => item.type === "hotel")?.request || null,
+      neighborhood: payload.constraints?.hotel?.requiredNeighborhood?.value || payload.constraints?.hotel?.preferredNeighborhood || null,
+      required_amenities: payload.constraints?.hotel?.requiredAmenities?.value || [],
+      preferred_amenities: payload.constraints?.hotel?.preferredAmenities || [],
+      parking_required: payload.constraints?.hotel?.parkingRequired?.value ?? null,
+      minimum_quality: payload.constraints?.hotel?.minimumQuality?.value ?? null,
+      accessibility_requirements: payload.constraints?.hotel?.accessibilityRequirements?.value || [],
+      maximum_nightly_price: payload.constraints?.hotel?.maximumNightlyPrice?.value ?? null,
+      child_ages: payload.travelers?.childAges || []
     });
 
     if (payload.budgetIncludesActivities !== false) {
@@ -1275,6 +1508,7 @@ export async function searchTripMarketPrices(
     forceRefresh?: boolean;
     store?: boolean;
     allowFirecrawlFallback?: boolean;
+    selectedHotelForRevalidation?: SelectedHotelRevalidationResult | null;
   } = {}
 ) {
   const requests = buildTripMarketSearchRequests(payload);
@@ -1285,8 +1519,35 @@ export async function searchTripMarketPrices(
     seen.add(key);
     return true;
   }).slice(0, MAX_TRIP_MARKET_REQUESTS);
+  let selectedHotelRevalidationUsed = false;
   const responses = await Promise.all(
-    uniqueRequests.map((request) => searchTravelMarket(request, options))
+    uniqueRequests.map(async (request) => {
+      const selected = options.selectedHotelForRevalidation;
+      if (request.category === "hotel" && selected && !selectedHotelRevalidationUsed) {
+        selectedHotelRevalidationUsed = true;
+        const revalidated = await revalidateSelectedHotelMarketResult(payload, selected);
+        return {
+          results: revalidated.results,
+          cacheHit: revalidated.status === "fresh",
+          searchKey: buildTravelMarketSearchKey(request),
+          providerConfigured: hotelInventoryConfigured(),
+          providerAttempted: revalidated.status !== "fresh",
+          providerUsed: "provider_api" as const,
+          warning: revalidated.warning
+        };
+      }
+      if (request.category === "hotel" && selected) {
+        return {
+          results: [],
+          cacheHit: false,
+          searchKey: buildTravelMarketSearchKey(request),
+          providerConfigured: hotelInventoryConfigured(),
+          providerAttempted: false,
+          providerUsed: "provider_api" as const
+        };
+      }
+      return searchTravelMarket(request, options);
+    })
   );
   const baseResults = await enrichTravelMarketResultsWithReviewEvidence(responses.flatMap((response) => response.results));
   const transportComparison = compareTransportOptions(payload, { marketResults: baseResults });
