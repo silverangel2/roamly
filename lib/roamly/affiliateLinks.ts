@@ -14,6 +14,7 @@ import {
 import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
 import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
+import { reconcileAffiliateAction, type ConfirmedBookingEvidence } from "@/lib/roamly/affiliateActionReconciliation";
 import {
   dedupeTravelResults,
   isBareDomainName,
@@ -1158,7 +1159,11 @@ function limitHotelSuggestions(suggestions: RoamlyItinerary["booking_suggestions
   });
 }
 
-export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
+export function enrichItineraryBookingSuggestions(
+  itinerary: RoamlyItinerary,
+  payload: TripPlannerPayload,
+  confirmedBookings: ConfirmedBookingEvidence[] = []
+): RoamlyItinerary {
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   const budgetBrain = calculateRoamlyBudgetBrain({
     trip: payload as unknown as Record<string, unknown>,
@@ -1236,6 +1241,18 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
       const affiliateProvider = hasAffiliateUrl
         ? link.affiliate_provider
         : "roamly_internal";
+      const reconciliation = reconcileAffiliateAction({
+        category: linkCategory,
+        title: suggestion.title || suggestion.booking_label,
+        origin: suggestion.origin || payload.origin,
+        destination: suggestion.destination || suggestion.city || payload.destination,
+        startDate: suggestion.departure_date || suggestion.date || payload.startDate,
+        endDate: suggestion.return_date || payload.endDate,
+        flightNumber: (suggestion as unknown as Record<string, unknown>).flight_number as string | undefined,
+        address: (suggestion as unknown as Record<string, unknown>).address as string | undefined,
+        city: suggestion.city || payload.destinationCity
+      }, confirmedBookings);
+      const suppressed = reconciliation.decision === "SUPPRESS";
 
       return {
         ...suggestion,
@@ -1245,17 +1262,18 @@ export function enrichItineraryBookingSuggestions(itinerary: RoamlyItinerary, pa
           approvedProviderLabel(suggestion.provider_or_search_source) ||
           approvedProviderLabel(suggestion.provider) ||
           (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Roamly discovery"),
-        normal_search_url:
+        normal_search_url: suppressed ? "" :
           safeBookingHref(market?.normal_search_url) ||
           safeBookingHref(suggestion.normal_search_url) ||
           safeBookingHref(normalSearchUrl) ||
           (!link.affiliate_enabled ? link.href : ""),
-        affiliate_url: affiliateUrl,
-        affiliate_provider: affiliateProvider,
-        affiliate_disclosure: hasAffiliateUrl ? affiliateDisclosure : "",
-        has_affiliate_url: hasAffiliateUrl,
-        booking_label: ctaLabelForTimeline(linkCategory, suggestion.booking_label, affiliateProvider, hasAffiliateUrl),
-        url_type: hasAffiliateUrl ? "affiliate" : "normal_search",
+        affiliate_url: suppressed ? "" : affiliateUrl,
+        affiliate_provider: suppressed ? "roamly_internal" : affiliateProvider,
+        affiliate_disclosure: suppressed ? "" : hasAffiliateUrl ? affiliateDisclosure : "",
+        has_affiliate_url: suppressed ? false : hasAffiliateUrl,
+        booking_label: suppressed ? "" : ctaLabelForTimeline(linkCategory, suggestion.booking_label, affiliateProvider, hasAffiliateUrl),
+        url_type: suppressed ? "normal_search" : hasAffiliateUrl ? "affiliate" : "normal_search",
+        provider_action_url: suppressed ? null : suggestion.provider_action_url,
         booking_status:
           market?.metadata && typeof market.metadata === "object" && (market.metadata as Record<string, unknown>).source === "user_uploaded_confirmation"
             ? "user_uploaded"

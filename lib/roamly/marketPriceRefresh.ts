@@ -188,7 +188,7 @@ export async function refreshTripMarketPricesForTrip(params: {
   const discovery = await discoverTripPrices({ userId: params.userId, tripId: params.tripId, ...payload, committedBudgetCents: committed.amountCents, confirmedBookings: confirmedBookings.bookings, marketResults: marketSearch.results });
   const savedDiscovery = await savePriceDiscovery(params.supabase, { userId: params.userId, tripId: params.tripId, ...payload }, discovery);
   const full = params.itinerary?.full_json || null;
-  const updatedItinerary = full ? enrichItineraryBookingSuggestions(applyPriceDiscoveryToItinerary(full, discovery), { ...payload, priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null, budgetConstraint: buildBudgetConstraintForItinerary(discovery), priceDiscovery: discovery as unknown as Record<string, unknown>, confirmedBookings: confirmedBookings.bookings }) : null;
+  const updatedItinerary = full ? enrichItineraryBookingSuggestions(applyPriceDiscoveryToItinerary(full, discovery), { ...payload, priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null, budgetConstraint: buildBudgetConstraintForItinerary(discovery), priceDiscovery: discovery as unknown as Record<string, unknown>, confirmedBookings: confirmedBookings.bookings }, confirmedBookings.bookings) : null;
   if (updatedItinerary) await syncGeneratedItinerary(params.supabase, { tripId: params.tripId, userId: params.userId, itinerary: updatedItinerary, status: "locked" });
   const hotelResult = marketSearch.results.find((result) => result.category === "hotel" && result.id === params.selectedHotelForRevalidation?.candidateId);
   const revalidationState = getString(getRecord(hotelResult?.metadata).revalidation_status);

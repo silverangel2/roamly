@@ -65,6 +65,7 @@ import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/serve
 import { getTripBundle, isMissingTableError, type RoamlyTripRecord } from "@/lib/trips";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { buildRecommendedActivitySuggestions, buildRecommendedStaySuggestions } from "@/lib/roamly/recommendationBrain";
+import { confirmedNeedSatisfied, reconcileAffiliateAction } from "@/lib/roamly/affiliateActionReconciliation";
 import { resolveSelectedHotelProductDecision } from "@/lib/roamly/selectedHotelProductDecision";
 import { buildHotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
 import { getPendingHotelProductChoice } from "@/lib/roamly/hotelProductChoiceStorage";
@@ -1420,11 +1421,28 @@ function bookingStatusBadge(category: string, suggestion: RoamlyItinerary["booki
   return "";
 }
 
-function validBookingSuggestionForTrip(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+function validBookingSuggestionForTrip(
+  suggestion: RoamlyItinerary["booking_suggestions"][number],
+  trip: RoamlyTripRecord,
+  confirmedBookings: Array<Record<string, unknown>> = []
+) {
   const category = bookingCategory(suggestion);
   const title = bookingTitle(suggestion);
   const provider = bookingProvider(suggestion, "");
   if (!title || isBareDomainName(title)) return false;
+  const reconciliation = reconcileAffiliateAction({
+    tripId: trip.id,
+    category,
+    title,
+    origin: suggestion.origin,
+    destination: suggestion.destination || suggestion.city,
+    startDate: suggestion.departure_date || suggestion.date,
+    endDate: suggestion.return_date,
+    flightNumber: (suggestion as unknown as Record<string, unknown>).flight_number as string | undefined,
+    address: (suggestion as unknown as Record<string, unknown>).address as string | undefined,
+    city: suggestion.city
+  }, confirmedBookings);
+  if (reconciliation.decision === "SUPPRESS") return false;
   if (category === "hotel" && /\bstay22\b/i.test(`${title} ${provider}`)) return false;
   if (category === "flight" && /reviewintel/i.test(`${provider} ${suggestion.market_source || ""}`)) return false;
   const link = resolveBookingLink(suggestion, trip);
@@ -1553,14 +1571,15 @@ function curatedBookingSuggestions(
   suggestions: RoamlyItinerary["booking_suggestions"],
   trip: RoamlyTripRecord,
   categories: string[],
-  limit: number
+  limit: number,
+  confirmedBookings: Array<Record<string, unknown>> = []
 ) {
   const seen = new Set<string>();
   return suggestions
     .filter((suggestion) => categories.includes(bookingCategory(suggestion)))
     .filter((suggestion) => !isGenericBookingSuggestion(suggestion))
     .filter((suggestion) => !isImpracticalBookingSuggestion(suggestion))
-    .filter((suggestion) => validBookingSuggestionForTrip(suggestion, trip))
+    .filter((suggestion) => validBookingSuggestionForTrip(suggestion, trip, confirmedBookings))
     .sort((a, b) => bookingRank(a, trip) - bookingRank(b, trip))
     .filter((suggestion) => {
       const key = `${bookingCategory(suggestion)}|${bookingTitle(suggestion).toLowerCase()}|${suggestion.normal_search_url || suggestion.affiliate_url || ""}`;
@@ -1637,6 +1656,7 @@ function buildRelevantBookingGroups(params: {
   hotelItems: RoamlyItinerary["booking_suggestions"];
   activityItems: RoamlyItinerary["booking_suggestions"];
   transportItems: RoamlyItinerary["booking_suggestions"];
+  confirmedBookings: Array<Record<string, unknown>>;
 }) {
   const mode = bookingGroupMode(params.itinerary);
   const needsTransport = routeNeedsTransport(params.trip);
@@ -1647,10 +1667,10 @@ function buildRelevantBookingGroups(params: {
   const showFlightItems = params.flightItems.length > 0 && (!mode || mode === "flight" || mode === "mixed");
   const hasRecommendedTransport = Boolean(recommendedTransportFromItinerary(params.itinerary));
   return [
-    (showFlightItems || showFlightFallback)
+    (showFlightItems || (showFlightFallback && !confirmedNeedSatisfied("flight", params.confirmedBookings, params.trip.id)))
       ? { title: "Flights", fallback: "flight" as const, items: params.flightItems }
       : null,
-    (params.hotelItems.length > 0 || params.trip.budget_includes_hotel !== false)
+    (params.hotelItems.length > 0 || (params.trip.budget_includes_hotel !== false && !confirmedNeedSatisfied("hotel", params.confirmedBookings, params.trip.id)))
       ? { title: "Hotels", fallback: "hotel" as const, items: params.hotelItems }
       : null,
     (params.activityItems.length > 0 || tripIncludesActivities(params.trip))
@@ -1747,9 +1767,18 @@ function BookingSearchFallbackCard({
   );
 }
 
-function RecommendedTransportCard({ itinerary, tripId }: { itinerary: RoamlyItinerary; tripId: string }) {
+function RecommendedTransportCard({ itinerary, tripId, confirmedBookings }: { itinerary: RoamlyItinerary; tripId: string; confirmedBookings: Array<Record<string, unknown>> }) {
   const recommended = recommendedTransportFromItinerary(itinerary);
   if (!recommended || !recommended.realistic || recommended.availability === "not_available") return null;
+  if ((recommended.mode === "flight" || recommended.mode === "mixed") && reconcileAffiliateAction({
+    tripId,
+    category: "flight",
+    title: recommended.title,
+    origin: recommended.origin,
+    destination: recommended.destination,
+    startDate: recommended.departure_date,
+    endDate: recommended.return_date
+  }, confirmedBookings).decision === "SUPPRESS") return null;
   const href = transportHref(recommended);
   const provider = transportProviderForLink(recommended, href, transportSourceLabel(recommended));
   const hasAffiliateUrl = transportHasAffiliateLink(recommended, href);
@@ -1799,20 +1828,21 @@ function RecommendedTransportCard({ itinerary, tripId }: { itinerary: RoamlyItin
   );
 }
 
-function BookingPlan({ itinerary, trip, tripId }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string }) {
+function BookingPlan({ itinerary, trip, tripId, confirmedBookings }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string; confirmedBookings: Array<Record<string, unknown>> }) {
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
-  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1);
-  const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3);
-  const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
-  const transportItems = curatedBookingSuggestions(suggestions, trip, ["transport", "car_rental"], 2);
-  const groups = buildRelevantBookingGroups({ itinerary, trip, flightItems, hotelItems, activityItems, transportItems });
+  // The fourth argument remains the one-card flight cap: curatedBookingSuggestions(suggestions, trip, ["flight"], 1)
+  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1, confirmedBookings);
+  const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3, confirmedBookings);
+  const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3, confirmedBookings);
+  const transportItems = curatedBookingSuggestions(suggestions, trip, ["transport", "car_rental"], 2, confirmedBookings);
+  const groups = buildRelevantBookingGroups({ itinerary, trip, flightItems, hotelItems, activityItems, transportItems, confirmedBookings });
 
   return (
     <div className="grid gap-5">
       <p className="roamly-no-print rounded-[1rem] border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
         Recommended transport, stays, flights, and important activities. Live prices appear only when a connected provider returned them. {affiliateDisclosure}
       </p>
-      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} />}
+      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} confirmedBookings={confirmedBookings} />}
       {groups.map((group) => {
         return (
           <section key={group.title} className="roamly-print-section">
@@ -2050,9 +2080,9 @@ function CompactPrintItinerary({
 }) {
   const recommendedTransport = recommendedTransportFromItinerary(itinerary);
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
-  const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3);
-  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1);
-  const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3);
+  const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3, bookings);
+  const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1, bookings);
+  const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3, bookings);
   const essentials = [
     ...packingChecklistItems([], itinerary).slice(0, 5),
     ...itinerary.local_tips.slice(0, 4)
@@ -2617,7 +2647,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
                   </div>
                   <HotelProductOptions presentation={hotelProductPresentation} tripId={id} pendingChoice={pendingHotelProductChoice} />
-                  <BookingPlan itinerary={full} trip={trip} tripId={id} />
+                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={importedBookings as Array<Record<string, unknown>>} />
                   <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
                     <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
                     <div className="mt-4 grid gap-4">
