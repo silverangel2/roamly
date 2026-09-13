@@ -4,6 +4,7 @@ import { evaluateHotelProductOptions } from "./hotelProductDecision.ts";
 // @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
 import { hotelCandidateIsFresh, type HotelProductOption } from "./hotelInventory.ts";
 import type { HotelConstraints } from "../trip-planner";
+import type { BookingPreviewProductIdentity } from "./bookingPreviewIdentity.ts";
 
 export type SelectedHotelProductDecisionInput = {
   priceDiscovery?: Record<string, unknown> | null;
@@ -64,7 +65,10 @@ function option(value: unknown): HotelProductOption | null {
     feeInclusionStatus,
     availabilityStatus,
     cancellationPolicy: text(row.cancellationPolicy) || null,
-    deepLink: text(row.deepLink) || null
+    deepLink: text(row.deepLink) || null,
+    previewIdentity: row.previewIdentity && typeof row.previewIdentity === "object" && !Array.isArray(row.previewIdentity)
+      ? row.previewIdentity as BookingPreviewProductIdentity
+      : undefined
   };
 }
 

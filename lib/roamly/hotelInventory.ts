@@ -1,5 +1,7 @@
 import type { HotelCandidate as BaseHotelCandidate } from "@/lib/roamly/candidateDecisionCore";
 import type { HotelConstraints, TripPlannerPayload } from "@/lib/trip-planner";
+// @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
+import { buildBookingPreviewProductIdentity, type BookingPreviewProductIdentity, type BookingPreviewRequestBinding } from "./bookingPreviewIdentity.ts";
 
 export type HotelCandidate = BaseHotelCandidate & {
   providerPropertyId?: string | null;
@@ -37,6 +39,7 @@ export type HotelProductOption = {
   availabilityStatus: "available" | "unverified" | "unknown";
   cancellationPolicy: string | null;
   deepLink: string | null;
+  previewIdentity?: BookingPreviewProductIdentity;
 };
 
 export type HotelInventoryState = "OK" | "PROVIDER_NOT_CONFIGURED" | "TIMEOUT" | "RATE_LIMITED" | "NO_RESULTS" | "EXACT_PROPERTY_NOT_FOUND" | "EXACT_PROPERTY_AMBIGUOUS" | "NO_AVAILABLE_RATE" | "MALFORMED_PROVIDER_RESPONSE" | "STALE_RATE" | "CURRENCY_MISMATCH";
@@ -83,7 +86,7 @@ export async function revalidateBookingHotelCandidate(
 
 type FetchLike = typeof fetch;
 type Charge = { amount?: number | string | null; currency?: string | null; included?: boolean | null; chargeable_online?: boolean | null; type?: string | null };
-type BookingProduct = { id?: string | number | null; room?: string | { name?: string | null; description?: string | null; amenities?: string[] } | null; price?: { total?: number | string | null; display?: number | string | null; currency?: string | { accommodation?: string; booker?: string } | null; charges?: Charge[] | null } | null; number_available_at_this_price?: number | null; inventory?: { type?: string | null; number?: number | null } | null; policies?: { cancellation?: Record<string, unknown> | null; payment?: Record<string, unknown> | null } | null; url?: string | { app?: string | null; web?: string | null } | null };
+type BookingProduct = { id?: string | number | null; room?: string | { name?: string | null; description?: string | null; amenities?: string[] } | null; allocation?: { number_of_adults?: number | null; children?: number[] | null } | null; number_of_adults?: number | null; children?: number[] | null; price?: { total?: number | string | null; display?: number | string | null; currency?: string | { accommodation?: string; booker?: string } | null; charges?: Charge[] | null } | null; number_available_at_this_price?: number | null; inventory?: { type?: string | null; number?: number | null } | null; policies?: { cancellation?: Record<string, unknown> | null; payment?: Record<string, unknown> | null } | null; url?: string | { app?: string | null; web?: string | null } | null };
 type BookingProperty = { id: string; name?: string | null; address?: string | null; coordinates?: { latitude?: number; longitude?: number } | null; neighborhood?: string | null; stars?: number | null; amenities?: string[]; products?: BookingProduct[]; url?: string | { app?: string | null; web?: string | null } | null; deepLinkUrl?: string | { app?: string | null; web?: string | null } | null; currency?: string | { accommodation?: string; booker?: string } | null };
 
 function text(value: unknown) { return typeof value === "string" || typeof value === "number" ? String(value).trim() : ""; }
@@ -143,7 +146,7 @@ export function resolveBookingPropertyMatch(query: string, properties: Array<{ i
 function chargeTotal(charges: Charge[] | null | undefined) { const values = (charges || []).map(x => num(x.amount)).filter((x): x is number => x != null); return values.length === (charges || []).length && values.length ? values.reduce((a, b) => a + b, 0) : null; }
 function inclusion(charges: Charge[] | null | undefined) { if (!charges?.length) return "unknown" as const; if (charges.every(x => x.included === true)) return "included" as const; if (charges.every(x => x.included === false)) return "excluded" as const; return "unknown" as const; }
 function cancellationText(policy: Record<string, unknown> | null | undefined) { if (!policy) return null; const type = text(policy.type).toLowerCase(); return type.includes("non") ? "non-refundable" : type.includes("free") || policy.free_cancellation_until ? "refundable/conditional" : type || "conditional/unknown"; }
-function productOption(product: BookingProduct, propertyCurrency: string, input: HotelInventorySearchInput): HotelProductOption {
+function productOption(product: BookingProduct, propertyCurrency: string, input: HotelInventorySearchInput, providerPropertyId: string, searchedAt: string): HotelProductOption {
   const price = product.price;
   const charges = price?.charges || [];
   const total = money(price?.total);
@@ -160,7 +163,22 @@ function productOption(product: BookingProduct, propertyCurrency: string, input:
     feeInclusionStatus: inclusion(charges),
     availabilityStatus: available === true ? "available" : available === "unknown" ? "unknown" : "unverified",
     cancellationPolicy: cancellationText(product.policies?.cancellation),
-    deepLink: bookingUrl(product.url)
+    deepLink: bookingUrl(product.url),
+    previewIdentity: buildBookingPreviewProductIdentity({
+      providerPropertyId,
+      product,
+      requestBinding: {
+        checkIn: input.checkIn,
+        checkOut: input.checkOut,
+        rooms: input.rooms,
+        travelers: input.travelers,
+        children: input.children || 0,
+        childAges: input.childAges || [],
+        currency: input.currency.toUpperCase(),
+        bookerCountry: (input.bookerCountry || "").toLowerCase()
+      } satisfies BookingPreviewRequestBinding,
+      providerRetrievedAt: searchedAt
+    })
   };
 }
 
@@ -168,7 +186,7 @@ function candidateFromBooking(property: BookingProperty, input: HotelInventorySe
   if (!property.name || !property.products?.length) return null;
   const propertyCurrency = currency(property.currency, responseCurrency || input.currency);
   const n = nights(input.checkIn, input.checkOut);
-  const options = property.products.map((product) => productOption(product, propertyCurrency, input));
+  const options = property.products.map((product) => productOption(product, propertyCurrency, input, property.id, searchedAt));
   const comparable = options.filter((option) => option.totalStayPrice != null && option.currency === propertyCurrency);
   const comparableRepresentative = [...comparable].sort((a, b) => (a.totalStayPrice! - b.totalStayPrice!) || (a.providerProductId || "").localeCompare(b.providerProductId || ""))[0] || null;
   const representative = comparableRepresentative

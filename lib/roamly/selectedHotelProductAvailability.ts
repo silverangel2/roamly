@@ -102,7 +102,8 @@ function optionFingerprint(option: HotelProductOption) {
     feeInclusionStatus: option.feeInclusionStatus,
     availabilityStatus: option.availabilityStatus,
     cancellationPolicy: option.cancellationPolicy,
-    deepLink: option.deepLink
+    deepLink: option.deepLink,
+    previewIdentity: option.previewIdentity || null
   });
 }
 
