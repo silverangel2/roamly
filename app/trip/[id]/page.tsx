@@ -4,6 +4,7 @@ import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
+import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshButton";
@@ -64,6 +65,8 @@ import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/serve
 import { getTripBundle, isMissingTableError, type RoamlyTripRecord } from "@/lib/trips";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { buildRecommendedActivitySuggestions, buildRecommendedStaySuggestions } from "@/lib/roamly/recommendationBrain";
+import { resolveSelectedHotelProductDecision } from "@/lib/roamly/selectedHotelProductDecision";
+import { buildHotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -2299,6 +2302,23 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     .order("start_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
   const importedBookings = bookingsResult.error && isMissingTableError(bookingsResult.error.message) ? [] : bookingsResult.data || [];
+  const priceDiscoveryResult = trip.latest_price_discovery_id
+    ? await supabase
+        .from("roamly_price_discoveries")
+        .select("metadata")
+        .eq("id", trip.latest_price_discovery_id)
+        .eq("trip_id", id)
+        .eq("user_id", current.user.id)
+        .maybeSingle()
+    : { data: null };
+  const persistedPriceDiscovery = priceDiscoveryResult.data?.metadata && typeof priceDiscoveryResult.data.metadata === "object"
+    ? priceDiscoveryResult.data.metadata as Record<string, unknown>
+    : null;
+  const hotelProductDecision = resolveSelectedHotelProductDecision({
+    priceDiscovery: persistedPriceDiscovery,
+    confirmedBookings: importedBookings as Array<{ booking_type?: string | null; booking_status?: string | null }>
+  });
+  const hotelProductPresentation = buildHotelProductPresentation({ selectedHotelDecision: hotelProductDecision, comparisonCurrency: currency });
   const tripTitle = full?.trip_title || preview?.trip_title || trip.title || destinationLabel;
   const dayCount = getTripDaysCount(trip) || full?.daily_itinerary.length || preview?.day_outline.length || trip.days_count || 0;
   const tripBudgetAmount = getTripBudgetAmount(trip);
@@ -2581,6 +2601,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     {one(search.hotel_action) === "unavailable" ? <p className="mt-2 text-sm font-bold text-coral">The selected hotel is no longer available for these dates.</p> : null}
                     {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
                   </div>
+                  <HotelProductOptions presentation={hotelProductPresentation} />
                   <BookingPlan itinerary={full} trip={trip} tripId={id} />
                   <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
                     <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>

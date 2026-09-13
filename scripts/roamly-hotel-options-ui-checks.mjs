@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const page = readFileSync("app/trip/[id]/page.tsx", "utf8");
+const component = readFileSync("components/trip/HotelProductOptions.tsx", "utf8");
+assert.match(page, /resolveSelectedHotelProductDecision/);
+assert.match(page, /buildHotelProductPresentation/);
+assert.match(page, /<HotelProductOptions presentation=\{hotelProductPresentation\}/);
+assert.match(page, /eq\("user_id", current\.user\.id\)/);
+assert.doesNotMatch(page, /HotelProductOptions[^\n]*productOptions/);
+assert.match(component, /Room &amp; rate options/);
+assert.match(component, /Room and rate details are for comparison; exact product booking is not verified/);
+assert.match(component, /Price unavailable/);
+assert.match(component, /Recommended/);
+assert.match(component, /Availability needs refresh/);
+assert.match(component, /confirmed hotel booking remains authoritative/);
+assert.match(component, /criticalCodes/);
+assert.doesNotMatch(component, /recommendationStatus === "RECOMMENDED".*Roamly pick/);
+assert.doesNotMatch(component, /providerProductId\}\}/);
+assert.doesNotMatch(component, /deepLink|providerPayload|roomId|rateId/);
+assert.doesNotMatch(component, /<button|<a\b|onClick/);
+console.log("Hotel options UI wiring checks passed.");
