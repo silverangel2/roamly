@@ -1,0 +1,88 @@
+import assert from "node:assert/strict";
+import { revalidateSelectedHotelProduct } from "../lib/roamly/selectedHotelProductAvailability.ts";
+import { normalizeBookingAccommodationResponse } from "../lib/roamly/hotelInventory.ts";
+
+const request = { checkIn: "2026-10-10", checkOut: "2026-10-12", travelers: 2, rooms: 1, children: 0, childAges: [], currency: "CAD", bookerCountry: "ca" };
+const product = (id, price = 610, overrides = {}) => ({ providerProductId: id, roomDescription: "Room", totalStayPrice: price, currency: "CAD", taxesFees: 10, taxInclusionStatus: "included", feeInclusionStatus: "unknown", availabilityStatus: "available", cancellationPolicy: "conditional", deepLink: "https://www.booking.com/hotel/fixture.html", ...overrides });
+const candidate = (products, overrides = {}) => ({ candidateId: "booking:1001", source: "Booking.com Demand API", sourceType: "provider_api", providerPropertyId: "1001", productOptions: products, ...overrides });
+const result = (products, state = "OK") => ({ state, provider: "booking_demand", candidates: state === "OK" ? [candidate(products)] : [], searchedAt: "2026-10-01T12:00:00.000Z", expiresAt: "2026-10-01T12:15:00.000Z" });
+const provider = (response) => ({ getPropertyAvailability: async (input) => { assert.equal(input.providerPropertyId, "1001"); assert.equal(input.exactPropertyRequest, null); assert.equal(input.checkIn, request.checkIn); assert.equal(input.checkOut, request.checkOut); assert.equal(input.travelers, 2); assert.equal(input.rooms, 1); assert.equal(input.children, request.children); assert.deepEqual(input.childAges, request.childAges); assert.equal(input.currency, request.currency); assert.equal(input.bookerCountry, request.bookerCountry); return response; } });
+
+const normalized = normalizeBookingAccommodationResponse({ data: [{ id: 1001, name: "Hotel A", currency: { accommodation: "CAD" }, products: [{ id: "P1", price: { total: 610, currency: "CAD", charges: [] }, number_available_at_this_price: 1 }, { id: "P2", price: { total: 640, currency: "CAD", charges: [] }, number_available_at_this_price: 1 }, { id: "P3", price: { total: 720, currency: "CAD", charges: [] }, number_available_at_this_price: 1 }] }] }, request, "2026-10-01T12:00:00.000Z", "2026-10-01T12:15:00.000Z");
+assert.deepEqual(normalized[0].productOptions.map((item) => item.providerProductId), ["P1", "P2", "P3"], "normalization preserves the full provider product set");
+const selected = candidate([product("P1"), product("P2"), product("P3", 720)]);
+
+const current = await revalidateSelectedHotelProduct(provider(result([product("P1"), product("P2", 640), product("P3", 720)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.equal(current.status, "CURRENT", "A: exact P2 remains current");
+assert.equal(current.refreshedProduct.providerProductId, "P2");
+assert.equal(current.bookingContinuity, "UNVERIFIED");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request, intendedProviderProductId: " P2" })).status, "INVALID_PRODUCT_ID", "exact product intent does not trim identity");
+
+const changed = await revalidateSelectedHotelProduct(provider(result([product("P2", 650)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.deepEqual(changed.factualChanges, ["PRICE_CHANGED"], "B: price change is factual");
+const currency = await revalidateSelectedHotelProduct(provider(result([product("P2", 500, { currency: "USD" })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.deepEqual(currency.factualChanges, ["PRICE_CHANGED", "CURRENCY_CHANGED"], "C: currency and amount changes are separate");
+const description = await revalidateSelectedHotelProduct(provider(result([product("P2", 640, { roomDescription: "New room" })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.ok(description.factualChanges.includes("ROOM_DESCRIPTION_CHANGED"), "D: description change is reported");
+const cancellation = await revalidateSelectedHotelProduct(provider(result([product("P2", 640, { cancellationPolicy: "non-refundable" })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.ok(cancellation.factualChanges.includes("CANCELLATION_CHANGED"), "E: cancellation change is reported");
+const charges = await revalidateSelectedHotelProduct(provider(result([product("P2", 640, { taxesFees: 20, feeInclusionStatus: "excluded" })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.ok(charges.factualChanges.includes("CHARGES_CHANGED"), "F: charge change is reported");
+
+const disappeared = await revalidateSelectedHotelProduct(provider(result([product("P1"), product("P3", 720), product("P4", 690)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.equal(disappeared.status, "DISAPPEARED", "G: P2 disappearance is explicit");
+assert.equal(disappeared.refreshedProduct, null);
+assert.equal(disappeared.warning.includes("P1"), false, "H: no P1 substitution");
+assert.equal(disappeared.warning.includes("P3"), false, "I: no P3 substitution");
+assert.equal(disappeared.warning.includes("P4"), false, "J: no P4 substitution");
+
+const hotelB = await revalidateSelectedHotelProduct(provider({ ...result([product("P2")]), candidates: [candidate([product("P2")], { providerPropertyId: "2002" })] }), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.equal(hotelB.status, "DISAPPEARED", "K: same product ID on Hotel B cannot satisfy Hotel A");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: null, request, intendedProviderProductId: "P2" })).status, "SELECTED_HOTEL_MISSING", "L: missing hotel fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request: null, intendedProviderProductId: "P2" })).status, "REQUEST_CONTEXT_MISSING", "M: missing request fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request: { ...request, travelers: 0 }, intendedProviderProductId: "P2" })).status, "REQUEST_CONTEXT_MISSING", "N: missing occupancy fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request: { ...request, rooms: 0 }, intendedProviderProductId: "P2" })).status, "REQUEST_CONTEXT_MISSING", "AK: zero rooms fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request: { ...request, checkOut: "2026-10-09" }, intendedProviderProductId: "P2" })).status, "REQUEST_CONTEXT_MISSING", "AL: invalid date range fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request: { ...request, checkIn: "not-a-date" }, intendedProviderProductId: "P2" })).status, "REQUEST_CONTEXT_MISSING", "AM: malformed date fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request: { ...request, travelers: undefined }, intendedProviderProductId: "P2" })).status, "REQUEST_CONTEXT_MISSING", "AN: missing occupancy fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: selected, request, intendedProviderProductId: " " })).status, "INVALID_PRODUCT_ID", "O: invalid product ID fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider({ state: "TIMEOUT", provider: "booking_demand", candidates: [], searchedAt: "2026-10-01T12:00:00.000Z", expiresAt: "2026-10-01T12:15:00.000Z" }), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "PROVIDER_ERROR", "P: provider failure is not disappearance");
+assert.equal((await revalidateSelectedHotelProduct(provider({ state: "MALFORMED_PROVIDER_RESPONSE", provider: "booking_demand", candidates: [], searchedAt: "2026-10-01T12:00:00.000Z", expiresAt: "2026-10-01T12:15:00.000Z" }), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "Q: malformed response fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 640), product("P2", 650)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "R: conflicting duplicate fails conservatively");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 640), product("P2", 640)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "CURRENT", "S: equivalent duplicate is deterministic");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 640), product("P2", 640, { cancellationPolicy: "non-refundable" })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "AH: duplicate cancellation conflict is rejected");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 640), product("P2", 640, { taxesFees: 11 })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "AI: duplicate charge conflict is rejected");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 640), { ...product("P2", 640) }])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "CURRENT", "AJ: equivalent normalized duplicate is safe");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([{ ...product(null), providerProductId: null }, product("P1")])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "DISAPPEARED", "T: missing returned ID cannot satisfy P2");
+const unknownOld = candidate([product("P2", null)]);
+const unknownNew = await revalidateSelectedHotelProduct(provider(result([product("P2", 640)])), { selectedHotel: unknownOld, request, intendedProviderProductId: "P2" });
+assert.deepEqual(unknownNew.factualChanges, ["PRICE_CHANGED"], "U: unknown-to-known is explicit");
+const knownNew = await revalidateSelectedHotelProduct(provider(result([product("P2", null)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.deepEqual(knownNew.factualChanges, ["PRICE_CHANGED"], "V: known-to-unknown is explicit");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 500, { currency: "USD" })])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).refreshedProduct.currency, "USD", "W: no FX conversion");
+assert.equal(current.searchedAt, "2026-10-01T12:00:00.000Z", "X: refreshed timestamp comes from provider read");
+assert.equal(Object.hasOwn(current, "deepLink"), false, "AC: refreshed result does not authorize a provider deep link");
+assert.equal(Object.hasOwn(current, "orderToken"), false, "AD: no Orders API result is created");
+const noPrior = await revalidateSelectedHotelProduct(provider(result([product("P2")])), { selectedHotel: candidate(undefined), request, intendedProviderProductId: "P2" });
+assert.equal(noPrior.status, "CURRENT", "AO: new P2 can be reported current without prior P2");
+assert.equal(noPrior.comparisonStatus, "NO_PRIOR_COMPARISON");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([], "OK")), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "DISAPPEARED", "AP: valid zero-product response means disappearance");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([], "OK")), { selectedHotel: { ...selected, productOptions: "malformed" }, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "AQ: malformed old product collection is not disappearance");
+assert.equal((await revalidateSelectedHotelProduct(provider({ ...result([product("P2")]), searchedAt: "not-a-date" }), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "AS: invalid refreshed timestamp fails safely");
+assert.equal((await revalidateSelectedHotelProduct(provider(null), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).status, "MALFORMED_PROVIDER_RESPONSE", "AQ: null provider response is malformed, not disappearance");
+const timestamped = await revalidateSelectedHotelProduct(provider({ ...result([product("P2")]), searchedAt: "2026-10-02T12:00:00.000Z" }), { selectedHotel: { ...selected, searchedAt: "2026-10-01T12:00:00.000Z" }, request, intendedProviderProductId: "P2" });
+assert.equal(timestamped.searchedAt, "2026-10-02T12:00:00.000Z", "AR: old searchedAt cannot overwrite new read timestamp");
+assert.deepEqual(Object.keys(current).sort(), ["bookingContinuity", "comparisonStatus", "factualChanges", "intendedProviderProductId", "previousProduct", "previousProductPresent", "providerPropertyId", "refreshedProduct", "searchedAt", "selectedHotelCandidateId", "status"].sort(), "AT: result exposes no URL, action, order, or raw payload authority");
+assert.equal(current.bookingContinuity, "UNVERIFIED", "AU: current does not claim booking continuity");
+const secretError = await revalidateSelectedHotelProduct({ getPropertyAvailability: async () => { throw new Error("secret-token-should-not-leak"); } }, { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.equal(secretError.status, "PROVIDER_ERROR", "AV: provider exception remains provider error");
+assert.equal(secretError.warning.includes("secret-token"), false, "AV: provider error text does not leak");
+
+let writes = 0;
+const noWriteProvider = { getPropertyAvailability: async () => { writes += 0; return result([product("P2")]); } };
+const before = JSON.parse(JSON.stringify({ selected, request }));
+await revalidateSelectedHotelProduct(noWriteProvider, { selectedHotel: selected, request, intendedProviderProductId: "P2" });
+assert.equal(writes, 0, "Y: no persistence/write");
+assert.deepEqual({ selected, request }, before, "AW: all nested inputs are not mutated");
+assert.equal((await revalidateSelectedHotelProduct(provider(result([product("P2", 640)])), { selectedHotel: selected, request, intendedProviderProductId: "P2" })).factualChanges.length, 1, "AG: identical fixture remains deterministic");
+console.log("roamly-selected-hotel-product-availability-checks: PASS (A–AW)");
