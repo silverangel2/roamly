@@ -67,6 +67,7 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { buildRecommendedActivitySuggestions, buildRecommendedStaySuggestions } from "@/lib/roamly/recommendationBrain";
 import { resolveSelectedHotelProductDecision } from "@/lib/roamly/selectedHotelProductDecision";
 import { buildHotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
+import { getPendingHotelProductChoice } from "@/lib/roamly/hotelProductChoiceStorage";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -2319,6 +2320,20 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     confirmedBookings: importedBookings as Array<{ booking_type?: string | null; booking_status?: string | null }>
   });
   const hotelProductPresentation = buildHotelProductPresentation({ selectedHotelDecision: hotelProductDecision, comparisonCurrency: currency });
+  const pendingHotelProductChoiceResult = await getPendingHotelProductChoice(supabase, id);
+  const pending = pendingHotelProductChoiceResult.error ? null : pendingHotelProductChoiceResult.choice;
+  const pendingHotelProductChoice = pending ? {
+    tripId: pending.tripId,
+    provider: pending.choice.provider,
+    providerPropertyId: pending.choice.providerPropertyId,
+    selectedHotelCandidateId: pending.choice.selectedHotelCandidateId,
+    providerProductId: pending.choice.providerProductId,
+    revalidatedAt: pending.choice.revalidatedAt,
+    chosenAt: pending.choice.chosenAt,
+    acknowledgedMaterialChanges: pending.acknowledgedMaterialChanges,
+    bookingContinuity: pending.choice.bookingContinuity,
+    actionability: pending.choice.actionability
+  } : null;
   const tripTitle = full?.trip_title || preview?.trip_title || trip.title || destinationLabel;
   const dayCount = getTripDaysCount(trip) || full?.daily_itinerary.length || preview?.day_outline.length || trip.days_count || 0;
   const tripBudgetAmount = getTripBudgetAmount(trip);
@@ -2601,7 +2616,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     {one(search.hotel_action) === "unavailable" ? <p className="mt-2 text-sm font-bold text-coral">The selected hotel is no longer available for these dates.</p> : null}
                     {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
                   </div>
-                  <HotelProductOptions presentation={hotelProductPresentation} />
+                  <HotelProductOptions presentation={hotelProductPresentation} tripId={id} pendingChoice={pendingHotelProductChoice} />
                   <BookingPlan itinerary={full} trip={trip} tripId={id} />
                   <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
                     <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
