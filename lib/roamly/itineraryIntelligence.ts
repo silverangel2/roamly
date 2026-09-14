@@ -378,6 +378,7 @@ function normalizeTimeline(items: RoamlyActivitySeed[], payload: TripPlannerPayl
 function suggestedLabel(category: RoamlyBookingCategory, result?: TravelMarketResult | null) {
   if (category === "flight") return result?.price_type === "live_partner" ? "View flight" : "Search flights";
   if (category === "hotel") return "Check availability";
+  if ((category === "attraction" || category === "tour") && result?.source === "public_web") return "View event details";
   if (category === "attraction" || category === "tour") return result?.source === "klook" ? "View on Klook" : category === "attraction" ? "Search for tickets" : "Search activity";
   if (category === "restaurant") return "View on Google Maps";
   if (category === "transport" || category === "car_rental") return "Open route";

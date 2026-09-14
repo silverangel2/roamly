@@ -29,6 +29,7 @@ import {
 } from "@/lib/roamly/travelResultValidation";
 import type { TravelerDetails, TripPlannerPayload } from "@/lib/trip-planner";
 import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelCandidate } from "@/lib/roamly/hotelInventory";
+import { evaluatePublicEventForTrip, normalizePublicEventEvidence, publicEventToMarketResult } from "@/lib/roamly/publicEventDiscovery";
 
 export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "restaurant" | "transport";
 export type TravelMarketSource =
@@ -36,6 +37,7 @@ export type TravelMarketSource =
   | "stay22"
   | "booking_demand"
   | "klook"
+  | "public_web"
   | "roamly_internal"
   | "fallback_estimate";
 export type TravelMarketPriceType = "live_partner" | "cached_recent" | "search_ready" | "estimated_fallback" | "unknown";
@@ -827,6 +829,64 @@ function discoveryLimit(value: unknown, fallback: number) {
   return Math.max(1, Math.min(4, parsed || fallback));
 }
 
+function publicEventRequest(request: TravelMarketSearchRequest) {
+  return (request.category === "attraction" || request.category === "tour") &&
+    /\b(event|festival|concert|music|nightlife|party|pride|parade|fireworks|market|sports?|theatre|theater|show|exhibition|seasonal|holiday|community|pop[- ]?up)\b/i.test(
+      `${request.title || ""} ${(request.interests || []).join(" ")}`
+    );
+}
+
+function eventDateFromSearchRow(row: Record<string, unknown>, markdown: string) {
+  const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, unknown> : {};
+  const direct = [row.event_date, row.eventDate, row.start_date, row.startDate, metadata.event_date, metadata.eventDate, metadata.start_date, metadata.startDate]
+    .find((value) => /^\d{4}-\d{2}-\d{2}$/.test(clean(value as string)));
+  if (direct) return clean(direct as string);
+  const labeled = markdown.match(/\b(?:event date|event dates|occurs? on|開催日)\s*[:\-]\s*(\d{4}-\d{2}-\d{2})\b/i);
+  return labeled?.[1] || "";
+}
+
+function eventEvidenceFromSearchRow(row: Record<string, unknown>, request: TravelMarketSearchRequest, retrievedAt: string) {
+  const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, unknown> : {};
+  const markdown = clean(row.markdown as string) || clean(row.content as string) || clean(row.description as string) || clean(row.snippet as string);
+  const sourceUrl = safeMarketHref(row.url as string) || safeMarketHref(row.source_url as string);
+  const startDate = eventDateFromSearchRow(row, markdown);
+  if (!sourceUrl || !startDate) return null;
+  const sourceQuality = row.source_quality || row.sourceQuality || metadata.source_quality || metadata.sourceQuality;
+  const event = normalizePublicEventEvidence({
+    sourceName: clean(row.source_name as string) || clean(row.domain as string) || "Public event source",
+    sourceUrl,
+    sourceEventId: row.event_id || row.eventId || metadata.event_id || metadata.eventId,
+    retrievedAt,
+    title: clean(row.title as string) || clean(row.name as string),
+    summary: clean(row.description as string) || clean(row.snippet as string),
+    destination: request.destination || request.city,
+    venue: row.venue || metadata.venue,
+    address: row.address || metadata.address,
+    startDate,
+    endDate: row.end_date || row.endDate || metadata.end_date || metadata.endDate,
+    startTime: row.start_time || row.startTime || metadata.start_time || metadata.startTime,
+    endTime: row.end_time || row.endTime || metadata.end_time || metadata.endTime,
+    timezone: row.timezone || metadata.timezone,
+    categories: row.categories || metadata.categories || request.interests,
+    price: row.price ?? metadata.price,
+    currency: row.currency || metadata.currency || request.currency,
+    priceStatus: row.price_status || row.priceStatus || metadata.price_status || metadata.priceStatus,
+    ticketUrl: row.ticket_url || row.ticketUrl || metadata.ticket_url || metadata.ticketUrl,
+    ticketStatus: row.ticket_status || row.ticketStatus || metadata.ticket_status || metadata.ticketStatus,
+    sourceQuality,
+    sourceConfidence: row.source_confidence || row.sourceConfidence || metadata.source_confidence || metadata.sourceConfidence,
+    recurrenceStatus: row.recurrence_status || row.recurrenceStatus || metadata.recurrence_status || metadata.recurrenceStatus,
+    occurrenceEvidence: row.occurrence_evidence || row.occurrenceEvidence || metadata.occurrence_evidence || metadata.occurrenceEvidence || "exact_date"
+  });
+  if (!event) return null;
+  const eligibility = evaluatePublicEventForTrip(event, {
+    destination: request.destination || request.city || "",
+    startDate: request.start_date || "",
+    endDate: request.end_date || request.start_date || ""
+  });
+  return eligibility.eligible ? publicEventToMarketResult(event) : null;
+}
+
 async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
   if (!marketEnabled() || !travelEvidenceScraperConfigured()) return [];
   const apiKey = clean(process.env.FIRECRAWL_API_KEY);
@@ -857,6 +917,13 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
       if (!response.ok) throw new Error(`Firecrawl returned ${response.status}`);
       const json = (await response.json()) as Record<string, unknown>;
       for (const item of arrayFromUnknown(json.data || json.results).slice(0, limitPerQuery)) {
+        if (publicEventRequest(request)) {
+          const eventResult = eventEvidenceFromSearchRow(item, request, nowIso());
+          if (eventResult) {
+            results.push(eventResult);
+          }
+          continue;
+        }
         const url = safeMarketHref(item.url as string) || safeMarketHref(item.source_url as string);
         const title = clean(item.title as string) || clean(item.name as string) || clean(request.title) || categoryDefaultTitle(request);
         const key = `${title.toLowerCase()}|${url}`;
@@ -1261,7 +1328,7 @@ export async function searchTravelMarket(
       : "Partner link is configured; live price API credentials are optional and not configured. Verify price and availability before booking."
     : "Provider credentials are not configured. Verify price and availability before booking.";
   const discoveryResults =
-    !nativeResults.length && !providerResults.length && options.allowFirecrawlFallback
+    ((!nativeResults.length && !providerResults.length && options.allowFirecrawlFallback) || publicEventRequest(normalized))
       ? await searchScraperDiscovery(normalized)
       : [];
   const providerUsed: TravelRetrievalProvider = nativeResults.length
@@ -1273,14 +1340,14 @@ export async function searchTravelMarket(
       : discoveryResults.length
         ? "firecrawl_fallback"
         : "search_link_only";
+  const primaryResults = providerResults.length ? providerResults : nativeResults;
+  const selectedResults = publicEventRequest(normalized)
+    ? [...primaryResults, ...discoveryResults]
+    : primaryResults.length
+      ? primaryResults
+      : discoveryResults;
   const results = dedupeMarketResults(
-    (providerResults.length
-      ? providerResults
-      : nativeResults.length
-        ? nativeResults
-        : discoveryResults.length
-          ? discoveryResults
-          : [withRetrievalProvider(searchReadyResult(normalized, warning), "search_link_only")]).map(attachStaticTravelEvidence),
+    (selectedResults.length ? selectedResults : [withRetrievalProvider(searchReadyResult(normalized, warning), "search_link_only")]).map(attachStaticTravelEvidence),
     MAX_RESULTS_PER_SEARCH,
     normalized
   );
@@ -1449,6 +1516,18 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
 
     if (payload.budgetIncludesActivities !== false) {
       requests.push(...notePriorityMarketRequests(payload, destinationLabel, destination, travelers, currency));
+      requests.push({
+        category: "attraction",
+        destination: destinationLabel,
+        city: destination.city || destinationLabel,
+        country: destination.country || payload.destinationCountry,
+        start_date: payload.startDate,
+        end_date: payload.endDate,
+        travelers,
+        title: `${destinationLabel} events festivals concerts nightlife ${payload.startDate} to ${payload.endDate}`,
+        currency,
+        interests: payload.interests
+      });
       requests.push({
         category: "attraction",
         destination: destinationLabel,
