@@ -806,7 +806,6 @@ function isAllowedBookingHost(url: URL) {
   if (host === "kayak.com" || host.endsWith(".kayak.com")) return true;
   if (host === "skyscanner.com" || host.endsWith(".skyscanner.com")) return true;
   if (/^amazon\.[a-z.]+$/.test(host)) return true;
-  if (host === "airalo.com" || host.endsWith(".airalo.com")) return true;
   if ((host === "google.com" || host === "maps.google.com") && /^\/maps\//.test(url.pathname)) return true;
   if (host === "google.com" && url.pathname === "/search") return true;
   return false;
@@ -1896,7 +1895,7 @@ function PreTripEssentialCard({
   const href = safeBookingUrl(item.action_url) || safeBookingUrl(item.amazon_url);
   const label = essentialActionLabel(item);
   const isConnectivity = item.item_type === "connectivity" || item.category === "Connectivity";
-  const provider = item.provider || (isConnectivity ? "Airalo" : "Amazon Associates");
+  const provider = item.provider || (isConnectivity ? "Connectivity options" : "Amazon Associates");
   const verificationNote = item.verification_note || (isConnectivity ? esimVerificationCopy : "");
   const urlType: BookingUrlType = item.action_url_type || (href && href.includes("tag=") ? "affiliate" : "normal_search");
   const hasAffiliateUrl = Boolean(item.has_affiliate_url || (href && href.includes("tag=")));

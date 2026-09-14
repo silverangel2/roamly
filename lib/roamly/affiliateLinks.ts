@@ -1367,7 +1367,7 @@ export function getAffiliateReadiness() {
     travelpayoutsMarkerConfigured: Boolean(process.env.ROAMLY_TRAVELPAYOUTS_MARKER),
     klookPartnerConfigured: Boolean(klookPartnerId() || klookReferralUrl()),
     amazonPartnerConfigured: process.env.ROAMLY_AMAZON_ENABLED === "true" && Boolean(process.env.ROAMLY_AMAZON_ASSOCIATE_TAG),
-    esimPartnerConfigured: Boolean(process.env.ROAMLY_ESIM_REFERRAL_URL || process.env.ROAMLY_ESIM_AFFILIATE_ID),
+    esimPartnerConfigured: false,
     providerStatuses: linkTest.statuses,
     linkTest
   };

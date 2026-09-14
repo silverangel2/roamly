@@ -1,9 +1,7 @@
 import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
 import { buildAviasalesDeepLink, safeExternalUrl } from "@/lib/roamly/bookingLinks";
-import { buildAiraloEsimUrl, getEsimProviderConfig } from "@/lib/roamly/esim";
 import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
-import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 export type AffiliateCategory =
   | "flight"
@@ -302,32 +300,10 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
   }
 
   if (input.category === "esim") {
-    const config = getEsimProviderConfig();
-    const configured = config.enabled && Boolean(config.referralUrl || config.affiliateId);
-    const esimPayload: TripPlannerPayload = {
-      destination: input.destination || primaryPlace(input),
-      destinationCountry: input.destination || undefined,
-      origin: input.origin || undefined,
-      startDate: input.startDate || "",
-      endDate: input.endDate || "",
-      daysCount: 1,
-      budgetAmount: null,
-      budgetCurrency: input.currency || "CAD",
-      travelStyle: "",
-      interests: [],
-      pace: "",
-      accommodationPreference: "",
-      transportationPreference: "",
-      specialNotes: ""
-    };
-    return result(
-      input,
-      config.providerKey || "airalo",
-      configured ? buildAiraloEsimUrl(esimPayload) : "",
-      "Get an eSIM",
-      configured,
-      configured ? [] : ["ROAMLY_ESIM_ENABLED=true", "ROAMLY_ESIM_REFERRAL_URL or ROAMLY_ESIM_AFFILIATE_ID"]
-    );
+    return result(input, "roamly_internal", "", "Compare connectivity options", false, [
+      "No approved eSIM provider configured",
+      "ROAMLY_ESIM_REFERRAL_URL or ROAMLY_ESIM_AFFILIATE_ID are legacy and ignored"
+    ]);
   }
 
   return result(input, "roamly_internal", "", "View options", false, ["No approved affiliate provider for this category"]);
@@ -361,7 +337,7 @@ function providerNameForCategory(category: AffiliateCategory) {
   if (category === "hotel") return "stay22";
   if (category === "tour" || category === "activity" || category === "attraction" || category === "ticket") return "klook";
   if (category === "product") return "amazon";
-  if (category === "esim") return "airalo";
+  if (category === "esim") return "roamly_internal";
   return "roamly_internal";
 }
 

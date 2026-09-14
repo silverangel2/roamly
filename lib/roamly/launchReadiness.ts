@@ -1,7 +1,6 @@
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { getAffiliateReadiness } from "@/lib/roamly/affiliateLinks";
 import { getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
-import { getEsimProviderConfig } from "@/lib/roamly/esim";
 import { getRoamlyAdminEmails, getRoamlyTesterEmails, type RoamlyAccess } from "@/lib/roamly/access";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { getRoamlySocialEnvStatus } from "@/lib/roamly/social";
@@ -44,7 +43,6 @@ function stripeConfigured() {
 export function getRoamlyLaunchReadiness(access?: RoamlyAccess): RoamlyReadinessCheck[] {
   const affiliates = getAffiliateReadiness();
   const amazon = getAmazonAffiliateConfig();
-  const esim = getEsimProviderConfig();
   const email = isEmailConfigured();
   const social = getRoamlySocialEnvStatus();
   const affiliatesEnabled = affiliates.affiliatesEnabled;
@@ -151,9 +149,9 @@ export function getRoamlyLaunchReadiness(access?: RoamlyAccess): RoamlyReadiness
     },
     {
       group: "Affiliate",
-      label: "Airalo configured",
-      status: optionalStatus(Boolean(esim.referralUrl || esim.affiliateId), esim.enabled),
-      detail: "Travel eSIM links use Airalo when enabled and referral or affiliate values are present."
+      label: "Legacy Airalo customer commerce disabled",
+      status: "Optional",
+      detail: "Legacy Airalo configuration is ignored; no customer-facing eSIM provider is approved."
     },
     {
       group: "Social",

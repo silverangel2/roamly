@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
-import { AiraloImpactScript } from "@/components/roamly/AiraloImpactScript";
 import { TravelpayoutsDriveScript } from "@/components/roamly/TravelpayoutsDriveScript";
 import { getServerLocale } from "@/lib/i18n-server";
 
@@ -35,7 +34,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale}>
       <body>
-        <AiraloImpactScript />
         <TravelpayoutsDriveScript />
         <AppShell>{children}</AppShell>
       </body>

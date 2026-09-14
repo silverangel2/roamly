@@ -1,5 +1,5 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
-import { buildEsimAction, isEsimSensitiveTrip } from "@/lib/roamly/esim";
+import { isEsimSensitiveTrip } from "@/lib/roamly/esim";
 import { detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
 import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
 
@@ -260,23 +260,14 @@ export function withAmazonUrl(item: EssentialDraft): RoamlyPreTripEssential {
 
 function buildEsimEssential(payload: TripPlannerPayload): EssentialDraft | null {
   if (!isEsimSensitiveTrip(payload)) return null;
-  const action = buildEsimAction(payload);
-  if (!action) return null;
   return {
     title: "Travel eSIM or roaming plan",
-    reason: "Helps keep maps, booking confirmations, and Live Companion available while traveling.",
+    reason: "International connectivity may be worth evaluating; check your existing roaming plan and device compatibility.",
     category: "Connectivity",
     search_query: `${destinationLabel(payload) || payload.destination || "destination"} travel eSIM mobile data roaming plan`,
     priority: "high",
-    action_url: action.href,
-    action_label: action.label,
-    provider: action.provider,
-    affiliate_provider: action.provider,
-    affiliate_disclosure: ROAMLY_AFFILIATE_DISCLOSURE,
     item_type: "connectivity",
-    has_affiliate_url: action.hasAffiliateUrl,
-    action_url_type: action.urlType,
-    verification_note: action.verificationNote
+    verification_note: "No approved connectivity provider is currently configured. Check your existing roaming plan and device compatibility."
   };
 }
 
@@ -383,25 +374,15 @@ function normalizeEssentialRecord(item: unknown, index: number, payload: TripPla
   const isEsimItem = /\b(e-?sim|mobile data|roaming plan|travel data)\b/.test(text);
 
   if (isEsimItem) {
-    const action = buildEsimAction(payload, typeof record.action_label === "string" && record.action_label.trim() ? record.action_label.trim() : "Compare travel eSIM");
-    if (action) {
-      return withAmazonUrl({
-        title: title.includes("eSIM") ? title : "Travel eSIM or roaming plan",
-        reason,
-        category: "Connectivity",
-        search_query: searchQuery || `${destinationLabel(payload) || payload.destination || "destination"} travel eSIM`,
-        priority: "high",
-        action_url: action.href,
-        action_label: action.label,
-        provider: action.provider,
-        affiliate_provider: action.provider,
-        affiliate_disclosure: ROAMLY_AFFILIATE_DISCLOSURE,
-        item_type: "connectivity",
-        has_affiliate_url: action.hasAffiliateUrl,
-        action_url_type: action.urlType,
-        verification_note: action.verificationNote
-      });
-    }
+    return withAmazonUrl({
+      title: title.includes("eSIM") ? title : "Travel connectivity options",
+      reason,
+      category: "Connectivity",
+      search_query: searchQuery || `${destinationLabel(payload) || payload.destination || "destination"} connectivity options`,
+      priority: "high",
+      item_type: "connectivity",
+      verification_note: "No approved connectivity provider is currently configured. Check your existing roaming plan and device compatibility."
+    });
   }
 
   return withAmazonUrl({
@@ -443,24 +424,27 @@ export function normalizePreTripEssentials(
   }
 
   return essentials
-    .map((item) =>
-      withAmazonUrl({
+    .map((item) => {
+      const isConnectivity = item.item_type === "connectivity" || item.category === "Connectivity";
+      return withAmazonUrl({
         title: stripPriceReferences(item.title),
         reason: stripPriceReferences(item.reason),
         category: cleanCategory(item.category),
         search_query: item.search_query || item.title,
         priority: cleanPriority(item.priority, 4),
-        action_url: item.action_url,
-        action_label: item.action_label,
-        provider: item.provider,
-        affiliate_provider: item.affiliate_provider,
-        affiliate_disclosure: item.affiliate_disclosure,
+        action_url: isConnectivity ? undefined : item.action_url,
+        action_label: isConnectivity ? undefined : item.action_label,
+        provider: isConnectivity ? undefined : item.provider,
+        affiliate_provider: isConnectivity ? undefined : item.affiliate_provider,
+        affiliate_disclosure: isConnectivity ? undefined : item.affiliate_disclosure,
         item_type: item.item_type,
-        has_affiliate_url: item.has_affiliate_url,
-        action_url_type: item.action_url_type,
-        verification_note: item.verification_note
-      })
-    )
+        has_affiliate_url: isConnectivity ? false : item.has_affiliate_url,
+        action_url_type: isConnectivity ? "fallback" : item.action_url_type,
+        verification_note: isConnectivity
+          ? item.verification_note || "No approved connectivity provider is currently configured. Check your existing roaming plan and device compatibility."
+          : item.verification_note
+      });
+    })
     .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority))
     .slice(0, 10);
 }

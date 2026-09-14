@@ -13,7 +13,6 @@ const exactHosts = new Set([
   "getyourguide.com",
   "kayak.com",
   "skyscanner.com",
-  "airalo.com"
 ]);
 
 function clean(value?: string | null) {
@@ -37,7 +36,6 @@ function allowedHost(hostname: string) {
     "getyourguide.com",
     "kayak.com",
     "skyscanner.com",
-    "airalo.com"
   ].some((base) => host.endsWith(`.${base}`));
 }
 
