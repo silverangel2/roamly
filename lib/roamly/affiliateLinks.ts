@@ -446,6 +446,19 @@ function marketResultMatchesSuggestion(
   }).ok;
 }
 
+export function marketResultIsSelectedHotel(
+  result: Record<string, unknown> | null | undefined,
+  suggestion: RoamlyItinerary["booking_suggestions"][number]
+) {
+  const candidateId = cleanStringValue(suggestion.candidateId);
+  return Boolean(
+    candidateId &&
+    result &&
+    result.category === "hotel" &&
+    cleanStringValue(result.id) === candidateId
+  );
+}
+
 function pickMarketResult(
   suggestion: RoamlyItinerary["booking_suggestions"][number],
   payload: TripPlannerPayload,
@@ -460,6 +473,9 @@ function pickMarketResult(
   if (!sameCategory.length) return null;
   if (category === "flight" && selectedFlightIdentity) {
     return sameCategory.find((result) => marketResultIsSelectedFlight(result, selectedFlightIdentity)) || null;
+  }
+  if (category === "hotel" && cleanStringValue(suggestion.candidateId)) {
+    return sameCategory.find((result) => marketResultIsSelectedHotel(result, suggestion)) || null;
   }
   return (
     sameCategory.find((result) => titleOverlap(cleanStringValue(result.title), title)) ||
