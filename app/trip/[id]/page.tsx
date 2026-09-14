@@ -2289,16 +2289,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const currency = getTripBudgetCurrency(trip);
   const baseFull = itinerary?.full_json || null;
   const localizedItinerary = baseFull ? getLocalizedItinerary({ metadata: trip.metadata, baseItinerary: baseFull, locale }) : null;
-  const full = localizedItinerary?.itinerary
-    ? enrichItineraryBookingSuggestions(localizedItinerary.itinerary, savedTripPayload(trip, locale))
-    : null;
   const displayedItineraryLanguage = localizedItinerary?.language || getTripItineraryLanguage(trip.metadata);
   const itineraryLocked = isTripLocked(trip);
   const generationProgress = publicStagedGenerationProgress(trip.metadata, id);
   const generationStatus = generationProgress?.status || "";
   const generationFailed = generationStatus === "failed" || generationStatus === "partially_failed";
-  const preview = full ? localizedItinerary?.preview || buildPreviewFromItinerary(full) : itinerary?.preview_json || null;
-  const canonicalDays = full?.daily_itinerary || [];
+  const preview = localizedItinerary?.itinerary ? localizedItinerary?.preview || buildPreviewFromItinerary(localizedItinerary.itinerary) : itinerary?.preview_json || null;
+  const canonicalDays = localizedItinerary?.itinerary?.daily_itinerary || [];
   const canShowFull = canonicalDays.length > 0;
   const generationInProgress = Boolean(
     !canShowFull &&
@@ -2344,6 +2341,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : { data: null };
   const persistedPriceDiscovery = priceDiscoveryResult.data?.metadata && typeof priceDiscoveryResult.data.metadata === "object"
     ? priceDiscoveryResult.data.metadata as Record<string, unknown>
+    : null;
+  const full = localizedItinerary?.itinerary
+    ? enrichItineraryBookingSuggestions(localizedItinerary.itinerary, {
+        ...savedTripPayload(trip, locale),
+        priceDiscovery: persistedPriceDiscovery || undefined
+      })
     : null;
   const hotelProductDecision = resolveSelectedHotelProductDecision({
     priceDiscovery: persistedPriceDiscovery,

@@ -15,6 +15,7 @@ import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, test
 import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import { reconcileAffiliateAction, type ConfirmedBookingEvidence } from "@/lib/roamly/affiliateActionReconciliation";
+import { isTrustedTravelpayoutsDeepLink, marketResultIsSelectedFlight, resolveSelectedFlightIdentity, selectedFlightContinuityLevel } from "@/lib/roamly/selectedFlightIdentity";
 import {
   dedupeTravelResults,
   isBareDomainName,
@@ -305,6 +306,15 @@ function marketResultsFromPayload(payload: TripPlannerPayload) {
     .filter((item): item is Record<string, unknown> => Boolean(item));
 }
 
+function selectedFlightIdentityFromPayload(payload: TripPlannerPayload) {
+  const discovery = getRecord(payload.priceDiscovery);
+  const decision = getRecord(discovery?.groundedDecision);
+  return resolveSelectedFlightIdentity({
+    selectedFlightCandidateId: decision?.selectedFlightCandidateId,
+    candidates: decision?.candidates
+  });
+}
+
 function cleanNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
   if (typeof value === "string" && value.trim()) {
@@ -370,7 +380,9 @@ function approvedMarketAffiliateUrl(
     }
     return "";
   }
-  if (affiliate && ["travelpayouts", "stay22", "klook"].includes(source)) return affiliate;
+  if (source === "travelpayouts" && affiliate && isTrustedTravelpayoutsDeepLink(affiliate)) return affiliate;
+  if (source === "travelpayouts" && booking && isTrustedTravelpayoutsDeepLink(booking)) return booking;
+  if (affiliate && ["stay22", "klook"].includes(source)) return affiliate;
   return link.affiliate_enabled ? link.affiliate_url : "";
 }
 
@@ -436,7 +448,8 @@ function marketResultMatchesSuggestion(
 
 function pickMarketResult(
   suggestion: RoamlyItinerary["booking_suggestions"][number],
-  payload: TripPlannerPayload
+  payload: TripPlannerPayload,
+  selectedFlightIdentity = selectedFlightIdentityFromPayload(payload)
 ) {
   const category = suggestion.booking_category || suggestion.category;
   const title = suggestion.title || suggestion.booking_label;
@@ -445,6 +458,9 @@ function pickMarketResult(
     .filter((result) => marketResultMatchesSuggestion(result, suggestion, payload))
     .sort((a, b) => marketResultRank(a) - marketResultRank(b));
   if (!sameCategory.length) return null;
+  if (category === "flight" && selectedFlightIdentity) {
+    return sameCategory.find((result) => marketResultIsSelectedFlight(result, selectedFlightIdentity)) || null;
+  }
   return (
     sameCategory.find((result) => titleOverlap(cleanStringValue(result.title), title)) ||
     sameCategory.find((result) => cleanNumber(result.price_amount) != null || cleanNumber(result.price_max) != null || cleanNumber(result.price_min) != null) ||
@@ -1164,6 +1180,7 @@ export function enrichItineraryBookingSuggestions(
   payload: TripPlannerPayload,
   confirmedBookings: ConfirmedBookingEvidence[] = []
 ): RoamlyItinerary {
+  const selectedFlightIdentity = selectedFlightIdentityFromPayload(payload);
   const estimatedBudgetBreakdown = enrichTransportOptions(itinerary, payload);
   const budgetBrain = calculateRoamlyBudgetBrain({
     trip: payload as unknown as Record<string, unknown>,
@@ -1196,7 +1213,7 @@ export function enrichItineraryBookingSuggestions(
       budgetBrain
     }).filter((suggestion) => !unavailableTrainOrBusSuggestion(suggestion)).map((suggestion) => {
       const originalNormalSearchUrl = normalSearchUrlForSuggestion(suggestion, payload);
-      const market = pickMarketResult(suggestion, payload);
+      const market = pickMarketResult(suggestion, payload, selectedFlightIdentity);
       const marketRange = market ? marketPriceRange(market) : { min: null, max: null };
       const linkCategory = affiliateCategoryForSuggestion(suggestion);
       const link = buildRoamlyAffiliateUrl({
@@ -1228,9 +1245,12 @@ export function enrichItineraryBookingSuggestions(
         rooms: payload.rooms || 1,
         currency: payload.budgetCurrency
       };
+      const flightContinuity = linkCategory === "flight" ? selectedFlightContinuityLevel(selectedFlightIdentity) : null;
       const affiliateUrl = isHotelSuggestion
         ? safeHotelAffiliateUrl(approvedMarketAffiliateUrl(market, link))
-        : approvedMarketAffiliateUrl(market, link, linkCategory);
+        : flightContinuity && flightContinuity > 0 && !market
+          ? ""
+          : approvedMarketAffiliateUrl(market, link, linkCategory);
       const hasAffiliateUrl = Boolean(affiliateUrl) && !unsafeStay22Url(affiliateUrl);
       const normalSearchUrl = isHotelSuggestion
         ? safeHotelSearchUrl(
