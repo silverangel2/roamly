@@ -293,10 +293,37 @@ export function normalizeValhallaMatrix(input: {
   const response = record(input.response);
   const origins = input.request.origins.map(matrixPoint);
   const destinations = input.request.destinations.map(matrixPoint);
-  const cells = response && Array.isArray(response.sources_to_targets) ? response.sources_to_targets : [];
-  if (!response || response.status === "ERROR" || response.status === "NO_ROUTE" || !origins.length || origins.some((point) => !point) || !destinations.length || destinations.some((point) => !point) || !cells.length) {
+  const rawCells = response?.sources_to_targets;
+  const responseStatus = response?.status;
+  const responseFailed = responseStatus !== undefined
+    && responseStatus !== 0
+    && responseStatus !== "0"
+    && responseStatus !== "OK"
+    && responseStatus !== "SUCCESS";
+  if (!response || response?.error !== undefined || responseFailed || !origins.length || origins.some((point) => !point) || !destinations.length || destinations.some((point) => !point) || !Array.isArray(rawCells) || !rawCells.length) {
     return { status: "NO_EVIDENCE", cells: [], reasons: ["MATRIX_DATA_MISSING"] };
   }
+  const cells: unknown[] = [];
+  const nested = rawCells.every((row) => Array.isArray(row));
+  if (nested) {
+    rawCells.forEach((row, originIndex) => {
+      if (originIndex >= origins.length) return;
+      (row as unknown[]).forEach((cell, destinationIndex) => {
+        const value = record(cell);
+        if (!value) return;
+        const explicitOrigin = value.from_index;
+        const explicitDestination = value.to_index;
+        if (explicitOrigin !== undefined && explicitOrigin !== originIndex) return;
+        if (explicitDestination !== undefined && explicitDestination !== destinationIndex) return;
+        cells.push({ ...value, from_index: originIndex, to_index: destinationIndex });
+      });
+    });
+  } else if (rawCells.every((cell) => !Array.isArray(cell))) {
+    cells.push(...rawCells);
+  } else {
+    return { status: "NO_EVIDENCE", cells: [], reasons: ["MATRIX_DATA_MISSING"] };
+  }
+  if (!cells.length) return { status: "NO_EVIDENCE", cells: [], reasons: ["MATRIX_DATA_MISSING"] };
   const normalized: ValhallaMatrixCell[] = [];
   for (const value of cells) {
     const cell = record(value);

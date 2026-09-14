@@ -98,6 +98,36 @@ assert.equal(matrix.status, "OK");
 assert.deepEqual(matrix.cells.map((cell) => [cell.originItemId, cell.destinationItemId]), [["A", "C"], ["A", "D"], ["B", "C"], ["B", "D"]]);
 assert.equal(matrix.cells[2].evidence?.fromItemId, "B");
 assert.equal(matrix.cells[2].evidence?.toItemId, "C");
+const actualNestedMatrix = valhalla.normalizeValhallaMatrix({ request: matrixRequest, response: { units: "kilometers", sources_to_targets: [
+  [
+    { from_index: 0, to_index: 0, distance: 1, time: 101 },
+    { from_index: 0, to_index: 1, distance: 2, time: 202 }
+  ],
+  [
+    { from_index: 1, to_index: 0, distance: 3, time: 303 },
+    { from_index: 1, to_index: 1, distance: 4, time: 404 }
+  ]
+] } });
+assert.equal(actualNestedMatrix.status, "OK");
+assert.deepEqual(actualNestedMatrix.cells.map((cell) => [cell.originItemId, cell.destinationItemId, cell.evidence?.evidence.durationMinutes]), [
+  ["A", "C", 101 / 60], ["A", "D", 202 / 60], ["B", "C", 303 / 60], ["B", "D", 404 / 60]
+]);
+const partialNested = valhalla.normalizeValhallaMatrix({ request: matrixRequest, response: { sources_to_targets: [
+  [{ from_index: 0, to_index: 0, distance: 1, time: 60 }, { from_index: 0, to_index: 1, distance: null, time: null, status: "UNREACHABLE" }],
+  [{ from_index: 1, to_index: 0, distance: 3, time: 60 }, { from_index: 1, to_index: 1, distance: 4, time: 60 }]
+] } });
+assert.deepEqual(partialNested.cells.map((cell) => [cell.originItemId, cell.destinationItemId, cell.status]), [["A", "C", "OK"], ["A", "D", "UNKNOWN"], ["B", "C", "OK"], ["B", "D", "OK"]]);
+const shortNested = valhalla.normalizeValhallaMatrix({ request: matrixRequest, response: { sources_to_targets: [
+  [{ from_index: 0, to_index: 0, distance: 1, time: 60 }],
+  [{ from_index: 1, to_index: 0, distance: 3, time: 60 }, { from_index: 1, to_index: 1, distance: 4, time: 60 }]
+] } });
+assert.deepEqual(shortNested.cells.map((cell) => [cell.originItemId, cell.destinationItemId]), [["A", "C"], ["B", "C"], ["B", "D"]]);
+const extraNested = valhalla.normalizeValhallaMatrix({ request: matrixRequest, response: { sources_to_targets: [
+  [{ from_index: 0, to_index: 0, distance: 1, time: 60 }, { from_index: 0, to_index: 1, distance: 2, time: 60 }, { from_index: 0, to_index: 2, distance: 99, time: 99 }],
+  [{ from_index: 1, to_index: 0, distance: 3, time: 60 }, { from_index: 1, to_index: 1, distance: 4, time: 60 }],
+  [{ from_index: 2, to_index: 0, distance: 99, time: 99 }]
+] } });
+assert.deepEqual(extraNested.cells.map((cell) => [cell.originItemId, cell.destinationItemId]), [["A", "C"], ["A", "D"], ["B", "C"], ["B", "D"]]);
 const partial = valhalla.normalizeValhallaMatrix({ request: { ...matrixRequest, origins: [A], destinations: [B] }, response: { sources_to_targets: [{ from_index: 0, to_index: 0, distance: null, time: null, status: "UNREACHABLE" }] } });
 assert.equal(partial.cells[0].status, "UNKNOWN");
 assert.equal(partial.cells[0].evidence, null);
