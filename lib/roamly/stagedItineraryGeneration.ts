@@ -20,6 +20,7 @@ import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "
 import { searchTripMarketPrices, type TravelMarketCategory, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
 import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
+import { rankActivityCandidates } from "@/lib/roamly/activityFeasibility";
 import {
   finalizeStagedGenerationNotification,
   getGenerationEmailStatus,
@@ -802,11 +803,37 @@ function compactVerifiedCandidate(result: TravelMarketResult) {
 }
 
 function verifiedCandidatesForPrompt(payload: TripPlannerPayload, state: StagedGenerationState, limit = 10) {
-  return itineraryMarketResults(payloadWithStateDiscovery(payload, state))
+  const candidates = itineraryMarketResults(payloadWithStateDiscovery(payload, state))
     .filter((result) => ["hotel", "attraction", "tour", "restaurant", "transport"].includes(result.category))
     .filter((result) => result.title && !isGenericPlaceName(result.title))
+  const activityResults = candidates.filter((result) => ["attraction", "tour"].includes(result.category));
+  const mustDoRequirements = payload.constraints?.activity?.mustDoActivities || (payload.explicitRequirements || []).filter((item) => item.type === "activity" && item.priority === "hard");
+  const activityContext = {
+    payload,
+    confirmedBookings: state.confirmedBookings || payload.confirmedBookings,
+    mustDoTitles: mustDoRequirements
+      .map((item) => item.type === "activity" ? item.request : "")
+      .filter(Boolean),
+    mustDoActivities: mustDoRequirements
+      .filter((item): item is Extract<NonNullable<TripPlannerPayload["explicitRequirements"]>[number], { type: "activity" }> => item.type === "activity")
+      .map((item) => ({ title: item.request, date: item.date, startTime: item.time })),
+    budgetIsHard: payload.constraints?.activity?.budgetLimit?.priority === "hard"
+  };
+  const rankedActivities = rankActivityCandidates(activityResults, activityContext)
     .slice(0, limit)
-    .map(compactVerifiedCandidate);
+    .map(({ candidate, decision }) => ({
+      ...compactVerifiedCandidate(candidate),
+      activityDecision: {
+        candidateId: decision.candidateId,
+        feasibility: decision.feasibility,
+        fitScore: decision.score,
+        reasons: decision.reasons,
+        protected: decision.protected,
+        flexibleDisplacementAllowed: decision.canDisplaceFlexible
+      }
+    }));
+  const nonActivities = candidates.filter((result) => !["attraction", "tour"].includes(result.category)).slice(0, limit).map(compactVerifiedCandidate);
+  return [...rankedActivities, ...nonActivities].slice(0, limit);
 }
 
 function compactPriceSummary(value: Record<string, unknown> | null | undefined) {
@@ -972,6 +999,7 @@ Rules:
 - Prefer exact verified candidate names for attractions, tours, restaurants, hotels, and transport anchors.
 - Only selected grounded candidates may be represented as factual inventory. Preserve candidateId, source, and factualStatus when used.
 - Any idea not tied to a selected candidate is DISCOVERY_SUGGESTION; do not add price, availability, provider, schedule, or booking claims.
+- Treat activityDecision as deterministic feasibility and fit guidance. Do not schedule INFEASIBLE candidates; preserve protected confirmed bookings and must-dos; only flexible recommendations may be displaced by a higher-fit feasible special event.
 - Prefer Klook/provider activity results when suitable; use Google/Maps/search-only wording only when no verified candidate fits.
 - Never invent flight numbers, live prices, live availability, booking status, gates, or terminals.
 - Do not use generic titles or locations such as "local bistro", "museum or gallery", "nightlife district", or "hotel room".
