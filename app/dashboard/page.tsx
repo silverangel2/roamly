@@ -3,7 +3,6 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DeleteTripButton } from "@/components/trip/DeleteTripButton";
-import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
@@ -93,8 +92,6 @@ export default async function DashboardPage() {
   if (!current.user) {
     redirect("/login?next=/dashboard");
   }
-  const access = getRoamlyAccessForUser(current.user.email);
-
   const supabase = await createSupabaseServerClient();
   const [, { data: trips }, free] = await Promise.all([
     supabase ? ensureRoamlyProfileBestEffort(current.user, {}, supabase, "dashboard_page") : Promise.resolve(null),
@@ -115,29 +112,39 @@ export default async function DashboardPage() {
   const drafts = typedTrips.filter((trip) => !isTripLocked(trip));
   const liveTrips = typedTrips.filter((trip) => tripHasTrackingUnlock(trip));
   const activeNow = liveTrips[0];
+  const primaryTrip = activeNow || typedTrips[0];
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr] lg:items-end">
         <div>
           <Badge>Trips</Badge>
-          {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">
-            Your travel command center.
-          </h1>
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Your trips.</h1>
           <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
-            Continue a draft, open a locked itinerary, or jump straight into Live Trip Companion.
+            Start with the trip that needs your attention, then open the rest when you need them.
           </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Button href="/plan">Plan new trip</Button>
-          <Button href="/account" tone="secondary">Account</Button>
         </div>
       </section>
 
+      {primaryTrip ? (
+        <section className="mt-7 rounded-[1.5rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_60%,#fff7ed_100%)] p-5 shadow-soft sm:p-7">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{activeNow ? "Current trip" : "Most recent trip"}</p>
+          <h2 className="mt-2 text-3xl font-black tracking-tight text-ink">{primaryTrip.title || getTripDestinationLabel(primaryTrip) || "Your trip"}</h2>
+          <p className="mt-2 text-sm font-bold text-slate-600">
+            {formatDate(primaryTrip.start_date, locale)} · {getTripDaysCount(primaryTrip) || "Flexible"} days
+          </p>
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button href={activeNow ? `/trip/${activeNow.id}/live` : `/trip/${primaryTrip.id}`}>
+              {activeNow ? "Open today" : isTripLocked(primaryTrip) ? "Open itinerary" : "Continue trip"}
+            </Button>
+            <Button href="/plan" tone="ghost">Plan another trip</Button>
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-7 grid gap-4 md:grid-cols-3">
         {[
-          ["Free itinerary", access.hasQaAccess ? "Tester access" : free.used ? "Used" : "Available"],
+          ["Free itinerary", free.used ? "Used" : "Available"],
           ["Locked itineraries", String(locked.length)],
           ["Draft trips", String(drafts.length)]
         ].map(([label, value]) => (
@@ -147,21 +154,6 @@ export default async function DashboardPage() {
           </Card>
         ))}
       </section>
-
-      {activeNow ? (
-        <section className="mt-5">
-          <Card className="overflow-hidden border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_56%,#fff7ed_100%)] text-ink">
-            <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Continue live</p>
-                <h2 className="mt-2 text-3xl font-black">{activeNow.title || getTripDestinationLabel(activeNow) || "Trip"}</h2>
-                <p className="mt-2 text-sm font-bold text-slate-600">Your Live Trip Companion is ready.</p>
-              </div>
-              <Button href={`/trip/${activeNow.id}/live`}>Open companion</Button>
-            </div>
-          </Card>
-        </section>
-      ) : null}
 
       <section className="mt-7">
         <div className="mb-3 flex items-center justify-between gap-3">

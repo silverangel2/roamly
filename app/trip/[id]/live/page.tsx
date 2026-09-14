@@ -24,6 +24,7 @@ import { getTripBundle, groupActivitiesByDay, type ActivityRecord } from "@/lib/
 import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
 import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
 import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
+import { TripContextNav } from "@/components/roamly/TripContextNav";
 
 function formatMoney(cents: number | null, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
   if (cents == null) return "Not set";
@@ -312,6 +313,13 @@ export default async function LiveTripPage({
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+      <TripContextNav
+        tripId={id}
+        title={bundle.data.trip.title || destinationLabel}
+        destination={destinationLabel}
+        dates={bundle.data.trip.start_date && bundle.data.trip.end_date ? `${formatRoamlyDate(bundle.data.trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(bundle.data.trip.end_date, locale, { month: "short", day: "numeric" })}` : "Dates flexible"}
+        status="Today"
+      />
       <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Badge>Live Trip Companion</Badge>

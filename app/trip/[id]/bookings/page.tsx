@@ -6,6 +6,8 @@ import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/serve
 import { getTripBundle, isMissingTableError } from "@/lib/trips";
 import { getServerLocale } from "@/lib/i18n-server";
 import { legacyRoamlyBookingToWallet, listTripBookings, stableBookingKey, type TripBookingRecord } from "@/lib/roamly/bookingWallet";
+import { TripContextNav } from "@/components/roamly/TripContextNav";
+import { formatRoamlyDate } from "@/lib/i18n";
 
 function mergeBookings(wallet: TripBookingRecord[], legacy: TripBookingRecord[]) {
   const byKey = new Map<string, TripBookingRecord>();
@@ -70,9 +72,15 @@ export default async function TripBookingsPage({ params }: { params: Promise<{ i
   const destinationLabel = getTripDestinationLabel(trip) || "Your trip";
   const tripTitle = trip.title || destinationLabel;
   const locale = await getServerLocale();
+  const dates = trip.start_date && trip.end_date
+    ? `${formatRoamlyDate(trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(trip.end_date, locale, { month: "short", day: "numeric" })}`
+    : "Dates flexible";
 
   return (
     <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
+      <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-8">
+        <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" />
+      </div>
       <BookingWalletTimeline
         tripId={id}
         tripTitle={tripTitle}

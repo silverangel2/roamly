@@ -16,6 +16,7 @@ export type AppShellAuthState = {
 };
 
 function isActive(pathname: string, href: string) {
+  if (href === "/dashboard" && pathname.startsWith("/trip/")) return true;
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -32,7 +33,6 @@ function AppShellContent({
   const [authenticated, setAuthenticated] = useState(initialAuth.authenticated);
   const [activeTripId, setActiveTripId] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
-  const [adminAuthorized, setAdminAuthorized] = useState(false);
 
   useEffect(() => {
     setAuthenticated(initialAuth.authenticated);
@@ -61,29 +61,6 @@ function AppShellContent({
       return undefined;
     }
   }, []);
-
-  useEffect(() => {
-    let alive = true;
-
-    async function loadAdminState() {
-      try {
-        const response = await fetch("/api/admin/session", {
-          cache: "no-store",
-          credentials: "include"
-        });
-
-        if (alive) setAdminAuthorized(response.ok);
-      } catch {
-        if (alive) setAdminAuthorized(false);
-      }
-    }
-
-    void loadAdminState();
-
-    return () => {
-      alive = false;
-    };
-  }, [pathname]);
 
   useEffect(() => {
     let alive = true;
@@ -124,12 +101,11 @@ function AppShellContent({
 
   const desktopRoutes = useMemo(
     () =>
-      authenticated
+        authenticated
         ? [
-            { href: "/", label: t("ui.nav.home", "Home") },
-            { href: "/dashboard", label: t("ui.nav.dashboard", "Dashboard") },
+            { href: "/dashboard", label: t("ui.nav.trips", "Trips") },
             { href: "/plan", label: t("ui.nav.planTrip", "Plan trip") },
-            { href: "/notifications", label: t("ui.nav.notifications", "Notifications") },
+            { href: "/notifications", label: t("ui.nav.alerts", "Alerts") },
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
         : [
@@ -142,12 +118,11 @@ function AppShellContent({
 
   const mobileRoutes = useMemo(
     () =>
-      authenticated
+        authenticated
         ? [
             { href: activeTripId ? `/trip/${activeTripId}` : "/dashboard", label: t("ui.nav.trip", "Trip") },
             { href: "/plan", label: t("ui.nav.planTrip", "Plan") },
-            { href: activeTripId ? `/trip/${activeTripId}/live` : "/dashboard", label: t("ui.nav.companion", "Companion") },
-            { href: "/notifications", label: t("ui.nav.notifications", "Notifications"), count: unreadCount },
+            { href: "/notifications", label: t("ui.nav.alerts", "Alerts"), count: unreadCount },
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
         : [
@@ -195,14 +170,6 @@ function AppShellContent({
             </nav>
 
             <div className="flex items-center gap-2">
-              <Link
-                href={adminAuthorized ? "/admin" : "/admin-access"}
-                aria-label={adminAuthorized ? "Open Roamly Admin" : "Open Admin Access"}
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-cyan-200 bg-cyan-50 px-4 text-sm font-black text-cyan-800 shadow-sm transition active:scale-[0.98] md:hidden"
-              >
-                {adminAuthorized ? "Admin" : "Admin Access"}
-              </Link>
-
               <div className="hidden sm:block">
                 <LanguageSwitcher />
               </div>
@@ -243,7 +210,7 @@ function AppShellContent({
 
         <nav
           className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-slate-950/95 ${
-            authenticated ? "grid-cols-5" : "grid-cols-4"
+            authenticated ? "grid-cols-4" : "grid-cols-4"
           }`}
         >
           {mobileRoutes.map((route) => (

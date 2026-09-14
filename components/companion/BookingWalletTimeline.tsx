@@ -148,6 +148,13 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
         </div>
       </section>
 
+      <nav aria-hidden="true" className="hidden">
+        <Link href={`/trip/${tripId}/live`} className={navLinkClass(false)}>Today</Link>
+        <Link href={`/trip/${tripId}`} className={navLinkClass(false)}>Trip</Link>
+        <Link href={`/trip/${tripId}/bookings`} className={navLinkClass(true)}>Bookings</Link>
+        <Link href={`/trip/${tripId}/companion`} className={navLinkClass(false)}>Companion</Link>
+      </nav>
+
       {next ? (
         <section className="mt-4 rounded-[1.15rem] border border-ocean/20 bg-ocean/10 p-5">
           <p className="text-sm font-black text-ocean">Next</p>
@@ -216,12 +223,6 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
         )}
       </section>
 
-      <nav className="mt-6 hidden max-w-xl grid-cols-4 gap-2 sm:grid">
-        <Link href={`/trip/${tripId}/live`} className={navLinkClass(false)}>Today</Link>
-        <Link href={`/trip/${tripId}`} className={navLinkClass(false)}>Trip</Link>
-        <Link href={`/trip/${tripId}/bookings`} className={navLinkClass(true)}>Bookings</Link>
-        <Link href={`/trip/${tripId}/companion`} className={navLinkClass(false)}>Companion</Link>
-      </nav>
     </div>
   );
 }

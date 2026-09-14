@@ -22,6 +22,7 @@ import {
   type RoamlyItinerary
 } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
+import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure, enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
@@ -2431,7 +2432,6 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                             ? "Free itinerary available"
                             : "Payment required"}
                 </Badge>
-                {access.hasQaAccess ? <Badge tone="sun">Tester access</Badge> : null}
                 {trackingUnlocked ? <Badge tone="ocean">Live Companion</Badge> : null}
               </div>
               <h1 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripTitle}</h1>
@@ -2518,6 +2518,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           ) : null}
         </section>
 
+        <TripContextNav
+          tripId={id}
+          title={tripTitle}
+          destination={destinationLabel}
+          dates={formatDateRange(trip, locale)}
+          status={canShowFull ? "Ready" : itineraryLocked ? "Locked" : "Planning"}
+        />
+
         {canShowFull && full && !generationPanelVisible ? (
           <>
             <div className="roamly-tabs mt-4">
@@ -2560,11 +2568,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     ["roamly-tab-bookings", "Bookings"],
                     ["roamly-tab-essentials", "Essentials"],
                     ["roamly-tab-travel-notes", "Travel notes"]
-                  ].map(([tabId, label]) => (
+                  ].map(([tabId, label], index) => (
                     <label
                       key={tabId}
                       htmlFor={tabId}
-                      className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean sm:px-4 sm:text-sm"
+                      className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean sm:px-4 sm:text-sm ${index >= 4 ? "hidden sm:inline-flex" : ""}`}
                     >
                       {label}
                     </label>
