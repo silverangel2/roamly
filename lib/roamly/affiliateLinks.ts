@@ -358,6 +358,21 @@ function isActivityBookingCategory(category: unknown) {
   return value === "activity" || value === "attraction" || value === "ticket" || value === "tour";
 }
 
+export function marketResultIsSelectedActivity(
+  result: Record<string, unknown> | null | undefined,
+  suggestion: RoamlyItinerary["booking_suggestions"][number]
+) {
+  const candidateId = cleanStringValue(suggestion.candidateId);
+  const category = cleanStringValue(suggestion.booking_category || suggestion.category).toLowerCase();
+  return Boolean(
+    candidateId &&
+    result &&
+    isActivityBookingCategory(category) &&
+    cleanStringValue(result.category).toLowerCase() === category &&
+    cleanStringValue(result.id) === candidateId
+  );
+}
+
 function verifiedPartnerMarketResult(market: Record<string, unknown> | null) {
   if (!market) return false;
   const priceType = cleanStringValue(market.price_type);
@@ -476,6 +491,10 @@ function pickMarketResult(
   }
   if (category === "hotel" && cleanStringValue(suggestion.candidateId)) {
     return sameCategory.find((result) => marketResultIsSelectedHotel(result, suggestion)) || null;
+  }
+  if (isActivityBookingCategory(category)) {
+    if (!cleanStringValue(suggestion.candidateId)) return null;
+    return sameCategory.find((result) => marketResultIsSelectedActivity(result, suggestion)) || null;
   }
   return (
     sameCategory.find((result) => titleOverlap(cleanStringValue(result.title), title)) ||

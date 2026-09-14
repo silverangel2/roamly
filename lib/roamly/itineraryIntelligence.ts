@@ -489,6 +489,7 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
   return {
     category,
     booking_category: category,
+    candidateId: result.id,
     title: result.title,
     description:
       verification === "verified" || verification === "native_verified"
