@@ -2253,6 +2253,8 @@ function CompactPrintItinerary({
 }
 
 function ChecklistGroup({ title, items }: { title: string; items: string[] }) {
+  if (!items.length) return null;
+
   return (
     <article className="roamly-print-section rounded-[1.15rem] border border-[#e8dfd0] bg-white p-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
       <h3 className="text-lg font-black text-ink">{title}</h3>
@@ -2459,6 +2461,22 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           : "";
   const commandNextTitle = focusNextItem?.title || (unresolvedBookingSnapshot[0] ? `Review ${bookingSnapshotTitle(unresolvedBookingSnapshot[0] as Record<string, unknown>)}` : "");
   const commandNextMeta = focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
+  const packingItems = full ? packingChecklistItems(checklist, full).slice(0, 8) : [];
+  const localTipItems = full?.local_tips.slice(0, 6) || [];
+  const safetyItems = full?.safety_notes.slice(0, 6) || [];
+  const documentItems = getStringList(trip.document_checklist, [], 6);
+  const emergencyItems = full?.emergency_notes.slice(0, 6) || [];
+  const lowCostItems = full?.free_or_low_cost_notes.slice(0, 5) || [];
+  const hasEssentials = Boolean(full?.pre_trip_essentials.length);
+  const hasTravelNotes = [packingItems, localTipItems, safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0);
+  const briefingTabs = [
+    ["roamly-tab-day-by-day", "Plan"],
+    ["roamly-tab-overview", "Snapshot"],
+    ["roamly-tab-budget", "Budget"],
+    ["roamly-tab-bookings", "Bookings"],
+    ...(hasEssentials ? [["roamly-tab-essentials", "Before you go"]] : []),
+    ...(hasTravelNotes ? [["roamly-tab-travel-notes", "Practical"]] : [])
+  ];
 
   if (checkoutNeedsAttention) {
     await recordAppEvent(supabase, {
@@ -2621,27 +2639,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 `).join("\n")}
                 @media print{.roamly-tab-panel,.roamly-day-panel{display:block!important}.roamly-tab-nav,.roamly-day-nav{display:none!important}}
               `}</style>
-              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-day-by-day" defaultChecked />
-              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-overview" />
-              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-budget" />
-              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-bookings" />
-              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-essentials" />
-              <input className="roamly-tab-input" type="radio" name="roamly-completed-tab" id="roamly-tab-travel-notes" />
+              {briefingTabs.map(([tabId]) => (
+                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === briefingTabs[0][0]} />
+              ))}
 
-              <nav className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
+              <nav aria-label="Trip briefing sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
                 <div className="flex min-w-max gap-2">
-                  {[
-                    ["roamly-tab-day-by-day", "Day-by-day"],
-                    ["roamly-tab-overview", "Overview"],
-                    ["roamly-tab-budget", "Budget"],
-                    ["roamly-tab-bookings", "Bookings"],
-                    ["roamly-tab-essentials", "Essentials"],
-                    ["roamly-tab-travel-notes", "Travel notes"]
-                  ].map(([tabId, label], index) => (
+                  {briefingTabs.map(([tabId, label]) => (
                     <label
                       key={tabId}
                       htmlFor={tabId}
-                      className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean sm:px-4 sm:text-sm ${index >= 4 ? "hidden sm:inline-flex" : ""}`}
+                      className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-[#e8dfd0] bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean sm:px-4 sm:text-sm"
                     >
                       {label}
                     </label>
@@ -2741,35 +2749,32 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   </details>
                 </section>
 
-                <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32">
-                  <PreTripEssentialsSection essentials={full.pre_trip_essentials || []} tripId={id} />
-                </section>
+                {hasEssentials ? (
+                  <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32">
+                    <PreTripEssentialsSection essentials={full.pre_trip_essentials} tripId={id} />
+                  </section>
+                ) : null}
 
-                <section id="travel-notes" className="roamly-tab-panel roamly-panel-travel-notes mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Notes" title="Travel notes" />
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <ChecklistGroup
-                      title="Packing"
-                      items={packingChecklistItems(checklist, full).slice(0, 8)}
-                    />
-                    <ChecklistGroup title="Local tips" items={full.local_tips.slice(0, 6)} />
-                  </div>
-                  <details className="mt-4 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
-                    <summary className="cursor-pointer text-sm font-black text-ocean">More notes</summary>
-                    <div className="mt-4 grid gap-4 md:grid-cols-2">
-                      <ChecklistGroup title="Safety" items={full.safety_notes.slice(0, 6)} />
-                      <ChecklistGroup
-                        title="Documents"
-                        items={getStringList(trip.document_checklist, ["Passport/ID", "Booking confirmations", "Travel insurance details"], 6)}
-                      />
-                      <ChecklistGroup title="Emergency" items={full.emergency_notes.slice(0, 6)} />
-                      <ChecklistGroup
-                        title="Low-cost reminders"
-                        items={full.free_or_low_cost_notes.length ? full.free_or_low_cost_notes.slice(0, 5) : ["Keep a buffer for weather, taxis, and spontaneous stops."]}
-                      />
+                {hasTravelNotes ? (
+                  <section id="travel-notes" className="roamly-tab-panel roamly-panel-travel-notes mt-8 scroll-mt-32">
+                    <SectionHeading eyebrow="Practical" title="Travel notes" summary="Useful reference for before and during the trip." />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <ChecklistGroup title="Packing" items={packingItems} />
+                      <ChecklistGroup title="Local tips" items={localTipItems} />
                     </div>
-                  </details>
-                </section>
+                    {[safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0) ? (
+                      <details className="mt-4 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
+                        <summary className="min-h-11 cursor-pointer text-sm font-black text-ocean">More practical notes</summary>
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                          <ChecklistGroup title="Safety" items={safetyItems} />
+                          <ChecklistGroup title="Documents" items={documentItems} />
+                          <ChecklistGroup title="Emergency" items={emergencyItems} />
+                          <ChecklistGroup title="Low-cost reminders" items={lowCostItems} />
+                        </div>
+                      </details>
+                    ) : null}
+                  </section>
+                ) : null}
               </div>
 
             </div>

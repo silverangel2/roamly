@@ -840,6 +840,10 @@ assert.ok(tripPage.includes("canShowFull && full && !generationPanelVisible"), "
   "buildDisplayTimelineItems",
   "roamly-day-nav",
   "roamly-tab-nav",
+  "aria-label=\"Trip briefing sections\"",
+  "const briefingTabs = [",
+  "const hasTravelNotes =",
+  "More practical notes",
   "DayTimelineCard",
   "min-h-11",
   "buildRelevantBookingGroups",
@@ -847,6 +851,9 @@ assert.ok(tripPage.includes("canShowFull && full && !generationPanelVisible"), "
   "RecommendedTransportCard"
 ].forEach((needle) => assert.ok(tripPage.includes(needle), `mobile itinerary/bookings UI missing ${needle}`));
 assert.ok(tripPage.includes("slice(0, 6)") || tripPage.includes("output.length >= 6"), "completed itinerary display must cap daily primary items");
+assert.ok(tripPage.includes("getStringList(trip.document_checklist, [], 6)"), "briefing must not invent document requirements when none are grounded");
+assert.ok(tripPage.includes("full?.free_or_low_cost_notes.slice(0, 5)"), "briefing must preserve grounded low-cost notes only");
+assert.ok(!tripPage.includes("Keep a buffer for weather, taxis, and spontaneous stops."), "briefing must not invent generic low-cost reminders");
 
 const planPage = read("app/plan/page.tsx");
 assert.ok(planPage.includes("hidden gap-2 lg:grid"), "mobile plan page must not render the desktop info rail");
