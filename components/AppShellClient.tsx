@@ -139,7 +139,7 @@ function AppShellContent({
 
   return (
     <TranslatedTextBoundary>
-      <div className="min-h-dvh bg-[#fbf8ef] text-ink dark:bg-[linear-gradient(135deg,#07111f_0%,#0f172a_56%,#111827_100%)] dark:text-white">
+      <div className="min-h-dvh min-w-0 bg-[#fbf8ef] text-ink dark:bg-[linear-gradient(135deg,#07111f_0%,#0f172a_56%,#111827_100%)] dark:text-white">
         <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/88">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
@@ -202,7 +202,7 @@ function AppShellContent({
           </div>
         </header>
 
-        <main className="pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <main className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0">
           {children}
         </main>
 
@@ -217,7 +217,7 @@ function AppShellContent({
             <Link
               key={route.href}
               href={route.href}
-              className={`relative rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
+              className={`relative min-w-0 rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
                 isActive(pathname, route.href)
                   ? "bg-ocean text-white shadow-sm"
                   : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"

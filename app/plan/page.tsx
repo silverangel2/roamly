@@ -32,9 +32,9 @@ export default async function PlanPage() {
   const apiAuthToken = createRoamlySessionToken(current.user);
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
-      <section className="grid gap-4 lg:grid-cols-[0.68fr_1.32fr] lg:items-start">
-        <div className="space-y-3 lg:sticky lg:top-20">
+    <main className="safe-bottom mx-auto min-w-0 w-full max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+      <section className="grid min-w-0 gap-4 lg:grid-cols-[0.68fr_1.32fr] lg:items-start">
+        <div className="min-w-0 space-y-3 lg:sticky lg:top-20">
           <Badge>{translateKey(locale, "ui.nav.planTrip", "Plan trip")}</Badge>
           {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
           <div>

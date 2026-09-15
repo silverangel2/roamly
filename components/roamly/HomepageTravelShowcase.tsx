@@ -8,7 +8,7 @@ const photos = [
 
 export function HomepageTravelShowcase() {
   return (
-    <section aria-label="A glimpse of a Roamly trip plan" className="relative overflow-hidden rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/80 p-3 shadow-[0_24px_70px_rgba(16,32,51,0.12)] backdrop-blur-xl sm:p-4">
+    <section aria-label="A glimpse of a Roamly trip plan" className="relative min-w-0 overflow-hidden rounded-[1.75rem] border border-white/80 bg-[#fffdf8]/80 p-3 shadow-[0_24px_70px_rgba(16,32,51,0.12)] backdrop-blur-xl sm:p-4">
       <div className="relative grid gap-3">
         <div className="group relative min-h-[21rem] overflow-hidden rounded-[1.4rem] bg-[#dcebe8] sm:min-h-[27rem]">
           <Image src={photos[0][2]} alt={`${photos[0][0]}, ${photos[0][1]}`} fill priority sizes="(min-width: 1024px) 55vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" />

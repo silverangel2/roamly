@@ -21,8 +21,8 @@ export default function Home() {
     <main className="safe-bottom overflow-hidden bg-[#fbf8ef] text-ink">
       <section className="relative isolate px-4 pb-16 pt-8 sm:px-6 sm:pb-24 sm:pt-14 lg:px-8 lg:pb-28 lg:pt-20">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_12%_16%,rgba(84,214,198,0.18),transparent_30%),radial-gradient(circle_at_88%_10%,rgba(255,184,77,0.18),transparent_28%),linear-gradient(180deg,#f4fbfa_0%,#fbf8ef_62%,#fbf8ef_100%)]" />
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
-          <div>
+        <div className="mx-auto grid w-full max-w-6xl min-w-0 items-center gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
+          <div className="min-w-0">
             <p className="roamly-eyebrow">Travel planning, with room to breathe</p>
             <h1 className="mt-5 max-w-2xl text-[2.75rem] font-bold leading-[0.98] tracking-[-0.045em] text-ink sm:text-6xl lg:text-[4.7rem]">Your whole trip, thoughtfully put together.</h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">Roamly turns a destination and a few good instincts into a practical plan you can actually enjoy—before you go and while you are there.</p>

@@ -57,14 +57,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
-      <section className="space-y-5">
+    <main className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] min-w-0 w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
+      <section className="min-w-0 space-y-5">
         <Badge>Welcome back</Badge>
         <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
           Log in and keep your trips together.
         </h1>
         <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
-          Roamly uses standalone Supabase Auth with dedicated profile and trip records.
+          Sign in to keep your trips, plans, and travel details together.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {["Saved trips", "1 free itinerary", "One-time trip packs"].map((item) => (
