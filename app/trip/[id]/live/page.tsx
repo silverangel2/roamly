@@ -311,6 +311,46 @@ export default async function LiveTripPage({
     );
   }
 
+  if (!fieldTestMode) {
+    return (
+      <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+        <TripContextNav
+          tripId={id}
+          title={bundle.data.trip.title || destinationLabel}
+          destination={destinationLabel}
+          dates={bundle.data.trip.start_date && bundle.data.trip.end_date ? `${formatRoamlyDate(bundle.data.trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(bundle.data.trip.end_date, locale, { month: "short", day: "numeric" })}` : "Dates flexible"}
+          status="Live"
+        />
+        <section className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">Active assistance</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">Live in {destinationLabel}</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">Today is your plan. Live helps with the next step while you are moving.</p>
+          </div>
+          <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
+        </section>
+        <LiveTripClient
+          tripId={id}
+          activities={dayActivities}
+          checklist={bundle.data.checklist}
+          canSimulateLocation={false}
+          destinationLabel={destinationLabel}
+          simulatorPlaces={simulatorPlaces}
+          tripStartDate={bundle.data.trip.start_date}
+          tripEndDate={bundle.data.trip.end_date}
+          timezone={tripTimezone}
+          companionEnabled={preferences.liveCompanionEnabled}
+          companionPausedUntil={preferences.liveCompanionPausedUntil}
+          backgroundLocationEnabled={preferences.backgroundLocationEnabled}
+          initialPermissionState={permissionState}
+          initialLocation={latestLocation}
+          bookingDetails={bookingDetails}
+          liveDemoEnabled={false}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <TripContextNav

@@ -355,13 +355,6 @@ function bookingForActivity(activity: ActivityRecord, bookings: LiveCompanionBoo
   }) || null;
 }
 
-function progressItems(now: LiveCompanionActivity | null, next: LiveCompanionActivity | null, items: LiveCompanionActivity[]) {
-  const visible = items.slice(0, 6);
-  if (now && !visible.some((item) => item.id === now.id)) visible.unshift(now);
-  if (next && !visible.some((item) => item.id === next.id)) visible.push(next);
-  return visible.slice(0, 6);
-}
-
 export function LiveTripClient({
   tripId,
   activities,
@@ -511,11 +504,10 @@ export function LiveTripClient({
   const currentActivity = model.now || null;
   const nextActivity = model.next || liveActivities.find((item) => item.id !== currentActivity?.id) || null;
   const mapsHref = useMemo(() => {
-    const mapsTarget = currentActivity;
+    const mapsTarget = currentActivity || nextActivity;
     const direct = mapsTarget ? mapsUrlForActivity(mapsTarget) : "";
     return direct || buildNavigationLinks({ destinationLabel: mapsTarget?.title, address: primaryAddress(mapsTarget) })[0]?.href || "";
-  }, [currentActivity]);
-  const timeline = useMemo(() => progressItems(currentActivity, nextActivity, liveActivities), [currentActivity, liveActivities, nextActivity]);
+  }, [currentActivity, nextActivity]);
   const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
   const activeStep = currentActivity || nextActivity;
@@ -781,7 +773,7 @@ export function LiveTripClient({
     } finally {
       setBusy("");
     }
-  }, [tripId]);
+  }, [locale, tripId]);
 
   const setupLiveCompanion = useCallback(async () => {
     setBusy("setup");
@@ -808,7 +800,7 @@ export function LiveTripClient({
     } finally {
       setBusy("");
     }
-  }, [fieldTestMode, mobileRuntime, startForegroundLocation, tripId]);
+  }, [fieldTestMode, locale, mobileRuntime, startForegroundLocation, tripId]);
 
   const stopForegroundLocation = useCallback(() => {
     if (watchIdRef.current != null && navigator.geolocation) {
@@ -1139,7 +1131,7 @@ export function LiveTripClient({
     } finally {
       setBusy("");
     }
-  }, [tripId]);
+  }, [locale, tripId]);
 
   const notificationActionHandledRef = useRef<string>("");
   useEffect(() => {
@@ -1192,7 +1184,7 @@ export function LiveTripClient({
         setError(localizeCustomerError(locale, err));
       }
     })();
-  }, [getFreshPosition, location, runAction]);
+  }, [getFreshPosition, locale, location, runAction]);
 
   function resolvePlace(place: LiveSimulatorPlace | null, fallbackLabel = "Simulated location") {
     const latitude = getNumber(place?.latitude);
@@ -1330,25 +1322,17 @@ export function LiveTripClient({
               {currentActivity?.shortDescription || model.activationReason}
             </p>
 
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
-                <p className="mt-1 truncate text-sm font-black">{nextActivity?.title || "Flexible"}</p>
+                <p className="mt-1 truncate text-sm font-black">{nextActivity?.title || "Flexible time"}</p>
+                {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.status.countdown", "Countdown")}</p>
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
                 <p className="mt-1 text-sm font-black">{countdownCopy(model.countdownMinutes)}</p>
+                {model.route.status === "verified" ? <p className="mt-1 text-xs font-bold text-slate-500">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">Travel time still uncertain</p> : null}
               </div>
-              <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.status.leaveBy", "Leave by")}</p>
-                <p className="mt-1 text-sm font-black">{model.leaveBy ? formatClock(model.leaveBy, timezone, locale) : t("ui.status.openMaps")}</p>
-              </div>
-              {model.route.status === "verified" ? (
-                <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                  <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Route</p>
-                  <p className="mt-1 text-sm font-black">{routeBusy ? "Checking" : routeCopy(model.route)}</p>
-                </div>
-              ) : null}
             </div>
 
             <div className="mt-5 rounded-2xl border border-cloud bg-mist px-4 py-3">
@@ -1380,6 +1364,33 @@ export function LiveTripClient({
               </details>
             ) : null}
 
+            {currentActivity ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void runAction(currentActivity.id, "check-in", location)}
+                  disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
+                  className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-45"
+                >
+                  {t("ui.actions.checkIn")}
+                </button>
+                <details className="relative">
+                  <summary className="flex min-h-12 cursor-pointer list-none items-center rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink">More options</summary>
+                  <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-2xl border border-cloud bg-white p-3 shadow-soft">
+                    <p className="text-xs font-bold leading-5 text-slate-500">Skip this activity from Live guidance. The rest of your trip keeps its scheduled times.</p>
+                    <button
+                      type="button"
+                      onClick={() => void runAction(currentActivity.id, "skip")}
+                      disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                      className="mt-3 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 disabled:opacity-45"
+                    >
+                      Skip this activity
+                    </button>
+                  </div>
+                </details>
+              </div>
+            ) : null}
+
             <a
               href={mapsHref || "#"}
               target={mapsHref ? "_blank" : undefined}
@@ -1396,31 +1407,11 @@ export function LiveTripClient({
           <div className="grid gap-3">
             <section className="rounded-2xl border border-cloud bg-mist p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{t("ui.status.progress", "Progress")}</p>
-                <p className="text-xs font-black text-slate-500">{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next step</p>
+                <p className="text-xs font-black text-slate-500">{nextActivity ? formatClock(nextStart?.toISOString() || null, timezone, locale) : "Flexible time"}</p>
               </div>
-              <div className="mt-4 grid gap-3">
-                {timeline.map((item) => {
-                  const active = item.id === currentActivity?.id;
-                  const upcoming = item.id === nextActivity?.id;
-                  return (
-                    <div key={item.id} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-3">
-                      <span
-                        className={classNames(
-                          "mt-1 h-3 w-3 rounded-full border",
-                          active ? "border-lagoon bg-lagoon" : upcoming ? "border-sun bg-sun" : "border-slate-300 bg-white"
-                        )}
-                      />
-                      <div className="min-w-0">
-                        <p className={classNames("truncate text-sm font-black", active ? "text-ink" : "text-slate-600")}>
-                          {item.title}
-                        </p>
-                        <p className="mt-0.5 text-xs font-bold text-slate-500">{item.timeLabel || formatClock(activityStartDate({ activity: item, tripStartDate: activeTripStartDate, timezone })?.toISOString() || null, timezone, locale)}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="mt-3 text-lg font-black text-ink">{nextActivity?.title || "Keep this window open"}</p>
+              <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{nextActivity ? primaryAddress(nextActivity) : "Use it for rest, food, or your own plans."}</p>
             </section>
 
             <section className="rounded-2xl border border-cloud bg-mist p-4">
@@ -1503,7 +1494,7 @@ export function LiveTripClient({
                 </>
               ) : null}
               <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
+                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : backgroundLocationEnabled ? "Location access is ready for Live while Roamly is open." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
               </p>
               {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black leading-6 text-coral">{error}</p> : null}
             </section>
@@ -1561,19 +1552,6 @@ export function LiveTripClient({
 
       <section className="grid gap-3 md:grid-cols-[1fr_0.75fr]">
         <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next</p>
-          <h2 className="mt-2 text-xl font-black text-ink">{nextActivity?.title || "Flexible time"}</h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {nextActivity?.shortDescription || "Use this window for rest, food, or travel buffer."}
-          </p>
-          <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
-            <p>Start: {formatClock(nextStart?.toISOString() || null, timezone, locale)}</p>
-            <p>Address: {primaryAddress(nextActivity)}</p>
-            {model.route.status === "verified" ? <p>Route: {routeCopy(model.route)}</p> : null}
-          </div>
-        </article>
-
-        <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Controls</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
@@ -1604,7 +1582,7 @@ export function LiveTripClient({
         </article>
       </section>
 
-      <section className="grid gap-3">
+      <section className="hidden" aria-hidden="true">
         {liveActivities.slice(0, 6).map((activity) => (
           <article
             key={activity.id}

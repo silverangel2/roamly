@@ -18,7 +18,7 @@ const destinations = [
   { key: "itinerary", label: "Itinerary", suffix: "#day-by-day" },
   { key: "explore", label: "Explore", suffix: "/explore" },
   { key: "bookings", label: "Bookings", suffix: "/bookings" },
-  { key: "today", label: "Today", suffix: "/live" }
+  { key: "today", label: "Live", suffix: "/live" }
 ] as const;
 
 function isSelected(pathname: string, hash: string, tripId: string, key: (typeof destinations)[number]["key"]) {
