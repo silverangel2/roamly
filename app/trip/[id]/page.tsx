@@ -347,6 +347,7 @@ type DisplayTimelineItem = {
   mapQuery: string;
   warning: string;
   role: string;
+  why: string;
   statusText: string;
   authority: "confirmed" | "must_do" | "flexible" | "supporting";
 };
@@ -518,6 +519,7 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
       : costStatus === "UNKNOWN"
         ? "Price not available yet"
         : "";
+    const why = timelineText(record, "why_recommended", "whyRecommended", "selection_reason", "selectionReason", "reason");
 
     if (!title && !description) continue;
     if (!transferLike && title && isGenericStopText(title) && (!location || isGenericStopText(location))) continue;
@@ -539,6 +541,7 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
       mapQuery,
       warning,
       role,
+      why,
       statusText,
       authority
     });
@@ -550,8 +553,13 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
 }
 
 function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
-  const meta = [item.durationLabel, item.travelLabel, item.location].filter(Boolean);
-  const secondary = [item.transferNote ? `Arrival/transfer: ${item.transferNote}` : "", item.description].filter(Boolean);
+  const meta = [item.location].filter(Boolean);
+  const secondary = [
+    item.durationLabel ? `Duration: ${item.durationLabel}` : "",
+    item.travelLabel ? `Travel: ${item.travelLabel}` : "",
+    item.transferNote ? `Arrival/transfer: ${item.transferNote}` : "",
+    item.description
+  ].filter(Boolean);
   const isQuiet = item.authority === "flexible";
   const marker = item.authority === "confirmed" ? "bg-ocean" : item.authority === "must_do" ? "bg-coral" : isQuiet ? "bg-slate-300" : "bg-lagoon";
 
@@ -573,10 +581,11 @@ function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
           {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
           {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
           {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
-          {secondary.length ? (
+          {item.why || secondary.length ? (
             <details className="mt-3 rounded-[0.8rem] bg-[#f8faf8] px-3 py-2">
-              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Timing and notes</summary>
+              <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">{item.why ? "Why this & details" : "Details"}</summary>
               <div className="mt-2 grid gap-1">
+                {item.why ? <p className="text-sm font-semibold leading-6 text-slate-600"><span className="font-black text-ink">Why this:</span> {item.why}</p> : null}
                 {secondary.map((line) => (
                   <p key={line} className="text-sm font-semibold leading-6 text-slate-600">{line}</p>
                 ))}
@@ -651,6 +660,26 @@ function DayTimelineCard({
             <div className="rounded-xl bg-[#f5f7f3] px-4 py-4 text-sm font-semibold leading-6 text-slate-600">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
           )}
         </div>
+
+        {day.alternatives?.length || day.uncertainty?.length ? (
+          <details className="mt-4 rounded-[0.9rem] bg-[#f8faf8] px-3 py-3">
+            <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Planning notes</summary>
+            <div className="mt-2 grid gap-3">
+              {day.alternatives?.length ? (
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Alternatives</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{day.alternatives.slice(0, 3).join(" · ")}</p>
+                </div>
+              ) : null}
+              {day.uncertainty?.length ? (
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Still to confirm</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{day.uncertainty.slice(0, 3).join(" · ")}</p>
+                </div>
+              ) : null}
+            </div>
+          </details>
+        ) : null}
 
         {day.food.length ? (
           <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-3">
@@ -2464,7 +2493,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean">Trip Home</p>
               <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{tripTitle}</h1>
               <p className="mt-1 text-sm font-bold text-slate-600">{destinationLabel} · {formatDateRange(trip, locale)}</p>
-              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{compact(full?.destination_summary || preview?.destination_summary, "Your trip plan, bookings, and next decisions in one place.", 150)}</p>
+              {(full?.destination_summary || preview?.destination_summary) ? (
+                <details className="mt-2 max-w-2xl">
+                  <summary className="min-h-8 cursor-pointer text-sm font-black text-ocean">Trip context</summary>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{compact(full?.destination_summary || preview?.destination_summary, "", 150)}</p>
+                </details>
+              ) : null}
             </div>
             <Badge tone={itineraryLocked ? "ocean" : paidForItinerary || freeAvailable ? "sun" : "coral"}>
               {canShowFull ? "Ready" : itineraryLocked ? "Locked" : generationFailed ? "Needs attention" : generationPanelVisible ? "Building" : paidForItinerary ? "Ready to generate" : freeAvailable ? "Free available" : "Payment required"}
