@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { DynamicDestinationHero } from "@/components/roamly/DynamicDestinationHero";
 
 const journey = [
   ["01", "Dream", "Start with the feeling you want from the trip."],
@@ -11,26 +12,7 @@ const journey = [
 export default function Home() {
   return (
     <main className="safe-bottom overflow-hidden bg-[#f4efe5] text-ink">
-      <section className="relative isolate min-h-[calc(100svh-8rem)] overflow-hidden bg-[#18313c] text-white sm:min-h-[calc(100svh-5.5rem)]">
-        <Image src="https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=2200&q=88" alt="Barcelona rooftops and warm evening light" fill priority sizes="100vw" className="absolute inset-0 -z-20 object-cover object-[58%_center]" />
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(10,28,39,0.9)_0%,rgba(10,28,39,0.62)_44%,rgba(10,28,39,0.14)_100%)]" />
-        <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(10,28,39,0.78)_0%,transparent_42%,rgba(10,28,39,0.28)_100%)]" />
-        <div className="mx-auto flex min-h-[calc(100svh-8rem)] w-full max-w-7xl flex-col justify-between px-5 pb-44 pt-12 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:pb-12 sm:pt-16 lg:px-12">
-          <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9fe6d7]">Roamly · travel planning with intention</p>
-            <h1 className="mt-5 max-w-3xl text-[3.35rem] font-bold leading-[0.91] tracking-[-0.055em] sm:text-6xl lg:text-[5.8rem]">Go somewhere. Roamly the rest.</h1>
-            <p className="mt-6 max-w-lg text-base leading-7 text-white/82 sm:text-lg sm:leading-8">A trip plan shaped around the way you actually want to travel.</p>
-            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-              <Button href="/plan" className="min-h-12 bg-[#f6bd68] px-6 text-ink shadow-[0_12px_30px_rgba(246,189,104,0.24)] hover:bg-[#ffd18b]">Start planning</Button>
-              <Link href="#the-journey" className="inline-flex min-h-11 items-center px-2 py-3 text-sm font-bold text-white/85 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30">See how it comes together <span aria-hidden="true" className="ml-2">↓</span></Link>
-            </div>
-          </div>
-          <div className="mt-14 max-w-2xl border-t border-white/30 pt-4 sm:mt-16 sm:flex sm:items-end sm:justify-between sm:gap-8">
-            <div><p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#9fe6d7]">A sample Roamly trip</p><p className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Barcelona <span className="mx-2 text-white/45">→</span> four days with room to wander</p></div>
-            <p className="mt-3 hidden text-sm font-medium text-white/65 sm:mt-0 sm:block sm:max-w-[12rem]">Illustrative product experience, not live availability.</p>
-          </div>
-        </div>
-      </section>
+      <DynamicDestinationHero />
 
       <section id="the-journey" className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-12">
         <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-20">
