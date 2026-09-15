@@ -897,6 +897,8 @@ assert.ok(stagedGenerator.includes("repairStagedDayForGenerationValidation"), "s
 assert.ok(stagedGenerator.includes("canResumeStagedGeneration"), "staged generation must resume repairable failed day batches");
 
 const stagedGeneratorExports = loadTsModule("lib/roamly/stagedItineraryGeneration.ts");
+const itineraryExports = loadTsModule("lib/itinerary.ts");
+const itineraryValidationExports = loadTsModule("lib/roamly/itineraryValidation.ts");
 const malformedDay3 = stagedGeneratorExports.repairStagedDayForGenerationValidation(
   {
     day_number: 3,
@@ -911,16 +913,16 @@ const malformedDay3 = stagedGeneratorExports.repairStagedDayForGenerationValidat
     map_queries: [],
     live_timeline: [
       {
-        time_label: "9:00 AM",
+        time_label: "",
         title: "Museum anchor",
         description: "Visit the main museum stop.",
         location_name: "Downtown Montreal",
-        estimated_cost: 20,
+        estimated_cost: null,
         category: "Activity",
         map_query: "Downtown Montreal museum"
       },
       {
-        time_label: "9:00 AM",
+        time_label: "",
         title: "Museum anchor",
         description: "Duplicate malformed activity from the model.",
         location_name: "Downtown Montreal",
@@ -957,25 +959,106 @@ const malformedDay3 = stagedGeneratorExports.repairStagedDayForGenerationValidat
     specialNotes: ""
   }
 );
-const toMinutes = (value) => {
-  const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
-  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
-};
-assert.ok(malformedDay3.live_timeline.length >= 4, "malformed Day 3 must be repaired to a full day timeline");
+assert.equal(malformedDay3.live_timeline.length, 1, "sparse Day 3 must remain sparse rather than receive filler activities");
 assert.equal(
   new Set(malformedDay3.live_timeline.map((item) => item.title.toLowerCase())).size,
   malformedDay3.live_timeline.length,
   "repaired Day 3 must not keep duplicate activity titles"
 );
-malformedDay3.live_timeline.forEach((item, index, items) => {
-  const start = toMinutes(item.startTime);
-  const end = toMinutes(item.endTime);
-  assert.ok(start != null && end != null && end > start, `repaired Day 3 item ${index + 1} must have valid start/end times`);
-  if (index > 0) {
-    const previousEnd = toMinutes(items[index - 1].endTime);
-    assert.ok(previousEnd == null || start >= previousEnd, `repaired Day 3 item ${index + 1} must not overlap`);
+const sparseItem = malformedDay3.live_timeline[0];
+assert.equal(sparseItem.startTime, undefined, "sparse item must not receive a fabricated start time");
+assert.equal(sparseItem.endTime, undefined, "sparse item must not receive a fabricated end time");
+assert.equal(sparseItem.durationMinutes, undefined, "sparse item must not receive a fabricated duration");
+assert.equal(sparseItem.estimated_cost, null, "sparse item price must remain UNKNOWN rather than becoming zero");
+assert.equal(malformedDay3.plan_status, "uncertain", "sparse supported content must retain an uncertain plan status");
+
+const protectedItinerary = itineraryExports.repairItineraryForTravelRequirements(
+  {
+    trip_title: "Protected requirements fixture",
+    destination_summary: "Montreal",
+    best_for: [],
+    route_reasoning: "",
+    budget_fit_summary: "",
+    booking_status_summary: "",
+    free_or_low_cost_notes: [],
+    estimated_budget_breakdown: { total_estimate: "", transport: "", lodging: "", activities: "", food: "", buffer: "" },
+    hotel_area_suggestions: [],
+    transport_overview: "",
+    daily_itinerary: [{
+      day_number: 1,
+      date: "2026-08-05",
+      city: "Montreal",
+      title: "A sparse day",
+      morning: "",
+      afternoon: "",
+      evening: "",
+      food: [],
+      estimated_cost: null,
+      map_queries: [],
+      live_timeline: []
+    }],
+    packing_checklist: [],
+    local_tips: [],
+    safety_notes: [],
+    emergency_notes: [],
+    booking_suggestions: [],
+    pre_trip_essentials: [],
+    regenerate_suggestions: []
+  },
+  {
+    destination: "Montreal",
+    startDate: "2026-08-05",
+    endDate: "2026-08-05",
+    daysCount: 1,
+    budgetAmount: 900,
+    budgetCurrency: "CAD",
+    travelStyle: "Balanced",
+    interests: ["Culture"],
+    pace: "Balanced",
+    accommodationPreference: "Mid-range",
+    transportationPreference: "Mixed",
+    specialNotes: "",
+    explicitRequirements: [{ type: "activity", request: "Notre-Dame Basilica", priority: "hard", date: "2026-08-05" }],
+    confirmedBookings: [{ booking_type: "tour", title: "Old Montreal walking tour", provider_name: "Local operator", booking_status: "confirmed", start_date: "2026-08-05" }]
+  }
+);
+const protectedTimeline = protectedItinerary.daily_itinerary[0].live_timeline;
+const protectedBooking = protectedTimeline.find((item) => item.plan_role === "protected_anchor");
+const protectedMustDo = protectedTimeline.find((item) => item.plan_role === "must_do");
+assert.ok(protectedBooking, "confirmed booking must survive as a protected anchor");
+assert.equal(protectedBooking.estimated_cost, null, "confirmed booking with no amount must retain UNKNOWN price");
+assert.ok(protectedMustDo, "hard must-do must survive sparse-day cleanup");
+assert.equal(protectedMustDo.routing_status, "UNCERTAIN", "must-do without route evidence must remain UNCERTAIN");
+assert.equal(protectedMustDo.startTime, undefined, "must-do without timing evidence must remain untimed");
+const protectedValidation = itineraryValidationExports.validateItineraryDeterministically({
+  itinerary: protectedItinerary,
+  payload: {
+    destination: "Montreal",
+    startDate: "2026-08-05",
+    endDate: "2026-08-05",
+    daysCount: 1,
+    budgetAmount: 900,
+    budgetCurrency: "CAD",
+    travelStyle: "Balanced",
+    interests: ["Culture"],
+    pace: "Balanced",
+    accommodationPreference: "Mid-range",
+    transportationPreference: "Mixed",
+    specialNotes: "",
+    explicitRequirements: [{ type: "activity", request: "Notre-Dame Basilica", priority: "hard", date: "2026-08-05" }],
+    confirmedBookings: [{ booking_type: "tour", title: "Old Montreal walking tour", provider_name: "Local operator", booking_status: "confirmed", start_date: "2026-08-05" }]
   }
 });
+assert.equal(
+  protectedValidation.findings.some((finding) => finding.severity === "error" && /low activity|fewer|activity count|no timeline/i.test(finding.message)),
+  false,
+  "a low activity count must not invalidate a truthful sparse day"
+);
+assert.equal(
+  protectedValidation.findings.some((finding) => finding.code === "sparse_day_not_filler" && finding.severity === "error"),
+  false,
+  "truthful sparse-day classification must not be an error"
+);
 assert.equal(
   stagedGeneratorExports.canResumeStagedGeneration({
     version: 2,
