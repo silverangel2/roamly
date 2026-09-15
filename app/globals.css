@@ -81,6 +81,21 @@ select {
   }
 }
 
+@media (max-width: 767px) {
+  *,
+  *::before,
+  *::after {
+    min-width: 0;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+}
+
 .glass-panel {
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(244, 248, 251, 0.72));
   border: 1px solid rgba(233, 241, 247, 0.95);
