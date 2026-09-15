@@ -139,7 +139,7 @@ function AppShellContent({
 
   return (
     <TranslatedTextBoundary>
-      <div className="min-h-dvh bg-[linear-gradient(135deg,#F7FCFF_0%,#FFFFFF_48%,#FFF7EA_100%)] text-ink dark:bg-[linear-gradient(135deg,#07111f_0%,#0f172a_56%,#111827_100%)] dark:text-white">
+      <div className="min-h-dvh bg-[#fbf8ef] text-ink dark:bg-[linear-gradient(135deg,#07111f_0%,#0f172a_56%,#111827_100%)] dark:text-white">
         <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/88">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
@@ -192,7 +192,7 @@ function AppShellContent({
                   </button>
                 </form>
               )}
-              <Link href={planTripHref} className="hidden rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-2 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 sm:inline-flex">
+              <Link href={planTripHref} className="hidden min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-bold text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] transition-colors hover:bg-[#167f8d] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 sm:inline-flex">
                 {planTripLabel}
               </Link>
             </div>
@@ -219,7 +219,7 @@ function AppShellContent({
               href={route.href}
               className={`relative rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
                 isActive(pathname, route.href)
-                  ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
+                  ? "bg-ocean text-white shadow-sm"
                   : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
               }`}
             >
