@@ -1,84 +1,59 @@
 import Image from "next/image";
 import Link from "next/link";
-import { HomepageTravelShowcase } from "@/components/roamly/HomepageTravelShowcase";
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 
 const journey = [
-  ["01", "Shape the trip", "Share where you want to go, when you are going, and what kind of days you enjoy."],
-  ["02", "Make it make sense", "Roamly brings route, pace, budget, bookings, and real travel options into one plan."],
-  ["03", "Take it with you", "Keep the plan, essentials, and confirmed details close when the trip becomes real."]
-];
-
-const destinations = [
-  ["Paris", "France", "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=1200&q=85"],
-  ["Tokyo", "Japan", "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=1200&q=85"],
-  ["Montreal", "Canada", "https://images.unsplash.com/photo-1519178614-68673b201f36?auto=format&fit=crop&w=1200&q=85"]
+  ["01", "Dream", "Start with the feeling you want from the trip."],
+  ["02", "Shape", "Roamly turns dates, pace, interests, and budget into a route."],
+  ["03", "Go", "Keep the decisions, essentials, and next step close."]
 ];
 
 export default function Home() {
   return (
-    <main className="safe-bottom overflow-hidden bg-[#fbf8ef] text-ink">
-      <section className="relative isolate px-4 pb-16 pt-8 sm:px-6 sm:pb-24 sm:pt-14 lg:px-8 lg:pb-28 lg:pt-20">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_12%_16%,rgba(84,214,198,0.18),transparent_30%),radial-gradient(circle_at_88%_10%,rgba(255,184,77,0.18),transparent_28%),linear-gradient(180deg,#f4fbfa_0%,#fbf8ef_62%,#fbf8ef_100%)]" />
-        <div className="mx-auto grid w-full max-w-6xl min-w-0 items-center gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
-          <div className="min-w-0">
-            <p className="roamly-eyebrow">Travel planning, with room to breathe</p>
-            <h1 className="mt-5 max-w-2xl text-[2.75rem] font-bold leading-[0.98] tracking-[-0.045em] text-ink sm:text-6xl lg:text-[4.7rem]">Your whole trip, thoughtfully put together.</h1>
-            <p className="mt-6 w-full max-w-xl min-w-0 break-words text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">Roamly turns a destination and a few good instincts into a practical plan you can actually enjoy—before you go and while you are there.</p>
-            <div className="mt-8 grid gap-3 sm:flex sm:items-center">
-              <Button href="/plan" className="min-h-12 px-6">Start planning</Button>
-              <Link href="#how-it-works" className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold text-ocean transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25">See how Roamly works</Link>
+    <main className="safe-bottom overflow-hidden bg-[#f4efe5] text-ink">
+      <section className="relative isolate min-h-[calc(100svh-8rem)] overflow-hidden bg-[#18313c] text-white sm:min-h-[calc(100svh-5.5rem)]">
+        <Image src="https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=2200&q=88" alt="Barcelona rooftops and warm evening light" fill priority sizes="100vw" className="absolute inset-0 -z-20 object-cover object-[58%_center]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(10,28,39,0.9)_0%,rgba(10,28,39,0.62)_44%,rgba(10,28,39,0.14)_100%)]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(10,28,39,0.78)_0%,transparent_42%,rgba(10,28,39,0.28)_100%)]" />
+        <div className="mx-auto flex min-h-[calc(100svh-8rem)] w-full max-w-7xl flex-col justify-between px-5 pb-44 pt-12 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:pb-12 sm:pt-16 lg:px-12">
+          <div className="max-w-3xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9fe6d7]">Roamly · travel planning with intention</p>
+            <h1 className="mt-5 max-w-3xl text-[3.35rem] font-bold leading-[0.91] tracking-[-0.055em] sm:text-6xl lg:text-[5.8rem]">Go somewhere. Roamly the rest.</h1>
+            <p className="mt-6 max-w-lg text-base leading-7 text-white/82 sm:text-lg sm:leading-8">A trip plan shaped around the way you actually want to travel.</p>
+            <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <Button href="/plan" className="min-h-12 bg-[#f6bd68] px-6 text-ink shadow-[0_12px_30px_rgba(246,189,104,0.24)] hover:bg-[#ffd18b]">Start planning</Button>
+              <Link href="#the-journey" className="inline-flex min-h-11 items-center px-2 py-3 text-sm font-bold text-white/85 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30">See how it comes together <span aria-hidden="true" className="ml-2">↓</span></Link>
             </div>
-            <p className="mt-5 text-sm font-medium text-slate-500">One full itinerary is included per account, for life.</p>
           </div>
-          <HomepageTravelShowcase />
-        </div>
-      </section>
-
-      <section className="border-y border-[#e7dfd2] bg-[#fffdf8] px-4 py-5 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-7 gap-y-2 text-sm font-semibold text-slate-600">
-          <span className="text-ink">A calmer way to travel</span><span>Plan around your real life</span><span>Keep costs in view</span><span>Know what is confirmed</span>
-        </div>
-      </section>
-
-      <section id="how-it-works" className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-        <div className="max-w-2xl">
-          <p className="roamly-eyebrow">From first idea to leaving day</p>
-          <h2 className="mt-4 text-3xl font-bold leading-tight tracking-[-0.035em] text-ink sm:text-5xl">The plan gets clearer as your trip gets closer.</h2>
-          <p className="mt-5 max-w-xl text-base leading-7 text-slate-600">Start with the shape of the trip. Roamly helps connect the decisions that are easy to make separately but difficult to hold together.</p>
-        </div>
-        <div className="mt-10 grid gap-8 border-t border-[#e7dfd2] pt-8 md:grid-cols-3 md:gap-6">
-          {journey.map(([number, title, body]) => (
-            <article key={number} className="max-w-sm">
-              <p className="text-sm font-bold text-ocean">{number}</p><h3 className="mt-4 text-xl font-bold tracking-tight text-ink">{title}</h3><p className="mt-3 text-sm leading-6 text-slate-600">{body}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-ink px-4 py-16 text-white sm:px-6 sm:py-24">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-end">
-          <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-lagoon">Built for real decisions</p><h2 className="mt-4 text-3xl font-bold leading-tight tracking-[-0.035em] sm:text-5xl">Less searching. More knowing what fits.</h2></div>
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="border-l border-white/20 pl-5"><h3 className="text-lg font-bold">A plan with context</h3><p className="mt-2 text-sm leading-6 text-white/70">Your dates, pace, interests, route, budget, and existing bookings belong in the same conversation.</p></div>
-            <div className="border-l border-white/20 pl-5"><h3 className="text-lg font-bold">Honest when details are not</h3><p className="mt-2 text-sm leading-6 text-white/70">Roamly keeps unknown prices, timings, and confirmations visible instead of polishing them into false certainty.</p></div>
+          <div className="mt-14 max-w-2xl border-t border-white/30 pt-4 sm:mt-16 sm:flex sm:items-end sm:justify-between sm:gap-8">
+            <div><p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#9fe6d7]">A sample Roamly trip</p><p className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">Barcelona <span className="mx-2 text-white/45">→</span> four days with room to wander</p></div>
+            <p className="mt-3 hidden text-sm font-medium text-white/65 sm:mt-0 sm:block sm:max-w-[12rem]">Illustrative product experience, not live availability.</p>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div className="max-w-2xl"><p className="roamly-eyebrow">Where will it take you?</p><h2 className="mt-4 text-3xl font-bold leading-tight tracking-[-0.035em] text-ink sm:text-5xl">Begin with somewhere that feels like you.</h2></div><p className="max-w-xs text-sm leading-6 text-slate-600">A destination is only the beginning. The shape of the days is what makes a trip yours.</p></div>
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
-          {destinations.map(([city, country, image]) => (
-            <article key={city} className="group relative min-h-72 overflow-hidden rounded-[1.5rem] border border-[#e7dfd2] bg-[#fffdf8] shadow-[0_10px_28px_rgba(16,32,51,0.05)]"><Image src={image} alt={`${city}, ${country}`} fill sizes="(min-width: 640px) 33vw, 100vw" className="object-cover transition duration-700 group-hover:scale-105" /><div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,32,51,0.02)_25%,rgba(16,32,51,0.78)_100%)]" /><div className="absolute inset-x-0 bottom-0 p-5 text-white"><p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/75">{country}</p><h3 className="mt-1 text-2xl font-bold tracking-tight">{city}</h3></div></article>
-          ))}
+      <section id="the-journey" className="mx-auto w-full max-w-7xl px-5 py-16 sm:px-8 sm:py-24 lg:px-12">
+        <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-center lg:gap-20">
+          <div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#167b86]">The planning moment</p><h2 className="mt-4 max-w-md text-4xl font-bold leading-[0.98] tracking-[-0.045em] text-ink sm:text-5xl">From a feeling to a day you can follow.</h2><p className="mt-5 max-w-sm text-base leading-7 text-slate-600">Roamly keeps the big picture and the small decisions in the same place.</p></div>
+          <div className="relative overflow-hidden rounded-[2rem] bg-[#fffaf1] p-5 shadow-[0_22px_70px_rgba(16,32,51,0.12)] sm:p-8">
+            <div className="flex items-start justify-between gap-4"><div><p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#167b86]">Sample plan · day 02</p><h3 className="mt-2 text-2xl font-bold tracking-tight text-ink sm:text-3xl">A city day with a little give.</h3></div><span className="shrink-0 rounded-full bg-[#e1f3ed] px-3 py-2 text-xs font-bold text-[#167b86]">Barcelona</span></div>
+            <div className="relative mt-8 grid gap-0 sm:grid-cols-[7rem_1fr]">
+              <div className="absolute bottom-5 left-[0.55rem] top-5 w-px bg-[#b8ded4] sm:left-[6.45rem]" />
+              <div className="relative z-10 flex items-center gap-3 py-3 sm:contents"><span className="grid h-5 w-5 place-items-center rounded-full bg-[#4fd1bd] ring-4 ring-[#e1f3ed]" /><span className="text-sm font-bold text-slate-500 sm:py-4">Morning</span><div className="border-b border-[#eadfce] py-3 pl-8 sm:py-4 sm:pl-5"><p className="font-bold text-ink">Market wander</p><p className="mt-1 text-sm text-slate-500">Start gently, close to the day’s center.</p></div></div>
+              <div className="relative z-10 flex items-center gap-3 py-3 sm:contents"><span className="grid h-5 w-5 place-items-center rounded-full bg-[#f6bd68] ring-4 ring-[#fff1d9]" /><span className="text-sm font-bold text-slate-500 sm:py-4">Afternoon</span><div className="border-b border-[#eadfce] py-3 pl-8 sm:py-4 sm:pl-5"><p className="font-bold text-ink">One good plan</p><p className="mt-1 text-sm text-slate-500">A considered stop, with space around it.</p></div></div>
+              <div className="relative z-10 flex items-center gap-3 py-3 sm:contents"><span className="grid h-5 w-5 place-items-center rounded-full bg-[#ef866f] ring-4 ring-[#fce5df]" /><span className="text-sm font-bold text-slate-500 sm:py-4">Evening</span><div className="py-3 pl-8 sm:py-4 sm:pl-5"><p className="font-bold text-ink">Choose your pace</p><p className="mt-1 text-sm text-slate-500">A flexible close, not another obligation.</p></div></div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#eadfce] pt-4 text-xs font-bold text-slate-500"><span>route-aware</span><span>budget-aware</span><span>honest about unknowns</span></div>
+          </div>
         </div>
       </section>
 
-      <section className="px-4 pb-16 sm:px-6 sm:pb-24"><div className="mx-auto grid w-full max-w-6xl gap-8 overflow-hidden rounded-[1.75rem] bg-[#e8f5f1] p-6 sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center"><div className="max-w-2xl"><Badge tone="sun">When the trip begins</Badge><h2 className="mt-4 text-3xl font-bold leading-tight tracking-[-0.035em] text-ink sm:text-4xl">Roamly stays useful after the plan is made.</h2><p className="mt-4 text-sm leading-7 text-slate-700 sm:text-base">Live Companion is a paid premium experience for active-trip guidance, so the right next step stays close when you are moving.</p></div><Link href="/plan" className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#1c334b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ink/25">Build your trip</Link></div></section>
+      <section className="bg-[#18313c] px-5 py-16 text-white sm:px-8 sm:py-20 lg:px-12"><div className="mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-end lg:gap-20"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#9fe6d7]">One trip, held together</p><h2 className="mt-4 max-w-lg text-4xl font-bold leading-[0.98] tracking-[-0.045em] sm:text-5xl">The plan is more than a list of places.</h2></div><div className="grid gap-0 border-t border-white/20 sm:grid-cols-3 sm:border-t-0">{journey.map(([number, title, body], index) => <div key={number} className={`relative border-white/20 py-5 sm:px-5 sm:py-0 ${index > 0 ? "border-t sm:border-l sm:border-t-0" : ""}`}><p className="text-sm font-bold text-[#f6bd68]">{number}</p><h3 className="mt-4 text-xl font-bold">{title}</h3><p className="mt-2 max-w-xs text-sm leading-6 text-white/65">{body}</p></div>)}</div></div></section>
 
-      <footer className="bg-ink px-4 py-9 text-white sm:px-6"><div className="mx-auto flex w-full max-w-6xl flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between"><p className="font-semibold text-white/75">Roamly — travel planning that stays with the trip.</p><div className="flex flex-wrap gap-4 font-semibold"><Link href="/terms" className="text-white/65 hover:text-white">Terms</Link><Link href="/privacy" className="text-white/65 hover:text-white">Privacy</Link><Link href="/contact" className="text-white/65 hover:text-white">Contact</Link></div></div></footer>
+      <section className="relative isolate overflow-hidden px-5 py-16 text-white sm:px-8 sm:py-24 lg:px-12"><Image src="https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?auto=format&fit=crop&w=1800&q=88" alt="Warm evening lights in a lively destination" fill sizes="100vw" className="absolute inset-0 -z-20 object-cover" /><div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(10,28,39,0.9),rgba(10,28,39,0.48),rgba(10,28,39,0.3))]" /><div className="mx-auto grid w-full max-w-7xl gap-10 lg:grid-cols-[1fr_0.8fr] lg:items-center lg:gap-20"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#9fe6d7]">When the trip becomes real</p><h2 className="mt-4 max-w-xl text-4xl font-bold leading-[0.98] tracking-[-0.045em] sm:text-5xl">Roamly comes with you.</h2><p className="mt-5 max-w-md text-base leading-7 text-white/75">Live Companion keeps the next useful thing close when you are already on the move.</p></div><div className="rounded-[1.7rem] border border-white/20 bg-[#102834]/82 p-5 shadow-2xl backdrop-blur-md sm:p-7"><p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#f6bd68]">Illustrative Live view</p><div className="mt-6 border-l border-[#4fd1bd] pl-5"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/55">Now</p><p className="mt-2 text-2xl font-bold">Dinner in the old quarter</p><p className="mt-2 text-sm text-white/65">The next step, without the noise.</p></div><div className="mt-6 border-l border-white/25 pl-5"><p className="text-xs font-bold uppercase tracking-[0.16em] text-white/55">Next</p><p className="mt-2 text-lg font-bold">An evening left open</p></div><p className="mt-7 border-t border-white/15 pt-4 text-xs leading-5 text-white/55">Live Companion is a paid premium experience for active-trip guidance.</p></div></div></section>
+
+      <section className="bg-[#f6bd68] px-5 py-14 text-ink sm:px-8 sm:py-20 lg:px-12"><div className="mx-auto flex w-full max-w-7xl flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#74521f]">Your next somewhere</p><h2 className="mt-3 max-w-2xl text-4xl font-bold leading-[0.98] tracking-[-0.045em] sm:text-5xl">Make room for a trip that feels like yours.</h2></div><div className="shrink-0"><Button href="/plan" className="min-h-12 bg-[#18313c] px-6 text-white hover:bg-[#254d5b]">Start planning</Button><p className="mt-3 text-xs font-semibold text-[#74521f]">One full itinerary included per account, for life.</p></div></div></section>
+      <footer className="bg-[#102834] px-5 py-8 text-white sm:px-8 lg:px-12"><div className="mx-auto flex w-full max-w-7xl flex-col gap-4 text-sm sm:flex-row sm:items-center sm:justify-between"><p className="font-semibold text-white/70">Roamly — travel planning that stays with the trip.</p><div className="flex flex-wrap gap-5 font-semibold text-white/60"><Link href="/terms" className="hover:text-white">Terms</Link><Link href="/privacy" className="hover:text-white">Privacy</Link><Link href="/contact" className="hover:text-white">Contact</Link></div></div></footer>
     </main>
   );
 }
