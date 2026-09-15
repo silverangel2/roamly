@@ -10,6 +10,7 @@ type TripContextNavProps = {
   destination: string;
   dates: string;
   status?: string;
+  showContext?: boolean;
 };
 
 const destinations = [
@@ -26,7 +27,7 @@ function isSelected(pathname: string, hash: string, tripId: string, key: (typeof
   return pathname === `${base}${destinations.find((item) => item.key === key)?.suffix}`;
 }
 
-export function TripContextNav({ tripId, title, destination, dates, status }: TripContextNavProps) {
+export function TripContextNav({ tripId, title, destination, dates, status, showContext = true }: TripContextNavProps) {
   const pathname = usePathname();
   const [hash, setHash] = useState("");
 
@@ -39,14 +40,16 @@ export function TripContextNav({ tripId, title, destination, dates, status }: Tr
 
   return (
     <section className="roamly-no-print mb-5 rounded-2xl border border-[#e8dfd0] bg-white/90 px-3 py-3 shadow-[0_10px_28px_rgba(16,32,51,0.05)] sm:px-4">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black text-ink">{title}</p>
-          <p className="truncate text-xs font-bold text-slate-500">{destination} · {dates}</p>
+      {showContext ? (
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-ink">{title}</p>
+            <p className="truncate text-xs font-bold text-slate-500">{destination} · {dates}</p>
+          </div>
+          {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-black text-slate-600 sm:inline-flex">{status}</span> : null}
         </div>
-        {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-black text-slate-600 sm:inline-flex">{status}</span> : null}
-      </div>
-      <nav aria-label="Trip navigation" className="mt-3 grid grid-cols-4 gap-1 sm:flex sm:gap-2">
+      ) : null}
+      <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}grid grid-cols-4 gap-1 sm:flex sm:gap-2`}>
         {destinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
           const href = `/trip/${tripId}${destinationItem.suffix}`;

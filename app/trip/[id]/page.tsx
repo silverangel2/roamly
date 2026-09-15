@@ -125,6 +125,15 @@ function formatBookingTimestamp(value: unknown, locale = "en") {
   }).format(date);
 }
 
+function isConfirmedBookingSnapshot(booking: Record<string, unknown>) {
+  const status = getString(booking.booking_status || booking.status).toLowerCase();
+  return booking.traveler_confirmed === true || ["confirmed", "booked", "ticketed", "issued"].includes(status);
+}
+
+function bookingSnapshotTitle(booking: Record<string, unknown>) {
+  return getString(booking.title) || getString(booking.booking_type) || "Saved booking";
+}
+
 function bookingDetailText(booking: Record<string, unknown>, locale = "en") {
   const timestamp = formatBookingTimestamp(booking.start_at, locale);
   const legacyDate = getString(booking.start_date);
@@ -2405,6 +2414,22 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const emailConfigured = isEmailConfigured().configured;
   const maskedEmail = maskEmailAddress(current.user.email);
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
+  const confirmedBookingSnapshot = importedBookings.filter((booking) => isConfirmedBookingSnapshot(booking as Record<string, unknown>));
+  const unresolvedBookingSnapshot = importedBookings.filter((booking) => !isConfirmedBookingSnapshot(booking as Record<string, unknown>));
+  const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
+  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay) : [];
+  const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
+  const attentionText = checkoutNeedsAttention
+    ? "Payment returned but still needs confirmation."
+    : generationFailed
+      ? "Generation needs attention."
+      : unresolvedBookingSnapshot.length
+        ? `${bookingSnapshotTitle(unresolvedBookingSnapshot[0] as Record<string, unknown>)} still needs review.`
+        : full?.daily_itinerary.some((day) => day.plan_status === "conflict")
+          ? "One day has a planning conflict to review."
+          : "";
+  const commandNextTitle = focusNextItem?.title || (unresolvedBookingSnapshot[0] ? `Review ${bookingSnapshotTitle(unresolvedBookingSnapshot[0] as Record<string, unknown>)}` : "");
+  const commandNextMeta = focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
 
   if (checkoutNeedsAttention) {
     await recordAppEvent(supabase, {
@@ -2433,40 +2458,49 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
-        <section className="rounded-[1.1rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 shadow-[0_16px_44px_rgba(16,32,51,0.07)] sm:rounded-[1.35rem] sm:p-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="flex flex-wrap items-center gap-2">
-                <Image src="/roamly-wordmark.png" alt="Roamly" width={122} height={50} className="h-8 w-auto object-contain" priority />
-                <span className="rounded-full border border-ocean/20 bg-ocean/5 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-ocean">
-                  Trip itinerary
-                </span>
+        <section className="rounded-[1.1rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 sm:rounded-[1.35rem] sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean">Trip Home</p>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{tripTitle}</h1>
+              <p className="mt-1 text-sm font-bold text-slate-600">{destinationLabel} · {formatDateRange(trip, locale)}</p>
+              <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{compact(full?.destination_summary || preview?.destination_summary, "Your trip plan, bookings, and next decisions in one place.", 150)}</p>
+            </div>
+            <Badge tone={itineraryLocked ? "ocean" : paidForItinerary || freeAvailable ? "sun" : "coral"}>
+              {canShowFull ? "Ready" : itineraryLocked ? "Locked" : generationFailed ? "Needs attention" : generationPanelVisible ? "Building" : paidForItinerary ? "Ready to generate" : freeAvailable ? "Free available" : "Payment required"}
+            </Badge>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {commandNextTitle ? (
+              <div className="rounded-2xl bg-ink px-4 py-4 text-white sm:col-span-2 lg:col-span-2">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/60">Now / next</p>
+                <p className="mt-1 text-lg font-black">{commandNextTitle}</p>
+                {commandNextMeta ? <p className="mt-1 text-sm font-bold text-white/75">{commandNextMeta}</p> : null}
+                {canShowFull ? <a href="#day-by-day" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-white px-4 py-2 text-sm font-black text-ink">Open day plan</a> : null}
               </div>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Badge tone={itineraryLocked ? "ocean" : paidForItinerary || freeAvailable ? "sun" : "coral"}>
-                  {canShowFull
-                    ? "Generated itinerary"
-                    : itineraryLocked
-                      ? "Locked itinerary"
-                    : generationFailed
-                        ? "Generation failed"
-                        : generationPanelVisible
-                          ? "Generating itinerary"
-                        : paidForItinerary
-                          ? "Ready to generate"
-                          : freeAvailable
-                            ? "Free itinerary available"
-                            : "Payment required"}
-                </Badge>
-                {trackingUnlocked ? <Badge tone="ocean">Live Companion</Badge> : null}
+            ) : null}
+            {confirmedBookingSnapshot.length ? (
+              <div className="rounded-2xl border border-ocean/20 bg-ocean/5 px-4 py-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Confirmed</p>
+                <p className="mt-1 text-lg font-black text-ink">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} secured</p>
+                <p className="mt-1 line-clamp-2 text-sm font-bold text-slate-600">{confirmedBookingSnapshot.slice(0, 2).map((booking) => bookingSnapshotTitle(booking as Record<string, unknown>)).join(" · ")}</p>
+                <a href="#bookings" className="mt-3 inline-flex min-h-11 items-center text-sm font-black text-ocean">View bookings →</a>
               </div>
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripTitle}</h1>
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-700 sm:text-base sm:leading-7">
-                {canShowFull
-                  ? full?.destination_summary
-                  : preview?.destination_summary ||
-                    "Review your trip details before generating. Once generated, this itinerary is locked permanently."}
-              </p>
+            ) : null}
+            {attentionText ? (
+              <div className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Attention</p>
+                <p className="mt-1 text-sm font-black leading-5 text-ink">{attentionText}</p>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-600">
+            <span>Budget: {headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain")}</span>
+            <span>{dayCount ? `${dayCount} days` : "Dates flexible"}</span>
+            {trackingUnlocked ? <span className="text-ocean">Live Companion available</span> : null}
+          </div>
               {itineraryLocked ? <NoticeBanner>This itinerary is locked. To make major changes, create a new itinerary.</NoticeBanner> : null}
               {checkoutNeedsAttention ? (
                 <NoticeBanner tone="coral">
@@ -2494,36 +2528,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   apiAuthToken={apiAuthToken}
                 />
               ) : null}
-            </div>
-
-            <div className="grid min-w-0 gap-3 rounded-2xl border border-[#eee5d7] bg-white/80 p-4 sm:min-w-[20rem]">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Destination</p>
-                  <p className="mt-1 text-sm font-black text-ink">{destinationLabel}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Dates</p>
-                  <p className="mt-1 text-sm font-black text-ink">{formatDateRange(trip, locale)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Days</p>
-                  <p className="mt-1 text-sm font-black text-ink">{dayCount ? `${dayCount} days` : "Flexible"}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Budget</p>
-                  <p className="mt-1 text-sm font-black text-ink">{budgetDisplay}</p>
-                </div>
-              </div>
-              <div className="border-t border-[#eee5d7] pt-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Travel style</p>
-                <p className="mt-1 text-sm font-black text-ink">{travelStyle}</p>
-              </div>
-            </div>
-          </div>
 
           {!generationPanelVisible ? (
-            <div className="roamly-no-print mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
+            <div className="roamly-no-print mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
               <PrimaryTripAction
                 tripId={id}
                 itineraryLocked={itineraryLocked}
@@ -2550,6 +2557,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           destination={destinationLabel}
           dates={formatDateRange(trip, locale)}
           status={canShowFull ? "Ready" : itineraryLocked ? "Locked" : "Planning"}
+          showContext={false}
         />
 
         {canShowFull && full && !generationPanelVisible ? (
