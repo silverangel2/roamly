@@ -300,16 +300,6 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TimelineEntry({ label, text }: { label: string; text: string }) {
-  return (
-    <div className="relative pl-8">
-      <span className="absolute left-0 top-1.5 h-4 w-4 rounded-full border-4 border-white bg-lagoon shadow-[0_0_0_1px_rgba(27,154,170,0.25)]" />
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{text}</p>
-    </div>
-  );
-}
-
 function NavigationChipList({ query }: { query: string }) {
   const labels: Record<string, string> = {
     google_maps: "Google Maps",
@@ -347,6 +337,9 @@ type DisplayTimelineItem = {
   transferNote: string;
   mapQuery: string;
   warning: string;
+  role: string;
+  statusText: string;
+  authority: "confirmed" | "must_do" | "flexible" | "supporting";
 };
 
 const genericStopPatterns = [
@@ -501,6 +494,21 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
       isLunch && sortMinutes != null && sortMinutes > 14 * 60
         ? "Late lunch timing. Treat this as an intentional rest or adjust earlier."
         : "";
+    const role = timelineText(record, "plan_role", "role").toLowerCase();
+    const routingStatus = timelineText(record, "routing_status").toUpperCase();
+    const costStatus = timelineText(record, "cost_status").toUpperCase();
+    const authority = role === "protected_anchor" || type === "booking"
+      ? "confirmed"
+      : role === "must_do" || record.must_do === true
+        ? "must_do"
+        : role === "supporting" || role === "alternative" || type === "rest"
+          ? "flexible"
+          : "supporting";
+    const statusText = routingStatus === "UNCERTAIN"
+      ? "Route details to confirm"
+      : costStatus === "UNKNOWN"
+        ? "Price not available yet"
+        : "";
 
     if (!title && !description) continue;
     if (!transferLike && title && isGenericStopText(title) && (!location || isGenericStopText(location))) continue;
@@ -520,7 +528,10 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
       travelLabel: travelMinutes ? `${travelMinutes} min travel` : "",
       transferNote: pendingTransfers.splice(0).join(" / "),
       mapQuery,
-      warning
+      warning,
+      role,
+      statusText,
+      authority
     });
 
     if (output.length >= 6) break;
@@ -532,18 +543,26 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
 function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
   const meta = [item.durationLabel, item.travelLabel, item.location].filter(Boolean);
   const secondary = [item.transferNote ? `Arrival/transfer: ${item.transferNote}` : "", item.description].filter(Boolean);
+  const isQuiet = item.authority === "flexible";
+  const marker = item.authority === "confirmed" ? "bg-ocean" : item.authority === "must_do" ? "bg-coral" : isQuiet ? "bg-slate-300" : "bg-lagoon";
 
   return (
-    <article className="rounded-[1rem] border border-[#e8e2d8] bg-white p-4 shadow-[0_10px_28px_rgba(16,32,51,0.05)] sm:p-5">
-      <div className="grid gap-4 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
-        <div>
-          <p className="text-sm font-black text-ocean">{item.time}</p>
-          <p className="mt-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p>
+    <article className={`relative border-l-2 pl-5 sm:pl-7 ${isQuiet ? "border-slate-200" : item.authority === "confirmed" ? "border-ocean/40" : "border-[#e8dfd0]"}`}>
+      <span className={`absolute -left-[0.42rem] top-1.5 h-3 w-3 rounded-full ring-4 ring-[#fffdf8] ${marker}`} />
+      <div className="grid gap-2 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-4">
+        <div className="flex items-baseline gap-2 sm:block">
+          <p className={`text-sm font-black ${item.time === "Flexible" ? "text-slate-400" : "text-ocean"}`}>{item.time}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p>
         </div>
 
         <div className="min-w-0">
-          <h4 className="text-lg font-black leading-6 text-ink sm:text-xl">{item.title}</h4>
+          <div className="flex flex-wrap items-start gap-2">
+            <h4 className={`text-lg font-black leading-6 ${isQuiet ? "text-slate-700" : "text-ink"} sm:text-xl`}>{item.title}</h4>
+            {item.authority === "confirmed" ? <span className="rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-ocean">Confirmed</span> : null}
+            {item.authority === "must_do" ? <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-coral">Must-do</span> : null}
+          </div>
           {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
+          {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
           {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
           {secondary.length ? (
             <details className="mt-3 rounded-[0.8rem] bg-[#f8faf8] px-3 py-2">
@@ -579,41 +598,48 @@ function DayTimelineCard({
     .filter((item) => item && !isGenericStopText(item))
     .filter((item, index, list) => list.indexOf(item) === index)
     .slice(0, 5);
+  const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];
+  const daySummary = compact(
+    day.primary_plan || day.morning || day.afternoon || day.evening,
+    timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
+    155
+  );
+  const hasUncertainty = Boolean(day.plan_status === "uncertain" || day.uncertainty?.length || timelineItems.some((item) => item.statusText));
 
   return (
     <section
       id={`day-${day.day_number}`}
-      className="roamly-day-print scroll-mt-40 rounded-[1.15rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 shadow-[0_12px_34px_rgba(16,32,51,0.06)] sm:p-6"
+      className="roamly-day-print scroll-mt-40 rounded-[1.15rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 sm:p-6"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
-            Day {day.day_number}
-            {day.city ? ` · ${day.city}` : ""}
-            {day.date ? ` · ${formatTripDate(day.date, locale)}` : ""}
-          </p>
-          <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">{day.title}</h3>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-            {compact(day.morning || day.afternoon || day.evening, "A paced day with the main stops grouped together.", 150)}
-          </p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Day {day.day_number}{day.date ? ` · ${formatTripDate(day.date, locale)}` : ""}</p>
+          <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">{day.title || "Your day"}</h3>
+          {day.city ? <p className="mt-1 text-sm font-bold text-slate-500">{day.city}</p> : null}
         </div>
-        <span className="w-fit rounded-full border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
-          Est. {formatMoney(day.estimated_cost, currency)}
-        </span>
+        {typeof day.estimated_cost === "number" ? <span className="w-fit text-xs font-black text-slate-500">Day estimate · {formatMoney(day.estimated_cost, currency)}</span> : null}
       </div>
 
-      <div className="mt-5 border-t border-[#eee5d7] pt-4">
-        <div className="grid gap-3">
+      <div className="mt-5 grid gap-3 border-y border-[#eee5d7] py-4 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.6fr)] sm:items-start">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">The plan</p>
+          <p className="mt-1 text-base font-bold leading-6 text-ink">{daySummary}</p>
+        </div>
+        <div className="rounded-xl bg-[#f5f7f3] px-3 py-3">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next</p>
+          <p className="mt-1 text-sm font-black leading-5 text-ink">{firstAction ? firstAction.title : "Choose a day when you are ready to plan."}</p>
+          {hasUncertainty ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Some details still need confirmation.</p> : null}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="grid gap-5">
           {timelineItems.length ? (
             timelineItems.map((item, index) => (
               <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} />
             ))
           ) : (
-            <>
-              <TimelineEntry label="Morning" text={day.morning} />
-              <TimelineEntry label="Afternoon" text={day.afternoon} />
-              <TimelineEntry label="Evening" text={day.evening} />
-            </>
+            <div className="rounded-xl bg-[#f5f7f3] px-4 py-4 text-sm font-semibold leading-6 text-slate-600">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
           )}
         </div>
 
@@ -2548,6 +2574,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 .roamly-day-panel{display:none}
                 ${dayNumbersToRender.map((dayNumber) => `
                   #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"]{background:#102033;color:white;border-color:#102033}
+                  #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"] span{color:white}
                   #roamly-day-${dayNumber}:checked ~ .roamly-day-panels .roamly-day-panel-${dayNumber}{display:block}
                 `).join("\n")}
                 @media print{.roamly-tab-panel,.roamly-day-panel{display:block!important}.roamly-tab-nav,.roamly-day-nav{display:none!important}}
@@ -2604,10 +2631,15 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                           <label
                             key={dayNumber}
                             htmlFor={`roamly-day-${dayNumber}`}
-                            className="min-h-11 cursor-pointer rounded-full border border-[#e8dfd0] bg-white px-4 py-3 text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean"
+                            className="flex min-h-14 min-w-[5.5rem] cursor-pointer flex-col justify-center rounded-xl border border-[#e8dfd0] bg-white px-3 py-2 text-left text-xs font-black text-slate-600 transition hover:border-ocean/30 hover:text-ocean sm:min-w-[7rem] sm:px-4"
                           >
-                            Day {dayNumber}
-                            {!canonicalDayByNumber.has(dayNumber) ? generationFailed ? " · Failed" : " · Building" : ""}
+                            <span className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Day {dayNumber}</span>
+                            <span className="mt-0.5 truncate text-sm text-ink">
+                              {canonicalDayByNumber.get(dayNumber)?.date ? formatTripDate(canonicalDayByNumber.get(dayNumber)?.date, locale).replace(/, \d{4}$/, "") : generationDayProgress.find((item) => item.dayNumber === dayNumber)?.date ? formatTripDate(generationDayProgress.find((item) => item.dayNumber === dayNumber)?.date, locale).replace(/, \d{4}$/, "") : "Planning"}
+                            </span>
+                            <span className="truncate text-[10px] font-bold text-slate-400">
+                              {canonicalDayByNumber.get(dayNumber)?.city || (!canonicalDayByNumber.has(dayNumber) ? generationFailed ? "Needs attention" : "Building" : "")}
+                            </span>
                           </label>
                         ))}
                       </div>
