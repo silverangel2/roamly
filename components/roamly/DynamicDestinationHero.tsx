@@ -134,7 +134,7 @@ export function DynamicDestinationHero() {
           <p className="mt-3 hidden text-sm font-medium text-white/65 sm:mt-0 sm:block sm:max-w-[12rem]">Illustrative product experience, not live availability.</p>
         </div>
         <div className="mt-5 flex items-center justify-between gap-4 sm:mt-6 sm:justify-end" aria-label="Destination controls">
-          <span className="text-xs font-semibold text-white/65 sm:hidden">{activeIndex + 1} / {destinations.length}</span>
+          <span key={activeIndex} className="text-xs font-semibold text-white/65 sm:hidden">{activeIndex + 1} / {destinations.length}</span>
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-11 w-11 place-items-center rounded-full border border-white/30 text-lg transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:cursor-wait disabled:opacity-60">←</button>
             <div className="hidden items-center gap-1.5 sm:flex" aria-label={`Destination ${activeIndex + 1} of ${destinations.length}`}>
