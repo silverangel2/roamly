@@ -85,7 +85,7 @@ export type RoamlyActivitySeed = {
   title: string;
   description: string;
   location_name: string;
-  estimated_cost: number;
+  estimated_cost: number | null;
   category: string;
   map_query: string;
   item_type?: "travel" | "transfer" | "hotel" | "activity" | "meal" | "rest" | "booking" | "reminder";
@@ -104,6 +104,12 @@ export type RoamlyActivitySeed = {
     ctaLabel: string;
     disclosureRequired?: boolean;
   };
+  plan_role?: "protected_anchor" | "must_do" | "primary" | "supporting" | "meal" | "rest" | "transition" | "alternative";
+  must_do?: boolean;
+  anchor_id?: string;
+  cost_status?: "CONFIRMED" | "LIVE_SEARCH" | "ESTIMATED" | "UNKNOWN";
+  routing_status?: "FEASIBLE" | "INFEASIBLE" | "UNCERTAIN";
+  uncertainty?: string[];
 };
 
 export type RoamlyBookingCategory = "flight" | "hotel" | "attraction" | "tour" | "transport" | "restaurant" | "car_rental";
@@ -168,9 +174,19 @@ export type RoamlyDayPlan = {
   afternoon: string;
   evening: string;
   food: string[];
-  estimated_cost: number;
+  estimated_cost: number | null;
   map_queries: string[];
   live_timeline: RoamlyActivitySeed[];
+  primary_plan?: string;
+  protected_anchors?: string[];
+  must_do_items?: string[];
+  flexible_items?: string[];
+  meal_opportunities?: string[];
+  rest_windows?: string[];
+  transitions?: string[];
+  alternatives?: string[];
+  uncertainty?: string[];
+  plan_status?: "coherent" | "sparse" | "uncertain" | "conflict";
 };
 
 export type RoamlyItinerary = {
@@ -202,7 +218,7 @@ export type RoamlyPreview = {
     day_number: number;
     title: string;
     activity_preview: string;
-    estimated_cost: number;
+    estimated_cost: number | null;
   }>;
   locked_sections: string[];
 };
@@ -409,15 +425,6 @@ function transportMode(payload: TripPlannerPayload) {
   return "mixed transport";
 }
 
-function travelDurationLabel(payload: TripPlannerPayload) {
-  const option = discoveryRecommendedTransportOption(payload, discoveryTransportOptions(payload));
-  if (option?.duration_label) return option.duration_label;
-  if (typeof option?.estimated_duration_hours === "number" && Number.isFinite(option.estimated_duration_hours)) {
-    return `about ${Math.max(1, Math.round(option.estimated_duration_hours))} hr`;
-  }
-  return "duration varies";
-}
-
 function travelBookingLabel(mode: string) {
   if (mode === "flight" || mode === "mixed transport") return "Check flights";
   if (mode === "train") return "Check train";
@@ -431,7 +438,6 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
   const origin = cleanString(payload.origin || payload.originCity, "Departure city");
   const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
   const mode = transportMode(payload);
-  const duration = travelDurationLabel(payload);
   const crossBorder = detectCrossBorderTrip({
     origin,
     originCountry: payload.originCountry,
@@ -442,77 +448,82 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
 
   return [
     {
-      time_label: "6:30 AM",
+      time_label: "",
       title: `Leave ${origin}`,
       description: mode === "drive" ? "Start the road trip with fuel, documents, parking, and route buffers checked." : "Leave home with enough time for terminal/station arrival, bags, documents, and security.",
       location_name: origin,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Travel",
       map_query: origin,
       item_type: "travel",
       travel_mode: mode,
-      duration: "30-90 min buffer",
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Departure timing and route duration require confirmed travel details."],
       origin,
       destination: mode === "drive" ? destination : `${origin} departure point`,
       booking_label: travelBookingLabel(mode),
       affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
     },
     {
-      time_label: "8:00 AM",
+      time_label: "",
       title: `${mode === "drive" ? "Drive" : "Travel"} to ${destination}`,
       description: `Main ${mode} segment. Verify live timing, baggage rules, transfer points, and current schedule before departure.`,
       location_name: `${origin} to ${destination}`,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Travel",
       map_query: `${origin} to ${destination}`,
       item_type: "travel",
       travel_mode: mode,
-      duration,
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Route duration and departure time are not confirmed."],
       origin,
       destination,
       booking_label: travelBookingLabel(mode),
       affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
     },
     {
-      time_label: "11:30 AM",
+      time_label: "",
       title: `Arrive in ${destination}`,
       description: `${crossBorder ? "Allow immigration/customs time, then " : "Allow arrival buffer, then "}collect bags, orient, and confirm the transfer to your stay.`,
       location_name: destination,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Travel",
       map_query: `${destination} airport station arrivals`,
       item_type: "travel",
       travel_mode: mode,
-      duration: crossBorder ? "60-120 min arrival buffer" : "30-60 min arrival buffer",
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Arrival and border-processing duration are not confirmed."],
       origin,
       destination
     },
     {
-      time_label: "12:30 PM",
+      time_label: "",
       title: "Transfer to hotel area",
       description: "Use the most practical airport/station transfer, rideshare, taxi, or transit route before starting local sightseeing.",
       location_name: destination,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Transfer",
       map_query: `${destination} airport station to hotel transfer`,
       item_type: "transfer",
       travel_mode: "transfer",
-      duration: "30-75 min",
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Transfer mode, duration, and price are not confirmed."],
       origin: `${destination} arrival point`,
       destination: "Hotel area",
       booking_label: "Book transfer",
       affiliate_category: "transport"
     },
     {
-      time_label: "1:30 PM",
+      time_label: "",
       title: "Check in, store bags, and recover",
       description: "Check in if available, store luggage if early, eat lightly, hydrate, and keep the first local activity low-pressure.",
       location_name: "Hotel or accommodation",
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Hotel",
       map_query: `${destination} hotel check in`,
       item_type: "hotel",
-      duration: "60-120 min"
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Check-in availability and recovery time are flexible." ]
     }
   ];
 }
@@ -521,85 +532,90 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
   const origin = cleanString(payload.origin || payload.originCity, "Home");
   const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
   const mode = transportMode(payload);
-  const duration = travelDurationLabel(payload);
   return [
     {
-      time_label: "9:00 AM",
+      time_label: "",
       title: "Hotel checkout and luggage check",
       description: "Check out, settle any charges, store luggage if needed, and confirm return travel timing.",
       location_name: "Hotel or accommodation",
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Hotel",
       map_query: `${destination} hotel checkout`,
       item_type: "hotel",
-      duration: "30-45 min"
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Checkout and luggage timing are not confirmed."]
     },
     {
-      time_label: "10:00 AM",
+      time_label: "",
       title: "Luggage handling and departure documents",
       description: "Store or collect luggage, confirm baggage rules, keep passports or IDs ready, and keep booking confirmations offline.",
       location_name: "Hotel or accommodation",
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Reminder",
       map_query: `${destination} hotel luggage storage`,
       item_type: "reminder",
-      duration: "30-45 min"
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Luggage and departure timing are not confirmed."]
     },
     {
-      time_label: "10:45 AM",
+      time_label: "",
       title: "Transfer to departure point",
       description: "Leave for the airport, train station, bus terminal, ferry port, or road departure point with a practical buffer.",
       location_name: destination,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Transfer",
       map_query: `${destination} hotel to airport station terminal`,
       item_type: "transfer",
       travel_mode: "transfer",
-      duration: "30-90 min",
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Transfer mode, duration, and price are not confirmed."],
       origin: "Hotel area",
       destination: `${destination} departure point`,
       booking_label: "Book transfer",
       affiliate_category: "transport"
     },
     {
-      time_label: "12:00 PM",
+      time_label: "",
       title: `Recommended ${mode} departure buffer`,
       description: mode === "flight" ? "Arrive early enough for check-in, bags, security, and any passport or border checks." : "Arrive early enough for tickets, platform/terminal changes, bags, and route checks.",
       location_name: `${destination} departure point`,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Reminder",
       map_query: `${destination} departure terminal`,
       item_type: "reminder",
       travel_mode: mode,
-      duration: mode === "flight" ? "2-3 hr airport buffer" : "30-90 min buffer"
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Required departure buffer depends on the unconfirmed travel schedule."]
     },
     {
-      time_label: "2:00 PM",
+      time_label: "",
       title: `Return travel to ${origin}`,
       description: `Main return ${mode} segment. Verify live schedule, transfer points, baggage rules, and final arrival time before booking.`,
       location_name: `${destination} to ${origin}`,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Travel",
       map_query: `${destination} to ${origin}`,
       item_type: "travel",
       travel_mode: mode,
-      duration,
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Return route duration and departure time are not confirmed."],
       origin: destination,
       destination: origin,
       booking_label: travelBookingLabel(mode),
       affiliate_category: mode === "flight" || mode === "mixed transport" ? "flight" : "transport"
     },
     {
-      time_label: "6:00 PM",
+      time_label: "",
       title: `Estimated arrival back in ${origin}`,
       description: "End the return journey with a realistic arrival buffer for baggage, border checks, local transport, and getting home.",
       location_name: origin,
-      estimated_cost: 0,
+      estimated_cost: null,
       category: "Travel",
       map_query: `${origin} arrivals ground transport`,
       item_type: "travel",
       travel_mode: mode,
-      duration: "30-90 min arrival buffer",
+      routing_status: "UNCERTAIN",
+      uncertainty: ["Final arrival timing is not confirmed."],
       origin: `${origin} arrival point`,
       destination: origin
     }
@@ -625,21 +641,19 @@ function hasCompleteDepartureStructure(day: RoamlyDayPlan) {
 function localTransferItem(from: RoamlyActivitySeed, to: RoamlyActivitySeed): RoamlyActivitySeed {
   const fromLabel = cleanString(from.location_name || from.title, "Previous stop");
   const toLabel = cleanString(to.location_name || to.title, "Next stop");
-  const durationMinutes = 25;
   return {
     time_label: "Transfer",
     title: `Travel to ${toLabel}`,
     description: "Allow realistic walking, transit, rideshare, traffic, wayfinding, and entry/check-in buffer before the next stop.",
     location_name: `${fromLabel} to ${toLabel}`,
-    estimated_cost: 0,
+    estimated_cost: null,
     category: "Transfer",
     map_query: `${fromLabel} to ${toLabel}`,
     item_type: "transfer",
     travel_mode: "walk/transit",
     transportMode: "walk/transit",
-    duration: "15-45 min",
-    durationMinutes,
-    travelTimeMinutes: durationMinutes,
+    routing_status: "UNCERTAIN",
+    uncertainty: ["Route mode, duration, distance, and price are not confirmed."],
     origin: fromLabel,
     destination: toLabel
   };
@@ -752,11 +766,8 @@ function withChronologicalTimes(items: RoamlyActivitySeed[]) {
   });
 }
 
-function retimeLocalItems(items: RoamlyActivitySeed[], times: string[]) {
-  return items.map((item, index) => ({
-    ...item,
-    time_label: item.time_label && item.time_label !== "9:30 AM" ? item.time_label : times[index] || item.time_label
-  }));
+function retimeLocalItems(items: RoamlyActivitySeed[]) {
+  return items;
 }
 
 function withTransfersBetweenMajorItems(items: RoamlyActivitySeed[]) {
@@ -787,7 +798,9 @@ function withTransfersBetweenMajorItems(items: RoamlyActivitySeed[]) {
           travelTimeMinutes: transfer.travelTimeMinutes,
           transportMode: transfer.transportMode,
           travel_mode: transfer.travel_mode,
-          description: `From ${transfer.origin}: about ${transfer.travelTimeMinutes} min by ${transfer.transportMode}. ${item.description}`.trim()
+          description: `From ${transfer.origin}: route details require confirmation before this stop. ${item.description}`.trim(),
+          routing_status: "UNCERTAIN",
+          uncertainty: Array.from(new Set([...(item.uncertainty || []), "Transfer duration, distance, and mode are not confirmed."]))
         });
         continue;
       }
@@ -797,12 +810,114 @@ function withTransfersBetweenMajorItems(items: RoamlyActivitySeed[]) {
   return withChronologicalTimes(mergeShortTransfersIntoFollowingActivity(output).slice(0, 10));
 }
 
+function hardMustDoRequests(payload: TripPlannerPayload) {
+  const requirements = [
+    ...(payload.explicitRequirements || []),
+    ...(payload.constraints?.activity?.explicitRequestedActivities || []),
+    ...(payload.constraints?.activity?.mustDoActivities || [])
+  ];
+  return requirements.filter((requirement): requirement is Extract<typeof requirement, { type: "activity" }> => requirement.type === "activity" && requirement.priority === "hard");
+}
+
+function normalizedPlanKey(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function protectedBookingItem(booking: NonNullable<TripPlannerPayload["confirmedBookings"]>[number], index: number): RoamlyActivitySeed {
+  const title = cleanString(booking.title, `${cleanString(booking.booking_type, "Confirmed booking")} anchor`);
+  const hasAmount = typeof booking.amount_cents === "number" && Number.isFinite(booking.amount_cents);
+  const timeLabel = cleanString(booking.start_time, "");
+  return {
+    anchor_id: `confirmed-booking-${index + 1}`,
+    plan_role: "protected_anchor",
+    time_label: timeLabel,
+    startTime: cleanString(booking.start_time, "") || undefined,
+    endTime: cleanString(booking.end_time, "") || undefined,
+    title,
+    description: `${cleanString(booking.provider_name, "Confirmed booking")}. Keep this booking fixed; other plans must adapt around it.`,
+    location_name: cleanString(booking.address || booking.city, ""),
+    estimated_cost: hasAmount ? centsToAmount(booking.amount_cents as number) : null,
+    cost_status: hasAmount ? "CONFIRMED" : "UNKNOWN",
+    category: "Booking",
+    map_query: cleanString(booking.address || booking.city || title, title),
+    item_type: "booking",
+    booking_label: "Confirmed booking",
+    uncertainty: hasAmount ? [] : ["Price was not present in the confirmed booking record."],
+    factualStatus: "verified"
+  };
+}
+
+function protectedMustDoItem(request: { request: string; date?: string; time?: string }, index: number): RoamlyActivitySeed {
+  return {
+    anchor_id: `must-do-${index + 1}`,
+    plan_role: "must_do",
+    must_do: true,
+    time_label: cleanString(request.time, ""),
+    startTime: undefined,
+    endTime: undefined,
+    title: request.request,
+    description: "Must-do request retained. Timing, price, availability, and exact location require confirmation.",
+    location_name: "",
+    estimated_cost: null,
+    cost_status: "UNKNOWN",
+    category: "Must-do",
+    map_query: request.request,
+    item_type: "activity",
+    routing_status: "UNCERTAIN",
+    uncertainty: ["Timing, price, availability, and exact location are not confirmed."]
+  };
+}
+
+function protectedItemsForDay(payload: TripPlannerPayload, day: RoamlyDayPlan, dayIndex: number) {
+  const bookings = (payload.confirmedBookings || []).filter((booking) => {
+    const bookingDate = cleanString(booking.start_date, "");
+    return !bookingDate || bookingDate === day.date || (!day.date && dayIndex === 0);
+  });
+  const mustDos = hardMustDoRequests(payload).filter((request) => !request.date || request.date === day.date);
+  return [
+    ...bookings.map((booking, index) => protectedBookingItem(booking, index)),
+    ...mustDos.map((request, index) => protectedMustDoItem(request, index))
+  ];
+}
+
+function sameProtectedItem(left: RoamlyActivitySeed, right: RoamlyActivitySeed) {
+  if (left.anchor_id && right.anchor_id) return left.anchor_id === right.anchor_id;
+  return normalizedPlanKey(left.title) === normalizedPlanKey(right.title);
+}
+
+function annotateDayPlan(day: RoamlyDayPlan, protectedItems: RoamlyActivitySeed[]): RoamlyDayPlan {
+  const timeline = day.live_timeline;
+  const anchors = timeline.filter((item) => item.plan_role === "protected_anchor");
+  const mustDos = timeline.filter((item) => item.plan_role === "must_do" || item.must_do);
+  const meals = timeline.filter((item) => timelineType(item) === "meal");
+  const rest = timeline.filter((item) => timelineType(item) === "rest");
+  const transitions = timeline.filter((item) => timelineType(item) === "transfer" || timelineType(item) === "travel");
+  const hasUnknown = timeline.some((item) => item.routing_status === "UNCERTAIN" || item.cost_status === "UNKNOWN" || (!item.startTime && !item.endTime));
+  const status = mustDos.length || anchors.length ? (hasUnknown ? "uncertain" : "coherent") : timeline.length ? (hasUnknown ? "uncertain" : "coherent") : "sparse";
+  return {
+    ...day,
+    primary_plan: timeline.find((item) => ["primary", "activity"].includes(item.plan_role || "activity") && !["meal", "rest", "transfer", "travel"].includes(timelineType(item)))?.title || undefined,
+    must_do_items: mustDos.map((item) => item.title),
+    flexible_items: timeline.filter((item) => item.plan_role === "supporting" || item.plan_role === "alternative").map((item) => item.title),
+    meal_opportunities: meals.map((item) => item.title),
+    rest_windows: rest.map((item) => item.title),
+    transitions: transitions.map((item) => item.title),
+    uncertainty: Array.from(new Set([
+      ...(day.uncertainty || []),
+      ...timeline.flatMap((item) => item.uncertainty || [])
+    ])),
+    plan_status: status,
+    protected_anchors: Array.from(new Set([...protectedItems.filter((item) => item.plan_role === "protected_anchor").map((item) => item.title), ...anchors.map((item) => item.title)]))
+  };
+}
+
 export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
   const days = itinerary.daily_itinerary.map((day, index, allDays) => {
+    const protectedItems = protectedItemsForDay(payload, day, index);
     let timeline: RoamlyActivitySeed[] = day.live_timeline.map((item) => ({ ...item, item_type: timelineType(item) }));
     if (index === 0 && needsOriginTravel(payload) && !hasArrivalTravel({ ...day, live_timeline: timeline })) {
       const local = timeline.filter((item) => !["travel", "transfer", "hotel"].includes(timelineType(item)));
-      timeline = [...arrivalTravelItems(payload), ...retimeLocalItems(local, ["3:30 PM", "5:30 PM", "7:30 PM"])];
+      timeline = [...arrivalTravelItems(payload), ...retimeLocalItems(local)];
     }
     if (index === allDays.length - 1 && returnTravelRequired(payload) && !hasCompleteDepartureStructure({ ...day, live_timeline: timeline })) {
       const local = timeline
@@ -814,19 +929,33 @@ export function repairItineraryForTravelRequirements(itinerary: RoamlyItinerary,
           );
         })
         .slice(0, 1);
-      timeline = [...retimeLocalItems(local, ["8:00 AM"]), ...departureTravelItems(payload)];
+      timeline = [...retimeLocalItems(local), ...departureTravelItems(payload)];
     }
     timeline = withTransfersBetweenMajorItems(timeline);
-    return {
+    const protectedTimeline = protectedItems.reduce((items, protectedItem) => {
+      const existing = items.findIndex((item) => sameProtectedItem(item, protectedItem));
+      if (existing >= 0) return items.map((item, itemIndex) => itemIndex === existing ? { ...item, ...protectedItem, title: item.title || protectedItem.title } : item);
+      return [...items, protectedItem];
+    }, timeline);
+    return annotateDayPlan({
       ...day,
       title: index === 0 && needsOriginTravel(payload) ? "Travel, arrival, and first easy local stop" : day.title,
       morning: index === 0 && needsOriginTravel(payload) ? "Start with the journey to the destination, arrival buffer, transfer, and luggage/check-in plan before local activities." : day.morning,
       afternoon: index === 0 && needsOriginTravel(payload) ? "After arrival and recovery, keep the first local activity close to the hotel area." : day.afternoon,
       evening: index === allDays.length - 1 && returnTravelRequired(payload) ? "Return travel is prioritized; add only flexible local time before checkout if the schedule allows." : day.evening,
-      live_timeline: timeline
-    };
+      live_timeline: protectedTimeline
+    }, protectedItems);
   });
-  return localizeGeneratedExactText(applyRoamlyItineraryIntelligence({ ...itinerary, daily_itinerary: days }, payload), payload.language) as RoamlyItinerary;
+  const intelligent = applyRoamlyItineraryIntelligence({ ...itinerary, daily_itinerary: days }, payload);
+  const restored = intelligent.daily_itinerary.map((day, index) => {
+    const protectedItems = protectedItemsForDay(payload, day, index);
+    const timeline = [...day.live_timeline];
+    for (const protectedItem of protectedItems) {
+      if (!timeline.some((item) => sameProtectedItem(item, protectedItem))) timeline.push(protectedItem);
+    }
+    return annotateDayPlan({ ...day, live_timeline: timeline }, protectedItems);
+  });
+  return localizeGeneratedExactText({ ...intelligent, daily_itinerary: restored }, payload.language) as RoamlyItinerary;
 }
 
 function timelineHasTransferBetweenMajorItems(day: RoamlyDayPlan) {
@@ -902,7 +1031,9 @@ function timelineChronologyErrors(day: RoamlyDayPlan) {
     const start = parseTimeToMinutes(item.startTime || item.time_label);
     const end = parseTimeToMinutes(item.endTime);
     if (start == null || end == null) {
-      errors.push(`Day ${day.day_number} item ${item.title} is missing structured start/end time.`);
+      if (item.startTime || item.endTime || /\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/i.test(item.time_label || "")) {
+        errors.push(`Day ${day.day_number} item ${item.title} has incomplete structured timing.`);
+      }
       return;
     }
     if (end <= start) errors.push(`Day ${day.day_number} item ${item.title} ends before it starts.`);
@@ -918,7 +1049,6 @@ export function validateItineraryForProduction(itinerary: RoamlyItinerary, paylo
   const finalDay = itinerary.daily_itinerary[itinerary.daily_itinerary.length - 1];
   itinerary.daily_itinerary.forEach((day) => {
     if (!day.live_timeline.length) errors.push(`Day ${day.day_number} has no timeline items.`);
-    if (day.live_timeline.length > 6) errors.push(`Day ${day.day_number} has more than 6 primary timeline items.`);
     errors.push(...timelineChronologyErrors(day));
   });
   if (needsOriginTravel(payload) && (!firstDay || !hasArrivalTravel(firstDay))) {
@@ -2152,16 +2282,16 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
         const mapQueries = cleanList(day.map_queries, [`${payload.destination} ${title}`], 6);
         const liveTimelineRaw = Array.isArray(day.live_timeline) ? day.live_timeline : [];
         const liveTimeline = liveTimelineRaw.length
-          ? liveTimelineRaw.slice(0, 12).map((activity, activityIndex) => {
+          ? liveTimelineRaw.slice(0, 12).map((activity) => {
               const itemRecord = activity && typeof activity === "object" ? (activity as Record<string, unknown>) : {};
               return {
-                time_label: cleanString(itemRecord.time_label, ["9:30 AM", "1:30 PM", "6:30 PM"][activityIndex] || "Anytime"),
+                time_label: cleanString(itemRecord.time_label, ""),
                 startTime: cleanOptionalString(itemRecord.startTime || itemRecord.start_time),
                 endTime: cleanOptionalString(itemRecord.endTime || itemRecord.end_time),
-                title: cleanString(itemRecord.title, `${title} stop`),
-                description: cleanString(itemRecord.description, cleanString(day.morning, "Enjoy this planned stop.")),
-                location_name: cleanString(itemRecord.location_name, payload.destination),
-                estimated_cost: cleanNumber(itemRecord.estimated_cost, 0),
+                title: cleanString(itemRecord.title, ""),
+                description: cleanString(itemRecord.description, ""),
+                location_name: cleanString(itemRecord.location_name, ""),
+                estimated_cost: cleanNullableNumber(itemRecord.estimated_cost),
                 category: cleanString(itemRecord.category, "Activity"),
                 map_query: cleanString(itemRecord.map_query, mapQueries[0] || payload.destination),
                 item_type: cleanTimelineItemType(itemRecord.item_type, itemRecord.category),
@@ -2175,6 +2305,18 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
                 booking_label: cleanOptionalString(itemRecord.booking_label),
                 affiliate_category: cleanTimelineAffiliateCategory(itemRecord.affiliate_category),
                 booking: cleanTimelineBooking(itemRecord.booking)
+                ,plan_role: ["protected_anchor", "must_do", "primary", "supporting", "meal", "rest", "transition", "alternative"].includes(String(itemRecord.plan_role))
+                  ? String(itemRecord.plan_role) as RoamlyActivitySeed["plan_role"]
+                  : undefined,
+                must_do: itemRecord.must_do === true,
+                anchor_id: cleanOptionalString(itemRecord.anchor_id),
+                cost_status: ["CONFIRMED", "LIVE_SEARCH", "ESTIMATED", "UNKNOWN"].includes(String(itemRecord.cost_status))
+                  ? String(itemRecord.cost_status) as RoamlyActivitySeed["cost_status"]
+                  : undefined,
+                routing_status: ["FEASIBLE", "INFEASIBLE", "UNCERTAIN"].includes(String(itemRecord.routing_status))
+                  ? String(itemRecord.routing_status) as RoamlyActivitySeed["routing_status"]
+                  : undefined,
+                uncertainty: cleanList(itemRecord.uncertainty, [], 8)
               };
             })
           : fallback.daily_itinerary[index]?.live_timeline || [];
@@ -2188,9 +2330,21 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
           afternoon: cleanString(day.afternoon, fallback.daily_itinerary[index]?.afternoon || ""),
           evening: cleanString(day.evening, fallback.daily_itinerary[index]?.evening || ""),
           food: cleanList(day.food, fallback.daily_itinerary[index]?.food || [], 5),
-          estimated_cost: cleanNumber(day.estimated_cost, fallback.daily_itinerary[index]?.estimated_cost || 100),
+          estimated_cost: cleanNullableNumber(day.estimated_cost),
           map_queries: mapQueries,
-          live_timeline: liveTimeline
+          live_timeline: liveTimeline,
+          primary_plan: cleanOptionalString(day.primary_plan),
+          protected_anchors: cleanList(day.protected_anchors, [], 8),
+          must_do_items: cleanList(day.must_do_items, [], 8),
+          flexible_items: cleanList(day.flexible_items, [], 8),
+          meal_opportunities: cleanList(day.meal_opportunities, [], 8),
+          rest_windows: cleanList(day.rest_windows, [], 8),
+          transitions: cleanList(day.transitions, [], 8),
+          alternatives: cleanList(day.alternatives, [], 8),
+          uncertainty: cleanList(day.uncertainty, [], 8),
+          plan_status: ["coherent", "sparse", "uncertain", "conflict"].includes(String(day.plan_status))
+            ? String(day.plan_status) as RoamlyDayPlan["plan_status"]
+            : undefined
         };
       })
     : [];

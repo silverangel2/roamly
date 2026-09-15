@@ -17,7 +17,7 @@ import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
-import { searchTripMarketPrices, type TravelMarketCategory, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import { searchTripMarketPrices, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
 import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
 import { rankActivityCandidates } from "@/lib/roamly/activityFeasibility";
@@ -219,9 +219,7 @@ export const STAGED_GENERATION_STAGE_TIMEOUTS_MS = {
   day_batch: DAY_TIMEOUT_MS,
   finalization: 10_000
 } as const;
-const MIN_VALID_DAY_ITEMS = 4;
 const MAX_REPAIRED_DAY_ITEMS = 6;
-const DAY_REPAIR_SLOTS_MINUTES = [9 * 60, 10 * 60 + 45, 12 * 60 + 30, 14 * 60 + 15, 16 * 60, 18 * 60 + 30];
 const NON_RESUMABLE_GENERATION_CODES = new Set([
   "OPENAI_API_KEY_MISSING",
   "AI_QUOTA_EXHAUSTED",
@@ -1061,7 +1059,7 @@ function cleanOutline(raw: unknown, payload: TripPlannerPayload, totalDays: numb
   };
 }
 
-function cleanItem(raw: unknown, fallbackTitle: string): RoamlyActivitySeed {
+function cleanItem(raw: unknown): RoamlyActivitySeed {
   const item = getRecord(raw) || {};
   const type = getString(item.item_type ?? item.itemType, getString(item.category, "activity")).toLowerCase();
   const itemType = (
@@ -1075,15 +1073,17 @@ function cleanItem(raw: unknown, fallbackTitle: string): RoamlyActivitySeed {
     factualStatus: ["verified", "search_ready", "estimated", "unknown", "DISCOVERY_SUGGESTION"].includes(getString(item.factualStatus, ""))
       ? getString(item.factualStatus, "") as RoamlyActivitySeed["factualStatus"]
       : "DISCOVERY_SUGGESTION",
-    time_label: getString(item.time_label ?? item.timeLabel, getString(item.startTime ?? item.start_time, "09:00")),
-    startTime: getString(item.startTime ?? item.start_time, ""),
-    endTime: getString(item.endTime ?? item.end_time, ""),
-    title: getString(item.title, fallbackTitle),
-    description: getString(item.description, "Planned stop."),
+    time_label: getString(item.time_label ?? item.timeLabel, ""),
+    startTime: getString(item.startTime ?? item.start_time, "") || undefined,
+    endTime: getString(item.endTime ?? item.end_time, "") || undefined,
+    title: getString(item.title, ""),
+    description: getString(item.description, ""),
     location_name: getString(item.location_name ?? item.locationName, ""),
-    estimated_cost: getPositiveNumber(item.estimated_cost ?? item.estimatedCost, 0),
+    estimated_cost: typeof (item.estimated_cost ?? item.estimatedCost) === "number"
+      ? (item.estimated_cost ?? item.estimatedCost) as number
+      : null,
     category: getString(item.category, itemType),
-    map_query: getString(item.map_query ?? item.mapQuery, getString(item.location_name ?? item.title, fallbackTitle)),
+    map_query: getString(item.map_query ?? item.mapQuery, getString(item.location_name ?? item.title, "")),
     item_type: itemType,
     travel_mode: getString(item.travel_mode ?? item.travelMode, ""),
     transportMode: getString(item.transportMode ?? item.transport_mode ?? item.travel_mode, ""),
@@ -1105,22 +1105,6 @@ function normalizedTextKey(value: string) {
     .trim();
 }
 
-function formatRepairTime24(totalMinutes: number) {
-  const minutes = Math.max(0, Math.min(Math.round(totalMinutes), 23 * 60 + 59));
-  const hours = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function formatRepairTimeLabel(totalMinutes: number) {
-  const minutes = Math.max(0, Math.min(Math.round(totalMinutes), 23 * 60 + 59));
-  const hours24 = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-  const meridiem = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-  return `${hours12}:${String(minute).padStart(2, "0")} ${meridiem}`;
-}
-
 function stagedItemType(item: RoamlyActivitySeed): NonNullable<RoamlyActivitySeed["item_type"]> {
   const explicit = (item.item_type || "").toLowerCase();
   if (["travel", "transfer", "hotel", "activity", "meal", "rest", "booking", "reminder"].includes(explicit)) {
@@ -1134,68 +1118,6 @@ function stagedItemType(item: RoamlyActivitySeed): NonNullable<RoamlyActivitySee
   if (/\b(rest|recover|buffer|break|downtime)\b/.test(text)) return "rest";
   if (/\b(book|ticket|reserve)\b/.test(text)) return "booking";
   return "activity";
-}
-
-function stagedMarketCandidates(payload: TripPlannerPayload, categories: TravelMarketCategory[], usedTitles = new Set<string>()) {
-  return itineraryMarketResults(payload)
-    .filter((result) => categories.includes(result.category))
-    .filter((result) => result.title && !isGenericPlaceName(result.title))
-    .filter((result) => !usedTitles.has(normalizedTextKey(result.title)));
-}
-
-function marketCandidateItem(
-  result: TravelMarketResult,
-  fallbackCategory: NonNullable<RoamlyActivitySeed["item_type"]>,
-  startMinutes: number,
-  endMinutes: number,
-  payload: TripPlannerPayload,
-  description: string
-): RoamlyActivitySeed {
-  const duration = Math.max(15, endMinutes - startMinutes);
-  const category =
-    result.category === "restaurant"
-      ? "Meal"
-      : result.category === "hotel"
-        ? "Hotel"
-        : result.category === "transport"
-          ? "Transport"
-          : "Activity";
-  return {
-    candidateId: result.id,
-    source: result.provider || result.source,
-    factualStatus: result.price_type === "live_partner" ? "verified" : "search_ready",
-    time_label: formatRepairTimeLabel(startMinutes),
-    startTime: formatRepairTime24(startMinutes),
-    endTime: formatRepairTime24(endMinutes),
-    title: result.title,
-    description,
-    location_name: result.city || result.destination || result.title,
-    estimated_cost: result.price_amount ?? result.price_min ?? 0,
-    category,
-    map_query: `${result.title} ${result.city || result.destination || payload.destination}`,
-    item_type: category === "Meal" ? "meal" : category === "Hotel" ? "hotel" : fallbackCategory,
-    duration: `${duration} min`,
-    durationMinutes: duration
-  };
-}
-
-function priorityOrCandidateTitle(
-  priority: string | undefined,
-  candidates: TravelMarketResult[],
-  usedTitles: Set<string>,
-  fallback: string
-) {
-  const cleanPriority = getString(priority, "");
-  if (cleanPriority && !isGenericPlaceName(cleanPriority)) {
-    usedTitles.add(normalizedTextKey(cleanPriority));
-    return cleanPriority;
-  }
-  const candidate = candidates.find((result) => !usedTitles.has(normalizedTextKey(result.title)));
-  if (candidate) {
-    usedTitles.add(normalizedTextKey(candidate.title));
-    return candidate.title;
-  }
-  return fallback;
 }
 
 function shouldKeepGeneratedItem(item: RoamlyActivitySeed, payload: TripPlannerPayload, hasMarketCandidates: boolean) {
@@ -1214,160 +1136,14 @@ function shouldKeepGeneratedItem(item: RoamlyActivitySeed, payload: TripPlannerP
   return true;
 }
 
-function durationMinutesForRepair(item: RoamlyActivitySeed) {
-  const explicit = item.durationMinutes || item.travelTimeMinutes;
-  if (typeof explicit === "number" && Number.isFinite(explicit) && explicit > 0) {
-    return Math.min(180, Math.max(15, Math.round(explicit)));
-  }
-  const durationText = getString(item.duration, "").toLowerCase();
-  const duration = durationText.match(/(\d{1,3})\s*(min|minute|minutes|hr|hour|hours)/);
-  if (duration) {
-    const amount = Number(duration[1]);
-    const minutes = duration[2].startsWith("h") ? amount * 60 : amount;
-    if (Number.isFinite(minutes) && minutes > 0) return Math.min(180, Math.max(15, Math.round(minutes)));
-  }
-  const type = stagedItemType(item);
-  if (type === "transfer") return 25;
-  if (type === "travel") return 90;
-  if (type === "hotel" || type === "rest") return 45;
-  if (type === "meal") return 75;
-  if (type === "reminder") return 30;
-  return 90;
-}
-
-function repairFillerItems(day: RoamlyDayPlan, outlineDay: StagedTripOutlineDay, payload: TripPlannerPayload): RoamlyActivitySeed[] {
-  const base = getString(outlineDay.geographicArea, getString(day.city, payload.destination));
-  const priorities = outlineDay.priorityActivities.filter((item) => item.trim());
-  const usedTitles = new Set<string>();
-  const activityCandidates = stagedMarketCandidates(payload, ["attraction", "tour"], usedTitles);
-  const restaurantCandidates = stagedMarketCandidates(payload, ["restaurant"], usedTitles);
-  const primary = priorityOrCandidateTitle(priorities[0], activityCandidates, usedTitles, `Search verified places near ${base}`);
-  const secondary = priorityOrCandidateTitle(priorities[1], activityCandidates, usedTitles, `Search a second verified stop near ${base}`);
-  const flexible = priorityOrCandidateTitle(priorities[2], activityCandidates, usedTitles, `Search a flexible evening stop near ${base}`);
-  const lunchCandidate = restaurantCandidates[0];
-  const dinnerCandidate = restaurantCandidates[1];
-  const lunch = lunchCandidate
-    ? marketCandidateItem(
-        lunchCandidate,
-        "meal",
-        12 * 60 + 30,
-        13 * 60 + 45,
-        payload,
-        "Meal stop from retrieved restaurant results; verify hours, reservation terms, and current pricing."
-      )
-    : null;
-  const dinner = dinnerCandidate
-    ? marketCandidateItem(
-        dinnerCandidate,
-        "meal",
-        18 * 60 + 30,
-        20 * 60,
-        payload,
-        "Dinner option from retrieved restaurant results; verify hours, reservation terms, and current pricing."
-      )
-    : null;
-  return [
-    {
-      time_label: "9:00 AM",
-      startTime: "09:00",
-      endTime: "10:30",
-      title: primary,
-      description: `Start with ${primary} in ${base}.`,
-      location_name: base,
-      estimated_cost: 0,
-      category: "Activity",
-      map_query: `${base} ${primary}`,
-      item_type: "activity",
-      duration: "90 min",
-      durationMinutes: 90
-    },
-    lunch || {
-      time_label: "12:30 PM",
-      startTime: "12:30",
-      endTime: "13:45",
-      title: `Search restaurants near ${base}`,
-      description: "Search-only fallback because no verified restaurant result was available. Verify the exact venue before relying on it.",
-      location_name: base,
-      estimated_cost: 25,
-      category: "Meal",
-      map_query: `${base} lunch restaurants`,
-      item_type: "meal",
-      duration: "75 min",
-      durationMinutes: 75
-    },
-    {
-      time_label: "2:15 PM",
-      startTime: "14:15",
-      endTime: "15:45",
-      title: secondary,
-      description: `Continue with ${secondary} without crossing too far from the day's base.`,
-      location_name: base,
-      estimated_cost: 0,
-      category: "Activity",
-      map_query: `${base} ${secondary}`,
-      item_type: "activity",
-      duration: "90 min",
-      durationMinutes: 90
-    },
-    {
-      time_label: "4:00 PM",
-      startTime: "16:00",
-      endTime: "16:45",
-      title: `Intentional rest near ${base}`,
-      description: "Intentional buffer for transit, weather, crowds, or a quick recharge before evening.",
-      location_name: base,
-      estimated_cost: 0,
-      category: "Rest",
-      map_query: `${base} cafe`,
-      item_type: "rest",
-      duration: "45 min",
-      durationMinutes: 45
-    },
-    dinner || {
-      time_label: "6:30 PM",
-      startTime: "18:30",
-      endTime: "20:00",
-      title: flexible,
-      description: `End with a flexible ${outlineDay.theme.toLowerCase()} stop that can be swapped if timing changes.`,
-      location_name: base,
-      estimated_cost: 0,
-      category: "Activity",
-      map_query: `${base} ${flexible}`,
-      item_type: "activity",
-      duration: "90 min",
-      durationMinutes: 90
-    }
-  ];
-}
-
 function repairTimelineSchedule(items: RoamlyActivitySeed[]) {
-  const dayEnd = 23 * 60 + 45;
-  let cursor = 8 * 60;
-  return items.slice(0, MAX_REPAIRED_DAY_ITEMS).map((item, index) => {
+  return items.slice(0, MAX_REPAIRED_DAY_ITEMS).map((item) => {
     const type = stagedItemType(item);
-    const slot = DAY_REPAIR_SLOTS_MINUTES[Math.min(index, DAY_REPAIR_SLOTS_MINUTES.length - 1)] || cursor;
-    const explicitStart = parseTime(item.startTime || item.time_label);
-    const duration = durationMinutesForRepair({ ...item, item_type: type });
-    let start = explicitStart != null && explicitStart >= cursor ? explicitStart : Math.max(cursor, slot);
-    let end = start + duration;
-    if (end > dayEnd) {
-      const compressedDuration = Math.max(15, Math.min(duration, dayEnd - start));
-      if (start + compressedDuration > dayEnd) start = Math.max(cursor, dayEnd - compressedDuration);
-      end = Math.max(start + 15, Math.min(dayEnd, start + compressedDuration));
-    }
-    cursor = end + (type === "transfer" || type === "travel" || type === "reminder" ? 0 : 15);
-    const scheduledDuration = Math.max(15, end - start);
     return {
       ...item,
       item_type: type,
       category: item.category || (type === "meal" ? "Meal" : type === "rest" ? "Rest" : "Activity"),
-      time_label: formatRepairTimeLabel(start),
-      startTime: formatRepairTime24(start),
-      endTime: formatRepairTime24(end),
-      duration: item.duration || `${scheduledDuration} min`,
-      durationMinutes: scheduledDuration,
-      transportMode: item.transportMode || item.travel_mode,
-      travelTimeMinutes: type === "travel" || type === "transfer" ? Math.min(item.travelTimeMinutes || scheduledDuration, scheduledDuration) : item.travelTimeMinutes
+      transportMode: item.transportMode || item.travel_mode
     };
   });
 }
@@ -1380,7 +1156,7 @@ export function repairStagedDayForGenerationValidation(
   const seen = new Set<string>();
   const hasMarketCandidates = itineraryMarketResults(payload).length > 0;
   const deduped = day.live_timeline
-    .map((item, index) => cleanItem(item, `${outlineDay.theme} stop ${index + 1}`))
+    .map((item) => cleanItem(item))
     .filter((item) => shouldKeepGeneratedItem(item, payload, hasMarketCandidates))
     .filter((item) => {
       const key = normalizedTextKey(item.title || item.map_query || item.location_name);
@@ -1389,30 +1165,7 @@ export function repairStagedDayForGenerationValidation(
       return true;
     });
 
-  const filler = repairFillerItems(day, outlineDay, payload).filter((item) => {
-    const key = normalizedTextKey(item.title);
-    return key && !seen.has(key);
-  });
-  const needsMeal = !deduped.some((item) => stagedItemType(item) === "meal");
-  const candidates = [...deduped];
-  if (needsMeal) {
-    const meal = filler.find((item) => stagedItemType(item) === "meal");
-    if (meal) candidates.push(meal);
-  }
-  for (const item of filler) {
-    const key = normalizedTextKey(item.title);
-    if (key && !candidates.some((current) => normalizedTextKey(current.title) === key)) {
-      candidates.push(item);
-    }
-  }
-  const repaired = candidates.slice(0, MAX_REPAIRED_DAY_ITEMS);
-  while (repaired.length < MIN_VALID_DAY_ITEMS) {
-    const next = filler.find((item) => !repaired.some((current) => normalizedTextKey(current.title) === normalizedTextKey(item.title)));
-    if (!next) break;
-    repaired.push(next);
-  }
-
-  const scheduled = repairTimelineSchedule(repaired.length ? repaired : filler);
+  const scheduled = repairTimelineSchedule(deduped);
   const explicitFood = (day.food || []).filter((item) => item && !isGenericPlaceName(item)).slice(0, 3);
   const food = explicitFood.length
     ? explicitFood
@@ -1427,12 +1180,18 @@ export function repairStagedDayForGenerationValidation(
     morning: day.morning || `Start around ${outlineDay.geographicArea || payload.destination}.`,
     afternoon: day.afternoon || `Keep the afternoon clustered near ${outlineDay.geographicArea || payload.destination}.`,
     evening: day.evening || "Finish with a flexible nearby evening plan.",
-    food: food.length ? food : [`Search restaurants near ${outlineDay.geographicArea || payload.destination}`],
-    estimated_cost: day.estimated_cost || scheduled.reduce((sum, item) => sum + (item.estimated_cost || 0), 0),
+    food,
+    estimated_cost: typeof day.estimated_cost === "number"
+      ? day.estimated_cost
+      : scheduled.length && scheduled.every((item) => typeof item.estimated_cost === "number")
+        ? scheduled.reduce((sum, item) => sum + (item.estimated_cost as number), 0)
+        : null,
     map_queries: day.map_queries.length
       ? day.map_queries
       : scheduled.map((item) => item.map_query).filter(Boolean).slice(0, 6),
-    live_timeline: scheduled
+    live_timeline: scheduled,
+    plan_status: scheduled.length ? "uncertain" : "sparse",
+    uncertainty: scheduled.length ? ["Only evidence-backed items are shown; missing timing, price, availability, or routing remains unknown."] : ["No supported itinerary items were returned for this day."]
   };
 }
 
@@ -1450,9 +1209,11 @@ function cleanDay(raw: unknown, outlineDay: StagedTripOutlineDay, payload: TripP
     afternoon: getString(record.afternoon, outlineDay.priorityActivities.slice(1, 3).join(" and ") || title),
     evening: getString(record.evening, "Easy evening near the hotel base."),
     food: getStringList(record.food, [], 4),
-    estimated_cost: getPositiveNumber(record.estimated_cost ?? record.estimatedCost, 0),
+    estimated_cost: typeof (record.estimated_cost ?? record.estimatedCost) === "number"
+      ? (record.estimated_cost ?? record.estimatedCost) as number
+      : null,
     map_queries: getStringList(record.map_queries ?? record.mapQueries, [outlineDay.geographicArea], 6),
-    live_timeline: timelineRaw.slice(0, 9).map((item, index) => cleanItem(item, `${title} stop ${index + 1}`))
+    live_timeline: timelineRaw.slice(0, 9).map((item) => cleanItem(item))
   }, outlineDay, payload);
 }
 

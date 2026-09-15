@@ -32,7 +32,10 @@ export type ItineraryValidationCode =
   | "dependency_mismatch"
   | "hotel_route_inconsistency"
   | "transport_itinerary_inconsistency"
-  | "production_validation";
+  | "production_validation"
+  | "protected_requirement_missing"
+  | "unsupported_precision"
+  | "sparse_day_not_filler";
 
 export type ItineraryValidationSeverity = "info" | "warning" | "error";
 
@@ -121,9 +124,7 @@ function itemStart(item: RoamlyActivitySeed) {
 function itemEnd(item: RoamlyActivitySeed) {
   const explicit = parseClock(item.endTime);
   if (explicit != null) return explicit;
-  const start = itemStart(item);
-  if (start == null) return null;
-  return start + Math.max(15, item.durationMinutes || item.travelTimeMinutes || 60);
+  return null;
 }
 
 function addFinding(findings: ItineraryValidationFinding[], finding: ItineraryValidationFinding) {
@@ -184,6 +185,18 @@ function validateTimeline(day: RoamlyDayPlan, findings: ItineraryValidationFindi
     const end = itemEnd(item);
     const kind = itemKind(item);
     const body = itemText(item);
+
+    if (item.time_label && itemStart(item) == null && /\b\d{1,2}(?::\d{2})?\s*(?:AM|PM)\b/i.test(item.time_label)) {
+      addFinding(findings, {
+        code: "unsupported_precision",
+        severity: "warning",
+        message: `Day ${day.day_number} gives ${item.title} an exact-looking time without structured timing evidence.`,
+        dayNumber: day.day_number,
+        repairable: false,
+        invalidates: scheduleInvalidation(),
+        evidence: { title: item.title, timeLabel: item.time_label }
+      });
+    }
 
     if (start != null && end != null && previous && start < previous.end) {
       addFinding(findings, {
@@ -281,6 +294,17 @@ function validateDayShape(day: RoamlyDayPlan, payload: TripPlannerPayload, findi
   }
 
   const body = dayText(day);
+  if (!day.live_timeline.length) {
+    addFinding(findings, {
+      code: "sparse_day_not_filler",
+      severity: "info",
+      message: `Day ${day.day_number} is intentionally sparse because no supported plan items were returned.`,
+      dayNumber: day.day_number,
+      repairable: false,
+      invalidates: [],
+      evidence: { planStatus: day.plan_status || "sparse" }
+    });
+  }
   const mealItems = day.live_timeline.filter((item) => itemKind(item) === "meal");
   if (!day.food.length && !mealItems.length && !/\bbreakfast|lunch|dinner|meal\b/.test(body)) {
     addFinding(findings, {
@@ -453,6 +477,47 @@ function validateTripWide(itinerary: RoamlyItinerary, payload: TripPlannerPayloa
       evidence: { hotelAreaSuggestions: itinerary.hotel_area_suggestions.slice(0, 3) }
     });
   }
+
+  const confirmedBookings = payload.confirmedBookings || [];
+  confirmedBookings.forEach((booking, index) => {
+    const title = text(booking.title).toLowerCase();
+    const found = itinerary.daily_itinerary.some((day) => day.live_timeline.some((item) =>
+      item.plan_role === "protected_anchor" && (!title || text(item.title).toLowerCase() === title)
+    ));
+    if (!found) {
+      addFinding(findings, {
+        code: "protected_requirement_missing",
+        severity: "error",
+        message: `Confirmed booking ${index + 1} is missing from the itinerary anchors.`,
+        repairable: false,
+        invalidates: scheduleInvalidation(),
+        evidence: { title: booking.title || null, bookingType: booking.booking_type || null }
+      });
+    }
+  });
+
+  const hardMustDos = [
+    ...(payload.explicitRequirements || []),
+    ...(payload.constraints?.activity?.explicitRequestedActivities || []),
+    ...(payload.constraints?.activity?.mustDoActivities || [])
+  ].filter((requirement) => requirement.type === "activity" && requirement.priority === "hard");
+  hardMustDos.filter((requirement) => requirement.type === "activity").forEach((requirement) => {
+    const request = text(requirement.request).toLowerCase();
+    if (!request) return;
+    const found = itinerary.daily_itinerary.some((day) => day.live_timeline.some((item) =>
+      (item.plan_role === "must_do" || item.must_do) && text(item.title).toLowerCase() === request
+    ));
+    if (!found) {
+      addFinding(findings, {
+        code: "protected_requirement_missing",
+        severity: "error",
+        message: `Hard must-do request is missing from the itinerary: ${requirement.request}.`,
+        repairable: false,
+        invalidates: scheduleInvalidation(),
+        evidence: { request: requirement.request }
+      });
+    }
+  });
 }
 
 function validateDependencyVersions(layers: RoamlyGenerationLayer[] | undefined, findings: ItineraryValidationFinding[]) {
