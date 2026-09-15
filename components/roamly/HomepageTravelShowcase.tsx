@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 const photos = [
-  ["Lisbon", "Portugal", "https://images.unsplash.com/photo-1555881400-74d7acaacd8b?auto=format&fit=crop&w=1200&q=85"],
+  ["Barcelona", "Spain", "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?auto=format&fit=crop&w=900&q=85"],
   ["Tokyo", "Japan", "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?auto=format&fit=crop&w=900&q=85"],
   ["Bali", "Indonesia", "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&w=900&q=85"]
 ];
