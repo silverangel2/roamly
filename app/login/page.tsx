@@ -75,7 +75,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </div>
       </section>
 
-      <Card className="mx-auto w-full max-w-md">
+      <Card className="mx-auto min-w-0 w-full max-w-md">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Roamly account</p>
         <h2 className="mt-2 text-2xl font-black text-ink">Log in</h2>
         <div className="mt-5">

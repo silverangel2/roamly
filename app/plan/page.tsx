@@ -56,7 +56,7 @@ export default async function PlanPage() {
           </div>
         </div>
 
-        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} />
+        <div className="min-w-0"><TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} /></div>
       </section>
     </main>
   );

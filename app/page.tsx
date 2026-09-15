@@ -25,7 +25,7 @@ export default function Home() {
           <div className="min-w-0">
             <p className="roamly-eyebrow">Travel planning, with room to breathe</p>
             <h1 className="mt-5 max-w-2xl text-[2.75rem] font-bold leading-[0.98] tracking-[-0.045em] text-ink sm:text-6xl lg:text-[4.7rem]">Your whole trip, thoughtfully put together.</h1>
-            <p className="mt-6 max-w-xl text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">Roamly turns a destination and a few good instincts into a practical plan you can actually enjoy—before you go and while you are there.</p>
+            <p className="mt-6 w-full max-w-xl min-w-0 break-words text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">Roamly turns a destination and a few good instincts into a practical plan you can actually enjoy—before you go and while you are there.</p>
             <div className="mt-8 grid gap-3 sm:flex sm:items-center">
               <Button href="/plan" className="min-h-12 px-6">Start planning</Button>
               <Link href="#how-it-works" className="inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold text-ocean transition-colors hover:bg-white/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25">See how Roamly works</Link>

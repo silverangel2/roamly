@@ -209,7 +209,7 @@ function AppShellContent({
         <RoamlyLocationTracker />
 
         <nav
-          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid gap-1 rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-slate-950/95 ${
+          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-slate-950/95 ${
             authenticated ? "grid-cols-4" : "grid-cols-4"
           }`}
         >
