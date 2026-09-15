@@ -16,6 +16,7 @@ type TripContextNavProps = {
 const destinations = [
   { key: "home", label: "Home", suffix: "" },
   { key: "itinerary", label: "Itinerary", suffix: "#day-by-day" },
+  { key: "explore", label: "Explore", suffix: "/explore" },
   { key: "bookings", label: "Bookings", suffix: "/bookings" },
   { key: "today", label: "Today", suffix: "/live" }
 ] as const;
@@ -49,7 +50,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
           {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-black text-slate-600 sm:inline-flex">{status}</span> : null}
         </div>
       ) : null}
-      <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}grid grid-cols-4 gap-1 sm:flex sm:gap-2`}>
+      <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}grid grid-cols-5 gap-1 sm:flex sm:gap-2`}>
         {destinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
           const href = `/trip/${tripId}${destinationItem.suffix}`;
