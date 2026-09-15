@@ -29,8 +29,8 @@ import { affiliateDisclosure, enrichItineraryBookingSuggestions } from "@/lib/ro
 import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
+import { buildBudgetPresentation } from "@/lib/roamly/budgetPresentation";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
-import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordAppEvent } from "@/lib/roamly/events";
@@ -734,122 +734,78 @@ function BuildingDayCard({
   );
 }
 
-function sourceShortLabel(label?: string) {
-  if (label === "Live price") return "Live";
-  if (label === "Recently searched") return "Recent";
-  if (label === "User uploaded confirmation") return "Uploaded";
-  if (label === "Market estimate") return "Market";
-  if (label === "Conservative estimate") return "Planning";
-  return "Estimate";
-}
-
-function budgetCategoryCards({
-  trip,
-  itinerary,
-  currency
-}: {
-  trip: RoamlyTripRecord;
-  itinerary: RoamlyItinerary;
-  currency: string;
-}) {
-  const estimate = itinerary.estimated_budget_breakdown;
-  const confidence = (category: BudgetCategoryConfidence["category"]) =>
-    estimate.budget_category_confidence?.find((item) => item.category === category);
-  const card = (
-    label: string,
-    amount: number | null | undefined,
-    category: BudgetCategoryConfidence["category"],
-    fallback: string,
-    note?: string
-  ) => {
-    const info = confidence(category);
-    return {
-      label,
-      value: typeof amount === "number" && Number.isFinite(amount) ? formatBudgetMoney(amount, currency) : fallback,
-      source: sourceShortLabel(info?.label),
-      note: note || info?.source || info?.note || ""
-    };
-  };
-
-  return [
-    card("Transport", estimate.selected_transport_estimate_amount, "transport", estimate.transport),
-    card(
-      "Hotel/stay",
-      estimate.selected_hotel_estimate_amount,
-      "hotel",
-      trip.budget_includes_hotel === false ? "Not in budget" : estimate.lodging
-    ),
-    card("Tickets/tours", estimate.tickets_tours_estimate_amount, "tickets_tours", estimate.activities),
-    card("Food", estimate.food_estimate_amount, "food", estimate.food),
-    card("Local movement", estimate.local_transport_estimate_amount, "local_transport", "Verify local transport"),
-    card("Buffer", estimate.buffer_estimate_amount, "buffer", estimate.buffer),
-    estimate.committed_bookings_amount && estimate.committed_bookings_amount > 0
-      ? card("Saved bookings", estimate.committed_bookings_amount, "committed_bookings", "Saved")
-      : null
-  ].filter((item): item is { label: string; value: string; source: string; note: string } => Boolean(item));
-}
-
 function BudgetSummary({
   trip,
   itinerary,
-  currency
+  currency,
+  priceDiscovery,
+  confirmedBookingCount
 }: {
   trip: RoamlyTripRecord;
   itinerary: RoamlyItinerary;
   currency: string;
+  priceDiscovery: Record<string, unknown> | null;
+  confirmedBookingCount: number;
 }) {
   const estimate = itinerary.estimated_budget_breakdown;
   const budgetAmount = getTripBudgetAmount(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
-  const balance = describeBudgetBalanceFromAmounts(budgetAmount, totalEstimateAmount, currency);
-  const total = totalEstimateAmount == null ? estimate.total_estimate : formatBudgetMoney(totalEstimateAmount, currency);
-  const crossBorderBadges = estimate.cross_border
-    ? ["Cross-border trip", "Passport check", estimate.currency_change ? "Currency change" : "", "Border time buffer", "Roaming reminder", "Customs reminder"].filter((label): label is string => Boolean(label))
-    : [];
-  const cards = budgetCategoryCards({ trip, itinerary, currency });
-  const warningTone = estimate.budget_status === "over_budget" ? "border-coral/25 bg-coral/10 text-coral" : "border-ocean/20 bg-ocean/10 text-ocean";
+  const presentation = buildBudgetPresentation({ budgetAmount, currency, totalEstimateAmount, breakdown: estimate, priceDiscovery, confirmedBookingCount });
+  const statusTone = presentation.status === "OVER_BUDGET" ? "border-coral/25 bg-coral/10 text-coral" : presentation.status === "BUDGET_UNCERTAIN" ? "border-sun/30 bg-sun/10 text-amber-900" : "border-ocean/20 bg-ocean/10 text-ocean";
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-[1.15rem] border border-[#e8dfd0] bg-white p-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:p-5">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(16rem,0.55fr)] md:items-end">
+      <section className="rounded-[1.15rem] border border-[#e8dfd0] bg-white p-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:p-5">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Trip budget</p>
+        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Trip estimate</p>
-            <p className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-4xl">{total}</p>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-              Estimates are separated from live or recently retrieved provider data. Refresh before booking.
-            </p>
+            <p className="text-xs font-bold text-slate-500">Your target</p>
+            <p className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{presentation.targetLabel}</p>
           </div>
-          <div className={`rounded-[1rem] border px-4 py-3 text-sm font-black leading-6 ${warningTone}`}>
-            {balance?.text || "Budget target not set. Verify prices before booking."}
+          <div className="sm:text-right">
+            <p className="text-xs font-bold text-slate-500">Known / estimated so far</p>
+            <p className="mt-1 text-2xl font-black tracking-tight text-ink">{presentation.totalLabel}</p>
           </div>
         </div>
-      </div>
+        <div className={`mt-4 rounded-[1rem] border px-4 py-3 ${statusTone}`}>
+          <p className="text-base font-black">{presentation.statusLabel}</p>
+          <p className="mt-1 text-sm font-semibold leading-6">{presentation.statusDetail}</p>
+          {presentation.remainingLabel ? <p className="mt-2 text-sm font-black">{presentation.remainingLabel}</p> : null}
+        </div>
+      </section>
 
-      {crossBorderBadges.length ? (
-        <div className="flex flex-wrap gap-2 rounded-[1.15rem] border border-sun/30 bg-sun/10 px-4 py-3">
-          {crossBorderBadges.filter(Boolean).filter(Boolean).map((label) => (
-            <span key={label} className="rounded-full border border-sun/30 bg-white/75 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">
-              {label}
-            </span>
-          ))}
-        </div>
+      {presentation.committedCount || presentation.uncertainty.length ? (
+        <section className="grid gap-3 sm:grid-cols-2">
+          {presentation.committedCount ? (
+            <div className="border-b border-[#e8dfd0] pb-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Already committed</p>
+              <p className="mt-1 text-sm font-bold text-slate-700">{presentation.committedCount} confirmed {presentation.committedCount === 1 ? "booking" : "bookings"} stay protected.</p>
+            </div>
+          ) : null}
+          {presentation.uncertainty.length ? (
+            <div className="border-b border-[#e8dfd0] pb-3">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Not priced yet</p>
+              {presentation.uncertainty.map((item) => <p key={item} className="mt-1 text-sm font-bold text-slate-700">{item}</p>)}
+            </div>
+          ) : null}
+        </section>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((row) => (
-          <article key={row.label} className="rounded-[1rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_10px_28px_rgba(16,32,51,0.04)]">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm font-black text-ink">{row.label}</p>
-              <span className="rounded-full border border-ocean/15 bg-ocean/5 px-2 py-1 text-[0.65rem] font-black uppercase tracking-[0.08em] text-ocean">
-                {row.source}
-              </span>
+      <details className="border-y border-[#e8dfd0] py-3">
+        <summary className="min-h-11 cursor-pointer text-base font-black text-ocean">See cost drivers</summary>
+        <div className="mt-3 divide-y divide-[#e8dfd0]">
+          {presentation.costDrivers.map((row) => (
+            <div key={row.label} className="flex items-center justify-between gap-4 py-3">
+              <div>
+                <p className="text-sm font-black text-ink">{row.label}</p>
+                <p className="text-xs font-bold text-slate-500">{row.status === "committed" ? "Committed" : row.status === "unknown" ? "Not priced yet" : "Expected"}</p>
+              </div>
+              <p className="text-sm font-black text-ink">{row.value}</p>
             </div>
-            <p className="mt-2 text-xl font-black tracking-tight text-ink">{row.value}</p>
-            {row.note ? <p className="mt-2 line-clamp-2 text-xs font-bold leading-5 text-slate-500">{row.note}</p> : null}
-          </article>
-        ))}
-      </div>
+          ))}
+          {!presentation.costDrivers.length ? <p className="py-3 text-sm font-bold text-slate-500">No category-level costs are available yet.</p> : null}
+        </div>
+      </details>
     </div>
   );
 }
@@ -2726,8 +2682,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 </section>
 
                 <section id="budget" className="roamly-tab-panel roamly-panel-budget mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Budget" title="Budget" summary="A concise category summary with one total." />
-                  <BudgetSummary trip={trip} itinerary={full} currency={currency} />
+                  <SectionHeading eyebrow="Budget" title="Budget" summary="See what is committed, expected, and still uncertain." />
+                  <BudgetSummary
+                    trip={trip}
+                    itinerary={full}
+                    currency={currency}
+                    priceDiscovery={persistedPriceDiscovery}
+                    confirmedBookingCount={confirmedBookingSnapshot.length}
+                  />
                 </section>
 
                 <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">
