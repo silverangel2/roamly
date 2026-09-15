@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/lib/roamly/bookingWallet";
-import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking } from "@/lib/roamly/bookingWallet";
+import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking } from "@/lib/roamly/bookingWallet";
 import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 
 type BookingWalletTimelineProps = {
@@ -12,23 +12,31 @@ type BookingWalletTimelineProps = {
   locale: RoamlyLocale;
 };
 
-const statusCopy: Record<TripBookingStatus, string> = {
-  recommended: "Recommended",
-  clicked: "Clicked",
-  detected: "Detected",
-  needs_confirmation: "Review",
-  confirmed: "Confirmed",
-  modified: "Updated",
-  cancelled: "Cancelled",
-  refunded: "Refunded",
-  completed: "Completed"
-};
-
 function statusClass(status: TripBookingStatus) {
   if (status === "confirmed" || status === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (status === "modified" || status === "detected" || status === "needs_confirmation") return "border-amber-200 bg-amber-50 text-amber-800";
   if (status === "cancelled" || status === "refunded") return "border-rose-200 bg-rose-50 text-rose-800";
   return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function customerStatus(booking: TripBookingRecord) {
+  if (isConfirmedBooking(booking)) return booking.booking_status === "modified" ? "Confirmed · updated" : booking.booking_status === "completed" ? "Completed" : "Confirmed";
+  if (booking.booking_status === "needs_confirmation" || booking.booking_status === "detected") return "Action needed";
+  if (booking.booking_status === "cancelled" || booking.booking_status === "refunded") return "No longer active";
+  if (booking.booking_status === "clicked" || booking.booking_status === "recommended") return "Planned · not confirmed";
+  return "Details not confirmed";
+}
+
+function bookingCategory(type: TripBookingType) {
+  if (["flight", "train", "bus", "ferry"].includes(type)) return "Getting there";
+  if (type === "hotel") return "Stay";
+  if (["activity", "restaurant", "insurance"].includes(type)) return "Activities and reservations";
+  if (["transfer", "rental_car"].includes(type)) return "Getting around";
+  return "Other travel details";
+}
+
+function bookingCategoryOrder(title: string) {
+  return ["Getting there", "Stay", "Activities and reservations", "Getting around", "Other travel details"].indexOf(title);
 }
 
 function iconPath(type: TripBookingType) {
@@ -81,6 +89,10 @@ function primaryDetail(booking: TripBookingRecord, locale: RoamlyLocale) {
   return formatDateTime(booking.start_time || booking.check_in_time, locale);
 }
 
+function essentialReference(booking: TripBookingRecord) {
+  return booking.confirmation_code || booking.flight_number || "";
+}
+
 function money(booking: TripBookingRecord, locale: RoamlyLocale) {
   if (booking.total_price == null || !booking.currency) return null;
   return formatRoamlyCurrency(booking.total_price, booking.currency, locale, { maximumFractionDigits: 0 });
@@ -117,34 +129,29 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
+  const actionNeeded = activeBookings.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected");
+  const groups = Array.from(new Set(activeBookings.map((booking) => bookingCategory(booking.booking_type))))
+    .sort((left, right) => bookingCategoryOrder(left) - bookingCategoryOrder(right))
+    .map((title) => ({ title, bookings: activeBookings.filter((booking) => bookingCategory(booking.booking_type) === title) }));
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
-      <section className="rounded-[1.15rem] border border-slate-200 bg-white p-5 shadow-[0_16px_42px_rgba(15,23,42,0.07)] sm:p-7">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-black text-ocean">Bookings</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripTitle}</h1>
-            <p className="mt-2 text-base font-semibold text-slate-600">{destinationLabel}</p>
+      <section className="bg-[#fbf8ef]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Bookings</p>
+            <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{tripTitle}</h1>
+            <p className="mt-1 text-sm font-bold text-slate-600">{destinationLabel}</p>
           </div>
-          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
+          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">
             Add booking
           </Link>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-bold text-slate-500">Trip status</p>
-            <p className="mt-1 text-xl font-black text-ink">{summary.needsConfirmation ? "Review needed" : summary.confirmed ? "Organized" : "No bookings yet"}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-bold text-slate-500">Confirmed</p>
-            <p className="mt-1 text-xl font-black text-ink">{summary.confirmed}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-bold text-slate-500">Companion</p>
-            <p className="mt-1 text-xl font-black text-ink">{companionUnlocked ? "On" : "Available"}</p>
-          </div>
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-y border-[#e8dfd0] py-3 text-sm font-bold text-slate-600">
+          <span>{summary.confirmed} confirmed</span>
+          <span>{actionNeeded.length ? `${actionNeeded.length} to review` : "Nothing needs review"}</span>
+          <span>{companionUnlocked ? "Live Companion available" : "Live Companion not active"}</span>
         </div>
       </section>
 
@@ -155,13 +162,24 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
         <Link href={`/trip/${tripId}/companion`} className={navLinkClass(false)}>Companion</Link>
       </nav>
 
+      {actionNeeded.length ? (
+        <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Action needed</p>
+          <p className="mt-1 text-base font-black text-ink">Review {actionNeeded.length === 1 ? actionNeeded[0].title : `${actionNeeded.length} booking details`}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">These details were found but are not confirmed for travel yet.</p>
+        </section>
+      ) : null}
+
       {next ? (
-        <section className="mt-4 rounded-[1.15rem] border border-ocean/20 bg-ocean/10 p-5">
-          <p className="text-sm font-black text-ocean">Next</p>
+        <section className="mt-5 border-b border-[#e8dfd0] pb-5">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next booking</p>
           <div className="mt-3 flex items-start gap-3">
             <BookingIcon type={next.booking_type} />
             <div className="min-w-0">
-              <h2 className="text-2xl font-black text-ink">{next.title}</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-black text-ink">{next.title}</h2>
+                <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(next.booking_status)}`}>{customerStatus(next)}</span>
+              </div>
               <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(next)}</p>
               <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(next, locale)}</p>
             </div>
@@ -169,60 +187,56 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
         </section>
       ) : null}
 
-      <section className="mt-5">
-        {activeBookings.length ? (
-          <div className="grid gap-3">
-            {activeBookings.map((booking) => {
-              const rows = detailRows(booking, locale);
-              return (
-                <article key={booking.id} className="rounded-[1.1rem] border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
-                  <div className="flex items-start gap-3">
-                    <BookingIcon type={booking.booking_type} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <h3 className="truncate text-lg font-black text-ink">{booking.provider || booking.title}</h3>
-                          <p className="mt-1 text-base font-black text-slate-700">{routeLine(booking)}</p>
-                          <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
+      <section className="mt-6">
+        {groups.length ? groups.map((group) => (
+          <section key={group.title} className="mb-7">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-xl font-black tracking-tight text-ink">{group.title}</h2>
+              <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{group.bookings.length}</span>
+            </div>
+            <div className="mt-2 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
+              {group.bookings.map((booking) => {
+                const rows = detailRows(booking, locale);
+                const reference = essentialReference(booking);
+                return (
+                  <article key={booking.id} className="py-4">
+                    <div className="flex items-start gap-3">
+                      <BookingIcon type={booking.booking_type} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <h3 className="text-base font-black text-ink">{booking.title || booking.provider || "Booking"}</h3>
+                            <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(booking)}</p>
+                            <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
+                            {reference ? <p className="mt-1 text-xs font-black text-slate-500">Reference: {reference}</p> : null}
+                          </div>
+                          <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(booking.booking_status)}`}>
+                            {customerStatus(booking)}
+                          </span>
                         </div>
-                        <span className={`inline-flex w-fit rounded-full border px-3 py-1 text-sm font-black ${statusClass(booking.booking_status)}`}>
-                          {statusCopy[booking.booking_status]}
-                        </span>
+                        {rows.length ? (
+                          <details className="mt-3">
+                            <summary className="min-h-11 cursor-pointer text-sm font-black text-ocean">More details</summary>
+                            <div className="mt-2 grid gap-1 text-sm font-bold text-slate-600 sm:grid-cols-2">
+                              {rows.filter(([label]) => label !== "Confirmation" && label !== "Flight").map(([label, value]) => <p key={label}>{label}: {value}</p>)}
+                            </div>
+                          </details>
+                        ) : null}
                       </div>
-                      <details className="mt-3">
-                        <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-ink">
-                          View details
-                        </summary>
-                        <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 sm:grid-cols-2">
-                          {rows.length ? rows.map(([label, value]) => (
-                            <p key={label} className="rounded-2xl bg-slate-50 px-3 py-2">
-                              <span className="block text-slate-400">{label}</span>
-                              <span className="text-ink">{value}</span>
-                            </p>
-                          )) : (
-                            <p className="rounded-2xl bg-slate-50 px-3 py-2">No extra details saved.</p>
-                          )}
-                        </div>
-                      </details>
                     </div>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-[1.1rem] border border-dashed border-slate-300 bg-white p-6 text-center">
-            <h2 className="text-2xl font-black text-ink">No bookings yet</h2>
-            <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
-              Add flights, hotels, tickets, and reservations when you book them.
-            </p>
-            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white">
-              Add booking
-            </Link>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )) : (
+          <div className="border-y border-dashed border-[#e8dfd0] py-6">
+            <h2 className="text-xl font-black text-ink">Nothing booked yet</h2>
+            <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-600">When you book a flight, stay, ticket, or reservation, add it here so the important details are ready when you travel.</p>
+            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">Add booking</Link>
           </div>
         )}
       </section>
-
     </div>
   );
 }

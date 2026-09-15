@@ -191,7 +191,7 @@ assert.ok(tripBookingsPage.includes("BookingWalletTimeline"), "trip booking wall
 assert.ok(tripBookingsPage.includes("legacyRoamlyBookingToWallet"), "trip booking wallet page must preserve existing imported booking compatibility");
 
 const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.tsx");
-["Add booking", "View details", "Today", "Trip", "Bookings", "Companion"].forEach((needle) =>
+["Add booking", "More details", "Nothing needs review", "Today", "Trip", "Bookings", "Companion", "customerStatus", "bookingCategory"].forEach((needle) =>
   assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline missing ${needle}`)
 );
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are configured");

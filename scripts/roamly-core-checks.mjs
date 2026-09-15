@@ -2532,15 +2532,18 @@ const bookingWalletPage = read("app/trip/[id]/bookings/page.tsx");
 const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.tsx");
 [
   "Add booking",
-  "View details",
-  "Trip status",
+  "More details",
+  "Nothing needs review",
   "Next",
   "Today",
   "Trip",
   "Bookings",
   "Companion",
-  "No bookings yet",
-  "statusCopy",
+  "Nothing booked yet",
+  "customerStatus",
+  "bookingCategory",
+  "Action needed",
+  "Planned · not confirmed",
   "BookingIcon"
 ].forEach((needle) => assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline UI missing ${needle}`));
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are wired");
