@@ -1,7 +1,6 @@
 "use client";
 
 import Image, { type StaticImageData } from "next/image";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
@@ -113,34 +112,26 @@ export function DynamicDestinationHero() {
     <section data-active-destination={active.name} className="relative isolate min-h-[calc(100svh-8rem)] overflow-hidden bg-[#18313c] text-white sm:min-h-[calc(100svh-5.5rem)]">
       <Image src={active.image} alt={active.alt} fill priority sizes="100vw" className="absolute inset-0 -z-20 object-cover" style={{ objectPosition: active.desktopPosition }} />
       <Image src={incoming.image} alt="" fill sizes="100vw" aria-hidden="true" className={`absolute inset-0 -z-20 object-cover transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(10,28,39,0.9)_0%,rgba(10,28,39,0.62)_44%,rgba(10,28,39,0.14)_100%)]" />
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(10,28,39,0.78)_0%,transparent_42%,rgba(10,28,39,0.28)_100%)]" />
-      <div className="mx-auto flex min-h-[calc(100svh-8rem)] w-full max-w-7xl flex-col justify-between px-5 pb-44 pt-12 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:pb-12 sm:pt-16 lg:px-12">
-        <div className="max-w-3xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#9fe6d7]">Roamly · travel planning with intention</p>
-          <h1 className="mt-5 max-w-3xl text-[3.35rem] font-bold leading-[0.91] tracking-[-0.055em] sm:text-6xl lg:text-[5.8rem]">Go somewhere. Roamly the rest.</h1>
-          <p className="mt-6 max-w-lg text-base leading-7 text-white/82 sm:text-lg sm:leading-8">A trip plan shaped around the way you actually want to travel.</p>
-          <div className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(8,27,35,0.62)_0%,rgba(8,27,35,0.26)_34%,rgba(8,27,35,0.04)_70%,transparent_100%)]" />
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(0deg,rgba(8,27,35,0.68)_0%,rgba(8,27,35,0.16)_35%,transparent_72%)]" />
+      <div className="mx-auto flex min-h-[calc(100svh-8rem)] w-full max-w-7xl flex-col px-5 pb-28 pt-8 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:pb-10 sm:pt-12 lg:px-12">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#d2f3ea]">Roamly · travel planning with intention</p>
+        <div className="mt-auto max-w-[34rem] pb-8 sm:pb-10">
+          <h1 className="max-w-[25rem] text-[3rem] font-semibold leading-[0.94] tracking-[-0.05em] sm:text-6xl lg:max-w-[31rem] lg:text-[4.35rem]">Go somewhere. Roamly the rest.</h1>
+          <p className="mt-5 max-w-md text-base leading-7 text-white/88 sm:text-lg sm:leading-8">A trip plan shaped around the way you actually want to travel.</p>
+          <div className="mt-7">
             <Button href="/plan" className="min-h-12 bg-[#f6bd68] px-6 text-ink shadow-[0_12px_30px_rgba(246,189,104,0.24)] hover:bg-[#ffd18b]">Start planning</Button>
-            <Link href="#the-journey" className="inline-flex min-h-11 items-center px-2 py-3 text-sm font-bold text-white/85 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30">See how it comes together <span aria-hidden="true" className="ml-2">↓</span></Link>
           </div>
         </div>
-        <div className="mt-14 max-w-2xl border-t border-white/30 pt-4 sm:mt-16 sm:flex sm:items-end sm:justify-between sm:gap-8">
-          <div key={active.name}>
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.18em] text-[#9fe6d7]" aria-live="polite">A sample Roamly trip</p>
-            <p className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">{active.name} <span className="mx-2 text-white/45">→</span> room to wander</p>
-            <p className="mt-1 text-sm text-white/65">{active.country}</p>
+        <div className="flex items-center justify-between gap-4 border-t border-white/35 pt-4" aria-label="Destination controls">
+          <div key={active.name} className="min-w-0" aria-live="polite">
+            <p className="truncate text-lg font-semibold tracking-tight sm:text-xl">{active.name}</p>
+            <p className="mt-0.5 truncate text-sm text-white/70">{active.country}</p>
           </div>
-          <p className="mt-3 hidden text-sm font-medium text-white/65 sm:mt-0 sm:block sm:max-w-[12rem]">Illustrative product experience, not live availability.</p>
-        </div>
-        <div className="mt-5 flex items-center justify-between gap-4 sm:mt-6 sm:justify-end" aria-label="Destination controls">
-          <span key={activeIndex} className="text-xs font-semibold text-white/65 sm:hidden">{activeIndex + 1} / {destinations.length}</span>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-11 w-11 place-items-center rounded-full border border-white/30 text-lg transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:cursor-wait disabled:opacity-60">←</button>
-            <div className="hidden items-center gap-1.5 sm:flex" aria-label={`Destination ${activeIndex + 1} of ${destinations.length}`}>
-              {destinations.map((destination, index) => <span key={destination.name} className={`h-1.5 rounded-full transition-all ${index === activeIndex ? "w-7 bg-[#f6bd68]" : "w-1.5 bg-white/50"}`} aria-hidden="true" />)}
-            </div>
-            <button type="button" onClick={() => move(1)} disabled={transitioning} aria-label="Next destination" className="grid h-11 w-11 place-items-center rounded-full border border-white/30 text-lg transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:cursor-wait disabled:opacity-60">→</button>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="hidden text-xs font-semibold tabular-nums text-white/70 sm:inline">{String(activeIndex + 1).padStart(2, "0")} / {String(destinations.length).padStart(2, "0")}</span>
+            <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-lg transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:cursor-wait disabled:opacity-60">←</button>
+            <button type="button" onClick={() => move(1)} disabled={transitioning} aria-label="Next destination" className="grid h-11 w-11 place-items-center rounded-full border border-white/35 text-lg transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30 disabled:cursor-wait disabled:opacity-60">→</button>
           </div>
         </div>
       </div>
