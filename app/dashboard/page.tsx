@@ -60,7 +60,7 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
       </div>
       <div className="mt-4">
         <Button href={href} className="w-full">
-          {hasTracking ? "Open companion" : locked ? "Open itinerary" : "Open trip"}
+          {hasTracking ? "Open Live" : locked ? "Open plan" : "Open trip"}
         </Button>
         <DeleteTripButton
           tripId={trip.id}
@@ -135,7 +135,7 @@ export default async function DashboardPage() {
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button href={activeNow ? `/trip/${activeNow.id}/live` : `/trip/${primaryTrip.id}`}>
-              {activeNow ? "Open today" : isTripLocked(primaryTrip) ? "Open itinerary" : "Continue trip"}
+              {activeNow ? "Open Live" : isTripLocked(primaryTrip) ? "Open plan" : "Continue trip"}
             </Button>
             <Button href="/plan" tone="ghost">Plan another trip</Button>
           </div>

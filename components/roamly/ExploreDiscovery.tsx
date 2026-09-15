@@ -3,15 +3,9 @@ import type { ExploreCandidate } from "@/lib/roamly/exploreViewModel";
 
 export function ExploreDiscovery({
   tripId,
-  tripTitle,
-  destination,
-  dates,
   candidates
 }: {
   tripId: string;
-  tripTitle: string;
-  destination: string;
-  dates: string;
   candidates: ExploreCandidate[];
 }) {
   return (
@@ -20,7 +14,6 @@ export function ExploreDiscovery({
         <header className="border-b border-[#e8dfd0] pb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Explore for this trip</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Worth considering</h1>
-          <p className="mt-2 text-sm font-bold text-slate-600">{tripTitle} · {destination} · {dates}</p>
           <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
             A small set of grounded ideas connected to your trip. They are options to consider, not additions to your itinerary.
           </p>

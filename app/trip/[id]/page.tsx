@@ -2599,7 +2599,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === briefingTabs[0][0]} />
               ))}
 
-              <nav aria-label="Trip briefing sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
+              <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
                 <div className="flex min-w-max gap-2">
                   {briefingTabs.map(([tabId, label]) => (
                     <label

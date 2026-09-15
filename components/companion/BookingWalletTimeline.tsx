@@ -5,8 +5,6 @@ import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib
 
 type BookingWalletTimelineProps = {
   tripId: string;
-  tripTitle: string;
-  destinationLabel: string;
   bookings: TripBookingRecord[];
   companionUnlocked?: boolean;
   locale: RoamlyLocale;
@@ -125,7 +123,7 @@ function navLinkClass(active = false) {
   return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ink text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
-export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, bookings, companionUnlocked = false, locale }: BookingWalletTimelineProps) {
+export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
@@ -139,9 +137,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
       <section className="bg-[#fbf8ef]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Bookings</p>
-            <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{tripTitle}</h1>
-            <p className="mt-1 text-sm font-bold text-slate-600">{destinationLabel}</p>
+            <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">Bookings</h1>
           </div>
           <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">
             Add booking
@@ -156,7 +152,7 @@ export function BookingWalletTimeline({ tripId, tripTitle, destinationLabel, boo
       </section>
 
       <nav aria-hidden="true" className="hidden">
-        <Link href={`/trip/${tripId}/live`} className={navLinkClass(false)}>Today</Link>
+        <Link href={`/trip/${tripId}/live`} className={navLinkClass(false)}>Live (Today)</Link>
         <Link href={`/trip/${tripId}`} className={navLinkClass(false)}>Trip</Link>
         <Link href={`/trip/${tripId}/bookings`} className={navLinkClass(true)}>Bookings</Link>
         <Link href={`/trip/${tripId}/companion`} className={navLinkClass(false)}>Companion</Link>

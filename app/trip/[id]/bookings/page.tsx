@@ -79,12 +79,10 @@ export default async function TripBookingsPage({ params }: { params: Promise<{ i
   return (
     <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-8">
-        <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" showContext={false} />
+        <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" />
       </div>
       <BookingWalletTimeline
         tripId={id}
-        tripTitle={tripTitle}
-        destinationLabel={destinationLabel}
         bookings={mergeBookings(walletBookings, legacyBookings)}
         companionUnlocked={tripHasTrackingUnlock(trip)}
         locale={locale}

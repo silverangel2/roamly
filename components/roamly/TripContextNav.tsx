@@ -15,7 +15,7 @@ type TripContextNavProps = {
 
 const destinations = [
   { key: "home", label: "Home", suffix: "" },
-  { key: "itinerary", label: "Itinerary", suffix: "#day-by-day" },
+  { key: "itinerary", label: "Plan", suffix: "#day-by-day" },
   { key: "explore", label: "Explore", suffix: "/explore" },
   { key: "bookings", label: "Bookings", suffix: "/bookings" },
   { key: "today", label: "Live", suffix: "/live" }
