@@ -40,12 +40,12 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
   }, []);
 
   return (
-    <section className="roamly-no-print mb-5 rounded-2xl border border-[#e8dfd0] bg-white/90 px-3 py-3 shadow-[0_10px_28px_rgba(16,32,51,0.05)] sm:px-4">
+    <section className="roamly-no-print mb-5 rounded-[1.25rem] border border-[#e7dfd2] bg-[#fffdf8] px-3 py-3 shadow-[0_8px_24px_rgba(16,32,51,0.04)] sm:px-4">
       {showContext ? (
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-ink">{title}</p>
-            <p className="truncate text-xs font-bold text-slate-500">{destination} · {dates}</p>
+            <p className="truncate text-sm font-bold text-ink">{title}</p>
+            <p className="truncate text-xs font-medium text-slate-500">{destination} · {dates}</p>
           </div>
           {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-black text-slate-600 sm:inline-flex">{status}</span> : null}
         </div>

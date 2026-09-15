@@ -5,8 +5,12 @@
 :root {
   color-scheme: light;
   --font-geist-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --background: #f7fcff;
+  --background: #fbf8ef;
   --foreground: #102033;
+  --roamly-page: #fbf8ef;
+  --roamly-surface: #fffdf8;
+  --roamly-line: #e7dfd2;
+  --roamly-muted: #64748b;
 }
 
 * {
@@ -29,6 +33,7 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  background: var(--roamly-page);
 }
 
 a {
@@ -49,6 +54,31 @@ select {
 
 .safe-bottom {
   padding-bottom: max(5.5rem, env(safe-area-inset-bottom));
+}
+
+.roamly-page-shell {
+  background: var(--roamly-page);
+}
+
+.roamly-surface {
+  background: var(--roamly-surface);
+  border: 1px solid var(--roamly-line);
+  box-shadow: 0 10px 28px rgba(16, 32, 51, 0.05);
+}
+
+.roamly-eyebrow {
+  color: #1b7180;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 .glass-panel {

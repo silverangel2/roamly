@@ -12,14 +12,14 @@ type ButtonProps = {
 
 const toneClasses: Record<ButtonTone, string> = {
   primary:
-    "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20 hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400",
+    "bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] hover:bg-[#167f8d]",
   secondary:
-    "border border-slate-200 bg-white text-slate-700 shadow-soft hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10",
-  ghost: "bg-transparent text-slate-700 hover:bg-cyan-50 hover:text-cyan-700"
+    "border border-[#d9d1c4] bg-[#fffdf8] text-ink shadow-sm hover:border-ocean/50 hover:bg-white hover:text-ocean",
+  ghost: "bg-transparent text-slate-700 hover:bg-white/70 hover:text-ocean"
 };
 
 const baseClass =
-  "inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 disabled:pointer-events-none disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 disabled:pointer-events-none disabled:opacity-60";
 
 export function Button({ href, children, tone = "primary", className = "", type = "button" }: ButtonProps) {
   const classes = `${baseClass} ${toneClasses[tone]} ${className}`;
