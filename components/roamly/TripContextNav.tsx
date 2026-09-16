@@ -40,7 +40,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
   }, []);
 
   return (
-    <section className="roamly-no-print mb-5 rounded-[1.15rem] border border-[#e7dfd2] bg-[#fffdf8] px-3 py-3 shadow-[0_8px_22px_rgba(16,32,51,0.04)] sm:px-4">
+    <section className="roamly-no-print mb-5 border-b border-[#e7dfd2] bg-transparent px-0 py-3 sm:px-1">
       {showContext ? (
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">

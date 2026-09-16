@@ -2462,7 +2462,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
-        <section className="rounded-[1.1rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 sm:rounded-[1.35rem] sm:p-6">
+        <section className="border-b border-[#e8dfd0] bg-transparent pb-5 pt-1 sm:pb-7">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean">Trip Home</p>
@@ -2586,11 +2586,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 #roamly-tab-budget:checked ~ .roamly-tab-nav label[for="roamly-tab-budget"],
                 #roamly-tab-bookings:checked ~ .roamly-tab-nav label[for="roamly-tab-bookings"],
                 #roamly-tab-essentials:checked ~ .roamly-tab-nav label[for="roamly-tab-essentials"],
-                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#102033;color:white;border-color:#102033}
+                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#1b9aaa;color:white;border-color:#1b9aaa}
                 .roamly-day-input{position:absolute;opacity:0;pointer-events:none}
                 .roamly-day-panel{display:none}
                 ${dayNumbersToRender.map((dayNumber) => `
-                  #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"]{background:#102033;color:white;border-color:#102033}
+                  #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"]{background:#1b9aaa;color:white;border-color:#1b9aaa}
                   #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"] span{color:white}
                   #roamly-day-${dayNumber}:checked ~ .roamly-day-panels .roamly-day-panel-${dayNumber}{display:block}
                 `).join("\n")}
