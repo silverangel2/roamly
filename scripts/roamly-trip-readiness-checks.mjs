@@ -12,9 +12,12 @@ const base = {
 
 assert.equal(deriveTripReadiness({ ...base, confirmedBookingCount: 2 }).state, "READY");
 assert.equal(deriveTripReadiness({ ...base, bookingsNeedingReview: 1 }).primaryAction.id, "bookings");
+assert.equal(deriveTripReadiness({ ...base, bookingsNeedingReview: 1, bookingFocus: "hotel" }).primaryAction.href, `/trip/${base.tripId}?focus=hotel#bookings`);
 assert.equal(deriveTripReadiness({ ...base, bookingsToArrange: 2 }).primaryAction.id, "bookings");
 assert.equal(deriveTripReadiness({ ...base, conflictCount: 1 }).primaryAction.id, "conflict");
+assert.equal(deriveTripReadiness({ ...base, conflictCount: 1, conflictDay: 3 }).primaryAction.href, `/trip/${base.tripId}?focus=day-3#day-by-day`);
 assert.equal(deriveTripReadiness({ ...base, budgetStatus: "OVER_BUDGET" }).primaryAction.id, "budget");
+assert.equal(deriveTripReadiness({ ...base, budgetStatus: "OVER_BUDGET" }).primaryAction.href, `/trip/${base.tripId}?focus=budget#budget`);
 assert.equal(deriveTripReadiness({ ...base, budgetStatus: "BUDGET_UNCERTAIN" }).state, "UNCERTAIN");
 assert.equal(deriveTripReadiness({ ...base, uncertainItemCount: 1 }).state, "UNCERTAIN");
 assert.equal(deriveTripReadiness({ ...base, generationStatus: "partially_failed", hasItinerary: false }).primaryAction.id, "generation");

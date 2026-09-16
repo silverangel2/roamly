@@ -2420,7 +2420,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       })()
     : [];
   const bookingsToArrange = readinessBookingGroups.filter((group) => Boolean(group.fallback) && group.items.length === 0).length;
+  const bookingFocus = getString(unresolvedBookingSnapshot[0]?.booking_type).toLowerCase();
+  const missingBookingFocus = readinessBookingGroups.find((group) => Boolean(group.fallback) && group.items.length === 0)?.fallback || null;
+  const resolvedBookingFocus = ["flight", "hotel", "activity"].includes(bookingFocus)
+    ? bookingFocus as "flight" | "hotel" | "activity"
+    : missingBookingFocus;
   const conflictCount = full?.daily_itinerary.filter((day) => day.plan_status === "conflict").length || 0;
+  const conflictDay = full?.daily_itinerary.find((day) => day.plan_status === "conflict")?.day_number || null;
   const uncertainItemCount = full?.daily_itinerary.reduce((count, day) => {
     const uncertainTimeline = (day.live_timeline || []).some((item) => {
       const record = item as unknown as Record<string, unknown>;
@@ -2437,12 +2443,17 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     confirmedBookingCount: confirmedBookingSnapshot.length,
     bookingsNeedingReview: unresolvedBookingSnapshot.length,
     bookingsToArrange,
+    bookingFocus: resolvedBookingFocus,
     conflictCount,
+    conflictDay,
     uncertainItemCount,
     budgetStatus: budgetPresentation?.status || null,
     paymentNeedsAttention: checkoutNeedsAttention
   });
   const attentionText = readiness.urgentItems[0] || "";
+  const focusedBooking = ["flight", "hotel", "activity"].includes(one(search.focus) || "") ? one(search.focus) : null;
+  const focusedBookingLabel = focusedBooking === "flight" ? "flight" : focusedBooking === "hotel" ? "stay" : focusedBooking === "activity" ? "activity" : null;
+  const focusedBudget = one(search.focus) === "budget";
   const commandNextTitle = attentionText || focusNextItem?.title || "Your trip is ready to review.";
   const commandNextMeta = focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
   const packingItems = full ? packingChecklistItems(checklist, full).slice(0, 8) : [];
@@ -2644,14 +2655,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     summary="Clean daily plan with timing, travel, and key notes."
                   />
                   <div>
-                    {dayNumbersToRender.map((dayNumber, index) => (
+                    {dayNumbersToRender.map((dayNumber) => (
                       <input
                         key={`day-input-${dayNumber}`}
                         className="roamly-day-input"
                         type="radio"
                         name="roamly-day-selector"
                         id={`roamly-day-${dayNumber}`}
-                        defaultChecked={index === 0}
+                        defaultChecked={dayNumber === (Number(one(search.focus)?.replace("day-", "")) || dayNumbersToRender[0])}
                       />
                     ))}
                     <nav className="roamly-day-nav roamly-no-print sticky top-[8.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:top-[9.2rem] sm:mx-0 sm:rounded-full sm:border">
@@ -2718,6 +2729,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
                 <section id="budget" className="roamly-tab-panel roamly-panel-budget mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Budget" title="Budget" summary={readiness.primaryAction.id === "budget" ? readiness.urgentItems[0] || "Review the uncertainty in your trip costs." : "See what is committed, expected, and still uncertain."} />
+                  {focusedBudget ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">This is the budget context behind your current trip action.</p> : null}
                   <BudgetSummary
                     trip={trip}
                     itinerary={full}
@@ -2729,6 +2741,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
                 <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary={readiness.primaryAction.id === "bookings" ? readiness.urgentItems[0] || "Review the bookings that still need you." : "Only the recommended transport, stay, flights, and important activities."} />
+                  {focusedBookingLabel ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">Start with your {focusedBookingLabel} details below.</p> : null}
                   <div className="mb-4">
                     <MarketPriceRefreshButton tripId={id} />
                     {one(search.hotel_action) === "price_changed" ? <p className="mt-2 text-sm font-bold text-slate-700">Hotel price changed. Review the updated hotel price before continuing.</p> : null}

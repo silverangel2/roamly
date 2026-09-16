@@ -29,6 +29,8 @@ export type TripReadinessInput = {
   bookingsToArrange?: number;
   conflictCount?: number;
   uncertainItemCount?: number;
+  bookingFocus?: "flight" | "hotel" | "activity" | null;
+  conflictDay?: number | null;
   budgetStatus?: "WITHIN_BUDGET" | "LIKELY_WITHIN_BUDGET" | "OVER_BUDGET" | "BUDGET_UNCERTAIN" | null;
   now?: Date;
 };
@@ -113,7 +115,12 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ATTENTION_REQUIRED",
       phase,
-      primaryAction: action("conflict", input.tripId, "Review the plan", "#day-by-day"),
+      primaryAction: action(
+        "conflict",
+        input.tripId,
+        "Review the plan",
+        `${input.conflictDay ? `?focus=day-${input.conflictDay}` : ""}#day-by-day`
+      ),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -126,7 +133,12 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action("bookings", input.tripId, "Review bookings", "/bookings"),
+      primaryAction: action(
+        "bookings",
+        input.tripId,
+        "Review bookings",
+        `${input.bookingFocus ? `?focus=${input.bookingFocus}` : ""}#bookings`
+      ),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -139,7 +151,12 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action("bookings", input.tripId, "Review what to book", "/bookings"),
+      primaryAction: action(
+        "bookings",
+        input.tripId,
+        "Review what to book",
+        `${input.bookingFocus ? `?focus=${input.bookingFocus}` : ""}#bookings`
+      ),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -152,7 +169,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ATTENTION_REQUIRED",
       phase,
-      primaryAction: action("budget", input.tripId, "Review the budget", "#budget"),
+      primaryAction: action("budget", input.tripId, "Review the budget", "?focus=budget#budget"),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -165,7 +182,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "UNCERTAIN",
       phase,
-      primaryAction: action("budget", input.tripId, "Review what is uncertain", "#budget"),
+      primaryAction: action("budget", input.tripId, "Review what is uncertain", "?focus=budget#budget"),
       urgentItems,
       upcomingActions,
       confirmations,
