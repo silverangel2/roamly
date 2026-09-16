@@ -2,9 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildPreviewFromItinerary,
   createMapLink,
+  sanitizeStoredItinerary,
   type RoamlyItinerary,
   type RoamlyPreview
 } from "@/lib/itinerary";
+import { safeTravelIdentity } from "@/lib/roamly/travelResultValidation";
 import {
   getPublicSupabaseHost,
   logGenerationDiagnostic,
@@ -109,6 +111,7 @@ export type ActivityRecord = {
   description: string | null;
   location_name: string | null;
   estimated_cost: number | null;
+  timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN";
   category: string | null;
   map_query: string | null;
   status: "planned" | "active" | "nearby" | "checked_in" | "completed" | "skipped" | "missed";
@@ -153,7 +156,7 @@ function itineraryFromTripMetadata(trip: RoamlyTripRecord): ItineraryRecord | nu
     trip_id: trip.id,
     user_id: trip.user_id,
     ai_summary: typeof stored?.ai_summary === "string" ? stored.ai_summary : typeof stored?.aiSummary === "string" ? stored.aiSummary : null,
-    full_json: full as unknown as RoamlyItinerary,
+    full_json: sanitizeStoredItinerary(full) || (full as unknown as RoamlyItinerary),
     preview_json: preview ? (preview as unknown as RoamlyPreview) : buildPreviewFromItinerary(full as unknown as RoamlyItinerary),
     created_at: trip.created_at,
     updated_at: trip.updated_at
@@ -237,15 +240,26 @@ export async function getTripBundle(
     return { data: null, error: checklistResult.error.message };
   }
 
-  const itinerary = ((itineraryResult.data as ItineraryRecord | null) ?? metadataItinerary) || null;
+  const rawItinerary = ((itineraryResult.data as ItineraryRecord | null) ?? metadataItinerary) || null;
+  const itinerary = rawItinerary
+    ? { ...rawItinerary, full_json: sanitizeStoredItinerary(rawItinerary.full_json) || rawItinerary.full_json }
+    : null;
   const checklist = (checklistResult.data as ChecklistRecord[] | null) ?? checklistFromItinerary(tripRecord, itinerary);
+  const activities = (((activitiesResult.data as ActivityRecord[] | null) ?? [])).map((activity) => ({
+    ...activity,
+    title: safeTravelIdentity(activity.title) || "Unresolved place",
+    location_name: safeTravelIdentity(activity.location_name) || null,
+    map_query: safeTravelIdentity(activity.map_query) || null,
+    estimated_cost: null,
+    timing_status: (activity as ActivityRecord & { metadata?: Record<string, unknown> }).metadata?.timing_status === "FACTUAL" ? "FACTUAL" as const : "PLANNED" as const
+  }));
 
   return {
     data: {
       trip: tripRecord,
       itinerary,
       days: (daysResult.data as DayRecord[] | null) ?? [],
-      activities: (activitiesResult.data as ActivityRecord[] | null) ?? [],
+      activities,
       checklist
     }
   };

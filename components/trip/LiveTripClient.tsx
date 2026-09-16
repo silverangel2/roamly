@@ -15,6 +15,7 @@ import {
   fallbackRouteStatus,
   isTodayWithinTripDates,
   mapsUrlForActivity,
+  tripWindowState,
   type LiveBookingDetails,
   type LiveCompanionActivity,
   type LiveCoordinates,
@@ -440,7 +441,7 @@ export function LiveTripClient({
   }, [activeActivities, activeSimulatorPlaces]);
 
   const liveActivities = useMemo(() => {
-    return activeActivities.map((activity): LiveCompanionActivity => {
+    return activeActivities.map((activity) => {
       const place = activityPlace(activity, activeSimulatorPlaces);
       const booking = bookingForActivity(activity, bookingDetails);
       const base: LiveCompanionActivity = {
@@ -457,7 +458,10 @@ export function LiveTripClient({
         status: activity.status,
         booking
       };
-      return applyVerifiedBookingOverride(base, bookingDetails);
+      return {
+        ...applyVerifiedBookingOverride(base, bookingDetails),
+        timing_status: activity.timing_status
+      };
     });
   }, [activeActivities, activeSimulatorPlaces, bookingDetails]);
 
@@ -503,6 +507,7 @@ export function LiveTripClient({
 
   const currentActivity = model.now || null;
   const nextActivity = model.next || liveActivities.find((item) => item.id !== currentActivity?.id) || null;
+  const nextTimingStatus = (nextActivity as (LiveCompanionActivity & { timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN" }) | null)?.timing_status;
   const mapsHref = useMemo(() => {
     const mapsTarget = currentActivity || nextActivity;
     const direct = mapsTarget ? mapsUrlForActivity(mapsTarget) : "";
@@ -519,6 +524,12 @@ export function LiveTripClient({
     timezone,
     now: nowTick
   });
+  const tripCompleted = tripWindowState({
+    startDate: activeTripStartDate,
+    endDate: activeTripEndDate,
+    timezone,
+    now: nowTick
+  }) === "completed_trip";
 
   useEffect(() => {
     let alive = true;
@@ -1326,7 +1337,7 @@ export function LiveTripClient({
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
                 <p className="mt-1 truncate text-sm font-black">{nextActivity?.title || "Flexible time"}</p>
-                {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
+                {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
@@ -1364,7 +1375,7 @@ export function LiveTripClient({
               </details>
             ) : null}
 
-            {currentActivity ? (
+            {currentActivity && !tripCompleted ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -1408,7 +1419,7 @@ export function LiveTripClient({
             <section className="rounded-2xl border border-cloud bg-mist p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next step</p>
-                <p className="text-xs font-black text-slate-500">{nextActivity ? formatClock(nextStart?.toISOString() || null, timezone, locale) : "Flexible time"}</p>
+                <p className="text-xs font-black text-slate-500">{nextActivity ? `${nextTimingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(nextStart?.toISOString() || null, timezone, locale)}` : "Flexible time"}</p>
               </div>
               <p className="mt-3 text-lg font-black text-ink">{nextActivity?.title || "Keep this window open"}</p>
               <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{nextActivity ? primaryAddress(nextActivity) : "Use it for rest, food, or your own plans."}</p>
@@ -1550,7 +1561,7 @@ export function LiveTripClient({
         </section>
       ) : null}
 
-      <section className="grid gap-3 md:grid-cols-[1fr_0.75fr]">
+      {!tripCompleted ? <section className="grid gap-3 md:grid-cols-[1fr_0.75fr]">
         <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Controls</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1580,7 +1591,7 @@ export function LiveTripClient({
             </div>
           </details>
         </article>
-      </section>
+      </section> : null}
 
       <section className="hidden" aria-hidden="true">
         {liveActivities.slice(0, 6).map((activity) => (

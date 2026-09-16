@@ -71,6 +71,9 @@ const metadataTextPattern =
 const nonBookingPathPattern =
   /\/(?:docs?|documentation|developers?|reference|schema|schemas|standards?|spec|specification|rdf|json-ld|open-graph|metadata)(?:\/|$)/i;
 
+const technicalIdentityPattern =
+  /(?:^|\s)(?:https?:\/\/|www\.|(?:[a-z0-9-]+\.)+(?:org|com|net|io|dev)(?=$|\s|\/)|schema\.org|schemas\.live\.com|w3c?|json[- ]?ld|open graph|microdata|rdf|xml namespace|metadata)/i;
+
 function clean(value?: string | null) {
   return (value || "").trim();
 }
@@ -114,6 +117,17 @@ export function isBareDomainName(value?: string | null) {
   const text = clean(value).toLowerCase();
   if (!text || /\s/.test(text)) return false;
   return /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(text.replace(/^www\./, ""));
+}
+
+/** Returns false for source metadata/parser artifacts, while allowing ordinary place names. */
+export function isTechnicalTravelIdentity(value?: string | null) {
+  const text = clean(value);
+  return Boolean(text && (isBareDomainName(text) || technicalIdentityPattern.test(text)));
+}
+
+export function safeTravelIdentity(value?: string | null) {
+  const text = clean(value);
+  return text && !isTechnicalTravelIdentity(text) ? text : "";
 }
 
 function sameDomainText(a?: string | null, b?: string | null) {

@@ -27,6 +27,7 @@ import {
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource } from "@/lib/roamly/travelMarketSearch";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
+import { safeTravelIdentity } from "@/lib/roamly/travelResultValidation";
 
 export type BudgetBreakdown = {
   budget_brain?: unknown;
@@ -110,6 +111,7 @@ export type RoamlyActivitySeed = {
   cost_status?: "CONFIRMED" | "LIVE_SEARCH" | "ESTIMATED" | "UNKNOWN";
   routing_status?: "FEASIBLE" | "INFEASIBLE" | "UNCERTAIN";
   uncertainty?: string[];
+  timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN";
 };
 
 export type RoamlyBookingCategory = "flight" | "hotel" | "attraction" | "tour" | "transport" | "restaurant" | "car_rental";
@@ -287,6 +289,16 @@ function cleanNullableNumber(value: unknown) {
     if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
   }
   return null;
+}
+
+function trustedAmount(value: unknown, status: unknown) {
+  const amount = cleanNullableNumber(value);
+  if (amount == null) return null;
+  return ["CONFIRMED", "LIVE_SEARCH", "ESTIMATED"].includes(String(status).toUpperCase()) ? amount : null;
+}
+
+function safePlaceText(value: unknown) {
+  return safeTravelIdentity(typeof value === "string" ? value : "") || "";
 }
 
 export function createMapLink(query: string) {
@@ -1766,6 +1778,12 @@ function budgetStatusFromRemaining(remaining: number | null) {
   return remaining < 0 ? "over_budget" : "within_budget";
 }
 
+function hasBudgetEvidence(payload: TripPlannerPayload, budget?: Record<string, unknown>) {
+  if (payload.priceDiscovery && Object.keys(payload.priceDiscovery).length > 0) return true;
+  const confidence = budget?.budget_category_confidence ?? budget?.budgetCategoryConfidence;
+  return Array.isArray(confidence) && confidence.length > 0;
+}
+
 function cleanBudgetCategoryConfidenceList(value: unknown): BudgetCategoryConfidence[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -1789,9 +1807,10 @@ function budgetBreakdownNumbers(payload: TripPlannerPayload, budget?: Record<str
   const currency = payload.budgetCurrency || cleanString(budget?.currency, "CAD");
   const discoveredTotal = discoveryAmount(payload, "totalEstimateCents");
   const discoveredRemaining = discoveryAmount(payload, "remainingBudgetCents");
-  const rawTotal = cleanNullableNumber(budget?.total_estimate_amount ?? budget?.totalEstimateAmount);
-  const rawRemaining = cleanSignedNullableNumber(budget?.remaining_budget_amount ?? budget?.remainingBudgetAmount);
-  const parsedTotal = parseBudgetAmount(budget?.total_estimate);
+  const evidenced = hasBudgetEvidence(payload, budget);
+  const rawTotal = evidenced ? cleanNullableNumber(budget?.total_estimate_amount ?? budget?.totalEstimateAmount) : null;
+  const rawRemaining = evidenced ? cleanSignedNullableNumber(budget?.remaining_budget_amount ?? budget?.remainingBudgetAmount) : null;
+  const parsedTotal = evidenced ? parseBudgetAmount(budget?.total_estimate) : null;
   const totalEstimateAmount = discoveredTotal ?? rawTotal ?? parsedTotal;
   const userBudgetAmount = payload.budgetAmount ?? cleanNullableNumber(budget?.user_budget_amount ?? budget?.userBudgetAmount);
   const remainingBudgetAmount =
@@ -1813,10 +1832,62 @@ function budgetBreakdownNumbers(payload: TripPlannerPayload, budget?: Record<str
 export function getItineraryTotalEstimateAmount(itinerary: Pick<RoamlyItinerary, "estimated_budget_breakdown" | "daily_itinerary">) {
   const explicit = itinerary.estimated_budget_breakdown.total_estimate_amount;
   if (typeof explicit === "number" && Number.isFinite(explicit)) return explicit;
-  const parsed = parseBudgetAmount(itinerary.estimated_budget_breakdown.total_estimate);
-  if (parsed != null) return parsed;
+  if (!itinerary.daily_itinerary.length || itinerary.daily_itinerary.some((day) => typeof day.estimated_cost !== "number")) return null;
   const daily = itinerary.daily_itinerary.reduce((sum, day) => sum + (day.estimated_cost || 0), 0);
   return daily || null;
+}
+
+export function sanitizeStoredItinerary(raw: unknown): RoamlyItinerary | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+  const rawDays = Array.isArray(record.daily_itinerary) ? record.daily_itinerary : [];
+  const budget = record.estimated_budget_breakdown && typeof record.estimated_budget_breakdown === "object"
+    ? record.estimated_budget_breakdown as Record<string, unknown>
+    : {};
+  const evidenced = Boolean(
+    (Array.isArray(budget.budget_category_confidence) && budget.budget_category_confidence.length) ||
+    (Array.isArray(budget.budgetCategoryConfidence) && budget.budgetCategoryConfidence.length)
+  );
+  const days = rawDays.map((value) => {
+    const day = value && typeof value === "object" ? value as Record<string, unknown> : {};
+    const timeline: RoamlyActivitySeed[] = Array.isArray(day.live_timeline) ? day.live_timeline.map((value) => {
+      const item = value && typeof value === "object" ? value as Record<string, unknown> : {};
+      const type = cleanTimelineItemType(item.item_type, item.category);
+      const costStatus = String(item.cost_status || "").toUpperCase();
+      return {
+        ...item,
+        title: safePlaceText(item.title) || "Unresolved place",
+        location_name: safePlaceText(item.location_name),
+        map_query: safePlaceText(item.map_query),
+        estimated_cost: trustedAmount(item.estimated_cost, costStatus),
+        timing_status: (item.timing_status === "FACTUAL" || item.timing_status === "PLANNED" || item.timing_status === "UNKNOWN"
+          ? item.timing_status
+          : type === "booking" || item.plan_role === "protected_anchor" ? "FACTUAL" : "PLANNED") as RoamlyActivitySeed["timing_status"]
+      } as RoamlyActivitySeed;
+    }) : [];
+    return {
+      ...day,
+      estimated_cost: trustedAmount(day.estimated_cost, String(day.cost_status || "").toUpperCase()),
+      live_timeline: timeline
+    };
+  });
+  const total = evidenced ? cleanNullableNumber(budget.total_estimate_amount ?? budget.totalEstimateAmount) : null;
+  return {
+    ...(record as unknown as RoamlyItinerary),
+      estimated_budget_breakdown: {
+      ...budget,
+      total_estimate: total == null ? "Confirm after live booking prices." : formatBudgetMoney(total, String(budget.currency || "CAD")),
+      total_estimate_amount: total,
+      remaining_budget_amount: evidenced ? cleanSignedNullableNumber(budget.remaining_budget_amount ?? budget.remainingBudgetAmount) : null,
+      selected_transport_estimate_amount: evidenced ? cleanNullableNumber(budget.selected_transport_estimate_amount ?? budget.selectedTransportEstimateAmount) : null,
+      selected_hotel_estimate_amount: evidenced ? cleanNullableNumber(budget.selected_hotel_estimate_amount ?? budget.selectedHotelEstimateAmount) : null,
+      tickets_tours_estimate_amount: evidenced ? cleanNullableNumber(budget.tickets_tours_estimate_amount ?? budget.ticketsToursEstimateAmount) : null,
+      food_estimate_amount: evidenced ? cleanNullableNumber(budget.food_estimate_amount ?? budget.foodEstimateAmount) : null,
+      local_transport_estimate_amount: evidenced ? cleanNullableNumber(budget.local_transport_estimate_amount ?? budget.localTransportEstimateAmount) : null,
+      buffer_estimate_amount: evidenced ? cleanNullableNumber(budget.buffer_estimate_amount ?? budget.bufferEstimateAmount) : null
+    } as BudgetBreakdown,
+    daily_itinerary: days as RoamlyItinerary["daily_itinerary"]
+  };
 }
 
 export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItinerary {
@@ -2279,22 +2350,32 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
         const day = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
         const dayNumber = cleanNumber(day.day_number, index + 1);
         const title = cleanString(day.title, fallback.daily_itinerary[index]?.title || `Day ${dayNumber}`);
-        const mapQueries = cleanList(day.map_queries, [`${payload.destination} ${title}`], 6);
+        const mapQueries = cleanList(day.map_queries, [`${payload.destination} ${title}`], 6)
+          .map((query) => safePlaceText(query))
+          .filter(Boolean);
         const liveTimelineRaw = Array.isArray(day.live_timeline) ? day.live_timeline : [];
         const liveTimeline = liveTimelineRaw.length
           ? liveTimelineRaw.slice(0, 12).map((activity) => {
               const itemRecord = activity && typeof activity === "object" ? (activity as Record<string, unknown>) : {};
+              const rawTitle = cleanString(itemRecord.title, "");
+              const safeTitle = safePlaceText(rawTitle);
+              const rawLocation = safePlaceText(itemRecord.location_name);
+              const rawMapQuery = safePlaceText(itemRecord.map_query);
+              const costStatus = ["CONFIRMED", "LIVE_SEARCH", "ESTIMATED", "UNKNOWN"].includes(String(itemRecord.cost_status))
+                ? String(itemRecord.cost_status) as RoamlyActivitySeed["cost_status"]
+                : undefined;
+              const itemType = cleanTimelineItemType(itemRecord.item_type, itemRecord.category);
               return {
                 time_label: cleanString(itemRecord.time_label, ""),
                 startTime: cleanOptionalString(itemRecord.startTime || itemRecord.start_time),
                 endTime: cleanOptionalString(itemRecord.endTime || itemRecord.end_time),
-                title: cleanString(itemRecord.title, ""),
+                title: safeTitle || "Unresolved place",
                 description: cleanString(itemRecord.description, ""),
-                location_name: cleanString(itemRecord.location_name, ""),
-                estimated_cost: cleanNullableNumber(itemRecord.estimated_cost),
+                location_name: rawLocation,
+                estimated_cost: trustedAmount(itemRecord.estimated_cost, costStatus),
                 category: cleanString(itemRecord.category, "Activity"),
-                map_query: cleanString(itemRecord.map_query, mapQueries[0] || payload.destination),
-                item_type: cleanTimelineItemType(itemRecord.item_type, itemRecord.category),
+                map_query: rawMapQuery || mapQueries[0] || payload.destination,
+                item_type: itemType,
                 travel_mode: cleanOptionalString(itemRecord.travel_mode),
                 transportMode: cleanOptionalString(itemRecord.transportMode || itemRecord.transport_mode),
                 duration: cleanOptionalString(itemRecord.duration ?? itemRecord.duration_label),
@@ -2310,14 +2391,15 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
                   : undefined,
                 must_do: itemRecord.must_do === true,
                 anchor_id: cleanOptionalString(itemRecord.anchor_id),
-                cost_status: ["CONFIRMED", "LIVE_SEARCH", "ESTIMATED", "UNKNOWN"].includes(String(itemRecord.cost_status))
-                  ? String(itemRecord.cost_status) as RoamlyActivitySeed["cost_status"]
-                  : undefined,
+                cost_status: costStatus,
+                timing_status: itemRecord.timing_status === "FACTUAL" || itemRecord.timing_status === "PLANNED" || itemRecord.timing_status === "UNKNOWN"
+                  ? itemRecord.timing_status
+                  : itemType === "booking" || itemRecord.plan_role === "protected_anchor" ? "FACTUAL" : "PLANNED",
                 routing_status: ["FEASIBLE", "INFEASIBLE", "UNCERTAIN"].includes(String(itemRecord.routing_status))
                   ? String(itemRecord.routing_status) as RoamlyActivitySeed["routing_status"]
                   : undefined,
                 uncertainty: cleanList(itemRecord.uncertainty, [], 8)
-              };
+              } as RoamlyActivitySeed;
             })
           : fallback.daily_itinerary[index]?.live_timeline || [];
 
@@ -2330,7 +2412,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
           afternoon: cleanString(day.afternoon, fallback.daily_itinerary[index]?.afternoon || ""),
           evening: cleanString(day.evening, fallback.daily_itinerary[index]?.evening || ""),
           food: cleanList(day.food, fallback.daily_itinerary[index]?.food || [], 5),
-          estimated_cost: cleanNullableNumber(day.estimated_cost),
+          estimated_cost: trustedAmount(day.estimated_cost, day.cost_status),
           map_queries: mapQueries,
           live_timeline: liveTimeline,
           primary_plan: cleanOptionalString(day.primary_plan),
@@ -2368,7 +2450,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
       buffer: cleanString(budget?.buffer, fallback.estimated_budget_breakdown.buffer),
       total_estimate:
         budgetNumbers.totalEstimateAmount == null
-          ? cleanString(budget?.total_estimate, fallback.estimated_budget_breakdown.total_estimate)
+          ? "Confirm after live booking prices."
           : formatBudgetMoney(budgetNumbers.totalEstimateAmount, budgetNumbers.currency),
       notes: cleanString(budget?.notes, fallback.estimated_budget_breakdown.notes),
       user_budget_amount: budgetNumbers.userBudgetAmount,
@@ -2387,31 +2469,31 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
         ? cleanTransportOptions(budget?.transport_options ?? budget?.transportOptions, budgetNumbers.currency)
         : fallback.estimated_budget_breakdown.transport_options || [],
       selected_transport_estimate_amount:
-        cleanNullableNumber(budget?.selected_transport_estimate_amount ?? budget?.selectedTransportEstimateAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.selected_transport_estimate_amount ?? budget?.selectedTransportEstimateAmount) : null) ??
         fallback.estimated_budget_breakdown.selected_transport_estimate_amount ??
         null,
       selected_hotel_estimate_amount:
-        cleanNullableNumber(budget?.selected_hotel_estimate_amount ?? budget?.selectedHotelEstimateAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.selected_hotel_estimate_amount ?? budget?.selectedHotelEstimateAmount) : null) ??
         fallback.estimated_budget_breakdown.selected_hotel_estimate_amount ??
         null,
       tickets_tours_estimate_amount:
-        cleanNullableNumber(budget?.tickets_tours_estimate_amount ?? budget?.ticketsToursEstimateAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.tickets_tours_estimate_amount ?? budget?.ticketsToursEstimateAmount) : null) ??
         fallback.estimated_budget_breakdown.tickets_tours_estimate_amount ??
         null,
       food_estimate_amount:
-        cleanNullableNumber(budget?.food_estimate_amount ?? budget?.foodEstimateAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.food_estimate_amount ?? budget?.foodEstimateAmount) : null) ??
         fallback.estimated_budget_breakdown.food_estimate_amount ??
         null,
       local_transport_estimate_amount:
-        cleanNullableNumber(budget?.local_transport_estimate_amount ?? budget?.localTransportEstimateAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.local_transport_estimate_amount ?? budget?.localTransportEstimateAmount) : null) ??
         fallback.estimated_budget_breakdown.local_transport_estimate_amount ??
         null,
       buffer_estimate_amount:
-        cleanNullableNumber(budget?.buffer_estimate_amount ?? budget?.bufferEstimateAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.buffer_estimate_amount ?? budget?.bufferEstimateAmount) : null) ??
         fallback.estimated_budget_breakdown.buffer_estimate_amount ??
         null,
       committed_bookings_amount:
-        cleanNullableNumber(budget?.committed_bookings_amount ?? budget?.committedBookingsAmount) ??
+        (hasBudgetEvidence(payload, budget) ? cleanNullableNumber(budget?.committed_bookings_amount ?? budget?.committedBookingsAmount) : null) ??
         fallback.estimated_budget_breakdown.committed_bookings_amount ??
         null,
       hotel_nights:

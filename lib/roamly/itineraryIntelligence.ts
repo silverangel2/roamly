@@ -279,6 +279,7 @@ function applyMarketIdentity(
   marketResults: TravelMarketResult[],
   usedMarketIds: Set<string>
 ) {
+  if (item.title === "Unresolved place") return item;
   if (!isGenericTimelineItem(item, payload)) return item;
   const candidate = marketResults.find((result) => desiredCategories(item).includes(result.category) && !usedMarketIds.has(result.id));
   if (!candidate) {

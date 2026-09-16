@@ -494,7 +494,8 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
     const start = timelineText(record, "startTime", "start_time");
     const end = timelineText(record, "endTime", "end_time");
     const timeLabel = timelineText(record, "time_label", "time") || (start ? formatClock(start) : "");
-    const time = start && end ? `${formatClock(start)}-${formatClock(end)}` : timeLabel;
+    const timingStatus = timelineText(record, "timing_status").toUpperCase();
+    const time = start && end ? `${timingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(start)}-${formatClock(end)}` : timeLabel;
     const sortMinutes = parseClockMinutes(start || timeLabel);
     const duration = timelineNumber(record, "durationMinutes", "duration_minutes");
     const travelMinutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes");
