@@ -12,6 +12,7 @@ import {
   logGenerationDiagnostic,
   summarizeStoredItinerary
 } from "@/lib/roamly/generationDiagnostics";
+import { assignStableItineraryIdentities } from "@/lib/roamly/itineraryRepair";
 
 export type RoamlyTripRecord = {
   id: string;
@@ -277,7 +278,6 @@ export async function syncGeneratedItinerary(
     };
   }
 ) {
-  const preview = buildPreviewFromItinerary(params.itinerary);
   const now = new Date().toISOString();
   logGenerationDiagnostic("itinerary_storage_write_start", {
     requestId: params.diagnostic?.requestId,
@@ -295,15 +295,6 @@ export async function syncGeneratedItinerary(
   if (tripMetadataResult.error) return { error: tripMetadataResult.error.message };
   const existingMetadata = getRecord(tripMetadataResult.data?.metadata) || {};
   const planningMetadata = getRecord(existingMetadata.planning);
-  const generatedItineraryMetadata = {
-    ai_summary: params.itinerary.destination_summary,
-    full_json: params.itinerary,
-    preview_json: preview,
-    language: typeof planningMetadata?.language === "string" ? planningMetadata.language : "en",
-    status: params.status || "preview",
-    updated_at: now
-  };
-
   const existing = await supabase
     .from("roamly_itineraries")
     .select("id")
@@ -317,11 +308,24 @@ export async function syncGeneratedItinerary(
     return { error: existing.error.message };
   }
 
+  // New itinerary rows receive stable identities. Existing rows are never
+  // silently backfilled, so legacy JSON remains explicitly non-repairable.
+  const itinerary = existing.data?.id ? params.itinerary : assignStableItineraryIdentities(params.itinerary);
+  const preview = buildPreviewFromItinerary(itinerary);
+  const generatedItineraryMetadata = {
+    ai_summary: itinerary.destination_summary,
+    full_json: itinerary,
+    preview_json: preview,
+    language: typeof planningMetadata?.language === "string" ? planningMetadata.language : "en",
+    status: params.status || "preview",
+    updated_at: now
+  };
+
   const payload = {
     trip_id: params.tripId,
     user_id: params.userId,
-    ai_summary: params.itinerary.destination_summary,
-    full_json: params.itinerary,
+    ai_summary: itinerary.destination_summary,
+    full_json: itinerary,
     preview_json: preview
   };
 
@@ -354,7 +358,7 @@ export async function syncGeneratedItinerary(
         tripId: params.tripId,
         supabaseHost: getPublicSupabaseHost(),
         fullJsonWritten: true,
-        ...summarizeStoredItinerary(params.itinerary)
+        ...summarizeStoredItinerary(itinerary)
       });
     }
   }
@@ -382,9 +386,9 @@ export async function syncGeneratedItinerary(
     })
   ]);
 
-  if (itineraryDisplayTablesAvailable && params.itinerary.daily_itinerary.length) {
+  if (itineraryDisplayTablesAvailable && itinerary.daily_itinerary.length) {
     const daysResult = await supabase.from("roamly_itinerary_days").insert(
-      params.itinerary.daily_itinerary.map((day) => ({
+      itinerary.daily_itinerary.map((day) => ({
         trip_id: params.tripId,
         day_number: day.day_number,
         date: day.date || null,
@@ -413,11 +417,11 @@ export async function syncGeneratedItinerary(
       route: "syncGeneratedItinerary",
       tripId: params.tripId,
       supabaseHost: getPublicSupabaseHost(),
-      dayRowsAttempted: params.itinerary.daily_itinerary.length
+      dayRowsAttempted: itinerary.daily_itinerary.length
     });
   }
 
-  const activities = params.itinerary.daily_itinerary.flatMap((day) =>
+  const activities = itinerary.daily_itinerary.flatMap((day) =>
     day.live_timeline.map((activity) => ({
       trip_id: params.tripId,
       day_number: day.day_number,
@@ -456,7 +460,7 @@ export async function syncGeneratedItinerary(
   const trackingDays = await supabase
     .from("roamly_trip_days")
     .insert(
-      params.itinerary.daily_itinerary.map((day) => ({
+      itinerary.daily_itinerary.map((day) => ({
         trip_id: params.tripId,
         day_number: day.day_number,
         date: day.date || null,
@@ -487,7 +491,7 @@ export async function syncGeneratedItinerary(
   const dayIdByNumber = new Map(
     ((trackingDays.data || []) as Array<{ id: string; day_number: number }>).map((day) => [day.day_number, day.id])
   );
-  const trackingActivities = params.itinerary.daily_itinerary.flatMap((day) =>
+  const trackingActivities = itinerary.daily_itinerary.flatMap((day) =>
     day.live_timeline.map((activity, index) => ({
       trip_id: params.tripId,
       trip_day_id: dayIdByNumber.get(day.day_number) || null,
@@ -547,14 +551,14 @@ export async function syncGeneratedItinerary(
   }
 
   const checklistRows = [
-    ...params.itinerary.packing_checklist.map((item) => ({
+    ...itinerary.packing_checklist.map((item) => ({
       trip_id: params.tripId,
       user_id: params.userId,
       item,
       category: "Packing",
       is_done: false
     })),
-    ...(params.itinerary.pre_trip_essentials || []).map((item) => ({
+    ...(itinerary.pre_trip_essentials || []).map((item) => ({
       trip_id: params.tripId,
       user_id: params.userId,
       item: item.title,
@@ -588,7 +592,7 @@ export async function syncGeneratedItinerary(
   const tripUpdate = await supabase
     .from("roamly_trips")
     .update({
-      title: params.itinerary.trip_title,
+      title: itinerary.trip_title,
       status: params.status || "preview",
       metadata: {
         ...existingMetadata,
@@ -615,7 +619,7 @@ export async function syncGeneratedItinerary(
     tripId: params.tripId,
     supabaseHost: getPublicSupabaseHost(),
     displayTablesAvailable: itineraryDisplayTablesAvailable,
-    ...summarizeStoredItinerary(params.itinerary)
+    ...summarizeStoredItinerary(itinerary)
   });
 
   return { error: null };

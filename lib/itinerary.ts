@@ -77,6 +77,10 @@ export type BudgetBreakdown = {
 };
 
 export type RoamlyActivitySeed = {
+  /** Stable server-assigned identity for a persisted itinerary item. */
+  item_id?: string;
+  /** Stable identity for the proven conflict involving this item, when present. */
+  conflict_id?: string;
   candidateId?: string;
   source?: string;
   factualStatus?: "verified" | "search_ready" | "estimated" | "unknown" | "DISCOVERY_SUGGESTION";
@@ -168,6 +172,10 @@ export type RoamlyBookingSuggestion = {
 };
 
 export type RoamlyDayPlan = {
+  /** Stable server-assigned identity for a persisted itinerary day. */
+  day_id?: string;
+  /** Stable identity for a persisted, proven day-level conflict. */
+  conflict_id?: string;
   day_number: number;
   date?: string;
   city?: string;

@@ -71,6 +71,8 @@ import { resolveSelectedHotelProductDecision } from "@/lib/roamly/selectedHotelP
 import { buildHotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
 import { getPendingHotelProductChoice } from "@/lib/roamly/hotelProductChoiceStorage";
 import { deriveTripReadiness, parseTripActionFocus } from "@/lib/roamly/tripReadiness";
+import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
+import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -592,10 +594,12 @@ function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
 }
 
 function DayTimelineCard({
+  tripId,
   day,
   currency,
   locale
 }: {
+  tripId: string;
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
   locale: string;
@@ -616,6 +620,13 @@ function DayTimelineCard({
     155
   );
   const hasUncertainty = Boolean(day.plan_status === "uncertain" || day.uncertainty?.length || timelineItems.some((item) => item.statusText));
+  const repairCandidate = day.conflict_id ? (() => {
+    for (const item of day.live_timeline || []) {
+      const candidate = findRepairTarget({ ...({ daily_itinerary: [day] } as RoamlyItinerary) }, day.conflict_id, item.item_id || "");
+      if (candidate.repairability === "REPAIRABLE" && candidate.target) return { target: candidate.target, item: candidate.item };
+    }
+    return null;
+  })() : null;
 
   return (
     <section
@@ -644,6 +655,7 @@ function DayTimelineCard({
       </div>
 
       <div className="mt-5">
+        {repairCandidate ? <PlanningConflictRepair tripId={tripId} conflictId={repairCandidate.target.conflictId} dayId={day.day_id!} targetItemId={repairCandidate.target.itemId} targetTitle={repairCandidate.target.title} protectedTitles={timelineItems.filter((item) => item.authority === "confirmed" || item.authority === "must_do").map((item) => item.title)} /> : null}
         <div className="grid gap-5">
           {timelineItems.length ? (
             timelineItems.map((item, index) => (
@@ -2692,7 +2704,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                         return (
                           <div key={dayNumber} className={`roamly-day-panel roamly-day-panel-${dayNumber}`}>
                             {day ? (
-                              <DayTimelineCard day={day} currency={currency} locale={locale} />
+                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} />
                             ) : (
                               <BuildingDayCard
                                 dayNumber={dayNumber}
