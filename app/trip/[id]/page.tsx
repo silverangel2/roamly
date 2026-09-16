@@ -133,10 +133,6 @@ function isConfirmedBookingSnapshot(booking: Record<string, unknown>) {
   return booking.traveler_confirmed === true || ["confirmed", "booked", "ticketed", "issued"].includes(status);
 }
 
-function bookingSnapshotTitle(booking: Record<string, unknown>) {
-  return getString(booking.title) || getString(booking.booking_type) || "Saved booking";
-}
-
 function bookingDetailText(booking: Record<string, unknown>, locale = "en") {
   const timestamp = formatBookingTimestamp(booking.start_at, locale);
   const legacyDate = getString(booking.start_date);
@@ -2471,7 +2467,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const focusedBooking = actionFocus === "flight" || actionFocus === "hotel" || actionFocus === "activity" ? actionFocus : null;
   const focusedBookingLabel = focusedBooking === "flight" ? "flight" : focusedBooking === "hotel" ? "stay" : focusedBooking === "activity" ? "activity" : null;
   const focusedBudget = actionFocus === "budget";
-  const commandNextTitle = attentionText || focusNextItem?.title || "Your trip is ready to review.";
+  const commandNextTitle = attentionText || readiness.upcomingActions[0] || focusNextItem?.title || "Your trip is ready to review.";
   const commandNextMeta = focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
   const packingItems = full ? packingChecklistItems(checklist, full).slice(0, 8) : [];
   const localTipItems = full?.local_tips.slice(0, 6) || [];
@@ -2535,29 +2531,20 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             </Badge>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {commandNextTitle ? (
-              <div className="roamly-now-next rounded-2xl border border-[#cce7df] bg-[#e8f5f0] px-4 py-4 text-ink sm:col-span-2 lg:col-span-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">What matters now</p>
-                <p className="mt-1 text-lg font-black">{commandNextTitle}</p>
-                {commandNextMeta ? <p className="mt-1 text-sm font-bold text-slate-600">{commandNextMeta}</p> : null}
-                <a href={readiness.primaryAction.href} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">{readiness.primaryAction.label}</a>
-              </div>
-            ) : null}
-            {confirmedBookingSnapshot.length ? (
-              <div className="rounded-2xl border border-ocean/20 bg-ocean/5 px-4 py-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Confirmed</p>
-                <p className="mt-1 text-lg font-black text-ink">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} secured</p>
-                <p className="mt-1 line-clamp-2 text-sm font-bold text-slate-600">{confirmedBookingSnapshot.slice(0, 2).map((booking) => bookingSnapshotTitle(booking as Record<string, unknown>)).join(" · ")}</p>
-                <a href="#bookings" className="mt-3 inline-flex min-h-11 items-center text-sm font-black text-ocean">View bookings →</a>
-              </div>
-            ) : null}
-          </div>
+          {commandNextTitle ? (
+            <div className="roamly-now-next mt-5 border-l-2 border-ocean bg-[#e8f5f0] px-4 py-4 text-ink sm:px-5">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">What matters now</p>
+              <p className="mt-1 text-lg font-black">{commandNextTitle}</p>
+              {commandNextMeta ? <p className="mt-1 text-sm font-bold text-slate-600">{commandNextMeta}</p> : null}
+              <a href={readiness.primaryAction.href} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">{readiness.primaryAction.label}</a>
+            </div>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-600">
             <span className={readiness.state === "READY" ? "text-ocean" : readiness.state === "UNCERTAIN" ? "text-amber-800" : "text-coral"}>{readiness.state === "READY" ? "Ready to go" : readiness.state === "UNCERTAIN" ? "Some details need confirmation" : "Action needed"}</span>
             <span>Budget: {headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain")}</span>
             <span>{dayCount ? `${dayCount} days` : "Dates flexible"}</span>
+            {confirmedBookingSnapshot.length ? <a href="#bookings" className="text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed →</a> : null}
             {trackingUnlocked ? <span className="text-ocean">Live Companion available</span> : null}
           </div>
               {itineraryLocked ? <NoticeBanner>This itinerary is locked. To make major changes, create a new itinerary.</NoticeBanner> : null}
@@ -2590,16 +2577,18 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
           {!generationPanelVisible ? (
             <div className="roamly-no-print mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
-              <PrimaryTripAction
-                tripId={id}
-                itineraryLocked={itineraryLocked}
-                generationInProgress={generationInProgress}
-                trackingUnlocked={trackingUnlocked}
-                paidForItinerary={paidForItinerary}
-                freeAvailable={freeAvailable}
-                testerAccess={access.hasQaAccess}
-                apiAuthToken={apiAuthToken}
-              />
+              {!canShowFull ? (
+                <PrimaryTripAction
+                  tripId={id}
+                  itineraryLocked={itineraryLocked}
+                  generationInProgress={generationInProgress}
+                  trackingUnlocked={trackingUnlocked}
+                  paidForItinerary={paidForItinerary}
+                  freeAvailable={freeAvailable}
+                  testerAccess={access.hasQaAccess}
+                  apiAuthToken={apiAuthToken}
+                />
+              ) : null}
               {canShowFull ? (
                 <>
                   <TripShareActions tripId={id} tripTitle={tripTitle} emailConfigured={emailConfigured} />
@@ -2724,17 +2713,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 </section>
 
                 <section id="overview" className="roamly-tab-panel roamly-panel-overview mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Briefing" title="What matters for this trip" summary={readiness.upcomingActions[0] || "Start here. Open the detail only when you need it."} />
+                  <SectionHeading eyebrow="Snapshot" title="Trip at a glance" summary="The key context for this trip, with the next decision kept above." />
                   <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
                     <div className="border-l-2 border-ocean bg-ocean/5 px-4 py-4 sm:px-5">
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Important now</p>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Trip status</p>
                       <p className="mt-2 text-lg font-black leading-6 text-ink">
                         {readiness.urgentItems[0] || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
                       </p>
-                      <div className="mt-4 flex flex-wrap gap-3 text-sm font-black">
-                        <a href={readiness.primaryAction.href} className="text-ocean">{readiness.primaryAction.label} →</a>
-                        {readiness.primaryAction.id !== "bookings" ? <a href="#bookings" className="text-ocean">Check bookings →</a> : null}
-                      </div>
                     </div>
                     <div className="grid gap-3 border-y border-[#e8dfd0] py-3 text-sm">
                       <p><span className="font-black text-ink">Best for:</span> <span className="font-semibold text-slate-600">{full.best_for.slice(0, 3).join(" · ") || travelStyle}</span></p>

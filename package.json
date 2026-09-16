@@ -13,6 +13,7 @@
     "test:roamly-marketing-images": "node scripts/roamly-marketing-photo-ingestion-checks.mjs",
     "proof:facebook-reels": "node scripts/facebook-reel-runtime-proof.mjs",
     "test:roamly": "node scripts/roamly-core-checks.mjs",
+    "test:trip-hierarchy": "node scripts/roamly-trip-hierarchy-checks.mjs",
     "test:candidate-decision": "node --experimental-strip-types scripts/roamly-candidate-decision-checks.mjs",
     "test:planning-repair": "node scripts/roamly-planning-repair-checks.mjs",
     "test:booking-outcome": "node scripts/roamly-booking-outcome-checks.mjs",
