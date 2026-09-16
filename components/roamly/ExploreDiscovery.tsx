@@ -12,10 +12,10 @@ export function ExploreDiscovery({
     <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] px-4 pb-24 pt-5 text-ink sm:px-6 sm:py-8">
       <div className="mx-auto w-full max-w-5xl">
         <header className="border-b border-[#e8dfd0] pb-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Explore for this trip</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">For this trip</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Worth considering</h1>
-          <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
-            A small set of grounded ideas connected to your trip. They are options to consider, not additions to your itinerary.
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+            A short list of grounded ideas that fit the trip. Nothing is added unless you choose it.
           </p>
         </header>
 
@@ -30,12 +30,12 @@ export function ExploreDiscovery({
             </div>
 
             <div className="mt-4 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
-              {candidates.map((candidate) => (
+              {candidates.map((candidate, index) => (
                 <article key={candidate.id} className="py-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{candidate.evidenceLabel}</p>
+                        <p className={`text-xs font-black uppercase tracking-[0.14em] ${index === 0 ? "text-ocean" : "text-slate-400"}`}>{index === 0 ? "Best fit for this trip" : candidate.evidenceLabel}</p>
                       </div>
                       <h3 className="mt-1 text-lg font-black text-ink">{candidate.title}</h3>
                       <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-700">{candidate.reason}</p>

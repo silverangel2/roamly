@@ -137,6 +137,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
       <section className="bg-[#fbf8ef]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Your trip, secured</p>
             <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">Bookings</h1>
           </div>
           <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
@@ -165,6 +166,8 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">These details were found but are not confirmed for travel yet.</p>
         </section>
       ) : null}
+
+      <p className="mt-6 text-sm font-bold text-slate-600">Confirmed details come first. Recommendations and items still needing review follow below.</p>
 
       {next ? (
         <section className="mt-5 border-b border-[#e8dfd0] pb-5">

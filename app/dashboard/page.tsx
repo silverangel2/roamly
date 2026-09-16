@@ -43,7 +43,7 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
   const daysCount = getTripDaysCount(trip);
 
   return (
-    <article className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
+    <article className="border-y border-cloud bg-[#fffdf8]/70 px-0 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
@@ -59,7 +59,7 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
         </span>
       </div>
       <div className="mt-4">
-        <Button href={href} className="w-full">
+        <Button href={href} className="w-full sm:w-auto">
           {hasTracking ? "Open Live" : locked ? "Open plan" : "Open trip"}
         </Button>
         <DeleteTripButton
@@ -142,16 +142,16 @@ export default async function DashboardPage() {
         </section>
       ) : null}
 
-      <section className="mt-7 grid gap-4 md:grid-cols-3">
+      <section className="mt-7 grid gap-3 border-y border-cloud py-4 md:grid-cols-3 md:divide-x md:divide-cloud">
         {[
           ["Free itinerary", free.used ? "Used" : "Available"],
           ["Locked itineraries", String(locked.length)],
           ["Draft trips", String(drafts.length)]
         ].map(([label, value]) => (
-          <Card key={label} className="p-4">
+          <div key={label} className="px-0 md:px-4 md:first:pl-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{label}</p>
             <p className="mt-2 text-2xl font-black text-ink">{value}</p>
-          </Card>
+          </div>
         ))}
       </section>
 

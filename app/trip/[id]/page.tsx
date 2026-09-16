@@ -300,15 +300,6 @@ function SectionHeading({
   );
 }
 
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="roamly-print-section rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{label}</p>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{value}</p>
-    </article>
-  );
-}
-
 function NavigationChipList({ query }: { query: string }) {
   const labels: Record<string, string> = {
     google_maps: "Google Maps",
@@ -756,8 +747,8 @@ function BudgetSummary({
 
   return (
     <div className="grid gap-4">
-      <section className="rounded-[1.15rem] border border-[#e8dfd0] bg-white p-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:p-5">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Trip budget</p>
+      <section className="border-y border-[#e8dfd0] bg-[#fffdf8]/70 py-4 sm:py-5">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">How am I doing?</p>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs font-bold text-slate-500">Your target</p>
@@ -768,7 +759,7 @@ function BudgetSummary({
             <p className="mt-1 text-2xl font-black tracking-tight text-ink">{presentation.totalLabel}</p>
           </div>
         </div>
-        <div className={`mt-4 rounded-[1rem] border px-4 py-3 ${statusTone}`}>
+        <div className={`mt-4 border-l-2 px-4 py-3 ${statusTone}`}>
           <p className="text-base font-black">{presentation.statusLabel}</p>
           <p className="mt-1 text-sm font-semibold leading-6">{presentation.statusDetail}</p>
           {presentation.remainingLabel ? <p className="mt-2 text-sm font-black">{presentation.remainingLabel}</p> : null}
@@ -2427,8 +2418,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const hasEssentials = Boolean(full?.pre_trip_essentials.length);
   const hasTravelNotes = [packingItems, localTipItems, safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0);
   const briefingTabs = [
-    ["roamly-tab-day-by-day", "Plan"],
     ["roamly-tab-overview", "Snapshot"],
+    ["roamly-tab-day-by-day", "Plan"],
     ["roamly-tab-budget", "Budget"],
     ["roamly-tab-bookings", "Bookings"],
     ...(hasEssentials ? [["roamly-tab-essentials", "Before you go"]] : []),
@@ -2597,7 +2588,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 @media print{.roamly-tab-panel,.roamly-day-panel{display:block!important}.roamly-tab-nav,.roamly-day-nav{display:none!important}}
               `}</style>
               {briefingTabs.map(([tabId]) => (
-                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === briefingTabs[0][0]} />
+                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === "roamly-tab-overview"} />
               ))}
 
               <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
@@ -2674,11 +2665,23 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 </section>
 
                 <section id="overview" className="roamly-tab-panel roamly-panel-overview mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Overview" title="Trip summary" summary="Only the essentials." />
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <SummaryTile label="Best for" value={full.best_for.slice(0, 3).join(" · ") || travelStyle} />
-                    <SummaryTile label="Budget" value={compact(full.budget_fit_summary, "Verify prices before booking.", 130)} />
-                    <SummaryTile label="Transport" value={compact(full.transport_overview, "Travel time is included in the plan.", 130)} />
+                  <SectionHeading eyebrow="Briefing" title="What matters for this trip" summary="Start here. Open the detail only when you need it." />
+                  <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+                    <div className="border-l-2 border-ocean bg-ocean/5 px-4 py-4 sm:px-5">
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Important now</p>
+                      <p className="mt-2 text-lg font-black leading-6 text-ink">
+                        {attentionText || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-3 text-sm font-black">
+                        <a href="#day-by-day" className="text-ocean">Open plan →</a>
+                        <a href="#bookings" className="text-ocean">Check bookings →</a>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 border-y border-[#e8dfd0] py-3 text-sm">
+                      <p><span className="font-black text-ink">Best for:</span> <span className="font-semibold text-slate-600">{full.best_for.slice(0, 3).join(" · ") || travelStyle}</span></p>
+                      <p><span className="font-black text-ink">Budget:</span> <span className="font-semibold text-slate-600">{compact(full.budget_fit_summary, "Still uncertain", 130)}</span></p>
+                      <p><span className="font-black text-ink">Transport:</span> <span className="font-semibold text-slate-600">{compact(full.transport_overview, "Travel time is included in the plan.", 130)}</span></p>
+                    </div>
                   </div>
                 </section>
 

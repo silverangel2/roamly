@@ -371,20 +371,20 @@ export default async function LiveTripPage({
         <Button href={`/trip/${id}`} tone="secondary">Full itinerary</Button>
       </section>
 
-      <section className="mb-5 grid gap-3 sm:grid-cols-3">
-        <Card>
+      <section className="mb-6 grid gap-4 border-y border-[#e8dfd0] bg-[#fffdf8]/70 py-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-[#e8dfd0]">
+        <div className="sm:px-5 sm:first:pl-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip activated</p>
           <h2 className="mt-2 text-2xl font-black text-ink">{countdownCopy(tripCountdown, currentDay)}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Current day: Day {currentDay}</p>
-        </Card>
-        <Card>
+        </div>
+        <div className="sm:px-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Up next activity</p>
           <h2 className="mt-2 text-2xl font-black text-ink">{nextActivity?.title || "Flexible time"}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
             {nextActivity?.time_label || nearbyActivity?.title || "Roamly will surface the next useful stop."}
           </p>
-        </Card>
-        <Card>
+        </div>
+        <div className="sm:px-5 sm:last:pr-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
             {formatMoney(remainingBudgetCents, budgetCurrency, locale)}
@@ -392,11 +392,11 @@ export default async function LiveTripPage({
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
                   Booked items: {formatMoney(committedBudgetCents, budgetCurrency, locale)}
           </p>
-        </Card>
+        </div>
       </section>
 
-      <section className="mb-5 grid gap-4 lg:grid-cols-[1fr_0.9fr]">
-        <Card>
+      <section className="mb-6 grid gap-5 border-b border-[#e8dfd0] pb-5 lg:grid-cols-[1fr_0.9fr]">
+        <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Next reminder</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
             {companion.nextEvent?.title || "No scheduled reminder yet"}
@@ -404,12 +404,15 @@ export default async function LiveTripPage({
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
             {companion.nextEvent?.body || "Roamly will keep your in-app timeline ready. Phone reminders are optional."}
           </p>
-        </Card>
-        <Card>
+        </div>
+        <details className="border-l-2 border-ocean/30 bg-mist/45 px-4 py-3">
+          <summary className="min-h-11 cursor-pointer text-sm font-black text-ocean">Phone alerts</summary>
+          <div className="mt-2">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Phone alerts</p>
-          <h2 className="mt-2 text-xl font-black text-ink">Live Companion setup is below</h2>
+          <h2 className="mt-2 text-xl font-black text-ink">Live Companion setup</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Complete the one-time mobile setup in the Live Companion panel. Phone push is the primary alert channel.</p>
-        </Card>
+          </div>
+        </details>
       </section>
 
       <section className="mb-5">
