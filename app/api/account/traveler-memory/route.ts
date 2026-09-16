@@ -7,6 +7,7 @@ import {
   updatePreferenceEventStatus,
   upsertTravelerProfile
 } from "@/lib/roamly/travelerMemory";
+import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -62,6 +63,12 @@ export async function PATCH(request: NextRequest) {
       ? { personalization_enabled: body.personalizationEnabled !== false }
       : {})
   };
+  const rawCountry = record(body.preferences).passport_issuing_country;
+  if (Object.prototype.hasOwnProperty.call(record(body.preferences), "passport_issuing_country")) {
+    if (rawCountry !== null && rawCountry !== "" && !normalizeCountryCode(typeof rawCountry === "string" ? rawCountry : null)) {
+      return NextResponse.json({ ok: false, error: "Choose a valid passport issuing country or leave it blank." }, { status: 400 });
+    }
+  }
   const result = await upsertTravelerProfile({
     supabase: auth.supabase,
     userId: auth.user.id,

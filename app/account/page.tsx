@@ -10,6 +10,7 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+import { listCountryOptions } from "@/lib/roamly/placeResolver";
 
 export default async function AccountPage() {
   const current = await getCurrentUser();
@@ -102,13 +103,15 @@ export default async function AccountPage() {
             </div>
           </Card>
 
+          <div id="traveler-memory" className="scroll-mt-24">
           <Card>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Traveler memory</p>
             <h2 className="mt-2 text-2xl font-black text-ink">Preferences Roamly can use</h2>
             <div className="mt-5">
-              <TravelerMemorySettings />
+              <TravelerMemorySettings countryOptions={listCountryOptions()} />
             </div>
           </Card>
+          </div>
 
           {profileResult.error ? (
             <div className="rounded-app border border-amber-200 bg-amber-50 p-5 text-amber-900 shadow-soft">

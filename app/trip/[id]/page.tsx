@@ -73,6 +73,8 @@ import { getPendingHotelProductChoice } from "@/lib/roamly/hotelProductChoiceSto
 import { deriveTripReadiness, parseTripActionFocus } from "@/lib/roamly/tripReadiness";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
+import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
+import { countMaterialTravelRequirements, deriveTravelRequirements } from "@/lib/roamly/travelRequirements";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -2294,9 +2296,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     });
   }
 
-  const [bundleResult, freeResult] = await Promise.all([
+  const [bundleResult, freeResult, travelerMemory] = await Promise.all([
     getTripBundle(supabase, current.user.id, id),
-    hasUsedFreeItinerary(supabase, current.user.id)
+    hasUsedFreeItinerary(supabase, current.user.id),
+    getTravelerMemory(supabase, current.user.id)
   ]);
 
   if (!bundleResult.data) {
@@ -2439,6 +2442,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : missingBookingFocus;
   const conflictCount = full?.daily_itinerary.filter((day) => day.plan_status === "conflict").length || 0;
   const conflictDay = full?.daily_itinerary.find((day) => day.plan_status === "conflict")?.day_number || null;
+  const travelRequirements = deriveTravelRequirements({
+    destinationCountry: trip.destination_country,
+    passportIssuingCountry: travelerMemory.profile?.passport_issuing_country,
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    travelerCount: trip.travelers_count
+  });
   const uncertainItemCount = full?.daily_itinerary.reduce((count, day) => {
     const uncertainTimeline = (day.live_timeline || []).some((item) => {
       const record = item as unknown as Record<string, unknown>;
@@ -2460,6 +2470,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     conflictDay,
     uncertainItemCount,
     budgetStatus: budgetPresentation?.status || null,
+    preparationRequirementsNeedingReview: countMaterialTravelRequirements(travelRequirements),
     paymentNeedsAttention: checkoutNeedsAttention
   });
   const attentionText = readiness.urgentItems[0] || "";
@@ -2759,6 +2770,26 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                       <TripBookingsManager tripId={id} initialBookings={importedBookings} />
                     </div>
                   </details>
+                </section>
+
+                <section id="requirements" className="roamly-tab-panel roamly-panel-requirements mt-8 scroll-mt-32">
+                  <SectionHeading eyebrow="Before you go" title="Entry requirements" summary="A conservative review based on your destination and the account holder’s declared passport country." />
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {travelRequirements.map((requirement) => (
+                      <div key={requirement.id} className="rounded-2xl border border-[#e8dfd0] bg-white p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-black text-ink">{requirement.title}</p>
+                            <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-sun">{requirement.status === "UNKNOWN" ? "Needs information" : "Review required"}</p>
+                          </div>
+                          {requirement.actionUrl ? <a className="text-sm font-black text-ocean underline" href={requirement.actionUrl} target="_blank" rel="noreferrer">Official source</a> : null}
+                        </div>
+                        <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{requirement.summary}</p>
+                        {!travelerMemory.profile?.passport_issuing_country ? <a className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white" href="/account#traveler-memory">Add passport country</a> : null}
+                        {requirement.authority ? <p className="mt-3 text-xs font-bold text-slate-500">Source: {requirement.authority}. This is guidance, not entry clearance.</p> : null}
+                      </div>
+                    ))}
+                  </div>
                 </section>
 
                 {hasEssentials ? (

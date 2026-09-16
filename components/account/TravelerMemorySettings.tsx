@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 type MemoryProfile = {
+  passport_issuing_country?: string | null;
   personalization_enabled?: boolean;
   preferred_travel_pace?: string | null;
   maximum_comfortable_driving_hours?: number | null;
@@ -84,7 +85,7 @@ function parseCsv(value: string) {
     .filter(Boolean);
 }
 
-export function TravelerMemorySettings() {
+export function TravelerMemorySettings({ countryOptions }: { countryOptions: Array<{ code: string; name: string }> }) {
   const [profile, setProfile] = useState<MemoryProfile | null>(null);
   const [events, setEvents] = useState<PreferenceEvent[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -108,6 +109,7 @@ export function TravelerMemorySettings() {
       preferred_neighbourhood_style: nextProfile?.preferred_neighbourhood_style || "",
       walking_tolerance: nextProfile?.walking_tolerance || "",
       typical_budget_level: nextProfile?.typical_budget_level || "",
+      passport_issuing_country: nextProfile?.passport_issuing_country || "",
       ...Object.fromEntries(arrayFields.map((field) => [field, asCsv(nextProfile?.[field])]))
     });
   }
@@ -142,6 +144,7 @@ export function TravelerMemorySettings() {
   async function save() {
     await run(async () => {
       const preferences: Record<string, unknown> = {
+        passport_issuing_country: form.passport_issuing_country || null,
         ...Object.fromEntries(textFields.map((field) => [field, form[field] || null])),
         maximum_comfortable_driving_hours: form.maximum_comfortable_driving_hours ? Number(form.maximum_comfortable_driving_hours) : null,
         ...Object.fromEntries(arrayFields.map((field) => [field, parseCsv(form[field] || "")]))
@@ -220,6 +223,20 @@ export function TravelerMemorySettings() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        <label className="block md:col-span-2">
+          <span className="text-sm font-black text-ink">Passport issuing country</span>
+          <select
+            value={form.passport_issuing_country || ""}
+            onChange={(event) => setForm((current) => ({ ...current, passport_issuing_country: event.target.value }))}
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+          >
+            <option value="">Not provided</option>
+            {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
+          </select>
+          <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">
+            Account-holder fact only. Roamly does not store a passport number, expiry, or image.
+          </span>
+        </label>
         {[...textFields, "maximum_comfortable_driving_hours" as const].map((field) => (
           <label key={field} className="block">
             <span className="text-sm font-black text-ink">{labels[field]}</span>

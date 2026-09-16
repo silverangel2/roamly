@@ -155,6 +155,19 @@ function countries() {
   return countryNameIndex;
 }
 
+export function listCountryOptions() {
+  const options = new Map<string, string>();
+  for (const city of records()) options.set(city.countryCode, city.countryName);
+  return [...options.entries()]
+    .map(([code, name]) => ({ code, name }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export function normalizeCountryCode(value?: string | null) {
+  const normalized = normalizePlaceText(value);
+  return countries().get(normalized) || null;
+}
+
 function splitInput(value?: string | null) {
   const parts = (value || "")
     .split(",")

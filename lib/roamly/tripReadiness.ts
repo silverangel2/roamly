@@ -1,7 +1,7 @@
-export type TripActionFocus = "flight" | "hotel" | "activity" | "budget" | `day-${number}`;
+export type TripActionFocus = "flight" | "hotel" | "activity" | "budget" | "requirements" | `day-${number}`;
 
 export function parseTripActionFocus(value: string | null | undefined): TripActionFocus | null {
-  if (value === "flight" || value === "hotel" || value === "activity" || value === "budget") return value;
+  if (value === "flight" || value === "hotel" || value === "activity" || value === "budget" || value === "requirements") return value;
   if (/^day-[1-9]\d*$/.test(value || "")) return value as `day-${number}`;
   return null;
 }
@@ -16,7 +16,7 @@ export type TripReadinessState = "READY" | "ACTION_NEEDED" | "ATTENTION_REQUIRED
 export type TripPhase = "upcoming" | "active" | "completed" | "unknown";
 
 export type TripReadinessAction = {
-  id: "generation" | "conflict" | "bookings" | "budget" | "plan";
+  id: "generation" | "conflict" | "bookings" | "budget" | "requirements" | "plan";
   label: string;
   href: string;
 };
@@ -46,6 +46,7 @@ export type TripReadinessInput = {
   bookingFocus?: "flight" | "hotel" | "activity" | null;
   conflictDay?: number | null;
   budgetStatus?: "WITHIN_BUDGET" | "LIKELY_WITHIN_BUDGET" | "OVER_BUDGET" | "BUDGET_UNCERTAIN" | null;
+  preparationRequirementsNeedingReview?: number;
   now?: Date;
 };
 
@@ -182,6 +183,19 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
       state: "UNCERTAIN",
       phase,
       primaryAction: action("budget", input.tripId, "Review what is uncertain", "trip", "budget", "budget"),
+      urgentItems,
+      upcomingActions,
+      confirmations,
+      uncertainties: uncertaintyItems
+    };
+  }
+
+  if (phase === "upcoming" && (input.preparationRequirementsNeedingReview || 0) > 0) {
+    urgentItems.push("Entry requirements still need review before you travel.");
+    return {
+      state: "ACTION_NEEDED",
+      phase,
+      primaryAction: action("requirements", input.tripId, "Review entry requirements", "trip", "requirements", "requirements"),
       urgentItems,
       upcomingActions,
       confirmations,

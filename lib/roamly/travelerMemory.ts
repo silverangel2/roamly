@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
 
 export const TRAVELER_PREFERENCE_KEYS = [
   "preferred_travel_pace",
@@ -48,6 +49,7 @@ export type TravelerProfile = {
   typical_budget_level: string | null;
   likes: string[];
   dislikes: string[];
+  passport_issuing_country: string | null;
   confirmed_preferences: Record<string, unknown>;
   inferred_preferences: Record<string, unknown>;
   preference_confidence: Record<string, unknown>;
@@ -142,6 +144,7 @@ function normalizeProfile(row: Record<string, unknown>): TravelerProfile {
     typical_budget_level: cleanString(row.typical_budget_level) || null,
     likes: cleanStringArray(row.likes),
     dislikes: cleanStringArray(row.dislikes),
+    passport_issuing_country: normalizeCountryCode(typeof row.passport_issuing_country === "string" ? row.passport_issuing_country : null),
     confirmed_preferences: record(row.confirmed_preferences),
     inferred_preferences: record(row.inferred_preferences),
     preference_confidence: record(row.preference_confidence),
@@ -180,6 +183,11 @@ export function cleanTravelerPreferenceUpdates(value: unknown) {
   const input = record(value);
   const updates: Record<string, unknown> = {};
   const confirmed: Record<string, unknown> = {};
+
+  if (Object.prototype.hasOwnProperty.call(input, "passport_issuing_country")) {
+    const country = normalizeCountryCode(input.passport_issuing_country as string);
+    updates.passport_issuing_country = country;
+  }
 
   for (const key of TRAVELER_PREFERENCE_KEYS) {
     if (!Object.prototype.hasOwnProperty.call(input, key)) continue;
