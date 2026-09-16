@@ -1,3 +1,17 @@
+export type TripActionFocus = "flight" | "hotel" | "activity" | "budget" | `day-${number}`;
+
+export function parseTripActionFocus(value: string | null | undefined): TripActionFocus | null {
+  if (value === "flight" || value === "hotel" || value === "activity" || value === "budget") return value;
+  if (/^day-[1-9]\d*$/.test(value || "")) return value as `day-${number}`;
+  return null;
+}
+
+function buildTripActionHref(tripId: string, surface: "trip" | "bookings", focus: TripActionFocus | null, anchor: string) {
+  const query = focus ? `?focus=${encodeURIComponent(focus)}` : "";
+  const path = surface === "bookings" ? `/trip/${tripId}/bookings` : `/trip/${tripId}`;
+  return `${path}${query}${anchor ? `#${anchor}` : ""}`;
+}
+
 export type TripReadinessState = "READY" | "ACTION_NEEDED" | "ATTENTION_REQUIRED" | "UNCERTAIN";
 export type TripPhase = "upcoming" | "active" | "completed" | "unknown";
 
@@ -54,8 +68,8 @@ export function tripPhase(input: Pick<TripReadinessInput, "startDate" | "endDate
   return "active";
 }
 
-function action(id: TripReadinessAction["id"], tripId: string, label: string, suffix: string): TripReadinessAction {
-  return { id, label, href: `/trip/${tripId}${suffix}` };
+function action(id: TripReadinessAction["id"], tripId: string, label: string, surface: "trip" | "bookings", focus: TripActionFocus | null, anchor: string): TripReadinessAction {
+  return { id, label, href: buildTripActionHref(tripId, surface, focus, anchor) };
 }
 
 export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
@@ -76,7 +90,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action("generation", input.tripId, "Review trip access", ""),
+      primaryAction: action("generation", input.tripId, "Review trip access", "trip", null, ""),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -89,7 +103,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action("generation", input.tripId, "Review generation", ""),
+      primaryAction: action("generation", input.tripId, "Review generation", "trip", null, ""),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -102,7 +116,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "UNCERTAIN",
       phase,
-      primaryAction: action("generation", input.tripId, "View trip progress", ""),
+      primaryAction: action("generation", input.tripId, "View trip progress", "trip", null, ""),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -115,12 +129,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ATTENTION_REQUIRED",
       phase,
-      primaryAction: action(
-        "conflict",
-        input.tripId,
-        "Review the plan",
-        `${input.conflictDay ? `?focus=day-${input.conflictDay}` : ""}#day-by-day`
-      ),
+      primaryAction: action("conflict", input.tripId, "Review the plan", "trip", input.conflictDay ? `day-${input.conflictDay}` : null, "day-by-day"),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -133,12 +142,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action(
-        "bookings",
-        input.tripId,
-        "Review bookings",
-        `${input.bookingFocus ? `?focus=${input.bookingFocus}` : ""}#bookings`
-      ),
+      primaryAction: action("bookings", input.tripId, "Review bookings", "bookings", input.bookingFocus || null, input.bookingFocus ? `booking-${input.bookingFocus}` : ""),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -151,12 +155,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action(
-        "bookings",
-        input.tripId,
-        "Review what to book",
-        `${input.bookingFocus ? `?focus=${input.bookingFocus}` : ""}#bookings`
-      ),
+      primaryAction: action("bookings", input.tripId, "Review what to book", "trip", input.bookingFocus || null, "bookings"),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -169,7 +168,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "ATTENTION_REQUIRED",
       phase,
-      primaryAction: action("budget", input.tripId, "Review the budget", "?focus=budget#budget"),
+      primaryAction: action("budget", input.tripId, "Review the budget", "trip", "budget", "budget"),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -182,7 +181,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
     return {
       state: "UNCERTAIN",
       phase,
-      primaryAction: action("budget", input.tripId, "Review what is uncertain", "?focus=budget#budget"),
+      primaryAction: action("budget", input.tripId, "Review what is uncertain", "trip", "budget", "budget"),
       urgentItems,
       upcomingActions,
       confirmations,
@@ -195,7 +194,7 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
   return {
     state: "READY",
     phase,
-    primaryAction: action("plan", input.tripId, phase === "active" ? "Open today’s plan" : "Open your plan", "#day-by-day"),
+    primaryAction: action("plan", input.tripId, phase === "active" ? "Open today’s plan" : "Open your plan", "trip", null, "day-by-day"),
     urgentItems,
     upcomingActions,
     confirmations,

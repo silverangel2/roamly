@@ -70,7 +70,7 @@ import { confirmedNeedSatisfied, reconcileAffiliateAction } from "@/lib/roamly/a
 import { resolveSelectedHotelProductDecision } from "@/lib/roamly/selectedHotelProductDecision";
 import { buildHotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
 import { getPendingHotelProductChoice } from "@/lib/roamly/hotelProductChoiceStorage";
-import { deriveTripReadiness } from "@/lib/roamly/tripReadiness";
+import { deriveTripReadiness, parseTripActionFocus } from "@/lib/roamly/tripReadiness";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -2451,9 +2451,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     paymentNeedsAttention: checkoutNeedsAttention
   });
   const attentionText = readiness.urgentItems[0] || "";
-  const focusedBooking = ["flight", "hotel", "activity"].includes(one(search.focus) || "") ? one(search.focus) : null;
+  const actionFocus = parseTripActionFocus(one(search.focus));
+  const focusedBooking = actionFocus === "flight" || actionFocus === "hotel" || actionFocus === "activity" ? actionFocus : null;
   const focusedBookingLabel = focusedBooking === "flight" ? "flight" : focusedBooking === "hotel" ? "stay" : focusedBooking === "activity" ? "activity" : null;
-  const focusedBudget = one(search.focus) === "budget";
+  const focusedBudget = actionFocus === "budget";
   const commandNextTitle = attentionText || focusNextItem?.title || "Your trip is ready to review.";
   const commandNextMeta = focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
   const packingItems = full ? packingChecklistItems(checklist, full).slice(0, 8) : [];

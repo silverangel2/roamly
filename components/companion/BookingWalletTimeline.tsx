@@ -8,6 +8,7 @@ type BookingWalletTimelineProps = {
   bookings: TripBookingRecord[];
   companionUnlocked?: boolean;
   locale: RoamlyLocale;
+  focus?: "flight" | "hotel" | "activity" | null;
 };
 
 function statusClass(status: TripBookingStatus) {
@@ -123,7 +124,7 @@ function navLinkClass(active = false) {
   return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
-export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale }: BookingWalletTimelineProps) {
+export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
@@ -167,6 +168,8 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         </section>
       ) : null}
 
+      {focus ? <p className="mt-5 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Confirmed information remains authoritative; anything unresolved is still marked below.</p> : null}
+
       <p className="mt-6 text-sm font-bold text-slate-600">Confirmed details come first. Recommendations and items still needing review follow below.</p>
 
       {next ? (
@@ -188,7 +191,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
 
       <section className="mt-6">
         {groups.length ? groups.map((group) => (
-          <section key={group.title} className="mb-7">
+          <section key={group.title} id={focus && ((focus === "flight" && group.title === "Getting there") || (focus === "hotel" && group.title === "Stay") || (focus === "activity" && group.title === "Activities and reservations")) ? `booking-${focus}` : undefined} className="mb-7 scroll-mt-32">
             <div className="flex items-baseline justify-between gap-3">
               <h2 className="text-xl font-black tracking-tight text-ink">{group.title}</h2>
               <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{group.bookings.length}</span>

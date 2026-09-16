@@ -8,6 +8,7 @@ import { getServerLocale } from "@/lib/i18n-server";
 import { legacyRoamlyBookingToWallet, listTripBookings, stableBookingKey, type TripBookingRecord } from "@/lib/roamly/bookingWallet";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { formatRoamlyDate } from "@/lib/i18n";
+import { parseTripActionFocus } from "@/lib/roamly/tripReadiness";
 
 function mergeBookings(wallet: TripBookingRecord[], legacy: TripBookingRecord[]) {
   const byKey = new Map<string, TripBookingRecord>();
@@ -29,8 +30,10 @@ function mergeBookings(wallet: TripBookingRecord[], legacy: TripBookingRecord[])
   return [...byKey.values()];
 }
 
-export default async function TripBookingsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TripBookingsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const { id } = await params;
+  const search = searchParams ? await searchParams : {};
+  const focus = parseTripActionFocus(typeof search.focus === "string" ? search.focus : null);
   const current = await getCurrentUser();
 
   if (current.configured && !current.user) {
@@ -86,6 +89,7 @@ export default async function TripBookingsPage({ params }: { params: Promise<{ i
         bookings={mergeBookings(walletBookings, legacyBookings)}
         companionUnlocked={tripHasTrackingUnlock(trip)}
         locale={locale}
+        focus={focus === "flight" || focus === "hotel" || focus === "activity" ? focus : null}
       />
     </main>
   );
