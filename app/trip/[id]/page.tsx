@@ -2488,11 +2488,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const lowCostItems = full?.free_or_low_cost_notes.slice(0, 5) || [];
   const hasEssentials = Boolean(full?.pre_trip_essentials.length);
   const hasTravelNotes = [packingItems, localTipItems, safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0);
+  const hasRequirements = countMaterialTravelRequirements(travelRequirements) > 0;
   const briefingTabs = [
     ["roamly-tab-overview", "Snapshot"],
     ["roamly-tab-day-by-day", "Plan"],
     ["roamly-tab-budget", "Budget"],
     ["roamly-tab-bookings", "Bookings"],
+    ...(hasRequirements ? [["roamly-tab-requirements", "Entry requirements"]] : []),
     ...(hasEssentials ? [["roamly-tab-essentials", "Before you go"]] : []),
     ...(hasTravelNotes ? [["roamly-tab-travel-notes", "Practical"]] : [])
   ];
@@ -2629,12 +2631,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 #roamly-tab-overview:checked ~ .roamly-tab-panels .roamly-panel-overview,
                 #roamly-tab-budget:checked ~ .roamly-tab-panels .roamly-panel-budget,
                 #roamly-tab-bookings:checked ~ .roamly-tab-panels .roamly-panel-bookings,
+                #roamly-tab-requirements:checked ~ .roamly-tab-panels .roamly-panel-requirements,
                 #roamly-tab-essentials:checked ~ .roamly-tab-panels .roamly-panel-essentials,
                 #roamly-tab-travel-notes:checked ~ .roamly-tab-panels .roamly-panel-travel-notes{display:block}
                 #roamly-tab-day-by-day:checked ~ .roamly-tab-nav label[for="roamly-tab-day-by-day"],
                 #roamly-tab-overview:checked ~ .roamly-tab-nav label[for="roamly-tab-overview"],
                 #roamly-tab-budget:checked ~ .roamly-tab-nav label[for="roamly-tab-budget"],
                 #roamly-tab-bookings:checked ~ .roamly-tab-nav label[for="roamly-tab-bookings"],
+                #roamly-tab-requirements:checked ~ .roamly-tab-nav label[for="roamly-tab-requirements"],
                 #roamly-tab-essentials:checked ~ .roamly-tab-nav label[for="roamly-tab-essentials"],
                 #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#1b9aaa;color:white;border-color:#1b9aaa}
                 .roamly-day-input{position:absolute;opacity:0;pointer-events:none}
@@ -2647,7 +2651,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 @media print{.roamly-tab-panel,.roamly-day-panel{display:block!important}.roamly-tab-nav,.roamly-day-nav{display:none!important}}
               `}</style>
               {briefingTabs.map(([tabId]) => (
-                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === "roamly-tab-overview"} />
+                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === (actionFocus === "requirements" && hasRequirements ? "roamly-tab-requirements" : "roamly-tab-overview")} />
               ))}
 
               <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
@@ -2772,7 +2776,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   </details>
                 </section>
 
-                <section id="requirements" className="roamly-tab-panel roamly-panel-requirements mt-8 scroll-mt-32">
+                {hasRequirements ? <section id="requirements" className="roamly-tab-panel roamly-panel-requirements mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Before you go" title="Entry requirements" summary="A conservative review based on your destination and the account holder’s declared passport country." />
                   <div className="grid gap-3 md:grid-cols-2">
                     {travelRequirements.map((requirement) => (
@@ -2785,12 +2789,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                           {requirement.actionUrl ? <a className="text-sm font-black text-ocean underline" href={requirement.actionUrl} target="_blank" rel="noreferrer">Official source</a> : null}
                         </div>
                         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{requirement.summary}</p>
-                        {!travelerMemory.profile?.passport_issuing_country ? <a className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white" href="/account#traveler-memory">Add passport country</a> : null}
+                        {!travelerMemory.profile?.passport_issuing_country ? <a className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${id}?focus=requirements#requirements`)}#traveler-memory`}>Add passport country</a> : null}
                         {requirement.authority ? <p className="mt-3 text-xs font-bold text-slate-500">Source: {requirement.authority}. This is guidance, not entry clearance.</p> : null}
                       </div>
                     ))}
                   </div>
-                </section>
+                </section> : null}
 
                 {hasEssentials ? (
                   <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32">

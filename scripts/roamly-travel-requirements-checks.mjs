@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { deriveTravelRequirements, countMaterialTravelRequirements } from "../lib/roamly/travelRequirements.ts";
+
+const tripPage = fs.readFileSync("app/trip/[id]/page.tsx", "utf8");
+const tripNav = fs.readFileSync("components/roamly/TripContextNav.tsx", "utf8");
+const accountPage = fs.readFileSync("app/account/page.tsx", "utf8");
+const memorySettings = fs.readFileSync("components/account/TravelerMemorySettings.tsx", "utf8");
 
 const missing = deriveTravelRequirements({ destinationCountry: "GB", travelerCount: 1 });
 assert.equal(missing[0].status, "UNKNOWN");
@@ -28,5 +34,17 @@ assert.equal(countMaterialTravelRequirements([]), 0);
 
 const acknowledged = { ...supported[0], status: "ACTION_REQUIRED" };
 assert.notEqual(acknowledged.status, "SATISFIED", "acknowledgment must not imply verified satisfaction");
+
+assert.match(tripPage, /hasRequirements = countMaterialTravelRequirements\(travelRequirements\) > 0/);
+assert.match(tripPage, /roamly-tab-requirements/);
+assert.match(tripPage, /actionFocus === "requirements" && hasRequirements/);
+assert.match(tripPage, /focus=requirements#requirements/);
+assert.match(tripNav, /"#requirements"/);
+assert.match(accountPage, /safeRequirementsReturn/);
+assert.match(accountPage, /url\.origin !== "https:\/\/roamly\.internal"/);
+assert.match(accountPage, /url\.hash !== "#requirements"/);
+assert.match(memorySettings, /returnTo\?: string \| null/);
+assert.match(memorySettings, /Return to trip requirements/);
+assert.doesNotMatch(memorySettings, /passport_(number|expiry|scan|image|dob)/i, "passport-sensitive fields must not be introduced");
 
 console.log("Roamly travel requirements checks passed (explicit passport fact, provenance, uncertainty, freshness, companions, transit, and conservative status semantics).");

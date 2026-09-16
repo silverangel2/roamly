@@ -85,7 +85,7 @@ function parseCsv(value: string) {
     .filter(Boolean);
 }
 
-export function TravelerMemorySettings({ countryOptions }: { countryOptions: Array<{ code: string; name: string }> }) {
+export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOptions: Array<{ code: string; name: string }>; returnTo?: string | null }) {
   const [profile, setProfile] = useState<MemoryProfile | null>(null);
   const [events, setEvents] = useState<PreferenceEvent[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -207,6 +207,14 @@ export function TravelerMemorySettings({ countryOptions }: { countryOptions: Arr
 
   return (
     <div className="space-y-5">
+      {returnTo ? (
+        <div className="rounded-2xl border border-ocean/20 bg-ocean/5 px-4 py-3">
+          <p className="text-sm font-black text-ink">Updating entry requirements for this trip</p>
+          <a href={returnTo} className="mt-1 inline-flex min-h-11 items-center text-sm font-black text-ocean underline underline-offset-2">
+            Return to trip requirements
+          </a>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mist p-4">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Here is what Roamly remembers</p>

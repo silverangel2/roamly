@@ -12,8 +12,30 @@ import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { listCountryOptions } from "@/lib/roamly/placeResolver";
 
-export default async function AccountPage() {
+type AccountPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function safeRequirementsReturn(value: unknown) {
+  if (typeof value !== "string" || !value.startsWith("/trip/") || value.startsWith("//")) return null;
+  try {
+    const url = new URL(value, "https://roamly.internal");
+    if (url.origin !== "https://roamly.internal" || !/^\/trip\/[0-9a-f-]+$/i.test(url.pathname)) return null;
+    if (url.hash !== "#requirements" || url.searchParams.get("focus") !== "requirements" || [...url.searchParams.keys()].length !== 1) return null;
+    return `${url.pathname}?focus=requirements#requirements`;
+  } catch {
+    return null;
+  }
+}
+
+function firstSearchValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function AccountPage({ searchParams }: AccountPageProps) {
   const current = await getCurrentUser();
+  const search = searchParams ? await searchParams : {};
+  const returnTo = safeRequirementsReturn(firstSearchValue(search.return));
 
   if (!current.configured) {
     return (
@@ -108,7 +130,7 @@ export default async function AccountPage() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Traveler memory</p>
             <h2 className="mt-2 text-2xl font-black text-ink">Preferences Roamly can use</h2>
             <div className="mt-5">
-              <TravelerMemorySettings countryOptions={listCountryOptions()} />
+              <TravelerMemorySettings countryOptions={listCountryOptions()} returnTo={returnTo} />
             </div>
           </Card>
           </div>

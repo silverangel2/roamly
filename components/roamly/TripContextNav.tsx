@@ -27,7 +27,7 @@ function isSelected(pathname: string, hash: string, tripId: string, key: (typeof
   const base = `/trip/${tripId}`;
   if (key === "home") return (pathname === base || pathname === `${base}/`) && ["", "#"].includes(hash);
   if (key === "itinerary") return (pathname === base || pathname === `${base}/`) && hash === "#day-by-day";
-  if (key === "briefing") return (pathname === base || pathname === `${base}/`) && ["#overview", "#essentials", "#travel-notes"].includes(hash);
+  if (key === "briefing") return (pathname === base || pathname === `${base}/`) && ["#overview", "#requirements", "#essentials", "#travel-notes"].includes(hash);
   if (key === "budget") return (pathname === base || pathname === `${base}/`) && hash === "#budget";
   return pathname === `${base}${destinations.find((item) => item.key === key)?.suffix}`;
 }
