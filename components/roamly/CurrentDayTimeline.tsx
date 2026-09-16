@@ -20,14 +20,14 @@ export function CurrentDayTimeline({
 }) {
   const { t } = useI18n();
   return (
-    <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+    <section className="border-y border-cloud bg-[#fffdf8]/70 py-5 sm:py-6">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.currentDay")}</p>
       <h2 className="mt-2 text-2xl font-black text-ink">{day?.title || t("ui.status.dayNumber", "Day {day}").replace("{day}", String(dayNumber))}</h2>
       {day?.summary ? <p className="mt-2 text-sm font-bold leading-6 text-slate-500">{day.summary}</p> : null}
-      <div className="mt-4 grid gap-3">
+      <div className="mt-4 divide-y divide-cloud border-y border-cloud">
         {activities.length ? (
           activities.map((activity) => (
-            <div key={activity.id} className="rounded-2xl bg-mist p-4">
+            <div key={activity.id} className="py-4 first:pt-3 last:pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-black text-ink">{activity.title}</h3>
@@ -40,7 +40,7 @@ export function CurrentDayTimeline({
             </div>
           ))
         ) : (
-          <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
+          <p className="bg-mist px-4 py-3 text-sm font-black text-slate-500">
             {t("ui.status.noTimelineActivities")}
           </p>
         )}

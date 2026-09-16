@@ -628,7 +628,7 @@ function DayTimelineCard({
   return (
     <section
       id={`day-${day.day_number}`}
-      className="roamly-day-print scroll-mt-40 rounded-[1.15rem] border border-[#e8dfd0] bg-[#fffdf8] p-4 sm:p-6"
+    className="roamly-day-print scroll-mt-40 border-y border-[#e8dfd0] bg-[#fffdf8]/60 py-4 sm:py-6"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -644,7 +644,7 @@ function DayTimelineCard({
           <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">The plan</p>
           <p className="mt-1 text-base font-bold leading-6 text-ink">{daySummary}</p>
         </div>
-        <div className="rounded-xl bg-[#f5f7f3] px-3 py-3">
+        <div className="border-l-2 border-ocean/50 bg-[#f5f7f3] px-3 py-3">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next</p>
           <p className="mt-1 text-sm font-black leading-5 text-ink">{firstAction ? firstAction.title : "Choose a day when you are ready to plan."}</p>
           {hasUncertainty ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Some details still need confirmation.</p> : null}
@@ -663,7 +663,7 @@ function DayTimelineCard({
         </div>
 
         {day.alternatives?.length || day.uncertainty?.length ? (
-          <details className="mt-4 rounded-[0.9rem] bg-[#f8faf8] px-3 py-3">
+          <details className="mt-4 border-y border-[#e8dfd0] bg-[#f8faf8]/70 px-3 py-3">
             <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Planning notes</summary>
             <div className="mt-2 grid gap-3">
               {day.alternatives?.length ? (
@@ -683,14 +683,14 @@ function DayTimelineCard({
         ) : null}
 
         {day.food.length ? (
-          <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-3">
+          <details className="mt-3 border-y border-[#e8dfd0] bg-[#f8faf8]/70 px-3 py-3">
             <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Food ideas</summary>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{day.food.slice(0, 3).join(" · ")}</p>
           </details>
         ) : null}
 
         {places.length ? (
-          <details className="mt-3 rounded-[0.9rem] border border-cloud bg-white px-3 py-3">
+          <details className="mt-3 border-y border-cloud bg-white/70 px-3 py-3">
             <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Map details</summary>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {places.map((query) => (
