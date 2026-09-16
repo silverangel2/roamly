@@ -129,23 +129,23 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
           longitude: booking.longitude
         })[0];
         return (
-          <article key={booking.id || booking.title} className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft dark:border-white/10 dark:bg-slate-950">
+          <article key={booking.id || booking.title} className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean dark:text-cyan-200">{booking.booking_type}</p>
-                <h3 className="mt-1 text-lg font-black text-ink dark:text-white">{booking.title || "Booking"}</h3>
-                <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">{booking.booking_type}</p>
+                <h3 className="mt-1 text-lg font-black text-ink">{booking.title || "Booking"}</h3>
+                <p className="mt-1 text-sm font-bold text-slate-500">
                   {[bookingProvider(booking), booking.flight_number, bookingWhen(booking, locale)].filter(Boolean).join(" · ")}
                 </p>
-                {address ? <p className="mt-1 text-sm font-bold text-slate-500 dark:text-slate-300">{address}</p> : null}
+                {address ? <p className="mt-1 text-sm font-bold text-slate-500">{address}</p> : null}
               </div>
-              <div className="w-fit rounded-full bg-mist px-3 py-2 text-xs font-black text-ink dark:bg-white/10 dark:text-white">
+              <div className="w-fit rounded-full bg-mist px-3 py-2 text-xs font-black text-ink">
                 {bookingCostLabel(booking, locale)}
               </div>
             </div>
-            <details className="mt-3 rounded-2xl bg-mist px-3 py-3 dark:bg-white/10">
-              <summary className="cursor-pointer text-sm font-black text-ink dark:text-white">Booking details</summary>
-              <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+            <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
+              <summary className="cursor-pointer text-sm font-black text-ink">Booking details</summary>
+              <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
                 {booking.confirmation_number || booking.confirmation_code ? <p>Reference: {booking.confirmation_number || booking.confirmation_code}</p> : null}
                 {booking.terminal ? <p>Terminal: {booking.terminal}</p> : null}
                 {booking.gate ? <p>Gate: {booking.gate}</p> : null}
@@ -159,7 +159,7 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
                 href={mapsLink.href}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-ink px-4 py-2 text-sm font-black text-white dark:bg-white dark:text-ink"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-ocean px-4 py-2 text-sm font-black text-white"
               >
                 Open in Maps
               </a>

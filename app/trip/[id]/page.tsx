@@ -2482,11 +2482,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {commandNextTitle ? (
-              <div className="rounded-2xl bg-ink px-4 py-4 text-white sm:col-span-2 lg:col-span-2">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/60">Now / next</p>
+              <div className="roamly-now-next rounded-2xl border border-[#cce7df] bg-[#e8f5f0] px-4 py-4 text-ink sm:col-span-2 lg:col-span-2">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Now / next</p>
                 <p className="mt-1 text-lg font-black">{commandNextTitle}</p>
-                {commandNextMeta ? <p className="mt-1 text-sm font-bold text-white/75">{commandNextMeta}</p> : null}
-                {canShowFull ? <a href="#day-by-day" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-white px-4 py-2 text-sm font-black text-ink">Open day plan</a> : null}
+                {commandNextMeta ? <p className="mt-1 text-sm font-bold text-slate-600">{commandNextMeta}</p> : null}
+                {canShowFull ? <a href="#day-by-day" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">Open day plan</a> : null}
               </div>
             ) : null}
             {confirmedBookingSnapshot.length ? (

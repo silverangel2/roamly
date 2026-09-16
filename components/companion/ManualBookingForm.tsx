@@ -255,7 +255,7 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
               type="button"
               onClick={() => setKind(item.value)}
               className={`min-h-11 rounded-2xl px-4 py-2 text-sm font-black ${
-                kind === item.value ? "bg-ink text-white" : "border border-slate-200 bg-white text-slate-700"
+                kind === item.value ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"
               }`}
             >
               {t(`ui.booking.${item.label}`)}
@@ -317,7 +317,7 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
           type="button"
           onClick={() => void save()}
           disabled={busy || !canSave}
-          className="mt-6 min-h-14 w-full rounded-2xl bg-ink px-5 py-3 text-base font-black text-white disabled:opacity-50 sm:w-auto"
+          className="mt-6 min-h-14 w-full rounded-2xl bg-ocean px-5 py-3 text-base font-black text-white disabled:opacity-50 sm:w-auto"
         >
           {busy ? t("ui.status.saving") : t("ui.booking.saveWhatBooked")}
         </button>

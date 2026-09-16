@@ -139,8 +139,8 @@ function AppShellContent({
 
   return (
     <TranslatedTextBoundary>
-      <div className="min-h-dvh min-w-0 bg-[#fbf8ef] text-ink dark:bg-[linear-gradient(135deg,#07111f_0%,#0f172a_56%,#111827_100%)] dark:text-white">
-        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-950/88">
+      <div className={`roamly-app-shell min-h-dvh min-w-0 bg-[#fbf8ef] text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
+        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
               <Image
@@ -160,8 +160,8 @@ function AppShellContent({
                   href={route.href}
                   className={`rounded-full px-4 py-2 text-sm font-black transition ${
                     isActive(pathname, route.href)
-                      ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)] dark:bg-white/10 dark:text-cyan-100"
-                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                      ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)]"
+                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700"
                   }`}
                 >
                   {route.label}
@@ -209,7 +209,7 @@ function AppShellContent({
         <RoamlyLocationTracker />
 
         <nav
-          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden dark:border-white/10 dark:bg-slate-950/95 ${
+          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
             authenticated ? "grid-cols-4" : "grid-cols-4"
           }`}
         >
@@ -220,7 +220,7 @@ function AppShellContent({
               className={`relative min-w-0 rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
                 isActive(pathname, route.href)
                   ? "bg-ocean text-white shadow-sm"
-                  : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+                  : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"
               }`}
             >
               {route.label}

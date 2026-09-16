@@ -120,7 +120,7 @@ function nextBooking(bookings: TripBookingRecord[]) {
 }
 
 function navLinkClass(active = false) {
-  return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ink text-white" : "border border-slate-200 bg-white text-slate-700"}`;
+  return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
 export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale }: BookingWalletTimelineProps) {
@@ -139,7 +139,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           <div className="min-w-0">
             <h1 className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">Bookings</h1>
           </div>
-          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">
+          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
             Add booking
           </Link>
         </div>
@@ -229,7 +229,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           <div className="border-y border-dashed border-[#e8dfd0] py-6">
             <h2 className="text-xl font-black text-ink">Nothing booked yet</h2>
             <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-600">When you book a flight, stay, ticket, or reservation, add it here so the important details are ready when you travel.</p>
-            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">Add booking</Link>
+            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">Add booking</Link>
           </div>
         )}
       </section>

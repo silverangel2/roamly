@@ -307,7 +307,7 @@ export default function CompanionEventTimeline({
               ].includes(event.status) ? (
                 <a
                   href="#companion-repairs"
-                  className="mt-4 inline-flex rounded-xl bg-ink px-4 py-2 text-xs font-black text-white"
+                  className="mt-4 inline-flex rounded-xl bg-ocean px-4 py-2 text-xs font-black text-white"
                 >
                   Review repair
                 </a>

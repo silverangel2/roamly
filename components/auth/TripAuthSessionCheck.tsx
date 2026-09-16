@@ -153,7 +153,7 @@ export function TripAuthSessionCheck({ tripId, nextPath }: TripAuthSessionCheckP
         {authState === "unauthenticated" ? (
           <a
             href={`/login?next=${encodeURIComponent(targetPath)}`}
-            className="mt-3 inline-flex rounded-full bg-ink px-4 py-2 text-xs font-black text-white"
+            className="mt-3 inline-flex rounded-full bg-ocean px-4 py-2 text-xs font-black text-white"
           >
             Log in
           </a>

@@ -40,7 +40,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
   }, []);
 
   return (
-    <section className="roamly-no-print mb-5 rounded-[1.25rem] border border-[#e7dfd2] bg-[#fffdf8] px-3 py-3 shadow-[0_8px_24px_rgba(16,32,51,0.04)] sm:px-4">
+    <section className="roamly-no-print mb-5 rounded-[1.15rem] border border-[#e7dfd2] bg-[#fffdf8] px-3 py-3 shadow-[0_8px_22px_rgba(16,32,51,0.04)] sm:px-4">
       {showContext ? (
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">
@@ -61,7 +61,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
               aria-current={selected ? "page" : undefined}
               className={`inline-flex min-h-11 items-center justify-center rounded-xl px-2 py-2 text-center text-xs font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 sm:min-w-24 sm:px-4 sm:text-sm ${
                 selected
-                  ? "bg-ink text-white shadow-sm"
+                  ? "bg-ocean text-white shadow-sm"
                   : "text-slate-600 hover:bg-mist hover:text-ink"
               }`}
             >

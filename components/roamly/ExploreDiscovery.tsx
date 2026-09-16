@@ -50,7 +50,7 @@ export function ExploreDiscovery({
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-4">
                     {candidate.href ? (
-                      <a href={candidate.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">
+                      <a href={candidate.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
                         View details
                       </a>
                     ) : null}
@@ -67,7 +67,7 @@ export function ExploreDiscovery({
             <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
               Roamly does not have enough trip-specific activity or event evidence to recommend something responsibly for these dates.
             </p>
-            <Link href={`/trip/${tripId}#day-by-day`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ink px-4 py-2 text-sm font-black text-white">
+            <Link href={`/trip/${tripId}#day-by-day`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
               Return to your plan
             </Link>
           </section>

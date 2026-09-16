@@ -96,7 +96,7 @@ export function EmailConnectionSettings() {
                       type="button"
                       onClick={() => void post(provider.syncPath, `${provider.provider}:sync`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                      className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-50"
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
                     </button>
@@ -112,7 +112,7 @@ export function EmailConnectionSettings() {
                 ) : (
                   <a
                     href={provider.connectPath}
-                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white"
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white"
                   >
                     {provider.connectLabel}
                   </a>

@@ -118,7 +118,7 @@ export function TripFeedbackForm({ tripId }: { tripId: string }) {
             type="button"
             onClick={() => setMode(nextMode)}
             className={`rounded-full px-4 py-2 text-sm font-black ${
-              mode === nextMode ? "bg-ink text-white" : "bg-slate-100 text-slate-700"
+              mode === nextMode ? "bg-ocean text-white" : "bg-slate-100 text-slate-700"
             }`}
           >
             {nextMode === "post_trip" ? "Trip feedback" : "Today"}
