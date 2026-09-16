@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/lib/roamly/bookingWallet";
 import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking } from "@/lib/roamly/bookingWallet";
 import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
+import { bookingOutcomeLabel, deriveBookingOutcome, type BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
 
 type BookingWalletTimelineProps = {
   tripId: string;
@@ -9,6 +10,7 @@ type BookingWalletTimelineProps = {
   companionUnlocked?: boolean;
   locale: RoamlyLocale;
   focus?: "flight" | "hotel" | "activity" | null;
+  referrals?: BookingOutcomeReferral[];
 };
 
 function statusClass(status: TripBookingStatus) {
@@ -18,12 +20,12 @@ function statusClass(status: TripBookingStatus) {
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
-function customerStatus(booking: TripBookingRecord) {
+function customerStatus(booking: TripBookingRecord, outcome: ReturnType<typeof deriveBookingOutcome>) {
   if (isConfirmedBooking(booking)) return booking.booking_status === "modified" ? "Confirmed · updated" : booking.booking_status === "completed" ? "Completed" : "Confirmed";
   if (booking.booking_status === "needs_confirmation" || booking.booking_status === "detected") return "Action needed";
   if (booking.booking_status === "cancelled" || booking.booking_status === "refunded") return "No longer active";
-  if (booking.booking_status === "clicked" || booking.booking_status === "recommended") return "Planned · not confirmed";
-  return "Details not confirmed";
+  if (booking.booking_status === "recommended") return "Recommended · not booked";
+  return bookingOutcomeLabel(outcome);
 }
 
 function bookingCategory(type: TripBookingType) {
@@ -124,11 +126,15 @@ function navLinkClass(active = false) {
   return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
-export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null }: BookingWalletTimelineProps) {
+export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, referrals = [] }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
   const actionNeeded = activeBookings.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected");
+  const outcomeFor = (booking: TripBookingRecord) => deriveBookingOutcome({ tripId, category: booking.booking_type, booking, bookings, referrals });
+  const visibleReferrals = referrals
+    .map((referral) => ({ referral, outcome: deriveBookingOutcome({ tripId, category: referral.category || "other", recommendationId: referral.recommendation_id, bookings, referrals: [referral] }) }))
+    .filter(({ outcome }) => outcome.state === "REFERRED" || outcome.state === "AWAITING_CONFIRMATION" || outcome.state === "NEEDS_REVIEW");
   const groups = Array.from(new Set(activeBookings.map((booking) => bookingCategory(booking.booking_type))))
     .sort((left, right) => bookingCategoryOrder(left) - bookingCategoryOrder(right))
     .map((title) => ({ title, bookings: activeBookings.filter((booking) => bookingCategory(booking.booking_type) === title) }));
@@ -170,6 +176,25 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
 
       {focus ? <p className="mt-5 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Confirmed information remains authoritative; anything unresolved is still marked below.</p> : null}
 
+      {visibleReferrals.length ? (
+        <section className="mt-5 border-y border-[#e8dfd0] py-4" aria-labelledby="booking-referrals-title">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">External booking activity</p>
+          <h2 id="booking-referrals-title" className="mt-1 text-lg font-black text-ink">Options you viewed</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Roamly has not marked these as booked unless confirmation evidence exists.</p>
+          <div className="mt-3 grid gap-2">
+            {visibleReferrals.map(({ referral, outcome }) => (
+              <div key={referral.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-ink">{referral.category ? `${referral.category[0].toUpperCase()}${referral.category.slice(1)}` : "Travel"} option</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">{referral.provider || "External provider"}</p>
+                </div>
+                <span className="shrink-0 text-xs font-black text-amber-800">{bookingOutcomeLabel(outcome)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <p className="mt-6 text-sm font-bold text-slate-600">Confirmed details come first. Recommendations and items still needing review follow below.</p>
 
       {next ? (
@@ -180,7 +205,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-black text-ink">{next.title}</h2>
-                <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(next.booking_status)}`}>{customerStatus(next)}</span>
+                <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(next.booking_status)}`}>{customerStatus(next, outcomeFor(next))}</span>
               </div>
               <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(next)}</p>
               <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(next, locale)}</p>
@@ -213,7 +238,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                             {reference ? <p className="mt-1 text-xs font-black text-slate-500">Reference: {reference}</p> : null}
                           </div>
                           <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(booking.booking_status)}`}>
-                            {customerStatus(booking)}
+                            {customerStatus(booking, outcomeFor(booking))}
                           </span>
                         </div>
                         {rows.length ? (

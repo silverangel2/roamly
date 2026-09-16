@@ -1548,6 +1548,7 @@ function BookingRecommendationCard({
               category={category}
               title={title}
               provider={link.provider}
+              recommendationId={suggestion.candidateId || null}
               hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
               urlType={link.urlType}
             />
@@ -1784,6 +1785,7 @@ function BookingSearchFallbackCard({
           category={category}
           title={title}
           provider={provider}
+          recommendationId={null}
           hasAffiliateUrl={hasAffiliateUrl}
           urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
         />
@@ -1839,6 +1841,7 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings }: { it
               category={recommended.mode === "flight" || recommended.mode === "mixed" ? "flight" : "transport"}
               title={recommended.title}
               provider={provider}
+              recommendationId={null}
               hasAffiliateUrl={hasAffiliateUrl}
               urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
             />
@@ -1959,6 +1962,7 @@ function PreTripEssentialCard({
             category={isConnectivity ? "connectivity" : "travel_essentials"}
             title={item.title}
             provider={provider}
+            recommendationId={null}
             hasAffiliateUrl={hasAffiliateUrl}
             urlType={urlType}
           />

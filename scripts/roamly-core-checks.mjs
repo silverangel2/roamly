@@ -2550,7 +2550,7 @@ const bookingWalletTimeline = read("components/companion/BookingWalletTimeline.t
   "customerStatus",
   "bookingCategory",
   "Action needed",
-  "Planned · not confirmed",
+  "Recommended · not booked",
   "BookingIcon"
 ].forEach((needle) => assert.ok(bookingWalletTimeline.includes(needle), `booking wallet timeline UI missing ${needle}`));
 assert.ok(!bookingWalletTimeline.includes("Track flight"), "Booking Wallet must not claim live flight tracking before live providers are wired");

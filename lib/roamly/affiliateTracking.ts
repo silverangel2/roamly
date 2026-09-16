@@ -40,6 +40,7 @@ type AffiliateClickRecord = {
   id: string;
   user_id: string;
   trip_id: string;
+  recommendation_id: string | null;
   provider: string;
   affiliate_partner: AffiliatePartner;
   destination_url: string;
@@ -196,6 +197,7 @@ function conversionBookingInput(params: {
     ...booking,
     bookingType: params.input.bookingType || booking.bookingType,
     bookingStatus,
+    recommendationId: params.click.recommendation_id || booking.recommendationId || null,
     provider: params.input.provider || booking.provider || params.click.provider,
     affiliateClickId: params.click.id,
     affiliateConversionId: params.conversionId,

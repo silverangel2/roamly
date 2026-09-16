@@ -10,6 +10,7 @@ type BookingRecommendationButtonProps = {
   category: string;
   title: string;
   provider: string;
+  recommendationId?: string | null;
   hasAffiliateUrl: boolean;
   urlType: BookingUrlType;
 };
@@ -49,13 +50,14 @@ export function BookingRecommendationButton({
   category,
   title,
   provider,
+  recommendationId,
   hasAffiliateUrl,
   urlType
 }: BookingRecommendationButtonProps) {
   if (!href) return null;
 
   const isExternal = /^https?:\/\//i.test(href);
-  const trackedHref = trackedAffiliateHref({ href, tripId, category, title, provider, hasAffiliateUrl, urlType });
+  const trackedHref = trackedAffiliateHref({ href, tripId, category, title, provider, recommendationId, hasAffiliateUrl, urlType });
 
   if (!trackedHref) return null;
 

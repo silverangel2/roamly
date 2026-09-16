@@ -9,6 +9,7 @@ import { legacyRoamlyBookingToWallet, listTripBookings, stableBookingKey, type T
 import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { formatRoamlyDate } from "@/lib/i18n";
 import { parseTripActionFocus } from "@/lib/roamly/tripReadiness";
+import type { BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
 
 function mergeBookings(wallet: TripBookingRecord[], legacy: TripBookingRecord[]) {
   const byKey = new Map<string, TripBookingRecord>();
@@ -63,13 +64,34 @@ export default async function TripBookingsPage({ params, searchParams }: { param
       .order("start_at", { ascending: true, nullsFirst: false })
   ]);
 
+  const referralsResult = await supabase
+    .from("affiliate_clicks")
+    .select("id,trip_id,recommendation_id,provider,affiliate_partner,device_context,created_at")
+    .eq("trip_id", id)
+    .eq("user_id", current.user.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
   const walletBookings = walletResult.error && isMissingTableError(walletResult.error) ? [] : walletResult.bookings;
   const legacyBookings =
     legacyResult.error && isMissingTableError(legacyResult.error.message)
       ? []
       : ((legacyResult.data || []) as Record<string, unknown>[]).map((booking) =>
-          legacyRoamlyBookingToWallet(booking, { userId: current.user!.id, tripId: id })
-        );
+        legacyRoamlyBookingToWallet(booking, { userId: current.user!.id, tripId: id })
+      );
+  const referrals: BookingOutcomeReferral[] = (referralsResult.data || []).map((row) => {
+    const context = row.device_context && typeof row.device_context === "object" && !Array.isArray(row.device_context)
+      ? row.device_context as Record<string, unknown>
+      : {};
+    return {
+      id: String(row.id),
+      trip_id: String(row.trip_id),
+      recommendation_id: typeof row.recommendation_id === "string" ? row.recommendation_id : null,
+      category: typeof context.category === "string" ? context.category : null,
+      provider: typeof row.provider === "string" ? row.provider : typeof row.affiliate_partner === "string" ? row.affiliate_partner : null,
+      created_at: typeof row.created_at === "string" ? row.created_at : null
+    };
+  });
 
   const trip = bundle.data.trip;
   const destinationLabel = getTripDestinationLabel(trip) || "Your trip";
@@ -90,6 +112,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
         companionUnlocked={tripHasTrackingUnlock(trip)}
         locale={locale}
         focus={focus === "flight" || focus === "hotel" || focus === "activity" ? focus : null}
+        referrals={referrals}
       />
     </main>
   );

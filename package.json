@@ -15,6 +15,7 @@
     "test:roamly": "node scripts/roamly-core-checks.mjs",
     "test:candidate-decision": "node --experimental-strip-types scripts/roamly-candidate-decision-checks.mjs",
     "test:planning-repair": "node scripts/roamly-planning-repair-checks.mjs",
+    "test:booking-outcome": "node scripts/roamly-booking-outcome-checks.mjs",
     "test:hotel-inventory": "node --experimental-strip-types scripts/roamly-hotel-inventory-checks.mjs",
     "test:stripe-webhook-idempotency": "node scripts/roamly-stripe-webhook-idempotency-checks.mjs",
     "test:stripe-refund-lifecycle": "node scripts/roamly-refund-entitlement-checks.mjs",

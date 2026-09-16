@@ -6,6 +6,7 @@ export type BookingCtaHrefParams = {
   category: string;
   title: string;
   provider: string;
+  recommendationId?: string | null;
   hasAffiliateUrl: boolean;
   urlType: BookingUrlType;
 };
@@ -56,6 +57,7 @@ export function trackedAffiliateHref(params: BookingCtaHrefParams) {
     destinationUrl: params.href,
     affiliateUrl: params.href
   });
+  if (params.recommendationId) searchParams.set("recommendationId", params.recommendationId);
 
   return `/api/roamly/affiliate/click?${searchParams.toString()}`;
 }
