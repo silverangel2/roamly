@@ -70,13 +70,12 @@ export function GenerateLockedItineraryButton({
       }
 
       if (!response.ok) {
-        const message = data?.message || data?.error || GENERATION_ERROR_MESSAGE;
-        if (message === AI_NOT_CONFIGURED_MESSAGE) {
+        if (data?.error === AI_NOT_CONFIGURED_MESSAGE || data?.message === AI_NOT_CONFIGURED_MESSAGE) {
           setConfirming(false);
           setError(AI_NOT_CONFIGURED_MESSAGE);
           return;
         }
-        throw new Error(message);
+        throw new Error(GENERATION_ERROR_MESSAGE);
       }
 
       setConfirming(false);
@@ -86,7 +85,7 @@ export function GenerateLockedItineraryButton({
     } catch (err) {
       console.warn("[Roamly trip] itinerary generation warning", err);
       setConfirming(false);
-      setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
+      setError(err instanceof Error && err.message === AI_NOT_CONFIGURED_MESSAGE ? err.message : GENERATION_ERROR_MESSAGE);
     } finally {
       generationInFlight.current = false;
       setBusy(false);

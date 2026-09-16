@@ -1347,17 +1347,16 @@ export function TripPlanForm({
       }
 
       if (response.status === 404 || response.status === 501) {
-        setError(data?.message || data?.error || GENERATION_ERROR_MESSAGE);
+        setError(data?.error === AI_NOT_CONFIGURED_MESSAGE ? AI_NOT_CONFIGURED_MESSAGE : GENERATION_ERROR_MESSAGE);
         return;
       }
 
-      const failureMessage = data?.message || data?.setupHint || data?.error || GENERATION_ERROR_MESSAGE;
-      if (failureMessage === AI_NOT_CONFIGURED_MESSAGE) {
+      if (data?.error === AI_NOT_CONFIGURED_MESSAGE || data?.message === AI_NOT_CONFIGURED_MESSAGE) {
         setError(AI_NOT_CONFIGURED_MESSAGE);
         return;
       }
 
-      throw new Error(failureMessage);
+      throw new Error(GENERATION_ERROR_MESSAGE);
     } catch (err) {
       setNotice("");
       setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);

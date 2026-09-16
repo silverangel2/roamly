@@ -109,6 +109,15 @@ function currentBatch(progress: GenerationProgress) {
   );
 }
 
+function currentDayNumber(progress: GenerationProgress, queue: Queued | null) {
+  const activeBatch = currentBatch(progress);
+  const queuedLayer = queue?.layers.find((layer) => layer.status === "running") ||
+    queue?.layers.find((layer) => layer.status === "pending");
+  const queuedDay = queuedLayer?.layerType.match(/^staged_day_(\d+)/)?.[1];
+  return activeBatch?.dayNumbers[0] ||
+    (queuedDay ? Number(queuedDay) : Math.min(progress.completedDayCount + 1, progress.totalDayCount));
+}
+
 function trackPollMovement(progress: GenerationProgress | null | undefined, queue: Queued | null | undefined) {
   if (!progress) return "Queued";
   return simpleGenerationState(progress, queue ?? null, false).title;
@@ -147,7 +156,7 @@ function simpleGenerationState(
 
   if (stale) {
     return {
-      title: "Taking longer than expected",
+      title: "Still working on your trip",
       body: "Taking longer than expected. You can leave this page.",
       tone: "stale" as const,
       spinning: false
@@ -159,6 +168,53 @@ function simpleGenerationState(
     return {
       title: "Preparing outline",
       body: "Your trip is saved. Roamly is preparing the itinerary outline.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  if (/validating_input|generating_outline/.test(stage)) {
+    return {
+      title: "Preparing your trip",
+      body: "Roamly is understanding your route and shaping the trip outline.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  if (/validating_day/.test(stage)) {
+    const day = currentDayNumber(progress, queue);
+    return {
+      title: `Checking Day ${day} of ${progress.totalDayCount}`,
+      body: "Roamly is checking that this day fits together before moving on.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  if (/generating_day/.test(stage)) {
+    const day = currentDayNumber(progress, queue);
+    return {
+      title: `Building Day ${day} of ${progress.totalDayCount}`,
+      body: "Roamly is shaping the next part of your journey from your request.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  if (/enriching_transport/.test(stage)) {
+    return {
+      title: "Checking the journey between places",
+      body: "Roamly is adding the travel details needed to connect your days.",
+      tone: "running" as const,
+      spinning: true
+    };
+  }
+
+  if (/enriching_affiliates/.test(stage)) {
+    return {
+      title: "Adding helpful travel options",
+      body: "Roamly is finishing the useful details around your itinerary.",
       tone: "running" as const,
       spinning: true
     };
@@ -183,6 +239,13 @@ function simpleGenerationState(
 
 function progressFromApi(data: ProgressApiData) {
   return progressFromApiForTrip(data, data?.tripId || "");
+}
+
+function customerProgressFailure(status: number, fallback: string) {
+  if (status === 401) {
+    return "Your session could not be confirmed for this update. Your saved progress is safe; refresh once if updates pause.";
+  }
+  return fallback;
 }
 
 // Retained for Roamly core polling checks.
@@ -476,9 +539,9 @@ export function StagedGenerationProgress({
         return;
       }
       if (response.status === 401) {
-        setMessage("Your session could not be confirmed for this update. Progress is still saved; refresh once if updates pause.");
+        setMessage(customerProgressFailure(response.status, "Progress could not be refreshed. Completed days remain saved."));
       } else if (!response.ok) {
-        setMessage(data?.message || data?.error || "Progress could not be refreshed. Completed days remain saved.");
+        setMessage(customerProgressFailure(response.status, "Progress could not be refreshed. Completed days remain saved."));
       } else {
         trackPollMovement(nextProgress || data?.progress, nextQueue);
       }
@@ -517,7 +580,7 @@ export function StagedGenerationProgress({
       const nextProgress = progressFromApiForTrip(data, tripId);
       if (nextProgress) applyProgress(nextProgress);
       if (data?.queue) applyQueue(data.queue);
-      if (!response.ok) setMessage(data?.message || "The failed stage could not be retried. Completed days remain saved.");
+      if (!response.ok) setMessage("The failed stage could not be retried. Completed days remain saved.");
     } finally {
       inFlight.current = false;
       setBusyRetryId("");
@@ -534,7 +597,7 @@ export function StagedGenerationProgress({
     try {
       const wake = await wakeGenerationWorker();
       if (!wake.response.ok) {
-        setMessage(wake.data?.message || wake.data?.error || "The itinerary could not be retried yet.");
+        setMessage("The itinerary could not be retried yet. Your saved progress is still available.");
       }
     } finally {
       setBusyRetryId("");
@@ -592,30 +655,10 @@ export function StagedGenerationProgress({
     <section
       role="status"
       aria-live="polite"
+      aria-busy={viewState.tone === "running"}
       className="roamly-no-print mt-4 w-full overflow-hidden rounded-[1.75rem] border border-cloud bg-white p-5 shadow-soft sm:p-7"
     >
       <style>{`
-        @keyframes roamlyPlaneFlight {
-          0% {
-            transform: translateX(-2.5rem) translateY(-50%) rotate(-6deg);
-            opacity: 0;
-          }
-          12% {
-            opacity: 1;
-          }
-          52% {
-            transform: translateX(calc(100% - 2rem)) translateY(-58%) rotate(3deg);
-            opacity: 1;
-          }
-          88% {
-            opacity: 1;
-          }
-          100% {
-            transform: translateX(calc(100% + 2.5rem)) translateY(-50%) rotate(-2deg);
-            opacity: 0;
-          }
-        }
-
         @keyframes roamlySoftShimmer {
           0% {
             transform: translateX(-100%);
@@ -687,12 +730,10 @@ export function StagedGenerationProgress({
 
             {failed && progress.finalValidationErrors?.length ? (
               <div className="mt-3 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-coral">Validation errors</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm font-bold leading-6 text-coral">
-                  {progress.finalValidationErrors.slice(0, 6).map((error) => (
-                    <li key={error}>{error}</li>
-                  ))}
-                </ul>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-coral">A final trip check needs another pass</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-coral">
+                  Your saved progress is still available. Retry when you’re ready.
+                </p>
               </div>
             ) : null}
           </div>
@@ -700,25 +741,23 @@ export function StagedGenerationProgress({
         </div>
 
         {!failed && progress.status !== "complete" ? (
-          <div className="relative overflow-hidden rounded-full border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-4 py-3 shadow-sm">
+          <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-4 py-4 shadow-sm">
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-sky-100/70 to-transparent"
               style={{ animation: "roamlySoftShimmer 2.8s ease-in-out infinite" }}
             />
-            <div className="relative h-8 overflow-hidden rounded-full">
-              <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-gradient-to-r from-transparent via-sky-200 to-transparent" />
-              <div
-                className="absolute left-0 top-1/2"
-                style={{ animation: "roamlyPlaneFlight 4.8s cubic-bezier(0.45, 0, 0.25, 1) infinite" }}
-              >
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-base shadow-md ring-1 ring-sky-100">
-                  ✈️
-                </span>
-              </div>
+            <div aria-hidden="true" className="relative flex items-center justify-between gap-2 px-1">
+              <div className="h-px flex-1 bg-sky-200" />
+              <span className="h-2 w-2 rounded-full bg-ocean/70" />
+              <div className="h-px flex-1 bg-sky-200" />
+              <span className="h-2 w-2 rounded-full bg-ocean/45" />
+              <div className="h-px flex-1 bg-sky-200" />
+              <span className="h-2 w-2 rounded-full bg-ocean/25" />
+              <div className="h-px flex-1 bg-sky-200" />
             </div>
-            <p className="mt-2 text-center text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-              Roamly is preparing your trip
+            <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+              Your trip is taking shape
             </p>
           </div>
         ) : null}
