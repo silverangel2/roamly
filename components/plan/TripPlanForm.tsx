@@ -110,13 +110,13 @@ function classNames(...items: Array<string | false | null | undefined>) {
 }
 
 const primaryActionClass =
-  "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60";
+  "bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] transition hover:bg-[#167f8d] disabled:opacity-60";
 const selectedPrimaryOptionClass =
-  "border-cyan-300 bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20";
+  "border-ocean bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.16)]";
 const selectedWarmOptionClass =
-  "border-orange-300 bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-lg shadow-orange-400/20";
+  "border-amber-400 bg-[#fff1d8] text-[#7a4b11] shadow-[0_8px_20px_rgba(245,158,11,0.12)]";
 const unselectedOptionClass =
-  "border-slate-200 bg-white text-slate-700 hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10";
+  "border-cloud bg-[#fffdf8] text-slate-700 hover:border-ocean/50 hover:text-ocean";
 const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const PLAN_DRAFT_KEY = "roamly.plan.draft.v1";
@@ -417,7 +417,7 @@ return (
       type={type}
       min={min ?? (type === "date" ? todayIsoDate() : undefined)}
       aria-label={ariaLabel}
-      className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+      className="mt-2 min-h-12 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
     />
   );
 }
@@ -437,7 +437,7 @@ function SelectField({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+      className="mt-2 min-h-12 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
     >
       {options.map((option) => (
         <option key={option} value={option}>
@@ -463,7 +463,7 @@ function Chip({
       type="button"
       onClick={onClick}
       className={classNames(
-        "rounded-2xl border px-4 py-3 text-sm font-black transition",
+        "min-h-12 rounded-xl border px-4 py-3 text-left text-sm font-bold transition",
         selected ? selectedOptionClass(label) : unselectedOptionClass
       )}
     >
@@ -487,10 +487,10 @@ function ToggleButton({
       type="button"
       onClick={onToggle}
       className={classNames(
-        "rounded-2xl px-4 py-3 text-left text-sm font-black ring-1 transition",
+        "min-h-12 rounded-xl px-4 py-3 text-left text-sm font-bold ring-1 transition",
         enabled
-          ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20 ring-cyan-300"
-          : "bg-white text-slate-700 ring-slate-200 hover:ring-cyan-300 hover:text-cyan-700"
+          ? "bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.16)] ring-ocean"
+          : "bg-[#fffdf8] text-slate-700 ring-cloud hover:ring-ocean/50 hover:text-ocean"
       )}
     >
       <span className="block">{translateText(label)}</span>
@@ -1431,28 +1431,25 @@ export function TripPlanForm({
 
   return (
     <>
-    <section className="rounded-[1.2rem] border border-cloud bg-white/92 p-3 shadow-soft backdrop-blur sm:rounded-[1.5rem] sm:p-5">
+    <section className="min-w-0 border-y border-cloud/90 bg-[#fffdf8]/70 px-0 py-5 sm:py-7">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[0.7rem] font-black uppercase tracking-[0.14em] text-ocean">
-            {translateText("Step")} {step + 1} {translateText("of")} {steps.length}
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
+            {translateText("Step")} {step + 1} {translateText("of")} {steps.length} <span className="text-slate-400">· {translateText(steps[step].detail)}</span>
           </p>
-          <h2 className="mt-1 text-xl font-black tracking-tight text-ink sm:text-2xl">{translateText(steps[step].title)}</h2>
-          <p className="mt-1 text-xs font-bold leading-5 text-slate-500 sm:text-sm">{translateText(steps[step].detail)}</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">{translateText(steps[step].title)}</h2>
           {testerAccess ? (
             <p className="mt-2 w-fit rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
               {translateText("Tester access")}
             </p>
           ) : null}
         </div>
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-mist text-xs font-black text-ocean sm:h-14 sm:w-14 sm:text-sm">
-          {progress}%
-        </div>
+        <span className="shrink-0 text-xs font-bold text-slate-500">{progress}%</span>
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-cloud">
+      <div className="mt-4 h-1 overflow-hidden rounded-full bg-cloud">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-ocean to-lagoon transition-all duration-500"
+          className="h-full rounded-full bg-ocean transition-all duration-500"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -1496,7 +1493,7 @@ export function TripPlanForm({
                     resetDiscovery();
                   }}
                   className={classNames(
-                    "rounded-2xl border px-4 py-3 text-left text-sm font-black transition",
+        "min-h-12 rounded-xl border px-4 py-3 text-left text-sm font-bold transition",
                     tripType === value ? selectedOptionClass(label) : unselectedOptionClass
                   )}
                 >
@@ -1515,14 +1512,14 @@ export function TripPlanForm({
                 popularPlaces={recommendedPlaces}
               />
             ) : (
-              <div className="rounded-[1.5rem] border border-cloud bg-mist/60 p-4">
+              <div className="border-l-2 border-ocean/40 bg-mist/45 py-3 pl-4 sm:pl-5">
                 <p className="text-sm font-black text-ink">{translateText("Multi-city trip")}</p>
                 <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
                   {translateText("Add each city in the order you want to visit. Roamly will build the route and budget around these stops.")}
                 </p>
                 <div className="mt-4 grid gap-3">
                   {stops.map((stop, index) => (
-                    <div key={stop.id} className="rounded-2xl border border-cloud bg-white p-3">
+                    <div key={stop.id} className="border-b border-cloud/80 py-3 first:pt-0 last:border-b-0">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
                           {translateText("City")} {index + 1}
@@ -1552,7 +1549,7 @@ export function TripPlanForm({
                 <button
                   type="button"
                   onClick={addCity}
-                  className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 hover:shadow-lg hover:shadow-cyan-500/10"
+                  className="mt-3 min-h-11 rounded-xl border border-cloud bg-transparent px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-ocean/50 hover:text-ocean"
                 >
                   {translateText("Add city")}
                 </button>
@@ -1570,7 +1567,7 @@ export function TripPlanForm({
             )}
 
             {routePreview ? (
-              <div className="rounded-[1.5rem] border border-ocean/20 bg-ocean/10 p-4">
+              <div className="border-l-2 border-ocean bg-ocean/5 py-3 pl-4 sm:pl-5">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Route")}</p>
                 <p className="mt-2 text-base font-black leading-7 text-ink">{routePreview}</p>
               </div>
@@ -1661,12 +1658,15 @@ export function TripPlanForm({
                 <SelectField value={budgetCurrency} onChange={(value) => setBudgetCurrency(value as typeof budgetCurrency)} options={currencyOptions} />
               </label>
             </div>
-            <div className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{translateText("Roamly budget rule")}</p>
-              <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+            <details className="group border-y border-cloud/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+                {translateText("How Roamly uses your budget")}
+                <span className="float-right text-slate-400 transition group-open:rotate-45">+</span>
+              </summary>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                 {translateText("Use your comfortable total. Roamly checks flights, stays, food, activities, local transportation, and buffer before generation.")}
               </p>
-            </div>
+            </details>
             <div className="grid gap-3 sm:grid-cols-3">
               <ToggleButton label="Budget includes flights" enabled={budgetIncludesFlights} onToggle={() => setBudgetIncludesFlights((value) => !value)} />
               <ToggleButton label="Budget includes hotel" enabled={budgetIncludesHotel} onToggle={() => setBudgetIncludesHotel((value) => !value)} />
@@ -1743,9 +1743,9 @@ export function TripPlanForm({
                 onChange={(event) => setSpecialNotes(event.target.value)}
                 rows={4}
                 aria-label="Special trip notes"
-                className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                className="mt-2 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
               />
-              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+              <p className="mt-2 text-xs leading-5 text-slate-500">
                 {translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}
               </p>
             </label>
@@ -1755,7 +1755,7 @@ export function TripPlanForm({
 
         {step === 4 ? (
           <div className="grid gap-4">
-            <div className="rounded-[1.5rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_55%,#fff7ed_100%)] p-4 text-ink shadow-soft">
+              <div className="border-y border-ocean/20 bg-ocean/5 py-4 text-ink sm:py-5">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{translateText("Trip brief")}</p>
               <h3 className="mt-2 text-xl font-black text-ink">{normalizedDestination || translateText("Destination pending")}</h3>
               <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600">
@@ -1766,12 +1766,15 @@ export function TripPlanForm({
                 ))}
               </div>
             </div>
-            <div className="rounded-[1.25rem] border border-sun/30 bg-sun/10 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">{translateText("Before you generate")}</p>
+            <details className="group border-y border-sun/30 bg-sun/10 px-4 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-amber-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/20">
+                {translateText("Before you generate")}
+                <span className="float-right text-amber-700 transition group-open:rotate-45">+</span>
+              </summary>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
                 {translateText("Review your trip details carefully. Once your itinerary is generated, it cannot be edited. New destinations, date changes, or major changes require a new itinerary.")}
               </p>
-            </div>
+            </details>
             <StepError error={translateText(error)} />
           </div>
         ) : null}
@@ -1843,12 +1846,12 @@ export function TripPlanForm({
         </div>
       ) : null}
 
-      <div className="sticky bottom-[calc(5.85rem+env(safe-area-inset-bottom))] z-20 mt-5 grid grid-cols-2 gap-3 rounded-[1.25rem] bg-white/95 p-2 shadow-soft backdrop-blur sm:static sm:p-0 sm:shadow-none">
+      <div className="mt-7 grid grid-cols-2 gap-3 border-t border-cloud/80 pt-5">
         <button
           type="button"
           onClick={goBack}
           disabled={step === 0 || loading}
-          className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 disabled:translate-y-0 disabled:opacity-40"
+          className="min-h-12 rounded-xl border border-cloud bg-transparent px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-ocean/50 hover:text-ocean disabled:opacity-40"
         >
           {translateText("Back")}
         </button>
@@ -1857,7 +1860,7 @@ export function TripPlanForm({
             type="button"
             onClick={goNext}
             disabled={loading}
-            className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
+            className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-bold", primaryActionClass)}
           >
             {translateText("Continue")}
           </button>
@@ -1866,7 +1869,7 @@ export function TripPlanForm({
             type="button"
             onClick={openFinalConfirmation}
             disabled={loading || priceChecking || (isCheckingSession && !sessionUser)}
-            className={classNames("rounded-2xl px-5 py-3 text-sm font-black", primaryActionClass)}
+            className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-bold", primaryActionClass)}
           >
             {loading && requiresPaidUnlock
               ? translateText("Opening checkout...")

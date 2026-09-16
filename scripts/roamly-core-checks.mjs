@@ -856,7 +856,7 @@ assert.ok(tripPage.includes("full?.free_or_low_cost_notes.slice(0, 5)"), "briefi
 assert.ok(!tripPage.includes("Keep a buffer for weather, taxis, and spontaneous stops."), "briefing must not invent generic low-cost reminders");
 
 const planPage = read("app/plan/page.tsx");
-assert.ok(planPage.includes("hidden gap-2 lg:grid"), "mobile plan page must not render the desktop info rail");
+assert.ok(!planPage.includes("promiseCards") && !planPage.includes("lg:sticky"), "plan page must not render the removed desktop info rail");
 assert.ok(!planPage.includes("min-h-screen"), "/plan must not force full-screen height");
 
 const planForm = read("components/plan/TripPlanForm.tsx");
