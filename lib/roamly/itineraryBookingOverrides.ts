@@ -427,7 +427,7 @@ export async function applyStoredItineraryBookingOverride(params: {
   if (!bookingIsConfirmed(params.booking)) return { ok: true as const, changed: false };
   const { data, error } = await params.supabase
     .from("roamly_itineraries")
-    .select("id,full_json")
+    .select("id,full_json,repair_revision")
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
     .order("created_at", { ascending: false })
@@ -437,6 +437,10 @@ export async function applyStoredItineraryBookingOverride(params: {
   if (error) return { ok: false as const, error: error.message };
   const full = record(data?.full_json) as unknown as RoamlyItinerary;
   if (!data?.id || !Array.isArray(full.daily_itinerary)) return { ok: true as const, changed: false };
+  const repairRevision = Number(data.repair_revision);
+  if (!Number.isSafeInteger(repairRevision) || repairRevision < 0) {
+    return { ok: false as const, error: "ITINERARY_REVISION_UNAVAILABLE" };
+  }
 
   const result = applyConfirmedBookingOverrideToItinerary(full, params.booking);
   if (!result.changed) return { ok: true as const, changed: false };
@@ -445,11 +449,16 @@ export async function applyStoredItineraryBookingOverride(params: {
     .from("roamly_itineraries")
     .update({
       full_json: result.itinerary,
-      preview_json: buildPreviewFromItinerary(result.itinerary)
+      preview_json: buildPreviewFromItinerary(result.itinerary),
+      repair_revision: repairRevision + 1
     })
     .eq("id", data.id)
-    .eq("user_id", params.userId);
+    .eq("user_id", params.userId)
+    .eq("repair_revision", repairRevision)
+    .select("id")
+    .maybeSingle();
 
   if (update.error) return { ok: false as const, error: update.error.message };
+  if (!update.data) return { ok: false as const, error: "STALE_ITINERARY_STATE" };
   return { ok: true as const, changed: true };
 }

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 type RepairRecord = {
   id: string;
   status?: string | null;
+  operation?: string | null;
+  verification_status?: "pending" | "resolved" | "still_affected" | "uncertain" | null;
   title?: string | null;
   summary?: string | null;
   repair_summary?: string | null;
@@ -143,7 +145,19 @@ function statusLabel(status?: string | null) {
   }
 }
 
-function statusClass(status?: string | null) {
+function verificationLabel(repair: RepairRecord) {
+  if (repair.verification_status === "resolved") return "Verified resolved";
+  if (repair.verification_status === "still_affected") return "Still affected";
+  if (repair.verification_status === "uncertain") return "Verification incomplete";
+  if (repair.status === "applied") return "Applied — verifying current itinerary";
+  return statusLabel(repair.status);
+}
+
+function statusClass(status?: string | null, verificationStatus?: RepairRecord["verification_status"]) {
+  if (verificationStatus === "uncertain" || verificationStatus === "still_affected" || (status === "applied" && verificationStatus === "pending")) {
+    return "bg-amber-100 text-amber-800";
+  }
+  if (verificationStatus === "resolved") return "bg-emerald-100 text-emerald-800";
   const value = (status || "").toLowerCase();
 
   if (
@@ -247,6 +261,8 @@ export default function CompanionRepairCenter({
       }
 
       await loadRepairs();
+      // Re-fetch the server-rendered Live Companion bundle from canonical truth.
+      window.location.reload();
     } finally {
       setBusy(null);
     }
@@ -302,13 +318,9 @@ export default function CompanionRepairCenter({
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${statusClass(
-                      repair.status
-                    )}`}
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${statusClass(repair.status, repair.verification_status)}`}
                   >
-                    {statusLabel(
-                      repair.status
-                    )}
+                    {verificationLabel(repair)}
                   </span>
 
                   <h3 className="mt-3 text-lg font-black text-ink">
@@ -318,6 +330,11 @@ export default function CompanionRepairCenter({
                   <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
                     {details.summary}
                   </p>
+                  {repair.operation === "REMOVE_OPTIONAL_ACTIVITY" ? (
+                    <p className="mt-2 text-sm font-black text-ink">
+                      Approval removes this one conflicting optional activity from the itinerary. It does not rebook, cancel, refund, or purchase anything.
+                    </p>
+                  ) : null}
                 </div>
 
                 {repair.created_at ? (

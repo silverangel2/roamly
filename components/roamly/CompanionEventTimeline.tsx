@@ -18,6 +18,7 @@ type CompanionEventItem = {
   updatedAt: string | null;
   repairId: string | null;
   repairStatus: string | null;
+  repairVerificationStatus: string | null;
 };
 
 function words(value: string) {
@@ -31,6 +32,10 @@ function words(value: string) {
 function statusLabel(
   event: CompanionEventItem
 ) {
+  if (event.repairVerificationStatus === "resolved") return "Verified resolved";
+  if (event.repairVerificationStatus === "still_affected") return "Still affected";
+  if (event.repairVerificationStatus === "uncertain") return "Verification incomplete";
+  if (event.repairVerificationStatus === "pending" && event.repairStatus === "applied") return "Applied — verifying current itinerary";
   if (
     event.repairStatus === "rejected" ||
     event.status === "dismissed"
@@ -90,6 +95,7 @@ function statusClass(
   if (
     [
       "Repair applied",
+      "Verified resolved",
       "Resolved"
     ].includes(label)
   ) {
@@ -101,7 +107,10 @@ function statusClass(
       "Approval required",
       "Repair proposed",
       "Analyzing impact",
-      "Partially applied"
+      "Partially applied",
+      "Applied — verifying current itinerary",
+      "Still affected",
+      "Verification incomplete"
     ].includes(label)
   ) {
     return "bg-amber-100 text-amber-800";

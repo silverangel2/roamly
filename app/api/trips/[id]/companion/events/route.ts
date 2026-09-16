@@ -74,7 +74,7 @@ export async function GET(
       auth.supabase
         .from("companion_repair_proposals")
         .select(
-          "id,companion_event_id,status,created_at,updated_at"
+          "id,companion_event_id,status,verification_status,created_at,updated_at"
         )
         .eq("trip_id", id)
         .eq("user_id", auth.user.id)
@@ -113,6 +113,7 @@ export async function GET(
     id: string;
     companion_event_id: string | null;
     status: string | null;
+    verification_status: string | null;
     created_at: string;
     updated_at: string | null;
   };
@@ -128,6 +129,7 @@ export async function GET(
     {
       id: string;
       status: string | null;
+      verificationStatus: string | null;
     }
   >();
 
@@ -142,7 +144,8 @@ export async function GET(
         repair.companion_event_id,
         {
           id: repair.id,
-          status: repair.status
+          status: repair.status,
+          verificationStatus: repair.verification_status
         }
       );
     }
@@ -170,7 +173,9 @@ export async function GET(
         updatedAt: event.updated_at,
         repairId: repair?.id || null,
         repairStatus:
-          repair?.status || null
+          repair?.status || null,
+        repairVerificationStatus:
+          repair?.verificationStatus || null
       };
     }
   );

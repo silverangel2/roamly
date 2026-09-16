@@ -297,7 +297,7 @@ export async function syncGeneratedItinerary(
   const planningMetadata = getRecord(existingMetadata.planning);
   const existing = await supabase
     .from("roamly_itineraries")
-    .select("id")
+    .select("id,repair_revision")
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
     .maybeSingle();
@@ -330,8 +330,25 @@ export async function syncGeneratedItinerary(
   };
 
   if (itineraryDisplayTablesAvailable) {
+    const existingRepairRevision = existing.data?.id ? Number(existing.data.repair_revision) : null;
+    if (
+      existing.data?.id &&
+      (existingRepairRevision === null || !Number.isSafeInteger(existingRepairRevision) || existingRepairRevision < 0)
+    ) {
+      return { error: "ITINERARY_REVISION_UNAVAILABLE" };
+    }
+    const safeExistingRepairRevision = existingRepairRevision as number | null;
+    const updatePayload = existing.data?.id
+      ? { ...payload, repair_revision: (safeExistingRepairRevision as number) + 1 }
+      : payload;
     const itineraryResult = existing.data?.id
-      ? await supabase.from("roamly_itineraries").update(payload).eq("id", existing.data.id).select("id").single()
+      ? await supabase
+          .from("roamly_itineraries")
+          .update(updatePayload)
+          .eq("id", existing.data.id)
+          .eq("repair_revision", safeExistingRepairRevision as number)
+          .select("id")
+          .single()
       : await supabase.from("roamly_itineraries").insert(payload).select("id").single();
 
     if (itineraryResult.error && isMissingTableError(itineraryResult.error.message)) {

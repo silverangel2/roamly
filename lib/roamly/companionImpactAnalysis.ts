@@ -51,6 +51,7 @@ function itineraryItems(fullJson: unknown) {
     .flatMap((day, index) => {
       const dayRecord = record(day);
       return array(dayRecord.live_timeline || dayRecord.timeline || dayRecord.activities).map((item) => ({
+        day_id: typeof dayRecord.day_id === "string" ? dayRecord.day_id : null,
         day: dayRecord.day_number || index + 1,
         date: dayRecord.date || null,
         ...record(item)

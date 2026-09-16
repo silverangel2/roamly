@@ -249,7 +249,14 @@ export async function processCompanionBookingChange(
   await params.supabase
     .from("companion_events")
     .update({
-      status: repairProposal ? "proposed" : "resolved",
+      // A timing disruption without an exact V1 repair target is not resolved.
+      // Keep it processing so the customer is not shown a false resolution;
+      // non-V1 event behavior remains unchanged.
+      status: repairProposal
+        ? "proposed"
+        : ["flight_delayed", "flight_time_changed"].includes(params.eventType)
+          ? "processing"
+          : "resolved",
       requires_user_approval:
         params.requiresUserApproval === true ||
         impactResult.impact.travelerActionRequired === true
