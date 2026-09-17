@@ -91,10 +91,12 @@ async function pageVideoMembership(input: { graphVersion: string; pageId: string
     after = nextAfter;
     hasMore = true;
   }
+  const matched = rows.find((item) => text(item.id) === input.objectId) || null;
   return {
     endpoint: `/${input.pageId}/video_reels`,
     lookup: lastError ? "NOT_EXPOSED" : "PROVEN",
     contains_object: lastError ? null : rows.some((item) => text(item.id) === input.objectId),
+    matched_object: matched ? supportedReelFields(matched, input.objectId) : null,
     returned_count: lastError ? null : rows.length,
     pages_scanned: pagesScanned,
     complete_within_bound: !hasMore,
@@ -182,17 +184,10 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
     .maybeSingle();
   const row = queue.data as GraphRecord | null;
   const objectId = text(row?.facebook_reel_id) || text(row?.facebook_media_id);
-  const reel = objectId
-    ? await graphGet<GraphRecord>({
-        graphVersion,
-        path: objectId,
-        token: credentials.accessToken,
-        params: { fields: "id,permalink_url,media_type,is_reel,created_time" }
-      })
-    : null;
   const pageVideos = objectId && page.ok
     ? await pageVideoMembership({ graphVersion, pageId, token: credentials.accessToken, objectId })
     : null;
+  const matchedReel = pageVideos?.matched_object || null;
 
   return {
     product: "roamly",
@@ -215,11 +210,11 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
     reel: {
       internal_record_id: text(row?.id) || null,
       meta_object_id: objectId || null,
-      lookup: reel ? (reel.ok ? "PROVEN" : "NOT_EXPOSED") : "NOT_EXPOSED",
-      ...(reel ? supportedReelFields(reel.body, objectId) : { exists: false, id: null, is_reel: null, media_type: null, status: "NOT_EXPOSED_BY_META_API", permalink_url: null, created_time: null })
+      lookup: matchedReel ? "PROVEN" : pageVideos?.lookup === "PROVEN" ? "NOT_EXPOSED" : "NOT_EXPOSED",
+      ...(matchedReel || { exists: false, id: null, is_reel: null, media_type: null, status: "NOT_EXPOSED_BY_META_API", permalink_url: null, created_time: null })
     },
     page_media: pageVideos,
     restrictions: restrictionsSummary(),
-    errors: [pageLookupError, reel && !reel.ok ? reel.error : null].filter(Boolean)
+    errors: [pageLookupError, pageVideos?.error || null].filter(Boolean)
   };
 }

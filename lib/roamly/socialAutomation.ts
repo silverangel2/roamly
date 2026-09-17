@@ -2953,6 +2953,31 @@ async function waitForReelProcessing(config: FacebookBrandConfig, videoId: strin
   };
 }
 
+async function findPublishedReelInPageCollection(config: FacebookBrandConfig, videoId: string) {
+  let after = "";
+  for (let page = 0; page < 10; page += 1) {
+    const collection = await facebookGraph<{
+      data?: Array<Record<string, unknown>>;
+      paging?: { cursors?: { after?: string } };
+    }>(config, `${config.pageId}/video_reels`, {
+      method: "GET",
+      params: {
+        fields: "id,permalink_url,media_type,is_reel,created_time",
+        limit: "100",
+        ...(after ? { after } : {})
+      }
+    });
+    const match = (Array.isArray(collection.data) ? collection.data : []).find(
+      (candidate) => clean(String(candidate.id || "")) === videoId
+    );
+    if (match) return { object: match, pagesScanned: page + 1, completeWithinBound: true };
+    const nextAfter = clean(String(collection.paging?.cursors?.after || ""));
+    if (!nextAfter) return { object: null, pagesScanned: page + 1, completeWithinBound: true };
+    after = nextAfter;
+  }
+  return { object: null, pagesScanned: 10, completeWithinBound: false };
+}
+
 
 function finalFacebookReelCaption(
   draft: QueueWithDraft["draft"],
@@ -3076,12 +3101,15 @@ async function publishFacebookReel(
   let confirmation: Record<string, unknown> = {};
   let confirmationError: string | null = null;
   try {
-    confirmation = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
-      method: "GET",
-      params: { fields: "id,permalink_url,media_type,is_reel,created_time" }
-    });
+    const collectionMatch = await findPublishedReelInPageCollection(config, videoId);
+    confirmation = collectionMatch.object || {};
+    if (!collectionMatch.object) {
+      confirmationError = collectionMatch.completeWithinBound
+        ? "Meta did not return the upload video ID in the Page video_reels collection."
+        : "Meta Page video_reels pagination remained incomplete while resolving the published Reel.";
+    }
   } catch (error) {
-    confirmationError = error instanceof Error ? error.message : "Meta Reel confirmation lookup failed.";
+    confirmationError = error instanceof Error ? error.message : "Meta Page Reel collection lookup failed.";
     confirmation = error instanceof FacebookGraphError ? error.responseBody : {};
   }
   const permalink = typeof confirmation.permalink_url === "string" ? confirmation.permalink_url : "";
