@@ -30,16 +30,16 @@ assert.match(button, /recommendationId, hasAffiliateUrl/);
 assert.match(cta, /searchParams\.set\("recommendationId", params\.recommendationId\)/);
 assert.match(tripPage, /recommendationId=\{suggestion\.candidateId \|\| null\}/);
 assert.match(tracking, /recommendation_id: string \| null/);
-assert.match(tracking, /recommendation_id: clean\(params\.input\.recommendationId\) \|\| null/);
+assert.match(tracking, /recommendation_id: recommendationId \|\| null/);
 assert.match(tracking, /recommendationId: params\.click\.recommendation_id \|\| booking\.recommendationId \|\| null/);
 
 // Direct links remain direct links; only supported affiliate URLs enter the click recorder.
 assert.match(cta, /if \(!params\.hasAffiliateUrl && params\.urlType !== "affiliate"\) \{\n    return params\.href;/);
-assert.match(bookingsPage, /from\("affiliate_clicks"\)/);
+assert.match(bookingsPage, /from\("roamly_booking_referrals"\)/);
 assert.match(timeline, /deriveBookingOutcome/);
 assert.match(timeline, /Roamly has not marked these as booked unless confirmation evidence exists/);
 
 // Readiness remains canonical: this feature only projects booking evidence and does not alter its engine.
-assert.doesNotMatch(outcome, /deriveTripReadiness|affiliate_clicks|supabase/);
+assert.doesNotMatch(outcome, /deriveTripReadiness|affiliate_clicks|roamly_booking_referrals|supabase/);
 
 console.log("Roamly booking outcome checks passed (identity continuity, truthful outcome precedence, direct-link safety, and readiness separation).");

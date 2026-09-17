@@ -186,7 +186,7 @@ export function ExtractedBookingReviewCard({
     <div className="rounded-[1.5rem] border border-ocean/20 bg-ocean/5 p-4">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Review extracted booking</p>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-        Roamly extracted these details. Please confirm before adding them to your trip.
+        Roamly extracted these details. Submit them for review; screenshot extraction alone does not confirm a booking.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block">
@@ -236,18 +236,20 @@ export function ExtractedBookingReviewCard({
         disabled={busy}
         className="mt-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
       >
-        {busy ? "Saving booking..." : "Confirm and add to trip"}
+        {busy ? "Saving for review..." : "Submit booking details for review"}
       </button>
     </div>
   );
 }
 
 export function BookingScreenshotUploader({
+  tripId,
   onExtracted,
   setBusy,
   setError
 }: {
-  onExtracted: (booking: Booking) => void;
+  onExtracted: (booking: Booking, evidenceToken: string) => void;
+  tripId: string;
   setBusy: (busy: boolean) => void;
   setError: (error: string) => void;
 }) {
@@ -258,10 +260,12 @@ export function BookingScreenshotUploader({
     try {
       const form = new FormData();
       form.append("file", file);
+      form.append("tripId", tripId);
       const response = await fetch("/api/roamly/bookings/extract", { method: "POST", body: form });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Booking extraction failed.");
-      onExtracted(data.booking);
+      if (typeof data.evidenceToken !== "string" || !data.evidenceToken) throw new Error("Booking evidence signing failed.");
+      onExtracted(data.booking, data.evidenceToken);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Booking extraction failed.");
     } finally {
@@ -288,6 +292,7 @@ export function BookingScreenshotUploader({
 export function TripBookingsManager({ tripId, initialBookings }: { tripId: string; initialBookings: Booking[] }) {
   const [bookings, setBookings] = useState(initialBookings);
   const [extracted, setExtracted] = useState<Booking | null>(null);
+  const [evidenceToken, setEvidenceToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const hasOverBudgetWarning = useMemo(
@@ -303,12 +308,18 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
       const response = await fetch("/api/roamly/bookings/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tripId, booking: extracted })
+        body: JSON.stringify({ tripId, evidenceToken })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not save booking.");
-      setBookings((current) => [data.booking, ...current]);
+      const refreshed = await fetch(`/api/roamly/bookings?tripId=${encodeURIComponent(tripId)}`, { cache: "no-store" });
+      const refreshedData = await refreshed.json().catch(() => null);
+      if (!refreshed.ok || !Array.isArray(refreshedData?.bookings)) {
+        throw new Error(refreshedData?.error || "Booking saved, but canonical booking reload failed.");
+      }
+      setBookings(refreshedData.bookings);
       setExtracted(null);
+      setEvidenceToken("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save booking.");
     } finally {
@@ -326,7 +337,7 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
             Upload a screenshot of your flight, hotel, ticket, or reservation. Roamly will read it and add it to your trip.
           </p>
         </div>
-        <BookingScreenshotUploader onExtracted={setExtracted} setBusy={setBusy} setError={setError} />
+        <BookingScreenshotUploader tripId={tripId} onExtracted={(booking, token) => { setExtracted(booking); setEvidenceToken(token); }} setBusy={setBusy} setError={setError} />
         <CommittedBudgetCard bookings={bookings} />
         {hasOverBudgetWarning ? (
           <p className="rounded-2xl bg-sun/10 px-4 py-3 text-xs font-bold leading-5 text-amber-800">

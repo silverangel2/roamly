@@ -30,6 +30,13 @@ type ExtractedReview = {
 
 type ManualBookingFormProps = {
   tripId: string;
+  referral?: {
+    affiliateClickId: string;
+    recommendationId: string | null;
+    provider: string | null;
+    title: string | null;
+    bookingType: string | null;
+  } | null;
 };
 
 const bookingKinds: Array<{ value: BookingKind; label: string }> = [
@@ -81,12 +88,13 @@ function Field({
   );
 }
 
-export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
+export function ManualBookingForm({ tripId, referral = null }: ManualBookingFormProps) {
   const router = useRouter();
   const { locale, t } = useI18n();
-  const [kind, setKind] = useState<BookingKind>("flight");
-  const [provider, setProvider] = useState("");
-  const [title, setTitle] = useState("");
+  const referralKind = referral?.bookingType as BookingKind | null;
+  const [kind, setKind] = useState<BookingKind>(referralKind && bookingKinds.some((option) => option.value === referralKind) ? referralKind : "flight");
+  const [provider, setProvider] = useState(referral?.provider || "");
+  const [title, setTitle] = useState(referral?.title || "");
   const [flightNumber, setFlightNumber] = useState("");
   const [airlineCode, setAirlineCode] = useState("");
   const [terminal, setTerminal] = useState("");
@@ -164,7 +172,10 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           bookingType: kind,
-          bookingStatus: "confirmed",
+          bookingStatus: null,
+          travelerConfirmed: false,
+          recommendationId: referral?.recommendationId || null,
+          affiliateClickId: referral?.affiliateClickId || null,
           sourceType: review ? "upload" : "manual",
           title: title || provider || "Trip booking",
           provider: provider || title,
@@ -201,11 +212,10 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
                     serviceNumber: flightNumber,
                     terminal,
                     gate,
-                    status: "confirmed"
+                    status: "unknown"
                   }
                 ]
               : [],
-          travelerConfirmed: true
         })
       });
       const data = await response.json().catch(() => null);
@@ -225,6 +235,11 @@ export function ManualBookingForm({ tripId }: ManualBookingFormProps) {
         <p className="text-sm font-black text-ocean">{t("ui.booking.add")}</p>
         <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">{t("ui.booking.saveWhatBooked")}</h1>
         <p className="mt-2 text-base font-semibold leading-7 text-slate-600">{t("ui.booking.enterOrUpload")}</p>
+        {referral ? (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+            You marked a referred option as booked. Add the actual booking details so Roamly can verify it; this will not mark the booking confirmed by itself.
+          </p>
+        ) : null}
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <label className="flex min-h-14 cursor-pointer items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-ink">

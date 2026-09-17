@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { stableBookingKey } from "@/lib/roamly/bookingWallet";
+import { bookingReferralMetadata, stableBookingKey } from "@/lib/roamly/bookingWallet";
 import { ROAMLY_BRAIN_VERSION, type BrainStageDefinition, type RoamlyBrainStageType } from "@/lib/roamly/brain/stages";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 
@@ -34,6 +34,7 @@ type ReconciliationBooking = {
   provider_booking_id: string | null;
   confirmation_number: string | null;
   recommendation_id: string | null;
+  metadata?: Record<string, unknown> | null;
   source_type: string | null;
   title: string | null;
   start_at: string | null;
@@ -196,12 +197,15 @@ export async function reconcileTripBookings(params: {
 
   const { data, error } = await writer
     .from("roamly_bookings")
-    .select("id,booking_type,booking_status,provider_name,provider_booking_id,confirmation_number,recommendation_id,source_type,title,start_at,origin,destination,flight_number,traveler_confirmed,updated_at")
+    .select("id,booking_type,booking_status,provider_name,provider_booking_id,confirmation_number,metadata,source_type,title,start_at,origin,destination,flight_number,traveler_confirmed,updated_at")
     .eq("user_id", params.userId)
     .eq("trip_id", params.tripId);
   if (error) return { ok: false as const, error: error.message };
 
-  const bookings = (data || []) as ReconciliationBooking[];
+  const bookings = (data || []).map((booking) => ({
+    ...(booking as ReconciliationBooking),
+    recommendation_id: bookingReferralMetadata(booking.metadata).recommendationId
+  })) as ReconciliationBooking[];
   const output = reconcileBookingRecords(params.userId, bookings);
   for (const group of output.duplicateGroups) {
     const primary = bookings.find((booking) => booking.id === group.primaryBookingId);

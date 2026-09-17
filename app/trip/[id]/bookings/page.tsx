@@ -65,8 +65,8 @@ export default async function TripBookingsPage({ params, searchParams }: { param
   ]);
 
   const referralsResult = await supabase
-    .from("affiliate_clicks")
-    .select("id,trip_id,recommendation_id,provider,affiliate_partner,device_context,created_at")
+    .from("roamly_booking_referrals")
+    .select("id,trip_id,recommendation_id,provider,commercial_partner,metadata,created_at")
     .eq("trip_id", id)
     .eq("user_id", current.user.id)
     .order("created_at", { ascending: false })
@@ -80,16 +80,29 @@ export default async function TripBookingsPage({ params, searchParams }: { param
         legacyRoamlyBookingToWallet(booking, { userId: current.user!.id, tripId: id })
       );
   const referrals: BookingOutcomeReferral[] = (referralsResult.data || []).map((row) => {
-    const context = row.device_context && typeof row.device_context === "object" && !Array.isArray(row.device_context)
-      ? row.device_context as Record<string, unknown>
+    const context = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
       : {};
     return {
       id: String(row.id),
       trip_id: String(row.trip_id),
       recommendation_id: typeof row.recommendation_id === "string" ? row.recommendation_id : null,
       category: typeof context.category === "string" ? context.category : null,
-      provider: typeof row.provider === "string" ? row.provider : typeof row.affiliate_partner === "string" ? row.affiliate_partner : null,
+      provider: typeof row.provider === "string" ? row.provider : typeof row.commercial_partner === "string" ? row.commercial_partner : null,
       created_at: typeof row.created_at === "string" ? row.created_at : null
+    };
+  });
+  const referralDetails = (referralsResult.data || []).map((row) => {
+    const context = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? row.metadata as Record<string, unknown>
+      : {};
+    return {
+      id: String(row.id),
+      recommendationId: typeof row.recommendation_id === "string" ? row.recommendation_id : null,
+      provider: typeof row.provider === "string" ? row.provider : null,
+      category: typeof context.category === "string" ? context.category : null,
+      title: typeof context.recommendation_title === "string" ? context.recommendation_title : null,
+      createdAt: typeof row.created_at === "string" ? row.created_at : null
     };
   });
 
@@ -113,6 +126,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
         locale={locale}
         focus={focus === "flight" || focus === "hotel" || focus === "activity" ? focus : null}
         referrals={referrals}
+        referralDetails={referralDetails}
       />
     </main>
   );

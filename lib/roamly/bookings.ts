@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { createTripBooking } from "@/lib/roamly/bookingWallet";
+export { createBookingEvidenceToken, verifyBookingEvidenceToken } from "@/lib/roamly/bookingEvidenceToken";
 
 export type RoamlyBookingType =
   | "flight"
@@ -43,6 +44,7 @@ export type ExtractedBooking = {
   extraction_confidence: "low" | "medium" | "high";
   metadata: Record<string, unknown>;
 };
+
 
 const bookingTypes = new Set<RoamlyBookingType>([
   "flight",

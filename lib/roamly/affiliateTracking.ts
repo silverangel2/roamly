@@ -10,6 +10,7 @@ export type AffiliateClickInput = {
   userId: string;
   tripId: string;
   recommendationId?: string | null;
+  bookingType?: string | null;
   provider?: string | null;
   affiliatePartner?: string | null;
   destinationUrl: string;
@@ -41,11 +42,32 @@ type AffiliateClickRecord = {
   user_id: string;
   trip_id: string;
   recommendation_id: string | null;
+  booking_type: TripBookingType;
   provider: string;
   affiliate_partner: AffiliatePartner;
   destination_url: string;
   affiliate_url: string;
   sub_id: string;
+};
+
+function referralRowToClick(row: Record<string, unknown>): AffiliateClickRecord {
+  return {
+    id: String(row.id),
+    user_id: String(row.user_id),
+    trip_id: String(row.trip_id),
+    recommendation_id: typeof row.recommendation_id === "string" ? row.recommendation_id : null,
+    booking_type: normalizedBookingType(typeof row.booking_type === "string" ? row.booking_type : null),
+    provider: typeof row.provider === "string" ? row.provider : "other",
+    affiliate_partner: (typeof row.commercial_partner === "string" ? row.commercial_partner : "other") as AffiliatePartner,
+    destination_url: String(row.destination_url || ""),
+    affiliate_url: String(row.affiliate_url || ""),
+    sub_id: typeof row.provider_tracking_reference === "string" ? row.provider_tracking_reference : ""
+  };
+}
+
+export type ResolvedAffiliateReferral = AffiliateClickRecord & {
+  recommendationTitle: string | null;
+  category: string | null;
 };
 
 type AffiliateConversionRecord = {
@@ -76,13 +98,6 @@ function money(value: unknown) {
     if (Number.isFinite(parsed) && parsed >= 0) return Math.round(parsed * 100) / 100;
   }
   return null;
-}
-
-function timestamp(value?: string | null) {
-  const text = clean(value);
-  if (!text) return null;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
 function currency(value?: string | null) {
@@ -127,8 +142,70 @@ async function assertTripOwnership(supabase: SupabaseClient, userId: string, tri
   return { ok: true as const };
 }
 
+async function recommendationBelongsToTrip(supabase: SupabaseClient, userId: string, tripId: string, recommendationId: string) {
+  const { data, error } = await supabase
+    .from("roamly_itineraries")
+    .select("full_json")
+    .eq("trip_id", tripId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false as const, error: error.message };
+  const full = data?.full_json && typeof data.full_json === "object" && !Array.isArray(data.full_json)
+    ? data.full_json as Record<string, unknown>
+    : null;
+  const suggestions = Array.isArray(full?.booking_suggestions) ? full.booking_suggestions : [];
+  const found = suggestions.some((suggestion) => {
+    if (!suggestion || typeof suggestion !== "object" || Array.isArray(suggestion)) return false;
+    return (suggestion as Record<string, unknown>).candidateId === recommendationId;
+  });
+  return found ? { ok: true as const } : { ok: false as const, error: "RECOMMENDATION_NOT_FOUND" };
+}
+
+export async function resolveAffiliateReferral(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  affiliateClickId: string;
+  recommendationId?: string | null;
+}) {
+  const ownership = await assertTripOwnership(params.supabase, params.userId, params.tripId);
+  if (!ownership.ok) return { referral: null, error: ownership.error };
+
+  const { data, error } = await params.supabase
+    .from("roamly_booking_referrals")
+    .select("*")
+    .eq("id", params.affiliateClickId)
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .maybeSingle();
+  if (error) return { referral: null, error: error.message };
+  if (!data) return { referral: null, error: "AFFILIATE_REFERRAL_NOT_FOUND" };
+  const click = referralRowToClick(data as Record<string, unknown>);
+  if (!click.recommendation_id) return { referral: null, error: "AFFILIATE_REFERRAL_IDENTITY_INCOMPLETE" };
+  if (params.recommendationId && click.recommendation_id !== params.recommendationId) {
+    return { referral: null, error: "AFFILIATE_REFERRAL_MISMATCH" };
+  }
+  const recommendation = await recommendationBelongsToTrip(params.supabase, params.userId, params.tripId, click.recommendation_id);
+  if (!recommendation.ok) return { referral: null, error: recommendation.error };
+
+  const context = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata)
+    ? data.metadata as Record<string, unknown>
+    : {};
+  return {
+    referral: {
+      ...click,
+      recommendationTitle: typeof context.recommendation_title === "string" ? context.recommendation_title : null,
+      category: click.booking_type !== "other" ? click.booking_type : typeof context.category === "string" ? context.category : null
+    } satisfies ResolvedAffiliateReferral,
+    error: null
+  };
+}
+
 export async function createAffiliateClick(params: {
   supabase: SupabaseClient;
+  writer: SupabaseClient;
   input: AffiliateClickInput;
 }) {
   const ownership = await assertTripOwnership(params.supabase, params.input.userId, params.input.tripId);
@@ -138,27 +215,34 @@ export async function createAffiliateClick(params: {
   const destinationUrl = safeExternalUrl(params.input.destinationUrl) || affiliateUrl;
   if (!affiliateUrl || !destinationUrl) return { click: null, redirectUrl: "", error: "INVALID_AFFILIATE_URL" };
 
+  const recommendationId = clean(params.input.recommendationId);
+  if (recommendationId) {
+    const recommendation = await recommendationBelongsToTrip(params.supabase, params.input.userId, params.input.tripId, recommendationId);
+    if (!recommendation.ok) return { click: null, redirectUrl: affiliateUrl, error: recommendation.error };
+  }
+
   const partner = affiliatePartnerForProvider(params.input.affiliatePartner || params.input.provider);
   const subId = createAffiliateSubId();
   const redirectUrl = appendAffiliateSubId(affiliateUrl, partner, subId);
-  const { data, error } = await params.supabase
-    .from("affiliate_clicks")
+  const { data, error } = await params.writer
+    .from("roamly_booking_referrals")
     .insert({
       user_id: params.input.userId,
       trip_id: params.input.tripId,
-      recommendation_id: clean(params.input.recommendationId) || null,
       provider: clean(params.input.provider) || partner,
-      affiliate_partner: partner,
+      commercial_partner: partner,
+      recommendation_id: recommendationId || null,
+      booking_type: normalizedBookingType(params.input.bookingType),
       destination_url: destinationUrl,
       affiliate_url: affiliateUrl,
-      sub_id: subId,
-      device_context: params.input.deviceContext || {}
+      provider_tracking_reference: subId,
+      metadata: params.input.deviceContext || {}
     })
     .select("*")
     .single();
 
   if (error) return { click: null, redirectUrl: affiliateUrl, error: error.message };
-  return { click: data as AffiliateClickRecord, redirectUrl: redirectUrl || affiliateUrl, error: null };
+  return { click: referralRowToClick(data as Record<string, unknown>), redirectUrl: redirectUrl || affiliateUrl, error: null };
 }
 
 function normalizedBookingType(value?: string | null): TripBookingType {
@@ -174,12 +258,12 @@ function normalizedConversionStatus(value?: string | null, reliable?: boolean) {
 
 async function findAffiliateClick(supabase: SupabaseClient, input: AffiliateConversionInput) {
   if (input.affiliateClickId) {
-    const { data } = await supabase.from("affiliate_clicks").select("*").eq("id", input.affiliateClickId).maybeSingle();
-    if (data) return data as AffiliateClickRecord;
+    const { data } = await supabase.from("roamly_booking_referrals").select("*").eq("id", input.affiliateClickId).maybeSingle();
+    if (data) return referralRowToClick(data as Record<string, unknown>);
   }
   if (input.subId) {
-    const { data } = await supabase.from("affiliate_clicks").select("*").eq("sub_id", input.subId).maybeSingle();
-    if (data) return data as AffiliateClickRecord;
+    const { data } = await supabase.from("roamly_booking_referrals").select("*").eq("provider_tracking_reference", input.subId).maybeSingle();
+    if (data) return referralRowToClick(data as Record<string, unknown>);
   }
   return null;
 }
@@ -198,6 +282,7 @@ function conversionBookingInput(params: {
     bookingType: params.input.bookingType || booking.bookingType,
     bookingStatus,
     recommendationId: params.click.recommendation_id || booking.recommendationId || null,
+    referralId: params.click.id,
     provider: params.input.provider || booking.provider || params.click.provider,
     affiliateClickId: params.click.id,
     affiliateConversionId: params.conversionId,
@@ -221,7 +306,9 @@ export async function recordAffiliateConversion(params: {
   const partner = affiliatePartnerForProvider(params.input.affiliatePartner || params.input.provider || click.affiliate_partner);
   const status = normalizedConversionStatus(params.input.status, params.input.reliable);
   const bookingType = normalizedBookingType(params.input.bookingType);
-  const row = {
+  const conversionId = clean(params.input.externalOrderId) || clean(params.input.rawEventReference) || click.sub_id;
+  const conversion: AffiliateConversionRecord = {
+    id: conversionId,
     affiliate_click_id: click.id,
     trip_id: click.trip_id,
     user_id: click.user_id,
@@ -231,65 +318,9 @@ export async function recordAffiliateConversion(params: {
     booking_type: bookingType,
     status,
     amount: money(params.input.amount),
-    currency: currency(params.input.currency),
-    commission_status: clean(params.input.commissionStatus) || null,
-    booked_at: timestamp(params.input.bookedAt),
-    cancelled_at: timestamp(params.input.cancelledAt),
-    refunded_at: timestamp(params.input.refundedAt),
-    raw_event_reference: clean(params.input.rawEventReference) || null
+    currency: currency(params.input.currency)
   };
-
-  let existingConversion: { id: string } | null = null;
-  if (row.external_order_id) {
-    const { data } = await params.supabase
-      .from("affiliate_conversions")
-      .select("id")
-      .eq("affiliate_partner", row.affiliate_partner)
-      .eq("external_order_id", row.external_order_id)
-      .maybeSingle();
-    existingConversion = data as { id: string } | null;
-  } else if (row.raw_event_reference) {
-    const { data } = await params.supabase
-      .from("affiliate_conversions")
-      .select("id")
-      .eq("affiliate_partner", row.affiliate_partner)
-      .eq("raw_event_reference", row.raw_event_reference)
-      .maybeSingle();
-    existingConversion = data as { id: string } | null;
-  }
-
-  const saved = existingConversion
-    ? await params.supabase.from("affiliate_conversions").update(row).eq("id", existingConversion.id).select("*").single()
-    : await params.supabase.from("affiliate_conversions").insert(row).select("*").single();
-
-  if (saved.error) return { conversion: null, booking: null, error: saved.error.message, needsConfirmation: true };
-
-  const conversion = saved.data as AffiliateConversionRecord;
   const hasTravelDetails = Boolean(params.input.booking?.title || params.input.booking?.startTime || params.input.booking?.checkInTime);
-  const existingBooking = await params.supabase
-    .from("roamly_bookings")
-    .select("*")
-    .eq("affiliate_conversion_id", conversion.id)
-    .eq("user_id", click.user_id)
-    .maybeSingle();
-  if (existingBooking.data) {
-    await reconcileTripBookings({
-      supabase: params.supabase,
-      userId: click.user_id,
-      tripId: click.trip_id,
-      sourceBookingId: String((existingBooking.data as { id: string }).id)
-    }).catch(() => null);
-    return {
-      conversion,
-      booking: existingBooking.data,
-      error: null,
-      needsConfirmation: !params.input.reliable || !hasTravelDetails,
-      message: hasTravelDetails
-        ? null
-        : "We found your booking. Add the confirmation details to activate live tracking."
-    };
-  }
-
   const savedBooking = await createTripBooking({
     supabase: params.supabase,
     userId: click.user_id,

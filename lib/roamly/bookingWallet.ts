@@ -71,6 +71,7 @@ export type TripBookingInput = {
   providerBookingId?: string | null;
   confirmationCode?: string | null;
   recommendationId?: string | null;
+  referralId?: string | null;
   affiliateClickId?: string | null;
   affiliateConversionId?: string | null;
   sourceType?: string | null;
@@ -120,6 +121,7 @@ export type TripBookingRecord = {
   confirmation_code: string | null;
   recommendation_id: string | null;
   affiliate_click_id: string | null;
+  referral_id: string | null;
   affiliate_conversion_id: string | null;
   source_type: TripBookingSourceType;
   source_reference: string | null;
@@ -231,6 +233,43 @@ function safeJson(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+export type BookingReferralMetadata = {
+  recommendationId: string | null;
+  affiliateClickId: string | null;
+  affiliateConversionId: string | null;
+  sourceReference: string | null;
+  captureState?: "customer_asserted" | "evidence_pending" | null;
+};
+
+export function bookingReferralMetadata(value: unknown): BookingReferralMetadata {
+  const metadata = safeJson(value);
+  return {
+    recommendationId: nullableText(metadata.recommendationId),
+    affiliateClickId: nullableText(metadata.affiliateClickId),
+    affiliateConversionId: nullableText(metadata.affiliateConversionId),
+    sourceReference: nullableText(metadata.sourceReference),
+    captureState:
+      metadata.captureState === "customer_asserted" || metadata.captureState === "evidence_pending"
+        ? metadata.captureState
+        : null
+  };
+}
+
+export function withBookingReferralMetadata(
+  value: unknown,
+  referral: Partial<BookingReferralMetadata> & { captureState?: BookingReferralMetadata["captureState"] }
+) {
+  const metadata = safeJson(value);
+  return {
+    ...metadata,
+    ...(referral.recommendationId ? { recommendationId: referral.recommendationId } : {}),
+    ...(referral.affiliateClickId ? { affiliateClickId: referral.affiliateClickId } : {}),
+    ...(referral.affiliateConversionId ? { affiliateConversionId: referral.affiliateConversionId } : {}),
+    ...(referral.sourceReference ? { sourceReference: referral.sourceReference } : {}),
+    ...(referral.captureState ? { captureState: referral.captureState } : {})
+  };
+}
+
 export function isConfirmedBooking(booking: Pick<TripBookingRecord, "booking_status" | "traveler_confirmed">) {
   return booking.traveler_confirmed && confirmedStatuses.has(booking.booking_status);
 }
@@ -325,25 +364,15 @@ function canonicalRowToTripBookingRecord(
         ? row.confirmation_number
         : null,
 
-    recommendation_id:
-      typeof metadata.recommendationId === "string"
-        ? metadata.recommendationId
-        : null,
+    recommendation_id: bookingReferralMetadata(metadata).recommendationId,
 
-    affiliate_click_id:
-      typeof metadata.affiliateClickId === "string"
-        ? metadata.affiliateClickId
-        : null,
+    affiliate_click_id: bookingReferralMetadata(metadata).affiliateClickId,
 
-    affiliate_conversion_id:
-      typeof metadata.affiliateConversionId === "string"
-        ? metadata.affiliateConversionId
-        : null,
+    referral_id: typeof row.referral_id === "string" ? row.referral_id : null,
 
-    source_reference:
-      typeof metadata.sourceReference === "string"
-        ? metadata.sourceReference
-        : null,
+    affiliate_conversion_id: bookingReferralMetadata(metadata).affiliateConversionId,
+
+    source_reference: bookingReferralMetadata(metadata).sourceReference,
 
     start_time:
       typeof row.start_at === "string"
@@ -446,18 +475,19 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     ),
 
     traveler_confirmed: confirmed,
+    referral_id: nullableText(input.referralId),
     last_synced_at:
       nullableTimestamp(input.lastSyncedAt) ||
       new Date().toISOString(),
 
     metadata: {
       ...safeJson(input.metadata),
-      recommendationId: nullableText(input.recommendationId),
-      affiliateClickId: nullableText(input.affiliateClickId),
-      affiliateConversionId: nullableText(
-        input.affiliateConversionId
-      ),
-      sourceReference: nullableText(input.sourceReference),
+      ...withBookingReferralMetadata(input.metadata, {
+        recommendationId: nullableText(input.recommendationId),
+        affiliateClickId: nullableText(input.affiliateClickId),
+        affiliateConversionId: nullableText(input.affiliateConversionId),
+        sourceReference: nullableText(input.sourceReference)
+      }),
       timezone: nullableText(input.timezone),
       locationName: nullableText(input.locationName),
       coordinates:
@@ -725,6 +755,20 @@ async function findMatchingCanonicalBooking(params: {
       .eq("user_id", params.userId)
       .eq("trip_id", params.tripId);
 
+  const referral = bookingReferralMetadata(params.booking.metadata);
+  const referralId = typeof params.booking.referral_id === "string" ? params.booking.referral_id : null;
+  if (referralId) {
+    const result = await base().eq("referral_id", referralId).maybeSingle();
+    if (result.error) return { booking: null, error: result.error.message };
+    if (result.data) return { booking: result.data as Record<string, unknown>, error: null };
+  }
+
+  if (referral.affiliateClickId) {
+    const result = await base().contains("metadata", { affiliateClickId: referral.affiliateClickId }).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (result.error) return { booking: null, error: result.error.message };
+    if (result.data) return { booking: result.data as Record<string, unknown>, error: null };
+  }
+
   const providerBookingId = textValue(
     params.booking.provider_booking_id
   );
@@ -801,6 +845,34 @@ async function findMatchingCanonicalBooking(params: {
     booking: null,
     error: null
   };
+}
+
+async function reloadReferralCaptureAfterConflict(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  referralId: string;
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null };
+}) {
+  if (params.error.code !== "23505") return { booking: null, error: null, reusable: false };
+
+  const errorText = [params.error.message, params.error.details, params.error.hint]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const namesTheReferralConflict = errorText.includes("roamly_bookings_referral_capture_uidx");
+  const namesAnotherConstraint = /unique constraint|duplicate key value/.test(errorText) && !namesTheReferralConflict;
+  if (namesAnotherConstraint) return { booking: null, error: null, reusable: false };
+
+  const canonical = await params.supabase
+    .from("roamly_bookings")
+    .select("*")
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .eq("referral_id", params.referralId)
+    .maybeSingle();
+  if (canonical.error || !canonical.data) return { booking: null, error: null, reusable: false };
+  return { booking: canonical.data as Record<string, unknown>, error: null, reusable: true };
 }
 
 function bookingRevisionPatch(booking: Record<string, unknown>) {
@@ -899,6 +971,21 @@ export async function createTripBooking(params: {
 
   const previousBooking = match.booking;
 
+  if (previousBooking) {
+    const previousStatus = clean(previousBooking.booking_status);
+    const previousConfirmed = previousBooking.traveler_confirmed === true || ["booked", "paid", "reserved"].includes(previousStatus);
+    if (previousConfirmed && !booking.traveler_confirmed) {
+      return {
+        booking: canonicalRowToTripBookingRecord(previousBooking),
+        error: null,
+        created: false,
+        meaningfulChange: null,
+        companionWorkflow: null,
+        itineraryOverride: { ok: true as const, changed: false, preservedConfirmed: true }
+      };
+    }
+  }
+
   if (previousBooking && params.input.reconciliation) {
     const revision = await applyGmailBookingRevision({
       supabase: params.supabase,
@@ -952,6 +1039,23 @@ export async function createTripBooking(params: {
         .single();
 
   if (writeResult.error) {
+    if (!previousBooking && booking.referral_id) {
+      const duplicate = await reloadReferralCaptureAfterConflict({
+        supabase: params.supabase,
+        userId: params.userId,
+        tripId: params.tripId,
+        referralId: booking.referral_id,
+        error: writeResult.error
+      });
+      if (duplicate.reusable && duplicate.booking) {
+        return {
+          booking: canonicalRowToTripBookingRecord(duplicate.booking),
+          error: null,
+          created: false,
+          duplicate: true
+        };
+      }
+    }
     if (!previousBooking && params.input.reconciliation) {
       const duplicate = await params.supabase
         .from("roamly_bookings")
@@ -1197,6 +1301,7 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
     confirmation_code: nullableText(record.confirmation_number),
     recommendation_id: null,
     affiliate_click_id: null,
+    referral_id: null,
     affiliate_conversion_id: null,
     source_type: nullableText(record.screenshot_url) ? "upload" : "manual",
     source_reference: "roamly_bookings",

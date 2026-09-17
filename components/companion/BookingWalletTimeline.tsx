@@ -11,6 +11,14 @@ type BookingWalletTimelineProps = {
   locale: RoamlyLocale;
   focus?: "flight" | "hotel" | "activity" | null;
   referrals?: BookingOutcomeReferral[];
+  referralDetails?: Array<{
+    id: string;
+    recommendationId: string | null;
+    provider: string | null;
+    category: string | null;
+    title: string | null;
+    createdAt: string | null;
+  }>;
 };
 
 function statusClass(status: TripBookingStatus) {
@@ -126,7 +134,7 @@ function navLinkClass(active = false) {
   return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
-export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, referrals = [] }: BookingWalletTimelineProps) {
+export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, referrals = [], referralDetails = [] }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
@@ -134,7 +142,8 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
   const outcomeFor = (booking: TripBookingRecord) => deriveBookingOutcome({ tripId, category: booking.booking_type, booking, bookings, referrals });
   const visibleReferrals = referrals
     .map((referral) => ({ referral, outcome: deriveBookingOutcome({ tripId, category: referral.category || "other", recommendationId: referral.recommendation_id, bookings, referrals: [referral] }) }))
-    .filter(({ outcome }) => outcome.state === "REFERRED" || outcome.state === "AWAITING_CONFIRMATION" || outcome.state === "NEEDS_REVIEW");
+    .filter(({ referral, outcome }) => Boolean(referral.recommendation_id) && (outcome.state === "REFERRED" || outcome.state === "AWAITING_CONFIRMATION" || outcome.state === "NEEDS_REVIEW"))
+    .filter(({ referral }, index, candidates) => candidates.findIndex((candidate) => candidate.referral.recommendation_id === referral.recommendation_id) === index);
   const groups = Array.from(new Set(activeBookings.map((booking) => bookingCategory(booking.booking_type))))
     .sort((left, right) => bookingCategoryOrder(left) - bookingCategoryOrder(right))
     .map((title) => ({ title, bookings: activeBookings.filter((booking) => bookingCategory(booking.booking_type) === title) }));
@@ -182,15 +191,28 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           <h2 id="booking-referrals-title" className="mt-1 text-lg font-black text-ink">Options you viewed</h2>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Roamly has not marked these as booked unless confirmation evidence exists.</p>
           <div className="mt-3 grid gap-2">
-            {visibleReferrals.map(({ referral, outcome }) => (
+            {visibleReferrals.map(({ referral, outcome }) => {
+              const details = referralDetails.find((candidate) => candidate.id === referral.id);
+              return (
               <div key={referral.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-black text-ink">{referral.category ? `${referral.category[0].toUpperCase()}${referral.category.slice(1)}` : "Travel"} option</p>
+                  <p className="text-sm font-black text-ink">{details?.title || (referral.category ? `${referral.category[0].toUpperCase()}${referral.category.slice(1)}` : "Travel")} {details?.title ? "" : "option"}</p>
                   <p className="mt-1 text-xs font-bold text-slate-500">{referral.provider || "External provider"}</p>
                 </div>
-                <span className="shrink-0 text-xs font-black text-amber-800">{bookingOutcomeLabel(outcome)}</span>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <span className="text-xs font-black text-amber-800">{bookingOutcomeLabel(outcome)}</span>
+                  {outcome.state === "REFERRED" ? (
+                    <Link
+                      href={`/trip/${tripId}/bookings/add?affiliateClickId=${encodeURIComponent(referral.id)}&recommendationId=${encodeURIComponent(referral.recommendation_id || "")}`}
+                      className="rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white"
+                    >
+                      I booked this
+                    </Link>
+                  ) : null}
+                </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       ) : null}
