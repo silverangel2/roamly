@@ -24,6 +24,16 @@ function statusClass(status: string) {
   return "bg-slate-100 text-slate-600";
 }
 
+function publicationLabel(item: { queue_status: string; metadata?: Record<string, unknown> | null }) {
+  const truth = String(item.metadata?.publicationTruth || "");
+  if (truth === "processing") return "Processing";
+  if (truth === "published_verified") return "Published — public visibility verified";
+  if (truth === "published_unverified") return "Published — visibility unverified";
+  if (item.queue_status === "published") return "Published — legacy status";
+  if (item.queue_status === "failed") return "Failed";
+  return item.queue_status;
+}
+
 export default async function AdminSocialHistoryPage({ searchParams }: HistoryPageProps) {
   const state = await getRoamlyAdminPageState();
   if (!state.isAdmin || !state.admin) return <AdminAccessCard />;
@@ -72,6 +82,7 @@ export default async function AdminSocialHistoryPage({ searchParams }: HistoryPa
     attempt_count: number;
     last_error: string | null;
     permanent_failure: boolean;
+    metadata: Record<string, unknown> | null;
     draft: DraftRow | DraftRow[];
   }>;
   const rows = rawRows
@@ -126,7 +137,7 @@ export default async function AdminSocialHistoryPage({ searchParams }: HistoryPa
                     </p>
                     <h2 className="mt-2 text-xl font-black text-ink">{item.draft.hook}</h2>
                   </div>
-                  <span className={`rounded-full px-3 py-2 text-xs font-black ${statusClass(item.queue_status)}`}>{item.queue_status}</span>
+                  <span className={`rounded-full px-3 py-2 text-xs font-black ${statusClass(item.queue_status)}`}>{publicationLabel(item)}</span>
                 </div>
                 <p className="mt-3 line-clamp-3 whitespace-pre-wrap text-sm font-bold leading-6 text-slate-600">{item.draft.caption}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -138,7 +149,8 @@ export default async function AdminSocialHistoryPage({ searchParams }: HistoryPa
                     ["Media used", item.draft.selected_media_url || "Caption-only"],
                     ["Generation", item.draft.generation_source],
                     ["Affiliate", item.draft.amazon_affiliate_link ? "Yes" : "No"],
-                    ["Final status", item.permanent_failure ? "Permanent failure" : item.queue_status]
+                    ["Final status", item.permanent_failure ? "Permanent failure" : publicationLabel(item)],
+                    ["Verification", typeof item.metadata?.publicationReason === "string" ? item.metadata.publicationReason : "Not recorded"]
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-xl bg-mist px-3 py-2">
                       <p className="text-[0.68rem] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>

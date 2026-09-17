@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
-import { probeFacebookAccessibleUrl } from "@/lib/roamly/publicSocialStorage";
+import { probeFacebookAccessibleUrl, probeFacebookPublicVisibility } from "@/lib/roamly/publicSocialStorage";
+import { classifyFacebookProcessing, classifyFacebookPublication, type FacebookPublicationTruth } from "@/lib/roamly/facebookPublicationTruth";
 import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
 import { selectCampaignPhotoAsset } from "@/lib/roamly/facebookCampaignMedia";
 
@@ -192,6 +193,7 @@ type CronLogRow = {
 type PublishResult = {
   ok: boolean;
   status: "published" | "failed" | "skipped";
+  publicationTruth?: FacebookPublicationTruth;
   facebookPostId?: string | null;
   facebookReelId?: string | null;
   facebookMediaId?: string | null;
@@ -2942,31 +2944,26 @@ async function uploadReelVideo(config: FacebookBrandConfig, uploadUrl: string, v
   return body;
 }
 
-function processingState(value: unknown) {
-  if (!value || typeof value !== "object") return "";
-  const record = value as Record<string, unknown>;
-  const status = record.status;
-  if (typeof status === "string") return status.toLowerCase();
-  const videoStatus = record.video_status;
-  if (typeof videoStatus === "string") return videoStatus.toLowerCase();
-  const processingPhase = record.processing_phase;
-  if (typeof processingPhase === "string") return processingPhase.toLowerCase();
-  return "";
-}
-
 async function waitForReelProcessing(config: FacebookBrandConfig, videoId: string) {
-  let lastStatus = "";
+  let lastResponse: Record<string, unknown> = {};
   for (let index = 0; index < 4; index += 1) {
     const response = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
       method: "GET",
       params: { fields: "id,status,permalink_url" }
     });
-    lastStatus = processingState(response.status || response);
-    if (!lastStatus || /ready|complete|finished|published|success/.test(lastStatus)) return { ready: true, response };
-    if (/error|failed|rejected/.test(lastStatus)) return { ready: false, response, error: `Meta processing failed: ${lastStatus}` };
+    lastResponse = response;
+    const classification = classifyFacebookProcessing(response.status || response);
+    if (classification.state === "terminal_success") return { state: classification.state, response, status: classification.status };
+    if (classification.state === "terminal_failure") return { state: classification.state, response, status: classification.status, error: `Meta processing failed: ${classification.status}` };
     await new Promise((resolve) => setTimeout(resolve, 1500));
   }
-  return { ready: false, response: {}, error: lastStatus ? `Meta processing still ${lastStatus}.` : "Meta processing did not confirm readiness." };
+  const classification = classifyFacebookProcessing(lastResponse.status || lastResponse);
+  return {
+    state: classification.state === "processing" ? "processing" as const : "unknown" as const,
+    response: lastResponse,
+    status: classification.status,
+    error: classification.status ? `Meta processing did not reach a terminal state: ${classification.status}.` : "Meta processing state was unavailable."
+  };
 }
 
 
@@ -3068,15 +3065,29 @@ async function publishFacebookReel(
   const processing = await waitForReelProcessing(config, videoId);
   console.log("[FB_REEL_STAGE_10_PROCESSING_RESULT]", {
     queueId,
-    ready: processing.ready,
+    state: processing.state,
+    status: processing.status,
     error: processing.error || null
   });
-  if (!processing.ready) {
+  if (processing.state === "terminal_failure") {
     await admin
       .from("roamly_facebook_media_processing")
       .update({ processing_status: "failed", error_message: processing.error || "Meta processing did not finish.", checked_at: new Date().toISOString() })
       .eq("queue_id", queueId);
     return { ok: false, status: "failed", temporary: true, error: processing.error || "Meta processing did not finish.", metaResponse: processing.response };
+  }
+  if (processing.state !== "terminal_success") {
+    const visibility = { verified: false, reason: "Meta processing did not reach a terminal success state." };
+    return {
+      ok: true,
+      status: "published" as const,
+      publicationTruth: "processing" as const,
+      facebookMediaId: videoId,
+      mediaAssetId: reelMedia.mediaAssetId || null,
+      sourceMediaAssetId: reelMedia.sourceMediaAssetId || null,
+      facebookUrl: null,
+      metaResponse: withBrandMetadata(config.brand, { pageId: config.pageId, graphVersion: config.graphVersion, processing, visibility })
+    };
   }
 
   console.log("[FB_REEL_STAGE_11_FINISH_START]", {
@@ -3092,8 +3103,8 @@ async function publishFacebookReel(
     }
   });
   console.log("[FB_REEL_STAGE_12_FINISH_OK]", { queueId, finish });
-  if (finish.success === false) {
-    throw new FacebookGraphError("Facebook Reel publish failed.", true, finish as Record<string, unknown>);
+  if (finish.success !== true) {
+    throw new FacebookGraphError("Facebook Reel publish was not explicitly confirmed by Meta.", true, finish as Record<string, unknown>);
   }
 
   let confirmation: Record<string, unknown> = {};
@@ -3108,9 +3119,31 @@ async function publishFacebookReel(
     confirmation = error instanceof FacebookGraphError ? error.responseBody : {};
   }
   const permalink = typeof confirmation.permalink_url === "string" ? confirmation.permalink_url : "";
-  const classifiedAsReel = confirmation.is_reel === true || String(confirmation.media_type || "").toLowerCase() === "reel" || /\/reel\//i.test(permalink);
-  const confirmedImmediately = Boolean(permalink && classifiedAsReel);
+  const visibility = permalink && !confirmationError
+    ? await probeFacebookPublicVisibility({ url: permalink, timeoutMs: 7000 })
+    : { verified: false, reason: confirmationError ? "Meta final object confirmation failed." : "Public permalink is missing." };
+  const classification = classifyFacebookPublication({ finish, confirmation, confirmationError, visibility });
   const externalId = clean(String(confirmation.id || finish.post_id || finish.id || videoId));
+  if (classification.truth === "failed") {
+    await admin
+      .from("roamly_facebook_media_processing")
+      .update({ processing_status: "failed", error_message: classification.reason, checked_at: new Date().toISOString() })
+      .eq("queue_id", queueId);
+    return {
+      ok: false,
+      status: "failed",
+      temporary: true,
+      error: classification.reason,
+      metaResponse: withBrandMetadata(config.brand, {
+        pageId: config.pageId,
+        graphVersion: config.graphVersion,
+        confirmation,
+        finish,
+        publicationTruth: classification.truth,
+        publicationReason: classification.reason
+      })
+    };
+  }
   await admin
     .from("roamly_facebook_media_processing")
     .update({
@@ -3120,6 +3153,7 @@ async function publishFacebookReel(
       metadata: withBrandMetadata(config.brand, {
         stage: "meta_publish_complete",
         page_id: config.pageId,
+        graphVersion: config.graphVersion,
         mediaUrl,
         generatedVideo: reelMedia.generatedVideo || null,
         start,
@@ -3127,8 +3161,12 @@ async function publishFacebookReel(
         finish,
         confirmation,
         confirmationError,
-        confirmationStatus: confirmedImmediately ? "confirmed_immediately" : "publish_accepted_confirmation_pending",
-        platformMediaType: "reel"
+        confirmationStatus: classification.truth,
+        platformMediaType: classification.classifiedAsReel ? "reel" : "unconfirmed",
+        publicationTruth: classification.truth,
+        publicationReason: classification.reason,
+        publicVisibility: visibility,
+        verificationTimestamp: new Date().toISOString()
       })
     })
     .eq("queue_id", queueId);
@@ -3136,6 +3174,7 @@ async function publishFacebookReel(
   return {
     ok: true,
     status: "published",
+    publicationTruth: classification.truth,
     facebookReelId: externalId || videoId,
     facebookMediaId: videoId,
     facebookUrl: permalink || null,
@@ -3143,8 +3182,13 @@ async function publishFacebookReel(
     sourceMediaAssetId: reelMedia.sourceMediaAssetId || null,
     metaResponse: withBrandMetadata(config.brand, {
       pageId: config.pageId,
-      postedAs: "reel",
-      platformMediaType: "reel",
+      postedAs: classification.classifiedAsReel ? "reel" : "unconfirmed",
+      platformMediaType: classification.classifiedAsReel ? "reel" : "unconfirmed",
+      publicationTruth: classification.truth,
+      publicationReason: classification.reason,
+      publicVisibility: visibility,
+      verificationTimestamp: new Date().toISOString(),
+      graphVersion: config.graphVersion,
       mediaUrl,
       mediaAssetId: reelMedia.mediaAssetId || null,
       sourceMediaAssetId: reelMedia.sourceMediaAssetId || null,
@@ -3154,7 +3198,7 @@ async function publishFacebookReel(
       finish,
       confirmation,
       confirmationError,
-      confirmationStatus: confirmedImmediately ? "confirmed_immediately" : "publish_accepted_confirmation_pending"
+      confirmationStatus: classification.truth
     })
   };
 }
@@ -3264,33 +3308,39 @@ async function markPublished(admin: SupabaseClient, item: QueueWithDraft, result
     admin
       .from("roamly_social_queue")
       .update({
-        queue_status: "published",
+        queue_status: result.publicationTruth === "processing" ? "retrying" : "published",
         facebook_post_id: result.facebookPostId || null,
         facebook_reel_id: result.facebookReelId || null,
         facebook_media_id: result.facebookMediaId || null,
         facebook_url: result.facebookUrl || null,
-        published_at: now,
-        processing_finished_at: now,
+        published_at: result.publicationTruth === "processing" ? null : now,
+        processing_finished_at: result.publicationTruth === "processing" ? null : now,
         processing_locked_at: null,
         processing_lock_token: null,
-        retry_after: null,
         last_error: null,
-        meta_response: result.metaResponse || {}
+        meta_response: result.metaResponse || {},
+        metadata: {
+          ...(item.metadata || {}),
+          publicationTruth: result.publicationTruth || "published_unverified"
+        },
+        retry_after: result.publicationTruth === "processing" ? new Date(Date.now() + 10 * 60_000).toISOString() : null
       })
       .eq("id", item.id),
-    admin.from("roamly_social_drafts").update({ status: "published" }).eq("id", item.draft_id),
-    admin.from("roamly_scheduled_posts").update({ status: "published" }).eq("queue_id", item.id),
+    admin.from("roamly_social_drafts").update({ status: result.publicationTruth === "processing" ? "scheduled" : "published" }).eq("id", item.draft_id),
+    admin.from("roamly_scheduled_posts").update({ status: result.publicationTruth === "processing" ? "retrying" : "published" }).eq("queue_id", item.id),
     admin
       .from("roamly_publishing_jobs")
       .update({
-        job_status: "published",
-        finished_at: now,
+        job_status: result.publicationTruth === "processing" ? "retrying" : "published",
+        finished_at: result.publicationTruth === "processing" ? null : now,
         lock_token: null,
         locked_at: null,
-        last_error: null
+        last_error: result.publicationTruth === "processing" ? "Meta processing remains unresolved." : null
       })
       .eq("queue_id", item.id)
   ]);
+
+  if (result.publicationTruth === "processing") return;
 
   const draftMetadata = objectValue(item.draft.metadata);
   const mediaIds = [
@@ -3539,7 +3589,12 @@ export async function runFacebookAutomationCycle(
         };
       }
 
-      if (result.ok) {
+      if (result.ok && result.publicationTruth === "processing") {
+        await saveAttempt(admin, item, "retrying", result, (item.attempt_count || 0) + 1);
+        await markPublished(admin, item, result);
+        summary.retrying += 1;
+        summary.results.push({ queueId: item.id, status: "processing", facebookId: result.facebookMediaId || null });
+      } else if (result.ok) {
         await saveAttempt(admin, item, "published", result, (item.attempt_count || 0) + 1);
         await markPublished(admin, item, result);
         summary.published += 1;

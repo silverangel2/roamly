@@ -30,6 +30,13 @@ export type PublicUrlProbeResult = {
   error?: string;
 };
 
+export type FacebookPublicVisibilityResult = {
+  verified: boolean;
+  reason: string;
+  status?: number;
+  finalUrl?: string;
+};
+
 export const DEFAULT_ROAMLY_PUBLIC_SOCIAL_MEDIA_BUCKET = "roamly-social-public";
 
 const unsafePublicSocialBuckets = new Set(["roamly-private", "review-screenshots", "reviewintel-media"]);
@@ -307,4 +314,57 @@ export async function assertFacebookAccessibleUrl(input: { url: string; fetcher?
   const result = await probeFacebookAccessibleUrl(input);
   if (!result.ok) throw new Error(result.error || "Media URL is not publicly fetchable.");
   return result;
+}
+
+export async function probeFacebookPublicVisibility(input: {
+  url: string;
+  fetcher?: typeof fetch;
+  timeoutMs?: number;
+}): Promise<FacebookPublicVisibilityResult> {
+  const url = String(input.url || "").trim();
+  const fetcher = input.fetcher || fetch;
+  const timeoutMs = Math.max(100, input.timeoutMs || 7000);
+
+  if (!url) return { verified: false, reason: "Public permalink is missing." };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { verified: false, reason: "Public permalink is invalid." };
+  }
+
+  if (!/(^|\.)facebook\.com$|(^|\.)fb\.watch$/i.test(parsed.hostname)) {
+    return { verified: false, reason: "Permalink is not a Facebook URL." };
+  }
+
+  try {
+    // Deliberately omit cookies, Authorization, and Page tokens. A redirect to
+    // login/checkpoint is not proof of public visibility.
+    const response = await fetchWithTimeout(fetcher, url, { method: "GET", redirect: "manual", cache: "no-store" }, timeoutMs);
+    const location = response.headers.get("location") || "";
+    const finalUrl = location || url;
+    const authRedirect = /login|checkpoint|recover|privacy|authenticate/i.test(finalUrl);
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!response.ok || response.status >= 300 || authRedirect) {
+      return { verified: false, reason: "Facebook did not return an anonymous public object response.", status: response.status, finalUrl };
+    }
+
+    if (!/^text\/html\b/i.test(contentType)) {
+      return { verified: false, reason: "Facebook response was not a public object page.", status: response.status, finalUrl };
+    }
+
+    const body = (await response.text().catch(() => "")).slice(0, 128_000);
+    if (!body || /log in|log into facebook|create new account|checkpoint/i.test(body)) {
+      return { verified: false, reason: "Facebook returned an authentication or incomplete page.", status: response.status, finalUrl };
+    }
+
+    return { verified: true, reason: "Anonymous Facebook permalink returned a public object page.", status: response.status, finalUrl };
+  } catch (error) {
+    return {
+      verified: false,
+      reason: error instanceof Error ? `Anonymous Facebook visibility check failed: ${error.message}` : "Anonymous Facebook visibility check failed."
+    };
+  }
 }
