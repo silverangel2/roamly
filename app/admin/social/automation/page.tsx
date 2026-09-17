@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getFacebookAutomationSummaries } from "@/lib/roamly/socialAutomation";
+import { MetaVisibilityDiagnostic } from "@/components/admin/social/MetaVisibilityDiagnostic";
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString() : "None";
@@ -31,6 +32,10 @@ export default async function AdminSocialAutomationPage() {
         {brandSummaries.map((item) => (
           <FacebookAutomationControls key={item.brand} summary={item.summary} brand={item.brand} title={`${item.label} Facebook Reel controls`} />
         ))}
+      </section>
+
+      <section className="mt-6">
+        <MetaVisibilityDiagnostic />
       </section>
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
