@@ -14,6 +14,8 @@ assert.doesNotMatch(helper, /method: "POST"|method: "PUT"|method: "PATCH"|method
 assert.match(helper, /safeMessage/);
 assert.doesNotMatch(route, /access_token|Authorization|ROAMLY_META_ACCESS_TOKEN/);
 assert.doesNotMatch(ui, /access_token|Authorization|ROAMLY_META_ACCESS_TOKEN/);
-assert.match(helper, /video_reels|permalink_url|is_reel|media_type|status/);
+assert.match(helper, /video_reels|permalink_url|is_reel|media_type/);
+assert.match(helper, /path: `\$\{input\.pageId\}\/videos`/);
+assert.doesNotMatch(helper, /fields: "[^"]*status[^"]*"/);
 assert.match(helper, /NOT_EXPOSED_BY_META_API/);
 console.log("PASS: Roamly Meta visibility diagnostic is admin-only, GET-only, and secret-safe by source contract");

@@ -56,9 +56,26 @@ function supportedReelFields(body: GraphRecord, fallbackId: string) {
     id: text(body.id) || fallbackId || null,
     is_reel: typeof body.is_reel === "boolean" ? body.is_reel : null,
     media_type: text(body.media_type) || null,
-    status: body.status ?? null,
+    status: "NOT_EXPOSED_BY_META_API",
     permalink_url: text(body.permalink_url) || null,
     created_time: text(body.created_time) || null,
+  };
+}
+
+async function pageVideoMembership(input: { graphVersion: string; pageId: string; token: string; objectId: string }) {
+  const collection = await graphGet<GraphRecord>({
+    graphVersion: input.graphVersion,
+    path: `${input.pageId}/videos`,
+    token: input.token,
+    params: { fields: "id,permalink_url,media_type,is_reel,created_time", limit: "100" }
+  });
+  const rows = Array.isArray(collection.body.data) ? collection.body.data : [];
+  return {
+    endpoint: `/${input.pageId}/videos`,
+    lookup: collection.ok ? "PROVEN" : "NOT_EXPOSED",
+    contains_object: collection.ok ? rows.some((item) => text((item as GraphRecord)?.id) === input.objectId) : null,
+    returned_count: collection.ok ? rows.length : null,
+    error: collection.ok ? null : collection.error
   };
 }
 
@@ -139,8 +156,11 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
         graphVersion,
         path: objectId,
         token: credentials.accessToken,
-        params: { fields: "id,permalink_url,media_type,is_reel,created_time,status" }
+        params: { fields: "id,permalink_url,media_type,is_reel,created_time" }
       })
+    : null;
+  const pageVideos = objectId && page.ok
+    ? await pageVideoMembership({ graphVersion, pageId, token: credentials.accessToken, objectId })
     : null;
 
   return {
@@ -165,8 +185,9 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
       internal_record_id: text(row?.id) || null,
       meta_object_id: objectId || null,
       lookup: reel ? (reel.ok ? "PROVEN" : "NOT_EXPOSED") : "NOT_EXPOSED",
-      ...(reel ? supportedReelFields(reel.body, objectId) : { exists: false, id: null, is_reel: null, media_type: null, status: null, permalink_url: null, created_time: null })
+      ...(reel ? supportedReelFields(reel.body, objectId) : { exists: false, id: null, is_reel: null, media_type: null, status: "NOT_EXPOSED_BY_META_API", permalink_url: null, created_time: null })
     },
+    page_media: pageVideos,
     restrictions: restrictionsSummary(),
     errors: [pageLookupError, reel && !reel.ok ? reel.error : null].filter(Boolean)
   };
