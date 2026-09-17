@@ -7,7 +7,9 @@ const sections = [
   ["AI processing", "Trip details may be sent to the OpenAI API to generate itineraries. Locked itineraries are not regenerated."],
   ["Payments", "Stripe handles checkout. Roamly stores payment status and Stripe identifiers, not raw card numbers."],
   ["Location and reminders", "Roamly asks for location and push permission only when Live Trip Companion needs it. In-app reminders still work if phone/browser push is denied."],
-  ["Your control", "You can log out, update your profile, turn off trip sensing, and contact support for account or trip data questions."]
+  ["Facebook and Meta", "Roamly uses Meta/Facebook APIs only for Roamly-owned Facebook Page functionality, including publishing Roamly-generated social content and checking Page and publication information. An authorized Page connection provides Page identifiers, Page name, available Page tasks, and a Page access token to Roamly's server. Roamly does not use customer Facebook profiles for trip planning, and does not sell Facebook or Meta data. Page connection credentials are kept on the server and are not exposed in the browser."],
+  ["User data deletion", "You may request deletion of personal data associated with your Roamly account by emailing support@roamlyhq.com. Include the email address on the Roamly account, your name, and enough information to locate the account or trip involved. We may retain limited information when necessary for legitimate legal, accounting, fraud-prevention, security, or dispute-resolution obligations."],
+  ["Your control and contact", "You can log out, update your profile, turn off trip sensing, and contact Roamly for account or trip data questions. Email support@roamlyhq.com for privacy, deletion, or support requests."]
 ];
 
 export default function PrivacyPage() {
