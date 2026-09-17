@@ -63,19 +63,50 @@ function supportedReelFields(body: GraphRecord, fallbackId: string) {
 }
 
 async function pageVideoMembership(input: { graphVersion: string; pageId: string; token: string; objectId: string }) {
-  const collection = await graphGet<GraphRecord>({
-    graphVersion: input.graphVersion,
-    path: `${input.pageId}/videos`,
-    token: input.token,
-    params: { fields: "id,permalink_url,media_type,is_reel,created_time", limit: "100" }
-  });
-  const rows = Array.isArray(collection.body.data) ? collection.body.data : [];
+  const rows: GraphRecord[] = [];
+  let after = "";
+  let pagesScanned = 0;
+  let lastError: ReturnType<typeof safeError> | null = null;
+  let hasMore = false;
+  while (pagesScanned < 10) {
+    const collection = await graphGet<GraphRecord>({
+      graphVersion: input.graphVersion,
+      path: `${input.pageId}/video_reels`,
+      token: input.token,
+      params: { fields: "id,permalink_url,media_type,is_reel,created_time,description", limit: "100", ...(after ? { after } : {}) }
+    });
+    pagesScanned += 1;
+    if (!collection.ok) {
+      lastError = collection.error;
+      break;
+    }
+    rows.push(...(Array.isArray(collection.body.data) ? collection.body.data.filter((item): item is GraphRecord => Boolean(item && typeof item === "object" && !Array.isArray(item))) : []));
+    const paging = collection.body.paging;
+    const nextAfter = paging && typeof paging === "object" && !Array.isArray(paging)
+      ? (paging as GraphRecord).cursors && typeof (paging as GraphRecord).cursors === "object"
+        ? text(((paging as GraphRecord).cursors as GraphRecord).after)
+        : ""
+      : "";
+    if (!nextAfter) break;
+    after = nextAfter;
+    hasMore = true;
+  }
   return {
-    endpoint: `/${input.pageId}/videos`,
-    lookup: collection.ok ? "PROVEN" : "NOT_EXPOSED",
-    contains_object: collection.ok ? rows.some((item) => text((item as GraphRecord)?.id) === input.objectId) : null,
-    returned_count: collection.ok ? rows.length : null,
-    error: collection.ok ? null : collection.error
+    endpoint: `/${input.pageId}/video_reels`,
+    lookup: lastError ? "NOT_EXPOSED" : "PROVEN",
+    contains_object: lastError ? null : rows.some((item) => text(item.id) === input.objectId),
+    returned_count: lastError ? null : rows.length,
+    pages_scanned: pagesScanned,
+    complete_within_bound: !hasMore,
+    recent_objects: lastError ? [] : rows.slice(0, 100).map((item) => ({
+      id: text(item.id) || null,
+      created_time: text(item.created_time) || null,
+      permalink_url: text(item.permalink_url) || null,
+      is_reel: typeof item.is_reel === "boolean" ? item.is_reel : "NOT_EXPOSED_BY_META_API",
+      media_type: text(item.media_type) || "NOT_EXPOSED_BY_META_API",
+      description: text(item.description) || null
+    })),
+    error: lastError
   };
 }
 

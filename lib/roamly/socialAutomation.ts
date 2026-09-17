@@ -4,7 +4,7 @@ import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/ama
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
 import { probeFacebookAccessibleUrl, probeFacebookPublicVisibility } from "@/lib/roamly/publicSocialStorage";
-import { classifyFacebookProcessing, classifyFacebookPublication, type FacebookPublicationTruth } from "@/lib/roamly/facebookPublicationTruth";
+import { classifyFacebookPublication, type FacebookPublicationTruth } from "@/lib/roamly/facebookPublicationTruth";
 import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
 import { selectCampaignPhotoAsset } from "@/lib/roamly/facebookCampaignMedia";
 
@@ -2945,24 +2945,11 @@ async function uploadReelVideo(config: FacebookBrandConfig, uploadUrl: string, v
 }
 
 async function waitForReelProcessing(config: FacebookBrandConfig, videoId: string) {
-  let lastResponse: Record<string, unknown> = {};
-  for (let index = 0; index < 4; index += 1) {
-    const response = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
-      method: "GET",
-      params: { fields: "id,status,permalink_url" }
-    });
-    lastResponse = response;
-    const classification = classifyFacebookProcessing(response.status || response);
-    if (classification.state === "terminal_success") return { state: classification.state, response, status: classification.status };
-    if (classification.state === "terminal_failure") return { state: classification.state, response, status: classification.status, error: `Meta processing failed: ${classification.status}` };
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-  }
-  const classification = classifyFacebookProcessing(lastResponse.status || lastResponse);
   return {
-    state: classification.state === "processing" ? "processing" as const : "unknown" as const,
-    response: lastResponse,
-    status: classification.status,
-    error: classification.status ? `Meta processing did not reach a terminal state: ${classification.status}.` : "Meta processing state was unavailable."
+    state: "unknown" as const,
+    response: { id: videoId },
+    status: "NOT_EXPOSED_BY_META_API",
+    error: "Meta processing status is not exposed by the current final-object API; continuing to the documented finish request."
   };
 }
 
@@ -3069,27 +3056,6 @@ async function publishFacebookReel(
     status: processing.status,
     error: processing.error || null
   });
-  if (processing.state === "terminal_failure") {
-    await admin
-      .from("roamly_facebook_media_processing")
-      .update({ processing_status: "failed", error_message: processing.error || "Meta processing did not finish.", checked_at: new Date().toISOString() })
-      .eq("queue_id", queueId);
-    return { ok: false, status: "failed", temporary: true, error: processing.error || "Meta processing did not finish.", metaResponse: processing.response };
-  }
-  if (processing.state !== "terminal_success") {
-    const visibility = { verified: false, reason: "Meta processing did not reach a terminal success state." };
-    return {
-      ok: true,
-      status: "published" as const,
-      publicationTruth: "processing" as const,
-      facebookMediaId: videoId,
-      mediaAssetId: reelMedia.mediaAssetId || null,
-      sourceMediaAssetId: reelMedia.sourceMediaAssetId || null,
-      facebookUrl: null,
-      metaResponse: withBrandMetadata(config.brand, { pageId: config.pageId, graphVersion: config.graphVersion, processing, visibility })
-    };
-  }
-
   console.log("[FB_REEL_STAGE_11_FINISH_START]", {
     queueId,
     caption: finalFacebookReelCaption(draft, brand)
@@ -3112,7 +3078,7 @@ async function publishFacebookReel(
   try {
     confirmation = await facebookGraph<Record<string, unknown>>(config, `${videoId}`, {
       method: "GET",
-      params: { fields: "id,permalink_url,status,media_type,is_reel" }
+      params: { fields: "id,permalink_url,media_type,is_reel,created_time" }
     });
   } catch (error) {
     confirmationError = error instanceof Error ? error.message : "Meta Reel confirmation lookup failed.";
@@ -3123,7 +3089,8 @@ async function publishFacebookReel(
     ? await probeFacebookPublicVisibility({ url: permalink, timeoutMs: 7000 })
     : { verified: false, reason: confirmationError ? "Meta final object confirmation failed." : "Public permalink is missing." };
   const classification = classifyFacebookPublication({ finish, confirmation, confirmationError, visibility });
-  const externalId = clean(String(confirmation.id || finish.post_id || finish.id || videoId));
+  const publishedVideoId = clean(String(confirmation.id || videoId));
+  const publishedPostId = clean(String(finish.post_id || finish.id || ""));
   if (classification.truth === "failed") {
     await admin
       .from("roamly_facebook_media_processing")
@@ -3138,6 +3105,8 @@ async function publishFacebookReel(
         pageId: config.pageId,
         graphVersion: config.graphVersion,
         confirmation,
+        publishedVideoId,
+        publishedPostId: publishedPostId || null,
         finish,
         publicationTruth: classification.truth,
         publicationReason: classification.reason
@@ -3175,7 +3144,8 @@ async function publishFacebookReel(
     ok: true,
     status: "published",
     publicationTruth: classification.truth,
-    facebookReelId: externalId || videoId,
+    facebookPostId: publishedPostId || null,
+    facebookReelId: publishedVideoId || null,
     facebookMediaId: videoId,
     facebookUrl: permalink || null,
     mediaAssetId: reelMedia.mediaAssetId || null,
