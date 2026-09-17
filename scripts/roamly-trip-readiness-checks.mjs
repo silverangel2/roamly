@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { deriveTripReadiness, parseTripActionFocus } from "../lib/roamly/tripReadiness.ts";
 
 const base = {
@@ -24,6 +25,23 @@ assert.equal(deriveTripReadiness({ ...base, generationStatus: "partially_failed"
 const completed = deriveTripReadiness({ ...base, startDate: "2026-08-04", endDate: "2026-08-05", now: new Date("2026-09-15T12:00:00Z"), bookingsNeedingReview: 3, bookingsToArrange: 3 });
 assert.equal(completed.phase, "completed");
 assert.equal(completed.primaryAction.id, "plan");
+const completedCanonical = deriveTripReadiness({ ...base, completedTrip: true, hasPostTripFeedback: false, bookingsNeedingReview: 3, bookingsToArrange: 3 });
+assert.equal(completedCanonical.primaryAction.id, "feedback");
+assert.equal(completedCanonical.primaryAction.href, `/trip/${base.tripId}/feedback`);
+assert.match(completedCanonical.upcomingActions.join(" "), /Share what worked/);
+assert.equal(deriveTripReadiness({ ...base, completedTrip: true, hasPostTripFeedback: false, hasItinerary: false, paymentNeedsAttention: true }).primaryAction.id, "feedback");
+const completedWithFeedback = deriveTripReadiness({ ...base, completedTrip: true, hasPostTripFeedback: true });
+assert.equal(completedWithFeedback.primaryAction.id, "plan");
+assert.match(completedWithFeedback.upcomingActions.join(" "), /feedback is saved/);
+const completedFeedbackUnknown = deriveTripReadiness({ ...base, completedTrip: true, hasPostTripFeedback: null });
+assert.equal(completedFeedbackUnknown.primaryAction.id, "plan");
+assert.match(completedFeedbackUnknown.upcomingActions.join(" "), /status is unavailable/);
+assert.equal(deriveTripReadiness({ ...base, completedTrip: false }).primaryAction.id, "plan");
+assert.equal(deriveTripReadiness({ ...base, startDate: "2026-08-04", endDate: "2026-08-05", now: new Date("2026-09-15T12:00:00Z"), completedTrip: false }).primaryAction.id, "plan");
+assert.equal(deriveTripReadiness({ ...base, completedTrip: false, hasPostTripFeedback: true }).primaryAction.id, "plan");
+const tripPage = fs.readFileSync(new URL("../app/trip/[id]/page.tsx", import.meta.url), "utf8");
+assert.match(tripPage, /const completedTrip = trip\.status === "completed"/);
+assert.doesNotMatch(tripPage, /const completedTrip = .*tripPhase/);
 assert.equal(parseTripActionFocus("hotel"), "hotel");
 assert.equal(parseTripActionFocus("day-4"), "day-4");
 assert.equal(parseTripActionFocus("unexpected"), null);

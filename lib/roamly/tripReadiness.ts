@@ -6,9 +6,9 @@ export function parseTripActionFocus(value: string | null | undefined): TripActi
   return null;
 }
 
-function buildTripActionHref(tripId: string, surface: "trip" | "bookings", focus: TripActionFocus | null, anchor: string) {
+function buildTripActionHref(tripId: string, surface: "trip" | "bookings" | "feedback", focus: TripActionFocus | null, anchor: string) {
   const query = focus ? `?focus=${encodeURIComponent(focus)}` : "";
-  const path = surface === "bookings" ? `/trip/${tripId}/bookings` : `/trip/${tripId}`;
+  const path = surface === "bookings" ? `/trip/${tripId}/bookings` : surface === "feedback" ? `/trip/${tripId}/feedback` : `/trip/${tripId}`;
   return `${path}${query}${anchor ? `#${anchor}` : ""}`;
 }
 
@@ -16,7 +16,7 @@ export type TripReadinessState = "READY" | "ACTION_NEEDED" | "ATTENTION_REQUIRED
 export type TripPhase = "upcoming" | "active" | "completed" | "unknown";
 
 export type TripReadinessAction = {
-  id: "generation" | "conflict" | "bookings" | "budget" | "requirements" | "plan";
+  id: "generation" | "conflict" | "bookings" | "budget" | "requirements" | "feedback" | "plan";
   label: string;
   href: string;
 };
@@ -47,6 +47,8 @@ export type TripReadinessInput = {
   conflictDay?: number | null;
   budgetStatus?: "WITHIN_BUDGET" | "LIKELY_WITHIN_BUDGET" | "OVER_BUDGET" | "BUDGET_UNCERTAIN" | null;
   preparationRequirementsNeedingReview?: number;
+  completedTrip?: boolean;
+  hasPostTripFeedback?: boolean | null;
   now?: Date;
 };
 
@@ -69,7 +71,7 @@ export function tripPhase(input: Pick<TripReadinessInput, "startDate" | "endDate
   return "active";
 }
 
-function action(id: TripReadinessAction["id"], tripId: string, label: string, surface: "trip" | "bookings", focus: TripActionFocus | null, anchor: string): TripReadinessAction {
+function action(id: TripReadinessAction["id"], tripId: string, label: string, surface: "trip" | "bookings" | "feedback", focus: TripActionFocus | null, anchor: string): TripReadinessAction {
   return { id, label, href: buildTripActionHref(tripId, surface, focus, anchor) };
 }
 
@@ -85,6 +87,45 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
   const upcomingActions: string[] = [];
   const confirmations = confirmed ? [`${confirmed} ${confirmed === 1 ? "booking" : "bookings"} confirmed`] : [];
   const uncertaintyItems: string[] = [];
+
+  if (input.completedTrip === true) {
+    if (input.hasPostTripFeedback === true) {
+      upcomingActions.push("Your trip feedback is saved.");
+      return {
+        state: "READY",
+        phase: "completed",
+        primaryAction: action("plan", input.tripId, "Review your trip", "trip", null, "overview"),
+        urgentItems,
+        upcomingActions,
+        confirmations,
+        uncertainties: uncertaintyItems
+      };
+    }
+
+    if (input.hasPostTripFeedback == null) {
+      upcomingActions.push("Your trip is complete. Feedback status is unavailable right now.");
+      return {
+        state: "READY",
+        phase: "completed",
+        primaryAction: action("plan", input.tripId, "Review your trip", "trip", null, "overview"),
+        urgentItems,
+        upcomingActions,
+        confirmations,
+        uncertainties: uncertaintyItems
+      };
+    }
+
+    upcomingActions.push("Share what worked and what Roamly should learn.");
+    return {
+      state: "READY",
+      phase: "completed",
+      primaryAction: action("feedback", input.tripId, "Share trip feedback", "feedback", null, ""),
+      urgentItems,
+      upcomingActions,
+      confirmations,
+      uncertainties: uncertaintyItems
+    };
+  }
 
   if (input.paymentNeedsAttention) {
     urgentItems.push("Payment still needs confirmation before this trip can be unlocked.");

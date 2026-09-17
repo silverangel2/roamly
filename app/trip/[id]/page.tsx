@@ -2411,6 +2411,11 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
   const confirmedBookingSnapshot = importedBookings.filter((booking) => isConfirmedBookingSnapshot(booking as Record<string, unknown>));
   const unresolvedBookingSnapshot = importedBookings.filter((booking) => !isConfirmedBookingSnapshot(booking as Record<string, unknown>));
+  const completedTrip = trip.status === "completed";
+  const postTripFeedbackResult = completedTrip
+    ? await supabase.from("trip_feedback").select("id").eq("trip_id", id).eq("user_id", current.user.id).eq("feedback_type", "post_trip").limit(1)
+    : { data: [] as Array<{ id: string }>, error: null };
+  const hasPostTripFeedback = postTripFeedbackResult.error ? null : Boolean(postTripFeedbackResult.data?.length);
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
   const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay) : [];
   const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
@@ -2471,7 +2476,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     uncertainItemCount,
     budgetStatus: budgetPresentation?.status || null,
     preparationRequirementsNeedingReview: countMaterialTravelRequirements(travelRequirements),
-    paymentNeedsAttention: checkoutNeedsAttention
+    paymentNeedsAttention: checkoutNeedsAttention,
+    completedTrip,
+    hasPostTripFeedback
   });
   const attentionText = readiness.urgentItems[0] || "";
   const actionFocus = parseTripActionFocus(one(search.focus));
@@ -2540,7 +2547,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               ) : null}
             </div>
             <Badge tone={itineraryLocked ? "ocean" : paidForItinerary || freeAvailable ? "sun" : "coral"}>
-              {canShowFull ? "Ready" : itineraryLocked ? "Locked" : generationFailed ? "Needs attention" : generationPanelVisible ? "Building" : paidForItinerary ? "Ready to generate" : freeAvailable ? "Free available" : "Payment required"}
+              {completedTrip ? "Completed" : canShowFull ? "Ready" : itineraryLocked ? "Locked" : generationFailed ? "Needs attention" : generationPanelVisible ? "Building" : paidForItinerary ? "Ready to generate" : freeAvailable ? "Free available" : "Payment required"}
             </Badge>
           </div>
 
@@ -2554,7 +2561,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-600">
-            <span className={readiness.state === "READY" ? "text-ocean" : readiness.state === "UNCERTAIN" ? "text-amber-800" : "text-coral"}>{readiness.state === "READY" ? "Ready to go" : readiness.state === "UNCERTAIN" ? "Some details need confirmation" : "Action needed"}</span>
+            <span className={readiness.state === "READY" ? "text-ocean" : readiness.state === "UNCERTAIN" ? "text-amber-800" : "text-coral"}>{completedTrip ? "Trip completed" : readiness.state === "READY" ? "Ready to go" : readiness.state === "UNCERTAIN" ? "Some details need confirmation" : "Action needed"}</span>
             <span>Budget: {headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain")}</span>
             <span>{dayCount ? `${dayCount} days` : "Dates flexible"}</span>
             {confirmedBookingSnapshot.length ? <a href="#bookings" className="text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed →</a> : null}
