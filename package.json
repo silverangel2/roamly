@@ -17,6 +17,7 @@
     "test:roamly": "node scripts/roamly-core-checks.mjs",
     "test:trip-hierarchy": "node scripts/roamly-trip-hierarchy-checks.mjs",
     "test:travel-requirements": "node --experimental-strip-types scripts/roamly-travel-requirements-checks.mjs",
+    "test:multi-traveler-requirements": "node --experimental-strip-types scripts/roamly-multi-traveler-requirements-checks.mjs",
     "test:candidate-decision": "node --experimental-strip-types scripts/roamly-candidate-decision-checks.mjs",
     "test:planning-repair": "node scripts/roamly-planning-repair-checks.mjs",
     "test:verified-companion-repair": "node scripts/roamly-verified-companion-repair-checks.mjs",

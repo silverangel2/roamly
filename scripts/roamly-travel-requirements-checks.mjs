@@ -3,6 +3,7 @@ import fs from "node:fs";
 import { deriveTravelRequirements, countMaterialTravelRequirements } from "../lib/roamly/travelRequirements.ts";
 
 const tripPage = fs.readFileSync("app/trip/[id]/page.tsx", "utf8");
+const travelerRequirements = fs.readFileSync("components/trip/TripTravelerRequirements.tsx", "utf8");
 const tripNav = fs.readFileSync("components/roamly/TripContextNav.tsx", "utf8");
 const accountPage = fs.readFileSync("app/account/page.tsx", "utf8");
 const memorySettings = fs.readFileSync("components/account/TravelerMemorySettings.tsx", "utf8");
@@ -38,7 +39,7 @@ assert.notEqual(acknowledged.status, "SATISFIED", "acknowledgment must not imply
 assert.match(tripPage, /hasRequirements = countMaterialTravelRequirements\(travelRequirements\) > 0/);
 assert.match(tripPage, /roamly-tab-requirements/);
 assert.match(tripPage, /actionFocus === "requirements" && hasRequirements/);
-assert.match(tripPage, /focus=requirements#requirements/);
+assert.match(travelerRequirements, /focus=requirements#requirements/);
 assert.match(tripNav, /"#requirements"/);
 assert.match(accountPage, /safeRequirementsReturn/);
 assert.match(accountPage, /url\.origin !== "https:\/\/roamly\.internal"/);
