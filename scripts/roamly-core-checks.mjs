@@ -531,7 +531,7 @@ const rebalanced = itineraryBookingOverrideExports.applyConfirmedBookingOverride
         food: [],
         map_queries: [],
         live_timeline: [
-          { time_label: "9:00 AM", startTime: "09:00", endTime: "10:00", title: "Estimated flight arrival", description: "Old estimate.", location_name: "Airport", estimated_cost: 0, category: "Travel", map_query: "Airport", item_type: "travel" },
+          { candidateId: "persisted-flight-recommendation-id", time_label: "9:00 AM", startTime: "09:00", endTime: "10:00", title: "Estimated flight arrival", description: "Old estimate.", location_name: "Airport", estimated_cost: 0, category: "Travel", map_query: "Airport", item_type: "travel" },
           { time_label: "10:30 AM", startTime: "10:30", endTime: "11:15", title: "Hotel check-in", description: "Old check-in time.", location_name: "Hotel", estimated_cost: 0, category: "Hotel", map_query: "Hotel", item_type: "hotel" },
           { time_label: "12:00 PM", startTime: "12:00", endTime: "13:00", title: "Lunch", description: "Lunch.", location_name: "Downtown", estimated_cost: 25, category: "Meal", map_query: "Lunch", item_type: "meal" }
         ]
@@ -542,6 +542,7 @@ const rebalanced = itineraryBookingOverrideExports.applyConfirmedBookingOverride
   },
   {
     id: "persisted-flight-booking-id",
+    recommendation_id: "persisted-flight-recommendation-id",
     booking_type: "flight",
     booking_status: "booked",
     provider_name: "Air Canada",
@@ -581,7 +582,7 @@ const overrideToMinutes = (value) => {
 assert.ok(/AC123/.test(adjustedTimeline[0].title), "flight item must be replaced with the real flight number");
 assert.ok(/Terminal 1/.test(adjustedTimeline[0].description) && /Gate A12/.test(adjustedTimeline[0].description), "flight item must carry terminal and gate details");
 assert.ok(/Baggage: 1 checked bag/.test(adjustedTimeline[0].description), "flight item must carry baggage details");
-assert.ok(overrideToMinutes(adjustedTimeline[1].startTime) >= 14 * 60, "first post-arrival itinerary item must shift after the real arrival buffer");
+assert.equal(overrideToMinutes(adjustedTimeline[1].startTime), 10 * 60 + 30, "downstream items must not be shifted by an invented arrival buffer");
 
 const tripPageForPrintChecks = read("app/trip/[id]/page.tsx");
 assert.ok(tripPageForPrintChecks.includes('category === "flight" ? "Search Flights"'), "flight fallback must render a single Search Flights card");
@@ -2473,6 +2474,12 @@ const bookingWalletSandbox = {
           ok: true,
           changed: false
         })
+      };
+    }
+
+    if (id === "@/lib/roamly/bookingSupersession") {
+      return {
+        isOperationalCurrentBooking: (booking) => !booking.superseded_by_booking_id
       };
     }
 

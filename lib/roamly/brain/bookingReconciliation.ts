@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { bookingReferralMetadata, stableBookingKey } from "@/lib/roamly/bookingWallet";
 import { ROAMLY_BRAIN_VERSION, type BrainStageDefinition, type RoamlyBrainStageType } from "@/lib/roamly/brain/stages";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
+import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
 
 export const BOOKING_RECONCILIATION_STAGE = {
   type: "booking_reconciliation",
@@ -211,6 +212,25 @@ export async function reconcileTripBookings(params: {
     const primary = bookings.find((booking) => booking.id === group.primaryBookingId);
     const duplicates = bookings.filter((booking) => group.duplicateBookingIds.includes(booking.id));
     if (primary) await updatePrimaryFromDuplicates({ supabase: writer, primary, duplicates }).catch(() => null);
+  }
+
+  if (params.sourceBookingId) {
+    const reconciledBookingId = output.duplicateGroups.find((group) => group.duplicateBookingIds.includes(params.sourceBookingId!))?.primaryBookingId || params.sourceBookingId;
+    const refreshedSource = await writer
+      .from("roamly_bookings")
+      .select("*")
+      .eq("id", reconciledBookingId)
+      .eq("trip_id", params.tripId)
+      .eq("user_id", params.userId)
+      .maybeSingle();
+    if (refreshedSource.data) {
+      await applyStoredItineraryBookingOverride({
+        supabase: writer,
+        userId: params.userId,
+        tripId: params.tripId,
+        booking: refreshedSource.data
+      }).catch(() => null);
+    }
   }
 
   await writer.from("booking_reconciliation_runs").insert({

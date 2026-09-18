@@ -4,9 +4,14 @@ import {
   type RoamlyActivitySeed,
   type RoamlyItinerary
 } from "@/lib/itinerary";
+import { validateItineraryDeterministically } from "@/lib/roamly/itineraryValidation";
+import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 type BookingOverrideRecord = {
   id?: string | null;
+  superseded_by_booking_id?: string | null;
+  recommendation_id?: string | null;
   booking_type?: string | null;
   booking_status?: string | null;
   provider?: string | null;
@@ -19,6 +24,9 @@ type BookingOverrideRecord = {
   end_at?: string | null;
   origin?: string | null;
   destination?: string | null;
+  location_name?: string | null;
+  address?: string | null;
+  coordinates?: Record<string, unknown> | null;
   flight_number?: string | null;
   terminal?: string | null;
   gate?: string | null;
@@ -60,25 +68,6 @@ function minutesBetweenDates(startValue?: string | null, endValue?: string | nul
   if (!start || !end) return null;
   const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
   return minutes > 0 ? minutes : null;
-}
-
-function parseClock(value?: string | null) {
-  const raw = clean(value);
-  if (!raw) return null;
-  const military = raw.match(/^(\d{1,2}):(\d{2})$/);
-  if (military) {
-    const hour = Number(military[1]);
-    const minute = Number(military[2]);
-    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? hour * 60 + minute : null;
-  }
-  const twelve = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
-  if (!twelve) return null;
-  let hour = Number(twelve[1]);
-  const minute = Number(twelve[2] || "0");
-  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
-  if (twelve[3].toUpperCase() === "PM" && hour !== 12) hour += 12;
-  if (twelve[3].toUpperCase() === "AM" && hour === 12) hour = 0;
-  return hour * 60 + minute;
 }
 
 function formatTime24(totalMinutes: number) {
@@ -169,6 +158,10 @@ function bookingIsConfirmed(booking: BookingOverrideRecord) {
   return Boolean(booking.id) && (booking.traveler_confirmed === true || activeBookingStatuses.includes(status) || status === "cancelled");
 }
 
+function bookingIsCurrent(booking: BookingOverrideRecord) {
+  return isOperationalCurrentBooking(booking);
+}
+
 function bookingDate(booking: BookingOverrideRecord) {
   return isoDate(bookingStart(booking) || booking.end_time || booking.end_at);
 }
@@ -190,7 +183,11 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
   if (!day) return { itinerary, changed: false };
   const timeline = [...(day.live_timeline || [])];
   const marker = String(booking.id);
-  const markedIndex = timeline.findIndex((item) => String((item as unknown as Record<string, unknown>).booking_id || "") === marker);
+  const recommendationId = clean(booking.recommendation_id);
+  const markedIndex = timeline.findIndex((item) => {
+    const record = item as unknown as Record<string, unknown>;
+    return String(record.booking_id || "") === marker || (recommendationId && String(record.candidateId || "") === recommendationId);
+  });
   const status = clean(booking.booking_status).toLowerCase();
   const cancelled = status === "cancelled";
   const provider = clean(booking.provider || booking.provider_name);
@@ -208,11 +205,15 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
       reference ? `Reference ${reference}` : "",
       clean(booking.destination || booking.origin)
     ].filter(Boolean).join(" "),
-    location_name: clean(booking.destination || booking.origin || title),
+    location_name: clean(booking.location_name || booking.address || booking.destination || booking.origin),
     estimated_cost: 0,
     category: cancelled ? "Cancelled booking" : "Confirmed booking",
     map_query: clean(booking.destination || booking.origin || title),
-    item_type: nonFlightCategory(booking),
+    item_type: cancelled ? nonFlightCategory(booking) : "booking",
+    plan_role: cancelled ? "supporting" : "protected_anchor",
+    factualStatus: "verified",
+    timing_status: start ? "FACTUAL" : "UNKNOWN",
+    coordinates: booking.coordinates || undefined,
     booking_id: marker,
     booking_status: cancelled ? "cancelled" : "confirmed",
     booking_label: cancelled ? "Cancelled booking" : "Confirmed booking"
@@ -232,12 +233,13 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
   };
 }
 
-function flightItemIndex(items: RoamlyActivitySeed[]) {
-  const index = items.findIndex((item) => {
-    const text = `${item.item_type || ""} ${item.category || ""} ${item.title} ${item.description}`.toLowerCase();
-    return /\bflight|fly|airport|arrival|depart|main .*segment|travel to\b/.test(text);
+function flightItemIndex(items: RoamlyActivitySeed[], booking: BookingOverrideRecord) {
+  const marker = clean(booking.id);
+  const recommendationId = clean(booking.recommendation_id);
+  return items.findIndex((item) => {
+    const record = item as unknown as Record<string, unknown>;
+    return (marker && String(record.booking_id || "") === marker) || (recommendationId && String(record.candidateId || "") === recommendationId);
   });
-  return index >= 0 ? index : 0;
 }
 
 function bookingDetails(booking: BookingOverrideRecord) {
@@ -273,15 +275,16 @@ function applyFlightOverrideToDay(items: RoamlyActivitySeed[], booking: BookingO
   const end = minutesFromDate(endValue);
   if (start == null) return { items, changed: false };
   const output = [...items];
-  const index = flightItemIndex(output);
-  const existing = output[index] || output[0];
+  const matchedIndex = flightItemIndex(output, booking);
+  const index = matchedIndex >= 0 ? matchedIndex : output.length;
+  const existing = matchedIndex >= 0 ? output[matchedIndex] : undefined;
   const realDuration = minutesBetweenDates(startValue, endValue);
   const flightDuration =
     realDuration != null
       ? Math.max(30, realDuration)
       : end != null && end > start
         ? Math.max(30, end - start)
-        : Math.max(60, durationMinutes(existing));
+        : Math.max(60, existing ? durationMinutes(existing) : 90);
   const dayDateText = isoDate(dayDate);
   const arrivalDayBlock =
     Boolean(dayDateText && endValue && isoDate(endValue) === dayDateText && isoDate(startValue) !== dayDateText && end != null);
@@ -302,6 +305,11 @@ function applyFlightOverrideToDay(items: RoamlyActivitySeed[], booking: BookingO
         map_query: ""
       }),
       item_type: "travel",
+      plan_role: "protected_anchor",
+      factualStatus: "verified",
+      timing_status: startValue ? "FACTUAL" : "UNKNOWN",
+      booking_id: clean(booking.id),
+      booking_status: clean(booking.booking_status) || "confirmed",
       category: "Flight",
       title: flightTitle(booking, arrivalDayBlock),
       description: [
@@ -309,7 +317,7 @@ function applyFlightOverrideToDay(items: RoamlyActivitySeed[], booking: BookingO
         details.join(" · "),
         clean(existing?.description)
       ].filter(Boolean).join(" "),
-      location_name: [origin, destination].filter(Boolean).join(" to ") || destination || origin || existing?.location_name || "Airport",
+      location_name: [origin, destination].filter(Boolean).join(" to ") || destination || origin || existing?.location_name || "",
       map_query: [origin, destination, clean(booking.flight_number)].filter(Boolean).join(" "),
       origin: origin || existing?.origin,
       destination: destination || existing?.destination,
@@ -320,58 +328,10 @@ function applyFlightOverrideToDay(items: RoamlyActivitySeed[], booking: BookingO
       duration: `${flightDuration} min`,
       booking_label: undefined,
       booking: undefined
-    },
+    } as unknown as RoamlyActivitySeed,
     timelineStart,
     timelineDuration
   );
-
-  const previous = output[index - 1];
-  if (previous) {
-    const previousDuration = Math.min(Math.max(durationMinutes(previous), 45), 120);
-    const previousStart = Math.max(0, timelineStart - previousDuration - 120);
-    output[index - 1] = retime(
-      {
-        ...previous,
-        title: /\bairport|security|terminal|leave|depart/i.test(previous.title)
-          ? previous.title
-          : "Airport arrival and security buffer",
-        description: `Use the real flight departure time. Arrive early for check-in, baggage, security, terminal/gate checks, and documents. ${previous.description}`.trim(),
-        item_type: "reminder"
-      },
-      previousStart,
-      previousDuration
-    );
-  }
-
-  const sameDayArrival = endValue && isoDate(endValue) === isoDate(startValue);
-  const arrivalCursor =
-    end != null && (sameDayArrival || arrivalDayBlock)
-      ? end
-      : Math.min(23 * 60, timelineStart + Math.min(timelineDuration, 23 * 60 - timelineStart));
-  let cursor = arrivalCursor + 30;
-  for (let i = index + 1; i < output.length; i += 1) {
-    const item = output[i];
-    const type = itemType(item);
-    const existingStart = parseClock(item.startTime || item.time_label);
-    const needsShift = existingStart == null || existingStart < cursor || i <= index + 4;
-    if (!needsShift) {
-      cursor = Math.max(cursor, existingStart + durationMinutes(item) + (type === "activity" || type === "meal" ? 15 : 0));
-      continue;
-    }
-    const duration = Math.min(durationMinutes(item), type === "transfer" ? 75 : type === "hotel" ? 120 : 150);
-    output[i] = retime(
-      {
-        ...item,
-        description:
-          i === index + 1
-            ? `Shifted after the confirmed flight arrival. ${item.description}`.trim()
-            : item.description
-      },
-      Math.min(cursor, 23 * 60),
-      duration
-    );
-    cursor = (parseClock(output[i].endTime) || cursor + duration) + (type === "activity" || type === "meal" ? 15 : 0);
-  }
 
   return { items: output, changed: true };
 }
@@ -380,7 +340,7 @@ export function applyConfirmedBookingOverrideToItinerary(
   itinerary: RoamlyItinerary,
   booking: BookingOverrideRecord
 ) {
-  if (!bookingIsConfirmed(booking)) return { itinerary, changed: false };
+  if (!bookingIsConfirmed(booking) || !bookingIsCurrent(booking)) return { itinerary, changed: false };
   if (clean(booking.booking_type).toLowerCase() !== "flight") {
     return applyNonFlightBookingOverrideToItinerary(itinerary, booking);
   }
@@ -401,8 +361,8 @@ export function applyConfirmedBookingOverrideToItinerary(
     itemIndex === index
       ? {
           ...item,
-          title: itemIndex === 0 ? "Confirmed flight, arrival, and adjusted first-day plan" : item.title,
-          morning: itemIndex === 0 ? "Confirmed flight details replace the estimate; downstream plans are shifted from the real arrival time." : item.morning,
+          title: itemIndex === 0 ? "Confirmed flight and arrival" : item.title,
+          morning: itemIndex === 0 ? "Confirmed flight details replace the estimate; the affected day was revalidated without inventing transfer time." : item.morning,
           live_timeline: adjusted.items
         }
       : item
@@ -418,13 +378,57 @@ export function applyConfirmedBookingOverrideToItinerary(
   };
 }
 
+function buildValidationPayload(trip: Record<string, unknown>): TripPlannerPayload | null {
+  const destination = clean(trip.destination);
+  const startDate = clean(trip.start_date);
+  const endDate = clean(trip.end_date);
+  if (!destination || !startDate || !endDate) return null;
+  const daysCount = Number(trip.days_count);
+  return {
+    destination,
+    startDate,
+    endDate,
+    daysCount: Number.isSafeInteger(daysCount) ? daysCount : null,
+    budgetAmount: typeof trip.budget_amount === "number" ? trip.budget_amount : null,
+    budgetCurrency: clean(trip.budget_currency) || "USD",
+    travelStyle: clean(trip.travel_style) || "Balanced",
+    interests: Array.isArray(trip.interests) ? trip.interests.filter((value): value is string => typeof value === "string") : [],
+    pace: "Balanced",
+    accommodationPreference: clean(trip.accommodation_preference) || "Not sure",
+    transportationPreference: clean(trip.transportation_preference) || "Mixed",
+    specialNotes: clean(trip.special_notes)
+  };
+}
+
+function applyAffectedValidation(
+  itinerary: RoamlyItinerary,
+  validation: ReturnType<typeof validateItineraryDeterministically>,
+  affectedDayNumbers: Set<number>
+) {
+  const findings = validation.findings.filter((finding) => finding.dayNumber != null && affectedDayNumbers.has(finding.dayNumber));
+  if (!findings.length) return itinerary;
+  const hasError = findings.some((finding) => finding.severity === "error");
+  const messages = findings.map((finding) => finding.message).slice(0, 4);
+  return {
+    ...itinerary,
+    daily_itinerary: itinerary.daily_itinerary.map((day) => {
+      if (!affectedDayNumbers.has(day.day_number)) return day;
+      return {
+        ...day,
+        plan_status: (hasError ? "conflict" : "uncertain") as "conflict" | "uncertain",
+        uncertainty: Array.from(new Set([...(day.uncertainty || []), ...messages])).slice(0, 8)
+      };
+    })
+  };
+}
+
 export async function applyStoredItineraryBookingOverride(params: {
   supabase: SupabaseClient;
   userId: string;
   tripId: string;
   booking: BookingOverrideRecord;
 }) {
-  if (!bookingIsConfirmed(params.booking)) return { ok: true as const, changed: false };
+  if (!bookingIsConfirmed(params.booking) || !bookingIsCurrent(params.booking)) return { ok: true as const, changed: false };
   const { data, error } = await params.supabase
     .from("roamly_itineraries")
     .select("id,full_json,repair_revision")
@@ -445,11 +449,33 @@ export async function applyStoredItineraryBookingOverride(params: {
   const result = applyConfirmedBookingOverrideToItinerary(full, params.booking);
   if (!result.changed) return { ok: true as const, changed: false };
 
+  const tripResult = await params.supabase
+    .from("roamly_trips")
+    .select("destination,start_date,end_date,days_count,budget_amount,budget_currency,travel_style,interests,accommodation_preference,transportation_preference,special_notes")
+    .eq("id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (tripResult.error) return { ok: false as const, error: tripResult.error.message };
+
+  const affectedDayNumbers = new Set<number>();
+  const bookingDateValue = bookingDate(params.booking);
+  result.itinerary.daily_itinerary.forEach((day) => {
+    if (!bookingDateValue || isoDate(day.date) === bookingDateValue) affectedDayNumbers.add(day.day_number);
+  });
+  const payload = tripResult.data ? buildValidationPayload(tripResult.data as Record<string, unknown>) : null;
+  const reconciledItinerary = payload
+    ? applyAffectedValidation(
+        result.itinerary,
+        validateItineraryDeterministically({ itinerary: result.itinerary, payload }),
+        affectedDayNumbers
+      )
+    : result.itinerary;
+
   const update = await params.supabase
     .from("roamly_itineraries")
     .update({
-      full_json: result.itinerary,
-      preview_json: buildPreviewFromItinerary(result.itinerary),
+      full_json: reconciledItinerary,
+      preview_json: buildPreviewFromItinerary(reconciledItinerary),
       repair_revision: repairRevision + 1
     })
     .eq("id", data.id)
