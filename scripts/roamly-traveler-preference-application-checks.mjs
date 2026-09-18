@@ -37,6 +37,7 @@ check("current accommodation preference suppresses conflicting memory", hotelPer
 check("accepted outranks inferred", hotelPersonalizationScore({ hotelText: quietHotel, personalization: acceptedHotel }).score > hotelPersonalizationScore({ hotelText: quietHotel, personalization: inferredHotel }).score);
 check("unknown hotel evidence gets no invented score", hotelPersonalizationScore({ hotelText: "", personalization: acceptedHotel }).score === 0);
 check("disabled personalization has no ranking effect", hotelPersonalizationScore({ hotelText: quietHotel, personalization: buildTravelerPersonalizationContext({ personalization_enabled: false, confirmed_preferences: { preferred_neighbourhood_style: "quiet" } }) }).score === 0);
+check("accepted hotel dislikes reduce soft score", hotelPersonalizationScore({ hotelText: "Hostel in a noisy area", personalization: buildTravelerPersonalizationContext({ personalization_enabled: true, confirmed_preferences: { dislikes: ["hostel"] } }) }).score === -6);
 
 const sourceFiles = {
   staged: await (await import("node:fs/promises")).readFile("lib/roamly/stagedItineraryGeneration.ts", "utf8"),

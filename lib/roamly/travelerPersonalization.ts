@@ -91,15 +91,27 @@ export function hotelPersonalizationScore(params: {
   personalization?: TravelerPersonalizationContext;
 }) {
   if (!params.personalization?.enabled || params.currentAccommodationPreference) return { score: 0, reason: null };
-  const values = (source: Record<string, unknown>) => Object.values(source)
-    .map(personalizationText)
+  const relevantKeys = new Set(["accommodation_types", "hotel_priorities", "preferred_neighbourhood_style", "room_preferences", "likes", "dislikes"]);
+  const values = (source: Record<string, unknown>, keyFilter: (key: string) => boolean) => Object.entries(source)
+    .filter(([key]) => relevantKeys.has(key) && keyFilter(key))
+    .map(([, value]) => personalizationText(value))
     .flatMap((value) => value.split(/[,;]+/))
     .map((value) => value.trim())
     .filter(Boolean);
-  if (values(params.personalization.accepted).some((value) => matchesHotelText(params.hotelText, value))) {
+  const acceptedLikes = values(params.personalization.accepted, (key) => key !== "dislikes");
+  const acceptedDislikes = values(params.personalization.accepted, (key) => key === "dislikes");
+  if (acceptedDislikes.some((value) => matchesHotelText(params.hotelText, value))) {
+    return { score: -6, reason: "accepted traveler accommodation dislike" };
+  }
+  if (acceptedLikes.some((value) => matchesHotelText(params.hotelText, value))) {
     return { score: 6, reason: "accepted traveler accommodation preference" };
   }
-  if (values(params.personalization.inferred).some((value) => matchesHotelText(params.hotelText, value))) {
+  const inferredLikes = values(params.personalization.inferred, (key) => key !== "dislikes");
+  const inferredDislikes = values(params.personalization.inferred, (key) => key === "dislikes");
+  if (inferredDislikes.some((value) => matchesHotelText(params.hotelText, value))) {
+    return { score: -2, reason: "inferred traveler accommodation dislike" };
+  }
+  if (inferredLikes.some((value) => matchesHotelText(params.hotelText, value))) {
     return { score: 2, reason: "inferred traveler accommodation signal" };
   }
   return { score: 0, reason: null };
