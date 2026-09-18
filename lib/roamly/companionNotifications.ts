@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { activityEndDate, activityStartDate, tripWindowState, timezoneFromTripMetadata, type LiveCompanionActivity } from "@/lib/roamly/liveCompanion";
+import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
+import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 
 export type CompanionNotificationType =
   | "nearby_activity"
@@ -407,6 +409,49 @@ export async function sendCompanionNotificationDelivery(
 
   const claimedDelivery = claimed.data as DeliveryRow;
   const claimedAttempt = claimedDelivery.attempt_count;
+
+  const hasStructuredBookingReference = Boolean(
+    claimedDelivery.booking_id ||
+    (claimedDelivery.metadata_json && typeof claimedDelivery.metadata_json === "object" &&
+      Array.isArray((claimedDelivery.metadata_json as Record<string, unknown>).confirmed_booking_ids))
+  );
+  if (hasStructuredBookingReference && !claimedDelivery.trip_id) {
+    await admin.from("roamly_companion_notification_deliveries")
+      .update({ status: "suppressed", suppression_reason: "Booking-linked delivery has no authoritative trip scope." })
+      .eq("id", claimedDelivery.id).eq("status", "sending");
+    return { ok: true as const, suppressed: true, reason: "missing_trip_scope" };
+  }
+  if (claimedDelivery.trip_id && hasStructuredBookingReference) {
+    const bookingIds = claimedDelivery.booking_id
+      ? [claimedDelivery.booking_id]
+      : ((claimedDelivery.metadata_json as Record<string, unknown>).confirmed_booking_ids as unknown[]).filter((id): id is string => typeof id === "string");
+    const currentBookings = await admin
+      .from("roamly_bookings")
+      .select("id,user_id,trip_id,superseded_by_booking_id,booking_status")
+      .eq("user_id", claimedDelivery.user_id)
+      .eq("trip_id", claimedDelivery.trip_id)
+      .in("id", bookingIds);
+    if (currentBookings.error) {
+      await admin.from("roamly_companion_notification_deliveries")
+        .update({ status: "retrying", next_attempt_at: new Date(Date.now() + 10 * 60_000).toISOString(), last_error: "Booking truth unavailable for delivery validation." })
+        .eq("id", claimedDelivery.id).eq("status", "sending");
+      return { ok: false as const, error: "BOOKING_TRUTH_UNAVAILABLE", retryable: true };
+    }
+    const currentBookingRows = (currentBookings.data || []).filter((booking) =>
+      isOperationalCurrentBooking(booking) && !["cancelled", "refunded"].includes(String(booking.booking_status || "").trim().toLowerCase())
+    );
+    const bookingState = bookingLinkedDeliveryState({
+      delivery: claimedDelivery,
+      bookings: currentBookingRows,
+      currentBookingIds: new Set(currentBookingRows.map((booking) => booking.id))
+    });
+    if (bookingState === "stale") {
+      await admin.from("roamly_companion_notification_deliveries")
+        .update({ status: "suppressed", suppression_reason: "Booking is no longer current for this delivery." })
+        .eq("id", claimedDelivery.id).eq("status", "sending");
+      return { ok: true as const, suppressed: true, reason: "stale_booking" };
+    }
+  }
 
   try {
     const validation = await validateLiveActivityDelivery(admin, claimedDelivery, new Date());

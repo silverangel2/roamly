@@ -4,6 +4,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendTripReminderEmail } from "@/lib/roamly/email";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { tripWindowState } from "@/lib/roamly/liveCompanion";
+import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
+import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 
 export type NotificationPayload = {
   title: string;
@@ -318,6 +320,41 @@ export async function sendScheduledTripNotifications() {
       await supabase.from("roamly_trips").update({ status: "completed", trip_companion_status: "completed" }).eq("id", event.trip_id);
       await supabase.from("roamly_trip_companion_events").update({ status: "cancelled", completed_at: new Date().toISOString() }).eq("id", event.id);
       continue;
+    }
+    if (event.booking_id && !event.trip_id) {
+      await supabase.from("roamly_trip_companion_events")
+        .update({ status: "cancelled", completed_at: new Date().toISOString() })
+        .eq("id", event.id).eq("status", "processing");
+      continue;
+    }
+    if (event.booking_id && event.trip_id) {
+      const bookingResult = await supabase
+        .from("roamly_bookings")
+        .select("id,user_id,trip_id,superseded_by_booking_id,booking_status")
+        .eq("id", event.booking_id)
+        .eq("user_id", event.user_id)
+        .eq("trip_id", event.trip_id)
+        .maybeSingle();
+      if (bookingResult.error) {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "scheduled", scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
+      const bookingState = bookingLinkedDeliveryState({
+        delivery: { booking_id: event.booking_id, user_id: event.user_id, trip_id: event.trip_id },
+        bookings: bookingResult.data ? [bookingResult.data] : [],
+        currentBookingIds: bookingResult.data && isOperationalCurrentBooking(bookingResult.data) &&
+          !["cancelled", "refunded"].includes(String(bookingResult.data.booking_status || "").trim().toLowerCase())
+          ? new Set([bookingResult.data.id])
+          : new Set()
+      });
+      if (bookingState === "stale") {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "cancelled", completed_at: new Date().toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
     }
     if (event.trip_id) {
       const tripKey = `${event.user_id}:${event.trip_id}`;

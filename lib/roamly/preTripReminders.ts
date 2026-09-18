@@ -333,7 +333,10 @@ async function scheduleSingleReminder(params: {
     metadata: {
       reminder_key: reminderKey,
       reminder_version: params.version,
-      send_email: true
+      send_email: true,
+      confirmed_booking_ids: params.confirmedBookings
+        .filter(activeConfirmedBooking)
+        .map((booking) => booking.id)
     },
     dedupeParts: [reminderKey]
   });

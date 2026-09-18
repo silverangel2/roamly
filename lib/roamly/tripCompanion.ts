@@ -7,6 +7,8 @@ import {
 } from "@/lib/roamly/crossBorder";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripBudgetCurrency, getTripDestinationLabel, getTripOriginLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
+import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import { shouldSuppressScheduledBookingEvent } from "@/lib/roamly/operationalScheduledEvents";
 
 type CompanionTrip = {
   id: string;
@@ -42,6 +44,10 @@ type CompanionBooking = {
   end_at?: string | null;
   address: string | null;
   city: string | null;
+  user_id?: string | null;
+  trip_id?: string | null;
+  booking_status?: string | null;
+  superseded_by_booking_id?: string | null;
 };
 
 function addDays(date: string, days: number) {
@@ -269,7 +275,11 @@ async function getTripAndBookings(supabase: SupabaseClient, tripId: string) {
   ]);
   if (tripError) return { trip: null, bookings: [], error: tripError.message };
   if (bookingError) return { trip: trip as CompanionTrip | null, bookings: [], error: bookingError.message };
-  return { trip: trip as CompanionTrip | null, bookings: (bookings || []) as CompanionBooking[], error: null };
+  const currentBookings = ((bookings || []) as CompanionBooking[]).filter((booking) =>
+    trip && isOperationalCurrentBooking(booking) && booking.user_id === trip.user_id && booking.trip_id === tripId &&
+      !["cancelled", "refunded"].includes(String(booking.booking_status || "").trim().toLowerCase())
+  );
+  return { trip: trip as CompanionTrip | null, bookings: currentBookings, error: null };
 }
 
 export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: string) {
@@ -283,8 +293,22 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
   const timeline = buildPreTripTimeline(trip, bookings);
   const { data: existing } = await reader
     .from("roamly_trip_companion_events")
-    .select("event_type,booking_id")
+    .select("id,event_type,booking_id,status,scheduled_for")
     .eq("trip_id", tripId);
+  const currentBookingIds = new Set(bookings.map((booking) => booking.id));
+  const staleEventIds = (existing || [])
+    .filter((event) => shouldSuppressScheduledBookingEvent({ event, currentBookingIds }))
+    .map((event) => event.id)
+    .filter((id): id is string => typeof id === "string");
+  if (staleEventIds.length) {
+    const cancelled = await reader
+      .from("roamly_trip_companion_events")
+      .update({ status: "cancelled", completed_at: new Date().toISOString() })
+      .in("id", staleEventIds)
+      .eq("trip_id", tripId)
+      .eq("status", "scheduled");
+    if (cancelled.error) return { ok: false, error: cancelled.error.message };
+  }
   const existingKeys = new Set((existing || []).map((event) => `${event.event_type}:${event.booking_id || ""}`));
   const rows = timeline
     .filter((event) => !existingKeys.has(`${event.event_type}:${"booking_id" in event ? event.booking_id || "" : ""}`))
