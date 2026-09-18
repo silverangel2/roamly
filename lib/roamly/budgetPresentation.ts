@@ -24,6 +24,7 @@ function unknownCopy(value: unknown, count: number) {
   const categories = Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => item.toLowerCase()) : [];
   const result = new Set<string>();
   for (const category of categories) {
+    if (/confirmed booking|committed booking/.test(category)) result.add("Some confirmed booking costs aren't available or use multiple currencies.");
     if (/hotel|stay|lodging/.test(category)) result.add("Hotel price isn’t confirmed yet.");
     else if (/local|movement|transit/.test(category)) result.add("Local transportation isn’t priced yet.");
     else if (/flight|transport|getting there/.test(category)) result.add("Getting-there costs aren’t fully priced yet.");
@@ -44,9 +45,12 @@ export function buildBudgetPresentation(input: {
 }): BudgetPresentation {
   const discovery = input.priceDiscovery || {};
   const unknownCount = numberValue(discovery.unknownMarketPriceCount) || 0;
+  const committedBookingStatus = typeof discovery.committed_booking_status === "string" ? discovery.committed_booking_status : null;
   const uncertainty = unknownCopy(discovery.unknownMarketPriceCategories, unknownCount);
-  const uncertain = input.totalEstimateAmount == null || unknownCount > 0 || input.breakdown.budget_status === "unknown";
-  const status: BudgetPresentationStatus = input.breakdown.budget_status === "over_budget"
+  const uncertain = input.totalEstimateAmount == null || unknownCount > 0 || Boolean(committedBookingStatus && committedBookingStatus !== "known_compatible") || input.breakdown.budget_status === "unknown";
+  const status: BudgetPresentationStatus = committedBookingStatus && committedBookingStatus !== "known_compatible"
+    ? "BUDGET_UNCERTAIN"
+    : input.breakdown.budget_status === "over_budget"
     ? "OVER_BUDGET"
     : input.budgetAmount == null || uncertain
       ? "BUDGET_UNCERTAIN"

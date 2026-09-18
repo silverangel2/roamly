@@ -1450,7 +1450,7 @@ export async function prepareStagedGenerationContext(params: {
   payload: TripPlannerPayload;
 }) {
   const [committed, confirmedBookings, travelerMemory] = await Promise.all([
-    getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId),
+    getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId, params.payload.budgetCurrency),
     getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId),
     getTravelerMemory(params.supabase, params.userId)
   ]);
@@ -1463,7 +1463,7 @@ export async function prepareStagedGenerationContext(params: {
     userId: params.userId,
     tripId: params.tripId,
     ...params.payload,
-    committedBudgetCents: committed.amountCents,
+    committedBookingCost: committed,
     confirmedBookings: confirmedBookings.bookings,
     marketResults: marketSearch.results
   });

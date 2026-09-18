@@ -183,9 +183,9 @@ export async function refreshTripMarketPricesForTrip(params: {
   const confirmedBookings = await getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId);
   const [marketSearch, committed] = await Promise.all([
     searchTripMarketPrices(payload, { supabase: params.supabase, forceRefresh: params.forceRefresh, store: true, selectedHotelForRevalidation: params.selectedHotelForRevalidation }),
-    getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId)
+    getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId, payload.budgetCurrency)
   ]);
-  const discovery = await discoverTripPrices({ userId: params.userId, tripId: params.tripId, ...payload, committedBudgetCents: committed.amountCents, confirmedBookings: confirmedBookings.bookings, marketResults: marketSearch.results });
+  const discovery = await discoverTripPrices({ userId: params.userId, tripId: params.tripId, ...payload, committedBookingCost: committed, confirmedBookings: confirmedBookings.bookings, marketResults: marketSearch.results });
   const savedDiscovery = await savePriceDiscovery(params.supabase, { userId: params.userId, tripId: params.tripId, ...payload }, discovery);
   const full = params.itinerary?.full_json || null;
   const updatedItinerary = full ? enrichItineraryBookingSuggestions(applyPriceDiscoveryToItinerary(full, discovery), { ...payload, priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null, budgetConstraint: buildBudgetConstraintForItinerary(discovery), priceDiscovery: discovery as unknown as Record<string, unknown>, confirmedBookings: confirmedBookings.bookings }, confirmedBookings.bookings) : null;

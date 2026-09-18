@@ -19,6 +19,7 @@ import {
   getTripDestinationLabel
 } from "@/lib/roamly/tripMetadata";
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
+import { evaluateConfirmedBookingCost } from "@/lib/roamly/bookings";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay, type ActivityRecord } from "@/lib/trips";
 import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
@@ -186,13 +187,12 @@ export default async function LiveTripPage({
   const packing = getStringArray(companionMetadata.packingChecklist);
   const documents = getStringArray(companionMetadata.documentChecklist);
   const packingItems = packing.length ? packing : localizedFull?.packing_checklist || bundle.data.checklist.map((item) => item.item);
-  const committedBudgetCents = (bookingsResult.data || []).reduce(
-    (sum, booking) => sum + (booking.booking_status === "cancelled" ? 0 : Number(booking.amount_cents || 0)),
-    0
-  );
+  const committedBudget = evaluateConfirmedBookingCost(bookingsResult.data || [], budgetCurrency);
+  const committedBudgetCents = committedBudget.amountCents;
+  const committedBudgetUncertain = committedBudget.status !== "known_compatible";
   const budgetAmount = getTripBudgetAmount(bundle.data.trip);
   const totalBudgetCents = budgetAmount == null ? null : Math.round(budgetAmount * 100);
-  const remainingBudgetCents = totalBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
+  const remainingBudgetCents = totalBudgetCents == null || committedBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
   const tripCountdown = daysUntil(bundle.data.trip.start_date);
   const trackingActivityRows = ((trackingActivitiesResult.data || []) as Record<string, unknown>[]);
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
@@ -388,10 +388,10 @@ export default async function LiveTripPage({
         <div className="sm:px-5 sm:last:pr-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
-            {formatMoney(remainingBudgetCents, budgetCurrency, locale)}
+            {committedBudgetUncertain ? "Budget uncertain" : formatMoney(remainingBudgetCents, budgetCurrency, locale)}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                  Booked items: {formatMoney(committedBudgetCents, budgetCurrency, locale)}
+                  Booked items: {committedBudgetCents == null ? "Amount unavailable" : formatMoney(committedBudgetCents, budgetCurrency, locale)}
           </p>
         </div>
       </section>

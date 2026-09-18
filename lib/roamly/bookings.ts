@@ -397,18 +397,59 @@ export async function saveConfirmedBooking(
   };
 }
 
-export async function getConfirmedBookingCostCents(supabase: SupabaseClient, userId: string, tripId: string) {
+export type ConfirmedBookingCostStatus =
+  | "known_compatible"
+  | "unknown_amount"
+  | "unknown_currency"
+  | "currency_mismatch"
+  | "query_error";
+
+export type ConfirmedBookingCost = {
+  amountCents: number | null;
+  knownAmountCents: number;
+  currency: string;
+  currencies: string[];
+  status: ConfirmedBookingCostStatus;
+  error: string | null;
+};
+
+function normalizedCurrency(value: unknown) {
+  return typeof value === "string" && /^[A-Za-z]{3}$/.test(value.trim()) ? value.trim().toUpperCase() : null;
+}
+
+export function evaluateConfirmedBookingCost(rows: Array<{ amount_cents?: unknown; currency?: unknown; booking_status?: unknown; superseded_by_booking_id?: unknown }>, budgetCurrency = "CAD"): Omit<ConfirmedBookingCost, "error"> {
+  const currency = normalizedCurrency(budgetCurrency);
+  const operationalRows = rows.filter((row) => row.booking_status !== "cancelled" && row.superseded_by_booking_id == null);
+  const currencies = Array.from(new Set(operationalRows.map((row) => normalizedCurrency(row.currency)).filter((value): value is string => Boolean(value))));
+  const knownAmountCents = operationalRows.reduce((sum, row) => sum + (normalizedCurrency(row.currency) === currency && typeof row.amount_cents === "number" && Number.isFinite(row.amount_cents) && row.amount_cents >= 0 ? row.amount_cents : 0), 0);
+  const hasUnknownAmount = operationalRows.some((row) => !(typeof row.amount_cents === "number" && Number.isFinite(row.amount_cents) && row.amount_cents >= 0));
+  const hasUnknownCurrency = operationalRows.some((row) => !normalizedCurrency(row.currency));
+  const hasCurrencyMismatch = Boolean(currency) && operationalRows.some((row) => normalizedCurrency(row.currency) !== currency);
+  const status: ConfirmedBookingCostStatus = hasUnknownAmount
+    ? "unknown_amount"
+    : hasUnknownCurrency || !currency
+      ? "unknown_currency"
+      : hasCurrencyMismatch
+        ? "currency_mismatch"
+        : "known_compatible";
+  return { amountCents: status === "known_compatible" ? knownAmountCents : null, knownAmountCents, currency: currency || "", currencies, status };
+}
+
+export async function getConfirmedBookingCostCents(supabase: SupabaseClient, userId: string, tripId: string, budgetCurrency = "CAD"): Promise<ConfirmedBookingCost> {
+  const currency = normalizedCurrency(budgetCurrency);
   const { data, error } = await supabase
     .from("roamly_bookings")
-    .select("amount_cents")
+    .select("amount_cents,currency")
     .eq("user_id", userId)
     .eq("trip_id", tripId)
     .is("superseded_by_booking_id", null)
     .neq("booking_status", "cancelled");
 
-  if (error) return { amountCents: 0, error: error.message };
+  if (error) return { amountCents: null, knownAmountCents: 0, currency: currency || "", currencies: [], status: "query_error", error: error.message };
+
+  const evaluated = evaluateConfirmedBookingCost(data || [], budgetCurrency);
   return {
-    amountCents: (data || []).reduce((sum, row) => sum + (row.amount_cents || 0), 0),
+    ...evaluated,
     error: null
   };
 }

@@ -458,8 +458,9 @@ function budgetLedger(input: { payload: TripPlannerPayload; selected: GroundedCa
   const lines: BudgetLedgerLine[] = [];
   const confirmedTypes = new Set((input.confirmedBookings || []).map((booking) => booking.booking_type || ""));
   for (const booking of input.confirmedBookings || []) {
-    const amount = typeof booking.amount_cents === "number" ? booking.amount_cents / 100 : null;
-    lines.push({ category: booking.booking_type || "booking", candidateId: null, bookingId: null, description: booking.title || "Confirmed booking", amount, currency: (booking.currency || currency).toUpperCase(), priceStatus: "confirmed", source: booking.provider_name || "Confirmed booking", includedInTotal: amount !== null, confidence: "confirmed" });
+    const amount = typeof booking.amount_cents === "number" && Number.isFinite(booking.amount_cents) && booking.amount_cents >= 0 ? booking.amount_cents / 100 : null;
+    const bookingCurrency = typeof booking.currency === "string" && /^[A-Za-z]{3}$/.test(booking.currency.trim()) ? booking.currency.trim().toUpperCase() : "";
+    lines.push({ category: booking.booking_type || "booking", candidateId: null, bookingId: null, description: booking.title || "Confirmed booking", amount, currency: bookingCurrency, priceStatus: "confirmed", source: booking.provider_name || "Confirmed booking", includedInTotal: amount !== null && bookingCurrency === currency, confidence: "confirmed" });
   }
   for (const candidate of input.selected) {
     if (confirmedTypes.has(candidate.category === "flight" ? "flight" : candidate.category === "hotel" ? "hotel" : "activity")) continue;
@@ -468,8 +469,8 @@ function budgetLedger(input: { payload: TripPlannerPayload; selected: GroundedCa
   }
   for (const allowance of input.allowances || []) lines.push({ category: allowance.category, candidateId: null, bookingId: null, description: allowance.description, amount: allowance.amount, currency, priceStatus: allowance.status, source: allowance.source, includedInTotal: allowance.amount !== null, confidence: allowance.status === "estimated" ? "estimated" : "unknown" });
   const knownTotal = lines.filter((line) => line.includedInTotal).reduce((sum, line) => sum + (line.amount || 0), 0);
-  const unknownLineCount = lines.filter((line) => line.amount === null || line.priceStatus === "unknown").length;
-  const remaining = input.payload.budgetAmount == null ? null : input.payload.budgetAmount - knownTotal;
+  const unknownLineCount = lines.filter((line) => line.amount === null || line.priceStatus === "unknown" || (line.priceStatus === "confirmed" && !line.includedInTotal)).length;
+  const remaining = input.payload.budgetAmount == null || unknownLineCount ? null : input.payload.budgetAmount - knownTotal;
   const status = remaining !== null && remaining < 0 ? "OVER_BUDGET" : unknownLineCount ? "BUDGET_UNCERTAIN" : remaining !== null && remaining >= 0 ? "WITHIN_BUDGET" : "LIKELY_WITHIN_BUDGET";
   return { currency, customerBudget: input.payload.budgetAmount ?? null, lines, knownTotal, unknownLineCount, remaining, status, amountOverBudget: remaining !== null && remaining < 0 ? Math.abs(remaining) : 0 };
 }

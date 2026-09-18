@@ -5,6 +5,7 @@ import type { RoamlyItinerary } from "@/lib/itinerary";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 import type { TravelerDetails, TripType } from "@/lib/trip-planner";
 import type { TravelMarketCategory, TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import type { ConfirmedBookingCost, ConfirmedBookingCostStatus } from "@/lib/roamly/bookings";
 import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
 import {
   compareTransportOptions,
@@ -72,6 +73,7 @@ export type TripPriceDiscoveryInput = {
   budgetIncludesHotel?: boolean;
   budgetIncludesActivities?: boolean;
   committedBudgetCents?: number;
+  committedBookingCost?: ConfirmedBookingCost;
   accommodationPreference?: string;
   travelStyle?: string;
   pace?: string;
@@ -122,7 +124,10 @@ export type TripPriceDiscovery = {
   selectedTransportEstimateCents: number;
   bufferEstimateCents: number;
   totalEstimateCents: number;
-  committedBudgetCents: number;
+  committedBudgetCents: number | null;
+  committedBookingCostStatus: ConfirmedBookingCostStatus;
+  committedBookingKnownCents: number;
+  committedBookingCurrencies: string[];
   remainingBudgetCents: number | null;
   budgetStatus: BudgetStatus;
   coverageNote: string;
@@ -386,9 +391,13 @@ export function calculateBudgetStatus(input: {
   budgetAmount: number | null;
   budgetCurrency: string;
   totalEstimateCents: number;
-  committedBudgetCents?: number;
+  committedBudgetCents?: number | null;
+  committedBookingStatus?: ConfirmedBookingCostStatus;
 }) {
   if (!input.budgetAmount) {
+    return { budgetStatus: "unknown" as BudgetStatus, remainingBudgetCents: null };
+  }
+  if (input.committedBookingStatus && input.committedBookingStatus !== "known_compatible") {
     return { budgetStatus: "unknown" as BudgetStatus, remainingBudgetCents: null };
   }
   const budgetCents = cents(input.budgetAmount);
@@ -636,7 +645,7 @@ function buildBudgetCategoryConfidence(params: {
   localTransportEstimateCents: number;
   selectedTransportEstimateCents: number;
   bufferEstimateCents: number;
-  committedBudgetCents: number;
+  committedBudgetCents: number | null;
 }) {
   const selected = params.selectedMarketPrices;
   const marketFor = (category: TravelMarketCategory) => selected.find((result) => result.category === category);
@@ -701,10 +710,10 @@ function buildBudgetCategoryConfidence(params: {
     },
     {
       category: "committed_bookings",
-      label: params.committedBudgetCents > 0 ? "User uploaded confirmation" : "Conservative estimate",
-      amountCents: params.committedBudgetCents,
-      source: params.committedBudgetCents > 0 ? "Saved bookings" : "No saved booking cost",
-      note: params.committedBudgetCents > 0 ? "Saved booking costs are included in the total." : "No uploaded booking cost has been added."
+      label: params.committedBudgetCents != null ? "User uploaded confirmation" : "Conservative estimate",
+      amountCents: params.committedBudgetCents || 0,
+      source: params.committedBudgetCents != null ? "Saved bookings" : "Saved booking cost unavailable",
+      note: params.committedBudgetCents != null ? "Saved booking costs are included in the total." : "Confirmed booking monetary truth is unresolved; the total may not be spendable."
     }
   ] satisfies BudgetCategoryConfidence[];
 }
@@ -774,17 +783,22 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   });
   const selectedCentsByCategory = marketSelection.selectedMarketPrices.reduce<Record<TravelMarketCategory, number>>(
     (acc, result) => {
+      if (result.metadata?.source === "user_uploaded_confirmation") return acc;
       const amount = marketPriceCents(result) || 0;
       acc[result.category] += amount;
       return acc;
     },
     { flight: 0, hotel: 0, attraction: 0, tour: 0, restaurant: 0, transport: 0 }
   );
-  const selectedUserUploadedCents = marketSelection.selectedMarketPrices
-    .filter((result) => result.metadata?.source === "user_uploaded_confirmation")
-    .reduce((sum, result) => sum + (marketPriceCents(result) || 0), 0);
-  const committedBudgetCents = Math.max(0, Math.round(input.committedBudgetCents || 0));
-  const uncategorizedCommittedBudgetCents = Math.max(0, committedBudgetCents - selectedUserUploadedCents);
+  const committedBookingCost = input.committedBookingCost;
+  const committedBudgetCents = committedBookingCost
+    ? committedBookingCost.amountCents
+    : typeof input.committedBudgetCents === "number" ? Math.max(0, Math.round(input.committedBudgetCents)) : null;
+  const committedBookingStatus = committedBookingCost?.status || (committedBudgetCents == null ? "unknown_amount" : "known_compatible");
+  const committedBookingKnownCents = committedBookingCost?.knownAmountCents ?? committedBudgetCents ?? 0;
+  const committedBookingCurrencies = committedBookingCost?.currencies ?? [];
+  const committedBookingUncertain = committedBookingStatus !== "known_compatible";
+  const uncategorizedCommittedBudgetCents = committedBudgetCents ?? 0;
   const flightEstimateCents = selectedCentsByCategory.flight;
   const hotelEstimateCents = selectedCentsByCategory.hotel;
   const activitiesEstimateCents = selectedCentsByCategory.attraction + selectedCentsByCategory.tour;
@@ -828,7 +842,8 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     budgetAmount: normalized.budgetAmount || null,
     budgetCurrency: normalized.budgetCurrency || "CAD",
     totalEstimateCents,
-    committedBudgetCents
+    committedBudgetCents,
+    committedBookingStatus
   });
   const cityEstimates = buildCityEstimates(normalized, {
     hotelEstimateCents,
@@ -887,6 +902,9 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     bufferEstimateCents,
     totalEstimateCents,
     committedBudgetCents,
+    committedBookingCostStatus: committedBookingStatus,
+    committedBookingKnownCents,
+    committedBookingCurrencies,
     remainingBudgetCents: budget.remainingBudgetCents,
     budgetStatus: budget.budgetStatus,
     coverageNote,
@@ -937,8 +955,10 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
     ],
     marketResults: marketSelection.allMarketResults,
     selectedMarketPrices: marketSelection.selectedMarketPrices,
-    unknownMarketPriceCount: marketSelection.unknownMarketPriceCount,
-    unknownMarketPriceCategories: marketSelection.unknownMarketPriceCategories,
+    unknownMarketPriceCount: marketSelection.unknownMarketPriceCount + (committedBookingUncertain ? 1 : 0),
+    unknownMarketPriceCategories: committedBookingUncertain
+      ? [...marketSelection.unknownMarketPriceCategories, "confirmed booking monetary truth"]
+      : marketSelection.unknownMarketPriceCategories,
     priceCoverage,
     cross_border: crossBorderInfo.cross_border,
     crossBorderWarnings,
@@ -976,7 +996,7 @@ export function buildBudgetConstraintForItinerary(discovery: TripPriceDiscovery)
     return [
       "The trip may exceed budget. Build a budget-first itinerary with free or low-cost activities, public transit, affordable food, and clear warnings about expensive choices.",
       "Suggest cheaper city order, shorter trip length, fewer paid activities, lower-cost hotel areas, public transit, excluding flights/hotel if already handled, or increasing budget where needed.",
-      `Selected total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. Uploaded/saved booking costs: ${discovery.budgetCurrency} ${Math.round(discovery.committedBudgetCents / 100)}.`,
+      `Selected total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. Uploaded/saved booking costs: ${discovery.committedBudgetCents == null ? "unresolved" : `${discovery.budgetCurrency} ${Math.round(discovery.committedBudgetCents / 100)}`}.`,
       marketNote
     ].join(" ");
   }
@@ -993,8 +1013,8 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
   const budgetCents = discovery.budgetAmount == null ? null : cents(discovery.budgetAmount);
   const lowEstimate = Math.round(discovery.totalEstimateCents * 0.88);
   const highEstimate = Math.round(discovery.totalEstimateCents * 1.12);
-  const lowRemaining = budgetCents == null ? null : budgetCents - highEstimate;
-  const highRemaining = budgetCents == null ? null : budgetCents - lowEstimate;
+  const lowRemaining = budgetCents == null || discovery.budgetStatus === "unknown" ? null : budgetCents - highEstimate;
+  const highRemaining = budgetCents == null || discovery.budgetStatus === "unknown" ? null : budgetCents - lowEstimate;
 
   return {
     user_id: input.userId,
@@ -1034,7 +1054,7 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
     remaining_budget_cents: discovery.remainingBudgetCents,
     remaining_budget_min_cents: lowRemaining,
     remaining_budget_max_cents: highRemaining,
-    committed_budget_cents: discovery.committedBudgetCents,
+    committed_budget_cents: discovery.committedBookingKnownCents,
     budget_status: discovery.budgetStatus,
     coverage_note: discovery.coverageNote,
     sources: discovery.sources,
@@ -1075,6 +1095,9 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       selectedMarketPrices: discovery.selectedMarketPrices,
       unknownMarketPriceCount: discovery.unknownMarketPriceCount,
       unknownMarketPriceCategories: discovery.unknownMarketPriceCategories,
+      committed_booking_status: discovery.committedBookingCostStatus,
+      committed_booking_known_cents: discovery.committedBookingKnownCents,
+      committed_booking_currencies: discovery.committedBookingCurrencies,
       priceCoverage: discovery.priceCoverage,
       cross_border: discovery.cross_border,
       crossBorderWarnings: discovery.crossBorderWarnings,
@@ -1122,10 +1145,7 @@ export async function savePriceDiscovery(
 }
 
 export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, discovery: TripPriceDiscovery): RoamlyItinerary {
-  const remaining =
-    typeof discovery.remainingBudgetCents === "number"
-      ? Math.round(discovery.remainingBudgetCents / 100)
-      : itinerary.estimated_budget_breakdown.remaining_budget_amount;
+  const remaining = typeof discovery.remainingBudgetCents === "number" ? Math.round(discovery.remainingBudgetCents / 100) : null;
   const totalAmount = Math.round(discovery.totalEstimateCents / 100);
   const balance =
     remaining == null
@@ -1166,7 +1186,7 @@ export function applyPriceDiscoveryToItinerary(itinerary: RoamlyItinerary, disco
       food_estimate_amount: Math.round(discovery.foodEstimateCents / 100),
       local_transport_estimate_amount: Math.round(discovery.localTransportEstimateCents / 100),
       buffer_estimate_amount: Math.round(discovery.bufferEstimateCents / 100),
-      committed_bookings_amount: Math.round(discovery.committedBudgetCents / 100),
+      committed_bookings_amount: discovery.committedBudgetCents == null ? null : Math.round(discovery.committedBudgetCents / 100),
       hotel_nights: discovery.hotelNights,
       hotel_nightly_estimate_amount: Math.round(discovery.hotelNightlyEstimateCents / 100),
       hotel_taxes_fees_buffer_amount: Math.round(discovery.hotelTaxesFeesBufferCents / 100),
