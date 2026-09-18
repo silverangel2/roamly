@@ -8,6 +8,7 @@ import type {
   TravelConstraints,
   TripPlannerPayload
 } from "@/lib/trip-planner";
+import { hotelPersonalizationScore, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
 
 export type CandidateCategory = "flight" | "hotel" | "activity";
 export type CandidateFactualStatus = "verified" | "search_ready" | "estimated" | "unknown";
@@ -49,18 +50,26 @@ export type FlightCandidate = CandidateBase & {
 export type HotelCandidate = CandidateBase & {
   category: "hotel";
   providerPropertyId: string | null;
+  providerProductId: string | null;
   name: string;
+  address: string | null;
   coordinates: { latitude: number; longitude: number } | null;
   neighborhood: string | null;
+  quality: number | null;
   checkIn: string | null;
   checkOut: string | null;
   roomDescription: string | null;
+  occupancy?: { travelers: number; rooms: number; childAges: number[] } | null;
   amenities: string[];
   pricePerNight: number | null;
   totalStayPrice: number | null;
   taxesFees: number | null;
+  taxInclusionStatus: "included" | "excluded" | "unknown";
+  feeInclusionStatus: "included" | "excluded" | "unknown";
   currency: string;
   availabilityStatus: "available" | "unverified" | "unknown";
+  cancellationPolicy: string | null;
+  expiresAt: string | null;
 };
 
 export type ActivityCandidate = CandidateBase & {
@@ -257,9 +266,12 @@ export function normalizeMarketCandidate(result: MarketResult): GroundedCandidat
       ...base,
       category,
       providerPropertyId: stringValue(providerField(result, "property_id", "propertyId", "listing_id", "listing_identifier")),
+      providerProductId: stringValue(providerField(result, "product_id", "productId", "rate_id", "rateId", "offer_id", "offerId")),
       name: result.title,
+      address: stringValue(providerField(result, "address")),
       coordinates: null,
       neighborhood: stringValue(providerField(result, "neighborhood", "neighbourhood", "district")) || result.city || null,
+      quality: numberValue(providerField(result, "quality", "stars", "star_rating")),
       checkIn: result.start_date || null,
       checkOut: result.end_date || null,
       roomDescription: stringValue(providerField(result, "room_description", "room_type", "roomDescription")),
@@ -267,8 +279,12 @@ export function normalizeMarketCandidate(result: MarketResult): GroundedCandidat
       pricePerNight: numberValue(providerField(result, "price_per_night", "pricePerNight")),
       totalStayPrice: stay22 ? null : price(result),
       taxesFees: stay22 ? null : numberValue(providerField(result, "taxes_fees", "taxesFees")),
+      taxInclusionStatus: stay22 ? "unknown" : (providerField(result, "taxes_included", "taxesIncluded") === true ? "included" : providerField(result, "taxes_included", "taxesIncluded") === false ? "excluded" : "unknown"),
+      feeInclusionStatus: stay22 ? "unknown" : (providerField(result, "fees_included", "feesIncluded") === true ? "included" : providerField(result, "fees_included", "feesIncluded") === false ? "excluded" : "unknown"),
       currency,
-      availabilityStatus: stay22 ? "unverified" : result.price_type === "live_partner" ? "available" : "unverified"
+      availabilityStatus: stay22 ? "unverified" : result.price_type === "live_partner" ? "available" : "unverified",
+      cancellationPolicy: stringValue(providerField(result, "cancellation_policy", "cancellationPolicy")),
+      expiresAt: stringValue(providerField(result, "expires_at", "expiresAt"))
     };
   }
   return {
@@ -349,8 +365,12 @@ function matchesHardFlight(candidate: FlightCandidate, constraints: FlightConstr
 function matchesHardHotel(candidate: HotelCandidate, constraints: HotelConstraints) {
   if (hard(constraints.exactPropertyRequest) && !containsMatch(candidate.name, hard(constraints.exactPropertyRequest)!)) return false;
   if (hard(constraints.requiredNeighborhood) && !containsMatch(candidate.neighborhood, hard(constraints.requiredNeighborhood)!)) return false;
-  if (hard(constraints.maximumNightlyPrice) !== undefined && candidate.pricePerNight !== null && candidate.pricePerNight > hard(constraints.maximumNightlyPrice)!) return false;
+  if (hard(constraints.maximumNightlyPrice) !== undefined && (candidate.pricePerNight === null || candidate.pricePerNight > hard(constraints.maximumNightlyPrice)!)) return false;
   if (hard(constraints.requiredAmenities)?.length && !hard(constraints.requiredAmenities)!.every((amenity) => candidate.amenities.some((item) => containsMatch(item, amenity)))) return false;
+  if (hard(constraints.minimumQuality) !== undefined && candidate.quality == null) return false;
+  if (hard(constraints.minimumQuality) !== undefined && candidate.quality! < hard(constraints.minimumQuality)!) return false;
+  if (hard(constraints.parkingRequired) === true && !candidate.amenities.some((item) => /parking/i.test(item))) return false;
+  if (hard(constraints.accessibilityRequirements)?.length && !hard(constraints.accessibilityRequirements)!.every((requirement) => candidate.amenities.some((item) => containsMatch(item, requirement)))) return false;
   return true;
 }
 
@@ -370,7 +390,7 @@ function satisfiesActivityRequest(candidate: ActivityCandidate, request: Extract
   return containsMatch(candidate.canonicalName, request.request) && (!request.date || candidate.date === request.date) && (!request.time || candidate.startTime === request.time);
 }
 
-function scoreCandidate(candidate: GroundedCandidate, constraints: TravelConstraints): { score: number; reasons: string[] } {
+function scoreCandidate(candidate: GroundedCandidate, constraints: TravelConstraints, payload?: TripPlannerPayload, personalization?: TravelerPersonalizationContext): { score: number; reasons: string[] } {
   const reasons: string[] = [];
   let score = candidate.factualStatus === "verified" ? 60 : candidate.factualStatus === "search_ready" ? 35 : 15;
   if (candidate.category === "flight") {
@@ -378,8 +398,25 @@ function scoreCandidate(candidate: GroundedCandidate, constraints: TravelConstra
     if (candidate.stops === 0) { score += 8; reasons.push("nonstop"); }
     if (candidate.totalPrice !== null) { score += Math.max(0, 20 - Math.round(candidate.totalPrice / 100)); reasons.push("priced candidate"); }
   } else if (candidate.category === "hotel") {
+    const currentAccommodationPreference = payload?.accommodationPreference || "";
+    const hotelText = [candidate.name, candidate.neighborhood, candidate.roomDescription, ...candidate.amenities].filter(Boolean).join(" ");
+    if (currentAccommodationPreference && containsMatch(hotelText, currentAccommodationPreference)) {
+      score += 20;
+      reasons.push("current-trip accommodation preference");
+    }
     if (constraints.hotel?.preferredNeighborhood && containsMatch(candidate.neighborhood, constraints.hotel.preferredNeighborhood)) { score += 20; reasons.push("preferred neighborhood"); }
+    const preferredAmenities = constraints.hotel?.preferredAmenities || [];
+    const matchedAmenities = preferredAmenities.filter((amenity) => candidate.amenities.some((item) => containsMatch(item, amenity)));
+    if (matchedAmenities.length) { score += Math.min(15, matchedAmenities.length * 5); reasons.push(`preferred amenities: ${matchedAmenities.join(", ")}`); }
+    if (constraints.hotel?.parkingRequired?.priority === "soft" && constraints.hotel.parkingRequired.value === true && candidate.amenities.some((item) => /parking/i.test(item))) { score += 10; reasons.push("parking preference"); }
     if (candidate.totalStayPrice !== null) { score += Math.max(0, 20 - Math.round(candidate.totalStayPrice / 100)); reasons.push("priced stay"); }
+    const personalizationScore = hotelPersonalizationScore({
+      hotelText,
+      currentAccommodationPreference,
+      personalization
+    });
+    score += personalizationScore.score;
+    if (personalizationScore.reason) reasons.push(personalizationScore.reason);
   } else {
     const preferred = [...(constraints.activity?.preferredActivities || []), ...(constraints.activity?.mustDoActivities || []).map((item) => item.type === "activity" ? item.request : "")];
     if (preferred.some((item) => containsMatch(candidate.canonicalName, item))) { score += 30; reasons.push("matches requested activity"); }
@@ -388,9 +425,9 @@ function scoreCandidate(candidate: GroundedCandidate, constraints: TravelConstra
   return { score, reasons };
 }
 
-function recommendations(category: CandidateCategory, candidates: GroundedCandidate[], constraints: TravelConstraints): CandidateRecommendations {
+function recommendations(category: CandidateCategory, candidates: GroundedCandidate[], constraints: TravelConstraints, payload?: TripPlannerPayload, personalization?: TravelerPersonalizationContext): CandidateRecommendations {
   const eligible = candidates.filter((candidate) => candidate.category === category);
-  const scored = eligible.map((candidate) => ({ candidate, ...scoreCandidate(candidate, constraints) })).sort((a, b) => b.score - a.score || a.candidate.candidateId.localeCompare(b.candidate.candidateId));
+  const scored = eligible.map((candidate) => ({ candidate, ...scoreCandidate(candidate, constraints, payload, personalization) })).sort((a, b) => b.score - a.score || a.candidate.candidateId.localeCompare(b.candidate.candidateId));
   const priced = eligible.filter((candidate) => (candidate.category === "flight" ? candidate.totalPrice : candidate.category === "hotel" ? candidate.totalStayPrice : candidate.price) !== null).sort((a, b) => {
     const amount = (item: GroundedCandidate) => item.category === "flight" ? item.totalPrice! : item.category === "hotel" ? item.totalStayPrice! : item.price!;
     return amount(a) - amount(b);
@@ -437,14 +474,14 @@ function budgetLedger(input: { payload: TripPlannerPayload; selected: GroundedCa
   return { currency, customerBudget: input.payload.budgetAmount ?? null, lines, knownTotal, unknownLineCount, remaining, status, amountOverBudget: remaining !== null && remaining < 0 ? Math.abs(remaining) : 0 };
 }
 
-export function buildGroundedDecisionCore(input: { payload: TripPlannerPayload; marketResults?: MarketResult[] | null; confirmedBookings?: ConfirmedBooking[]; allowances?: Array<{ category: string; description: string; amount: number | null; source: string; status: "estimated" | "unknown" }> }): GroundedDecision {
+export function buildGroundedDecisionCore(input: { payload: TripPlannerPayload; marketResults?: MarketResult[] | null; confirmedBookings?: ConfirmedBooking[]; allowances?: Array<{ category: string; description: string; amount: number | null; source: string; status: "estimated" | "unknown" }>; personalization?: TravelerPersonalizationContext }): GroundedDecision {
   const constraints = input.payload.constraints || constraintsFromPayload(input.payload);
   const normalized = (input.marketResults || []).map(normalizeMarketCandidate).filter((candidate): candidate is GroundedCandidate => Boolean(candidate));
   const eligible = normalized.filter((candidate) => candidate.category === "flight" ? matchesHardFlight(candidate, constraints.flight || {}) : candidate.category === "hotel" ? matchesHardHotel(candidate, constraints.hotel || {}) : matchesHardActivity(candidate, constraints.activity || {}));
   const recs = {
-    flight: recommendations("flight", eligible, constraints),
-    hotel: recommendations("hotel", eligible, constraints),
-    activity: recommendations("activity", eligible, constraints)
+    flight: recommendations("flight", eligible, constraints, input.payload, input.personalization),
+    hotel: recommendations("hotel", eligible, constraints, input.payload, input.personalization),
+    activity: recommendations("activity", eligible, constraints, input.payload, input.personalization)
   };
   const requirements = (constraints.activity?.mustDoActivities || []).filter((item): item is Extract<ExplicitTravelRequirement, { type: "activity" }> => item.type === "activity");
   const unresolvedExactRequests = requirements.filter((request) => !eligible.some((candidate) => candidate.category === "activity" && satisfiesActivityRequest(candidate, request))).map((request) => ({ request: request.request, status: "UNRESOLVED_EXACT_REQUEST" as const, reason: "No matching provider/discovery candidate was returned with the requested date/time." }));

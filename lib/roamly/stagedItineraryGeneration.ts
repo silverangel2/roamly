@@ -34,6 +34,8 @@ import {
 } from "@/lib/roamly/generationDiagnostics";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT, localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
+import { buildTravelerPersonalizationContext, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
+import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 
 export type StagedGenerationStatus =
   | "queued"
@@ -125,6 +127,7 @@ export type StagedGenerationState = {
   batches: Record<string, StagedGenerationBatchState>;
   generatedDays: Record<string, RoamlyDayPlan>;
   payload: TripPlannerPayload;
+  personalization: TravelerPersonalizationContext;
   priceDiscovery?: Record<string, unknown> | null;
   priceDiscoveryId?: string | null;
   budgetConstraint?: string | null;
@@ -273,6 +276,12 @@ export function getStagedGenerationState(metadata: unknown, expectedTripId?: str
   if (scopedTripId && stateTripId && stateTripId !== scopedTripId) return null;
   const payload = getRecord(generation.payload) as TripPlannerPayload | null;
   if (!payload) return null;
+  const storedPersonalization = getRecord(generation.personalization);
+  const personalization = buildTravelerPersonalizationContext({
+    personalization_enabled: storedPersonalization?.enabled === true,
+    confirmed_preferences: getRecord(storedPersonalization?.accepted) || {},
+    inferred_preferences: getRecord(storedPersonalization?.inferred) || {}
+  });
   return {
     version: 2,
     tripId: stateTripId || scopedTripId,
@@ -285,6 +294,7 @@ export function getStagedGenerationState(metadata: unknown, expectedTripId?: str
     batches: (getRecord(generation.batches) as Record<string, StagedGenerationBatchState> | null) || {},
     generatedDays: (getRecord(generation.generatedDays) as Record<string, RoamlyDayPlan> | null) || {},
     payload,
+    personalization,
     priceDiscovery: getRecord(generation.priceDiscovery),
     priceDiscoveryId: getString(generation.priceDiscoveryId, "") || null,
     budgetConstraint: getString(generation.budgetConstraint, "") || null,
@@ -862,12 +872,24 @@ function groundedDecisionForPrompt(state: StagedGenerationState) {
   return decision ? candidateDecisionForAi(decision as never) : null;
 }
 
+function personalizationPrompt(state: StagedGenerationState) {
+  if (!state.personalization.enabled) {
+    return "Historical traveler personalization: disabled. Do not use stored durable or inferred preferences.";
+  }
+  return `Historical traveler personalization (soft guidance only): ${JSON.stringify({
+    accepted: state.personalization.accepted,
+    inferred: state.personalization.inferred
+  })}
+Rules: accepted preferences are soft guidance; inferred preferences are lower-confidence and non-binding. Current-trip explicit hard and soft instructions override historical preferences. Confirmed bookings are fixed anchors and override recommendations. Do not invent facts, availability, prices, or requests from these preferences. Do not infer nationality, health, family status, finances, or other personal attributes. Affiliate optimization remains lower priority than traveler fit.`;
+}
+
 function outlinePrompt(payload: TripPlannerPayload, state: StagedGenerationState) {
   return `Create only a compact structured outline for a Roamly trip. Do not create timeline items, descriptions, prices, or URLs.
 
 ${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
 ${ROAMLY_TRAVELER_PRIORITY_CONTRACT}
+${personalizationPrompt(state)}
 
 Trip:
 - Route: ${routeText(payload)}
@@ -931,6 +953,7 @@ function dayBatchPrompt(params: {
 ${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(payload.language)}
 
 ${ROAMLY_TRAVELER_PRIORITY_CONTRACT}
+${personalizationPrompt(state)}
 
 Trip: ${outline.tripSummary}
 Route: ${routeText(payload)}
@@ -1426,10 +1449,12 @@ export async function prepareStagedGenerationContext(params: {
   tripId: string;
   payload: TripPlannerPayload;
 }) {
-  const [committed, confirmedBookings] = await Promise.all([
+  const [committed, confirmedBookings, travelerMemory] = await Promise.all([
     getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId),
-    getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId)
+    getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId),
+    getTravelerMemory(params.supabase, params.userId)
   ]);
+  const personalization = buildTravelerPersonalizationContext(travelerMemory.profile);
   const marketSearch = await searchTripMarketPrices(params.payload, {
     supabase: params.supabase,
     store: true
@@ -1446,7 +1471,8 @@ export async function prepareStagedGenerationContext(params: {
     decision: buildGroundedDecisionCore({
       payload: params.payload,
       marketResults: marketSearch.results,
-      confirmedBookings: confirmedBookings.bookings
+      confirmedBookings: confirmedBookings.bookings,
+      personalization
     }),
     payload: params.payload,
     confirmedBookings: confirmedBookings.bookings,
@@ -1466,7 +1492,8 @@ export async function prepareStagedGenerationContext(params: {
     priceDiscovery: groundedDiscovery as unknown as Record<string, unknown>,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
     budgetConstraint: buildBudgetConstraintForItinerary(discovery),
-    confirmedBookings: confirmedBookings.bookings
+    confirmedBookings: confirmedBookings.bookings,
+    personalization
   };
 }
 
@@ -1501,6 +1528,7 @@ export async function startStagedItineraryGeneration(params: {
     batches: buildInitialBatchStates(totalDayCount),
     generatedDays: {},
     payload,
+    personalization: params.context.personalization,
     priceDiscovery: params.context.priceDiscovery,
     priceDiscoveryId: params.context.priceDiscoveryId,
     budgetConstraint: params.context.budgetConstraint,
