@@ -158,6 +158,7 @@ export default async function LiveTripPage({
       .select("*")
       .eq("trip_id", id)
       .eq("user_id", current.user.id)
+      .is("superseded_by_booking_id", null)
       .order("start_at", { ascending: true, nullsFirst: false }),
     supabase
       .from("roamly_activities")

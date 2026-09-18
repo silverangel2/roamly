@@ -150,6 +150,7 @@ async function loadTripBookings(
       "id,booking_type,booking_status,title,provider_name,start_at,end_at,check_in_at,check_out_at,flight_number,terminal,gate"
     )
     .eq("trip_id", tripId)
+    .is("superseded_by_booking_id", null)
     .in("booking_status", [
       "booked",
       "paid",

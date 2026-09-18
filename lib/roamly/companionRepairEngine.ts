@@ -170,6 +170,7 @@ async function verifiedRepairContext(params: {
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
     .eq("booking_type", "flight")
+    .is("superseded_by_booking_id", null)
     .in("booking_status", ["booked", "paid", "reserved"])
     .maybeSingle();
   if (booking.error || !booking.data?.updated_at) {

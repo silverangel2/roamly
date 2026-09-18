@@ -266,6 +266,7 @@ async function loadConfirmedBookings(params: {
     .select("id,booking_type,booking_status,title,provider_name,confirmation_number,start_at,end_at,check_in_at,check_out_at,origin,destination,flight_number,traveler_confirmed,updated_at")
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
+    .is("superseded_by_booking_id", null)
     .order("start_at", { ascending: true, nullsFirst: false });
 
   if (error) throw new Error(error.message);

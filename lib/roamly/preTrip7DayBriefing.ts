@@ -89,6 +89,7 @@ export async function schedulePreTrip7DayBriefing(params: {
     .select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,traveler_confirmed")
     .eq("trip_id", currentTrip.id)
     .eq("user_id", currentTrip.user_id)
+    .is("superseded_by_booking_id", null)
     .order("start_at", { ascending: true, nullsFirst: false });
   if (currentBookings.error) {
     await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "PRETRIP_7D_BOOKINGS_UNAVAILABLE", retryable: true });

@@ -70,7 +70,7 @@ export async function scheduleDailyTripBriefing(params: { supabase: SupabaseClie
     await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "DAILY_TRIP_NO_LONGER_USEFUL", retryable: true });
     return { ok: true as const, scheduled: false, suppressed: "DAILY_TRIP_NO_LONGER_USEFUL" as const };
   }
-  const currentBookings = await db.from("roamly_bookings").select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,origin,destination,traveler_confirmed").eq("trip_id", currentTrip.id).eq("user_id", currentTrip.user_id).order("start_at", { ascending: true, nullsFirst: false });
+  const currentBookings = await db.from("roamly_bookings").select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,origin,destination,traveler_confirmed").eq("trip_id", currentTrip.id).eq("user_id", currentTrip.user_id).is("superseded_by_booking_id", null).order("start_at", { ascending: true, nullsFirst: false });
   if (currentBookings.error) {
     await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "DAILY_TRIP_BOOKINGS_UNAVAILABLE", retryable: true });
     return { ok: true as const, scheduled: false, suppressed: "DAILY_TRIP_BOOKINGS_UNAVAILABLE" as const };

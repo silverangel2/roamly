@@ -76,6 +76,7 @@ import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { countMaterialTravelRequirements } from "@/lib/roamly/travelRequirements";
 import { buildTripTravelerRequirements, listTripTravelers } from "@/lib/roamly/tripTravelers";
+import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
 
 type TripPageProps = {
@@ -133,6 +134,7 @@ function formatBookingTimestamp(value: unknown, locale = "en") {
 }
 
 function isConfirmedBookingSnapshot(booking: Record<string, unknown>) {
+  if (!isOperationalCurrentBooking(booking)) return false;
   const status = getString(booking.booking_status || booking.status).toLowerCase();
   return booking.traveler_confirmed === true || ["confirmed", "booked", "ticketed", "issued"].includes(status);
 }
@@ -2362,6 +2364,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     .order("start_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
   const importedBookings = bookingsResult.error && isMissingTableError(bookingsResult.error.message) ? [] : bookingsResult.data || [];
+  const currentImportedBookings = importedBookings.filter(isOperationalCurrentBooking);
   const priceDiscoveryResult = trip.latest_price_discovery_id
     ? await supabase
         .from("roamly_price_discoveries")
@@ -2382,7 +2385,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : null;
   const hotelProductDecision = resolveSelectedHotelProductDecision({
     priceDiscovery: persistedPriceDiscovery,
-    confirmedBookings: importedBookings as Array<{ booking_type?: string | null; booking_status?: string | null }>
+    confirmedBookings: currentImportedBookings as Array<{ booking_type?: string | null; booking_status?: string | null }>
   });
   const hotelProductPresentation = buildHotelProductPresentation({ selectedHotelDecision: hotelProductDecision, comparisonCurrency: currency });
   const pendingHotelProductChoiceResult = await getPendingHotelProductChoice(supabase, id);
@@ -2775,7 +2778,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
                   </div>
                   <HotelProductOptions presentation={hotelProductPresentation} tripId={id} pendingChoice={pendingHotelProductChoice} />
-                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={importedBookings as Array<Record<string, unknown>>} />
+                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={currentImportedBookings as Array<Record<string, unknown>>} />
                   <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
                     <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
                     <div className="mt-4 grid gap-4">
@@ -2830,7 +2833,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           <CompactPrintItinerary
             trip={trip}
             itinerary={full}
-            bookings={importedBookings as Array<Record<string, unknown>>}
+            bookings={currentImportedBookings as Array<Record<string, unknown>>}
             tripTitle={tripTitle}
             destinationLabel={destinationLabel}
             currency={currency}

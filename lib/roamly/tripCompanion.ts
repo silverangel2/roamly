@@ -265,7 +265,7 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
 async function getTripAndBookings(supabase: SupabaseClient, tripId: string) {
   const [{ data: trip, error: tripError }, { data: bookings, error: bookingError }] = await Promise.all([
     supabase.from("roamly_trips").select("*").eq("id", tripId).maybeSingle(),
-    supabase.from("roamly_bookings").select("*").eq("trip_id", tripId).order("start_at", { ascending: true })
+    supabase.from("roamly_bookings").select("*").eq("trip_id", tripId).is("superseded_by_booking_id", null).order("start_at", { ascending: true })
   ]);
   if (tripError) return { trip: null, bookings: [], error: tripError.message };
   if (bookingError) return { trip: trip as CompanionTrip | null, bookings: [], error: bookingError.message };

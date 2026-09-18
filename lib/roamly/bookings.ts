@@ -403,6 +403,7 @@ export async function getConfirmedBookingCostCents(supabase: SupabaseClient, use
     .select("amount_cents")
     .eq("user_id", userId)
     .eq("trip_id", tripId)
+    .is("superseded_by_booking_id", null)
     .neq("booking_status", "cancelled");
 
   if (error) return { amountCents: 0, error: error.message };
@@ -418,6 +419,7 @@ export async function getConfirmedBookingsForItinerary(supabase: SupabaseClient,
     .select("booking_type,title,provider_name,booking_status,amount_cents,currency,start_date,end_date,start_time,end_time,start_at,end_at,origin,destination,flight_number,terminal,gate,address,city,country")
     .eq("user_id", userId)
     .eq("trip_id", tripId)
+    .is("superseded_by_booking_id", null)
     .neq("booking_status", "cancelled")
     .order("start_at", { ascending: true, nullsFirst: false })
     .limit(20);

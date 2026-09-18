@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
+import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+export { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 
 export const TRIP_BOOKING_TYPES = [
   "flight",
@@ -151,6 +153,7 @@ export type TripBookingRecord = {
   last_synced_at: string | null;
   created_at: string;
   updated_at: string;
+  superseded_by_booking_id: string | null;
   booking_segments?: BookingSegmentRecord[];
 };
 
@@ -270,8 +273,8 @@ export function withBookingReferralMetadata(
   };
 }
 
-export function isConfirmedBooking(booking: Pick<TripBookingRecord, "booking_status" | "traveler_confirmed">) {
-  return booking.traveler_confirmed && confirmedStatuses.has(booking.booking_status);
+export function isConfirmedBooking(booking: Pick<TripBookingRecord, "booking_status" | "traveler_confirmed"> & { superseded_by_booking_id?: string | null }) {
+  return isOperationalCurrentBooking(booking) && booking.traveler_confirmed && confirmedStatuses.has(booking.booking_status);
 }
 
 export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status">) {
@@ -413,6 +416,11 @@ function canonicalRowToTripBookingRecord(
     check_out_time:
       typeof row.check_out_at === "string"
         ? row.check_out_at
+        : null,
+
+    superseded_by_booking_id:
+      typeof row.superseded_by_booking_id === "string"
+        ? row.superseded_by_booking_id
         : null
   } as TripBookingRecord;
 }
@@ -525,6 +533,39 @@ async function assertTripOwnership(supabase: SupabaseClient, userId: string, tri
   if (error) return { ok: false as const, error: error.message };
   if (!data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
   return { ok: true as const };
+}
+
+export async function supersedeBooking(params: {
+  supabase: SupabaseClient;
+  admin: SupabaseClient;
+  userId: string;
+  tripId: string;
+  predecessorId: string;
+  successorId: string;
+}) {
+  if (params.predecessorId === params.successorId) return { ok: false as const, error: "BOOKING_SELF_LINK" };
+  const rows = await params.supabase
+    .from("roamly_bookings")
+    .select("id,user_id,trip_id,superseded_by_booking_id")
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .in("id", [params.predecessorId, params.successorId]);
+  if (rows.error) return { ok: false as const, error: rows.error.message };
+  if ((rows.data || []).length !== 2) return { ok: false as const, error: "BOOKING_NOT_FOUND" };
+  const predecessor = (rows.data || []).find((row) => row.id === params.predecessorId) as Record<string, unknown>;
+  if (predecessor.superseded_by_booking_id === params.successorId) {
+    return { ok: true as const, idempotent: true as const, booking: predecessor };
+  }
+  if (predecessor.superseded_by_booking_id) return { ok: false as const, error: "BOOKING_ALREADY_SUPERSEDED" };
+  const result = await params.admin.rpc("roamly_supersede_booking", {
+    p_user_id: params.userId,
+    p_trip_id: params.tripId,
+    p_predecessor_id: params.predecessorId,
+    p_successor_id: params.successorId
+  });
+  if (result.error) return { ok: false as const, error: result.error.message };
+  const booking = Array.isArray(result.data) ? result.data[0] : result.data;
+  return { ok: true as const, idempotent: false as const, booking: booking || null };
 }
 
 export async function listTripBookings(params: {
@@ -1352,6 +1393,7 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
       nullableText(record.last_synced_at),
     created_at: nullableText(record.created_at) || now,
     updated_at: nullableText(record.updated_at) || now,
+    superseded_by_booking_id: typeof record.superseded_by_booking_id === "string" ? record.superseded_by_booking_id : null,
     booking_segments: []
   };
 }

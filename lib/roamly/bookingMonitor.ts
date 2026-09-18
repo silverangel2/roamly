@@ -402,6 +402,7 @@ async function monitorSingleFlight(params: {
     .update(updatePayload)
     .eq("id", booking.id)
     .eq("user_id", booking.user_id)
+    .is("superseded_by_booking_id", null)
     .select("*")
     .single();
 
@@ -553,6 +554,7 @@ async function monitorUpcomingFlights(
       ["booked", "paid", "reserved"]
     )
     .not("trip_id", "is", null)
+    .is("superseded_by_booking_id", null)
     .not("flight_number", "is", null)
     .gte("start_at", windowStart)
     .lte("start_at", windowEnd)
