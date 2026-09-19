@@ -8,6 +8,7 @@ import {
 import type { RoamlyBrainStageType } from "@/lib/roamly/brain/stages";
 import type { RoamlyGenerationLayer } from "@/lib/roamly/generationQueue";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { evaluatePublicEventTruth } from "@/lib/roamly/publicEventDiscovery";
 
 export const ROAMLY_VALIDATION_LAYER_VERSION = "roamly-validation-v1";
 
@@ -27,6 +28,7 @@ export type ItineraryValidationCode =
   | "timezone_error"
   | "date_error"
   | "stale_market_data"
+  | "public_event_review_required"
   | "missing_reservation_warning"
   | "mixed_currencies"
   | "dependency_mismatch"
@@ -447,6 +449,27 @@ function validateTripWide(itinerary: RoamlyItinerary, payload: TripPlannerPayloa
         invalidates: budgetInvalidation(),
         evidence: { suggestion: suggestion.title, searchedAt: suggestion.searched_at || null, expiresAt: suggestion.expires_at || null }
       });
+    }
+    if (suggestion.market_source === "public_web") {
+      const truth = evaluatePublicEventTruth({
+        source: suggestion.market_source,
+        expiresAt: suggestion.expires_at,
+        startDate: suggestion.date,
+        ticketStatus: "unknown",
+        priceStatus: suggestion.price_confidence === "unknown" ? "unknown" : undefined
+      });
+      if (truth.state !== "CURRENT_VERIFIED") {
+        addFinding(findings, {
+          code: "public_event_review_required",
+          severity: "warning",
+          message: truth.state === "HISTORICAL"
+            ? `${suggestion.title} is historical event evidence, not a current upcoming event.`
+            : `${suggestion.title} needs current event verification before relying on its schedule or venue.`,
+          repairable: false,
+          invalidates: scheduleInvalidation(),
+          evidence: { candidateId: suggestion.candidateId || null, state: truth.state, reason: truth.reason, date: suggestion.date || null, expiresAt: suggestion.expires_at || null }
+        });
+      }
     }
   });
 

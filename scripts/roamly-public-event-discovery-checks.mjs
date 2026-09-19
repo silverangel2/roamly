@@ -38,7 +38,7 @@ function loadTsModule(entryFile) {
 }
 
 const events = loadTsModule("lib/roamly/publicEventDiscovery.ts");
-const { normalizePublicEventEvidence, evaluatePublicEventForTrip, dedupePublicEvents, publicEventToMarketResult } = events;
+const { normalizePublicEventEvidence, evaluatePublicEventForTrip, evaluatePublicEventTruth, publicEventTruthForMarketResult, dedupePublicEvents, publicEventToMarketResult } = events;
 const retrievedAt = "2026-09-14T12:00:00.000Z";
 const trip = { destination: "Montreal, Canada", startDate: "2026-10-09", endDate: "2026-10-12" };
 
@@ -98,6 +98,16 @@ const market = publicEventToMarketResult(publicFestival);
 assert.equal(market.price_type, "unknown", "AB: public event does not imply availability/price");
 assert.equal(market.metadata.public_event.title, publicFestival.title, "AC/AD: event identity and facts remain attached");
 assert.equal(market.metadata.ticket_status, "unknown", "W: ticket URL is not availability proof");
+assert.equal(publicEventTruthForMarketResult(market, new Date("2026-09-15T12:00:00.000Z")).state, "REVIEW_REQUIRED", "AK: retrievedAt alone does not establish current truth");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-09-20T00:00:00.000Z", startDate: "2026-10-10", ticketStatus: "unknown" }, new Date("2026-09-15T12:00:00.000Z")).state, "CURRENT_VERIFIED", "AL: valid future freshness can establish current event evidence");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-09-14T12:00:00.000Z", startDate: "2026-10-10" }, new Date("2026-09-15T12:00:00.000Z")).state, "REVIEW_REQUIRED", "AM: expired evidence requires review");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", startDate: "2026-10-10" }, new Date("2026-09-15T12:00:00.000Z")).state, "REVIEW_REQUIRED", "AN: missing expiry requires review");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "not-a-date", startDate: "2026-10-10" }, new Date("2026-09-15T12:00:00.000Z")).state, "REVIEW_REQUIRED", "AO: malformed expiry requires review");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2025-10-10" }, new Date("2026-09-15T12:00:00.000Z")).state, "HISTORICAL", "AP: ended events remain historical");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "bad-date" }, new Date("2026-09-15T12:00:00.000Z")).state, "REVIEW_REQUIRED", "AQ: malformed event dates do not create certainty");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-10-10", ticketStatus: "unknown" }, new Date("2026-09-15T12:00:00.000Z")).ticketStatus, "unknown", "AR: unknown ticket status remains unknown");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-10-10", ticketStatus: "available" }, new Date("2026-09-15T12:00:00.000Z")).ticketStatus, "available", "AS: ticket state remains separate from event truth");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-10-10", priceStatus: "known" }, new Date("2026-09-15T12:00:00.000Z")).priceStatus, "known", "AT: price provenance remains separate from event truth");
 
 const duplicate = dedupePublicEvents([publicFestival, publicFestival]);
 assert.equal(duplicate.length, 1, "AE: equivalent evidence dedupes deterministically");
@@ -120,7 +130,7 @@ assert.match(marketSearch, /publicEventToMarketResult/, "grounded events feed th
 assert.match(marketSearch, /start_date: payload\.startDate[\s\S]*end_date: payload\.endDate/, "trip event request binds exact dates");
 assert.match(marketSearch, /\[\.\.\.primaryResults, \.\.\.discoveryResults\]/, "public events coexist with Klook/provider activity results");
 assert.match(marketSearch, /if \(publicEventRequest\(request\)\)[\s\S]*continue;/, "weak event hits do not fall through as generic activity results");
-assert.match(itinerary, /result\?\.source === "public_web"\) return "View event details"/, "public events use informational CTA wording");
+assert.match(itinerary, /result\?\.source === "public_web"\) return "Check current event details"/, "public events use current-details CTA wording");
 assert.doesNotMatch(marketSearch, /Klook.*replace|replace.*Klook/i, "Klook is not an event replacement strategy");
 assert.doesNotMatch(marketSearch, /candidateDecisionCore|BOOKING_DEMAND_AFFILIATE_ID|orders\/(?:preview|create)/i, "AM/AS: unrelated authority is untouched");
 assert.doesNotMatch(itinerary, /affiliate_provider: .*public_web/, "public-web events are not affiliate providers");

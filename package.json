@@ -15,6 +15,7 @@
     "test:roamly-marketing-images": "node scripts/roamly-marketing-photo-ingestion-checks.mjs",
     "proof:facebook-reels": "node scripts/facebook-reel-runtime-proof.mjs",
     "test:roamly": "node scripts/roamly-core-checks.mjs",
+    "test:public-event-truth": "node scripts/roamly-public-event-discovery-checks.mjs",
     "test:trip-hierarchy": "node scripts/roamly-trip-hierarchy-checks.mjs",
     "test:travel-requirements": "node --experimental-strip-types scripts/roamly-travel-requirements-checks.mjs",
     "test:multi-traveler-requirements": "node --experimental-strip-types scripts/roamly-multi-traveler-requirements-checks.mjs",

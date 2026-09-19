@@ -14,6 +14,14 @@ export type PublicEventSourceQuality =
 export type PublicEventPriceStatus = "free" | "known" | "from_price" | "unknown";
 export type PublicEventTicketStatus = "available" | "sold_out" | "unavailable" | "unknown";
 export type PublicEventRecurrenceStatus = "single_occurrence" | "multi_day" | "recurring" | "unknown";
+export type PublicEventTruthState = "CURRENT_VERIFIED" | "REVIEW_REQUIRED" | "HISTORICAL";
+
+export type PublicEventTruth = {
+  state: PublicEventTruthState;
+  reason: "FRESH_EVIDENCE" | "MISSING_EXPIRY" | "MALFORMED_EXPIRY" | "EXPIRED_EVIDENCE" | "PAST_EVENT" | "MISSING_EVENT_DATE" | "MALFORMED_EVENT_DATE";
+  ticketStatus: PublicEventTicketStatus;
+  priceStatus: PublicEventPriceStatus;
+};
 
 export type PublicEventCandidate = {
   eventCandidateId: string;
@@ -116,6 +124,13 @@ function isoTimestamp(value: unknown) {
   if (!raw) return "";
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+}
+
+function truthDate(value: unknown) {
+  const raw = text(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const parsed = new Date(`${raw}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw ? null : raw;
 }
 
 function safeHttpUrl(value: unknown) {
@@ -253,6 +268,46 @@ export function evaluatePublicEventForTrip(event: PublicEventCandidate | null, c
   const eventEnd = event.endDate || event.startDate;
   if (eventEnd < startDate || event.startDate > endDate) return { eligible: false, reason: "OUTSIDE_TRIP" };
   return { eligible: true, reason: event.endDate ? "MULTI_DAY_OVERLAP" : "EXACT_DATE_OVERLAP" };
+}
+
+export function evaluatePublicEventTruth(input: {
+  source?: unknown;
+  expiresAt?: unknown;
+  startDate?: unknown;
+  endDate?: unknown;
+  ticketStatus?: unknown;
+  priceStatus?: unknown;
+}, now = new Date()): PublicEventTruth {
+  const ticket = ticketStatus(input.ticketStatus);
+  const price = priceStatus(input.priceStatus, null);
+  const start = truthDate(input.startDate);
+  const end = truthDate(input.endDate) || start;
+  const today = now.toISOString().slice(0, 10);
+  if (!start) return { state: "REVIEW_REQUIRED", reason: "MISSING_EVENT_DATE", ticketStatus: ticket, priceStatus: price };
+  if (input.endDate != null && text(input.endDate) && !truthDate(input.endDate)) {
+    return { state: "REVIEW_REQUIRED", reason: "MALFORMED_EVENT_DATE", ticketStatus: ticket, priceStatus: price };
+  }
+  if (end && end < today) return { state: "HISTORICAL", reason: "PAST_EVENT", ticketStatus: ticket, priceStatus: price };
+  const rawExpiry = text(input.expiresAt);
+  if (!rawExpiry) return { state: "REVIEW_REQUIRED", reason: "MISSING_EXPIRY", ticketStatus: ticket, priceStatus: price };
+  const expiry = new Date(rawExpiry);
+  if (Number.isNaN(expiry.getTime())) return { state: "REVIEW_REQUIRED", reason: "MALFORMED_EXPIRY", ticketStatus: ticket, priceStatus: price };
+  if (expiry.getTime() <= now.getTime()) return { state: "REVIEW_REQUIRED", reason: "EXPIRED_EVIDENCE", ticketStatus: ticket, priceStatus: price };
+  return { state: "CURRENT_VERIFIED", reason: "FRESH_EVIDENCE", ticketStatus: ticket, priceStatus: price };
+}
+
+export function publicEventTruthForMarketResult(result: Pick<TravelMarketResult, "source" | "expires_at" | "start_date" | "end_date" | "metadata">, now = new Date()) {
+  const event = result.metadata?.public_event && typeof result.metadata.public_event === "object"
+    ? result.metadata.public_event as Record<string, unknown>
+    : {};
+  return evaluatePublicEventTruth({
+    source: result.source,
+    expiresAt: result.expires_at,
+    startDate: result.start_date || event.startDate,
+    endDate: result.end_date || event.endDate,
+    ticketStatus: event.ticketStatus || result.metadata?.ticket_status,
+    priceStatus: event.priceStatus || result.metadata?.price_status
+  }, now);
 }
 
 export function dedupePublicEvents(events: PublicEventCandidate[]) {

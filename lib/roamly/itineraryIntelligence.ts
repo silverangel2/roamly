@@ -20,6 +20,7 @@ import type {
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { flightMarketFreshness } from "@/lib/roamly/selectedFlightIdentity";
+import { publicEventTruthForMarketResult } from "@/lib/roamly/publicEventDiscovery";
 
 const MAX_PRIMARY_TIMELINE_ITEMS = 6;
 const SHORT_TRANSFER_MINUTES = 15;
@@ -381,7 +382,7 @@ function normalizeTimeline(items: RoamlyActivitySeed[], payload: TripPlannerPayl
 function suggestedLabel(category: RoamlyBookingCategory, result?: TravelMarketResult | null) {
   if (category === "flight") return result && flightMarketFreshness(result) === "fresh" && result.price_type === "live_partner" ? "View flight" : "Search flights";
   if (category === "hotel") return "Check availability";
-  if ((category === "attraction" || category === "tour") && result?.source === "public_web") return "View event details";
+  if ((category === "attraction" || category === "tour") && result?.source === "public_web") return "Check current event details";
   if (category === "attraction" || category === "tour") return result?.source === "klook" && klookActivityActionState(result) === "verified_partner" ? "View on Klook" : category === "attraction" ? "Search for tickets" : "Search activity";
   if (category === "restaurant") return "View on Google Maps";
   if (category === "transport" || category === "car_rental") return "Open route";
@@ -392,6 +393,7 @@ function verificationStatus(result: TravelMarketResult | null | undefined) {
   if (!result) return "search_link_only";
   if (result.category === "flight" && flightMarketFreshness(result) !== "fresh") return "search_link_only";
   if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "search_link_only";
+  if (result.source === "public_web" && publicEventTruthForMarketResult(result).state !== "CURRENT_VERIFIED") return "requires_verification";
   const provider = clean(result.metadata?.retrieval_provider) as TravelRetrievalProvider;
   const nativeStatus = clean(result.metadata?.verification_status);
   if (nativeStatus === "native_review_evidence") return "native_verified";
@@ -415,6 +417,7 @@ function priceConfidence(result: TravelMarketResult | null | undefined): RoamlyB
   if (!result) return "unknown";
   if (result.category === "flight" && flightMarketFreshness(result) !== "fresh") return "unknown";
   if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "unknown";
+  if (result.source === "public_web" && publicEventTruthForMarketResult(result).state !== "CURRENT_VERIFIED") return "unknown";
   if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "partner";
   if (result.price_type === "estimated_fallback") return "estimated";
   return "unknown";
@@ -492,6 +495,7 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
   const flightFresh = category !== "flight" || flightMarketFreshness(result) === "fresh";
   const directUrl = clean(flightFresh ? result.affiliate_url || result.booking_url || result.normal_search_url : searchUrlForCategory(category, payload, result.title));
   const verification = verificationStatus(result);
+  const publicEventTruth = result.source === "public_web" ? publicEventTruthForMarketResult(result) : null;
   const providerUsed = retrievalProvider(result);
   const price = result.price_amount ?? result.price_min ?? null;
   const max = result.price_amount ?? result.price_max ?? null;
@@ -536,8 +540,11 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
     estimated_total_cost_max: category === "hotel" ? result.price_max ?? result.price_amount ?? null : undefined,
     currency: result.currency || payload.budgetCurrency || "CAD",
     price_confidence: priceConfidence(result),
+    factual_status: result.source === "public_web"
+      ? publicEventTruth?.state === "CURRENT_VERIFIED" ? "verified" : publicEventTruth?.state === "HISTORICAL" ? "unknown" : "search_ready"
+      : undefined,
     market_source: result.source,
-    price_type: result.price_type,
+    price_type: publicEventTruth && publicEventTruth.state !== "CURRENT_VERIFIED" ? "search_ready" : result.price_type,
     market_confidence: result.confidence,
     searched_at: result.searched_at,
     expires_at: result.expires_at,

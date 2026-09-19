@@ -1439,6 +1439,7 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
 function bookingActionLabel(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], link: ReturnType<typeof resolveBookingLink>) {
   if (category === "flight") return link?.hasAffiliateUrl ? "Compare flights" : "Search flights";
   if (category === "hotel") return "View hotel options";
+  if (suggestion.market_source === "public_web") return "Check current event details";
   if (category === "attraction" || category === "tour" || category === "activity") return link?.hasAffiliateUrl ? "Book activity" : "Open official search";
   if (category === "transport" || category === "car_rental") return link?.hasAffiliateUrl ? "Book transfer" : "Open route";
   if (category === "restaurant") return "View on Google Maps";
