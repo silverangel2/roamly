@@ -6,6 +6,7 @@ import {
 } from "@/lib/itinerary";
 import { validateItineraryDeterministically } from "@/lib/roamly/itineraryValidation";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import { evaluateRouteTransition, type RouteEndpoint, type RouteEvidence } from "@/lib/roamly/itineraryRouting";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 type BookingOverrideRecord = {
@@ -27,6 +28,7 @@ type BookingOverrideRecord = {
   location_name?: string | null;
   address?: string | null;
   coordinates?: Record<string, unknown> | null;
+  location_id?: string | null;
   flight_number?: string | null;
   terminal?: string | null;
   gate?: string | null;
@@ -166,6 +168,185 @@ function bookingDate(booking: BookingOverrideRecord) {
   return isoDate(bookingStart(booking) || booking.end_time || booking.end_at);
 }
 
+type TimelineRecord = RoamlyActivitySeed & Record<string, unknown>;
+
+function timelineRecord(item: RoamlyActivitySeed) {
+  return item as TimelineRecord;
+}
+
+function timelineItemId(item: RoamlyActivitySeed, dayNumber: number, index: number) {
+  const value = timelineRecord(item);
+  return clean(value.item_id) || clean(value.booking_id) || `day-${dayNumber}-item-${index}`;
+}
+
+function coordinate(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function endpointForItem(item: RoamlyActivitySeed, itemId: string): RouteEndpoint {
+  const value = timelineRecord(item);
+  const coordinates = value.coordinates && typeof value.coordinates === "object" && !Array.isArray(value.coordinates)
+    ? value.coordinates as Record<string, unknown>
+    : {};
+  return {
+    itemId,
+    locationId: clean(value.location_id) || null,
+    latitude: coordinate(coordinates.latitude ?? coordinates.lat ?? value.latitude),
+    longitude: coordinate(coordinates.longitude ?? coordinates.lng ?? coordinates.lon ?? value.longitude),
+    locationSource: clean(value.location_source) || null,
+    provenance: clean(value.factualStatus) || null
+  };
+}
+
+function routeEvidenceFor(value: unknown, fromItemId: string, toItemId: string): RouteEvidence | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const evidence = value as Partial<RouteEvidence>;
+  return evidence.fromItemId === fromItemId && evidence.toItemId === toItemId
+    ? evidence as RouteEvidence
+    : null;
+}
+
+function clockMinutes(value: unknown) {
+  const raw = clean(value);
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? hour * 60 + minute : null;
+}
+
+function absoluteItemMinutes(item: RoamlyActivitySeed, dayIndex: number, key: "startTime" | "endTime") {
+  const value = clockMinutes(timelineRecord(item)[key]);
+  return value == null ? null : dayIndex * 24 * 60 + value;
+}
+
+function isTransitionItem(item: RoamlyActivitySeed) {
+  const value = timelineRecord(item);
+  return item.item_type === "travel" || item.item_type === "transfer" || item.plan_role === "protected_anchor" || value.route_evidence != null || value.routing_status != null;
+}
+
+function routeUncertainty(value: TimelineRecord) {
+  const messages = Array.isArray(value.uncertainty) ? value.uncertainty.filter((entry): entry is string => typeof entry === "string") : [];
+  return Array.from(new Set([...messages, "Route evidence must be revalidated after the confirmed booking change."])).slice(0, 8);
+}
+
+function coordinatePair(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const point = value as Record<string, unknown>;
+  const latitude = coordinate(point.latitude ?? point.lat);
+  const longitude = coordinate(point.longitude ?? point.lng ?? point.lon);
+  return latitude == null || longitude == null ? null : `${latitude},${longitude}`;
+}
+
+function bookingFactsChanged(itinerary: RoamlyItinerary, booking: BookingOverrideRecord) {
+  const bookingId = clean(booking.id);
+  const recommendationId = clean(booking.recommendation_id);
+  const existing = itinerary.daily_itinerary.flatMap((day) => day.live_timeline || []).find((item) => {
+    const value = timelineRecord(item);
+    return clean(value.booking_id) === bookingId || (recommendationId && clean(value.candidateId) === recommendationId);
+  });
+  if (!existing) return true;
+  const value = timelineRecord(existing);
+  const bookingLocation = clean(booking.location_name || booking.address || booking.destination || booking.origin);
+  const existingLocation = clean(value.location_name);
+  if (bookingLocation && bookingLocation !== existingLocation) return true;
+  const bookingCoordinates = coordinatePair(booking.coordinates);
+  const existingCoordinates = coordinatePair(value.coordinates);
+  if (bookingCoordinates && bookingCoordinates !== existingCoordinates) return true;
+  const bookingOrigin = clean(booking.origin || firstSegment(booking).origin);
+  const bookingDestination = clean(booking.destination || firstSegment(booking).destination);
+  if (bookingOrigin && bookingOrigin !== clean(value.origin)) return true;
+  if (bookingDestination && bookingDestination !== clean(value.destination)) return true;
+  const bookingStartMinutes = minutesFromDate(bookingStart(booking));
+  const existingStartMinutes = clockMinutes(value.startTime);
+  if (bookingStartMinutes != null && bookingStartMinutes !== existingStartMinutes) return true;
+  const bookingEndMinutes = minutesFromDate(bookingEnd(booking));
+  const existingEndMinutes = clockMinutes(value.endTime);
+  return bookingEndMinutes != null && bookingEndMinutes !== existingEndMinutes;
+}
+
+function reconcileAffectedBookingRouting(itinerary: RoamlyItinerary, booking: BookingOverrideRecord, forceInvalidate = false) {
+  const flattened = itinerary.daily_itinerary.flatMap((day, dayIndex) =>
+    (day.live_timeline || []).map((item, itemIndex) => ({ day, dayIndex, itemIndex, item }))
+  );
+  const bookingId = clean(booking.id);
+  const anchorIndex = flattened.findIndex(({ item }) => clean(timelineRecord(item).booking_id) === bookingId);
+  if (!bookingId || anchorIndex < 0) return { itinerary, changed: false };
+
+  const anchor = flattened[anchorIndex];
+  const pairs = [
+    anchorIndex > 0
+      ? {
+          from: flattened[anchorIndex - 1],
+          to: anchor,
+          holder: isTransitionItem(flattened[anchorIndex - 1].item) ? flattened[anchorIndex - 1] : anchor
+        }
+      : null,
+    anchorIndex + 1 < flattened.length
+      ? {
+          from: anchor,
+          to: flattened[anchorIndex + 1],
+          holder: isTransitionItem(flattened[anchorIndex + 1].item) ? flattened[anchorIndex + 1] : flattened[anchorIndex + 1]
+        }
+      : null
+  ].filter((pair): pair is { from: typeof flattened[number]; to: typeof flattened[number]; holder: typeof flattened[number] } => Boolean(pair));
+  if (!pairs.length) return { itinerary, changed: false };
+
+  const updates = new Map<string, RoamlyActivitySeed>();
+  for (const pair of pairs) {
+    if (!isTransitionItem(pair.holder.item)) continue;
+    const fromItemId = timelineItemId(pair.from.item, pair.from.day.day_number, pair.from.itemIndex);
+    const toItemId = timelineItemId(pair.to.item, pair.to.day.day_number, pair.to.itemIndex);
+    const holder = timelineRecord(pair.holder.item);
+    const currentEvidence = forceInvalidate ? null : routeEvidenceFor(holder.route_evidence, fromItemId, toItemId);
+    const result = evaluateRouteTransition({
+      from: endpointForItem(pair.from.item, fromItemId),
+      to: endpointForItem(pair.to.item, toItemId),
+      schedule: {
+        previousEndMinutes: absoluteItemMinutes(pair.from.item, pair.from.dayIndex, "endTime"),
+        nextStartMinutes: absoluteItemMinutes(pair.to.item, pair.to.dayIndex, "startTime")
+      },
+      evidence: currentEvidence,
+      confirmedBooking: pair.to === anchor
+        ? { bookingId, fixedStartMinutes: absoluteItemMinutes(anchor.item, anchor.dayIndex, "startTime") }
+        : null
+    });
+    const next = { ...holder };
+    const staleEvidence = holder.route_evidence != null && !currentEvidence;
+    if (currentEvidence) {
+      next.routing_status = result.feasibility;
+      next.route_evidence = currentEvidence;
+      if (result.requiredMinutes != null && isTransitionItem(pair.holder.item)) {
+        next.travelTimeMinutes = result.requiredMinutes;
+        next.durationMinutes = result.requiredMinutes;
+      }
+    } else if (forceInvalidate || staleEvidence || holder.routing_status === "FEASIBLE" || holder.routing_status === "INFEASIBLE") {
+      next.routing_status = "UNCERTAIN";
+      next.route_evidence = null;
+      next.travelTimeMinutes = undefined;
+      next.durationMinutes = undefined;
+      next.uncertainty = routeUncertainty(next);
+      // A stale route's map target is not safe to reuse after its endpoint changed.
+      next.map_query = "";
+    } else {
+      continue;
+    }
+    const changed = JSON.stringify(holder) !== JSON.stringify(next);
+    if (changed) updates.set(`${pair.holder.dayIndex}:${pair.holder.itemIndex}`, next);
+  }
+  if (!updates.size) return { itinerary, changed: false };
+  const daily_itinerary = itinerary.daily_itinerary.map((day, dayIndex) => ({
+    ...day,
+    live_timeline: day.live_timeline.map((item, itemIndex) => updates.get(`${dayIndex}:${itemIndex}`) || item)
+  }));
+  return { itinerary: { ...itinerary, daily_itinerary }, changed: true };
+}
+
+export function reconcileConfirmedBookingRouting(itinerary: RoamlyItinerary, booking: BookingOverrideRecord) {
+  if (!bookingIsConfirmed(booking) || !bookingIsCurrent(booking)) return { itinerary, changed: false };
+  return reconcileAffectedBookingRouting(itinerary, booking, false);
+}
+
 function nonFlightCategory(booking: BookingOverrideRecord): RoamlyActivitySeed["item_type"] {
   const type = clean(booking.booking_type).toLowerCase();
   if (type === "hotel") return "hotel";
@@ -190,14 +371,17 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
   });
   const status = clean(booking.booking_status).toLowerCase();
   const cancelled = status === "cancelled";
+  const existing = markedIndex >= 0 ? timelineRecord(timeline[markedIndex]) : null;
   const provider = clean(booking.provider || booking.provider_name);
   const title = clean(booking.title) || provider || "Confirmed reservation";
   const reference = clean(booking.confirmation_number) || clean((booking.reservation_requirements || {}).confirmation_number);
   const start = bookingStart(booking);
-  const startMinutes = minutesFromDate(start) ?? 9 * 60;
+  const startMinutes = minutesFromDate(start) ?? clockMinutes(existing?.startTime) ?? 9 * 60;
   const item = {
-    time_label: formatTimeLabel(startMinutes),
-    startTime: formatTime24(startMinutes),
+    item_id: clean(existing?.item_id) || marker,
+    time_label: start ? formatTimeLabel(startMinutes) : clean(existing?.time_label) || formatTimeLabel(startMinutes),
+    startTime: start ? formatTime24(startMinutes) : clean(existing?.startTime) || undefined,
+    endTime: start ? undefined : clean(existing?.endTime) || undefined,
     title: `${cancelled ? "Cancelled" : "Confirmed"}: ${title}`,
     description: [
       cancelled ? "This booking was cancelled; do not navigate to it." : "Confirmed booking; this replaces the itinerary recommendation as the actual reservation.",
@@ -205,15 +389,18 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
       reference ? `Reference ${reference}` : "",
       clean(booking.destination || booking.origin)
     ].filter(Boolean).join(" "),
-    location_name: clean(booking.location_name || booking.address || booking.destination || booking.origin),
+    location_name: clean(booking.location_name || booking.address || booking.destination || booking.origin) || clean(existing?.location_name),
     estimated_cost: 0,
     category: cancelled ? "Cancelled booking" : "Confirmed booking",
-    map_query: clean(booking.destination || booking.origin || title),
+    map_query: clean(booking.destination || booking.origin) || clean(existing?.map_query) || title,
     item_type: cancelled ? nonFlightCategory(booking) : "booking",
     plan_role: cancelled ? "supporting" : "protected_anchor",
     factualStatus: "verified",
-    timing_status: start ? "FACTUAL" : "UNKNOWN",
-    coordinates: booking.coordinates || undefined,
+    timing_status: start ? "FACTUAL" : existing?.timing_status || "UNKNOWN",
+    coordinates: booking.coordinates || existing?.coordinates || undefined,
+    route_evidence: existing?.route_evidence || null,
+    routing_status: existing?.routing_status || undefined,
+    uncertainty: existing?.uncertainty || [],
     booking_id: marker,
     booking_status: cancelled ? "cancelled" : "confirmed",
     booking_label: cancelled ? "Cancelled booking" : "Confirmed booking"
@@ -341,8 +528,12 @@ export function applyConfirmedBookingOverrideToItinerary(
   booking: BookingOverrideRecord
 ) {
   if (!bookingIsConfirmed(booking) || !bookingIsCurrent(booking)) return { itinerary, changed: false };
+  const routeFactsChanged = bookingFactsChanged(itinerary, booking);
   if (clean(booking.booking_type).toLowerCase() !== "flight") {
-    return applyNonFlightBookingOverrideToItinerary(itinerary, booking);
+    const result = applyNonFlightBookingOverrideToItinerary(itinerary, booking);
+    if (!result.changed) return result;
+    const routing = reconcileAffectedBookingRouting(result.itinerary, booking, routeFactsChanged);
+    return { itinerary: routing.itinerary, changed: result.changed || routing.changed };
   }
   if (!bookingIsUsableFlight(booking)) return { itinerary, changed: false };
   const startDate = isoDate(bookingStart(booking));
@@ -367,7 +558,7 @@ export function applyConfirmedBookingOverrideToItinerary(
         }
       : item
   );
-  return {
+  const result = {
     itinerary: {
       ...itinerary,
       daily_itinerary,
@@ -376,6 +567,8 @@ export function applyConfirmedBookingOverrideToItinerary(
     },
     changed: true
   };
+  const routing = reconcileAffectedBookingRouting(result.itinerary, booking, routeFactsChanged);
+  return { itinerary: routing.itinerary, changed: result.changed || routing.changed };
 }
 
 function buildValidationPayload(trip: Record<string, unknown>): TripPlannerPayload | null {
@@ -448,6 +641,7 @@ export async function applyStoredItineraryBookingOverride(params: {
 
   const result = applyConfirmedBookingOverrideToItinerary(full, params.booking);
   if (!result.changed) return { ok: true as const, changed: false };
+  const reconciled = result.itinerary;
 
   const tripResult = await params.supabase
     .from("roamly_trips")
@@ -459,17 +653,17 @@ export async function applyStoredItineraryBookingOverride(params: {
 
   const affectedDayNumbers = new Set<number>();
   const bookingDateValue = bookingDate(params.booking);
-  result.itinerary.daily_itinerary.forEach((day) => {
+  reconciled.daily_itinerary.forEach((day) => {
     if (!bookingDateValue || isoDate(day.date) === bookingDateValue) affectedDayNumbers.add(day.day_number);
   });
   const payload = tripResult.data ? buildValidationPayload(tripResult.data as Record<string, unknown>) : null;
   const reconciledItinerary = payload
     ? applyAffectedValidation(
-        result.itinerary,
-        validateItineraryDeterministically({ itinerary: result.itinerary, payload }),
+        reconciled,
+        validateItineraryDeterministically({ itinerary: reconciled, payload }),
         affectedDayNumbers
       )
-    : result.itinerary;
+    : reconciled;
 
   const update = await params.supabase
     .from("roamly_itineraries")

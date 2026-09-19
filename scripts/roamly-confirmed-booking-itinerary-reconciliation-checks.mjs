@@ -8,6 +8,14 @@ import ts from "typescript";
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const nodeRequire = createRequire(import.meta.url);
 const source = fs.readFileSync(path.join(root, "lib/roamly/itineraryBookingOverrides.ts"), "utf8");
+const routingSource = fs.readFileSync(path.join(root, "lib/roamly/itineraryRouting.ts"), "utf8");
+const routingCompiled = ts.transpileModule(routingSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  fileName: "itineraryRouting.ts"
+}).outputText;
+const routingSandbox = { exports: {}, module: { exports: {} }, require: nodeRequire };
+routingSandbox.exports = routingSandbox.module.exports;
+vm.runInNewContext(routingCompiled, routingSandbox, { filename: "itineraryRouting.ts" });
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   fileName: "itineraryBookingOverrides.ts"
@@ -20,6 +28,7 @@ const sandbox = {
     if (id === "@/lib/itinerary") return { buildPreviewFromItinerary: (value) => value };
     if (id === "@/lib/roamly/itineraryValidation") return { validateItineraryDeterministically: () => ({ findings: [] }) };
     if (id === "@/lib/roamly/bookingSupersession") return { isOperationalCurrentBooking: (booking) => !booking.superseded_by_booking_id };
+    if (id === "@/lib/roamly/itineraryRouting") return routingSandbox.module.exports;
     return nodeRequire(id);
   }
 };
@@ -156,5 +165,130 @@ const selectedFlight = {
 const flightResult = applyConfirmedBookingOverrideToItinerary(baseItinerary([selectedFlight]), flight);
 assert.equal(flightResult.itinerary.daily_itinerary[0].live_timeline[0].booking_id, flight.id, "linked flight becomes authoritative");
 assert.equal(flightResult.itinerary.daily_itinerary[0].live_timeline[0].plan_role, "protected_anchor");
+
+const routeEvidence = {
+  fromItemId: "airport-item",
+  toItemId: "booking-hotel-current",
+  mode: "DRIVE",
+  distanceKm: 12,
+  distanceKind: "ROUTE_DISTANCE",
+  durationMinutes: 35,
+  durationSource: "fixture route",
+  authority: "AUTHORITATIVE_ROUTE",
+  source: "fixture",
+  confidence: "high"
+};
+const crossDayItinerary = {
+  ...baseItinerary([]),
+  daily_itinerary: [
+    {
+      ...baseItinerary([]).daily_itinerary[0],
+      date: "2026-10-10",
+      live_timeline: [{
+        item_id: "airport-item",
+        item_type: "travel",
+        title: "Arrival airport",
+        description: "Arrival",
+        location_name: "Airport A",
+        time_label: "11:00 PM",
+        startTime: "23:00",
+        endTime: "23:30",
+        estimated_cost: null,
+        category: "Travel",
+        map_query: "Airport A to Old Hotel",
+        coordinates: { latitude: 46.0, longitude: -64.8 },
+        routing_status: "FEASIBLE",
+        route_evidence: routeEvidence,
+        travelTimeMinutes: 35,
+        durationMinutes: 35
+      }]
+    },
+    {
+      ...baseItinerary([]).daily_itinerary[0],
+      day_number: 2,
+      date: "2026-10-11",
+      live_timeline: [{
+        item_type: "booking",
+        title: "Actual Hotel",
+        description: "Confirmed",
+        location_name: "Old Hotel Address",
+        time_label: "12:30 AM",
+        startTime: "00:30",
+        estimated_cost: null,
+        category: "Confirmed booking",
+        map_query: "New Hotel Address",
+        booking_id: hotel.id,
+        booking_status: "confirmed",
+        plan_role: "protected_anchor",
+        factualStatus: "verified",
+        coordinates: { latitude: 46.1, longitude: -64.7 }
+      }]
+    }
+  ]
+};
+const routed = applyConfirmedBookingOverrideToItinerary(crossDayItinerary, {
+  ...hotel,
+  start_at: "2026-10-11T00:30:00Z",
+  coordinates: { latitude: 46.1, longitude: -64.7 }
+});
+const oldRoute = routed.itinerary.daily_itinerary[0].live_timeline[0];
+assert.equal(oldRoute.routing_status, "UNCERTAIN", "old endpoint route is invalidated across a day boundary");
+assert.equal(oldRoute.route_evidence, null, "old endpoint evidence is not operational for the new hotel");
+assert.equal(oldRoute.travelTimeMinutes, undefined, "old route duration is not retained");
+assert.equal(oldRoute.map_query, "", "stale Maps target is cleared");
+const routedAgain = applyConfirmedBookingOverrideToItinerary(routed.itinerary, {
+  ...hotel,
+  start_at: "2026-10-11T00:30:00Z",
+  coordinates: { latitude: 46.1, longitude: -64.7 }
+});
+assert.deepEqual(routedAgain.itinerary, routed.itinerary, "routing reconciliation is idempotent");
+
+const currentRouteItinerary = structuredClone(crossDayItinerary);
+currentRouteItinerary.daily_itinerary[1].live_timeline[0].location_name = hotel.location_name;
+currentRouteItinerary.daily_itinerary[1].live_timeline[0].coordinates = { latitude: 46.1, longitude: -64.7 };
+const currentRoute = applyConfirmedBookingOverrideToItinerary(currentRouteItinerary, {
+  ...hotel,
+  start_at: "2026-10-11T00:30:00Z",
+  coordinates: { latitude: 46.1, longitude: -64.7 }
+});
+assert.equal(currentRoute.itinerary.daily_itinerary[0].live_timeline[0].routing_status, "FEASIBLE", "exact current route evidence remains usable");
+assert.equal(currentRoute.itinerary.daily_itinerary[0].live_timeline[0].travelTimeMinutes, 35, "current route duration is preserved from evidence");
+
+const missingBookingLocation = applyConfirmedBookingOverrideToItinerary(currentRouteItinerary, {
+  ...hotel,
+  start_at: "2026-10-11T00:30:00Z",
+  location_name: null,
+  address: null,
+  coordinates: null
+});
+assert.equal(missingBookingLocation.itinerary.daily_itinerary[1].live_timeline[0].location_name, hotel.location_name, "missing booking location does not erase an existing factual anchor");
+assert.equal(missingBookingLocation.itinerary.daily_itinerary[0].live_timeline[0].routing_status, "FEASIBLE", "missing booking location does not falsely invalidate exact current route evidence");
+
+const uncertainRoute = applyConfirmedBookingOverrideToItinerary(baseItinerary([{
+  item_id: "airport-item",
+  item_type: "transfer",
+  title: "Airport transfer",
+  description: "Transfer",
+  location_name: "Old Hotel Area",
+  time_label: "2:00 PM",
+  startTime: "14:00",
+  endTime: "14:45",
+  estimated_cost: null,
+  category: "Transfer",
+  map_query: "Old Hotel Area",
+  routing_status: "FEASIBLE",
+  travelTimeMinutes: 45,
+  durationMinutes: 45
+}, {
+  ...selectedHotel,
+  candidateId: "hotel-candidate-1"
+}]), {
+  ...hotel,
+  coordinates: null,
+  location_name: "New Hotel Address"
+});
+const uncertainTransfer = uncertainRoute.itinerary.daily_itinerary[0].live_timeline[0];
+assert.equal(uncertainTransfer.routing_status, "UNCERTAIN", "missing current route evidence remains uncertain");
+assert.equal(uncertainTransfer.travelTimeMinutes, undefined, "missing route evidence cannot retain an old duration");
 
 console.log("confirmed booking canonical itinerary reconciliation checks passed");

@@ -1,4 +1,5 @@
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import type { RouteEvidence } from "@/lib/roamly/itineraryRouting";
 import {
   calculateRemainingBudget,
   centsToAmount,
@@ -79,6 +80,8 @@ export type BudgetBreakdown = {
 export type RoamlyActivitySeed = {
   /** Stable server-assigned identity for a persisted itinerary item. */
   item_id?: string;
+  route_evidence?: RouteEvidence | null;
+  coordinates?: Record<string, unknown> | null;
   /** Stable identity for the proven conflict involving this item, when present. */
   conflict_id?: string;
   candidateId?: string;
@@ -2377,6 +2380,7 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
                 time_label: cleanString(itemRecord.time_label, ""),
                 startTime: cleanOptionalString(itemRecord.startTime || itemRecord.start_time),
                 endTime: cleanOptionalString(itemRecord.endTime || itemRecord.end_time),
+                item_id: cleanOptionalString(itemRecord.item_id),
                 title: safeTitle || "Unresolved place",
                 description: cleanString(itemRecord.description, ""),
                 location_name: rawLocation,
@@ -2406,6 +2410,14 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
                 routing_status: ["FEASIBLE", "INFEASIBLE", "UNCERTAIN"].includes(String(itemRecord.routing_status))
                   ? String(itemRecord.routing_status) as RoamlyActivitySeed["routing_status"]
                   : undefined,
+                route_evidence:
+                  itemRecord.route_evidence && typeof itemRecord.route_evidence === "object" && !Array.isArray(itemRecord.route_evidence)
+                    ? itemRecord.route_evidence as RoamlyActivitySeed["route_evidence"]
+                    : null,
+                coordinates:
+                  itemRecord.coordinates && typeof itemRecord.coordinates === "object" && !Array.isArray(itemRecord.coordinates)
+                    ? itemRecord.coordinates as Record<string, unknown>
+                    : null,
                 uncertainty: cleanList(itemRecord.uncertainty, [], 8)
               } as RoamlyActivitySeed;
             })
