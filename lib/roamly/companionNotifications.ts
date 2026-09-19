@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { activityEndDate, activityStartDate, tripWindowState, timezoneFromTripMetadata, type LiveCompanionActivity } from "@/lib/roamly/liveCompanion";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
 
 export type CompanionNotificationType =
   | "nearby_activity"
@@ -221,9 +222,42 @@ function retryDelaySeconds(attempt: number): number {
   return Math.min(3600, 60 * Math.pow(2, Math.max(0, attempt - 1)));
 }
 
+async function suppressCompanionDelivery(
+  admin: SupabaseClient,
+  delivery: DeliveryRow,
+  reason: string
+) {
+  await admin
+    .from("roamly_companion_notification_deliveries")
+    .update({ status: "suppressed", suppression_reason: reason })
+    .eq("id", delivery.id)
+    .eq("status", "sending");
+
+  if (delivery.notification_id) {
+    await admin
+      .from("roamly_notifications")
+      .update({ status: "read", action_url: null })
+      .eq("id", delivery.notification_id)
+      .eq("user_id", delivery.user_id);
+  }
+}
+
 export async function queueCompanionNotification(
   params: QueueCompanionNotificationParams
 ) {
+  if (params.tripId) {
+    const lifecycle = await loadCompanionTripLifecycle(params.supabase, {
+      tripId: params.tripId,
+      userId: params.userId
+    });
+    if (lifecycle.state === "unavailable") {
+      return { ok: false as const, error: "TRIP_LIFECYCLE_UNAVAILABLE", retryable: true };
+    }
+    if (lifecycle.state === "inactive") {
+      return { ok: true as const, suppressed: true as const, reason: "trip_not_eligible" };
+    }
+  }
+
   const idempotencyKey = params.idempotencyKey || hash([
     "roamly_companion_notification",
     params.userId,
@@ -409,6 +443,23 @@ export async function sendCompanionNotificationDelivery(
 
   const claimedDelivery = claimed.data as DeliveryRow;
   const claimedAttempt = claimedDelivery.attempt_count;
+
+  if (claimedDelivery.trip_id) {
+    const lifecycle = await loadCompanionTripLifecycle(admin, {
+      tripId: claimedDelivery.trip_id,
+      userId: claimedDelivery.user_id
+    });
+    if (lifecycle.state === "unavailable") {
+      await admin.from("roamly_companion_notification_deliveries")
+        .update({ status: "retrying", next_attempt_at: new Date(Date.now() + 10 * 60_000).toISOString(), last_error: "Trip lifecycle unavailable for delivery validation." })
+        .eq("id", claimedDelivery.id).eq("status", "sending");
+      return { ok: false as const, error: "TRIP_LIFECYCLE_UNAVAILABLE", retryable: true };
+    }
+    if (lifecycle.state === "inactive") {
+      await suppressCompanionDelivery(admin, claimedDelivery, "Trip is no longer active.");
+      return { ok: true as const, suppressed: true as const, reason: "trip_not_eligible" };
+    }
+  }
 
   const hasStructuredBookingReference = Boolean(
     claimedDelivery.booking_id ||

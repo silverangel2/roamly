@@ -6,6 +6,7 @@ import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { tripWindowState } from "@/lib/roamly/liveCompanion";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
 
 export type NotificationPayload = {
   title: string;
@@ -302,7 +303,31 @@ export async function sendScheduledTripNotifications() {
           .eq("id", event.trip_id)
           .eq("user_id", event.user_id)
           .maybeSingle()
-      : { data: null };
+      : { data: null, error: null };
+    if (event.trip_id && tripResult.error) {
+      await supabase.from("roamly_trip_companion_events")
+        .update({ status: "scheduled", scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString() })
+        .eq("id", event.id).eq("status", "processing");
+      continue;
+    }
+    if (event.trip_id) {
+      const lifecycle = await loadCompanionTripLifecycle(supabase, {
+        tripId: event.trip_id,
+        userId: event.user_id
+      });
+      if (lifecycle.state === "unavailable") {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "scheduled", scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
+      if (lifecycle.state === "inactive") {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "cancelled", completed_at: new Date().toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
+    }
     if (event.trip_id && (!tripResult.data?.tracking_unlocked && !tripResult.data?.live_companion_unlocked)) {
       await supabase
         .from("roamly_trip_companion_events")
@@ -372,6 +397,23 @@ export async function sendScheduledTripNotifications() {
         await supabase.from("roamly_trip_companion_events").update({ status: "scheduled", scheduled_for: preferences.liveCompanionPausedUntil }).eq("id", event.id).eq("status", "processing");
         continue;
       }
+
+      const lifecycle = await loadCompanionTripLifecycle(supabase, {
+        tripId: event.trip_id,
+        userId: event.user_id
+      });
+      if (lifecycle.state === "unavailable") {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "scheduled", scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
+      if (lifecycle.state === "inactive") {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "cancelled", completed_at: new Date().toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
     }
 
     const eventMetadata = event.metadata && typeof event.metadata === "object"
@@ -423,6 +465,12 @@ export async function sendScheduledTripNotifications() {
       delivery = queued.ok && queued.delivery?.id
         ? await sendCompanionNotificationDelivery(queued.delivery.id)
         : queued;
+      if (queued.ok && "suppressed" in queued && queued.suppressed) {
+        await supabase.from("roamly_trip_companion_events")
+          .update({ status: "cancelled", completed_at: new Date().toISOString() })
+          .eq("id", event.id).eq("status", "processing");
+        continue;
+      }
     } else {
       delivery = await sendPushNotification(supabase, event.user_id, {
       title: event.title || "Roamly reminder",
