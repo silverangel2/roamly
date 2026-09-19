@@ -45,11 +45,16 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: `REPAIR_${draft.repairability}`, proposal: draft }, { status: 409 });
   }
 
-  const repaired = removeOptionalActivity(itinerary, {
-    dayId: draft.dayId,
-    conflictId: draft.conflictId,
-    itemId: draft.targetItemId
-  });
+  let repaired;
+  try {
+    repaired = removeOptionalActivity(itinerary, {
+      dayId: draft.dayId,
+      conflictId: draft.conflictId,
+      itemId: draft.targetItemId
+    });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "REPAIR_TARGET_NOT_ALLOWED" }, { status: 409 });
+  }
   const admin = createSupabaseAdminClient();
   if (!admin) return NextResponse.json({ ok: false, error: "REPAIR_STORAGE_UNAVAILABLE" }, { status: 503 });
   const hashResult = await auth.supabase.rpc("roamly_itinerary_content_hash", { value: bundle.data.itinerary.full_json });

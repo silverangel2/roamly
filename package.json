@@ -21,6 +21,7 @@
     "test:candidate-decision": "node --experimental-strip-types scripts/roamly-candidate-decision-checks.mjs",
     "test:traveler-preference-application": "node --experimental-strip-types scripts/roamly-traveler-preference-application-checks.mjs",
     "test:planning-repair": "node scripts/roamly-planning-repair-checks.mjs",
+    "test:activity-repair-derived-state": "node scripts/roamly-activity-repair-derived-state-checks.mjs",
     "test:verified-companion-repair": "node scripts/roamly-verified-companion-repair-checks.mjs",
     "test:booking-outcome": "node scripts/roamly-booking-outcome-checks.mjs",
     "test:booking-closure": "node scripts/roamly-booking-closure-checks.mjs",

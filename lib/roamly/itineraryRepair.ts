@@ -35,6 +35,71 @@ export type RepairVerificationState =
   | "APPLIED_STILL_INFEASIBLE"
   | "APPLIED_UNCERTAIN";
 
+const protectedBookingStatuses = new Set([
+  "confirmed",
+  "completed",
+  "detected",
+  "needs_confirmation",
+  "modified",
+  "cancelled",
+  "refunded",
+  "user_uploaded"
+]);
+
+function linkedCandidateId(item: RoamlyActivitySeed) {
+  return typeof item.candidateId === "string" && item.candidateId.trim() ? item.candidateId.trim() : null;
+}
+
+function suggestionCandidateId(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  return typeof suggestion.candidateId === "string" && suggestion.candidateId.trim() ? suggestion.candidateId.trim() : null;
+}
+
+function suggestionHasBookingIdentity(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const record = suggestion as unknown as Record<string, unknown>;
+  return typeof record.booking_id === "string" && record.booking_id.trim().length > 0;
+}
+
+function suggestionStatus(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  return typeof suggestion.booking_status === "string" ? suggestion.booking_status.trim().toLowerCase() : "";
+}
+
+function linkedSuggestionIsProtected(
+  itinerary: RoamlyItinerary,
+  item: RoamlyActivitySeed
+) {
+  const candidateId = linkedCandidateId(item);
+  if (!candidateId) return false;
+  return itinerary.booking_suggestions.some((suggestion) => {
+    if (suggestionCandidateId(suggestion) !== candidateId) return false;
+    return suggestionHasBookingIdentity(suggestion) || protectedBookingStatuses.has(suggestionStatus(suggestion));
+  });
+}
+
+/**
+ * Removes only an exact candidate-linked, still-unbooked recommendation.
+ * Referral/pending/confirmed evidence remains in the itinerary/history.
+ * Aggregate budget fields are intentionally preserved because the current
+ * schema has no per-expense identity from which a safe subtraction can be
+ * derived.
+ */
+export function reconcileRemovedOptionalActivityDerivedState(
+  itinerary: RoamlyItinerary,
+  item: RoamlyActivitySeed
+) {
+  const candidateId = linkedCandidateId(item);
+  if (!candidateId) return { itinerary, removedSuggestionCount: 0 };
+  const before = itinerary.booking_suggestions.length;
+  const booking_suggestions = itinerary.booking_suggestions.filter((suggestion) => {
+    if (suggestionCandidateId(suggestion) !== candidateId) return true;
+    if (suggestionHasBookingIdentity(suggestion)) return true;
+    return !["suggested", "needs_booking"].includes(suggestionStatus(suggestion));
+  });
+  return {
+    itinerary: { ...itinerary, booking_suggestions },
+    removedSuggestionCount: before - booking_suggestions.length
+  };
+}
+
 export function assignStableItineraryIdentities(
   itinerary: RoamlyItinerary,
   idFactory: () => string = randomUUID
@@ -84,6 +149,7 @@ export function findRepairTarget(
   if (!item) return { repairability: "NOT_REPAIRABLE" };
   if (item.conflict_id !== conflictId) return { repairability: "NOT_REPAIRABLE", item, day };
   if (isProtected(item)) return { repairability: "NOT_REPAIRABLE", item, day };
+  if (linkedSuggestionIsProtected(itinerary, item)) return { repairability: "NOT_REPAIRABLE", item, day };
   if (item.routing_status !== "INFEASIBLE") return { repairability: "UNCERTAIN", item, day };
   if (!titleMatchesFlexible(day, item)) return { repairability: "NOT_REPAIRABLE", item, day };
   return {
@@ -113,7 +179,7 @@ export function removeOptionalActivity(
     .find((day) => day.day_id === target.dayId)
     ?.live_timeline.filter((item) => item.item_id === target.itemId) || [];
   if (matchingItems.length !== 1) throw new Error("REPAIR_TARGET_ID_NOT_UNIQUE");
-  return {
+  const removed = {
     ...itinerary,
     daily_itinerary: itinerary.daily_itinerary.map((day) =>
       day.day_id !== target.dayId
@@ -121,6 +187,7 @@ export function removeOptionalActivity(
         : { ...day, live_timeline: day.live_timeline.filter((item) => item.item_id !== target.itemId) }
     )
   };
+  return reconcileRemovedOptionalActivityDerivedState(removed, matchingItems[0]).itinerary;
 }
 
 export function verifyAppliedRepair(params: {
