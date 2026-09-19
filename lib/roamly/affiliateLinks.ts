@@ -375,9 +375,30 @@ export function marketResultIsSelectedActivity(
 
 function verifiedPartnerMarketResult(market: Record<string, unknown> | null) {
   if (!market) return false;
-  const priceType = cleanStringValue(market.price_type);
-  const provider = cleanStringValue(getRecord(market.metadata)?.retrieval_provider);
-  return priceType === "live_partner" || priceType === "cached_recent" || provider === "provider_api";
+  return klookActivityActionState(market) === "verified_partner";
+}
+
+export type ActivityMarketFreshness = "fresh" | "stale" | "unknown";
+
+export function activityMarketFreshness(market: Record<string, unknown> | null | undefined, now = new Date()): ActivityMarketFreshness {
+  const raw = cleanStringValue(market?.expires_at);
+  if (!raw) return "unknown";
+  const expiresAt = Date.parse(raw);
+  if (!Number.isFinite(expiresAt)) return "unknown";
+  return expiresAt > now.getTime() ? "fresh" : "stale";
+}
+
+export function isFreshKlookActivityMarketResult(market: Record<string, unknown> | null | undefined, now = new Date()) {
+  return cleanStringValue(market?.source).toLowerCase() === "klook" && activityMarketFreshness(market, now) === "fresh";
+}
+
+export function klookActivityActionState(market: Record<string, unknown> | null | undefined, now = new Date()) {
+  const priceType = cleanStringValue(market?.price_type);
+  const provider = cleanStringValue(getRecord(market?.metadata)?.retrieval_provider);
+  return isFreshKlookActivityMarketResult(market, now) &&
+    (priceType === "live_partner" || priceType === "cached_recent" || provider === "provider_api")
+    ? "verified_partner" as const
+    : "search_only" as const;
 }
 
 function approvedMarketAffiliateUrl(
@@ -1251,6 +1272,9 @@ export function enrichItineraryBookingSuggestions(
       const market = pickMarketResult(suggestion, payload, selectedFlightIdentity);
       const marketRange = market ? marketPriceRange(market) : { min: null, max: null };
       const linkCategory = affiliateCategoryForSuggestion(suggestion);
+      const staleExactKlookActivity = isActivityBookingCategory(linkCategory) &&
+        cleanStringValue(market?.source).toLowerCase() === "klook" &&
+        !isFreshKlookActivityMarketResult(market);
       const link = buildRoamlyAffiliateUrl({
         category: linkCategory,
         destination: suggestion.destination || suggestion.city || payload.destination,
@@ -1281,18 +1305,21 @@ export function enrichItineraryBookingSuggestions(
         currency: payload.budgetCurrency
       };
       const flightContinuity = linkCategory === "flight" ? selectedFlightContinuityLevel(selectedFlightIdentity) : null;
+      const marketForAction = staleExactKlookActivity ? null : market;
       const affiliateUrl = isHotelSuggestion
         ? safeHotelAffiliateUrl(approvedMarketAffiliateUrl(market, link))
         : flightContinuity && flightContinuity > 0 && !market
           ? ""
-          : approvedMarketAffiliateUrl(market, link, linkCategory);
+          : approvedMarketAffiliateUrl(marketForAction, link, linkCategory);
       const hasAffiliateUrl = Boolean(affiliateUrl) && !unsafeStay22Url(affiliateUrl);
       const normalSearchUrl = isHotelSuggestion
         ? safeHotelSearchUrl(
             originalNormalSearchUrl || link.href,
             hotelSearchParams
           )
-        : originalNormalSearchUrl || link.href || "";
+        : staleExactKlookActivity
+          ? safeBookingHref(normalSearchUrlForSuggestion(suggestion, payload)) || ""
+          : originalNormalSearchUrl || link.href || "";
       const affiliateProvider = hasAffiliateUrl
         ? link.affiliate_provider
         : "roamly_internal";
@@ -1340,9 +1367,9 @@ export function enrichItineraryBookingSuggestions(
         estimated_total_cost_max:
           suggestion.booking_category === "hotel" ? marketRange.max ?? suggestion.estimated_total_cost_max : suggestion.estimated_total_cost_max,
         currency: cleanStringValue(market?.currency) || suggestion.currency,
-        price_confidence: market ? marketPriceConfidence(market) : suggestion.price_confidence || "estimated",
+        price_confidence: staleExactKlookActivity ? "unknown" : market ? marketPriceConfidence(market) : suggestion.price_confidence || "estimated",
         market_source: cleanStringValue(market?.source) as RoamlyItinerary["booking_suggestions"][number]["market_source"],
-        price_type: cleanStringValue(market?.price_type) as RoamlyItinerary["booking_suggestions"][number]["price_type"],
+        price_type: staleExactKlookActivity ? "search_ready" : cleanStringValue(market?.price_type) as RoamlyItinerary["booking_suggestions"][number]["price_type"],
         market_confidence: cleanStringValue(market?.confidence) as RoamlyItinerary["booking_suggestions"][number]["market_confidence"],
         searched_at: cleanStringValue(market?.searched_at) || suggestion.searched_at,
         expires_at: cleanStringValue(market?.expires_at) || suggestion.expires_at,

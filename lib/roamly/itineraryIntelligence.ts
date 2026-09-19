@@ -18,6 +18,7 @@ import type {
   TravelRetrievalProvider
 } from "@/lib/roamly/travelMarketSearch";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 
 const MAX_PRIMARY_TIMELINE_ITEMS = 6;
 const SHORT_TRANSFER_MINUTES = 15;
@@ -380,7 +381,7 @@ function suggestedLabel(category: RoamlyBookingCategory, result?: TravelMarketRe
   if (category === "flight") return result?.price_type === "live_partner" ? "View flight" : "Search flights";
   if (category === "hotel") return "Check availability";
   if ((category === "attraction" || category === "tour") && result?.source === "public_web") return "View event details";
-  if (category === "attraction" || category === "tour") return result?.source === "klook" ? "View on Klook" : category === "attraction" ? "Search for tickets" : "Search activity";
+  if (category === "attraction" || category === "tour") return result?.source === "klook" && klookActivityActionState(result) === "verified_partner" ? "View on Klook" : category === "attraction" ? "Search for tickets" : "Search activity";
   if (category === "restaurant") return "View on Google Maps";
   if (category === "transport" || category === "car_rental") return "Open route";
   return "Search";
@@ -388,6 +389,7 @@ function suggestedLabel(category: RoamlyBookingCategory, result?: TravelMarketRe
 
 function verificationStatus(result: TravelMarketResult | null | undefined) {
   if (!result) return "search_link_only";
+  if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "search_link_only";
   const provider = clean(result.metadata?.retrieval_provider) as TravelRetrievalProvider;
   const nativeStatus = clean(result.metadata?.verification_status);
   if (nativeStatus === "native_review_evidence") return "native_verified";
@@ -409,6 +411,7 @@ function retrievalProvider(result: TravelMarketResult | null | undefined): Trave
 
 function priceConfidence(result: TravelMarketResult | null | undefined): RoamlyBookingSuggestion["price_confidence"] {
   if (!result) return "unknown";
+  if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "unknown";
   if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "partner";
   if (result.price_type === "estimated_fallback") return "estimated";
   return "unknown";
@@ -514,7 +517,7 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
     free_or_paid: category === "restaurant" ? "unknown" : "paid",
     booking_label: suggestedLabel(category, result),
     normal_search_url: directUrl,
-    affiliate_url: result.source === "klook" && (result.price_type === "live_partner" || providerUsed === "provider_api")
+    affiliate_url: result.source === "klook" && klookActivityActionState(result) === "verified_partner"
       ? clean(result.affiliate_url || result.booking_url)
       : clean(result.affiliate_url),
     affiliate_provider: result.source === "klook" || result.source === "stay22" || result.source === "travelpayouts" ? result.source : "",

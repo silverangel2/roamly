@@ -20,6 +20,7 @@ import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "
 import { searchTripMarketPrices, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
 import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
+import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { rankActivityCandidates } from "@/lib/roamly/activityFeasibility";
 import {
   finalizeStagedGenerationNotification,
@@ -785,6 +786,7 @@ function marketVerificationStatus(result: TravelMarketResult) {
   const metadata = getRecord(result.metadata);
   const verification = getString(metadata?.verification_status, "");
   if (verification) return verification;
+  if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "search_link_only";
   const provider = marketRetrievalProvider(result);
   if (provider === "native") return "native_verified";
   if (provider === "provider_api" || result.price_type === "live_partner" || result.price_type === "cached_recent") return "verified";

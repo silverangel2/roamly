@@ -25,6 +25,7 @@ import {
 } from "@/lib/roamly/tripMetadata";
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { getTripBundle, isMissingTableError, type RoamlyTripRecord } from "@/lib/trips";
+import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -63,6 +64,13 @@ function bookingTitle(suggestion: RoamlyItinerary["booking_suggestions"][number]
 }
 
 function bookingAction(suggestion: RoamlyItinerary["booking_suggestions"][number], locale: RoamlyLocale = "en") {
+  if (["attraction", "tour", "activity"].includes(String(suggestion.category || suggestion.booking_category)) && suggestion.market_source === "klook" && klookActivityActionState({
+    source: suggestion.market_source,
+    price_type: suggestion.price_type,
+    expires_at: suggestion.expires_at
+  }) !== "verified_partner") {
+    return suggestion.category === "attraction" ? tr(locale, "Search for tickets") : tr(locale, "Search activity");
+  }
   return suggestion.booking_label || tr(locale, "Find option");
 }
 
@@ -99,9 +107,15 @@ function tripRooms(trip: RoamlyTripRecord) {
 }
 
 function bookingHref(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
-  const affiliate = safeExternalUrl(suggestion.affiliate_url);
+  const isKlookActivity = ["attraction", "tour", "activity"].includes(String(suggestion.category || suggestion.booking_category)) && suggestion.market_source === "klook";
+  const klookActionIsFresh = klookActivityActionState({
+    source: suggestion.market_source,
+    price_type: suggestion.price_type,
+    expires_at: suggestion.expires_at
+  }) === "verified_partner";
+  const affiliate = isKlookActivity && !klookActionIsFresh ? "" : safeExternalUrl(suggestion.affiliate_url);
   if (affiliate) return affiliate;
-  const normal = safeExternalUrl(suggestion.normal_search_url);
+  const normal = isKlookActivity && !klookActionIsFresh ? "" : safeExternalUrl(suggestion.normal_search_url);
   if (normal) return normal;
 
   const category = suggestion.category || suggestion.booking_category;

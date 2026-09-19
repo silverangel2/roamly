@@ -25,7 +25,7 @@ import { getServerLocale } from "@/lib/i18n-server";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
-import { affiliateDisclosure, enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
+import { affiliateDisclosure, enrichItineraryBookingSuggestions, klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
@@ -1108,7 +1108,11 @@ function isVerifiedKlookActivitySuggestion(suggestion: RoamlyItinerary["booking_
   if (host !== "klook.com" && !host.endsWith(".klook.com")) return false;
   return (
     suggestion.market_source === "klook" &&
-    (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")
+    klookActivityActionState({
+      source: suggestion.market_source,
+      price_type: suggestion.price_type,
+      expires_at: suggestion.expires_at
+    }) === "verified_partner"
   );
 }
 

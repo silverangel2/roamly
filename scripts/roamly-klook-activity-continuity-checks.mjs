@@ -13,9 +13,9 @@ function loadTsModule(entryFile) {
     const absolute = path.join(root, file);
     if (cache.has(absolute)) return cache.get(absolute).module.exports;
     if (absolute.endsWith(".json")) {
-      const module = { exports: JSON.parse(fs.readFileSync(absolute, "utf8")) };
-      cache.set(absolute, { module });
-      return module.exports;
+      const moduleRecord = { exports: JSON.parse(fs.readFileSync(absolute, "utf8")) };
+      cache.set(absolute, { module: moduleRecord });
+      return moduleRecord.exports;
     }
     const source = fs.readFileSync(absolute, "utf8");
     const compiled = ts.transpileModule(source, {
@@ -49,7 +49,7 @@ function loadTsModule(entryFile) {
 
 const links = loadTsModule("lib/roamly/affiliateLinks.ts");
 const redirect = loadTsModule("lib/roamly/affiliateRedirect.ts");
-const { marketResultIsSelectedActivity } = links;
+const { activityMarketFreshness, isFreshKlookActivityMarketResult, klookActivityActionState, marketResultIsSelectedActivity } = links;
 const { safeAffiliateRedirectUrl } = redirect;
 
 const activityA = {
@@ -84,6 +84,26 @@ assert.equal(marketResultIsSelectedActivity({ ...activityB, id: "klook-result-a"
 assert.equal(marketResultIsSelectedActivity({ ...activityB, id: "klook-result-a", price_amount: 1 }, activityA), true, "lower price cannot change exact activity identity");
 assert.equal(marketResultIsSelectedActivity({ id: "klook-result-a", category: "attraction" }, { ...activityA, candidateId: undefined }), false, "B: unknown activity identity fails conservatively");
 assert.equal(marketResultIsSelectedActivity(activityB, publicWebActivity), false, "AE: Klook Activity B cannot replace a public-web Activity A");
+const freshKlook = { ...activityB, source: "klook", price_type: "live_partner", expires_at: "2026-10-17T12:00:00.000Z" };
+const staleKlook = { ...freshKlook, expires_at: "2026-10-17T10:00:00.000Z" };
+const unknownExpiryKlook = { ...freshKlook, expires_at: undefined };
+const malformedExpiryKlook = { ...freshKlook, expires_at: "not-a-date" };
+const testNow = new Date("2026-10-17T11:00:00.000Z");
+assert.equal(activityMarketFreshness(freshKlook, testNow), "fresh", "AF: future expiry is freshness-eligible");
+assert.equal(activityMarketFreshness({ ...freshKlook, expires_at: testNow.toISOString() }, testNow), "stale", "AG: expiry exactly at evaluation time is stale");
+assert.equal(activityMarketFreshness(staleKlook, testNow), "stale", "AH: expired Klook evidence is stale");
+assert.equal(activityMarketFreshness(unknownExpiryKlook, testNow), "unknown", "AI: missing expiry is not permanently fresh");
+assert.equal(activityMarketFreshness(malformedExpiryKlook, testNow), "unknown", "AJ: malformed expiry is not fresh");
+assert.equal(isFreshKlookActivityMarketResult(freshKlook, testNow), true, "AK: fresh exact Klook evidence may support partner action");
+assert.equal(isFreshKlookActivityMarketResult(staleKlook, testNow), false, "AL: stale exact Klook evidence cannot support partner action");
+assert.equal(klookActivityActionState(freshKlook, testNow), "verified_partner", "AM: fresh Klook evidence produces verified partner action state");
+assert.equal(klookActivityActionState(staleKlook, testNow), "search_only", "AN: stale Klook evidence produces search-only action state");
+assert.equal(klookActivityActionState(unknownExpiryKlook, testNow), "search_only", "AO: unknown Klook expiry produces search-only action state");
+assert.equal(klookActivityActionState({ ...freshKlook, price_type: "cached_recent" }, testNow), "verified_partner", "AP: cached recent evidence still requires and satisfies future expiry");
+assert.equal(klookActivityActionState({ ...freshKlook, metadata: { retrieval_provider: "provider_api" }, price_type: "unknown" }, testNow), "verified_partner", "AQ: provider API evidence still requires future expiry");
+assert.equal(klookActivityActionState({ ...staleKlook, metadata: { retrieval_provider: "provider_api" } }, testNow), "search_only", "AR: provider API metadata cannot bypass expiry");
+assert.equal(klookActivityActionState({ ...freshKlook, id: "klook-result-unrelated" }, testNow), "verified_partner", "AS: unrelated fresh activity evidence remains independently fresh");
+assert.equal(marketResultIsSelectedActivity(staleKlook, activityA), false, "AT: stale evidence still cannot substitute for candidate identity");
 assert.equal(publicWebActivity.source, "public_web", "public-web activity provenance remains intact");
 assert.equal(publicWebActivity.title, "Montreal Saturday Night Festival", "public-web activity title remains intact");
 assert.equal(publicWebActivity.date, "2026-10-17", "public-web activity date remains intact");
@@ -102,6 +122,8 @@ assert.match(intelligence, /candidateId: result\.id/, "Q: normalized activity su
 assert.match(intelligence, /market_source: result\.source/, "public-web and Klook provenance remain separate");
 assert.match(intelligence, /date: result\.start_date/, "activity date remains factual source data");
 assert.match(affiliateLinks, /source === "klook" && verifiedPartnerMarketResult/, "G: only verified Klook market results can provide actions");
+assert.match(affiliateLinks, /staleExactKlookActivity/, "AO: stale exact Klook evidence is downgraded at enrichment");
+assert.match(affiliateLinks, /price_type: staleExactKlookActivity \? "search_ready"/, "AP: stale Klook price is search-only, not current");
 assert.match(affiliateLinks, /\.\.\.suggestion,/, "ungrounded/public activities remain present during enrichment");
 assert.doesNotMatch(affiliateLinks, /filter\(.*activity.*klook/i, "absence of Klook identity does not delete activities");
 assert.doesNotMatch(affiliateLinks, /candidateDecisionCore/, "AO: ranking core is untouched");

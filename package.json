@@ -27,6 +27,7 @@
     "test:booking-evidence-token": "node --experimental-strip-types scripts/roamly-booking-evidence-token-checks.mjs",
     "test:booking-supersession": "node --experimental-strip-types scripts/roamly-booking-supersession-checks.mjs",
     "test:hotel-inventory": "node --experimental-strip-types scripts/roamly-hotel-inventory-checks.mjs",
+    "test:selected-activity-freshness": "node scripts/roamly-klook-activity-continuity-checks.mjs",
     "test:stripe-webhook-idempotency": "node scripts/roamly-stripe-webhook-idempotency-checks.mjs",
     "test:stripe-refund-lifecycle": "node scripts/roamly-refund-entitlement-checks.mjs",
     "test:operational-incidents": "node scripts/roamly-operational-incident-checks.mjs",
