@@ -27,6 +27,9 @@ export type SelectedFlightIdentity = {
   deepLink: string | null;
 };
 
+export type FlightMarketFreshness = "fresh" | "stale" | "unknown";
+export type SelectedFlightMarketActionState = "verified_partner" | "search_only";
+
 function text(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
@@ -63,6 +66,24 @@ export function resolveSelectedFlightIdentity(input: {
 
 export function marketResultIsSelectedFlight(result: Record<string, unknown> | null | undefined, identity: SelectedFlightIdentity | null) {
   return Boolean(identity && result && text(result.id) === identity.candidateId && text(result.category) === "flight");
+}
+
+export function flightMarketFreshness(result: Record<string, unknown> | null | undefined, now = new Date()): FlightMarketFreshness {
+  const raw = text(result?.expires_at);
+  if (!raw) return "unknown";
+  const expiresAt = Date.parse(raw);
+  if (!Number.isFinite(expiresAt)) return "unknown";
+  return expiresAt > now.getTime() ? "fresh" : "stale";
+}
+
+export function selectedFlightMarketActionState(
+  result: Record<string, unknown> | null | undefined,
+  identity: SelectedFlightIdentity | null,
+  now = new Date()
+): SelectedFlightMarketActionState {
+  return marketResultIsSelectedFlight(result, identity) && flightMarketFreshness(result, now) === "fresh"
+    ? "verified_partner"
+    : "search_only";
 }
 
 export function isTrustedTravelpayoutsDeepLink(value: unknown) {

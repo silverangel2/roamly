@@ -5,7 +5,9 @@ import {
   marketResultIsSelectedFlight,
   isTrustedTravelpayoutsDeepLink,
   resolveSelectedFlightIdentity,
-  selectedFlightContinuityLevel
+  selectedFlightContinuityLevel,
+  flightMarketFreshness,
+  selectedFlightMarketActionState
 } from "../lib/roamly/selectedFlightIdentity.ts";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
@@ -25,6 +27,9 @@ const flightA = {
   deepLink: "https://www.aviasales.com/search/YFC0110YUL0310"
 };
 const flightB = { ...flightA, candidateId: "flight-b", providerOfferId: "offer-b", flightNumbers: ["AC202"] };
+const now = new Date("2026-09-18T12:00:00.000Z");
+const freshMarket = { id: "flight-a", category: "flight", source: "travelpayouts", price_type: "live_partner", expires_at: "2026-09-18T12:00:01.000Z" };
+const staleMarket = { ...freshMarket, expires_at: "2026-09-18T12:00:00.000Z" };
 
 const identity = resolveSelectedFlightIdentity({ selectedFlightCandidateId: "flight-a", candidates: [flightA, flightB] });
 assert.equal(identity?.candidateId, "flight-a");
@@ -42,6 +47,18 @@ assert.equal(isTrustedTravelpayoutsDeepLink(flightA.deepLink), true);
 assert.equal(isTrustedTravelpayoutsDeepLink("https://evil.example/flight-a"), false);
 assert.equal(isTrustedTravelpayoutsDeepLink("http://aviasales.com/search/flight-a"), false);
 assert.equal(selectedFlightContinuityLevel(null), 0);
+assert.equal(flightMarketFreshness(freshMarket, now), "fresh");
+assert.equal(flightMarketFreshness(staleMarket, now), "stale");
+assert.equal(flightMarketFreshness({ ...freshMarket, expires_at: "2026-09-17T12:00:00.000Z" }, now), "stale");
+assert.equal(flightMarketFreshness({ ...freshMarket, expires_at: undefined }, now), "unknown");
+assert.equal(flightMarketFreshness({ ...freshMarket, expires_at: "not-a-date" }, now), "unknown");
+assert.equal(selectedFlightMarketActionState(freshMarket, identity, now), "verified_partner");
+assert.equal(selectedFlightMarketActionState(staleMarket, identity, now), "search_only");
+assert.equal(selectedFlightMarketActionState(freshMarket, { ...identity, candidateId: "flight-b" }, now), "search_only");
+assert.equal(selectedFlightMarketActionState({ ...freshMarket, source: "cached_recent" }, identity, now), "verified_partner");
+assert.equal(selectedFlightMarketActionState({ ...freshMarket, price_type: "provider_api", expires_at: "2026-09-17T12:00:00.000Z" }, identity, now), "search_only");
+assert.equal(freshMarket.price_amount, undefined, "freshness does not invent fare data");
+assert.equal(staleMarket.price_amount, undefined, "stale evidence is not coerced to zero");
 
 const affiliateLinks = source("lib/roamly/affiliateLinks.ts");
 const page = source("app/trip/[id]/page.tsx");
@@ -49,7 +66,11 @@ assert.match(affiliateLinks, /resolveSelectedFlightIdentity/);
 assert.match(affiliateLinks, /marketResultIsSelectedFlight/);
 assert.match(affiliateLinks, /selectedFlightContinuityLevel/);
 assert.match(affiliateLinks, /ROAMLY_TRAVELPAYOUTS_MARKER/);
+assert.match(affiliateLinks, /selectedFlightMarketActionState/);
+assert.match(affiliateLinks, /flightMarketFreshness/);
+assert.match(page, /flightMarketFreshness/);
+assert.match(source("lib/roamly/itineraryIntelligence.ts"), /flightMarketFreshness/);
 assert.doesNotMatch(affiliateLinks, /candidateDecisionCore|orders\/preview|orders\/create/i);
-assert.doesNotMatch(page, /selectedFlightIdentity|providerOfferId|flightNumbers/);
+assert.doesNotMatch(page, /providerOfferId|flightNumbers/);
 assert.doesNotMatch(source("lib/roamly/selectedFlightIdentity.ts"), /fetch\(|supabase|Booking\.com|Stay22|Klook|Amazon/i);
 console.log("Roamly selected-flight continuity checks passed");

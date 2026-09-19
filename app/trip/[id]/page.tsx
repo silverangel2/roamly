@@ -26,6 +26,7 @@ import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure, enrichItineraryBookingSuggestions, klookActivityActionState } from "@/lib/roamly/affiliateLinks";
+import { flightMarketFreshness } from "@/lib/roamly/selectedFlightIdentity";
 import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/roamly/amazonAffiliate";
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
@@ -1277,9 +1278,10 @@ function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][num
 }
 
 function hasLiveFlightPrice(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (suggestion.price_confidence === "user_uploaded") return true;
+  if (flightMarketFreshness(suggestion) !== "fresh") return false;
   return (
     suggestion.price_confidence === "partner" ||
-    suggestion.price_confidence === "user_uploaded" ||
     suggestion.price_type === "live_partner" ||
     suggestion.price_type === "cached_recent"
   );

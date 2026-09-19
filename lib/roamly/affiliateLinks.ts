@@ -15,7 +15,7 @@ import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, test
 import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import { reconcileAffiliateAction, type ConfirmedBookingEvidence } from "@/lib/roamly/affiliateActionReconciliation";
-import { isTrustedTravelpayoutsDeepLink, marketResultIsSelectedFlight, resolveSelectedFlightIdentity, selectedFlightContinuityLevel } from "@/lib/roamly/selectedFlightIdentity";
+import { flightMarketFreshness, isTrustedTravelpayoutsDeepLink, marketResultIsSelectedFlight, resolveSelectedFlightIdentity, selectedFlightContinuityLevel, selectedFlightMarketActionState } from "@/lib/roamly/selectedFlightIdentity";
 import {
   dedupeTravelResults,
   isBareDomainName,
@@ -404,7 +404,8 @@ export function klookActivityActionState(market: Record<string, unknown> | null 
 function approvedMarketAffiliateUrl(
   market: Record<string, unknown> | null,
   link: ReturnType<typeof buildRoamlyAffiliateUrl>,
-  category?: unknown
+  category?: unknown,
+  selectedFlightIdentity?: ReturnType<typeof resolveSelectedFlightIdentity>
 ) {
   const source = cleanStringValue(market?.source);
   const affiliate = safeBookingHref(market?.affiliate_url);
@@ -416,8 +417,10 @@ function approvedMarketAffiliateUrl(
     }
     return "";
   }
-  if (source === "travelpayouts" && affiliate && isTrustedTravelpayoutsDeepLink(affiliate)) return affiliate;
-  if (source === "travelpayouts" && booking && isTrustedTravelpayoutsDeepLink(booking)) return booking;
+  if (source === "travelpayouts" && selectedFlightMarketActionState(market, selectedFlightIdentity || null) === "verified_partner") {
+    if (affiliate && isTrustedTravelpayoutsDeepLink(affiliate)) return affiliate;
+    if (booking && isTrustedTravelpayoutsDeepLink(booking)) return booking;
+  }
   if (affiliate && ["stay22", "klook"].includes(source)) return affiliate;
   return link.affiliate_enabled ? link.affiliate_url : "";
 }
@@ -558,9 +561,10 @@ function marketPriceConfidence(result: Record<string, unknown>) {
 }
 
 function liveFlightPriceAvailable(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  if (suggestion.price_confidence === "user_uploaded") return true;
+  if (flightMarketFreshness(suggestion) !== "fresh") return false;
   return (
     suggestion.price_confidence === "partner" ||
-    suggestion.price_confidence === "user_uploaded" ||
     suggestion.price_type === "live_partner" ||
     suggestion.price_type === "cached_recent"
   );
@@ -1305,12 +1309,16 @@ export function enrichItineraryBookingSuggestions(
         currency: payload.budgetCurrency
       };
       const flightContinuity = linkCategory === "flight" ? selectedFlightContinuityLevel(selectedFlightIdentity) : null;
+      const selectedFlightActionState = linkCategory === "flight"
+        ? selectedFlightMarketActionState(market, selectedFlightIdentity)
+        : null;
+      const flightInventoryCurrent = linkCategory !== "flight" || selectedFlightActionState === "verified_partner";
       const marketForAction = staleExactKlookActivity ? null : market;
       const affiliateUrl = isHotelSuggestion
         ? safeHotelAffiliateUrl(approvedMarketAffiliateUrl(market, link))
-        : flightContinuity && flightContinuity > 0 && !market
+        : flightContinuity && flightContinuity > 0 && !flightInventoryCurrent
           ? ""
-          : approvedMarketAffiliateUrl(marketForAction, link, linkCategory);
+          : approvedMarketAffiliateUrl(marketForAction, link, linkCategory, selectedFlightIdentity);
       const hasAffiliateUrl = Boolean(affiliateUrl) && !unsafeStay22Url(affiliateUrl);
       const normalSearchUrl = isHotelSuggestion
         ? safeHotelSearchUrl(
@@ -1338,8 +1346,9 @@ export function enrichItineraryBookingSuggestions(
 
       return {
         ...suggestion,
-        provider: approvedProviderLabel(market?.provider) || approvedProviderLabel(suggestion.provider) || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Roamly discovery"),
+        provider: !flightInventoryCurrent ? "Flight search" : approvedProviderLabel(market?.provider) || approvedProviderLabel(suggestion.provider) || (link.affiliate_enabled ? `${link.affiliate_provider} partner link` : "Roamly discovery"),
         provider_or_search_source:
+          !flightInventoryCurrent ? "Travelpayouts / Aviasales search" :
           approvedSourceLabel(market?.source) ||
           approvedProviderLabel(suggestion.provider_or_search_source) ||
           approvedProviderLabel(suggestion.provider) ||
@@ -1367,9 +1376,9 @@ export function enrichItineraryBookingSuggestions(
         estimated_total_cost_max:
           suggestion.booking_category === "hotel" ? marketRange.max ?? suggestion.estimated_total_cost_max : suggestion.estimated_total_cost_max,
         currency: cleanStringValue(market?.currency) || suggestion.currency,
-        price_confidence: staleExactKlookActivity ? "unknown" : market ? marketPriceConfidence(market) : suggestion.price_confidence || "estimated",
+        price_confidence: staleExactKlookActivity ? "unknown" : !flightInventoryCurrent ? "unknown" : market ? marketPriceConfidence(market) : suggestion.price_confidence || "estimated",
         market_source: cleanStringValue(market?.source) as RoamlyItinerary["booking_suggestions"][number]["market_source"],
-        price_type: staleExactKlookActivity ? "search_ready" : cleanStringValue(market?.price_type) as RoamlyItinerary["booking_suggestions"][number]["price_type"],
+        price_type: staleExactKlookActivity ? "search_ready" : !flightInventoryCurrent ? "search_ready" : cleanStringValue(market?.price_type) as RoamlyItinerary["booking_suggestions"][number]["price_type"],
         market_confidence: cleanStringValue(market?.confidence) as RoamlyItinerary["booking_suggestions"][number]["market_confidence"],
         searched_at: cleanStringValue(market?.searched_at) || suggestion.searched_at,
         expires_at: cleanStringValue(market?.expires_at) || suggestion.expires_at,
