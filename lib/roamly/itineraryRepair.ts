@@ -35,6 +35,10 @@ export type RepairVerificationState =
   | "APPLIED_STILL_INFEASIBLE"
   | "APPLIED_UNCERTAIN";
 
+export type CustomerRemovalResult =
+  | { ok: true; dayId: string; itemId: string; item: RoamlyActivitySeed }
+  | { ok: false; reason: string; item?: RoamlyActivitySeed };
+
 const protectedBookingStatuses = new Set([
   "confirmed",
   "completed",
@@ -73,6 +77,63 @@ function linkedSuggestionIsProtected(
     if (suggestionCandidateId(suggestion) !== candidateId) return false;
     return suggestionHasBookingIdentity(suggestion) || protectedBookingStatuses.has(suggestionStatus(suggestion));
   });
+}
+
+function customerRemovalBookingReason(
+  itinerary: RoamlyItinerary,
+  item: RoamlyActivitySeed
+) {
+  const candidateId = linkedCandidateId(item);
+  if (!candidateId) return null;
+  for (const suggestion of itinerary.booking_suggestions) {
+    if (suggestionCandidateId(suggestion) !== candidateId) continue;
+    if (suggestionHasBookingIdentity(suggestion)) return "BOOKING_PROTECTED";
+    const status = suggestionStatus(suggestion);
+    if (["suggested", "needs_booking", "referred", "clicked"].includes(status)) continue;
+    return status ? "BOOKING_PROTECTED" : "BOOKING_STATE_UNKNOWN";
+  }
+  return null;
+}
+
+/**
+ * Customer-directed removal deliberately does not reuse conflict repair.
+ * It requires an exact persisted item and a structured flexible/activity role.
+ */
+export function findCustomerRemovalTarget(
+  itinerary: RoamlyItinerary,
+  dayId: string,
+  itemId: string
+): CustomerRemovalResult {
+  const day = itinerary.daily_itinerary.find((candidate) => candidate.day_id === dayId);
+  if (!day) return { ok: false, reason: "TARGET_DAY_NOT_FOUND" };
+  const matches = day.live_timeline.filter((item) => item.item_id === itemId);
+  if (matches.length !== 1) return { ok: false, reason: matches.length ? "TARGET_ID_NOT_UNIQUE" : "TARGET_NOT_FOUND" };
+  const item = matches[0];
+  if (item.item_type !== "activity") return { ok: false, reason: "TARGET_NOT_OPTIONAL_ACTIVITY", item };
+  if (!item.item_id || !day.day_id) return { ok: false, reason: "TARGET_IDENTITY_INCOMPLETE", item };
+  if (item.must_do || item.plan_role === "must_do" || item.plan_role === "protected_anchor") return { ok: false, reason: "TARGET_PROTECTED", item };
+  if (item.plan_role !== "supporting" && item.plan_role !== "alternative") return { ok: false, reason: "TARGET_NOT_FLEXIBLE", item };
+  if (item.booking || (item as unknown as Record<string, unknown>).booking_id) return { ok: false, reason: "BOOKING_PROTECTED", item };
+  const bookingReason = customerRemovalBookingReason(itinerary, item);
+  if (bookingReason) return { ok: false, reason: bookingReason, item };
+  return { ok: true, dayId, itemId, item };
+}
+
+export function removeCustomerOptionalActivity(
+  itinerary: RoamlyItinerary,
+  target: { dayId: string; itemId: string }
+) {
+  const match = findCustomerRemovalTarget(itinerary, target.dayId, target.itemId);
+  if (!match.ok) throw new Error(match.reason);
+  const removed = {
+    ...itinerary,
+    daily_itinerary: itinerary.daily_itinerary.map((day) =>
+      day.day_id !== target.dayId
+        ? day
+        : { ...day, live_timeline: day.live_timeline.filter((item) => item.item_id !== target.itemId) }
+    )
+  };
+  return reconcileRemovedOptionalActivityDerivedState(removed, match.item).itinerary;
 }
 
 /**

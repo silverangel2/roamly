@@ -79,6 +79,7 @@ import { countMaterialTravelRequirements } from "@/lib/roamly/travelRequirements
 import { buildTripTravelerRequirements, listTripTravelers } from "@/lib/roamly/tripTravelers";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
+import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -332,6 +333,8 @@ function NavigationChipList({ query }: { query: string }) {
 }
 
 type DisplayTimelineItem = {
+  itemId: string;
+  itemType: string;
   time: string;
   sortMinutes: number | null;
   title: string;
@@ -527,6 +530,8 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
     seen.add(key);
 
     output.push({
+      itemId: timelineText(record, "item_id"),
+      itemType: type,
       time: time || "Flexible",
       sortMinutes,
       title: title || category,
@@ -550,7 +555,7 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
   return output.sort((a, b) => (a.sortMinutes ?? 10_000) - (b.sortMinutes ?? 10_000));
 }
 
-function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
+function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelineItem; tripId: string; dayId?: string }) {
   const meta = [item.location].filter(Boolean);
   const secondary = [
     item.durationLabel ? `Duration: ${item.durationLabel}` : "",
@@ -579,6 +584,9 @@ function TimelineItemCard({ item }: { item: DisplayTimelineItem }) {
           {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
           {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
           {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
+          {item.authority === "flexible" && item.itemType === "activity" && dayId && item.itemId ? (
+            <CustomerActivityRemoval tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
+          ) : null}
           {item.why || secondary.length ? (
             <details className="mt-3 rounded-[0.8rem] bg-[#f8faf8] px-3 py-2">
               <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">{item.why ? "Why this & details" : "Details"}</summary>
@@ -662,7 +670,7 @@ function DayTimelineCard({
         <div className="grid gap-5">
           {timelineItems.length ? (
             timelineItems.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} />
+              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} />
             ))
           ) : (
             <div className="rounded-xl bg-[#f5f7f3] px-4 py-4 text-sm font-semibold leading-6 text-slate-600">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
