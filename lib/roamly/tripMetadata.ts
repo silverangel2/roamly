@@ -203,13 +203,34 @@ export function getTripDaysCount(trip: { start_date?: unknown; end_date?: unknow
 }
 
 export function getTripBudgetAmount(trip: { budget_amount?: unknown; metadata?: unknown }) {
+  return getTripBudgetSnapshot(trip).effectiveAmount;
+}
+
+export type TripBudgetSnapshot = {
+  rawTripAmount: number | null;
+  planningAmount: number | null;
+  planningSource: "budgetAmount" | "budget_amount" | "budget_total" | null;
+  effectiveAmount: number | null;
+  effectiveSource: "trip_column" | "planning_metadata" | "none";
+};
+
+export function getTripBudgetSnapshot(trip: { budget_amount?: unknown; metadata?: unknown }): TripBudgetSnapshot {
   const planning = getTripPlanningMetadata(trip.metadata);
-  return (
-    getPositiveNumber(trip.budget_amount) ||
-    getPositiveNumber(planning.budgetAmount) ||
-    getPositiveNumber(planning.budget_amount) ||
-    getPositiveNumber(planning.budget_total)
-  );
+  const rawTripAmount = getPositiveNumber(trip.budget_amount);
+  const planningCandidates: Array<[TripBudgetSnapshot["planningSource"], unknown]> = [
+    ["budgetAmount", planning.budgetAmount],
+    ["budget_amount", planning.budget_amount],
+    ["budget_total", planning.budget_total]
+  ];
+  const planningEntry = planningCandidates.find(([, value]) => getPositiveNumber(value) !== null);
+  const planningAmount = planningEntry ? getPositiveNumber(planningEntry[1]) : null;
+  if (rawTripAmount !== null) {
+    return { rawTripAmount, planningAmount, planningSource: planningEntry?.[0] || null, effectiveAmount: rawTripAmount, effectiveSource: "trip_column" };
+  }
+  if (planningAmount !== null) {
+    return { rawTripAmount: null, planningAmount, planningSource: planningEntry?.[0] || null, effectiveAmount: planningAmount, effectiveSource: "planning_metadata" };
+  }
+  return { rawTripAmount: null, planningAmount: null, planningSource: null, effectiveAmount: null, effectiveSource: "none" };
 }
 
 export function getTripBudgetCurrency(trip: { budget_currency?: unknown; metadata?: unknown }) {

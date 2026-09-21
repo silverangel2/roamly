@@ -81,6 +81,7 @@ import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
+import CustomerBudgetChange from "@/components/roamly/CustomerBudgetChange";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -792,6 +793,7 @@ function BudgetSummary({
           <p className="mt-1 text-sm font-semibold leading-6">{presentation.statusDetail}</p>
           {presentation.remainingLabel ? <p className="mt-2 text-sm font-black">{presentation.remainingLabel}</p> : null}
         </div>
+        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerBudgetChange tripId={trip.id} currentAmount={budgetAmount} currency={currency} /> : null}
       </section>
 
       {presentation.committedCount || presentation.uncertainty.length ? (
