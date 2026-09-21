@@ -80,6 +80,7 @@ import { buildTripTravelerRequirements, listTripTravelers } from "@/lib/roamly/t
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
+import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -585,7 +586,10 @@ function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelineItem; 
           {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
           {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
           {item.authority === "flexible" && item.itemType === "activity" && dayId && item.itemId ? (
-            <CustomerActivityRemoval tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
+            <>
+              <CustomerActivityRemoval tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
+              <CustomerActivityReplacement tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
+            </>
           ) : null}
           {item.why || secondary.length ? (
             <details className="mt-3 rounded-[0.8rem] bg-[#f8faf8] px-3 py-2">

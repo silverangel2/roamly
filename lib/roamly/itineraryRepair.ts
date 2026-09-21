@@ -136,6 +136,27 @@ export function removeCustomerOptionalActivity(
   return reconcileRemovedOptionalActivityDerivedState(removed, match.item).itinerary;
 }
 
+/** Replace one exact flexible activity while preserving the persisted item identity. */
+export function replaceCustomerOptionalActivity(
+  itinerary: RoamlyItinerary,
+  target: { dayId: string; itemId: string },
+  replacement: { item: RoamlyActivitySeed; bookingSuggestion?: RoamlyItinerary["booking_suggestions"][number] | null }
+) {
+  const match = findCustomerRemovalTarget(itinerary, target.dayId, target.itemId);
+  if (!match.ok) throw new Error(match.reason);
+  const oldCandidateId = match.item.candidateId;
+  const daily_itinerary = itinerary.daily_itinerary.map((day) => day.day_id !== target.dayId ? day : {
+    ...day,
+    live_timeline: day.live_timeline.map((item) => item.item_id === target.itemId ? { ...replacement.item, item_id: target.itemId } : item)
+  });
+  const booking_suggestions = itinerary.booking_suggestions.filter((suggestion) => {
+    if (!oldCandidateId || suggestion.candidateId !== oldCandidateId) return true;
+    return !["suggested", "needs_booking"].includes(suggestionStatus(suggestion));
+  });
+  if (replacement.bookingSuggestion && !booking_suggestions.some((suggestion) => suggestion.candidateId === replacement.bookingSuggestion?.candidateId)) booking_suggestions.push(replacement.bookingSuggestion);
+  return { ...itinerary, daily_itinerary, booking_suggestions };
+}
+
 /**
  * Removes only an exact candidate-linked, still-unbooked recommendation.
  * Referral/pending/confirmed evidence remains in the itinerary/history.
