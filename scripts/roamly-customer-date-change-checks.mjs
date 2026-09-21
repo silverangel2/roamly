@@ -1,0 +1,35 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+const root = path.resolve(new URL("..", import.meta.url).pathname);
+const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const domain = read("lib/roamly/customerDateChange.ts");
+const migration = read("supabase/migrations/20260922_roamly_customer_date_changes.sql");
+const preview = read("app/api/trips/[id]/date-change/route.ts");
+const apply = read("app/api/trips/[id]/date-change/[proposalId]/apply/route.ts");
+const ui = read("components/roamly/CustomerDateChange.tsx");
+
+assert.match(domain, /dateChangeLifecycleAllowed/);
+assert.match(domain, /booked.*paid.*reserved/);
+assert.match(domain, /cancelled.*unknown/);
+assert.match(domain, /buildSuccessorIntentSnapshot/);
+assert.match(domain, /priceDiscoveryId/);
+assert.doesNotMatch(domain, /trip_bookings/);
+assert.match(domain, /superseded_by_booking_id/);
+assert.match(migration, /create table public\.roamly_customer_trip_date_changes/);
+assert.match(migration, /requested_start_date date not null/);
+assert.match(migration, /expected_booking_snapshot jsonb/);
+assert.match(migration, /for update/);
+assert.match(migration, /status = 'archived'/);
+assert.match(migration, /roamly_complete_customer_trip_date_change/);
+assert.match(migration, /revoke all on function public\.roamly_reserve_customer_trip_date_change/);
+assert.doesNotMatch(migration, /trip_bookings/);
+assert.match(migration, /superseded_by_booking_id is null/);
+assert.match(preview, /buildBookingSnapshot/);
+assert.match(preview, /expected_content_hash/);
+assert.match(apply, /roamly_reserve_customer_trip_date_change/);
+assert.match(apply, /scheduleStagedGenerationAdvance/);
+assert.match(ui, /Your existing bookings will not be changed/);
+assert.match(ui, /Create new itinerary/);
+console.log("customer date change checks passed");

@@ -37,6 +37,7 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT, localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
 import { buildTravelerPersonalizationContext, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type StagedGenerationStatus =
   | "queued"
@@ -341,6 +342,18 @@ function generationMetadata(metadata: unknown, state: StagedGenerationState) {
     },
     generation: state
   };
+}
+
+async function recordDateChangeGenerationFailure(params: { supabase: SupabaseClient; trip: RoamlyTripRecord; reason: string }) {
+  const proposalId = getRecord(params.trip.metadata)?.date_change_proposal_id;
+  if (typeof proposalId !== "string") return;
+  const admin = createSupabaseAdminClient();
+  if (admin) await admin.rpc("roamly_fail_customer_trip_date_change", {
+    p_proposal_id: proposalId,
+    p_user_id: params.trip.user_id,
+    p_successor_trip_id: params.trip.id,
+    p_reason: params.reason
+  });
 }
 
 function persistedTripStatusForGeneration(status: StagedGenerationStatus) {
@@ -1714,6 +1727,7 @@ async function completeGeneration(params: {
       failedCategories: classifyGenerationValidationErrors(validation.errors)
     });
     await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "failure", requestId: params.requestId });
+    await recordDateChangeGenerationFailure({ supabase: params.supabase, trip: params.trip, reason: "FINAL_VALIDATION_FAILED" });
     return { state: failed, itinerary, validationFailed: true as const, validationErrors: validation.errors };
   }
 
@@ -1762,6 +1776,18 @@ async function completeGeneration(params: {
       model: completed.model || null
     }
   });
+  const dateChangeProposalId = getRecord(params.trip.metadata)?.date_change_proposal_id;
+  if (typeof dateChangeProposalId === "string") {
+    const admin = createSupabaseAdminClient();
+    if (admin) {
+      const completion = await admin.rpc("roamly_complete_customer_trip_date_change", {
+        p_proposal_id: dateChangeProposalId,
+        p_user_id: params.trip.user_id,
+        p_successor_trip_id: params.trip.id
+      });
+      if (completion.error) throw new StagedGenerationError(completion.error.message, "DATE_CHANGE_COMPLETION_FAILED", 500);
+    }
+  }
   return { state: completed, itinerary, validationFailed: false as const, validationErrors: [] };
 }
 
@@ -2131,6 +2157,7 @@ export async function advanceStagedItineraryGeneration(params: {
       });
       if (updatedState.status === "failed") {
         await sendGenerationEmailSafely({ tripId: params.tripId, kind: "failure", requestId: params.requestId });
+        await recordDateChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
       }
       if (generationError.permanent || exhausted) throw generationError;
       return { ok: false, status: updatedState.status, state: updatedState, advanced: false, error: generationError.code };
@@ -2203,7 +2230,10 @@ export async function advanceStagedItineraryGeneration(params: {
       dayNumbers: failedBatch?.dayNumbers || null,
       permanent: generationError.permanent
     });
-    if (generationError.permanent || !failedBatch) throw generationError;
+    if (generationError.permanent || !failedBatch) {
+      await recordDateChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
+      throw generationError;
+    }
     return { ok: false, status: updatedState.status, state: updatedState, advanced: false, error: generationError.code };
   }
 }
