@@ -3153,7 +3153,12 @@ assert.ok(!fieldTestAccess.includes("SUPABASE_SERVICE_ROLE_KEY"), "Field-test ac
 assert.ok(!fieldTestAccess.includes("ROAMLY_ADMIN_SESSION_SECRET"), "Field-test access must not use the Admin session secret");
 assert.ok(fieldTestAccess.includes("ROAMLY_FIELD_TEST_SECRET_NOT_CONFIGURED"), "Missing field-test secret must fail closed");
 const locationUpdateRoute = read("app/api/roamly/location/update/route.ts");
+const locationSettingsRoute = read("app/api/roamly/location/settings/route.ts");
 assert.ok(locationUpdateRoute.includes("auth.fieldTest"), "Location update must distinguish field-test sessions");
+assert.ok(locationSettingsRoute.includes("update.last_seen_latitude = null") && locationSettingsRoute.includes("update.last_seen_longitude = null") && locationSettingsRoute.includes("update.last_seen_at = null"), "turning off trip sensing must clear the last stored coordinates and timestamp");
+assert.ok(locationUpdateRoute.includes('.eq("location_tracking_enabled", true)'), "location writes must be conditional on tracking still being enabled to prevent off-toggle races");
+assert.ok(locationUpdateRoute.includes("last_seen_latitude: null") && locationUpdateRoute.includes("last_seen_longitude: null") && locationUpdateRoute.includes("last_seen_at: null"), "denied or unavailable location permission must clear the last stored location");
+assert.ok(!locationUpdateRoute.includes("location_tracking_enabled: true,\n      notification_enabled:"), "a stale location request must not re-enable tracking after the user turns it off");
 assert.ok(locationUpdateRoute.includes('"liveDemo"'), "Field-test location updates must block Live Demo payloads");
 assert.ok(locationUpdateRoute.includes('"simulatedLatitude"'), "Field-test location updates must block simulated coordinates");
 assert.ok(locationUpdateRoute.includes("real browser GPS only"), "Field-test location update error must require real GPS");

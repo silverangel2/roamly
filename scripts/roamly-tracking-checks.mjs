@@ -238,6 +238,16 @@ const offlineState = live.buildLiveCompanionState({
   now: activeNow
 });
 assert.equal(offlineState.route.status, "offline", "offline fallback should keep itinerary state available");
+
+const locationSettingsRoute = fs.readFileSync(new URL("../app/api/roamly/location/settings/route.ts", import.meta.url), "utf8");
+const locationUpdateRoute = fs.readFileSync(new URL("../app/api/roamly/location/update/route.ts", import.meta.url), "utf8");
+const locationSettingsUi = fs.readFileSync(new URL("../components/account/LocationTrackingSettings.tsx", import.meta.url), "utf8");
+assert.ok(locationSettingsRoute.includes("update.last_seen_latitude = null") && locationSettingsRoute.includes("update.last_seen_longitude = null") && locationSettingsRoute.includes("update.last_seen_at = null"), "turning off trip sensing must clear persisted coordinates and timestamp");
+assert.ok(locationSettingsRoute.includes('.select("location_tracking_enabled,notification_enabled,last_permission_state")') && !locationSettingsRoute.includes('.select("*")'), "general location settings reads must not expose saved coordinates");
+assert.ok(locationUpdateRoute.includes('.eq("location_tracking_enabled", true)'), "a location update must re-check tracking is still enabled when writing coordinates");
+assert.ok(locationUpdateRoute.includes("last_seen_latitude: null") && locationUpdateRoute.includes("last_seen_longitude: null") && locationUpdateRoute.includes("last_seen_at: null"), "denied permission must clear previously saved coordinates");
+assert.ok(!locationUpdateRoute.includes("location_tracking_enabled: true,\n      notification_enabled:"), "a stale location update must not re-enable tracking");
+assert.ok(locationSettingsUi.includes("clear the last saved location"), "the Account control must explain the location-clearing effect");
 assert.equal(
   live.applyVerifiedBookingOverride(
     { id: "flight-step", title: "AC123 to Toronto", timeLabel: "9:00 AM", booking: { status: "stale", startTime: "2026-08-01T13:00:00Z" } },
