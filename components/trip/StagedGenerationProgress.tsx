@@ -667,6 +667,16 @@ export function StagedGenerationProgress({
             transform: translateX(100%);
           }
         }
+
+        .roamly-generation-shimmer {
+          animation: roamlySoftShimmer 2.8s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .roamly-generation-shimmer {
+            animation: none !important;
+          }
+        }
       `}</style>
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -744,8 +754,7 @@ export function StagedGenerationProgress({
           <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-4 py-4 shadow-sm">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-sky-100/70 to-transparent"
-              style={{ animation: "roamlySoftShimmer 2.8s ease-in-out infinite" }}
+              className="roamly-generation-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-sky-100/70 to-transparent"
             />
             <div aria-hidden="true" className="relative flex items-center justify-between gap-2 px-1">
               <div className="h-px flex-1 bg-sky-200" />
@@ -772,7 +781,8 @@ export function StagedGenerationProgress({
           {simpleSteps.map((label, index) => (
             <div
               key={label}
-              className={`rounded-2xl border px-3 py-3 text-sm font-black ${
+              aria-current={index === activeSimpleStep ? "step" : undefined}
+              className={`rounded-2xl border px-3 py-3 text-sm font-black transition-colors duration-500 motion-reduce:transition-none ${
                 index <= activeSimpleStep
                   ? "border-ocean/20 bg-ocean/10 text-ocean"
                   : "border-slate-200 bg-slate-50 text-slate-500"

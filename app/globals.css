@@ -75,9 +75,28 @@ select {
   text-transform: uppercase;
 }
 
+@keyframes roamly-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.roamly-enter {
+  animation: roamly-enter 650ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .roamly-enter {
+    animation: none !important;
   }
 }
 
