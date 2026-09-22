@@ -111,7 +111,8 @@ function AppShellContent({
         : [
             { href: "/", label: t("ui.nav.home", "Home") },
             { href: "/#the-journey", label: t("ui.nav.howItWorks", "How it works") },
-            { href: "/plan", label: t("ui.nav.plan", "Plan") }
+            { href: "/plan", label: t("ui.nav.plan", "Plan") },
+            { href: "/pricing", label: t("ui.nav.pricing", "Pricing") }
           ],
     [authenticated, t]
   );
