@@ -110,7 +110,7 @@ function AppShellContent({
           ]
         : [
             { href: "/", label: t("ui.nav.home", "Home") },
-            { href: "/#how-it-works", label: t("ui.nav.howItWorks", "How it works") },
+            { href: "/#the-journey", label: t("ui.nav.howItWorks", "How it works") },
             { href: "/plan", label: t("ui.nav.plan", "Plan") }
           ],
     [authenticated, t]
@@ -127,7 +127,7 @@ function AppShellContent({
           ]
         : [
             { href: "/", label: t("ui.nav.home", "Home") },
-            { href: "/#how-it-works", label: t("ui.nav.howItWorks", "How it works") },
+            { href: "/#the-journey", label: t("ui.nav.howItWorks", "How it works") },
             { href: "/plan", label: t("ui.nav.plan", "Plan") },
             { href: "/login", label: t("ui.nav.login", "Log in") }
           ],
