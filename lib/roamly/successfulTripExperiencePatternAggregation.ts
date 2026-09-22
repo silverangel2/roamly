@@ -7,20 +7,42 @@ const MAX_PAGES = 100;
 
 export async function runSuccessfulTripExperiencePatternAggregation(admin: SupabaseClient) {
   const records: Array<{ experienceContext: SuccessfulTripExperienceContext | null }> = [];
+  const latestFeedbackByTrip = new Map<string, { createdAt: string; experienceContext: SuccessfulTripExperienceContext }>();
+  let feedbackRowsRead = 0;
 
-  for (let page = 0; page < MAX_PAGES; page += 1) {
+  for (let page = 0; page <= MAX_PAGES; page += 1) {
     const { data, error } = await admin
       .from("trip_feedback")
-      .select("experience_context_json")
+      .select("trip_id,created_at,experience_context_json")
       .eq("feedback_type", "post_trip")
       .not("experience_context_json", "is", null)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-    if (error) return { ok: false as const, error: error.message, feedbackRowsRead: records.length, patternsWritten: 0 };
+    if (error) return { ok: false as const, error: error.message, feedbackRowsRead, patternsWritten: 0 };
 
-    const rows = (data || []).filter((row) => row.experience_context_json && typeof row.experience_context_json === "object" && !Array.isArray(row.experience_context_json));
-    records.push(...rows.map((row) => ({ experienceContext: row.experience_context_json as unknown as SuccessfulTripExperienceContext })));
-    if (rows.length < PAGE_SIZE) break;
+    const pageRows = data || [];
+    feedbackRowsRead += pageRows.length;
+    if (page === MAX_PAGES && pageRows.length) {
+      return { ok: false as const, error: "FEEDBACK_SCAN_LIMIT_REACHED", feedbackRowsRead, patternsWritten: 0 };
+    }
+    const rows = pageRows.filter((row) => row.experience_context_json && typeof row.experience_context_json === "object" && !Array.isArray(row.experience_context_json));
+    for (const row of rows) {
+      const tripId = String(row.trip_id || "");
+      const createdAt = String(row.created_at || "");
+      if (!tripId) continue;
+      const current = latestFeedbackByTrip.get(tripId);
+      if (!current || createdAt >= current.createdAt) {
+        latestFeedbackByTrip.set(tripId, {
+          createdAt,
+          experienceContext: row.experience_context_json as unknown as SuccessfulTripExperienceContext
+        });
+      }
+    }
+    if (pageRows.length < PAGE_SIZE) break;
   }
+
+  records.push(...[...latestFeedbackByTrip.values()].map(({ experienceContext }) => ({ experienceContext })));
 
   const patterns = aggregateSuccessfulTripExperiencePatterns(records)
     .filter((pattern) => isPublishableSuccessfulTripPattern(pattern));
