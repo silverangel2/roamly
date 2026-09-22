@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { TRAVELER_PREFERENCE_KEYS, type TravelerPreferenceKey } from "@/lib/roamly/travelerMemory";
+import { buildSuccessfulTripExperienceContext, type SuccessfulTripExperienceContext } from "@/lib/roamly/successfulTripExperience";
 
 export type TripFeedbackType = "post_trip" | "in_trip";
 
@@ -48,6 +49,7 @@ export type TripFeedbackRecord = {
   transportation_difficult: boolean | null;
   adjust_tomorrow: boolean | null;
   recommendation_usefulness: number | null;
+  experience_context_json: SuccessfulTripExperienceContext | null;
   learned_preferences_json: TripFeedbackPreferenceProposal[];
   created_at: string;
   updated_at: string;
@@ -178,6 +180,9 @@ function normalizeFeedbackRow(row: Record<string, unknown>): TripFeedbackRecord 
     transportation_difficult: cleanBoolean(row.transportation_difficult),
     adjust_tomorrow: cleanBoolean(row.adjust_tomorrow),
     recommendation_usefulness: cleanScore(row.recommendation_usefulness),
+    experience_context_json: row.experience_context_json && typeof row.experience_context_json === "object" && !Array.isArray(row.experience_context_json)
+      ? row.experience_context_json as SuccessfulTripExperienceContext
+      : null,
     learned_preferences_json: Array.isArray(row.learned_preferences_json)
       ? (row.learned_preferences_json as TripFeedbackPreferenceProposal[])
       : [],
@@ -186,7 +191,7 @@ function normalizeFeedbackRow(row: Record<string, unknown>): TripFeedbackRecord 
   };
 }
 
-function feedbackPayload(userId: string, tripId: string, input: TripFeedbackInput, proposals: TripFeedbackPreferenceProposal[]) {
+function feedbackPayload(userId: string, tripId: string, input: TripFeedbackInput, proposals: TripFeedbackPreferenceProposal[], experienceContext: SuccessfulTripExperienceContext | null) {
   return {
     trip_id: tripId,
     user_id: userId,
@@ -209,7 +214,8 @@ function feedbackPayload(userId: string, tripId: string, input: TripFeedbackInpu
     transportation_difficult: cleanBoolean(input.transportationDifficult),
     adjust_tomorrow: cleanBoolean(input.adjustTomorrow),
     recommendation_usefulness: cleanScore(input.recommendationUsefulness),
-    learned_preferences_json: proposals
+    learned_preferences_json: proposals,
+    experience_context_json: experienceContext || {}
   };
 }
 
@@ -239,7 +245,7 @@ export async function submitTripFeedback(params: {
 }) {
   const trip = await params.supabase
     .from("roamly_trips")
-    .select("id")
+    .select("id,destination,destination_city,destination_country,start_date,end_date,travelers_count,travel_style,accommodation_preference,transportation_preference,metadata")
     .eq("id", params.tripId)
     .eq("user_id", params.userId)
     .maybeSingle();
@@ -247,9 +253,21 @@ export async function submitTripFeedback(params: {
   if (!trip.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
 
   const proposals = proposePreferenceUpdatesFromFeedback(params.input);
+  const itinerary = await params.supabase
+    .from("roamly_itineraries")
+    .select("full_json")
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  const storedItinerary = itinerary.data?.full_json && typeof itinerary.data.full_json === "object" && !Array.isArray(itinerary.data.full_json)
+    ? itinerary.data.full_json as Record<string, unknown>
+    : null;
+  const experienceContext = storedItinerary
+    ? buildSuccessfulTripExperienceContext(trip.data, storedItinerary, params.input)
+    : null;
   const { data, error } = await params.supabase
     .from("trip_feedback")
-    .insert(feedbackPayload(params.userId, params.tripId, params.input, proposals))
+    .insert(feedbackPayload(params.userId, params.tripId, params.input, proposals, experienceContext))
     .select("*")
     .single();
   if (error) return { ok: false as const, error: error.message };
