@@ -503,7 +503,7 @@ async function recordGmailTravelMessage(params: {
     }).catch(() => ({ error: "GMAIL_BOOKING_EXTRACTION_FAILED" }));
     return { ...saved, retryable: Boolean(extraction?.error) };
   }
-  return { ...saved, retryable: !saved.saved };
+  return { ...saved, retryable: saved.filter.shouldProcess && !saved.saved };
 }
 
 async function fetchGmailTravelBodyText(params: {

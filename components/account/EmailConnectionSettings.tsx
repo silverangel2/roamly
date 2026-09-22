@@ -71,7 +71,7 @@ export function EmailConnectionSettings() {
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <p className="text-sm font-black text-ink">Travel email import</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-          Connect Gmail so Roamly can find travel confirmations, keep saved trips updated, and use confirmed bookings for reminders. Personal emails are not saved or used for advertising.
+          Connect Gmail so Roamly can find travel confirmations and changes. Only messages the travel filter identifies are saved as limited message details and booking facts; full email bodies are not stored. A short preview from a matching message may be sent to OpenAI to extract booking details. Personal emails are not saved or used for advertising; messages that do not match the travel filter are skipped. Disconnecting stops future syncs but does not remove booking details already saved to a trip.
         </p>
       </div>
 
