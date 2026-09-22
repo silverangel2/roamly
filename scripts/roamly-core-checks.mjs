@@ -868,6 +868,10 @@ assert.ok(!planForm.includes("controller.abort()"), "planner generation must not
 
 const generateLockedButton = read("components/trip/GenerateLockedItineraryButton.tsx");
 assert.ok(!generateLockedButton.includes("controller.abort()"), "locked itinerary generation must not abort paid AI requests on a client timer");
+assert.ok(generateLockedButton.includes("will not be regenerated in place") && generateLockedButton.includes("request supported changes"), "generation confirmation must explain the lock without falsely promising the trip cannot be edited");
+assert.ok(planForm.includes("will not be regenerated in place") && planForm.includes("request supported changes") && !planForm.includes("cannot be edited"), "planner review must accurately describe post-generation trip changes");
+assert.ok(tripPage.includes("will not be regenerated in place") && tripPage.includes("request supported changes"), "locked trip notice must direct customers to supported trip changes");
+assert.ok(planForm.includes("motion-reduce:transition-none") && planForm.includes("motion-reduce:animate-none"), "planner transitions and loading motion must respect reduced-motion preferences");
 
 const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
 [

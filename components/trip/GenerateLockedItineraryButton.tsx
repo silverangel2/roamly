@@ -111,8 +111,8 @@ export function GenerateLockedItineraryButton({
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Final step</p>
             <h2 className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-              Once generated, this itinerary cannot be edited or regenerated. Please confirm your destination, dates,
-              travelers, budget, and preferences are correct.
+              Once generated, this saved itinerary will not be regenerated in place. You can request supported changes
+              from the trip page. Please confirm your destination, dates, travelers, budget, and preferences.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button

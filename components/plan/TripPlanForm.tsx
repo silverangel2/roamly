@@ -1448,7 +1448,7 @@ export function TripPlanForm({
 
       <div className="mt-4 h-1 overflow-hidden rounded-full bg-cloud">
         <div
-          className="h-full rounded-full bg-ocean transition-all duration-500"
+          className="h-full rounded-full bg-ocean transition-all duration-500 motion-reduce:transition-none"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -1768,10 +1768,10 @@ export function TripPlanForm({
             <details className="group border-y border-sun/30 bg-sun/10 px-4 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-amber-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/20">
                 {translateText("Before you generate")}
-                <span className="float-right text-amber-700 transition group-open:rotate-45">+</span>
+                <span className="float-right text-amber-700 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
-                {translateText("Review your trip details carefully. Once your itinerary is generated, it cannot be edited. New destinations, date changes, or major changes require a new itinerary.")}
+                {translateText("Review your trip details carefully. After generation, your saved itinerary will not be regenerated in place. Use your trip page to request supported changes.")}
               </p>
             </details>
             <StepError error={translateText(error)} />
@@ -1787,7 +1787,7 @@ export function TripPlanForm({
 
       {priceChecking ? (
         <div className="mt-4 overflow-hidden rounded-2xl bg-mist p-4">
-          <div className="h-2 animate-pulse rounded-full bg-lagoon" />
+          <div className="h-2 animate-pulse rounded-full bg-lagoon motion-reduce:animate-none" />
           <p className="mt-3 text-sm font-black text-ink">
             {translateText("Checking trip costs...")}
           </p>
