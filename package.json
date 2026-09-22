@@ -29,6 +29,7 @@
     "test:customer-destination-change": "node scripts/roamly-customer-destination-change-checks.mjs",
     "test:customer-trip-intent-change": "node scripts/roamly-customer-trip-intent-change-checks.mjs",
     "test:successful-trip-experience": "node scripts/roamly-successful-trip-experience-checks.mjs",
+    "test:successful-trip-experience-patterns": "node scripts/roamly-successful-trip-experience-pattern-checks.mjs",
     "test:activity-repair-derived-state": "node scripts/roamly-activity-repair-derived-state-checks.mjs",
     "test:verified-companion-repair": "node scripts/roamly-verified-companion-repair-checks.mjs",
     "test:booking-outcome": "node scripts/roamly-booking-outcome-checks.mjs",
