@@ -84,6 +84,7 @@ import CustomerActivityReplacement from "@/components/roamly/CustomerActivityRep
 import CustomerBudgetChange from "@/components/roamly/CustomerBudgetChange";
 import CustomerDateChange from "@/components/roamly/CustomerDateChange";
 import CustomerDestinationChange from "@/components/roamly/CustomerDestinationChange";
+import CustomerTripIntentChange from "@/components/roamly/CustomerTripIntentChange";
 
 type TripPageProps = {
   params: Promise<{ id: string }>;
@@ -772,6 +773,8 @@ function BudgetSummary({
 }) {
   const estimate = itinerary.estimated_budget_breakdown;
   const budgetAmount = getTripBudgetAmount(trip);
+  const intentPlanning = getTripPlanningMetadata(trip.metadata);
+  const intentTravelers = tripTravelerDetails(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
   const presentation = buildBudgetPresentation({ budgetAmount, currency, totalEstimateAmount, breakdown: estimate, priceDiscovery, confirmedBookingCount });
   const statusTone = presentation.status === "OVER_BUDGET" ? "border-coral/25 bg-coral/10 text-coral" : presentation.status === "BUDGET_UNCERTAIN" ? "border-sun/30 bg-sun/10 text-amber-900" : "border-ocean/20 bg-ocean/10 text-ocean";
@@ -798,6 +801,7 @@ function BudgetSummary({
         {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerBudgetChange tripId={trip.id} currentAmount={budgetAmount} currency={currency} /> : null}
         {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerDateChange tripId={trip.id} startDate={trip.start_date} endDate={trip.end_date} status={trip.status} /> : null}
         {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerDestinationChange tripId={trip.id} currentLabel={getTripDestinationLabel(trip)} status={trip.status} /> : null}
+        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerTripIntentChange tripId={trip.id} status={trip.status} adults={intentTravelers.adults} childrenCount={intentTravelers.children} infants={intentTravelers.infants} travelStyle={getTravelStyle(trip)} interests={getStringList(trip.interests || intentPlanning.interests, [], 20)} accommodationPreference={trip.accommodation_preference || getString(intentPlanning.accommodationPreference || intentPlanning.accommodation_preference) || "Not sure"} transportationPreference={trip.transportation_preference || getString(intentPlanning.transportationPreference || intentPlanning.transportation_preference) || "Mixed"} pace={getString(intentPlanning.pace) || "Balanced"} walkingTolerance={getString(intentPlanning.walkingTolerance || intentPlanning.walking_tolerance) || "Medium"} specialNotes={trip.special_notes || getString(intentPlanning.specialNotes || intentPlanning.special_notes)} /> : null}
       </section>
 
       {presentation.committedCount || presentation.uncertainty.length ? (
