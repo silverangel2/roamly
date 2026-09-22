@@ -64,6 +64,7 @@
     "test:confirmed-booking-monetary-truth": "node scripts/roamly-confirmed-booking-monetary-truth-checks.mjs",
     "test:gmail-bookings": "node scripts/roamly-gmail-booking-reminder-checks.mjs",
     "test:email-storage-privacy": "node scripts/roamly-email-storage-privacy-checks.mjs",
+    "test:analytics-privacy": "node scripts/roamly-analytics-privacy-checks.mjs",
     "test:gmail-reconciliation": "node scripts/roamly-gmail-reconciliation-checks.mjs",
     "test:pdf": "node scripts/roamly-pdf-checks.mjs",
     "test:tracking": "node scripts/roamly-tracking-checks.mjs",

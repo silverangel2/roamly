@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { analyticsReferrerHost, sanitizeAnalyticsPath, sanitizeAnalyticsVisitorKey } from "@/lib/roamly/analyticsPrivacy";
 
 function deviceType(userAgent: string) {
   if (/Mobi|Android|iPhone/i.test(userAgent)) return "mobile";
@@ -26,7 +27,6 @@ export async function POST(request: NextRequest) {
   const writer = createSupabaseAdminClient() || supabase;
   const userAgent = request.headers.get("user-agent") || "";
   const referrer = typeof body.referrer === "string" ? body.referrer : request.headers.get("referer") || "";
-  const referrerHost = referrer ? new URL(referrer, "https://fallback.local").host : "";
   const metadata =
     body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
       ? (body.metadata as Record<string, unknown>)
@@ -34,13 +34,13 @@ export async function POST(request: NextRequest) {
 
   const result = await recordAppEvent(writer, {
     userId: data.user?.id || null,
-    visitorKey: typeof body.visitorKey === "string" ? body.visitorKey : null,
+    visitorKey: sanitizeAnalyticsVisitorKey(body.visitorKey),
     eventType: typeof body.eventType === "string" ? body.eventType : "page_view",
-    path: typeof body.path === "string" ? body.path : null,
-    url: typeof body.url === "string" ? body.url : null,
-    title: typeof body.title === "string" ? body.title : null,
-    referrer,
-    referrerHost,
+    path: sanitizeAnalyticsPath(body.path) || sanitizeAnalyticsPath(body.url),
+    url: null,
+    title: typeof body.title === "string" ? body.title.trim().slice(0, 160) : null,
+    referrer: null,
+    referrerHost: analyticsReferrerHost(referrer),
     deviceType: deviceType(userAgent),
     platform: typeof body.platform === "string" ? body.platform : null,
     browser: browser(userAgent),
