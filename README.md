@@ -1,45 +1,37 @@
 # Roamly
 
-Roamly is a separate mobile-first web app scaffolded from the ReviewIntel architecture style without touching ReviewIntel production files.
+Roamly is a mobile-first trip planning and travel companion app. It runs as a separate product from ReviewIntel, with its own GitHub repository, Vercel project, Stripe catalog, and Supabase project.
 
-Core promise:
+Product promise:
 
 > Plan for free. Activate your trip when you are ready.
 
-## Phase 1 status
+## Current product
 
-This phase includes:
+The application has moved beyond the original scaffold. Current product areas include:
 
-- Next.js App Router foundation
-- TypeScript and Tailwind setup
-- Mobile-first app shell
-- Global theme and reusable UI components
-- Required route placeholders
-- Loading, error, and not-found states
-- Environment variable example
-- Vercel-ready build structure
+- Account authentication and traveler profiles
+- Free and paid trip itinerary generation
+- Budget-aware, booking-aware planning and customer trip changes
+- Itinerary, booking, and trip timeline management
+- Live Trip Companion reminders and in-trip tools
+- Trip feedback and privacy-bounded traveler memory
+- Stripe one-time purchases and activation
+- Protected scheduled jobs for generation and trip operations
 
-This phase does not include production auth, Supabase tables, Stripe checkout, OpenAI trip generation, or live trip logic yet. Those are later phases.
+See `app/`, `lib/roamly/`, and `supabase/migrations/` for the implemented surfaces and current database contracts.
 
-## Phase status
+## Production and database safety
 
-- Phase 1: foundation complete
-- Phase 2: homepage complete
-- Phase 3: auth/user-system code complete
-- Phase 4: Supabase schema migration file complete
+- Production Supabase changes use reviewed migrations and their matching pre- and post-checks in `supabase/checks/`.
+- Confirm production state before applying a migration. Apply each migration only once; do not rely on a migration-history table unless its existence has been verified.
+- Compare the local migration SHA with the approved value before manually applying it in Supabase SQL Editor.
+- Never stage unrelated work with broad Git commands. Stage only the files belonging to the release.
+- Keep service-role credentials server-side. Never expose secrets in client code, logs, or documentation.
 
-Phase 4 creates the SQL setup file only. Run `supabase/migrations/20260704_roamly_schema.sql` in the Roamly Supabase project before using live auth profiles, trips, usage, payments, or admin settings.
+Some public-schema tables are product-specific but do not use a `roamly_` prefix, including `trip_feedback`, `traveler_profiles`, and `traveler_preference_events`. Treat the current migrations, RLS policies, and production checks as authoritative; do not infer isolation from table names alone.
 
-## Separation rules
-
-Use the same provider accounts as ReviewIntel, but keep Roamly separate:
-
-- Separate Vercel project
-- Separate GitHub repository or clean folder
-- Separate Stripe product and price
-- Separate Supabase project preferred
-- If sharing Supabase, only use tables prefixed with `roamly_`
-- Separate environment variable names
+Airalo remains disabled and unapproved.
 
 ## Local commands
 
