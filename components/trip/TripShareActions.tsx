@@ -105,7 +105,7 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
 
       {modalOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t("ui.actions.emailItinerary", "Email itinerary")}>
-          <div className="w-full max-w-md rounded-[1.25rem] border border-cloud bg-white p-5 shadow-soft">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.25rem] border border-cloud bg-white p-5 shadow-soft">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{t("ui.actions.emailItinerary", "Email itinerary")}</p>

@@ -9,7 +9,7 @@ const [findsPage, tabs, puzzle, appShell, homepage] = await Promise.all([
   readFile(new URL("../app/page.tsx", import.meta.url), "utf8")
 ]);
 
-for (const label of ["Hotels", "Flights", "Klook & experiences", "Amazon finds", "Getting around"]) {
+for (const label of ["Stays", "Flights", "Things to do", "Travel essentials", "Getting around"]) {
   assert.ok(tabs.includes(label), `Finds category tab exists: ${label}`);
 }
 assert.match(findsPage, /searchAmazonFindProducts/, "Amazon finds use actual Creator API product results");

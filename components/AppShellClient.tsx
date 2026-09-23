@@ -222,7 +222,7 @@ function AppShellContent({
               key={route.href}
               href={route.href}
               aria-current={isActive(pathname, route.href) ? "page" : undefined}
-              className={`relative min-w-0 rounded-xl px-1 py-2.5 text-center text-[0.68rem] font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 ${
+              className={`relative min-h-11 min-w-0 rounded-xl px-1 py-2.5 text-center text-[0.68rem] font-bold leading-tight transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 ${
                 isActive(pathname, route.href)
                   ? "bg-ocean text-white shadow-sm"
                   : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"

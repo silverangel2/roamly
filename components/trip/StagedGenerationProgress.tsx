@@ -659,8 +659,7 @@ export function StagedGenerationProgress({
 
   return (
     <section
-      role="status"
-      aria-live="polite"
+      aria-labelledby="generation-progress-title"
       aria-busy={viewState.tone === "running"}
       className="roamly-no-print mt-4 w-full overflow-hidden rounded-[1.75rem] border border-cloud bg-white p-5 shadow-soft sm:p-7"
     >
@@ -718,12 +717,12 @@ export function StagedGenerationProgress({
                   : "Building your itinerary"}
             </p>
 
-            <h2 className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">
+            <h2 id="generation-progress-title" className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">
               {viewState.title}
             </h2>
 
-            <p className="mt-2 text-sm font-bold text-slate-500">
-              {viewState.body}
+            <p role="status" aria-live="polite" className="mt-2 text-sm font-bold text-slate-500">
+              <span className="sr-only">{viewState.title}. </span>{viewState.body}
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-2 border-y border-cloud/80 py-3 text-sm sm:grid-cols-3">
@@ -793,7 +792,7 @@ export function StagedGenerationProgress({
         ) : null}
 
         {message ? (
-          <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
+          <p role="alert" className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
             {message}
           </p>
         ) : null}

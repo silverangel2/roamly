@@ -106,10 +106,10 @@ export function GenerateLockedItineraryButton({
       {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
 
       {confirming ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="generate-itinerary-title">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Final step</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
+            <h2 id="generate-itinerary-title" className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
               Once generated, this saved itinerary will not be regenerated in place. You can request supported changes
               from the trip page. Please confirm your destination, dates, travelers, budget, and preferences.

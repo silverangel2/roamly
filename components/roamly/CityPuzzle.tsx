@@ -127,7 +127,7 @@ export function CityPuzzle() {
           <p className="mx-auto mt-3 max-w-[29rem] text-center text-[0.68rem] leading-5 text-[#526b62]">
             {destination.kind === "photo" ? <>Photo: <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || "Photographer"}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a> · reduced-size Commons thumbnail</> : "AI-generated illustrative artwork — not a documentary photograph."}
           </p>
-          {solved ? <div className="mx-auto mt-5 max-w-[29rem] rounded-2xl border border-[#dce9df] bg-[#f5faf5] p-4 sm:p-5" style={{ animation: "roamly-enter 360ms ease both" }}>
+          {solved ? <div className="roamly-enter mx-auto mt-5 max-w-[29rem] rounded-2xl border border-[#dce9df] bg-[#f5faf5] p-4 sm:p-5">
             <p role="status" aria-live="polite" className="text-lg font-black text-[#203c43]">You found {destination.city}, {destination.country}! ✨</p>
             <p className="mt-1 text-sm leading-6 text-[#60766e]">Make it a real trip. Explore planning, compare current fares, or find a stay through Booking.com (via Stay22 where configured).</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
