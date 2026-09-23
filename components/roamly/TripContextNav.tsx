@@ -51,7 +51,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
             <p className="truncate text-sm font-bold text-ink">{title}</p>
             <p className="truncate text-xs font-medium text-slate-500">{destination} · {dates}</p>
           </div>
-          {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-black text-slate-600 sm:inline-flex">{status}</span> : null}
+          {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-bold text-slate-600 sm:inline-flex">{status}</span> : null}
         </div>
       ) : null}
       <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}min-w-0 overflow-x-auto pb-1`}>

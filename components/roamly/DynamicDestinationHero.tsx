@@ -127,8 +127,8 @@ export function DynamicDestinationHero() {
             A thoughtful itinerary shaped around your pace, your budget, and the moments you want to remember.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button href="/plan" className="min-h-12 rounded-full bg-[#0f6e66] px-6 text-white shadow-[0_10px_24px_rgba(22,135,127,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#0e605a] hover:shadow-[0_14px_28px_rgba(22,135,127,0.25)] motion-reduce:transform-none motion-reduce:transition-none">
-              Start planning
+            <Button href={`/plan?destination=${encodeURIComponent(active.name)}`} className="min-h-12 rounded-full bg-[#0f6e66] px-6 text-white shadow-[0_10px_24px_rgba(22,135,127,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#0e605a] hover:shadow-[0_14px_28px_rgba(22,135,127,0.25)] motion-reduce:transform-none motion-reduce:transition-none">
+              Plan a trip
             </Button>
             <span className="text-sm font-semibold text-[#617777]">One full itinerary included for life</span>
           </div>

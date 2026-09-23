@@ -19,7 +19,7 @@ const toneClasses: Record<ButtonTone, string> = {
 };
 
 const baseClass =
-  "inline-flex min-h-11 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 disabled:pointer-events-none disabled:opacity-60";
+  "inline-flex min-h-11 min-w-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 disabled:pointer-events-none disabled:opacity-60";
 
 export function Button({ href, children, tone = "primary", className = "", type = "button" }: ButtonProps) {
   const classes = `${baseClass} ${toneClasses[tone]} ${className}`;

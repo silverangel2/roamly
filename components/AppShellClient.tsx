@@ -158,7 +158,7 @@ function AppShellContent({
               />
             </Link>
 
-            <nav className="hidden items-center gap-2 md:flex">
+            <nav aria-label="Primary navigation" className="hidden items-center gap-2 md:flex">
               {desktopRoutes.map((route) => (
                 <Link
                   key={route.href}
@@ -168,6 +168,7 @@ function AppShellContent({
                       ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)]"
                       : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700"
                   }`}
+                  aria-current={isActive(pathname, route.href) ? "page" : undefined}
                 >
                   {route.label}
                 </Link>
@@ -211,7 +212,8 @@ function AppShellContent({
         <RoamlyLocationTracker />
 
         <nav
-          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
+          aria-label="Mobile navigation"
+          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
             authenticated ? "grid-cols-5" : "grid-cols-5"
           }`}
         >
@@ -219,7 +221,8 @@ function AppShellContent({
             <Link
               key={route.href}
               href={route.href}
-              className={`relative min-w-0 rounded-2xl px-1 py-3 text-center text-[0.68rem] font-black transition ${
+              aria-current={isActive(pathname, route.href) ? "page" : undefined}
+              className={`relative min-w-0 rounded-xl px-1 py-2.5 text-center text-[0.68rem] font-bold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 ${
                 isActive(pathname, route.href)
                   ? "bg-ocean text-white shadow-sm"
                   : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"

@@ -531,6 +531,7 @@ export function TripPlanForm({
   const shouldShowResumeNotice = searchParams.get("resumePlan") === "1";
   const shouldContinueGenerate = searchParams.get("continueGenerate") === "1";
   const bookingFallbackSource = searchParams.get("source") === "booking_fallback";
+  const queryDestination = searchParams.get("destination") || "";
   const fallbackDestination = searchParams.get("destination") || "";
   const fallbackOrigin = searchParams.get("origin") || "";
   const fallbackStartDate = readIsoDate(searchParams.get("startDate") || searchParams.get("checkInDate"));
@@ -1082,11 +1083,17 @@ export function TripPlanForm({
         const placeLabel = normalizePlaceText(fallbackDestination);
         setNotice(placeLabel ? `Your ${categoryLabel} search for ${placeLabel} is ready to shape into a trip. Adjust the details before continuing.` : "Your travel search is ready to shape into a trip. Add a destination to continue.");
       }
+    } else if (!restoredStoredDraft && queryDestination) {
+      const placeLabel = normalizePlaceText(queryDestination);
+      if (placeLabel) {
+        setDestinationPlace(readDraftPlace(placeLabel));
+        setNotice(`Starting with ${placeLabel}. Add the details that matter to you, and Roamly will shape the rest.`);
+      }
     }
 
     draftHydrated.current = true;
     setDraftHydratedState(true);
-  }, [bookingFallbackSource, fallbackCategory, fallbackDestination, fallbackEndDate, fallbackOrigin, fallbackStartDate, restorePlanDraft, shouldShowResumeNotice]);
+  }, [bookingFallbackSource, fallbackCategory, fallbackDestination, fallbackEndDate, fallbackOrigin, fallbackStartDate, queryDestination, restorePlanDraft, shouldShowResumeNotice]);
 
   useEffect(() => {
     if (!draftHydrated.current) return;
@@ -1481,6 +1488,20 @@ export function TripPlanForm({
         />
       </div>
 
+      <div aria-label="Trip summary" className="mt-4 grid grid-cols-2 gap-2 rounded-2xl border border-cloud/80 bg-white/70 p-3 sm:grid-cols-4">
+        {[
+          ["Route", routePreview || normalizedDestination || "Not chosen yet"],
+          ["When", startDate && endDate ? `${startDate} → ${endDate}` : `${resolvedDaysCount || "—"} days`],
+          ["Travelers", `${travelersCount} traveler${travelersCount === 1 ? "" : "s"}`],
+          ["Budget", budgetAmount ? `${budgetCurrency} ${budgetAmount}` : "Not set"]
+        ].map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-xl bg-[#fbf8ef] px-3 py-2">
+            <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-500">{translateText(label)}</p>
+            <p className="mt-1 truncate text-xs font-bold text-ink" title={value}>{value}</p>
+          </div>
+        ))}
+      </div>
+
       {restoreNotice ? (
         <div className="mt-5 flex flex-col gap-3 rounded-[1.25rem] border border-ocean/20 bg-ocean/10 p-4 text-ocean sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-black">Your trip plan was restored. Continue where you left off.</p>
@@ -1645,30 +1666,18 @@ export function TripPlanForm({
                 ariaLabel="Number of travel days"
               />
             </label>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block">
-                <FieldLabel>{translateText("Adults")}</FieldLabel>
-                <TextInput value={adults} onChange={setAdults} type="number" min={1} ariaLabel="Adults" />
-              </label>
-              <label className="block">
-                <FieldLabel>{translateText("Children")}</FieldLabel>
-                <TextInput value={children} onChange={setChildren} type="number" min={0} ariaLabel="Children" />
-              </label>
-              <label className="block">
-                <FieldLabel>{translateText("Infants")}</FieldLabel>
-                <TextInput value={infants} onChange={setInfants} type="number" min={0} ariaLabel="Infants" />
-              </label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[0.6fr_1fr]">
-              <label className="block">
-                <FieldLabel>{translateText("Rooms")}</FieldLabel>
-                <TextInput value={rooms} onChange={setRooms} type="number" min={1} ariaLabel="Rooms" />
-              </label>
-              <label className="block">
-                <FieldLabel>{translateText("Bed preference")}</FieldLabel>
-                <SelectField value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} />
-              </label>
-            </div>
+            <details className="group border-y border-cloud/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+                {translateText("More traveler and stay details")}
+                <span className="float-right text-slate-600 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <label className="block"><FieldLabel>{translateText("Children")}</FieldLabel><TextInput value={children} onChange={setChildren} type="number" min={0} ariaLabel="Children" /></label>
+                <label className="block"><FieldLabel>{translateText("Infants")}</FieldLabel><TextInput value={infants} onChange={setInfants} type="number" min={0} ariaLabel="Infants" /></label>
+                <label className="block"><FieldLabel>{translateText("Rooms")}</FieldLabel><TextInput value={rooms} onChange={setRooms} type="number" min={1} ariaLabel="Rooms" /></label>
+              </div>
+              <label className="mt-3 block"><FieldLabel>{translateText("Bed preference")}</FieldLabel><SelectField value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} /></label>
+            </details>
             <StepError error={translateText(error)} />
           </div>
         ) : null}
@@ -1753,29 +1762,21 @@ export function TripPlanForm({
                 />
               </label>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <FieldLabel>{translateText("Accessibility needs")}</FieldLabel>
-                <TextInput value={accessibilityNeeds} onChange={setAccessibilityNeeds} ariaLabel="Accessibility needs" />
+            <details className="group border-y border-cloud/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+                {translateText("Specific needs or notes")}
+                <span className="float-right text-slate-600 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
+              </summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block"><FieldLabel>{translateText("Accessibility needs")}</FieldLabel><TextInput value={accessibilityNeeds} onChange={setAccessibilityNeeds} ariaLabel="Accessibility needs" /></label>
+                <label className="block"><FieldLabel>{translateText("Dietary preference")}</FieldLabel><TextInput value={dietaryPreference} onChange={setDietaryPreference} ariaLabel="Dietary preference" /></label>
+              </div>
+              <label className="mt-3 block">
+                <FieldLabel>{translateText("Special notes")}</FieldLabel>
+                <textarea value={specialNotes} onChange={(event) => setSpecialNotes(event.target.value)} rows={4} aria-label="Special trip notes" className="mt-2 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10" />
+                <p className="mt-2 text-xs leading-5 text-slate-500">{translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}</p>
               </label>
-              <label className="block">
-                <FieldLabel>{translateText("Dietary preference")}</FieldLabel>
-                <TextInput value={dietaryPreference} onChange={setDietaryPreference} ariaLabel="Dietary preference" />
-              </label>
-            </div>
-            <label className="block">
-              <FieldLabel>{translateText("Special notes")}</FieldLabel>
-              <textarea
-                value={specialNotes}
-                onChange={(event) => setSpecialNotes(event.target.value)}
-                rows={4}
-                aria-label="Special trip notes"
-                className="mt-2 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold leading-7 text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
-              />
-              <p className="mt-2 text-xs leading-5 text-slate-500">
-                {translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}
-              </p>
-            </label>
+            </details>
             <StepError error={translateText(error)} />
           </div>
         ) : null}
@@ -1878,7 +1879,7 @@ export function TripPlanForm({
           type="button"
           onClick={goBack}
           disabled={step === 0 || loading}
-          className="min-h-12 rounded-xl border border-cloud bg-transparent px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-ocean/50 hover:text-ocean disabled:opacity-40"
+          className="min-h-12 rounded-xl border border-cloud bg-[#fffdf8] px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-ocean/50 hover:text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 disabled:opacity-40"
         >
           {translateText("Back")}
         </button>
@@ -1887,7 +1888,7 @@ export function TripPlanForm({
             type="button"
             onClick={goNext}
             disabled={loading}
-            className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-bold", primaryActionClass)}
+          className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25", primaryActionClass)}
           >
             {translateText("Continue")}
           </button>
@@ -1896,7 +1897,7 @@ export function TripPlanForm({
             type="button"
             onClick={openFinalConfirmation}
             disabled={loading || priceChecking || (isCheckingSession && !sessionUser)}
-            className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-bold", primaryActionClass)}
+            className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25", primaryActionClass)}
           >
             {loading && requiresPaidUnlock
               ? translateText("Opening checkout...")

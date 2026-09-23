@@ -105,15 +105,15 @@ export function CityPuzzle() {
     setMoves(0);
   }
 
-  return <section id="destination-puzzle" aria-labelledby="puzzle-title" className="mx-auto w-full max-w-7xl px-5 py-7 sm:px-8 sm:py-9 lg:px-12">
-    <div className="overflow-hidden rounded-[1.7rem] border border-[#dce9df] bg-white shadow-[0_18px_55px_rgba(39,88,80,0.09)]">
+  return <section id="destination-puzzle" aria-labelledby="puzzle-title" className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
+    <div className="overflow-hidden rounded-[1.35rem] border border-[#dce9df] bg-white shadow-[0_12px_38px_rgba(39,88,80,0.07)]">
       <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
-        <div className="flex flex-col justify-center bg-gradient-to-br from-[#e7f5ed] via-[#f7f7ee] to-[#fff2df] p-6 sm:p-8 lg:p-10">
-          <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#0f6e66]">A little travel break · {destinationIndex + 1} of {destinations.length}</p>
-          <h2 id="puzzle-title" className="mt-3 text-2xl font-black tracking-tight text-[#203c43] sm:text-3xl">Where will the pieces take you?</h2>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-[#5f756c]">Swap two pieces at a time to bring the picture together. Solve it to reveal the destination and turn inspiration into a trip.</p>
+        <div className="flex flex-col justify-center bg-[#f5faf5] p-6 sm:p-8 lg:p-9">
+          <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#0f6e66]">A small travel break · {destinationIndex + 1} of {destinations.length}</p>
+          <h2 id="puzzle-title" className="mt-3 text-2xl font-bold tracking-tight text-[#203c43] sm:text-3xl">Where will the pieces take you?</h2>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-[#5f756c]">Swap two pieces at a time to discover somewhere new. Solve the picture when you feel like playing, then decide whether it belongs on your trip.</p>
           <p aria-live="polite" className="mt-4 text-xs font-bold text-[#547067]">{solved ? `Solved in ${moves} swaps` : selected === null ? `Choose a piece · ${moves} ${moves === 1 ? "swap" : "swaps"}` : "Now choose another piece to swap."}</p>
-          <p className="mt-5 text-[0.68rem] leading-5 text-[#526b62]">Explore 100 destinations through real travel photos and clearly labeled AI illustrations. Finds shows actual places and partner listings when available.</p>
+          <p className="mt-5 text-[0.68rem] leading-5 text-[#526b62]">Explore 100 destinations through real travel photos and clearly labeled AI illustrations. Planning remains one tap away above.</p>
         </div>
         <div className="p-4 sm:p-7 lg:p-9">
           <div role="group" aria-label={`Jigsaw puzzle ${destination.kind === "photo" ? "photo of" : "illustration inspired by"} ${destination.city}, ${destination.country}`} className="mx-auto grid aspect-square w-full max-w-[29rem] grid-cols-3 gap-1.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_10px_34px_rgba(39,88,80,0.12)] sm:gap-2 sm:p-2">
@@ -130,10 +130,10 @@ export function CityPuzzle() {
           {solved ? <div className="mx-auto mt-5 max-w-[29rem] rounded-2xl border border-[#dce9df] bg-[#f5faf5] p-4 sm:p-5" style={{ animation: "roamly-enter 360ms ease both" }}>
             <p role="status" aria-live="polite" className="text-lg font-black text-[#203c43]">You found {destination.city}, {destination.country}! ✨</p>
             <p className="mt-1 text-sm leading-6 text-[#60766e]">Make it a real trip. Explore planning, compare current fares, or find a stay through Booking.com (via Stay22 where configured).</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <a href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0f6e66] px-5 text-xs font-extrabold text-white hover:bg-[#0e605a]">Plan a trip</a>
-              <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2]">Check flights</a>
-              <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2]">Find hotels</a>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <a href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0f6e66] px-5 text-xs font-extrabold text-white hover:bg-[#0e605a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Plan a trip</a>
+              <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Check flights</a>
+              <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Find hotels</a>
               <button type="button" onClick={nextPuzzle} className="inline-flex min-h-11 items-center justify-center rounded-full px-4 text-xs font-extrabold text-[#0f6e66] hover:bg-white">Next puzzle →</button>
             </div>
             <p className="mt-3 text-[0.68rem] leading-5 text-[#526b62]">Affiliate availability depends on partner approval and production configuration. Prices and booking are confirmed with each provider.</p>
