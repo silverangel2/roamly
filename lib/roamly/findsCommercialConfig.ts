@@ -32,7 +32,7 @@ export const findsWidgets = {
     src: "https://tpwdgt.com/content?currency=CAD&trs=549715&shmarker=750294&locale=en&city_id=107&category=3&amount=3&powered_by=true&campaign_id=137&promo_id=4497",
     eyebrow: "Featured experiences",
     heading: "Things worth doing",
-    description: "Real experiences to browse when the partner feed has something useful for your trip.",
+    description: "Browse real experiences and local ideas when they fit the trip.",
     minHeight: 260,
     placement: "primary"
   },
@@ -42,7 +42,7 @@ export const findsWidgets = {
     src: "https://tpwdgt.com/content?currency=CAD&trs=549715&shmarker=750294&locale=en&city_id=121&category=3&amount=3&powered_by=true&campaign_id=137&promo_id=4497",
     eyebrow: "More to discover",
     heading: "Make a day of it",
-    description: "A second curated experience shelf, kept separate so the magazine does not repeat the same listings.",
+    description: "A second shelf of real experiences to keep exploring.",
     minHeight: 260,
     placement: "primary"
   },
@@ -52,7 +52,7 @@ export const findsWidgets = {
     src: "https://tpwdgt.com/content?currency=usd&trs=549715&shmarker=750294&target_host=www.aviasales.com%2Fsearch&locale=en&limit=6&powered_by=true&primary=%230085FF&promo_id=4044&campaign_id=100",
     eyebrow: "Flights worth checking",
     heading: "A real place to start looking",
-    description: "Current flight discovery from the supplied partner widget. Currency and availability are shown by the widget itself.",
+    description: "Explore current fare ideas for your next trip.",
     minHeight: 280,
     placement: "primary"
   },
@@ -62,7 +62,7 @@ export const findsWidgets = {
     src: "https://tpwdgt.com/content?currency=cad&trs=549715&shmarker=750294&locale=en&powered_by=true&limit=4&primary_color=00AE98&results_background_color=FFFFFF&form_background_color=FFFFFF&promo_id=4563&campaign_id=111",
     eyebrow: "Travel ideas",
     heading: "More ways to get there",
-    description: "A compact travel search surface for customers who want to keep exploring.",
+    description: "Keep exploring routes and travel ideas for the journey ahead.",
     minHeight: 250,
     placement: "secondary"
   },
@@ -72,7 +72,7 @@ export const findsWidgets = {
     src: "https://tpwdgt.com/content?trs=549715&shmarker=750294&powered_by=true&locale=en&curr=USD&color=blue&pbi=0&ag=18&ap=34&rid=481&campaign_id=22&promo_id=3507",
     eyebrow: "Need a car?",
     heading: "Keep the journey moving",
-    description: "Compare current car options through the supplied travel widget. The widget controls its own USD display.",
+    description: "Browse current car options for the road ahead. Prices are shown in USD.",
     minHeight: 300,
     placement: "secondary"
   },
@@ -82,7 +82,7 @@ export const findsWidgets = {
     src: "https://tpwdgt.com/content?trs=549715&shmarker=750294&locale=en&country=Spain&powered_by=true&color_button=%23f2685f&color_focused=%23f2685f&secondary=%23FFFFFF&dark=%2311100f&light=%23FFFFFF&special=%23C4C4C4&border_radius=5&plain=false&no_labels=true&promo_id=8588&campaign_id=541",
     eyebrow: "Stay connected",
     heading: "Connected when you land",
-    description: "A travel connectivity option from the approved Travelpayouts relationship, shown only through its supplied widget.",
+    description: "Stay connected abroad with an eSIM before you land.",
     minHeight: 190,
     placement: "secondary"
   }

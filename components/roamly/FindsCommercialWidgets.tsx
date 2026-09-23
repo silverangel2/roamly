@@ -55,17 +55,17 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
 
   return <div className="min-w-0 overflow-hidden" aria-busy={state === "loading"}>
     {state === "failed" ? <p className="rounded-2xl border border-dashed border-[#c8ddd0] bg-[#f7fbf7] px-4 py-5 text-sm leading-6 text-[#60766d]">This travel option is unavailable right now. Nothing has been substituted or guessed.</p> : null}
-    {state !== "failed" ? <div ref={hostRef} aria-label={config.heading} style={{ minHeight: `${visible ? config.minHeight : 96}px` }} className="min-w-0 overflow-hidden rounded-2xl bg-white/70" /> : null}
+    {state !== "failed" ? <div ref={hostRef} aria-label={config.heading} style={{ minHeight: `${visible ? config.minHeight : 72}px` }} className="min-w-0 overflow-hidden" /> : null}
   </div>;
 }
 
-export function FindsWidgetSection({ config }: { config: FindsWidgetConfig }) {
-  return <section className="min-w-0" aria-labelledby={`${config.id}-heading`}>
-    <div className="mb-4">
+export function FindsWidgetSection({ config, heading = true, className = "" }: { config: FindsWidgetConfig; heading?: boolean; className?: string }) {
+  return <section className={`min-w-0 ${className}`} aria-labelledby={heading ? `${config.id}-heading` : undefined}>
+    {heading ? <div className="mb-4">
       <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">{config.eyebrow}</p>
       <h3 id={`${config.id}-heading`} className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">{config.heading}</h3>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-[#60766d]">{config.description}</p>
-    </div>
+    </div> : null}
     <TravelpayoutsWidget config={config} />
   </section>;
 }
