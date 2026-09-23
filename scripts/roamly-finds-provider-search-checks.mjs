@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { bookingFindCard, flightFindCard, klookFindCard } from "../lib/roamly/findsMarketCore.ts";
+import { bookingFindCard, flightFindCard, klookFindCard, publicEventFindCard } from "../lib/roamly/findsMarketCore.ts";
 import { travelpayoutsBookingUrl } from "../lib/roamly/travelpayoutsLink.ts";
 
 const hotel = {
@@ -26,6 +26,14 @@ const activity = {
 assert.equal(klookFindCard(activity)?.category, "activity");
 assert.equal(klookFindCard({ ...activity, metadata: { providerPayload: {} } }), null, "Klook experiences without provider photos are withheld");
 assert.equal(klookFindCard({ ...activity, booking_url: "https://example.com/activity" }), null, "Klook CTA must remain on Klook");
+
+const publicEvent = {
+  id: "event:88", category: "attraction", source: "public_web", title: "Lisbon Night Market",
+  normal_search_url: "https://events.example.org/lisbon-night-market", start_date: "2026-10-14", searched_at: "2026-09-23T12:00:00.000Z",
+  metadata: { public_event: { venue: "Ribeira Square" } }
+};
+assert.equal(publicEventFindCard(publicEvent)?.affiliate, false, "public events never receive affiliate claims");
+assert.equal(publicEventFindCard(publicEvent)?.image, null, "public events without source imagery do not receive substitute photos");
 
 const flight = {
   id: "flight:1", title: "YHZ to LIS flight", origin: "YHZ", destination: "LIS", source: "travelpayouts", price_type: "live_partner",

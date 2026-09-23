@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { bookingFindCard, flightFindCard, klookFindCard, klookTransportFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
+import { bookingFindCard, flightFindCard, klookFindCard, klookTransportFindCard, publicEventFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
 
 export type { FindsCard } from "@/lib/roamly/findsMarketCore";
 
@@ -175,7 +175,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       }
       const body = await response.json().catch(() => ({})) as { results?: unknown; warning?: string };
       const results = Array.isArray(body.results) ? body.results : [];
-      const cardsForShelf = results.map((item) => category === "flight" ? flightFindCard(item) : category === "transport" ? klookTransportFindCard(item) : klookFindCard(item)).filter((card): card is FindsCard => Boolean(card));
+      const cardsForShelf = results.map((item) => category === "flight" ? flightFindCard(item) : category === "transport" ? klookTransportFindCard(item) : publicEventFindCard(item) || klookFindCard(item)).filter((card): card is FindsCard => Boolean(card));
       setMarketCards((current) => dedupeCards([...current.filter((card) => card.category !== cardCategory), ...cardsForShelf]));
       setPartnerSearchMessage((current) => ({
         ...current,
@@ -270,8 +270,8 @@ function EditorialCard({ card, variant }: { card: FindsCard; variant: EditorialC
   const frameClass = feature ? "aspect-[4/3] sm:aspect-[1.45/1]" : variant === "product" ? "aspect-[4/3]" : "aspect-[1.25/1]";
   const titleClass = feature ? "text-2xl sm:text-3xl" : "text-lg";
   return <article className={`group overflow-hidden rounded-[1.5rem] border border-[#e3e9e3] bg-white shadow-[0_8px_28px_rgba(39,68,58,0.05)] transition duration-300 hover:-translate-y-1 hover:border-[#bfd8ca] hover:shadow-[0_18px_42px_rgba(39,88,80,0.12)] motion-reduce:transform-none motion-reduce:transition-none ${feature ? "lg:min-h-full" : ""}`}>
-    <div className={`relative overflow-hidden ${frameClass} ${product ? "bg-[#f8faf7]" : "bg-[#e9f1eb]"}`}>
-      <Image src={card.image} alt={card.imageAlt} fill unoptimized loading={feature ? "eager" : "lazy"} sizes={feature ? "(min-width: 1024px) 58vw, 100vw" : "(min-width: 640px) 42vw, 90vw"} className={`${imageClass} transition duration-700 group-hover:scale-[1.03] motion-reduce:transform-none`} />
+      <div className={`relative overflow-hidden ${frameClass} ${product ? "bg-[#f8faf7]" : "bg-[#e9f1eb]"}`}>
+      {card.image ? <Image src={card.image} alt={card.imageAlt} fill unoptimized loading={feature ? "eager" : "lazy"} sizes={feature ? "(min-width: 1024px) 58vw, 100vw" : "(min-width: 640px) 42vw, 90vw"} className={`${imageClass} transition duration-700 group-hover:scale-[1.03] motion-reduce:transform-none`} /> : <div aria-hidden="true" className="absolute inset-0 grid place-items-center bg-[linear-gradient(135deg,#e8f2eb,#c8e2d3)]"><div className="text-center text-[#28665d]"><span className="block text-4xl">✦</span><span className="mt-2 block text-xs font-black uppercase tracking-[0.16em]">Event details</span></div></div>}
       <div className="absolute inset-x-4 top-4 flex items-start justify-between gap-3"><span className="rounded-full border border-[#e6ece5] bg-white/95 px-3 py-1.5 text-[0.68rem] font-extrabold text-[#31594f] shadow-sm">{card.eyebrow}</span>{card.savingPercent ? <span className="rounded-full bg-[#b83f34] px-3 py-1.5 text-[0.68rem] font-extrabold text-white">Verified saving {card.savingPercent}%</span> : null}</div>
       {card.price ? <span className="absolute bottom-4 left-4 rounded-xl border border-white/80 bg-white/95 px-3 py-2 text-sm font-black text-[#203c43] shadow-sm">{card.price}<span className="ml-1 text-[0.65rem] font-semibold text-[#718179]">{card.priceNote || "current when checked"}</span></span> : null}
     </div>

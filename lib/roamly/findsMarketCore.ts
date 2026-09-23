@@ -9,7 +9,7 @@ export type FindsCard = {
   category: "hotel" | "flight" | "activity" | "product" | "transport";
   icon: string;
   action: string;
-  image: string;
+  image: string | null;
   imageAlt: string;
   price?: string | null;
   priceNote?: string | null;
@@ -164,6 +164,33 @@ export function klookTransportFindCard(value: unknown): FindsCard | null {
     price: base.price,
     priceNote: "starting price when checked",
     checkedAt: string(base.result.searched_at) || null
+  };
+}
+
+export function publicEventFindCard(value: unknown): FindsCard | null {
+  const result = record(value);
+  if (!result || result.source !== "public_web" || result.category !== "attraction") return null;
+  const title = string(result.title);
+  const href = providerUrl(result.normal_search_url, "klook.com") || string(result.normal_search_url);
+  if (!title || !href.startsWith("https://")) return null;
+  const event = record(result.metadata)?.public_event;
+  const venue = string(record(event)?.venue);
+  const startDate = string(result.start_date || record(event)?.startDate);
+  const date = startDate ? ` on ${startDate}` : "";
+  return {
+    id: string(result.id) || href,
+    title,
+    eyebrow: "Things worth doing",
+    description: `A public event with grounded date evidence${date}${venue ? ` at ${venue}` : ""}. Check the official event details before making plans.`,
+    href,
+    provider: string(result.provider) || "Public event source",
+    affiliate: false,
+    category: "activity",
+    icon: "✦",
+    action: "View event details",
+    image: null,
+    imageAlt: "",
+    checkedAt: string(result.searched_at) || null
   };
 }
 
