@@ -157,7 +157,7 @@ export function DynamicDestinationHero() {
 
         <div className="roamly-enter order-2 lg:order-2" style={{ animationDelay: "100ms" }}>
           <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#dcebe8] shadow-[0_28px_80px_rgba(39,88,80,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
-            <Image src={active.image} alt={active.alt} fill priority sizes="(min-width: 1024px) 54vw, 100vw" className="absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700" style={{ objectPosition: active.desktopPosition }} />
+            <Image src={active.image} alt={`AI-generated illustration inspired by ${active.name}, ${active.country}. ${active.alt}`} fill priority sizes="(min-width: 1024px) 54vw, 100vw" className="absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700" style={{ objectPosition: active.desktopPosition }} />
             <Image src={incoming.image} alt="" fill sizes="(min-width: 1024px) 54vw, 100vw" aria-hidden="true" className={`absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
             <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 sm:bottom-6 sm:left-6 sm:right-6">
               <div key={active.name} className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-lg backdrop-blur-md sm:px-5 sm:py-4">
@@ -165,8 +165,8 @@ export function DynamicDestinationHero() {
                 <p className="mt-1 text-xl font-bold tracking-tight text-[#203c43] sm:text-2xl">{active.name}</p>
                 <p className="mt-0.5 text-sm font-medium text-[#667d79]">{active.country}</p>
               </div>
-              <span className="mb-1 hidden rounded-full border border-white/80 bg-white/85 px-3 py-2 text-xs font-bold text-[#267d78] shadow-sm backdrop-blur sm:inline-flex sm:items-center sm:gap-2">
-                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#ef9d69]" />Made for your kind of trip
+              <span aria-hidden="true" className="mb-1 inline-flex items-center gap-2 rounded-full border border-white/80 bg-white/90 px-3 py-2 text-[0.65rem] font-bold text-[#267d78] shadow-sm backdrop-blur sm:text-xs">
+                <span className="h-2 w-2 rounded-full bg-[#ef9d69]" />AI-generated illustration
               </span>
             </div>
           </div>
