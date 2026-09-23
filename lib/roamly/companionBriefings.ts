@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { queueCompanionNotification } from "@/lib/roamly/companionNotifications";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { companionBriefingMessage as msg } from "@/lib/roamly/briefingMessages.mjs";
+import type { RoamlyLocale } from "@/lib/i18n";
 
 type TripRow = {
   id: string;
@@ -70,7 +73,8 @@ function dateInTimezone(date: Date, timezone: string): string {
 
 function timeInTimezone(
   value: string | null,
-  timezone: string
+  timezone: string,
+  locale: string
 ): string | null {
   if (!value) return null;
 
@@ -79,7 +83,7 @@ function timeInTimezone(
   if (Number.isNaN(date.getTime())) return null;
 
   try {
-    return new Intl.DateTimeFormat("en-CA", {
+    return new Intl.DateTimeFormat(locale, {
       timeZone: timezone,
       hour: "numeric",
       minute: "2-digit"
@@ -105,7 +109,8 @@ function isActiveBooking(status: string): boolean {
 
 function bookingLine(
   booking: BookingRow,
-  timezone: string
+  timezone: string,
+  locale: string
 ): string {
   const title =
     booking.title ||
@@ -117,14 +122,18 @@ function bookingLine(
     booking.check_in_at ||
     booking.start_at;
 
-  const time = timeInTimezone(start, timezone);
+  const time = timeInTimezone(start, timezone, locale);
+  const labels: Record<string, { terminal: string; gate: string }> = {
+    fr: { terminal: "Terminal", gate: "Porte" }, es: { terminal: "Terminal", gate: "Puerta" }, ja: { terminal: "ターミナル", gate: "ゲート" }, ko: { terminal: "터미널", gate: "게이트" }, zh: { terminal: "航站楼", gate: "登机口" }
+  };
+  const localizedLabels = labels[locale] || { terminal: "Terminal", gate: "Gate" };
 
   const gateDetails = [
     booking.terminal
-      ? `Terminal ${booking.terminal}`
+      ? `${localizedLabels.terminal} ${booking.terminal}`
       : null,
     booking.gate
-      ? `Gate ${booking.gate}`
+      ? `${localizedLabels.gate} ${booking.gate}`
       : null
   ]
     .filter(Boolean)
@@ -219,27 +228,22 @@ function dailyBriefingBody(params: {
   bookings: BookingRow[];
   repairCount: number;
   timezone: string;
+  locale: RoamlyLocale;
 }) {
-  const { trip, bookings, repairCount, timezone } =
+  const { trip, bookings, repairCount, timezone, locale } =
     params;
 
   const lines = bookings
     .slice(0, 5)
     .map((booking) =>
-      bookingLine(booking, timezone)
+      bookingLine(booking, timezone, locale)
     );
 
   const sections = [
-    `Good morning. Here is your Companion briefing for ${destinationLabel(trip)}.`,
-    lines.length
-      ? `Today’s confirmed bookings: ${lines.join("; ")}.`
-      : "No confirmed timed bookings are scheduled for today.",
-    repairCount > 0
-      ? `${repairCount} Companion repair ${
-          repairCount === 1 ? "proposal needs" : "proposals need"
-        } your attention.`
-      : "There are no unresolved Companion repairs.",
-    "Open the trip for your full itinerary and latest live updates."
+    msg(locale, "dailyIntro", { destination: destinationLabel(trip) }),
+    lines.length ? msg(locale, "dailyItems", { items: lines.join("; ") }) : msg(locale, "dailyNone"),
+    repairCount > 0 ? msg(locale, repairCount === 1 ? "repairOne" : "repairMany", { count: String(repairCount) }) : msg(locale, "repairNone"),
+    msg(locale, "dailyEnd")
   ];
 
   return sections.join(" ");
@@ -250,27 +254,22 @@ function finalDayBriefingBody(params: {
   bookings: BookingRow[];
   repairCount: number;
   timezone: string;
+  locale: RoamlyLocale;
 }) {
-  const { trip, bookings, repairCount, timezone } =
+  const { trip, bookings, repairCount, timezone, locale } =
     params;
 
   const remaining = bookings
     .slice(0, 5)
     .map((booking) =>
-      bookingLine(booking, timezone)
+      bookingLine(booking, timezone, locale)
     );
 
   const sections = [
-    `This is the final-day briefing for ${destinationLabel(trip)}.`,
-    remaining.length
-      ? `Remaining confirmed plans: ${remaining.join("; ")}.`
-      : "No remaining confirmed timed bookings were found for today.",
-    repairCount > 0
-      ? `${repairCount} unresolved Companion repair ${
-          repairCount === 1 ? "still needs" : "proposals still need"
-        } attention.`
-      : "There are no unresolved Companion repairs.",
-    "Check checkout details, return transportation, and anything you still need to complete before the trip ends."
+    msg(locale, "finalIntro", { destination: destinationLabel(trip) }),
+    remaining.length ? msg(locale, "finalItems", { items: remaining.join("; ") }) : msg(locale, "finalNone"),
+    repairCount > 0 ? msg(locale, repairCount === 1 ? "finalRepairOne" : "finalRepairMany", { count: String(repairCount) }) : msg(locale, "repairNone"),
+    msg(locale, "finalEnd")
   ];
 
   return sections.join(" ");
@@ -330,6 +329,7 @@ export async function scheduleCompanionBriefings() {
     }
 
     const timezone = tripTimezone(trip);
+    const locale = getTripItineraryLanguage(trip.metadata);
     const localDate = dateInTimezone(
       new Date(),
       timezone
@@ -362,22 +362,22 @@ export async function scheduleCompanionBriefings() {
       ? ("final_day_briefing" as const)
       : ("daily_briefing" as const);
 
-    const title = finalDay
-      ? `Final-day briefing: ${destinationLabel(trip)}`
-      : `Today in ${destinationLabel(trip)}`;
+    const title = msg(locale, finalDay ? "finalTitle" : "dailyTitle", { destination: destinationLabel(trip) });
 
     const body = finalDay
       ? finalDayBriefingBody({
           trip,
           bookings,
           repairCount,
-          timezone
+          timezone,
+          locale
         })
       : dailyBriefingBody({
           trip,
           bookings,
           repairCount,
-          timezone
+          timezone,
+          locale
         });
 
     const queued =

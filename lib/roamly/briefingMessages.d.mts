@@ -13,3 +13,9 @@ export function localizeActivityNotification(
   body: string,
   metadata?: Record<string, unknown>
 ): { title: string; body: string };
+
+export function companionBriefingMessage(
+  locale: RoamlyLocale,
+  key: string,
+  values?: Record<string, string>
+): string;
