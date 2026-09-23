@@ -141,6 +141,7 @@ export async function schedulePreTrip1DayBriefing(params: {
     gmailStatus: gmail.error ? null : gmail.data?.connection_status === "connected" ? "connected" : "disconnected",
     liveCompanionIncluded: currentTrip.tracking_unlocked === true || currentTrip.live_companion_unlocked === true,
     mustDo: mustDoFromTrip(currentTrip),
+    locale: getTripItineraryLanguage(currentTrip.metadata),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}`
   });
   const rendered = renderRoamlyEmailShell({

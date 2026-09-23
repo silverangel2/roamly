@@ -1,3 +1,6 @@
+import type { RoamlyLocale } from "@/lib/i18n";
+import { briefingMessage as msg } from "./briefingMessages.mjs";
+
 export type PreTrip7DayBooking = {
   id: string;
   booking_type?: string | null;
@@ -18,6 +21,7 @@ export type PreTrip7DayContentInput = {
   gmailStatus: "connected" | "disconnected" | null;
   mustDo?: string | null;
   tripPath: string;
+  locale?: RoamlyLocale;
 };
 
 function clean(value: unknown) {
@@ -49,51 +53,50 @@ function activeBooking(booking: PreTrip7DayBooking) {
   return booking.traveler_confirmed === true && ["booked", "paid", "reserved", "confirmed", "modified"].includes(clean(booking.booking_status));
 }
 
-function bookingDate(booking: PreTrip7DayBooking, timezone: string) {
+function bookingDate(booking: PreTrip7DayBooking, timezone: string, locale: RoamlyLocale) {
   const raw = clean(booking.start_at) || clean(booking.check_in_at);
   const date = raw ? new Date(raw) : null;
   if (!date || !Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en", { timeZone: timezone, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(locale, { timeZone: timezone, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(date);
 }
 
-function bookingLabel(booking: PreTrip7DayBooking, timezone: string) {
-  return [clean(booking.booking_type), clean(booking.title) || clean(booking.provider_name) || "Confirmed booking", bookingDate(booking, timezone)].filter(Boolean).join(" · ");
+function bookingLabel(booking: PreTrip7DayBooking, timezone: string, locale: RoamlyLocale) {
+  return [clean(booking.booking_type), clean(booking.title) || clean(booking.provider_name) || msg(locale, "confirmed"), bookingDate(booking, timezone, locale)].filter(Boolean).join(" · ");
 }
 
 export function buildPreTrip7DayBriefingContent(input: PreTrip7DayContentInput) {
+  const locale = input.locale || "en";
   const destination = clean(input.destination) || "your trip";
-  const confirmed = input.confirmedBookings.filter(activeBooking).slice(0, 4).map((booking) => bookingLabel(booking, input.timezone));
+  const confirmed = input.confirmedBookings.filter(activeBooking).slice(0, 4).map((booking) => bookingLabel(booking, input.timezone, locale));
   const attention = input.confirmedBookings
     .filter((booking) => ["cancelled", "needs_confirmation", "detected"].includes(clean(booking.booking_status)))
     .slice(0, 3)
-    .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Travel booking"} needs attention`);
+    .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
-  if (mustDo) attention.push(`Traveler note: ${mustDo.slice(0, 220)}`);
+  if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
   const ready = attention.length === 0;
   const dates = input.startDate && input.endDate ? `${input.startDate} – ${input.endDate}` : input.startDate || null;
-  const intro = ready
-    ? "Your trip looks on track. Roamly has checked the travel details currently connected to this trip."
-    : "Roamly found a few items worth checking before you travel.";
+  const intro = msg(locale, ready ? "onTrackIntro" : "attentionIntro");
   const body = [
-    ready ? "Everything important currently looks in order." : "Here is what deserves your attention:",
-    confirmed.length ? `Confirmed: ${confirmed.join("; ")}.` : "No confirmed bookings are attached yet.",
-    attention.length ? `Needs attention: ${attention.join("; ")}.` : "",
-    input.gmailStatus === "connected" ? "Booking email monitoring is connected." : "",
-    input.gmailStatus === "disconnected" ? "Connect your booking email from the trip if you want Roamly to organize future confirmations." : ""
+    ready ? msg(locale, "onTrack") : msg(locale, "attentionList"),
+    confirmed.length ? `${msg(locale, "confirmed")}: ${confirmed.join("; ")}.` : msg(locale, "noBookings"),
+    attention.length ? `${msg(locale, "needsAttention")}: ${attention.join("; ")}.` : "",
+    input.gmailStatus === "connected" ? msg(locale, "bookingEmailOn") : "",
+    input.gmailStatus === "disconnected" ? msg(locale, "bookingEmailOffWeek") : ""
   ].filter(Boolean).join("\n\n");
   return {
-    subject: `${destination} is one week away`,
-    preheader: `A concise readiness check for your ${destination} trip.`,
-    eyebrow: "Trip readiness",
-    title: `${destination} is one week away`,
+    subject: msg(locale, "weekSubject", { destination }),
+    preheader: msg(locale, "weekPreheader", { destination }),
+    eyebrow: msg(locale, "readiness"),
+    title: msg(locale, "weekSubject", { destination }),
     intro,
     body,
     summaryItems: [
-      { label: "Destination", value: destination },
-      { label: "Travel dates", value: dates },
-      { label: "Readiness", value: ready ? "Looks on track" : "Needs attention" }
+      { label: msg(locale, "destination"), value: destination },
+      { label: msg(locale, "travelDates"), value: dates },
+      { label: msg(locale, "readinessLabel"), value: ready ? msg(locale, "looksOnTrack") : msg(locale, "needsAttention") }
     ],
-    ctaLabel: "View my trip",
+    ctaLabel: msg(locale, "viewTrip"),
     tripPath: input.tripPath
   };
 }

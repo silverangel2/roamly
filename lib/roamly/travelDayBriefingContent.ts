@@ -1,3 +1,6 @@
+import type { RoamlyLocale } from "@/lib/i18n";
+import { briefingMessage as msg } from "./briefingMessages.mjs";
+
 export type TravelDayBooking = {
   id: string;
   booking_type?: string | null;
@@ -31,16 +34,17 @@ export type TravelDayContentInput = {
   liveCompanionIncluded: boolean;
   mustDo?: string | null;
   tripPath: string;
+  locale?: RoamlyLocale;
 };
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function dateLabel(value: string | null | undefined, timezone: string) {
+function dateLabel(value: string | null | undefined, timezone: string, locale = "en") {
   const date = value ? new Date(value) : null;
   if (!date || !Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: timezone,
     weekday: "short",
     month: "short",
@@ -64,9 +68,9 @@ function localDateKey(date: Date, timezone: string) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
 }
 
-function bookingLabel(booking: TravelDayBooking, timezone: string) {
-  const name = clean(booking.title) || clean(booking.provider_name) || clean(booking.booking_type) || "Confirmed booking";
-  const when = dateLabel(booking.start_at || booking.check_in_at, timezone);
+function bookingLabel(booking: TravelDayBooking, timezone: string, locale: RoamlyLocale) {
+  const name = clean(booking.title) || clean(booking.provider_name) || clean(booking.booking_type) || msg(locale, "confirmed");
+  const when = dateLabel(booking.start_at || booking.check_in_at, timezone, locale);
   const route = [clean(booking.origin), clean(booking.destination)].filter(Boolean).join(" to ");
   return [name, route, when].filter(Boolean).join(" · ");
 }
@@ -122,40 +126,41 @@ export function findFirstTravelDayEvent(params: {
 }
 
 export function buildTravelDayBriefingContent(input: TravelDayContentInput) {
+  const locale = input.locale || "en";
   const destination = clean(input.destination) || "your trip";
   const confirmed = input.bookings.filter(isConfirmed);
-  const transport = confirmed.filter((booking) => ["flight", "train", "bus", "ferry", "transport", "transportation", "rental_car", "car_rental"].includes(clean(booking.booking_type))).slice(0, 2).map((booking) => bookingLabel(booking, input.timezone));
-  const stay = confirmed.filter((booking) => ["hotel", "accommodation", "lodging", "stay"].includes(clean(booking.booking_type))).slice(0, 1).map((booking) => bookingLabel(booking, input.timezone));
+  const transport = confirmed.filter((booking) => ["flight", "train", "bus", "ferry", "transport", "transportation", "rental_car", "car_rental"].includes(clean(booking.booking_type))).slice(0, 2).map((booking) => bookingLabel(booking, input.timezone, locale));
+  const stay = confirmed.filter((booking) => ["hotel", "accommodation", "lodging", "stay"].includes(clean(booking.booking_type))).slice(0, 1).map((booking) => bookingLabel(booking, input.timezone, locale));
   const firstPlan = input.firstActivity && !["completed", "skipped", "expired", "cancelled"].includes(clean(input.firstActivity.status))
-    ? [clean(input.firstActivity.title) || "First plan", dateLabel(input.firstActivity.scheduled_start, input.timezone), clean(input.firstActivity.address)].filter(Boolean).join(" · ")
+    ? [clean(input.firstActivity.title) || msg(locale, "firstUp"), dateLabel(input.firstActivity.scheduled_start, input.timezone, locale), clean(input.firstActivity.address)].filter(Boolean).join(" · ")
     : "";
-  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Travel booking"} needs attention`);
+  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
-  if (mustDo) attention.push(`Traveler note: ${mustDo.slice(0, 220)}`);
-  const startLabel = new Intl.DateTimeFormat("en", { timeZone: input.timezone, hour: "numeric", minute: "2-digit" }).format(input.tripStart);
+  if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
+  const startLabel = new Intl.DateTimeFormat(locale, { timeZone: input.timezone, hour: "numeric", minute: "2-digit" }).format(input.tripStart);
   const dates = input.startDate && input.endDate ? `${input.startDate} – ${input.endDate}` : input.startDate || null;
   const body = [
-    "Your trip starts today. Here is the short version of what matters first.",
-    `Today: your trip begins around ${startLabel}.`,
-    transport.length ? `Confirmed transport: ${transport.join("; ")}.` : "",
-    stay.length ? `Stay: ${stay[0]}.` : "",
-    firstPlan ? `First up: ${firstPlan}.` : "",
-    attention.length ? `Needs attention: ${attention.join("; ")}.` : "",
-    input.liveCompanionIncluded ? "Live Companion is available for this trip and will guide you during travel." : ""
+    msg(locale, "travelReady"),
+    msg(locale, "around", { time: startLabel }),
+    transport.length ? `${msg(locale, "confirmedTransportFull")}: ${transport.join("; ")}.` : "",
+    stay.length ? `${msg(locale, "stay")}: ${stay[0]}.` : "",
+    firstPlan ? `${msg(locale, "firstUp")}: ${firstPlan}.` : "",
+    attention.length ? `${msg(locale, "needsAttention")}: ${attention.join("; ")}.` : "",
+    input.liveCompanionIncluded ? msg(locale, "companionTravel") : ""
   ].filter(Boolean).join("\n\n");
   return {
-    subject: `${destination} starts today`,
-    preheader: `A concise travel-day handoff for your ${destination} trip.`,
-    eyebrow: "Travel day",
-    title: `${destination} starts today`,
-    intro: attention.length ? "One quick check before you get moving." : "Your trip is here.",
+    subject: msg(locale, "travelSubject", { destination }),
+    preheader: msg(locale, "travelPreheader", { destination }),
+    eyebrow: msg(locale, "travelDay"),
+    title: msg(locale, "travelSubject", { destination }),
+    intro: msg(locale, attention.length ? "quickCheck" : "tripHere"),
     body,
     summaryItems: [
-      { label: "Destination", value: destination },
-      { label: "Travel dates", value: dates },
-      { label: "Today", value: startLabel }
+      { label: msg(locale, "destination"), value: destination },
+      { label: msg(locale, "travelDates"), value: dates },
+      { label: msg(locale, "today"), value: startLabel }
     ],
-    ctaLabel: "Open my trip",
+    ctaLabel: msg(locale, "openTrip"),
     tripPath: input.tripPath
   };
 }

@@ -110,6 +110,7 @@ export async function scheduleTravelDayBriefing(params: { supabase: SupabaseClie
     gmailStatus: gmail.error ? null : gmail.data?.connection_status === "connected" ? "connected" : gmail.data ? "disconnected" : null,
     liveCompanionIncluded: currentTrip.tracking_unlocked === true || currentTrip.live_companion_unlocked === true,
     mustDo: mustDoFromTrip(currentTrip),
+    locale: getTripItineraryLanguage(currentTrip.metadata),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}/live`
   });
   const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), managePreferencesUrl: `/trip/${encodeURIComponent(currentTrip.id)}/live#companion-control-title`, managePreferencesLabel: translateKey(getTripItineraryLanguage(currentTrip.metadata), "ui.status.manageNotificationPreferences", "Manage notification preferences"), supportEmail: getRoamlySupportEmail() });

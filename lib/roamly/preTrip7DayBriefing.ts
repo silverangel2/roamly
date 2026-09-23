@@ -115,6 +115,7 @@ export async function schedulePreTrip7DayBriefing(params: {
     confirmedBookings: (currentBookings.data || []) as PreTrip7DayBooking[],
     gmailStatus: currentGmailResult.error ? null : currentGmailResult.data?.connection_status === "connected" ? "connected" : "disconnected",
     mustDo: mustDoFromTrip(currentTrip),
+    locale: getTripItineraryLanguage(currentTrip.metadata),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}`
   });
 
