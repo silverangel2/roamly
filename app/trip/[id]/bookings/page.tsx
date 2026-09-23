@@ -115,7 +115,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
     : "Dates flexible";
 
   return (
-    <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
+    <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-8">
         <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" />
       </div>
@@ -128,6 +128,6 @@ export default async function TripBookingsPage({ params, searchParams }: { param
         referrals={referrals}
         referralDetails={referralDetails}
       />
-    </main>
+    </div>
   );
 }

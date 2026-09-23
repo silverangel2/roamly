@@ -29,7 +29,7 @@ export default async function CompanionPage({ params }: { params: Promise<{ id: 
   const unlocked = locked && (companionUnlocked || access.hasQaAccess);
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
       <section className="rounded-[2rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_56%,#fff7ed_100%)] p-5 text-ink shadow-soft sm:p-7">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Live Trip Companion</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-ink sm:text-5xl">
@@ -72,6 +72,6 @@ export default async function CompanionPage({ params }: { params: Promise<{ id: 
           </div>
         </Card>
       </section>
-    </main>
+    </div>
   );
 }

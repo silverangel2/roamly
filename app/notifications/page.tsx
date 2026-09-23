@@ -24,14 +24,14 @@ export default async function NotificationsPage() {
 
   if (!current.configured || !current.user) {
     return (
-      <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <h1 className="text-3xl font-black text-ink">Notifications need an account.</h1>
           <div className="mt-5">
             <Button href="/login?next=/notifications">Log in</Button>
           </div>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -90,7 +90,7 @@ export default async function NotificationsPage() {
 
   if (!trip) {
     return (
-      <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
         <section className="mb-6">
           <NotificationTimelineCard initialItems={notificationItems} />
         </section>
@@ -103,7 +103,7 @@ export default async function NotificationsPage() {
             <Button href="/dashboard">Open dashboard</Button>
           </div>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -140,7 +140,7 @@ export default async function NotificationsPage() {
     : null;
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} />
 
       <section className="mt-6">
@@ -183,6 +183,6 @@ export default async function NotificationsPage() {
           </div>
         </Card>
       </section>
-    </main>
+    </div>
   );
 }
