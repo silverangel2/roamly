@@ -30,7 +30,8 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
   const startDate = cleanDate(search.startDate);
   const endDate = cleanDate(search.endDate);
   const amazonReady = getAmazonAffiliateConfig().enabled;
-  const productResults = await searchAmazonFindProducts({ keywords: clean(search.q) || "travel essentials" });
+  const productKeywords = clean(search.q) || (destination !== "your next somewhere" ? `${destination} travel essentials` : "travel essentials");
+  const productResults = await searchAmazonFindProducts({ keywords: productKeywords });
   const cards: FindsCard[] = productResults.products.map((product) => ({
     id: `amazon-${product.id}`,
     title: product.title,
@@ -63,8 +64,8 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
           <div aria-hidden="true" className="absolute bottom-[-8rem] right-[16%] -z-10 h-72 w-72 rounded-full bg-[#a8d8c2]/55 blur-2xl" />
           <div className="max-w-3xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">The Roamly travel market</p>
-            <h1 className="mt-3 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.055em] sm:text-6xl">Find the things that make the trip <span className="text-[#0f6e66]">unforgettable.</span></h1>
-            <p className="mt-4 max-w-xl text-base leading-7 text-[#536e65]">Shop useful travel gear, discover places to stay, and find experiences worth going for—all with real listings, real photos, and a clear path to the provider.</p>
+            <h1 className="mt-3 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.055em] sm:text-6xl">Useful finds for the trip you’re <span className="text-[#0f6e66]">actually taking.</span></h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-[#536e65]">Explore real stays, flights, experiences, and travel essentials. Roamly keeps the discovery useful; each provider confirms the final details.</p>
           </div>
 
           <form action="/finds" className="mt-7 flex flex-col gap-2 rounded-2xl border border-white/80 bg-white p-2 shadow-[0_18px_55px_rgba(39,88,80,0.12)] sm:max-w-3xl sm:flex-row">
@@ -76,10 +77,10 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
 
           <nav aria-label="Shop by travel category" className="mt-5 flex flex-wrap gap-2">
             {[
-              ["stays", "Places to stay", "⌂"],
-              ["flights", "Flight deals", "✈"],
-              ["activities", "Tickets & experiences", "✦"],
-              ["amazon", "Travel gear", "◇"]
+              ["stays", "Stays", "⌂"],
+              ["flights", "Flights", "✈"],
+              ["activities", "Things to do", "✦"],
+              ["amazon", "Travel essentials", "◇"]
             ].map(([id, label, icon]) => <a key={id} href={`#finds-tab-${id}`} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/90 bg-white/75 px-4 text-xs font-extrabold text-[#31594f] shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md motion-reduce:transform-none"><span aria-hidden="true" className="text-sm text-[#0f6e66]">{icon}</span>{label}<span aria-hidden="true" className="text-[#8ba197]">→</span></a>)}
           </nav>
 
