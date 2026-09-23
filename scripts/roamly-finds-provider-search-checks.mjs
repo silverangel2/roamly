@@ -50,8 +50,9 @@ assert.equal(travelpayoutsBookingUrl("search/YHZ2209LIS1?adults=1", "marker123")
 assert.equal(travelpayoutsBookingUrl("https://example.com/fake", "marker123"), undefined, "provider links cannot redirect off Aviasales");
 assert.equal(travelpayoutsBookingUrl("/search/YHZ2209LIS1", ""), undefined, "flight offers without a configured marker are withheld");
 
-const [component, route, market] = await Promise.all([
+const [component, magazine, route, market] = await Promise.all([
   readFile(new URL("../components/roamly/FindsTabs.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../components/roamly/FindsEditorialMagazine.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/api/roamly/market-search/route.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/roamly/travelMarketSearch.ts", import.meta.url), "utf8")
 ]);
@@ -59,7 +60,7 @@ assert.match(component, /category: "hotel"/);
 assert.match(component, /category: "flight"/);
 assert.match(component, /searchPartner\(event, "attraction", "activity"\)/);
 assert.match(component, /store: false/);
-assert.match(component, /Roamly may earn a commission when you buy or book through some links/, "all live affiliate shelves must disclose commission relationships");
+assert.match(magazine, /Some links may earn Roamly a commission/, "all live affiliate shelves must disclose commission relationships");
 assert.match(component, /ArrowRight/);
 assert.match(component, /ArrowLeft/);
 assert.match(component, /event\.key === "Home"/);

@@ -59,35 +59,13 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
   return (
     <div className="min-h-[75vh] bg-[#f7f8f4] px-4 py-6 text-[#203c43] sm:px-8 sm:py-10">
       <div className="mx-auto max-w-7xl">
-        <section className="relative isolate overflow-hidden rounded-[2rem] bg-[#eaf4ed] px-6 py-9 sm:px-10 sm:py-12 lg:px-14">
-          <div aria-hidden="true" className="absolute -right-16 -top-24 -z-10 h-80 w-80 rounded-full bg-[#f4c85b]/40 blur-2xl" />
-          <div aria-hidden="true" className="absolute bottom-[-8rem] right-[16%] -z-10 h-72 w-72 rounded-full bg-[#a8d8c2]/55 blur-2xl" />
-          <div className="max-w-3xl">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">Roamly Finds</p>
-            <h1 className="mt-3 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.055em] sm:text-6xl">A little inspiration for the way you <span className="text-[#0f6e66]">travel.</span></h1>
-            <p className="mt-4 max-w-xl text-base leading-7 text-[#536e65]">Beautiful places, useful things to pack, and real opportunities worth a closer look—shaped around the trip you’re considering.</p>
-          </div>
-
-          <form action="/finds" className="mt-7 flex flex-col gap-2 rounded-2xl border border-white/80 bg-white p-2 shadow-[0_18px_55px_rgba(39,88,80,0.12)] sm:max-w-3xl sm:flex-row">
-            <label className="sr-only" htmlFor="finds-query">Search travel essentials</label>
-            <span aria-hidden="true" className="hidden items-center pl-3 text-xl text-[#8da49a] sm:flex">⌕</span>
-            <input id="finds-query" name="q" defaultValue={search.q || ""} placeholder="Search bags, adapters, travel essentials…" maxLength={100} className="min-h-12 min-w-0 flex-1 rounded-xl px-3 text-sm text-[#203c43] outline-none placeholder:text-[#92a098] focus:ring-4 focus:ring-[#0f6e66]/10" />
-            <button className="min-h-12 rounded-xl bg-[#0f6e66] px-6 text-sm font-extrabold text-white transition hover:bg-[#0e605a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25" type="submit">Explore essentials <span aria-hidden="true" className="ml-1">→</span></button>
-          </form>
-
-          <nav aria-label="Shop by travel category" className="mt-5 flex flex-wrap gap-2">
-            {[
-              ["stays", "Stays", "⌂"],
-              ["flights", "Flights", "✈"],
-              ["activities", "Things to do", "✦"],
-              ["amazon", "Travel essentials", "◇"]
-            ].map(([id, label, icon]) => <a key={id} href={`#finds-tab-${id}`} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/90 bg-white/75 px-4 text-xs font-extrabold text-[#31594f] shadow-sm transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md motion-reduce:transform-none"><span aria-hidden="true" className="text-sm text-[#0f6e66]">{icon}</span>{label}<span aria-hidden="true" className="text-[#8ba197]">→</span></a>)}
-          </nav>
-
-          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-[#557369]">
-            <span><span className="mr-1.5 text-[#0f6e66]">✓</span>Real listings and item photos</span>
-            <span><span className="mr-1.5 text-[#0f6e66]">✓</span>Current details when available</span>
-            <span><span className="mr-1.5 text-[#0f6e66]">✓</span>Checkout stays with the seller</span>
+        <section className="relative overflow-hidden rounded-[2rem] bg-[#eaf4ed] px-6 py-8 sm:px-10 sm:py-10 lg:px-14">
+          <div aria-hidden="true" className="absolute -right-16 -top-24 h-80 w-80 rounded-full bg-[#f4c85b]/35 blur-2xl" />
+          <div className="relative max-w-3xl">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">A travel magazine by Roamly</p>
+            <h1 className="mt-3 max-w-2xl text-4xl font-black leading-[1.02] tracking-[-0.055em] sm:text-6xl">Go somewhere<br /><span className="text-[#0f6e66]">interesting.</span></h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-[#536e65]">Destination stories, useful things to pack, and real opportunities worth a closer look—quietly shaped around the trip you’re considering.</p>
+            <a href="/plan" className="mt-6 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 text-sm font-black text-white transition hover:bg-[#0e605a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">Plan a trip <span aria-hidden="true" className="ml-2">→</span></a>
           </div>
         </section>
 

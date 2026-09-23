@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const [findsPage, tabs, puzzle, appShell, homepage] = await Promise.all([
+const [findsPage, tabs, magazine, puzzle, appShell, homepage] = await Promise.all([
   readFile(new URL("../app/finds/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../components/roamly/FindsTabs.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../components/roamly/FindsEditorialMagazine.tsx", import.meta.url), "utf8"),
   readFile(new URL("../components/roamly/CityPuzzle.tsx", import.meta.url), "utf8"),
   readFile(new URL("../components/AppShellClient.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/page.tsx", import.meta.url), "utf8")
@@ -19,12 +20,11 @@ assert.match(findsPage, /product\.savingPercent/, "sale claims only use provider
 assert.doesNotMatch(findsPage, /images\.unsplash\.com/, "market listings do not use generic stock imagery");
 assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon disclosures are included only when the live catalog is configured");
 assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon disclosures are included only when partner links are configured");
-assert.match(tabs, /rel="noopener noreferrer"/, "external partner links are isolated from the opener");
-assert.match(findsPage, /Real listings and item photos/i, "the market distinguishes real listings from inspirational content");
+assert.match(magazine, /rel="noopener noreferrer"/, "external partner links are isolated from the opener");
+assert.match(magazine, /Real products only, when verified/i, "the magazine distinguishes real listings from inspirational content");
 assert.match(tabs, /No unverified offers are shown/i, "empty shelves do not imply inventory that is not connected");
-assert.match(tabs, /key=\{`empty-\$\{active\}`\}/, "empty-state copy is remounted when the selected shelf changes");
-assert.match(tabs, /active === "amazon" \? emptyMessage/, "only the Amazon shelf shows the Amazon catalog message");
-assert.match(tabs, /There are no verified travel finds here yet/, "the all-finds shelf has a category-neutral empty state");
+assert.match(magazine, /emptyMessage/, "unavailable commercial feeds use honest editorial empty-state copy");
+assert.match(magazine, /Stories for wherever you’re going/, "the primary Finds surface is editorial rather than a search-results heading");
 assert.match(puzzle, /Swap two pieces at a time/, "destination puzzle describes the playable swap mechanic");
 assert.match(puzzle, /setOrder\(\(current\)/, "puzzle swaps pieces interactively");
 assert.match(puzzle, /aria-pressed=\{selected === position\}/, "puzzle selection state is accessible");
