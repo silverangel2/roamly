@@ -7,6 +7,7 @@ import { tripWindowState } from "@/lib/roamly/liveCompanion";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
+import { normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
 
 export type NotificationPayload = {
   title: string;
@@ -199,6 +200,26 @@ export async function sendPushNotification(
     return { ok: false, error: "No push subscription found.", sent: 0, failed: 0, notification, emailResult };
   }
 
+  const validSubscriptions = subscriptions.filter((subscription) => normalizePushEndpoint(subscription.endpoint));
+  const invalidSubscriptionIds = subscriptions
+    .filter((subscription) => !normalizePushEndpoint(subscription.endpoint))
+    .map((subscription) => subscription.id);
+  if (invalidSubscriptionIds.length) {
+    await writer.from("roamly_push_subscriptions")
+      .update({ enabled: false })
+      .eq("user_id", userId)
+      .in("id", invalidSubscriptionIds);
+  }
+  if (!validSubscriptions.length) {
+    if (notification.data?.id) {
+      await writer.from("roamly_notifications")
+        .update({ push_status: "no_subscription", push_error: "No supported push subscription found." })
+        .eq("id", notification.data.id)
+        .eq("user_id", userId);
+    }
+    return { ok: false, error: "No supported push subscription found.", sent: 0, failed: 0, notification, emailResult };
+  }
+
   const body = JSON.stringify({
     title: securedPayload.title,
     body: securedPayload.body || "",
@@ -217,10 +238,10 @@ export async function sendPushNotification(
     skipUrl: securedPayload.skipUrl || null
   });
 
-  const results = await Promise.all((subscriptions || []).map(async (subscription) => {
+  const results = await Promise.all(validSubscriptions.map(async (subscription) => {
     try {
       await webpush.sendNotification(
-        { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh || "", auth: subscription.auth || "" } },
+        { endpoint: normalizePushEndpoint(subscription.endpoint)!, keys: { p256dh: subscription.p256dh || "", auth: subscription.auth || "" } },
         body
       );
       return { ok: true as const, subscription };
