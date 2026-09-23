@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { DynamicDestinationHero } from "@/components/roamly/DynamicDestinationHero";
+import { CityPuzzle } from "@/components/roamly/CityPuzzle";
 
 export default function Home() {
   return (
     <main className="safe-bottom overflow-hidden bg-[#f7f7ee] text-ink">
       <DynamicDestinationHero />
+      <CityPuzzle />
 
       <section id="the-journey" className="roamly-enter mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 sm:py-14 lg:px-12" style={{ animationDelay: "80ms" }}>
         <div className="grid gap-8 lg:grid-cols-[0.7fr_1.3fr] lg:items-center lg:gap-16">

@@ -9,6 +9,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test:facebook-autopost": "node scripts/facebook-autopost-regression-checks.mjs",
+    "test:finds-game": "node scripts/roamly-finds-game-checks.mjs",
     "test:facebook-publication-truth": "node --experimental-strip-types scripts/facebook-publication-truth-checks.mjs",
     "test:meta-visibility-diagnostic": "node scripts/meta-visibility-diagnostic-checks.mjs",
     "ingest:roamly-marketing-images": "node scripts/ingest-roamly-marketing-images.mjs",
