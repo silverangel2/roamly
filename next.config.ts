@@ -37,6 +37,14 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "images-eu.ssl-images-amazon.com"
+      },
+      {
+        protocol: "https",
+        hostname: "**.bstatic.com"
+      },
+      {
+        protocol: "https",
+        hostname: "res.klook.com"
       }
     ]
   }

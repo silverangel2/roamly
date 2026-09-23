@@ -50,11 +50,12 @@ assert.equal(travelpayoutsBookingUrl("search/YHZ2209LIS1?adults=1", "marker123")
 assert.equal(travelpayoutsBookingUrl("https://example.com/fake", "marker123"), undefined, "provider links cannot redirect off Aviasales");
 assert.equal(travelpayoutsBookingUrl("/search/YHZ2209LIS1", ""), undefined, "flight offers without a configured marker are withheld");
 
-const [component, magazine, route, market] = await Promise.all([
+const [component, magazine, route, market, nextConfig] = await Promise.all([
   readFile(new URL("../components/roamly/FindsTabs.tsx", import.meta.url), "utf8"),
   readFile(new URL("../components/roamly/FindsEditorialMagazine.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/api/roamly/market-search/route.ts", import.meta.url), "utf8"),
-  readFile(new URL("../lib/roamly/travelMarketSearch.ts", import.meta.url), "utf8")
+  readFile(new URL("../lib/roamly/travelMarketSearch.ts", import.meta.url), "utf8"),
+  readFile(new URL("../next.config.ts", import.meta.url), "utf8")
 ]);
 assert.match(component, /category: "hotel"/);
 assert.match(component, /category: "flight"/);
@@ -70,4 +71,6 @@ assert.match(route, /const auth = await requireUser\(\)/, "live market searches 
 assert.match(route, /store: body\.store !== false/, "Finds can search live without writing market cache rows");
 assert.match(route, /resolveAffiliateLink\(\{[\s\S]*?category: "hotel"[\s\S]*?affiliate_url: affiliate\.finalUrl/, "hotel results use the configured Stay22 route only when affiliate configuration resolves successfully");
 assert.match(market, /resolveTravelIataCode\(request\.origin\)/, "flight queries are normalized to real airport codes");
+assert.match(nextConfig, /hostname: "\*\*\.bstatic\.com"/, "provider hotel photos are permitted by the optimized image configuration");
+assert.match(nextConfig, /hostname: "res\.klook\.com"/, "provider activity photos are permitted by the optimized image configuration");
 console.log("Roamly live Finds provider checks passed");
