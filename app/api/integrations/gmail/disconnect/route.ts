@@ -14,6 +14,10 @@ export async function POST() {
     provider: "gmail"
   });
 
-  if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  if (!result.ok) return NextResponse.json({ ok: false, error: "Gmail could not be disconnected from Roamly. Please try again." }, { status: 500, headers: { "Cache-Control": "private, no-store" } });
+  return NextResponse.json({
+    ok: true,
+    pushStopped: result.pushStopped,
+    revocationConfirmed: result.revocationConfirmed
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }

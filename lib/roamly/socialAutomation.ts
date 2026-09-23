@@ -510,6 +510,7 @@ type FacebookBrandConfig = {
   primaryLink: string;
   affiliateUrl: string;
   affiliateDisclosure: string;
+  credentialSource?: "connected-facebook-oauth" | "env-fallback";
 };
 
 function facebookBrandConfig(brandInput: FacebookSocialBrand = "roamly"): FacebookBrandConfig {
@@ -1931,7 +1932,7 @@ async function facebookBrandConfigForPosting(
   const config = facebookBrandConfig(brand);
 
   if (normalizeFacebookBrand(brand) !== "roamly") {
-    return config;
+    return { ...config, credentialSource: "env-fallback" };
   }
 
   const stored = await getRoamlyFacebookCredentialsForPosting();
@@ -1941,11 +1942,26 @@ async function facebookBrandConfigForPosting(
 
   return {
     ...config,
+    credentialSource: stored.source,
     // A stored OAuth Page connection is valid even when the legacy
     // environment toggle is absent or disabled.
     facebookEnabled: config.facebookEnabled || hasStoredConnection,
     pageId: stored.pageId || config.pageId,
     pageAccessToken: stored.accessToken || config.pageAccessToken
+  };
+}
+
+export async function getFacebookVisibilityConfig(brand: FacebookSocialBrand) {
+  const config = await facebookBrandConfigForPosting(brand);
+  const appId = envFirst(brand === "reviewintel" ? "REVIEWINTEL_META_APP_ID" : "ROAMLY_META_APP_ID");
+  return {
+    brand: config.brand,
+    label: config.label,
+    pageId: config.pageId,
+    pageAccessToken: config.pageAccessToken,
+    graphVersion: config.graphVersion,
+    appId,
+    credentialSource: config.credentialSource || "env-fallback"
   };
 }
 

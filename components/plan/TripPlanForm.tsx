@@ -105,6 +105,12 @@ function toInteger(value: string, fallback: number) {
   return Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : fallback;
 }
 
+function readIsoDate(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "";
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value ? value : "";
+}
+
 function classNames(...items: Array<string | false | null | undefined>) {
   return items.filter(Boolean).join(" ");
 }
@@ -524,6 +530,12 @@ export function TripPlanForm({
   const { locale, translateText } = useI18n();
   const shouldShowResumeNotice = searchParams.get("resumePlan") === "1";
   const shouldContinueGenerate = searchParams.get("continueGenerate") === "1";
+  const bookingFallbackSource = searchParams.get("source") === "booking_fallback";
+  const fallbackDestination = searchParams.get("destination") || "";
+  const fallbackOrigin = searchParams.get("origin") || "";
+  const fallbackStartDate = readIsoDate(searchParams.get("startDate") || searchParams.get("checkInDate"));
+  const fallbackEndDate = readIsoDate(searchParams.get("endDate") || searchParams.get("checkOutDate"));
+  const fallbackCategory = searchParams.get("category") || "travel";
   const [step, setStep] = useState(0);
   const [originPlace, setOriginPlace] = useState<NormalizedPlace | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<NormalizedPlace | null>(null);
@@ -659,7 +671,7 @@ export function TripPlanForm({
     setOriginPlace(place);
     if (place && place.source !== "custom" && !trackedSelections.current.has(`origin:${place.value}`)) {
       trackedSelections.current.add(`origin:${place.value}`);
-      trackPlanEvent("origin_selected", { origin: place.value, source: place.source, country: place.country || null });
+      trackPlanEvent("origin_selected");
     }
     resetDiscovery();
   }
@@ -668,7 +680,7 @@ export function TripPlanForm({
     setDestinationPlace(place);
     if (place && place.source !== "custom" && !trackedSelections.current.has(`destination:${place.value}`)) {
       trackedSelections.current.add(`destination:${place.value}`);
-      trackPlanEvent("destination_selected", { destination: place.value, source: place.source, country: place.country || null });
+      trackPlanEvent("destination_selected");
     }
     applyCurrency(place);
     resetDiscovery();
@@ -678,7 +690,7 @@ export function TripPlanForm({
     setStops((current) => current.map((stop) => (stop.id === id ? { ...stop, place } : stop)));
     if (place && place.source !== "custom" && !trackedSelections.current.has(`stop:${id}:${place.value}`)) {
       trackedSelections.current.add(`stop:${id}:${place.value}`);
-      trackPlanEvent("destination_selected", { destination: place.value, source: place.source, stopId: id });
+      trackPlanEvent("destination_selected");
     }
     applyCurrency(place);
     resetDiscovery();
@@ -1043,6 +1055,7 @@ export function TripPlanForm({
 
     skipNextDraftSave.current = true;
     const raw = window.localStorage.getItem(PLAN_DRAFT_KEY);
+    let restoredStoredDraft = false;
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as unknown;
@@ -1050,15 +1063,30 @@ export function TripPlanForm({
         if (record) {
           restorePlanDraft(record);
           setRestoreNotice(shouldShowResumeNotice);
+          restoredStoredDraft = true;
         }
       } catch {
         window.localStorage.removeItem(PLAN_DRAFT_KEY);
       }
     }
 
+    if (bookingFallbackSource) {
+      if (restoredStoredDraft) {
+        setNotice("Your saved trip plan was kept. Review it before continuing.");
+      } else {
+        setOriginPlace(readDraftPlace(fallbackOrigin));
+        setDestinationPlace(readDraftPlace(fallbackDestination));
+        if (fallbackStartDate) setStartDate(fallbackStartDate);
+        if (fallbackEndDate) setEndDate(fallbackEndDate);
+        const categoryLabel = ({ hotel: "stay", flight: "flight", activity: "experience", tour: "tour", transport: "transport" } as Record<string, string>)[fallbackCategory] || "travel";
+        const placeLabel = normalizePlaceText(fallbackDestination);
+        setNotice(placeLabel ? `Your ${categoryLabel} search for ${placeLabel} is ready to shape into a trip. Adjust the details before continuing.` : "Your travel search is ready to shape into a trip. Add a destination to continue.");
+      }
+    }
+
     draftHydrated.current = true;
     setDraftHydratedState(true);
-  }, [restorePlanDraft, shouldShowResumeNotice]);
+  }, [bookingFallbackSource, fallbackCategory, fallbackDestination, fallbackEndDate, fallbackOrigin, fallbackStartDate, restorePlanDraft, shouldShowResumeNotice]);
 
   useEffect(() => {
     if (!draftHydrated.current) return;
@@ -1102,8 +1130,6 @@ export function TripPlanForm({
     if (validation) return;
     if (step === 1) {
       trackPlanEvent("dates_selected", {
-        startDate,
-        endDate,
         daysCount: payload.daysCount,
         travelersCount: payload.travelersCount,
         rooms: payload.rooms
@@ -1111,8 +1137,6 @@ export function TripPlanForm({
     }
     if (step === 2) {
       trackPlanEvent("budget_submitted", {
-        budgetAmount: payload.budgetAmount,
-        budgetCurrency: payload.budgetCurrency,
         budgetIncludesFlights,
         budgetIncludesHotel,
         budgetIncludesActivities
@@ -1132,7 +1156,7 @@ export function TripPlanForm({
     setPriceChecking(true);
     setNotice("Checking trip costs...");
     setError("");
-    trackPlanEvent("price_discovery_started", { tripType, destination: payload.destination });
+    trackPlanEvent("price_discovery_started", { tripType });
 
     try {
       const response = await fetchWithSupabaseAuth("/api/roamly/price-discovery", {
@@ -1151,9 +1175,7 @@ export function TripPlanForm({
       setBudgetConstraint(data.budgetConstraint || "");
       trackPlanEvent("price_discovery_completed", {
         tripType,
-        destination: payload.destination,
-        budgetStatus: data.discovery?.budgetStatus,
-        totalEstimateCents: data.discovery?.totalEstimateCents
+        budgetStatus: data.discovery?.budgetStatus
       });
       setNotice("");
       return {
@@ -1164,11 +1186,7 @@ export function TripPlanForm({
     } catch (err) {
       setNotice("");
       setError(err instanceof Error ? err.message : "Could not check trip costs.");
-      trackPlanEvent("price_discovery_failed", {
-        tripType,
-        destination: payload.destination,
-        error: err instanceof Error ? err.message : "Could not check trip costs."
-      });
+      trackPlanEvent("price_discovery_failed", { tripType });
       return null;
     } finally {
       setPriceChecking(false);
@@ -1293,7 +1311,7 @@ export function TripPlanForm({
     generationInFlight.current = true;
     setLoading(true);
     setNotice("Starting itinerary generation...");
-    trackPlanEvent("itinerary_generation_started", { tripType, destination: generationPayload.destination });
+    trackPlanEvent("itinerary_generation_started", { tripType });
 
     try {
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
@@ -1315,7 +1333,7 @@ export function TripPlanForm({
       }
 
       if (response.ok && data?.tripId) {
-        trackPlanEvent("itinerary_generation_completed", { tripType, destination: generationPayload.destination, tripId: data.tripId });
+        trackPlanEvent("itinerary_generation_completed", { tripType });
         setNotice("Opening your trip progress...");
         clearCurrentPlanDraft();
         await openTripAfterSessionSync(router, data.previewUrl, data.tripId);
@@ -1324,9 +1342,7 @@ export function TripPlanForm({
 
       if (response.status === 402 && data?.previewUrl) {
         trackPlanEvent("itinerary_generation_failed", {
-          tripType,
-          destination: generationPayload.destination,
-          error: "PAYMENT_REQUIRED"
+          tripType
         });
         setNotice("Opening your saved trip...");
         clearCurrentPlanDraft();
@@ -1336,9 +1352,7 @@ export function TripPlanForm({
 
       if (response.status === 409 && data?.error === "ITINERARY_GENERATING" && data?.tripId) {
         trackPlanEvent("itinerary_generation_resumed", {
-          tripType,
-          destination: generationPayload.destination,
-          tripId: data.tripId
+          tripType
         });
         setNotice("Opening your trip progress...");
         clearCurrentPlanDraft();
@@ -1360,11 +1374,7 @@ export function TripPlanForm({
     } catch (err) {
       setNotice("");
       setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
-      trackPlanEvent("itinerary_generation_failed", {
-        tripType,
-        destination: generationPayload.destination,
-        error: err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE
-      });
+      trackPlanEvent("itinerary_generation_failed", { tripType });
     } finally {
       generationInFlight.current = false;
       setLoading(false);
@@ -1430,11 +1440,29 @@ export function TripPlanForm({
 
   return (
     <>
+    {!draftHydratedState ? (
+      <section
+        aria-busy="true"
+        aria-label={translateText("Preparing your trip plan")}
+        className="min-w-0 border-y border-cloud/90 bg-[#fffdf8]/70 px-0 py-5 sm:py-7"
+      >
+        <p role="status" className="text-sm font-bold text-slate-500">
+          {translateText("Preparing your saved trip plan...")}
+        </p>
+        <div aria-hidden="true" className="mt-4 h-1 overflow-hidden rounded-full bg-cloud">
+          <div className="h-full w-1/5 rounded-full bg-ocean motion-safe:animate-pulse motion-reduce:animate-none" />
+        </div>
+        <div aria-hidden="true" className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="h-12 rounded-xl bg-mist" />
+          <div className="h-12 rounded-xl bg-mist" />
+        </div>
+      </section>
+    ) : (
     <section className="min-w-0 border-y border-cloud/90 bg-[#fffdf8]/70 px-0 py-5 sm:py-7">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
-            {translateText("Step")} {step + 1} {translateText("of")} {steps.length} <span className="text-slate-400">· {translateText(steps[step].detail)}</span>
+            {translateText("Step")} {step + 1} {translateText("of")} {steps.length} <span className="text-slate-600">· {translateText(steps[step].detail)}</span>
           </p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">{translateText(steps[step].title)}</h2>
           {testerAccess ? (
@@ -1448,7 +1476,7 @@ export function TripPlanForm({
 
       <div className="mt-4 h-1 overflow-hidden rounded-full bg-cloud">
         <div
-          className="h-full rounded-full bg-ocean transition-all duration-500"
+          className="h-full rounded-full bg-ocean transition-all duration-500 motion-reduce:transition-none"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -1660,7 +1688,7 @@ export function TripPlanForm({
             <details className="group border-y border-cloud/80 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
                 {translateText("How Roamly uses your budget")}
-                <span className="float-right text-slate-400 transition group-open:rotate-45">+</span>
+                <span className="float-right text-slate-600 transition group-open:rotate-45">+</span>
               </summary>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                 {translateText("Use your comfortable total. Roamly checks flights, stays, food, activities, local transportation, and buffer before generation.")}
@@ -1768,10 +1796,10 @@ export function TripPlanForm({
             <details className="group border-y border-sun/30 bg-sun/10 px-4 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-amber-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/20">
                 {translateText("Before you generate")}
-                <span className="float-right text-amber-700 transition group-open:rotate-45">+</span>
+                <span className="float-right text-amber-700 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
-                {translateText("Review your trip details carefully. Once your itinerary is generated, it cannot be edited. New destinations, date changes, or major changes require a new itinerary.")}
+                {translateText("Review your trip details carefully. After generation, your saved itinerary will not be regenerated in place. Use your trip page to request supported changes.")}
               </p>
             </details>
             <StepError error={translateText(error)} />
@@ -1787,7 +1815,7 @@ export function TripPlanForm({
 
       {priceChecking ? (
         <div className="mt-4 overflow-hidden rounded-2xl bg-mist p-4">
-          <div className="h-2 animate-pulse rounded-full bg-lagoon" />
+          <div className="h-2 animate-pulse rounded-full bg-lagoon motion-reduce:animate-none" />
           <p className="mt-3 text-sm font-black text-ink">
             {translateText("Checking trip costs...")}
           </p>
@@ -1801,7 +1829,7 @@ export function TripPlanForm({
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {priceDiscoveryRows.map(([label, value]) => (
               <div key={label as string} className="rounded-2xl bg-mist p-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-400">{translateText(label as string)}</p>
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-600">{translateText(label as string)}</p>
                 <p className="mt-1 text-sm font-black text-ink">
                   {value}
                 </p>
@@ -1896,6 +1924,7 @@ export function TripPlanForm({
       ) : null}
 
     </section>
+    )}
     </>
   );
 }

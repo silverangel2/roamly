@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRoamlyFacebookCredentialsForPosting } from "@/lib/roamly/facebookConnector";
+import { getFacebookVisibilityConfig, type FacebookSocialBrand } from "@/lib/roamly/socialAutomation";
 
 type GraphRecord = Record<string, unknown>;
 
@@ -140,14 +140,14 @@ function restrictionsSummary() {
   };
 }
 
-export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
-  const credentials = await getRoamlyFacebookCredentialsForPosting();
-  const graphVersion = (process.env.ROAMLY_META_GRAPH_VERSION || "v23.0").trim() || "v23.0";
-  const appId = (process.env.ROAMLY_META_APP_ID || "").trim();
+export async function runFacebookMetaVisibilityDiagnostic(admin: SupabaseClient, brand: FacebookSocialBrand = "roamly") {
+  const credentials = await getFacebookVisibilityConfig(brand);
+  const graphVersion = credentials.graphVersion;
+  const appId = credentials.appId;
   const pageId = credentials.pageId.trim();
 
   let storedConnection: { expires_at?: string | null; scopes?: unknown } | null = null;
-  if (credentials.source === "connected-facebook-oauth") {
+  if (credentials.credentialSource === "connected-facebook-oauth") {
     const stored = await admin
       .from("social_connections")
       .select("expires_at,scopes")
@@ -156,9 +156,9 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
     storedConnection = (stored.data as { expires_at?: string | null; scopes?: unknown } | null) || null;
   }
 
-  if (!pageId || !credentials.accessToken) {
+  if (!pageId || !credentials.pageAccessToken) {
     return {
-      product: "roamly",
+      product: brand,
       graph_version: graphVersion,
       page: { configured_id: pageId || null, actual_id: null, name: null, configured_id_matches_meta: null, lookup: "NOT_EXPOSED" },
       token: { valid: false, type: "NOT_EXPOSED_BY_META_API", expires_at: storedConnection?.expires_at || null, note: "Server-side Page credentials are incomplete." },
@@ -170,14 +170,14 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
     };
   }
 
-  const page = await graphGet<GraphRecord>({ graphVersion, path: pageId, token: credentials.accessToken, params: { fields: "id,name,link" } });
+  const page = await graphGet<GraphRecord>({ graphVersion, path: pageId, token: credentials.pageAccessToken, params: { fields: "id,name,link" } });
   const actualPageId = text(page.body.id);
   const pageLookupError = page.ok ? null : page.error;
 
   const queue = await admin
     .from("roamly_social_queue")
     .select("id,platform,facebook_reel_id,facebook_media_id,facebook_url,published_at,metadata")
-    .in("platform", ["facebook", "facebook_roamly"])
+    .in("platform", brand === "roamly" ? ["facebook", "facebook_roamly"] : ["facebook_reviewintel"])
     .not("facebook_reel_id", "is", null)
     .order("published_at", { ascending: false, nullsFirst: false })
     .limit(1)
@@ -185,12 +185,12 @@ export async function runRoamlyMetaVisibilityDiagnostic(admin: SupabaseClient) {
   const row = queue.data as GraphRecord | null;
   const objectId = text(row?.facebook_reel_id) || text(row?.facebook_media_id);
   const pageVideos = objectId && page.ok
-    ? await pageVideoMembership({ graphVersion, pageId, token: credentials.accessToken, objectId })
+    ? await pageVideoMembership({ graphVersion, pageId, token: credentials.pageAccessToken, objectId })
     : null;
   const matchedReel = pageVideos?.matched_object || null;
 
   return {
-    product: "roamly",
+    product: brand,
     graph_version: graphVersion,
     page: {
       configured_id: pageId,

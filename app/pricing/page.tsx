@@ -44,7 +44,7 @@ const included = [
 
 export default function PricingPage() {
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <section className="overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#effaff_52%,#fff0dc)] p-6 text-ink shadow-soft sm:p-10">
         <Badge tone="sun">Simple trip pricing</Badge>
         <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight sm:text-6xl">
@@ -92,6 +92,6 @@ export default function PricingPage() {
           ))}
         </div>
       </section>
-    </main>
+    </div>
   );
 }

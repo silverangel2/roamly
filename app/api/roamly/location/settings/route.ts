@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data: settings, error } = await auth.supabase
     .from("roamly_location_settings")
-    .select("*")
+    .select("location_tracking_enabled,notification_enabled,last_permission_state")
     .eq("user_id", auth.userId)
     .maybeSingle();
 
@@ -30,18 +30,21 @@ export async function PATCH(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const locationTrackingEnabled = Boolean(body.locationTrackingEnabled);
   const notificationEnabled = body.notificationEnabled == null ? true : Boolean(body.notificationEnabled);
+  const update: Record<string, unknown> = {
+    user_id: auth.userId,
+    location_tracking_enabled: locationTrackingEnabled,
+    notification_enabled: notificationEnabled
+  };
+  if (!locationTrackingEnabled) {
+    update.last_seen_latitude = null;
+    update.last_seen_longitude = null;
+    update.last_seen_at = null;
+  }
 
   const { data: settings, error } = await auth.supabase
     .from("roamly_location_settings")
-    .upsert(
-      {
-        user_id: auth.userId,
-        location_tracking_enabled: locationTrackingEnabled,
-        notification_enabled: notificationEnabled
-      },
-      { onConflict: "user_id" }
-    )
-    .select("*")
+    .upsert(update, { onConflict: "user_id" })
+    .select("location_tracking_enabled,notification_enabled,last_permission_state")
     .single();
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });

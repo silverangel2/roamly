@@ -36,7 +36,7 @@ assert.match(extraction, /timezone_unresolved/);
 assert.match(wallet, /roamly_apply_gmail_booking_revision/);
 assert.match(wallet, /source_connection_id/);
 assert.match(wallet, /source_message_id/);
-assert.match(connections, /retryable: !saved\.saved/);
+assert.match(connections, /retryable: saved\.filter\.shouldProcess && !saved\.saved/, "only a failed save for a processable travel message is retryable");
 assert.match(connections, /GMAIL_BOOKING_PROCESSING_RETRY/);
 assert.match(connections, /invalid_cursor/);
 assert.match(connections, /recoverGmailHistoryCursor/);

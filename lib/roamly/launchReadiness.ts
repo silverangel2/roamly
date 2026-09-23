@@ -49,6 +49,8 @@ export function getRoamlyLaunchReadiness(access?: RoamlyAccess): RoamlyReadiness
   const url = appUrl();
   const adminEmailsConfigured = getRoamlyAdminEmails().length > 0;
   const testerEmailsConfigured = getRoamlyTesterEmails().length > 0;
+  const fieldTestSecretConfigured = Boolean(process.env.ROAMLY_FIELD_TEST_SECRET?.trim());
+  const fieldTestSeedEnabled = process.env.NODE_ENV !== "production" || process.env.ROAMLY_ENABLE_DEMO_SEED === "true";
 
   return [
     {
@@ -110,6 +112,12 @@ export function getRoamlyLaunchReadiness(access?: RoamlyAccess): RoamlyReadiness
       label: "Admin/tester emails configured",
       status: requiredStatus(adminEmailsConfigured && testerEmailsConfigured),
       detail: "ROAMLY_ADMIN_EMAILS and ROAMLY_TESTER_EMAILS support comma-separated email lists."
+    },
+    {
+      group: "Access",
+      label: "Field-test capability secret",
+      status: optionalStatus(fieldTestSecretConfigured, fieldTestSeedEnabled),
+      detail: "ROAMLY_FIELD_TEST_SECRET signs short-lived field-test links. Production field-test seeding remains disabled unless ROAMLY_ENABLE_DEMO_SEED=true."
     },
     {
       group: "Access",

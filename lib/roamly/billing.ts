@@ -7,6 +7,7 @@ import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { sendPurchaseActivationCommunication } from "@/lib/roamly/purchaseActivationCommunication";
+import { stripeSubscriptionPeriodEnd } from "@/lib/roamly/stripeSubscriptionPeriod";
 
 export type RoamlyPurchaseType = "itinerary_unlock" | "tracking_addon" | "bundle";
 export type RoamlyItineraryUnlockSource = "free" | "paid" | "bundle" | "admin";
@@ -950,7 +951,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     if (tripUpdate.error) return { ok: false, error: tripUpdate.error.message };
   }
 
-  await supabase.from("roamly_itinerary_purchases").upsert(
+  const purchaseWrite = await supabase.from("roamly_itinerary_purchases").upsert(
     {
       user_id: userId,
       trip_id: tripId,
@@ -966,8 +967,9 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     },
     { onConflict: "stripe_checkout_session_id" }
   );
+  if (purchaseWrite.error) return { ok: false, error: `PURCHASE_LEDGER_WRITE_FAILED: ${purchaseWrite.error.message}` };
 
-  await supabase.from("roamly_trip_payments").upsert(
+  const paymentWrite = await supabase.from("roamly_trip_payments").upsert(
     {
       user_id: userId,
       trip_id: tripId,
@@ -979,6 +981,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     },
     { onConflict: "stripe_session_id" }
   );
+  if (paymentWrite.error) return { ok: false, error: `PAYMENT_LEDGER_WRITE_FAILED: ${paymentWrite.error.message}` };
 
   if (purchaseType === "tracking_addon") {
     await unlockLiveCompanion(supabase, tripId, "paid");
@@ -1283,12 +1286,19 @@ async function applyStripeBillingState(
   if (result.error) return { ok: false as const, error: result.error.message };
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
   if (!row) return { ok: false as const, error: "Stripe billing state transition returned no result." };
-  if (row.duplicate === true || row.stale === true || row.applied !== true) {
-    return { ok: true as const, applied: false as const, reason: row.duplicate ? "duplicate" : "stale" };
-  }
+  const validStates = new Set<StripeBillingPurchase["billing_state"]>(["active", "partially_refunded", "refunded", "disputed", "revoked"]);
+  const currentState = validStates.has(row.current_billing_state) ? row.current_billing_state : null;
+  if (!currentState) return { ok: false as const, error: "Stripe billing state transition returned an invalid current state." };
 
-  const policy = await applyTripBillingEntitlementPolicy(supabase, purchase, row.current_billing_state || state);
+  // Reconcile trip access even for duplicate/stale Stripe events. The billing-state RPC
+  // may have committed before a later entitlement write failed, so retrying only the
+  // event transition would otherwise leave the trip's access flags out of sync forever.
+  const policy = await applyTripBillingEntitlementPolicy(supabase, purchase, currentState);
   if (!policy.ok) return policy;
+
+  if (row.duplicate === true || row.stale === true || row.applied !== true) {
+    return { ok: true as const, applied: false as const, deferred: policy.deferred, reason: row.duplicate ? "duplicate" : "stale" };
+  }
   return { ok: true as const, applied: true as const, deferred: policy.deferred };
 }
 
@@ -1347,12 +1357,6 @@ function invoiceFromEvent(event: Stripe.Event) {
   return event.data.object as Stripe.Invoice;
 }
 
-function subscriptionPeriodEnd(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? new Date(value * 1000).toISOString()
-    : null;
-}
-
 function subscriptionIsPaidThrough(periodEnd: string | null) {
   return Boolean(periodEnd && new Date(periodEnd).getTime() > Date.now());
 }
@@ -1400,7 +1404,7 @@ async function recordSubscriptionWebhook(supabase: SupabaseClient, event: Stripe
   if (!purchaseResult.ok) return purchaseResult;
   if (!purchaseResult.purchase) return recordBillingReconciliationFailure(supabase, event, "Subscription did not map to a Roamly purchase.");
 
-  const periodEnd = subscriptionPeriodEnd((subscription as Stripe.Subscription & { current_period_end?: unknown }).current_period_end);
+  const periodEnd = stripeSubscriptionPeriodEnd(subscription);
   const status = subscription.status;
   const terminal = status === "canceled" || status === "unpaid" || status === "incomplete_expired";
   const state = terminal && !subscriptionIsPaidThrough(periodEnd) ? "revoked" : "active";
@@ -1452,7 +1456,7 @@ async function recordInvoiceWebhook(supabase: SupabaseClient, event: Stripe.Even
   const purchaseResult = await findStripeSubscriptionPurchase(supabase, subscriptionId);
   if (!purchaseResult.ok) return purchaseResult;
   if (!purchaseResult.purchase) return recordBillingReconciliationFailure(supabase, event, "Invoice subscription did not map to a Roamly purchase.");
-  const periodEnd = subscriptionPeriodEnd(invoiceWithSubscription.period_end);
+  const periodEnd = stripeSubscriptionPeriodEnd(invoiceWithSubscription.period_end);
   const state = "active" as const;
   return applyStripeBillingState(
     supabase,

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import {
-  getCompanionPreferences,
+  getCompanionPreferencesForDelivery,
+  mapCompanionPreferences,
   type CompanionControlMode
 } from "@/lib/roamly/companionPreferences";
 
@@ -45,11 +46,12 @@ export async function GET(
   if (ownedTrip.error) return NextResponse.json({ ok: false, error: ownedTrip.error.message }, { status: 400 });
   if (!ownedTrip.data) return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
 
-  const preferences = await getCompanionPreferences({
+  const preferences = await getCompanionPreferencesForDelivery({
     supabase: auth.supabase,
     userId: auth.userId,
     tripId: id
   });
+  if (!preferences) return NextResponse.json({ ok: false, error: "PREFERENCES_UNAVAILABLE" }, { status: 503 });
 
   return NextResponse.json({
     ok: true,
@@ -101,11 +103,12 @@ export async function PUT(
     body.liveCompanionPausedUntil.trim()
       ? body.liveCompanionPausedUntil.trim()
       : null;
-  const currentPreferences = await getCompanionPreferences({
+  const currentPreferences = await getCompanionPreferencesForDelivery({
     supabase: auth.supabase,
     userId: auth.userId,
     tripId: id
   });
+  if (!currentPreferences) return NextResponse.json({ ok: false, error: "PREFERENCES_UNAVAILABLE" }, { status: 503 });
 
   const row = {
     user_id: auth.userId,
@@ -153,6 +156,7 @@ export async function PUT(
     .eq("user_id", auth.userId)
     .eq("trip_id", id)
     .maybeSingle();
+  if (existing.error) return NextResponse.json({ ok: false, error: "PREFERENCES_UNAVAILABLE" }, { status: 503 });
   const result = existing.data?.id
     ? await auth.supabase.from("roamly_companion_preferences").update(row).eq("id", existing.data.id).select("*").single()
     : await auth.supabase.from("roamly_companion_preferences").insert(row).select("*").single();
@@ -164,11 +168,7 @@ export async function PUT(
     );
   }
 
-  const preferences = await getCompanionPreferences({
-    supabase: auth.supabase,
-    userId: auth.userId,
-    tripId: id
-  });
+  const preferences = mapCompanionPreferences(result.data);
 
   return NextResponse.json({
     ok: true,

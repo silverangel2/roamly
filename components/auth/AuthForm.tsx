@@ -16,7 +16,7 @@ type AuthFormProps = {
 const VERIFY_ACCOUNT_MESSAGE = "Account created. Please verify your email before logging in.";
 const RESEND_SUCCESS_MESSAGE = "Verification email sent. Check your inbox, spam, promotions, or updates.";
 const RESEND_ERROR_MESSAGE = "We could not resend the verification email. Try again or contact support.";
-const TESTER_UNVERIFIED_MESSAGE = "Tester access starts after this email is verified.";
+const TESTER_VERIFICATION_MESSAGE = "If you were invited to test Roamly, access will be available after you verify this email.";
 const SUPPORT_MESSAGE = "Still no email? Contact support or ask an admin to confirm your account in Supabase.";
 const SHARED_GOOGLE_MESSAGE = "You can continue with the same email or Google account.";
 const EXISTING_ACCOUNT_MESSAGE = "This email may already have a Roamly account. Try logging in or continue with Google.";
@@ -82,23 +82,6 @@ function clearStoredAuthNext() {
   document.cookie = `${AUTH_NEXT_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }
 
-async function getTesterEmailStatus(email: string) {
-  try {
-    const response = await fetch("/api/auth/tester-email", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email })
-    });
-
-    if (!response.ok) return false;
-
-    const payload: unknown = await response.json();
-    return isRecord(payload) && payload.isTesterEmail === true;
-  } catch {
-    return false;
-  }
-}
-
 export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -111,7 +94,6 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
   const [resendNotice, setResendNotice] = useState("");
   const [resendError, setResendError] = useState("");
   const [resendBusy, setResendBusy] = useState(false);
-  const [testerVerificationNotice, setTesterVerificationNotice] = useState(false);
   const isSignup = mode === "signup";
   const configured = hasSupabaseConfig();
   const redirectPath = safeAuthNextPath(nextPath);
@@ -167,7 +149,6 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
     setNotice("");
     setResendNotice("");
     setResendError("");
-    setTesterVerificationNotice(false);
 
     if (!configured) {
       setError("Supabase is not configured yet.");
@@ -194,9 +175,8 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
     }
   }
 
-  async function showVerificationState(address: string) {
+  function showVerificationState(address: string) {
     setVerificationEmail(address);
-    setTesterVerificationNotice(await getTesterEmailStatus(address));
     setPassword("");
     setResendNotice("");
     setResendError("");
@@ -204,7 +184,6 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
 
   function changeEmail() {
     setVerificationEmail("");
-    setTesterVerificationNotice(false);
     setNotice("");
     setError("");
     setResendNotice("");
@@ -249,7 +228,6 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
     setNotice("");
     setResendNotice("");
     setResendError("");
-    setTesterVerificationNotice(false);
 
     if (!isSignup) {
       setVerificationEmail("");
@@ -352,11 +330,9 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
           <p className="mt-2 break-words text-sm font-bold leading-6">We sent the verification link to {verificationEmail}.</p>
         </div>
 
-        {testerVerificationNotice ? (
-          <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-900">
-            {TESTER_UNVERIFIED_MESSAGE}
-          </p>
-        ) : null}
+        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-900">
+          {TESTER_VERIFICATION_MESSAGE}
+        </p>
 
         {resendNotice ? (
           <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
@@ -473,9 +449,7 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
 
       {!isSignup && verificationEmail ? (
         <div className="space-y-3 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-4">
-          {testerVerificationNotice ? (
-            <p className="text-sm font-black text-amber-900">{TESTER_UNVERIFIED_MESSAGE}</p>
-          ) : null}
+          <p className="text-sm font-black text-amber-900">{TESTER_VERIFICATION_MESSAGE}</p>
 
           {resendNotice ? <p className="text-sm font-black text-ocean">{resendNotice}</p> : null}
           {resendError ? <p className="text-sm font-black text-coral">{resendError}</p> : null}

@@ -11,7 +11,7 @@ const config: Config = {
     extend: {
       colors: {
         ink: "#102033",
-        ocean: "#1B9AAA",
+        ocean: "#0f6e66",
         lagoon: "#54D6C6",
         sun: "#FFB84D",
         coral: "#FF6B6B",

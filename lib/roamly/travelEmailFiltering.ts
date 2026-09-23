@@ -190,8 +190,18 @@ export async function recordTravelEmailFilterResult(params: {
   connection: EmailConnectionRecord;
   metadata: TravelEmailMetadata;
 }) {
-  const writer = createSupabaseAdminClient() || params.supabase;
   const filter = filterTravelEmail(params.metadata);
+  if (!filter.shouldProcess) {
+    return {
+      saved: false,
+      messageRecordId: null,
+      filter,
+      error: null,
+      skipped: true as const
+    };
+  }
+
+  const writer = createSupabaseAdminClient() || params.supabase;
   const payload = {
     user_id: params.connection.user_id,
     email_connection_id: params.connection.id,

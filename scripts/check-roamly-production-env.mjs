@@ -97,6 +97,11 @@ const checks = [
     keys: ["ROAMLY_GENERATION_CRON_SECRET", "CRON_SECRET"]
   },
   {
+    label: "Field-test capability secret",
+    required: process.env.ROAMLY_ENABLE_DEMO_SEED === "true" ? REQUIRED : OPTIONAL,
+    keys: ["ROAMLY_FIELD_TEST_SECRET"]
+  },
+  {
     label: "Itinerary generation batch size",
     required: OPTIONAL,
     keys: ["ROAMLY_GENERATION_BATCH_SIZE"]

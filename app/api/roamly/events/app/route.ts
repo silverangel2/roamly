@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { recordAppEvent } from "@/lib/roamly/events";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  analyticsReferrerHost,
+  sanitizeAnalyticsEventMetadata,
+  sanitizeAnalyticsEventType,
+  sanitizeAnalyticsLanguage,
+  sanitizeAnalyticsPath,
+  sanitizeAnalyticsPlatform,
+  sanitizeAnalyticsVisitorKey
+} from "@/lib/roamly/analyticsPrivacy";
 
 function deviceType(userAgent: string) {
   if (/Mobi|Android|iPhone/i.test(userAgent)) return "mobile";
@@ -18,36 +27,49 @@ function browser(userAgent: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  const origin = request.headers.get("origin");
+  if (contentType !== "application/json" || (origin && origin !== request.nextUrl.origin) || request.headers.get("sec-fetch-site") === "cross-site") {
+    return NextResponse.json({ ok: false, error: "Invalid analytics request." }, { status: 400 });
+  }
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (declaredLength > 8_192) return NextResponse.json({ ok: false, error: "Analytics request is too large." }, { status: 413 });
+  const rawBody = await request.text();
+  if (new TextEncoder().encode(rawBody).byteLength > 8_192) return NextResponse.json({ ok: false, error: "Analytics request is too large." }, { status: 413 });
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid analytics request." }, { status: 400 });
+  }
+  if (!parsedBody || typeof parsedBody !== "object" || Array.isArray(parsedBody)) {
+    return NextResponse.json({ ok: false, error: "Invalid analytics request." }, { status: 400 });
+  }
+  const body = parsedBody as Record<string, unknown>;
+  const eventType = sanitizeAnalyticsEventType(body.eventType);
+  if (!eventType) return NextResponse.json({ ok: true, tracked: false });
+
   const supabase = await createSupabaseServerClient();
   if (!supabase) return NextResponse.json({ ok: false, error: "Supabase is not configured." }, { status: 503 });
 
-  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const { data } = await supabase.auth.getUser();
   const writer = createSupabaseAdminClient() || supabase;
   const userAgent = request.headers.get("user-agent") || "";
-  const referrer = typeof body.referrer === "string" ? body.referrer : request.headers.get("referer") || "";
-  const referrerHost = referrer ? new URL(referrer, "https://fallback.local").host : "";
-  const metadata =
-    body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata)
-      ? (body.metadata as Record<string, unknown>)
-      : {};
+  const referrer = request.headers.get("referer") || "";
 
   const result = await recordAppEvent(writer, {
     userId: data.user?.id || null,
-    visitorKey: typeof body.visitorKey === "string" ? body.visitorKey : null,
-    eventType: typeof body.eventType === "string" ? body.eventType : "page_view",
-    path: typeof body.path === "string" ? body.path : null,
-    url: typeof body.url === "string" ? body.url : null,
-    title: typeof body.title === "string" ? body.title : null,
-    referrer,
-    referrerHost,
+    visitorKey: sanitizeAnalyticsVisitorKey(body.visitorKey),
+    eventType,
+    path: sanitizeAnalyticsPath(body.path) || sanitizeAnalyticsPath(body.url),
+    url: null,
+    title: null,
+    referrer: null,
+    referrerHost: analyticsReferrerHost(referrer),
     deviceType: deviceType(userAgent),
-    platform: typeof body.platform === "string" ? body.platform : null,
+    platform: sanitizeAnalyticsPlatform(body.platform),
     browser: browser(userAgent),
-    metadata: {
-      ...metadata,
-      language: typeof body.language === "string" ? body.language : null
-    }
+    metadata: { ...sanitizeAnalyticsEventMetadata(body.metadata), language: sanitizeAnalyticsLanguage(body.language) }
   });
 
   if (result.error) {

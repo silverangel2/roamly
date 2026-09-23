@@ -182,14 +182,21 @@ function stay22Url(input: AffiliateResolverInput) {
   if (!resolvedPlace) return "";
 
   const url = new URL(base);
+  if (/\/allez\/(?:roam|booking|expedia|hotelscom|vrbo|agoda|kayak)(?:\/|$)/i.test(url.pathname)) {
+    url.pathname = url.pathname.replace(/\/allez\/[^/]+/i, "/allez/booking");
+    url.searchParams.delete("provider");
+  }
   const hotelName = input.category === "hotel" ? clean(input.title || input.query) : "";
-  const address = [hotelName, clean(input.neighborhood), resolvedPlace.searchLabel].filter(Boolean).join(", ");
+  const address = [clean(input.neighborhood), resolvedPlace.searchLabel].filter(Boolean).join(", ");
 
-  if (address && !url.searchParams.has("address")) url.searchParams.set("address", address);
-  if (input.startDate && !url.searchParams.has("checkin")) url.searchParams.set("checkin", input.startDate);
-  if (input.endDate && !url.searchParams.has("checkout")) url.searchParams.set("checkout", input.endDate);
-  if (!url.searchParams.has("guests")) url.searchParams.set("guests", String(input.adults || travelersCount(input.travelers)));
-  if (input.rooms && !url.searchParams.has("rooms")) url.searchParams.set("rooms", String(input.rooms));
+  if (address) url.searchParams.set("address", address);
+  if (hotelName) url.searchParams.set("hotelname", hotelName);
+  if (input.startDate) url.searchParams.set("checkin", input.startDate);
+  if (input.endDate) url.searchParams.set("checkout", input.endDate);
+  url.searchParams.set("adults", String(input.adults || travelersCount(input.travelers)));
+  const children = input.children ?? (input.travelers && typeof input.travelers === "object" ? input.travelers.children : undefined);
+  if (typeof children === "number" && Number.isFinite(children)) url.searchParams.set("children", String(Math.max(0, Math.round(children))));
+  if (input.rooms) url.searchParams.set("rooms", String(input.rooms));
   if (input.roomType && !url.searchParams.has("room_type")) url.searchParams.set("room_type", input.roomType);
   if (partnerId) {
     if (!url.searchParams.has("aid")) url.searchParams.set("aid", partnerId);

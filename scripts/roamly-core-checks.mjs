@@ -38,11 +38,11 @@ function loadTsModule(entryFile) {
       require(id) {
         if (id.startsWith("@/")) {
           const local = id.slice(2);
-          return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
+          return load(local.match(/\.(ts|tsx|mjs|json)$/) ? local : `${local}.ts`);
         }
         if (id.startsWith(".")) {
           const resolved = path.join(path.dirname(file), id);
-          return load(resolved.match(/\.(ts|tsx|json)$/) ? resolved : `${resolved}.ts`);
+          return load(resolved.match(/\.(ts|tsx|mjs|json)$/) ? resolved : `${resolved}.ts`);
         }
         return require(id);
       },
@@ -254,7 +254,7 @@ assert.equal(
   "Stay22 Allez traveler links should be allowed"
 );
 
-assert.ok(affiliateResolver.includes("https://www.stay22.com/allez/roam"), "Stay22 partner fallback must use the Allez traveler endpoint");
+assert.ok(affiliateResolver.includes("/allez/booking"), "Stay22 partner links should route to its Booking.com Allez endpoint");
 
 [
   "https://w3.org/TR/json-ld/",
@@ -472,12 +472,13 @@ hotelSuggestions.forEach((item) => {
   assert.equal(item.affiliate_provider, "stay22", `${item.title} must use Stay22 as the affiliate layer`);
   assert.ok(/stay22\.com/.test(item.affiliate_url || ""), `${item.title} must preserve a Stay22 affiliate URL`);
   const stay22Url = new URL(item.affiliate_url);
+  assert.equal(stay22Url.pathname, "/allez/booking", `${item.title} must go through Stay22's Booking.com provider endpoint`);
   const address = stay22Url.searchParams.get("address") || "";
-  assert.ok(address.includes(item.title), `${item.title} must be included in the Stay22 hotel search context`);
+  assert.equal(stay22Url.searchParams.get("hotelname"), item.title, `${item.title} must be included in the documented Stay22 property field`);
   assert.ok(/Toronto|Canada/i.test(address), `${item.title} Stay22 context must preserve the requested destination`);
   assert.equal(stay22Url.searchParams.get("checkin"), fixturePayload.startDate, `${item.title} must preserve check-in date`);
   assert.equal(stay22Url.searchParams.get("checkout"), fixturePayload.endDate, `${item.title} must preserve check-out date`);
-  assert.equal(stay22Url.searchParams.get("guests"), String(fixturePayload.travelersCount), `${item.title} must preserve guest count`);
+  assert.equal(stay22Url.searchParams.get("adults"), String(fixturePayload.travelersCount), `${item.title} must preserve guest count`);
 });
 assert.ok(!enrichedFixture.booking_suggestions.some((item) => /w3\.org|schema\.org|schemas\.live\.com|ogp\.me|json-ld\.org/i.test(`${item.title} ${item.normal_search_url} ${item.affiliate_url}`)), "metadata domains must be removed from booking suggestions");
 assert.ok(
@@ -862,12 +863,17 @@ assert.ok(!planPage.includes("min-h-screen"), "/plan must not force full-screen 
 
 const planForm = read("components/plan/TripPlanForm.tsx");
 assert.ok(!planForm.includes("setConfirming") && !planForm.includes("confirming"), "planner must not use the old extra confirmation modal");
+assert.ok(planForm.includes("!draftHydratedState ? (") && planForm.includes("Preparing your saved trip plan..."), "planner must hydrate saved state before rendering step labels and fields");
 assert.ok(!planForm.includes("min-h-[24rem]"), "planner form must not reserve excessive blank height");
 assert.ok(planForm.includes("submitPlan(generationPayload)"), "final planner action must generate immediately after budget check");
 assert.ok(!planForm.includes("controller.abort()"), "planner generation must not abort paid AI requests on a client timer");
 
 const generateLockedButton = read("components/trip/GenerateLockedItineraryButton.tsx");
 assert.ok(!generateLockedButton.includes("controller.abort()"), "locked itinerary generation must not abort paid AI requests on a client timer");
+assert.ok(generateLockedButton.includes("will not be regenerated in place") && generateLockedButton.includes("request supported changes"), "generation confirmation must explain the lock without falsely promising the trip cannot be edited");
+assert.ok(planForm.includes("will not be regenerated in place") && planForm.includes("request supported changes") && !planForm.includes("cannot be edited"), "planner review must accurately describe post-generation trip changes");
+assert.ok(tripPage.includes("will not be regenerated in place") && tripPage.includes("request supported changes"), "locked trip notice must direct customers to supported trip changes");
+assert.ok(planForm.includes("motion-reduce:transition-none") && planForm.includes("motion-reduce:animate-none"), "planner transitions and loading motion must respect reduced-motion preferences");
 
 const stagedGenerator = read("lib/roamly/stagedItineraryGeneration.ts");
 [
@@ -2181,14 +2187,14 @@ assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progr
 [
   "SAVED_QUEUE_MESSAGE",
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
-  "Preparing outline",
-  "Outline",
-  "Finalizing",
-  "Building your trip",
-  "Saving your itinerary",
-  "Trip ready",
-  "Taking longer than expected. You can leave this page.",
-  "Generation failed — Retry",
+  "Getting to know your trip",
+  "Shape your trip",
+  "Finishing touches",
+  "Your journey is taking shape",
+  "Putting your trip together",
+  "Your itinerary is ready",
+  "Your trip is taking a little longer",
+  "We hit a pause — Retry",
   "simpleGenerationState",
   "progressFromApiForTrip(data, tripId)",
   "normalizeProgressForTrip",
@@ -3153,7 +3159,12 @@ assert.ok(!fieldTestAccess.includes("SUPABASE_SERVICE_ROLE_KEY"), "Field-test ac
 assert.ok(!fieldTestAccess.includes("ROAMLY_ADMIN_SESSION_SECRET"), "Field-test access must not use the Admin session secret");
 assert.ok(fieldTestAccess.includes("ROAMLY_FIELD_TEST_SECRET_NOT_CONFIGURED"), "Missing field-test secret must fail closed");
 const locationUpdateRoute = read("app/api/roamly/location/update/route.ts");
+const locationSettingsRoute = read("app/api/roamly/location/settings/route.ts");
 assert.ok(locationUpdateRoute.includes("auth.fieldTest"), "Location update must distinguish field-test sessions");
+assert.ok(locationSettingsRoute.includes("update.last_seen_latitude = null") && locationSettingsRoute.includes("update.last_seen_longitude = null") && locationSettingsRoute.includes("update.last_seen_at = null"), "turning off trip sensing must clear the last stored coordinates and timestamp");
+assert.ok(locationUpdateRoute.includes('.eq("location_tracking_enabled", true)'), "location writes must be conditional on tracking still being enabled to prevent off-toggle races");
+assert.ok(locationUpdateRoute.includes("last_seen_latitude: null") && locationUpdateRoute.includes("last_seen_longitude: null") && locationUpdateRoute.includes("last_seen_at: null"), "denied or unavailable location permission must clear the last stored location");
+assert.ok(!locationUpdateRoute.includes("location_tracking_enabled: true,\n      notification_enabled:"), "a stale location request must not re-enable tracking after the user turns it off");
 assert.ok(locationUpdateRoute.includes('"liveDemo"'), "Field-test location updates must block Live Demo payloads");
 assert.ok(locationUpdateRoute.includes('"simulatedLatitude"'), "Field-test location updates must block simulated coordinates");
 assert.ok(locationUpdateRoute.includes("real browser GPS only"), "Field-test location update error must require real GPS");

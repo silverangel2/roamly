@@ -12,6 +12,6 @@ export async function GET() {
     .eq("provider", "gmail")
     .order("provider", { ascending: true });
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, connections: data || [] });
+  if (error) return NextResponse.json({ ok: false, error: "Email connection status is temporarily unavailable." }, { status: 500, headers: { "Cache-Control": "private, no-store" } });
+  return NextResponse.json({ ok: true, connections: data || [] }, { headers: { "Cache-Control": "private, no-store" } });
 }

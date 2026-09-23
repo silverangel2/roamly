@@ -2,11 +2,14 @@ import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendTripReminderEmail } from "@/lib/roamly/email";
-import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { communicationPreferenceForNotificationType, getCompanionPreferences, getCompanionPreferencesForDelivery } from "@/lib/roamly/companionPreferences";
 import { tripWindowState } from "@/lib/roamly/liveCompanion";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
+import { normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { localizeActivityNotification } from "@/lib/roamly/briefingMessages.mjs";
 
 export type NotificationPayload = {
   title: string;
@@ -85,6 +88,17 @@ export async function createInAppNotification(
   }
 ) {
   const writer = createSupabaseAdminClient() || supabase;
+  let title = params.title;
+  let body = params.body || "";
+  if (params.tripId) {
+    const tripResult = await writer.from("roamly_trips").select("metadata").eq("id", params.tripId).eq("user_id", params.userId).maybeSingle();
+    if (tripResult.data) {
+      const locale = getTripItineraryLanguage(tripResult.data.metadata);
+      const localized = localizeActivityNotification(locale, params.type, title, body, params.metadata || {});
+      title = localized.title;
+      body = localized.body;
+    }
+  }
   return writer
     .from("roamly_notifications")
     .insert({
@@ -92,8 +106,8 @@ export async function createInAppNotification(
       trip_id: params.tripId || null,
       event_id: params.eventId || null,
       type: params.type,
-      title: params.title,
-      body: params.body || null,
+      title,
+      body: body || null,
       action_url: params.actionUrl || null,
       status: params.status || "unread",
       scheduled_for: params.scheduledFor || null,
@@ -115,6 +129,12 @@ export async function sendPushNotification(
   } = {}
 ) {
   const writer = createSupabaseAdminClient() || supabase;
+  const preferenceKey = communicationPreferenceForNotificationType(payload.type || "");
+  if (preferenceKey && payload.tripId) {
+    const preferences = await getCompanionPreferencesForDelivery({ supabase: writer, userId, tripId: payload.tripId });
+    if (!preferences) return { ok: false, sent: 0, failed: 0, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE" };
+    if (!preferences[preferenceKey]) return { ok: true, sent: 0, failed: 0, suppressed: true, error: "COMMUNICATION_PREFERENCE_DISABLED" };
+  }
   const actionScopedPayload = payload.type === "activity_start"
     ? { ...payload, appleMapsUrl: null, googleMapsUrl: null, citymapperUrl: null }
     : payload.type === "next_activity"
@@ -199,6 +219,26 @@ export async function sendPushNotification(
     return { ok: false, error: "No push subscription found.", sent: 0, failed: 0, notification, emailResult };
   }
 
+  const validSubscriptions = subscriptions.filter((subscription) => normalizePushEndpoint(subscription.endpoint));
+  const invalidSubscriptionIds = subscriptions
+    .filter((subscription) => !normalizePushEndpoint(subscription.endpoint))
+    .map((subscription) => subscription.id);
+  if (invalidSubscriptionIds.length) {
+    await writer.from("roamly_push_subscriptions")
+      .update({ enabled: false })
+      .eq("user_id", userId)
+      .in("id", invalidSubscriptionIds);
+  }
+  if (!validSubscriptions.length) {
+    if (notification.data?.id) {
+      await writer.from("roamly_notifications")
+        .update({ push_status: "no_subscription", push_error: "No supported push subscription found." })
+        .eq("id", notification.data.id)
+        .eq("user_id", userId);
+    }
+    return { ok: false, error: "No supported push subscription found.", sent: 0, failed: 0, notification, emailResult };
+  }
+
   const body = JSON.stringify({
     title: securedPayload.title,
     body: securedPayload.body || "",
@@ -217,10 +257,10 @@ export async function sendPushNotification(
     skipUrl: securedPayload.skipUrl || null
   });
 
-  const results = await Promise.all((subscriptions || []).map(async (subscription) => {
+  const results = await Promise.all(validSubscriptions.map(async (subscription) => {
     try {
       await webpush.sendNotification(
-        { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh || "", auth: subscription.auth || "" } },
+        { endpoint: normalizePushEndpoint(subscription.endpoint)!, keys: { p256dh: subscription.p256dh || "", auth: subscription.auth || "" } },
         body
       );
       return { ok: true as const, subscription };

@@ -1,13 +1,45 @@
 import assert from "node:assert/strict";
-import {
-  createBookingDemandProvider,
-  hotelInventoryInputFromPayload,
-  normalizeBookingAccommodationResponse,
-  resolveBookingPropertyMatch,
-  normalizeBookingLocationResponse,
-  revalidateBookingHotelCandidate
-} from "../lib/roamly/hotelInventory.ts";
-import { buildGroundedDecisionCore, normalizeMarketCandidate } from "../lib/roamly/candidateDecisionCore.ts";
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import vm from "node:vm";
+import ts from "typescript";
+
+const root = path.resolve(new URL("..", import.meta.url).pathname);
+const nodeRequire = createRequire(import.meta.url);
+function loadTsModule(entryFile) {
+  const cache = new Map();
+  function load(file) {
+    const absolute = path.resolve(root, file);
+    if (cache.has(absolute)) return cache.get(absolute).module.exports;
+    const source = fs.readFileSync(absolute, "utf8");
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true }
+    }).outputText;
+    const sandbox = {
+      exports: {}, module: { exports: {} }, URL, URLSearchParams, process, Error, AbortController, DOMException, fetch, setTimeout, clearTimeout,
+      require(id) {
+        if (id.startsWith("@/")) return load(id.slice(2).match(/\.(ts|tsx|json)$/) ? id.slice(2) : `${id.slice(2)}.ts`);
+        if (id.startsWith(".")) {
+          const local = path.join(path.dirname(file), id);
+          return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
+        }
+        return nodeRequire(id);
+      }
+    };
+    cache.set(absolute, sandbox);
+    sandbox.exports = sandbox.module.exports;
+    vm.runInNewContext(compiled, sandbox, { filename: file });
+    return sandbox.module.exports;
+  }
+  return load(entryFile);
+}
+const {
+  createBookingDemandProvider, hotelInventoryInputFromPayload, normalizeBookingAccommodationResponse,
+  resolveBookingPropertyMatch, normalizeBookingLocationResponse, revalidateBookingHotelCandidate
+} = loadTsModule("lib/roamly/hotelInventory.ts");
+const { buildGroundedDecisionCore, normalizeMarketCandidate } = loadTsModule("lib/roamly/candidateDecisionCore.ts");
+const deepEqual = (actual, expected, message) => assert.deepEqual(JSON.parse(JSON.stringify(actual)), expected, message);
 
 const input = hotelInventoryInputFromPayload({
   destination: "Montreal",
@@ -41,6 +73,12 @@ const fixture = {
       neighborhood: "Downtown Montreal",
       stars: 4,
       amenities: ["PARKING", "WIFI"],
+      photos: [
+        { main_photo: false, url: { large: "https://q-xx.bstatic.com/xdata/images/hotel/max1280/other.jpg" } },
+        { main_photo: true, url: { large: "https://q-xx.bstatic.com/xdata/images/hotel/max1280/main.jpg" } },
+        { main_photo: false, url: { large: "http://q-xx.bstatic.com/insecure.jpg" } },
+        { main_photo: false, url: { large: "https://bstatic.com.attacker.example/fake.jpg" } }
+      ],
       products: [{
         id: "rate-1",
         room: { name: "Deluxe Queen", amenities: ["Accessible room"] },
@@ -70,8 +108,8 @@ assert.equal(candidates?.length, 1);
 assert.equal(candidates[0].providerPropertyId, "1001");
 assert.equal(candidates[0].providerProductId, "rate-1");
 assert.equal(candidates[0].representativeProviderProductId, "rate-1");
-assert.deepEqual(candidates[0].productOptions.map((option) => option.providerProductId), ["rate-1", "rate-2", "rate-3"]);
-assert.deepEqual(candidates[0].productOptions.map((option) => option.totalStayPrice), [610, 675, 720]);
+deepEqual(candidates[0].productOptions.map((option) => option.providerProductId), ["rate-1", "rate-2", "rate-3"]);
+deepEqual(candidates[0].productOptions.map((option) => option.totalStayPrice), [610, 675, 720]);
 assert.equal(candidates[0].productOptions[1].cancellationPolicy, "non-refundable");
 assert.equal(candidates[0].productOptions[2].cancellationPolicy, "refundable/conditional");
 assert.equal(candidates[0].productOptions[1].roomDescription, "Executive King");
@@ -97,10 +135,14 @@ assert.equal(invalidPrice?.[0].representativeProviderProductId, "valid-1");
 assert.equal(invalidPrice?.[0].totalStayPrice, 700);
 assert.equal(candidates[0].checkIn, "2026-10-10");
 assert.equal(candidates[0].checkOut, "2026-10-14");
-assert.deepEqual(candidates[0].occupancy, { travelers: 2, rooms: 1, childAges: [8] });
+deepEqual(candidates[0].occupancy, { travelers: 2, rooms: 1, childAges: [8] });
 assert.equal(candidates[0].totalStayPrice, 610);
 assert.equal(candidates[0].taxInclusionStatus, "excluded");
 assert.equal(candidates[0].availabilityStatus, "available");
+deepEqual(candidates[0].photoUrls, [
+  "https://q-xx.bstatic.com/xdata/images/hotel/max1280/main.jpg",
+  "https://q-xx.bstatic.com/xdata/images/hotel/max1280/other.jpg"
+]);
 assert.equal(candidates[0].factualStatus, "verified");
 assert.equal(candidates[0].deepLink, "https://www.booking.com/hotel/fixture.html");
 assert.match(candidates[0].deepLink, /^https:\/\/www\.booking\.com\//);
@@ -175,7 +217,7 @@ assert.equal(refreshedResult.status, "refreshed");
 assert.equal(refreshedResult.candidate.providerPropertyId, "1001");
 assert.equal(refreshedResult.candidate.totalStayPrice, 690);
 const refreshedIds = refreshedResult.candidate.productOptions.map((option) => option.providerProductId);
-assert.deepEqual(refreshedIds, ["rate-1", "rate-3", "rate-4"]);
+deepEqual(refreshedIds, ["rate-1", "rate-3", "rate-4"]);
 assert.equal(refreshedIds.includes("rate-2"), false);
 assert.equal(refreshedIds.includes("rate-4"), true);
 assert.equal(revalidationCalls, 1);
@@ -222,14 +264,16 @@ assert.equal(live.state, "OK");
 assert.equal(live.candidates[0].totalStayPrice, 610);
 assert.equal(requestBodies[0].city, 123);
 assert.equal(requestBodies[0].booker.platform, "desktop");
-assert.deepEqual(requestBodies[0].guests.children, [8]);
-assert.deepEqual(requestBodies[0].extras, ["products", "extra_charges"]);
+deepEqual(requestBodies[0].guests.children, [8]);
+deepEqual(requestBodies[0].extras, ["products", "extra_charges"]);
 let enrichmentCalls = 0;
 const enrichedProvider = createBookingDemandProvider(async (url, init) => {
   enrichmentCalls += 1;
   if (url.endsWith("/accommodations/details")) {
-    assert.deepEqual(JSON.parse(init.body).accommodations, [1001]);
-    return { status: 200, ok: true, json: async () => ({ data: [{ id: 1001, name: { "en-gb": "Fairmont The Queen Elizabeth" }, location: { address: { "en-gb": "Montreal" }, coordinates: { latitude: 45.499, longitude: -73.566 } }, rating: { stars: 4 }, amenities: ["PARKING"] }] }) };
+    deepEqual(JSON.parse(init.body).accommodations, [1001]);
+    const detailRequest = JSON.parse(init.body);
+    deepEqual(detailRequest.extras, ["description", "facilities", "photos", "policies", "rooms"]);
+    return { status: 200, ok: true, json: async () => ({ request_id: "photo-fixture", data: [{ id: 1001, name: { "en-gb": "Fairmont The Queen Elizabeth" }, location: { address: { "en-gb": "Montreal" }, coordinates: { latitude: 45.499, longitude: -73.566 } }, rating: { stars: 4 }, amenities: ["PARKING"], photos: [{ main_photo: true, url: { large: "https://q-xx.bstatic.com/fixture.jpg" } }] }] }) };
   }
   return { status: 200, ok: true, json: async () => ({ data: [{ id: 1001, currency: { accommodation: "CAD", booker: "CAD" }, products: [{ id: "rate-1", price: { total: 610, charges: [] }, number_available_at_this_price: 1 }] }] }) };
 });
@@ -238,6 +282,7 @@ assert.equal(enrichmentCalls, 2);
 assert.equal(enriched.candidates[0].name, "Fairmont The Queen Elizabeth");
 assert.equal(enriched.candidates[0].address, "Montreal");
 assert.equal(enriched.candidates[0].totalStayPrice, 610);
+deepEqual(enriched.candidates[0].photoUrls, ["https://q-xx.bstatic.com/fixture.jpg"]);
 const rateLimited = await createBookingDemandProvider(async () => ({ status: 429, ok: false, json: async () => ({}) })).searchHotels({ ...bookingInput, exactPropertyRequest: null });
 assert.equal(rateLimited.state, "RATE_LIMITED");
 const timedOut = await createBookingDemandProvider(async () => { throw new DOMException("timeout", "AbortError"); }).searchHotels({ ...bookingInput, exactPropertyRequest: null });

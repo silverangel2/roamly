@@ -13,9 +13,9 @@ function loadTsModule(entryFile) {
     const absolute = path.join(root, file);
     if (cache.has(absolute)) return cache.get(absolute).module.exports;
     if (absolute.endsWith(".json")) {
-      const jsonModule = { exports: JSON.parse(fs.readFileSync(absolute, "utf8")) };
-      cache.set(absolute, { module: jsonModule });
-      return jsonModule.exports;
+      const moduleRecord = { exports: JSON.parse(fs.readFileSync(absolute, "utf8")) };
+      cache.set(absolute, { module: moduleRecord });
+      return moduleRecord.exports;
     }
     const source = fs.readFileSync(absolute, "utf8");
     const compiled = ts.transpileModule(source, {
@@ -119,12 +119,15 @@ const resolved = resolveAffiliateLink({
 });
 assert.equal(resolved.provider, "stay22", "K: Stay22 remains the hotel affiliate provider");
 const stay22 = new URL(resolved.finalUrl);
+assert.equal(stay22.pathname, "/allez/booking", "K2: Stay22 sends the traveler through its Booking.com Allez route, not the multi-OTA Roam router");
 assert.equal(stay22.searchParams.get("aid"), "stay22-test-partner", "K: Stay22 partner attribution is preserved");
 assert.equal(stay22.searchParams.get("checkin"), payload.startDate, "O: check-in context is preserved");
 assert.equal(stay22.searchParams.get("checkout"), payload.endDate, "P: check-out context is preserved");
-assert.equal(stay22.searchParams.get("guests"), "2", "Q: adult guest context is preserved");
+assert.equal(stay22.searchParams.get("adults"), "2", "Q: documented adult guest context is preserved");
+assert.equal(stay22.searchParams.get("children"), "1", "Q2: documented child guest context is preserved");
 assert.equal(stay22.searchParams.get("rooms"), "1", "R: room context is preserved");
-assert.match(stay22.searchParams.get("address") || "", /Hotel A.*Toronto/i, "N: selected hotel search context is preserved");
+assert.match(stay22.searchParams.get("hotelname") || "", /Hotel A/i, "N1: selected property name is sent through the documented field");
+assert.match(stay22.searchParams.get("address") || "", /Toronto/i, "N2: destination context is preserved separately from the property name");
 assert.equal(stay22.searchParams.has("providerPropertyId"), false, "X: Booking Demand property identity is not crossed into Stay22");
 assert.equal(stay22.searchParams.has("providerProductId"), false, "Y: Booking Demand product identity is not treated as Stay22 room/rate identity");
 

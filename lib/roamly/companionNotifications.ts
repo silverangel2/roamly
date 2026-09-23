@@ -6,6 +6,9 @@ import { activityEndDate, activityStartDate, tripWindowState, timezoneFromTripMe
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
+import { communicationPreferenceForNotificationType, getCompanionPreferencesForDelivery } from "@/lib/roamly/companionPreferences";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { localizeActivityNotification, localizeBookingChangeNotification } from "@/lib/roamly/briefingMessages.mjs";
 
 export type CompanionNotificationType =
   | "nearby_activity"
@@ -245,6 +248,16 @@ async function suppressCompanionDelivery(
 export async function queueCompanionNotification(
   params: QueueCompanionNotificationParams
 ) {
+  let localizedTitle = params.title;
+  let localizedBody = params.body;
+  if (!params.isTest && params.tripId) {
+    const preferenceKey = communicationPreferenceForNotificationType(params.type);
+    if (preferenceKey) {
+      const preferences = await getCompanionPreferencesForDelivery({ supabase: params.supabase, userId: params.userId, tripId: params.tripId });
+      if (!preferences) return { ok: false as const, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE", retryable: true };
+      if (!preferences[preferenceKey]) return { ok: true as const, suppressed: true as const, reason: "communication_preference_disabled" };
+    }
+  }
   if (params.tripId) {
     const lifecycle = await loadCompanionTripLifecycle(params.supabase, {
       tripId: params.tripId,
@@ -255,6 +268,13 @@ export async function queueCompanionNotification(
     }
     if (lifecycle.state === "inactive") {
       return { ok: true as const, suppressed: true as const, reason: "trip_not_eligible" };
+    }
+    if (!params.isTest) {
+      const locale = getTripItineraryLanguage(lifecycle.result.data?.metadata);
+      const localized = localizeActivityNotification(locale, params.type, params.title, params.body, params.metadata || {});
+      const bookingLocalized = localizeBookingChangeNotification(locale, params.type, localized.title, localized.body, params.metadata || {});
+      localizedTitle = bookingLocalized.title;
+      localizedBody = bookingLocalized.body;
     }
   }
 
@@ -294,8 +314,8 @@ export async function queueCompanionNotification(
       notification_type: params.type,
       priority: params.priority,
       channel: "push",
-      title: params.title,
-      body: params.body,
+      title: localizedTitle,
+      body: localizedBody,
       action_label: params.actionLabel || null,
       action_url: params.actionUrl || null,
       status: "queued",
@@ -335,8 +355,8 @@ export async function queueCompanionNotification(
       user_id: params.userId,
       trip_id: params.tripId || null,
       event_id: params.companionEventId || null,
-      title: params.title,
-      body: params.body,
+      title: localizedTitle,
+      body: localizedBody,
       type: params.type,
       action_url: params.actionUrl || null,
       status: "unread"
@@ -585,6 +605,11 @@ export async function sendCompanionNotificationDelivery(
       notificationId: claimedDelivery.notification_id || null
     }
   );
+
+  if (pushResult.suppressed) {
+    await suppressCompanionDelivery(admin, claimedDelivery, "Communication preference disabled.");
+    return { ok: true as const, suppressed: true as const, reason: "communication_preference_disabled" };
+  }
 
   const notificationId = claimedDelivery.notification_id
     ? String(claimedDelivery.notification_id)

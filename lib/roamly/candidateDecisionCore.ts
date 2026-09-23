@@ -1,6 +1,5 @@
 import type {
   ActivityConstraints,
-  ConstraintPriority,
   ExplicitTravelRequirement,
   FlightConstraints,
   HotelConstraints,

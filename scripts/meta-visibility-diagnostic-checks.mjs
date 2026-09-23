@@ -5,6 +5,7 @@ const route = readFileSync("app/api/admin/social/meta-diagnostics/route.ts", "ut
 const helper = readFileSync("lib/roamly/metaVisibilityDiagnostic.ts", "utf8");
 const publisher = readFileSync("lib/roamly/socialAutomation.ts", "utf8");
 const ui = readFileSync("components/admin/social/MetaVisibilityDiagnostic.tsx", "utf8");
+const automationPage = readFileSync("app/admin/social/automation/page.tsx", "utf8");
 
 assert.match(route, /requireRoamlyAdmin/);
 assert.match(route, /export async function GET/);
@@ -24,4 +25,10 @@ assert.doesNotMatch(publisher, /\`\$\{videoId\}\`/);
 assert.match(publisher, /findPublishedReelInPageCollection/);
 assert.match(publisher, /publishedVideoId/);
 assert.match(helper, /NOT_EXPOSED_BY_META_API/);
-console.log("PASS: Roamly Meta visibility diagnostic is admin-only, GET-only, and secret-safe by source contract");
+assert.match(helper, /brand === "roamly" \? \["facebook", "facebook_roamly"\] : \["facebook_reviewintel"\]/);
+assert.match(helper, /getFacebookVisibilityConfig\(brand\)/);
+assert.match(publisher, /export async function getFacebookVisibilityConfig/);
+assert.match(automationPage, /MetaVisibilityDiagnostic brand="roamly"/);
+assert.match(automationPage, /MetaVisibilityDiagnostic brand="reviewintel"/);
+assert.match(ui, /meta-diagnostics\?brand=\$\{brand\}/);
+console.log("PASS: Roamly and ReviewIntel visibility diagnostics are admin-only, GET-only, and secret-safe by source contract");

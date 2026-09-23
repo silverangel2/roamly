@@ -9,7 +9,7 @@ export function ExploreDiscovery({
   candidates: ExploreCandidate[];
 }) {
   return (
-    <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] px-4 pb-24 pt-5 text-ink sm:px-6 sm:py-8">
+    <div className="min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] px-4 pb-8 pt-5 text-ink sm:px-6 sm:py-8 md:pb-10">
       <div className="mx-auto w-full max-w-5xl">
         <header className="border-b border-[#e8dfd0] pb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">For this trip</p>
@@ -73,6 +73,6 @@ export function ExploreDiscovery({
           </section>
         )}
       </div>
-    </main>
+    </div>
   );
 }

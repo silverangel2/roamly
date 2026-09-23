@@ -20,6 +20,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
   const [tripId, setTripId] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
+  const [companyWebsite, setCompanyWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -34,7 +35,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, email, category, trip_id: tripId, subject, message })
+        body: JSON.stringify({ name, email, category, trip_id: tripId, subject, message, companyWebsite })
       });
       const data = await response.json().catch(() => null);
 
@@ -49,6 +50,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       setTripId("");
       setSubject("");
       setMessage("");
+      setCompanyWebsite("");
     } catch (err) {
       setError(localizeCustomerError(locale, err, "ui.email.contactSendFailed"));
     } finally {
@@ -58,6 +60,10 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
 
   return (
     <form onSubmit={submit} className="grid gap-4 rounded-[1.5rem] border border-cloud bg-white/92 p-5 shadow-soft">
+      <div aria-hidden="true" className="absolute -left-[10000px] h-px w-px overflow-hidden">
+        <label htmlFor="contact-company-website">Leave this field empty</label>
+        <input id="contact-company-website" name="companyWebsite" value={companyWebsite} onChange={(event) => setCompanyWebsite(event.target.value)} autoComplete="off" tabIndex={-1} />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
           <span className="text-sm font-black text-ink">{t("ui.email.contactName")}</span>

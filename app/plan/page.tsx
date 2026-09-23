@@ -21,10 +21,15 @@ export default async function PlanPage() {
       : [null, null];
   const freeItineraryUsed = Boolean(free?.used);
   const access = getRoamlyAccessForUser(current.user?.email);
-  const apiAuthToken = createRoamlySessionToken(current.user);
+  const apiAuthToken = createRoamlySessionToken(current.user, [
+    { method: "POST", path: "/api/roamly/price-discovery" },
+    { method: "POST", path: "/api/trips/draft" },
+    { method: "POST", path: "/api/stripe/create-trip-checkout" },
+    { method: "POST", path: "/api/trips/generate" }
+  ]);
 
   return (
-    <main className="safe-bottom min-w-0 bg-[#fbf8ef]">
+    <div className="safe-bottom min-w-0 bg-[#fbf8ef]">
       <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
         <header className="mb-7 flex min-w-0 items-start justify-between gap-4 sm:mb-9">
           <div className="min-w-0">
@@ -42,6 +47,6 @@ export default async function PlanPage() {
         </header>
         <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} />
       </div>
-    </main>
+    </div>
   );
 }

@@ -34,7 +34,7 @@ export default async function AddTripBookingPage({ params, searchParams }: { par
     : { referral: null, error: null };
 
   return (
-    <main className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
+    <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
       <ManualBookingForm
         tripId={id}
         referral={referral.referral ? {
@@ -45,6 +45,6 @@ export default async function AddTripBookingPage({ params, searchParams }: { par
           bookingType: referral.referral.category
         } : null}
       />
-    </main>
+    </div>
   );
 }

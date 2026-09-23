@@ -31,7 +31,7 @@ const detectorSource = fs.readFileSync(path.resolve("lib/roamly/silentFailureDet
 const notificationRoute = fs.readFileSync(path.resolve("app/api/cron/roamly-notifications/route.ts"), "utf8");
 const generationRoute = fs.readFileSync(path.resolve("app/api/cron/roamly-itinerary-generation/route.ts"), "utf8");
 assert.match(detectorSource, /recordOperationalEvent/);
-assert.match(detectorSource, /recordOperationalRecovery/);
+assert.match(detectorSource, /kind: "recovery"/, "resolved incidents use the shared operational event recorder's recovery kind");
 assert.match(notificationRoute, /runPaidActivationMissingDetector/);
 assert.match(generationRoute, /runStuckGenerationDetector/);
 

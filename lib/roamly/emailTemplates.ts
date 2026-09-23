@@ -25,6 +25,8 @@ export type RoamlyEmailShellInput = {
   summaryItems?: RoamlyEmailSummaryItem[];
   supportEmail: string;
   footerUrl?: string;
+  managePreferencesUrl?: string;
+  managePreferencesLabel?: string;
   includeAffiliateDisclosure?: boolean;
 };
 
@@ -130,16 +132,21 @@ export function renderRoamlyEmailHeader(footerUrl = ROAMLY_PUBLIC_DOMAIN) {
 
 export function renderRoamlyEmailFooter({
   supportEmail,
-  footerUrl = ROAMLY_PUBLIC_DOMAIN
+  footerUrl = ROAMLY_PUBLIC_DOMAIN,
+  managePreferencesUrl,
+  managePreferencesLabel
 }: {
   supportEmail: string;
   footerUrl?: string;
+  managePreferencesUrl?: string;
+  managePreferencesLabel?: string;
 }) {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
       <tr>
         <td align="left" style="padding:20px 0 0 0;">
           <p style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">${escapeEmailHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
+          ${managePreferencesUrl && managePreferencesLabel ? `<p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;"><a href="${escapeEmailHtml(managePreferencesUrl)}" style="color:#0f766e;font-weight:700;text-decoration:none;">${escapeEmailHtml(managePreferencesLabel)}</a></p>` : ""}
           <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">Need help? Reply to this email or contact <a href="mailto:${escapeEmailHtml(supportEmail)}" style="color:#0f766e;font-weight:700;text-decoration:none;">${escapeEmailHtml(supportEmail)}</a>.</p>
           <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">Roamly · <a href="${escapeEmailHtml(footerUrl)}" style="color:#0f766e;font-weight:700;text-decoration:none;">roamlyhq.com</a></p>
         </td>
@@ -164,6 +171,7 @@ function renderPlainText(input: RoamlyEmailShellInput, ctaUrl: string, title: st
     ctaUrl ? `${input.ctaLabel || "Open Roamly"}: ${ctaUrl}` : "",
     disclosure,
     ROAMLY_EMAIL_FOOTER_COPY,
+    input.managePreferencesUrl && input.managePreferencesLabel ? `${input.managePreferencesLabel}: ${toRoamlyAbsoluteUrl(input.managePreferencesUrl)}` : "",
     supportLine,
     input.footerUrl || ROAMLY_PUBLIC_DOMAIN
   ]
@@ -225,7 +233,7 @@ export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRend
               </td>
             </tr>
             <tr>
-              <td>${renderRoamlyEmailFooter({ supportEmail: input.supportEmail, footerUrl })}</td>
+              <td>${renderRoamlyEmailFooter({ supportEmail: input.supportEmail, footerUrl, managePreferencesUrl: input.managePreferencesUrl ? toRoamlyAbsoluteUrl(input.managePreferencesUrl, footerUrl) : undefined, managePreferencesLabel: input.managePreferencesLabel })}</td>
             </tr>
           </table>
         </td>

@@ -44,7 +44,9 @@ export function LocationTrackingSettings() {
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not save tracking settings.");
       setSettings(data.settings);
-      setNotice("Trip tracking settings saved.");
+      setNotice(next.location_tracking_enabled
+        ? "Trip sensing is on. Your current location will be used for trip features."
+        : "Trip sensing is off, and the last saved location has been cleared.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save tracking settings.");
     } finally {
@@ -61,7 +63,7 @@ export function LocationTrackingSettings() {
         <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Live trip sensing</p>
         <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
           Roamly uses your location only to activate trip mode, show nearby activities, and help with your travel timeline.
-          You can turn it off anytime.
+          Turn trip sensing off anytime to stop updates and clear the last saved location.
         </p>
       </div>
 

@@ -70,16 +70,6 @@ const currentEvidence = (id = "P2", changes = []) => ({
 
 const rows = new Map();
 const calls = { provider: 0, revalidate: 0, upsert: 0, get: 0, delete: 0 };
-const storedChoice = (id = "P2", acknowledged = []) => ({
-  tripId: routeId,
-  acknowledgedMaterialChanges: acknowledged,
-  choice: {
-    selectedHotelCandidateId: "booking:1001", provider: "booking_demand", providerPropertyId: "1001", providerProductId: id,
-    revalidatedAt: "2026-10-01T12:00:00.000Z", chosenAt: "2026-10-01T12:01:00.000Z", choiceSource: "CUSTOMER_EXPLICIT",
-    bookingContinuity: "UNVERIFIED", actionability: "INFORMATIONAL_ONLY"
-  }
-});
-
 const baseDeps = {
   requireUser: async () => auth,
   getTripBundle: async (supabase, userId, id) => { assert.equal(supabase.marker, "owned"); assert.equal(userId, "user-a"); return { data: id === routeId ? { trip, itinerary: null } : null, error: null }; },

@@ -78,6 +78,7 @@ import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { countMaterialTravelRequirements } from "@/lib/roamly/travelRequirements";
 import { buildTripTravelerRequirements, listTripTravelers } from "@/lib/roamly/tripTravelers";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
+import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
@@ -476,7 +477,7 @@ function transferSummary(record: Record<string, unknown>) {
   return [mode || "Transfer", route, minutes ? `${minutes} min` : ""].filter(Boolean).join(" · ");
 }
 
-function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][number]) {
+function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][number], confirmedBookings: readonly Record<string, unknown>[] = []) {
   const output: DisplayTimelineItem[] = [];
   const seen = new Set<string>();
   const pendingTransfers: string[] = [];
@@ -513,7 +514,7 @@ function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][numbe
     const role = timelineText(record, "plan_role", "role").toLowerCase();
     const routingStatus = timelineText(record, "routing_status").toUpperCase();
     const costStatus = timelineText(record, "cost_status").toUpperCase();
-    const authority = role === "protected_anchor" || type === "booking"
+    const authority = isConfirmedItineraryBookingAnchor(title, confirmedBookings)
       ? "confirmed"
       : role === "must_do" || record.must_do === true
         ? "must_do"
@@ -616,14 +617,16 @@ function DayTimelineCard({
   tripId,
   day,
   currency,
-  locale
+  locale,
+  confirmedBookings
 }: {
   tripId: string;
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
   locale: string;
+  confirmedBookings: readonly Record<string, unknown>[];
 }) {
-  const timelineItems = buildDisplayTimelineItems(day);
+  const timelineItems = buildDisplayTimelineItems(day, confirmedBookings);
   const places = [
     ...timelineItems.map((item) => item.mapQuery),
     ...day.map_queries
@@ -1541,6 +1544,12 @@ function BookingRecommendationCard({
 
   return (
     <article className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+      {category === "hotel" && suggestion.photo_urls?.[0] ? (
+        <div className="relative mb-4 h-52 overflow-hidden rounded-xl bg-[#f3f5f1] sm:h-64">
+          <Image src={suggestion.photo_urls[0]} alt={`${title} property photo`} fill unoptimized sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+          <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1.5 text-[0.68rem] font-extrabold text-[#31594f] shadow-sm">Property photo · Booking.com</span>
+        </div>
+      ) : null}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
@@ -2075,8 +2084,8 @@ function PrintInfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CompactPrintDay({ day, currency }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string }) {
-  const items = buildDisplayTimelineItems(day).slice(0, 6);
+function CompactPrintDay({ day, currency, confirmedBookings }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string; confirmedBookings: readonly Record<string, unknown>[] }) {
+  const items = buildDisplayTimelineItems(day, confirmedBookings).slice(0, 6);
 
   return (
     <section className="roamly-pdf-day">
@@ -2138,6 +2147,7 @@ function CompactPrintItinerary({
   dayCount: number;
   locale: string;
 }) {
+  const confirmedBookings = bookings.filter((booking) => isConfirmedBookingSnapshot(booking));
   const recommendedTransport = recommendedTransportFromItinerary(itinerary);
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
   const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3, bookings);
@@ -2212,7 +2222,7 @@ function CompactPrintItinerary({
 
       <section className="roamly-pdf-days">
         {itinerary.daily_itinerary.map((day) => (
-          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} />
+          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} confirmedBookings={confirmedBookings} />
         ))}
       </section>
 
@@ -2301,7 +2311,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   let checkoutSyncError = "";
   let checkoutAwaitingWebhook = false;
   const access = getRoamlyAccessForUser(current.user.email);
-  const apiAuthToken = createRoamlySessionToken(current.user);
+  const apiAuthToken = createRoamlySessionToken(current.user, [
+    { method: "POST", path: "/api/stripe/create-trip-checkout" },
+    { method: "POST", path: "/api/trips/generate" },
+    { method: "GET", path: `/api/trips/${id}/generation/status` },
+    { method: "POST", path: `/api/trips/${id}/generation/advance` }
+  ]);
   if (sessionId && one(search.checkout) === "success") {
     const confirmation = await confirmCheckoutSessionForTrip({ sessionId, tripId: id, userId: current.user.id });
     if (!confirmation.ok) {
@@ -2451,7 +2466,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : { data: [] as Array<{ id: string }>, error: null };
   const hasPostTripFeedback = postTripFeedbackResult.error ? null : Boolean(postTripFeedbackResult.data?.length);
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
-  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay) : [];
+  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>) : [];
   const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
   const budgetPresentation = full
     ? buildBudgetPresentation({
@@ -2601,7 +2616,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             {confirmedBookingSnapshot.length ? <a href="#bookings" className="text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed →</a> : null}
             {trackingUnlocked ? <span className="text-ocean">Live Companion available</span> : null}
           </div>
-              {itineraryLocked ? <NoticeBanner>This itinerary is locked. To make major changes, create a new itinerary.</NoticeBanner> : null}
+              {itineraryLocked ? <NoticeBanner>This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.</NoticeBanner> : null}
               {checkoutNeedsAttention ? (
                 <NoticeBanner tone="coral">
                   Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
@@ -2753,7 +2768,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                         return (
                           <div key={dayNumber} className={`roamly-day-panel roamly-day-panel-${dayNumber}`}>
                             {day ? (
-                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} />
+                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} confirmedBookings={confirmedBookingSnapshot as Array<Record<string, unknown>>} />
                             ) : (
                               <BuildingDayCard
                                 dayNumber={dayNumber}

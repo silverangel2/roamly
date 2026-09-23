@@ -53,6 +53,13 @@ function authCookieDiagnosticsFromHeaders(requestHeaders: Headers) {
   return getSupabaseAuthCookieDiagnostics(requestHeaders.get("cookie") || "");
 }
 
+function roamlySessionRequestScope(requestHeaders: Headers) {
+  return {
+    method: requestHeaders.get("x-roamly-method") || "",
+    path: safeRequestPath(requestHeaders.get("x-roamly-path"), "/").split(/[?#]/, 1)[0]
+  };
+}
+
 export async function getCurrentUser({ allowRoamlySessionToken = true }: { allowRoamlySessionToken?: boolean } = {}): Promise<CurrentUserResult> {
   const supabase = await createSupabaseServerClient();
   const requestHeaders = await headers();
@@ -99,7 +106,10 @@ export async function getCurrentUser({ allowRoamlySessionToken = true }: { allow
   }
 
   if (allowRoamlySessionToken) {
-    const fallback = await getUserFromRoamlySessionToken(requestHeaders.get("x-roamly-session-token"));
+    const fallback = await getUserFromRoamlySessionToken(
+      requestHeaders.get("x-roamly-session-token"),
+      roamlySessionRequestScope(requestHeaders)
+    );
     if (fallback) {
       return { configured: true, user: fallback.user };
     }
@@ -139,7 +149,10 @@ export async function requireUser(): Promise<
 
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
-    const fallback = await getUserFromRoamlySessionToken(requestHeaders.get("x-roamly-session-token"));
+    const fallback = await getUserFromRoamlySessionToken(
+      requestHeaders.get("x-roamly-session-token"),
+      roamlySessionRequestScope(requestHeaders)
+    );
     if (fallback) {
       return { ok: true, user: fallback.user, supabase: fallback.supabase };
     }

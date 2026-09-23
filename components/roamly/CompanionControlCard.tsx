@@ -16,6 +16,11 @@ type Preferences = {
   allowRouteTimeUpdates: boolean;
   maxAutomaticCostChange: number;
   currency: string | null;
+  dailyBriefingEnabled: boolean;
+  importantTravelAlertsEnabled: boolean;
+  bookingNotificationsEnabled: boolean;
+  checkInRemindersEnabled: boolean;
+  marketingEnabled: boolean;
   liveCompanionEnabled: boolean;
   liveCompanionPausedUntil: string | null;
   backgroundLocationEnabled: boolean;
@@ -157,6 +162,34 @@ export function CompanionControlCard({
     }
   }
 
+  async function saveCommunicationPreference(
+    key: "dailyBriefingEnabled" | "importantTravelAlertsEnabled" | "bookingNotificationsEnabled" | "checkInRemindersEnabled",
+    value: boolean
+  ) {
+    const previous = preferences;
+    if (!previous) return;
+    setPreferences({ ...previous, [key]: value });
+    setSaving(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`/api/trips/${tripId}/companion/preferences`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [key]: value })
+      });
+      const result = await response.json();
+      if (!response.ok || !result?.ok) throw new Error(result?.error || t("ui.status.companionSaveFailed"));
+      setPreferences(result.preferences);
+      setMessage(t("ui.status.companionSaved"));
+    } catch {
+      setPreferences(previous);
+      setMessage(t("ui.status.settingNotSaved"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveLiveControls(patch: Partial<Preferences>, successMessage: string) {
     const previous = preferences;
     const next = {
@@ -168,6 +201,11 @@ export function CompanionControlCard({
         allowRouteTimeUpdates: false,
         maxAutomaticCostChange: 0,
         currency: null,
+        dailyBriefingEnabled: true,
+        importantTravelAlertsEnabled: true,
+        bookingNotificationsEnabled: true,
+        checkInRemindersEnabled: true,
+        marketingEnabled: false,
         liveCompanionEnabled: true,
         liveCompanionPausedUntil: null,
         backgroundLocationEnabled: false
@@ -298,6 +336,29 @@ export function CompanionControlCard({
             </button>
           );
         })}
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+        <h3 className="text-sm font-black text-ink">{t("ui.status.communicationPreferences")}</h3>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {([
+            ["dailyBriefingEnabled", "ui.status.tripBriefingEmails"],
+            ["importantTravelAlertsEnabled", "ui.status.importantTravelAlerts"],
+            ["bookingNotificationsEnabled", "ui.status.bookingUpdates"],
+            ["checkInRemindersEnabled", "ui.status.checkInReminders"]
+          ] as const).map(([key, labelKey]) => (
+            <label key={key} className="flex min-h-12 items-center gap-3 rounded-xl bg-mist px-3 py-2 text-sm font-bold text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-teal-700"
+                checked={preferences?.[key] !== false}
+                disabled={saving || !preferences}
+                onChange={(event) => void saveCommunicationPreference(key, event.target.checked)}
+              />
+              <span>{t(labelKey)}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">

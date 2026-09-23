@@ -12,9 +12,10 @@ type NotificationItem = {
   action_url?: string | null;
   created_at: string;
   delivery_status?: string | null;
+  delivery_channel?: string | null;
 };
 
-function deliveryLabel(status: string | null | undefined, t: (key: string, fallback?: string) => string) {
+function deliveryLabel(status: string | null | undefined, channel: string | null | undefined, t: (key: string, fallback?: string) => string) {
   if (!status) {
     return {
       label: t("ui.status.inAppOnly"),
@@ -24,7 +25,7 @@ function deliveryLabel(status: string | null | undefined, t: (key: string, fallb
 
   if (["sent", "delivered", "captured"].includes(status)) {
     return {
-      label: t("ui.status.emailSent"),
+      label: channel === "push" ? t("ui.status.pushSent", "Push delivered") : t("ui.status.emailSent"),
       className:
         "bg-emerald-100 text-emerald-800"
     };
@@ -32,7 +33,7 @@ function deliveryLabel(status: string | null | undefined, t: (key: string, fallb
 
   if (status === "sending") {
     return {
-      label: t("ui.status.sendingEmail"),
+      label: channel === "push" ? t("ui.status.sendingPush", "Sending push") : t("ui.status.sendingEmail"),
       className:
         "bg-sky-100 text-sky-800"
     };
@@ -42,8 +43,8 @@ function deliveryLabel(status: string | null | undefined, t: (key: string, fallb
     return {
       label:
         status === "retrying"
-          ? t("ui.status.retryingEmail")
-          : t("ui.status.emailQueued"),
+          ? channel === "push" ? t("ui.status.retryingPush", "Retrying push") : t("ui.status.retryingEmail")
+          : channel === "push" ? t("ui.status.pushQueued", "Push queued") : t("ui.status.emailQueued"),
       className:
         "bg-amber-100 text-amber-800"
     };
@@ -117,9 +118,7 @@ export function NotificationTimelineCard({
         {items.length ? (
           items.map((item) => {
             const delivery =
-              deliveryLabel(
-                item.delivery_status, t
-              );
+              deliveryLabel(item.delivery_status, item.delivery_channel, t);
 
             return (
               <article
@@ -158,11 +157,16 @@ export function NotificationTimelineCard({
                       </p>
                     ) : null}
 
-                    {["failed", "suppressed"].includes(
+                    {item.delivery_channel === "email" && ["failed", "suppressed"].includes(
                       item.delivery_status || ""
                     ) ? (
                       <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-600 ring-1 ring-cloud">
                         {t("ui.status.alertEmailUnavailable")}
+                      </p>
+                    ) : null}
+                    {item.delivery_channel === "push" && ["failed", "suppressed"].includes(item.delivery_status || "") ? (
+                      <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-600 ring-1 ring-cloud">
+                        {t("ui.status.alertPushUnavailable", "This push notification could not be delivered. You can still read it here.")}
                       </p>
                     ) : null}
                   </div>

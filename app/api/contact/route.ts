@@ -10,6 +10,8 @@ import {
   renderRoamlyEmailShell,
   renderSupportAutoReplyTemplate
 } from "@/lib/roamly/emailTemplates";
+import { contactActorHash, isContactRequestWithinLimit, isSameOriginContactRequest, trustedContactClientIp } from "@/lib/roamly/contactRequestSecurity";
+import { consumeContactRequestQuota } from "@/lib/roamly/contactRequestQuota";
 
 const allowedCategories = new Set(["support", "billing", "itinerary", "partner", "bug", "other"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -22,12 +24,31 @@ function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
-function requestOrigin(request: NextRequest) {
-  return request.headers.get("origin") || request.nextUrl.origin;
-}
-
 export async function POST(request: NextRequest) {
-  const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+  const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json" || !isSameOriginContactRequest(
+    request.headers.get("origin"),
+    request.nextUrl.origin,
+    request.headers.get("sec-fetch-site")
+  )) {
+    return NextResponse.json({ ok: false, error: "Invalid contact request." }, { status: 400 });
+  }
+  const rawBody = await request.text();
+  if (!isContactRequestWithinLimit(rawBody, request.headers.get("content-length"))) {
+    return NextResponse.json({ ok: false, error: "Contact message is too large." }, { status: 413 });
+  }
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(rawBody);
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid contact request." }, { status: 400 });
+  }
+  if (!parsedBody || typeof parsedBody !== "object" || Array.isArray(parsedBody)) {
+    return NextResponse.json({ ok: false, error: "Invalid contact request." }, { status: 400 });
+  }
+  const body = parsedBody as Record<string, unknown>;
+  // Quietly discard automated form submissions caught by the invisible trap field.
+  if (getString(body.companyWebsite, 500)) return NextResponse.json({ ok: true, message: "Thanks — your message was received." });
   const name = getString(body.name, 160);
   const email = getString(body.email, 320).toLowerCase();
   const subject = getString(body.subject, 180);
@@ -46,17 +67,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
 
+  const admin = createSupabaseAdminClient();
+  const clientIp = trustedContactClientIp(request.headers.get("x-forwarded-for"));
+  const actorHash = clientIp ? contactActorHash(clientIp, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+  if (!admin || !actorHash) {
+    return NextResponse.json({ ok: false, error: "Contact delivery is temporarily unavailable." }, { status: 503 });
+  }
+  const quota = await consumeContactRequestQuota(admin, actorHash);
+  if (!quota.ok) {
+    return NextResponse.json({ ok: false, error: "Contact delivery is temporarily unavailable." }, { status: 503 });
+  }
+  if (!quota.allowed) {
+    return NextResponse.json({ ok: false, error: "Please wait before sending another message." }, {
+      status: 429,
+      headers: { "Cache-Control": "no-store", "Retry-After": String(quota.retryAfterSeconds) }
+    });
+  }
+
   const metadata = {
     source: "contact_page",
     user_agent: request.headers.get("user-agent") || "",
-    origin: requestOrigin(request)
+    origin: request.nextUrl.origin
   };
 
   let saved = false;
   let supportMessageId: string | null = null;
-  const admin = createSupabaseAdminClient();
-
-  if (admin) {
+  {
     const { data, error } = await admin
       .from("roamly_support_messages")
       .insert({

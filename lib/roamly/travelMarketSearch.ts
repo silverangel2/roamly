@@ -30,6 +30,13 @@ import {
 import type { TravelerDetails, TripPlannerPayload } from "@/lib/trip-planner";
 import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelCandidate } from "@/lib/roamly/hotelInventory";
 import { evaluatePublicEventForTrip, normalizePublicEventEvidence, publicEventToMarketResult } from "@/lib/roamly/publicEventDiscovery";
+import { isTravelMarketResultCacheable } from "@/lib/roamly/travelMarketCachePolicy";
+import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
+import { resolveTravelIataCode } from "@/lib/roamly/airportResolver";
+import { buildKlookProductAffiliateUrl } from "@/lib/roamly/klookAffiliateLink";
+import { travelMarketProviderFailureMessage } from "@/lib/roamly/travelMarketProviderError";
+import { travelpayoutsBookingUrl } from "@/lib/roamly/travelpayoutsLink";
+import { rankHotelMarketResults } from "@/lib/roamly/hotelMarketRelevance";
 
 export type TravelMarketCategory = "flight" | "hotel" | "attraction" | "tour" | "restaurant" | "transport";
 export type TravelMarketSource =
@@ -60,6 +67,7 @@ export type TravelMarketResult = {
   rooms?: number;
   room_type?: string;
   price_amount?: number;
+  price_per_night?: number;
   price_min?: number;
   price_max?: number;
   currency: string;
@@ -68,6 +76,7 @@ export type TravelMarketResult = {
   booking_url?: string;
   normal_search_url?: string;
   affiliate_url?: string;
+  recommendation_label?: string;
   searched_at: string;
   expires_at: string;
   metadata: Record<string, unknown>;
@@ -95,6 +104,7 @@ export type TravelMarketSearchRequest = {
   minimum_quality?: number | null;
   accessibility_requirements?: string[];
   maximum_nightly_price?: number | null;
+  hotel_preferences?: string | null;
   child_ages?: number[];
 };
 
@@ -206,6 +216,7 @@ export function buildTravelMarketSearchKey(input: TravelMarketSearchRequest) {
     input.parking_required,
     input.minimum_quality,
     input.maximum_nightly_price,
+    input.hotel_preferences,
     input.child_ages?.join(","),
     input.category === "hotel" ? hotelSearchProviderKey() : "",
     cleanCurrency(input.currency)
@@ -467,7 +478,9 @@ async function cachedResults(
     if (!isMissingMarketTable(error.message)) console.error("[Roamly market] cache read failed", error.message);
     return [];
   }
-  return (data || []).map((row) => rowToResult(row as Record<string, unknown>, true));
+  return (data || [])
+    .map((row) => rowToResult(row as Record<string, unknown>, true))
+    .filter(isTravelMarketResultCacheable);
 }
 
 async function storeResults(
@@ -475,8 +488,9 @@ async function storeResults(
   searchKey: string,
   results: TravelMarketResult[]
 ) {
-  if (!supabase || !results.length) return;
-  const { error } = await supabase.from("roamly_market_prices").insert(results.map((result) => databaseRow(result, searchKey)));
+  const cacheableResults = results.filter(isTravelMarketResultCacheable);
+  if (!supabase || !cacheableResults.length) return;
+  const { error } = await supabase.from("roamly_market_prices").insert(cacheableResults.map((result) => databaseRow(result, searchKey)));
   if (error && !isMissingMarketTable(error.message)) {
     console.error("[Roamly market] cache write failed", error.message);
   }
@@ -588,7 +602,7 @@ async function fetchJson(url: string, init?: RequestInit) {
     ...init,
     signal: AbortSignal.timeout(8_000)
   });
-  if (!response.ok) throw new Error(`Provider returned ${response.status}`);
+  if (!response.ok) throw Object.assign(new Error("Travel market provider request failed"), { status: response.status });
   return (await response.json()) as unknown;
 }
 
@@ -761,24 +775,25 @@ async function searchReviewIntelNative(request: TravelMarketSearchRequest) {
 
 async function searchTravelpayouts(request: TravelMarketSearchRequest) {
   if (!marketEnabled() || !travelpayoutsApiConfigured()) return [];
+  const origin = resolveTravelIataCode(request.origin);
+  const destination = resolveTravelIataCode(request.destination || request.city);
+  if (!origin || !destination) return [];
   const url = new URL("https://api.travelpayouts.com/aviasales/v3/prices_for_dates");
-  url.searchParams.set("origin", clean(request.origin));
-  url.searchParams.set("destination", clean(request.destination || request.city));
+  url.searchParams.set("origin", origin);
+  url.searchParams.set("destination", destination);
   url.searchParams.set("departure_at", cleanDate(request.start_date));
   if (cleanDate(request.end_date)) url.searchParams.set("return_at", cleanDate(request.end_date));
   url.searchParams.set("currency", cleanCurrency(request.currency));
-  url.searchParams.set("token", clean(process.env.TRAVELPAYOUTS_API_TOKEN));
-  const json = await fetchJson(url.toString());
+  const json = await fetchJson(url.toString(), {
+    headers: { "X-Access-Token": clean(process.env.TRAVELPAYOUTS_API_TOKEN) }
+  });
   return arrayFromUnknown(json)
     .map((item) => {
       const price = providerPrice(item);
       if (price == null) return null;
-      const link = clean(item.link as string);
-      const bookingUrl = link
-        ? `https://www.aviasales.com${link.startsWith("/") ? link : `/${link}`}&marker=${encodeURIComponent(process.env.ROAMLY_TRAVELPAYOUTS_MARKER || "")}`
-        : undefined;
+      const bookingUrl = travelpayoutsBookingUrl(item.link, process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
       return baseResult(request, {
-        title: `${clean(request.origin) || "Origin"} to ${clean(request.destination || request.city)} flight`,
+        title: `${origin} to ${destination} flight`,
         provider: "Travelpayouts",
         source: "travelpayouts",
         price_amount: price,
@@ -815,7 +830,10 @@ async function searchKlook(request: TravelMarketSearchRequest) {
         price_amount: price,
         price_type: "live_partner",
         confidence: "high",
-        booking_url: safeExternalUrl(item.url as string) || undefined,
+        booking_url: buildKlookProductAffiliateUrl(item.url, {
+          referralUrl: process.env.ROAMLY_KLOOK_REFERRAL_URL,
+          partnerId: process.env.ROAMLY_KLOOK_PARTNER_ID
+        }) || undefined,
         metadata: { providerPayload: item }
       });
     })
@@ -981,7 +999,8 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
   if (request.category === "hotel") {
     const provider = createBookingDemandProvider();
     const destination = request.destination || request.city || "";
-    const location = request.country ? await provider.resolveLocation({ query: destination, country: request.country }) : null;
+    const countryCode = normalizeCountryCode(request.country);
+    const location = countryCode ? await provider.resolveLocation({ query: destination, country: countryCode }) : null;
     if (!location || !["EXACT", "STRONG_MATCH"].includes(location.status) || location.providerLocationId == null) return [];
     const result = await provider.searchHotels({
       destination: request.destination || request.city,
@@ -1009,8 +1028,7 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
     return hotelInventoryToMarketResults(result, request);
   }
   if (request.category === "attraction" || request.category === "tour") {
-    const providers = await Promise.allSettled([searchKlook(request)]);
-    return providers.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
+    return searchKlook(request);
   }
   if (request.category === "transport" && isKlookTransportSearch(request)) {
     return searchKlook(request);
@@ -1033,7 +1051,8 @@ function hotelInventoryToMarketResults(result: HotelInventoryResult, request: Tr
     travelers: request.travelers || undefined,
     rooms: request.rooms || undefined,
     room_type: candidate.roomDescription || request.room_type || undefined,
-    price_amount: candidate.totalStayPrice ?? undefined,
+        price_amount: candidate.totalStayPrice ?? undefined,
+        price_per_night: candidate.pricePerNight ?? undefined,
     currency: candidate.currency,
     price_type: candidate.expiresAt && new Date(candidate.expiresAt).getTime() > Date.now() && candidate.totalStayPrice !== null ? "live_partner" : "unknown",
     confidence: candidate.factualStatus === "verified" ? "high" : "low",
@@ -1052,6 +1071,8 @@ function hotelInventoryToMarketResults(result: HotelInventoryResult, request: Tr
         neighborhood: candidate.neighborhood,
         coordinates: candidate.coordinates,
         amenities: candidate.amenities,
+        room_description: candidate.roomDescription,
+        photo_urls: candidate.photoUrls,
         quality: candidate.quality,
         taxes_fees: candidate.taxesFees,
         taxes_included: candidate.taxInclusionStatus === "included" ? true : candidate.taxInclusionStatus === "excluded" ? false : null,
@@ -1278,7 +1299,8 @@ export async function searchTravelMarket(
   if (!options.forceRefresh) {
     const cached = (await cachedResults(options.supabase, searchKey)).filter((result) => normalized.category !== "hotel" || !liveConfigured || result.source === "booking_demand");
     if (cached.length) {
-      const results = dedupeMarketResults(cached.map(attachStaticTravelEvidence), MAX_RESULTS_PER_SEARCH, normalized);
+      const deduped = dedupeMarketResults(cached.map(attachStaticTravelEvidence), MAX_RESULTS_PER_SEARCH, normalized);
+      const results = normalized.category === "hotel" ? rankHotelMarketResults(deduped, normalized) : deduped;
       if (results.length) {
         const providerUsed = resultRetrievalProvider(results[0]);
         logMarketProviderUsed({
@@ -1295,12 +1317,14 @@ export async function searchTravelMarket(
 
   let providerResults: TravelMarketResult[] = [];
   let providerAttempted = false;
+  let providerFailure: string | null = null;
   if (normalized.category === "hotel" && liveConfigured && marketEnabled()) {
     providerAttempted = true;
     try {
       providerResults = await liveProviderResults(normalized);
     } catch (error) {
       console.error("[Roamly market] provider search failed", error);
+      providerFailure = travelMarketProviderFailureMessage(error);
     }
   }
 
@@ -1319,6 +1343,7 @@ export async function searchTravelMarket(
       providerResults = await liveProviderResults(normalized);
     } catch (error) {
       console.error("[Roamly market] provider search failed", error);
+      providerFailure = travelMarketProviderFailureMessage(error);
     }
   }
 
@@ -1346,11 +1371,12 @@ export async function searchTravelMarket(
     : primaryResults.length
       ? primaryResults
       : discoveryResults;
-  const results = dedupeMarketResults(
+  const deduped = dedupeMarketResults(
     (selectedResults.length ? selectedResults : [withRetrievalProvider(searchReadyResult(normalized, warning), "search_link_only")]).map(attachStaticTravelEvidence),
     MAX_RESULTS_PER_SEARCH,
     normalized
   );
+  const results = normalized.category === "hotel" ? rankHotelMarketResults(deduped, normalized) : deduped;
 
   if (options.store !== false) {
     await storeResults(options.supabase, searchKey, results);
@@ -1374,9 +1400,9 @@ export async function searchTravelMarket(
     warning:
       providerUsed === "provider_api"
         ? undefined
-        : providerUsed === "native"
-          ? "ReviewIntel native retrieval found source results, but live price and availability were not verified."
-          : warning
+        : providerFailure || (providerUsed === "native"
+            ? "ReviewIntel native retrieval found source results, but live price and availability were not verified."
+            : warning)
   };
 }
 

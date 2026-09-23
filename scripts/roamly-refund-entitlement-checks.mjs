@@ -6,6 +6,10 @@ const root = path.resolve(new URL("..", import.meta.url).pathname);
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const billing = read("lib/roamly/billing.ts");
 const migration = read("supabase/migrations/20260908_roamly_refund_entitlement_lifecycle.sql");
+const billingStateHandler = billing.slice(
+  billing.indexOf("async function applyStripeBillingState"),
+  billing.indexOf("async function handleStripeRefundEvent")
+);
 
 assert.match(billing, /event\.type === "charge\.refunded"/);
 assert.match(billing, /event\.type === "charge\.dispute\.created"/);
@@ -23,6 +27,10 @@ assert.match(billing, /customer\.subscription\.deleted/);
 assert.match(billing, /subscription_current_period_end/);
 assert.match(billing, /terminalSubscription/);
 assert.match(billing, /Date\.parse\(purchase\.subscription_current_period_end\)/);
+assert.ok(
+  billingStateHandler.indexOf("applyTripBillingEntitlementPolicy(supabase, purchase, currentState)") < billingStateHandler.indexOf("row.duplicate === true || row.stale === true"),
+  "duplicate and stale billing events must reconcile trip access from the authoritative current billing state"
+);
 assert.match(billing, /Stripe subscription \$\{status\}/);
 assert.match(billing, /Stripe invoice \$\{event\.type === "invoice\.payment_failed"/);
 assert.match(billing, /status === "canceled" \|\| status === "unpaid" \|\| status === "incomplete_expired"/);

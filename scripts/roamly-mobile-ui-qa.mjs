@@ -45,7 +45,7 @@ const screens = [
       button?.click();
       return Boolean(button);
     })()`,
-    requiredText: ["Generation", "Outline", "Finalizing"]
+    requiredText: ["Generation", "Shape your trip", "Finishing touches"]
   },
   {
     name: "Live Companion QA bookings preview",

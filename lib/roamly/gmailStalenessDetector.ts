@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { operationalFingerprint, operationalOpaqueId, recordOperationalEvent, recordOperationalRecovery } from "@/lib/roamly/operationalIncidents";
+import { operationalFingerprint, operationalOpaqueId, recordOperationalEvent } from "@/lib/roamly/operationalIncidents";
 import {
   gmailConnectionIsAuthRequired,
   gmailConnectionIsStale,
@@ -14,10 +14,6 @@ type Recorder = typeof recordOperationalEvent;
 
 function adminOr(client?: DetectorClient | null) {
   return createSupabaseAdminClient() || client || null;
-}
-
-function safe(value: unknown, max = 120) {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
 async function hasOpenIncident(client: DetectorClient, fingerprintParts: string[]) {

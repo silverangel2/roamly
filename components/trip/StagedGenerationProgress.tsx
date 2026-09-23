@@ -138,8 +138,8 @@ function simpleGenerationState(
 
   if (queue?.job.status === "completed" || progress.status === "complete") {
     return {
-      title: "Trip ready",
-      body: "Open your finished itinerary.",
+      title: "Your itinerary is ready",
+      body: "Your trip is ready to explore. Open the day-by-day plan whenever you are.",
       tone: "ready" as const,
       spinning: false
     };
@@ -147,8 +147,8 @@ function simpleGenerationState(
 
   if (failed) {
     return {
-      title: "Generation failed — Retry",
-      body: "Your saved work is still available. Retry the failed step.",
+      title: "We hit a pause — Retry",
+      body: "Your saved trip is safe. Roamly can pick up from the step that needs another try.",
       tone: "failed" as const,
       spinning: false
     };
@@ -156,8 +156,8 @@ function simpleGenerationState(
 
   if (stale) {
     return {
-      title: "Still working on your trip",
-      body: "Taking longer than expected. You can leave this page.",
+      title: "Your trip is taking a little longer",
+      body: "Your saved progress is safe. You can leave this page while Roamly keeps working.",
       tone: "stale" as const,
       spinning: false
     };
@@ -166,8 +166,8 @@ function simpleGenerationState(
   const stage = `${queue?.currentStage || progress.currentStage || progress.status}`.toLowerCase();
   if (queue?.job.status === "queued" || progress.status === "queued") {
     return {
-      title: "Preparing outline",
-      body: "Your trip is saved. Roamly is preparing the itinerary outline.",
+      title: "Getting to know your trip",
+      body: "Roamly is turning your destination, dates, and travel style into a thoughtful plan.",
       tone: "running" as const,
       spinning: true
     };
@@ -175,8 +175,8 @@ function simpleGenerationState(
 
   if (/validating_input|generating_outline/.test(stage)) {
     return {
-      title: "Preparing your trip",
-      body: "Roamly is understanding your route and shaping the trip outline.",
+      title: "Shaping your journey",
+      body: "Roamly is bringing your route and travel priorities together.",
       tone: "running" as const,
       spinning: true
     };
@@ -185,8 +185,8 @@ function simpleGenerationState(
   if (/validating_day/.test(stage)) {
     const day = currentDayNumber(progress, queue);
     return {
-      title: `Checking Day ${day} of ${progress.totalDayCount}`,
-      body: "Roamly is checking that this day fits together before moving on.",
+      title: `Making Day ${day} feel right`,
+      body: "Roamly is checking the pace, timing, and flow before moving on.",
       tone: "running" as const,
       spinning: true
     };
@@ -195,8 +195,8 @@ function simpleGenerationState(
   if (/generating_day/.test(stage)) {
     const day = currentDayNumber(progress, queue);
     return {
-      title: `Building Day ${day} of ${progress.totalDayCount}`,
-      body: "Roamly is shaping the next part of your journey from your request.",
+      title: `Your days are taking shape`,
+      body: `Roamly is creating Day ${day} of ${progress.totalDayCount} around what matters to you.`,
       tone: "running" as const,
       spinning: true
     };
@@ -204,8 +204,8 @@ function simpleGenerationState(
 
   if (/enriching_transport/.test(stage)) {
     return {
-      title: "Checking the journey between places",
-      body: "Roamly is adding the travel details needed to connect your days.",
+      title: "Connecting the places you’ll go",
+      body: "Roamly is adding the travel details that help each day flow into the next.",
       tone: "running" as const,
       spinning: true
     };
@@ -213,8 +213,8 @@ function simpleGenerationState(
 
   if (/enriching_affiliates/.test(stage)) {
     return {
-      title: "Adding helpful travel options",
-      body: "Roamly is finishing the useful details around your itinerary.",
+      title: "Adding the useful details",
+      body: "Roamly is bringing together the finishing touches for your itinerary.",
       tone: "running" as const,
       spinning: true
     };
@@ -222,16 +222,16 @@ function simpleGenerationState(
 
   if (/final|complete|saving|affiliates/.test(stage)) {
     return {
-      title: "Saving your itinerary",
-      body: "Roamly is saving the finished trip to your account.",
+      title: "Putting your trip together",
+      body: "Roamly is saving your day-by-day plan so it is ready when you are.",
       tone: "running" as const,
       spinning: true
     };
   }
 
   return {
-    title: "Building your trip",
-    body: "Roamly is building the itinerary and saving progress as it goes.",
+    title: "Your journey is taking shape",
+    body: "Roamly is creating your itinerary and saving progress as it goes.",
     tone: "running" as const,
     spinning: true
   };
@@ -645,10 +645,10 @@ export function StagedGenerationProgress({
           ? 1
           : 0;
   const simpleSteps = [
-    "Outline",
+    "Shape your trip",
     `Day ${Math.max(1, Math.min(progress.completedDayCount + 1, progress.totalDayCount || 1))} of ${progress.totalDayCount || 1}`,
-    "Finalizing",
-    "Complete"
+    "Finishing touches",
+    "Ready to go"
   ];
 
   return (
@@ -665,6 +665,16 @@ export function StagedGenerationProgress({
           }
           100% {
             transform: translateX(100%);
+          }
+        }
+
+        .roamly-generation-shimmer {
+          animation: roamlySoftShimmer 2.8s ease-in-out infinite;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .roamly-generation-shimmer {
+            animation: none !important;
           }
         }
       `}</style>
@@ -684,7 +694,7 @@ export function StagedGenerationProgress({
               }`}
             >
               {viewState.spinning ? (
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none" />
               ) : viewState.tone === "ready" ? (
                 <span className="text-lg font-black">✓</span>
               ) : viewState.tone === "failed" ? (
@@ -744,8 +754,7 @@ export function StagedGenerationProgress({
           <div className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 via-white to-cyan-50 px-4 py-4 shadow-sm">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-sky-100/70 to-transparent"
-              style={{ animation: "roamlySoftShimmer 2.8s ease-in-out infinite" }}
+              className="roamly-generation-shimmer pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-sky-100/70 to-transparent"
             />
             <div aria-hidden="true" className="relative flex items-center justify-between gap-2 px-1">
               <div className="h-px flex-1 bg-sky-200" />
@@ -772,7 +781,8 @@ export function StagedGenerationProgress({
           {simpleSteps.map((label, index) => (
             <div
               key={label}
-              className={`rounded-2xl border px-3 py-3 text-sm font-black ${
+              aria-current={index === activeSimpleStep ? "step" : undefined}
+              className={`rounded-2xl border px-3 py-3 text-sm font-black transition-colors duration-500 motion-reduce:transition-none ${
                 index <= activeSimpleStep
                   ? "border-ocean/20 bg-ocean/10 text-ocean"
                   : "border-slate-200 bg-slate-50 text-slate-500"

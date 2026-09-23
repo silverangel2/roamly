@@ -265,15 +265,27 @@ export async function submitTripFeedback(params: {
   const experienceContext = storedItinerary
     ? buildSuccessfulTripExperienceContext(trip.data, storedItinerary, params.input)
     : null;
+  const feedbackType = params.input.feedbackType === "in_trip" ? "in_trip" : "post_trip";
+  const existingQuery = params.supabase
+    .from("trip_feedback")
+    .select("id")
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .eq("feedback_slot", feedbackType === "post_trip" ? 0 : cleanDay(params.input.tripDay) ?? -1);
+  const existing = await existingQuery.limit(1).maybeSingle();
+  if (existing.error) return { ok: false as const, error: existing.error.message };
+
   const { data, error } = await params.supabase
     .from("trip_feedback")
-    .insert(feedbackPayload(params.userId, params.tripId, params.input, proposals, experienceContext))
+    .upsert(feedbackPayload(params.userId, params.tripId, params.input, proposals, experienceContext), {
+      onConflict: "trip_id,user_id,feedback_slot"
+    })
     .select("*")
     .single();
   if (error) return { ok: false as const, error: error.message };
   const feedback = normalizeFeedbackRow(data as Record<string, unknown>);
 
-  if (proposals.length) {
+  if (proposals.length && !existing.data) {
     await params.supabase.from("traveler_preference_events").insert(
       proposals.map((proposal) => ({
         user_id: params.userId,

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { extractAndMatchTravelEmailBooking } from "@/lib/roamly/bookingExtraction";
 import { filterTravelEmail, recordTravelEmailFilterResult } from "@/lib/roamly/travelEmailFiltering";
+import { revokeGoogleOAuthToken, stopGmailPushDelivery } from "@/lib/roamly/gmailDisconnect";
 
 export const GMAIL_PROVIDER = "gmail" as const;
 export const OUTLOOK_PROVIDER = "outlook" as const;
@@ -503,7 +504,7 @@ async function recordGmailTravelMessage(params: {
     }).catch(() => ({ error: "GMAIL_BOOKING_EXTRACTION_FAILED" }));
     return { ...saved, retryable: Boolean(extraction?.error) };
   }
-  return { ...saved, retryable: !saved.saved };
+  return { ...saved, retryable: saved.filter.shouldProcess && !saved.saved };
 }
 
 async function fetchGmailTravelBodyText(params: {
@@ -685,14 +686,39 @@ export async function disconnectEmailConnection(params: {
   const writer = createSupabaseAdminClient() || params.supabase;
   const { data: connection } = await writer
     .from("email_connections")
-    .select("id,encrypted_access_token")
+    .select("id,encrypted_access_token,encrypted_refresh_token")
     .eq("user_id", params.userId)
     .eq("provider", params.provider)
     .maybeSingle();
 
-  const accessToken = decryptToken((connection as { encrypted_access_token?: string | null } | null)?.encrypted_access_token);
-  if (accessToken && params.provider === "gmail") {
-    await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(accessToken)}`, { method: "POST" }).catch(() => null);
+  const stored = connection as { id?: string; encrypted_access_token?: string | null; encrypted_refresh_token?: string | null } | null;
+  let accessToken = "";
+  let refreshToken = "";
+  let canReadStoredTokens = true;
+  try {
+    accessToken = decryptToken(stored?.encrypted_access_token);
+    refreshToken = decryptToken(stored?.encrypted_refresh_token);
+  } catch {
+    canReadStoredTokens = false;
+  }
+
+  let pushStopped = params.provider !== "gmail";
+  if (params.provider === "gmail" && accessToken) {
+    pushStopped = await stopGmailPushDelivery(accessToken);
+  } else if (params.provider === "gmail" && !stored && canReadStoredTokens) {
+    pushStopped = true;
+  } else if (params.provider === "gmail" && stored?.id) {
+    const watch = await writer
+      .from("email_watch_subscriptions")
+      .select("status")
+      .eq("email_connection_id", stored.id)
+      .eq("provider", GMAIL_PROVIDER)
+      .maybeSingle();
+    pushStopped = !watch.data || watch.data.status === "stopped" || watch.data.status === "expired";
+  }
+  let revocationConfirmed = params.provider !== "gmail" || (!stored && canReadStoredTokens);
+  if (params.provider === "gmail" && (refreshToken || accessToken)) {
+    revocationConfirmed = await revokeGoogleOAuthToken(refreshToken || accessToken);
   }
 
   const { error } = await writer
@@ -706,7 +732,16 @@ export async function disconnectEmailConnection(params: {
     .eq("user_id", params.userId)
     .eq("provider", params.provider);
 
-  return { ok: !error, error: error?.message || null };
+  if (params.provider === "gmail" && stored?.id) {
+    const watchStopped = await writer
+      .from("email_watch_subscriptions")
+      .update({ status: "stopped" })
+      .eq("email_connection_id", stored.id)
+      .eq("provider", GMAIL_PROVIDER);
+    if (watchStopped.error) pushStopped = false;
+  }
+
+  return { ok: !error, error: error?.message || null, pushStopped, revocationConfirmed };
 }
 
 export async function renewOutlookSubscription(params: {

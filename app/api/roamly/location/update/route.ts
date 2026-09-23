@@ -65,19 +65,25 @@ export async function POST(request: NextRequest) {
 
   const existing = await auth.supabase
     .from("roamly_location_settings")
-    .select("location_tracking_enabled,notification_enabled")
+    .select("location_tracking_enabled")
     .eq("user_id", auth.userId)
     .maybeSingle();
 
   if (permissionState !== "granted") {
-    await auth.supabase.from("roamly_location_settings").upsert(
+    const { error: disableError } = await auth.supabase.from("roamly_location_settings").upsert(
       {
         user_id: auth.userId,
         location_tracking_enabled: false,
-        last_permission_state: permissionState
+        last_permission_state: permissionState,
+        last_seen_latitude: null,
+        last_seen_longitude: null,
+        last_seen_at: null
       },
       { onConflict: "user_id" }
     );
+    if (disableError) {
+      return NextResponse.json({ ok: false, error: "Could not update location settings." }, { status: 500 });
+    }
     await recordTripEvent(auth.supabase, {
       userId: auth.userId,
       eventType: permissionState === "denied" ? "location_permission_denied" : "location_permission_prompt",
@@ -112,18 +118,30 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await auth.supabase.from("roamly_location_settings").upsert(
-    {
-      user_id: auth.userId,
-      location_tracking_enabled: true,
-      notification_enabled: existing.data.notification_enabled ?? true,
+  const { data: locationWrite, error: locationWriteError } = await auth.supabase
+    .from("roamly_location_settings")
+    .update({
       last_permission_state: "granted",
       last_seen_latitude: location.latitude,
       last_seen_longitude: location.longitude,
       last_seen_at: new Date().toISOString()
-    },
-    { onConflict: "user_id" }
-  );
+    })
+    .eq("user_id", auth.userId)
+    .eq("location_tracking_enabled", true)
+    .select("user_id")
+    .maybeSingle();
+
+  if (locationWriteError) {
+    return NextResponse.json({ ok: false, error: "Could not save this location update." }, { status: 500 });
+  }
+  if (!locationWrite) {
+    return NextResponse.json({
+      ok: true,
+      trackingDisabled: true,
+      tripActivated: false,
+      message: "Location permission is disabled in this Roamly account."
+    });
+  }
 
   /*
    * watchPosition() calls this endpoint repeatedly.

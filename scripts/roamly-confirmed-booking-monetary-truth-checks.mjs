@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 
 function loadTsModule(entryFile) {
   const cache = new Map();
+  const hasKnownExtension = (file) => /\.(?:json|ts|mjs)$/.test(file);
   function load(file) {
     const absolute = path.join(root, file);
     if (absolute.endsWith(".json")) return JSON.parse(fs.readFileSync(absolute, "utf8"));
@@ -25,11 +26,11 @@ function loadTsModule(entryFile) {
       require(id) {
         if (id.startsWith("@/")) {
           const local = id.slice(2);
-          return load(local.endsWith(".json") || local.endsWith(".ts") ? local : `${local}.ts`);
+          return load(hasKnownExtension(local) ? local : `${local}.ts`);
         }
         if (id.startsWith(".")) {
           const resolved = path.join(path.dirname(file), id);
-          return load(resolved.endsWith(".json") || resolved.endsWith(".ts") ? resolved : `${resolved}.ts`);
+          return load(hasKnownExtension(resolved) ? resolved : `${resolved}.ts`);
         }
         return require(id);
       }

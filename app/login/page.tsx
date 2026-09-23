@@ -57,7 +57,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <main className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] min-w-0 w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
+    <div className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] min-w-0 w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
       <section className="min-w-0 space-y-5">
         <Badge>Welcome back</Badge>
         <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
@@ -82,6 +82,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <AuthForm mode="login" nextPath={nextPath} initialError={authErrorMessage} />
         </div>
       </Card>
-    </main>
+    </div>
   );
 }

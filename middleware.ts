@@ -91,6 +91,7 @@ export async function middleware(request: NextRequest) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-roamly-path", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  requestHeaders.set("x-roamly-method", request.method.toUpperCase());
   let response = NextResponse.next({ request: { headers: requestHeaders } });
   let refreshedCookiesAttached = false;
   let authCookieWriteCount = 0;

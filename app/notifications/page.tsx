@@ -24,14 +24,14 @@ export default async function NotificationsPage() {
 
   if (!current.configured || !current.user) {
     return (
-      <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <h1 className="text-3xl font-black text-ink">Notifications need an account.</h1>
           <div className="mt-5">
             <Button href="/login?next=/notifications">Log in</Button>
           </div>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -49,7 +49,7 @@ export default async function NotificationsPage() {
         .limit(20),
       supabase
         .from("roamly_companion_notification_deliveries")
-        .select("notification_id,status,created_at")
+        .select("notification_id,status,channel,created_at")
         .eq("user_id", current.user.id)
         .not("notification_id", "is", null)
         .order("created_at", { ascending: false })
@@ -58,7 +58,7 @@ export default async function NotificationsPage() {
 
   const latestDeliveryByNotification = new Map<
     string,
-    string
+    { status: string; channel: string | null }
   >();
 
   for (const delivery of companionDeliveries.data || []) {
@@ -70,26 +70,27 @@ export default async function NotificationsPage() {
     ) {
       latestDeliveryByNotification.set(
         delivery.notification_id,
-        delivery.status
+        { status: delivery.status, channel: delivery.channel || null }
       );
     }
   }
 
   const notificationItems = (
     notifications.data || []
-  ).map((notification) => ({
-    ...notification,
-    delivery_status:
-      latestDeliveryByNotification.get(
-        notification.id
-      ) || null
-  }));
+  ).map((notification) => {
+    const delivery = latestDeliveryByNotification.get(notification.id);
+    return {
+      ...notification,
+      delivery_status: delivery?.status || null,
+      delivery_channel: delivery?.channel || null
+    };
+  });
 
   const trip = tripResult.trip;
 
   if (!trip) {
     return (
-      <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
         <section className="mb-6">
           <NotificationTimelineCard initialItems={notificationItems} />
         </section>
@@ -102,7 +103,7 @@ export default async function NotificationsPage() {
             <Button href="/dashboard">Open dashboard</Button>
           </div>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -139,7 +140,7 @@ export default async function NotificationsPage() {
     : null;
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} />
 
       <section className="mt-6">
@@ -182,6 +183,6 @@ export default async function NotificationsPage() {
           </div>
         </Card>
       </section>
-    </main>
+    </div>
   );
 }

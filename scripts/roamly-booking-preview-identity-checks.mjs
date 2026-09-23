@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { buildBookingPreviewProductIdentity, bookingPreviewIdentityMatchesRequest, evaluateBookingPreviewIdentity, previewIdentityEquivalent } from "../lib/roamly/bookingPreviewIdentity.ts";
+import { bookingPreviewIdentityMatchesRequest, evaluateBookingPreviewIdentity, previewIdentityEquivalent } from "../lib/roamly/bookingPreviewIdentity.ts";
 import { normalizeBookingAccommodationResponse } from "../lib/roamly/hotelInventory.ts";
 import { revalidateSelectedHotelProduct } from "../lib/roamly/selectedHotelProductAvailability.ts";
 

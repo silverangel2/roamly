@@ -11,6 +11,7 @@ import { tripStartFromDate } from "../lib/roamly/preTrip7DayBriefingContent.ts";
 const tripStart = new Date("2026-10-15T13:00:00.000Z");
 const target = new Date("2026-10-14T13:00:00.000Z");
 assert.equal(tripStartFromDate("2026-10-15", "Asia/Tokyo")?.toISOString(), "2026-10-15T00:00:00.000Z");
+assert.equal(preTrip1DayWindow(tripStart, target).eligible, true);
 assert.equal(preTrip1DayWindow(tripStart, new Date("2026-10-14T12:59:59.000Z")).eligible, false);
 assert.equal(preTrip1DayWindow(tripStart, new Date("2026-10-14T18:00:00.000Z")).eligible, true);
 assert.equal(preTrip1DayWindow(tripStart, new Date("2026-10-15T12:59:59.000Z")).eligible, true);

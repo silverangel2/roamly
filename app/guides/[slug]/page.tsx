@@ -71,7 +71,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
   const ctaLabel = content.cta?.label || "Start planning your trip";
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       {page.json_ld ? (
         <script
           type="application/ld+json"
@@ -127,6 +127,6 @@ export default async function GuidePage({ params }: GuidePageProps) {
       {content.affiliateDisclosure ? (
         <p className="mt-8 rounded-xl bg-sun/15 px-4 py-3 text-sm font-bold leading-6 text-amber-900">{content.affiliateDisclosure}</p>
       ) : null}
-    </main>
+    </div>
   );
 }

@@ -500,6 +500,20 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
   const price = result.price_amount ?? result.price_min ?? null;
   const max = result.price_amount ?? result.price_max ?? null;
   const source = result.provider || (providerUsed === "native" ? "ReviewIntel native retrieval" : "Search link");
+  const providerPayload = result.metadata?.providerPayload && typeof result.metadata.providerPayload === "object"
+    ? result.metadata.providerPayload as Record<string, unknown>
+    : null;
+  const photoUrls = result.source === "booking_demand" && Array.isArray(providerPayload?.photo_urls)
+    ? [...new Set(providerPayload.photo_urls.flatMap((value) => {
+      if (typeof value !== "string") return [];
+      try {
+        const url = new URL(value);
+        return url.protocol === "https:" && (url.hostname === "bstatic.com" || url.hostname.endsWith(".bstatic.com")) ? [url.toString()] : [];
+      } catch {
+        return [];
+      }
+    }))].slice(0, 6)
+    : [];
   return {
     category,
     booking_category: category,
@@ -546,6 +560,7 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
     market_source: result.source,
     price_type: publicEventTruth && publicEventTruth.state !== "CURRENT_VERIFIED" ? "search_ready" : result.price_type,
     market_confidence: result.confidence,
+    photo_urls: photoUrls,
     searched_at: result.searched_at,
     expires_at: result.expires_at,
     market_search_key: clean(result.metadata?.search_key) || clean(result.metadata?.market_search_key)

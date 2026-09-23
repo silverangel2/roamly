@@ -9,6 +9,7 @@ import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMeta
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n-server";
+import { isTodayWithinTripDates, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 
 type DashboardTrip = {
   id: string;
@@ -38,6 +39,11 @@ function formatDate(value: string | null, locale: RoamlyLocale) {
 function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale }) {
   const locked = isTripLocked(trip);
   const hasTracking = tripHasTrackingUnlock(trip);
+  const liveNow = hasTracking && isTodayWithinTripDates({
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    timezone: timezoneFromTripMetadata(trip.metadata)
+  });
   const href = hasTracking ? `/trip/${trip.id}/live` : `/trip/${trip.id}`;
   const destination = getTripDestinationLabel(trip) || "Trip";
   const daysCount = getTripDaysCount(trip);
@@ -47,7 +53,7 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
-            {hasTracking ? "Live Trip Companion" : locked ? "Locked itinerary" : trip.status}
+            {liveNow ? "Live Trip Companion" : hasTracking ? "Companion unlocked" : locked ? "Locked itinerary" : trip.status}
           </p>
           <h3 className="mt-2 text-xl font-black text-ink">{trip.title || destination}</h3>
           <p className="mt-1 text-sm font-bold text-slate-500">
@@ -55,12 +61,12 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
           </p>
         </div>
         <span className="rounded-full bg-mist px-3 py-2 text-xs font-black text-slate-600">
-          {hasTracking ? "Live" : locked ? "Itinerary" : "Draft"}
+          {liveNow ? "Live" : hasTracking ? "Unlocked" : locked ? "Itinerary" : "Draft"}
         </span>
       </div>
       <div className="mt-4">
         <Button href={href} className="w-full sm:w-auto">
-          {hasTracking ? "Open Live" : locked ? "Open plan" : "Open trip"}
+          {liveNow ? "Open Live" : hasTracking ? "Open companion" : locked ? "Open plan" : "Open trip"}
         </Button>
         <DeleteTripButton
           tripId={trip.id}
@@ -77,7 +83,7 @@ export default async function DashboardPage() {
 
   if (!current.configured) {
     return (
-      <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <Badge tone="sun">Setup needed</Badge>
           <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">Dashboard needs Supabase.</h1>
@@ -85,7 +91,7 @@ export default async function DashboardPage() {
             Once Supabase env vars are set, Roamly shows only this user&apos;s trips.
           </p>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -111,11 +117,15 @@ export default async function DashboardPage() {
   const locked = typedTrips.filter((trip) => isTripLocked(trip));
   const drafts = typedTrips.filter((trip) => !isTripLocked(trip));
   const liveTrips = typedTrips.filter((trip) => tripHasTrackingUnlock(trip));
-  const activeNow = liveTrips[0];
+  const activeNow = liveTrips.find((trip) => isTodayWithinTripDates({
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    timezone: timezoneFromTripMetadata(trip.metadata)
+  }));
   const primaryTrip = activeNow || typedTrips[0];
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr] lg:items-end">
         <div>
           <Badge>Trips</Badge>
@@ -179,6 +189,6 @@ export default async function DashboardPage() {
           </Card>
         )}
       </section>
-    </main>
+    </div>
   );
 }

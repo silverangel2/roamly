@@ -3,8 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   operationalFingerprint,
   operationalOpaqueId,
-  recordOperationalEvent,
-  recordOperationalRecovery
+  recordOperationalEvent
 } from "@/lib/roamly/operationalIncidents";
 import {
   activationStateIsCorrect,

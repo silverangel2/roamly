@@ -7,6 +7,9 @@ import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
 import { findFirstTravelDayEvent, buildTravelDayBriefingContent, travelDayWindow, type TravelDayActivity, type TravelDayBooking } from "@/lib/roamly/travelDayBriefingContent";
 import { tripStartFromDate } from "@/lib/roamly/preTrip7DayBriefingContent";
+import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
+import { translateKey } from "@/lib/i18n";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 
 type TravelDayTrip = {
   id: string;
@@ -39,6 +42,9 @@ export async function scheduleTravelDayBriefing(params: { supabase: SupabaseClie
   const now = params.now || new Date();
   const inactive = ["archived", "cancelled", "completed"].includes(clean(params.trip.status)) || clean(params.trip.itinerary_status) === "cancelled";
   if (inactive) return { ok: true as const, scheduled: false, suppressed: "TRIP_NOT_ACTIVE" as const };
+  const preferenceState = await getCommunicationPreferenceState({ supabase: db, userId: params.trip.user_id, tripId: params.trip.id, purpose: "travel_day" });
+  if (preferenceState === "unavailable") return { ok: false as const, scheduled: false, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE" };
+  if (preferenceState === "disabled") return { ok: true as const, scheduled: false, suppressed: "COMMUNICATION_PREFERENCE_DISABLED" as const };
   const timezone = timezoneFromTripMetadata(params.trip.metadata || {}, "UTC");
   const tripStart = tripStartFromDate(params.trip.start_date, timezone);
   if (!tripStart) return { ok: true as const, scheduled: false, suppressed: "TRIP_DATE_INVALID" as const };
@@ -104,9 +110,10 @@ export async function scheduleTravelDayBriefing(params: { supabase: SupabaseClie
     gmailStatus: gmail.error ? null : gmail.data?.connection_status === "connected" ? "connected" : gmail.data ? "disconnected" : null,
     liveCompanionIncluded: currentTrip.tracking_unlocked === true || currentTrip.live_companion_unlocked === true,
     mustDo: mustDoFromTrip(currentTrip),
+    locale: getTripItineraryLanguage(currentTrip.metadata),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}/live`
   });
-  const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), supportEmail: getRoamlySupportEmail() });
+  const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), managePreferencesUrl: `/trip/${encodeURIComponent(currentTrip.id)}/live#companion-control-title`, managePreferencesLabel: translateKey(getTripItineraryLanguage(currentTrip.metadata), "ui.status.manageNotificationPreferences", "Manage notification preferences"), supportEmail: getRoamlySupportEmail() });
   const sent = await sendRoamlyEmail({ to: recipient, subject: rendered.subject, html: rendered.html, text: rendered.text, userId: currentTrip.user_id, tripId: currentTrip.id, idempotencyKey: claim.communicationId, metadata: { purpose: "travel_day", template: "travel_day" } });
   if (sent.ok) {
     await completeCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, provider: sent.provider, providerMessageId: sent.providerMessageId });

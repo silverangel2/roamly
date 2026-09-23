@@ -169,6 +169,7 @@ export type RoamlyBookingSuggestion = {
   market_source?: TravelMarketSource;
   price_type?: TravelMarketPriceType;
   market_confidence?: TravelMarketConfidence;
+  photo_urls?: string[];
   searched_at?: string;
   expires_at?: string;
   market_search_key?: string;

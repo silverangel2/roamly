@@ -21,7 +21,7 @@ import {
 } from "@/lib/roamly/tripMetadata";
 import { hotelCandidateIsFresh } from "@/lib/roamly/hotelInventory";
 import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-planner";
-import { getTripBundle, syncGeneratedItinerary, type ItineraryRecord, type RoamlyTripRecord } from "@/lib/trips";
+import { syncGeneratedItinerary, type ItineraryRecord, type RoamlyTripRecord } from "@/lib/trips";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";

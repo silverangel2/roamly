@@ -79,7 +79,7 @@ assert(/queue_status: "archived"/.test(cron) && /Proof Reel was not published/.t
 assert(/process\.env\.CRON_SECRET/.test(cron) && /ROAMLY_SOCIAL_CRON_SECRET/.test(cron) && !/vercelCronSchedule ===/.test(cron), "production cron authentication requires an accepted bearer secret");
 assert(/body: JSON\.stringify\(\{ action, brand, confirm/.test(controls), "admin control actions send the selected brand");
 assert(/body: JSON\.stringify\(\{ action: "save_settings", brand, settings/.test(controls), "admin settings saves send the selected brand");
-assert(/getFacebookAutomationSummaries/.test(automationPage) && /brand(?:=|:)\s*["']reviewintel["']/.test(automationPage), "automation page exposes ReviewIntel controls");
+assert(/getFacebookAutomationSummaries/.test(automationPage) && /FacebookAutomationControls summary=\{reviewIntelSummary\} brand="reviewintel"/.test(automationPage), "automation page exposes ReviewIntel controls");
 assert(/redactedEnvValue/.test(runtimeProof) && /sensitive\|redacted\|secret\|token\|private/.test(runtimeProof), "runtime proof ignores redacted env placeholders");
 assert(/cleanEnvValue/.test(automation) && /sensitive\|redacted\|secret\|token\|private/.test(automation), "automation config ignores redacted env placeholders");
 assert(/selectCampaignPhotoAsset/.test(automation) && /!campaignPhoto/.test(automation), "buildDrafts requires a matching campaign photo before draft creation");

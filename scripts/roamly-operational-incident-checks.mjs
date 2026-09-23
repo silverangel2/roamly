@@ -82,6 +82,7 @@ const recoveryStatus = recovery.current.status;
 const recurrence = record({ fingerprint: "f", eventKey: "e3", at: 5, kind: "failure" });
 assert.equal(first.duplicate, false);
 assert.equal(duplicate.duplicate, true);
+assert.equal(second.duplicate, false);
 assert.equal(recurrence.current.count, 3);
 assert.equal(recoveryStatus, "resolved");
 assert.equal(recurrence.current.status, "open");

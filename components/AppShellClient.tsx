@@ -105,6 +105,7 @@ function AppShellContent({
         ? [
             { href: "/dashboard", label: t("ui.nav.trips", "Trips") },
             { href: "/plan", label: t("ui.nav.planTrip", "Plan trip") },
+            { href: "/finds", label: t("ui.nav.finds", "Finds") },
             { href: "/notifications", label: t("ui.nav.alerts", "Alerts") },
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
@@ -112,6 +113,7 @@ function AppShellContent({
             { href: "/", label: t("ui.nav.home", "Home") },
             { href: "/#the-journey", label: t("ui.nav.howItWorks", "How it works") },
             { href: "/plan", label: t("ui.nav.plan", "Plan") },
+            { href: "/finds", label: t("ui.nav.finds", "Finds") },
             { href: "/pricing", label: t("ui.nav.pricing", "Pricing") }
           ],
     [authenticated, t]
@@ -123,6 +125,7 @@ function AppShellContent({
         ? [
             { href: activeTripId ? `/trip/${activeTripId}` : "/dashboard", label: t("ui.nav.trip", "Trip") },
             { href: "/plan", label: t("ui.nav.planTrip", "Plan") },
+            { href: "/finds", label: t("ui.nav.finds", "Finds") },
             { href: "/notifications", label: t("ui.nav.alerts", "Alerts"), count: unreadCount },
             { href: "/account", label: t("ui.nav.account", "Account") }
           ]
@@ -130,6 +133,7 @@ function AppShellContent({
             { href: "/", label: t("ui.nav.home", "Home") },
             { href: "/#the-journey", label: t("ui.nav.howItWorks", "How it works") },
             { href: "/plan", label: t("ui.nav.plan", "Plan") },
+            { href: "/finds", label: t("ui.nav.finds", "Finds") },
             { href: "/login", label: t("ui.nav.login", "Log in") }
           ],
     [activeTripId, authenticated, t, unreadCount]
@@ -171,7 +175,7 @@ function AppShellContent({
             </nav>
 
             <div className="flex items-center gap-2">
-              <div className="hidden sm:block">
+              <div className="shrink-0">
                 <LanguageSwitcher />
               </div>
               {!authenticated ? (
@@ -198,9 +202,6 @@ function AppShellContent({
               </Link>
             </div>
           </div>
-          <div className="mx-auto mt-3 max-w-6xl sm:hidden">
-            <LanguageSwitcher />
-          </div>
         </header>
 
         <main className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0">
@@ -211,7 +212,7 @@ function AppShellContent({
 
         <nav
           className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-[1.4rem] border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
-            authenticated ? "grid-cols-4" : "grid-cols-4"
+            authenticated ? "grid-cols-5" : "grid-cols-5"
           }`}
         >
           {mobileRoutes.map((route) => (

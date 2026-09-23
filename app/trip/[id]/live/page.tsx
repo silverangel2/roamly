@@ -11,7 +11,7 @@ import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
-import { timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { timezoneFromTripMetadata, tripWindowState, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
 import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
@@ -113,12 +113,12 @@ export default async function LiveTripPage({
 
   if (!current.configured || !current.user) {
     return (
-      <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <Badge tone="sun">Setup</Badge>
           <h1 className="mt-4 text-3xl font-black text-ink">Connect Supabase to use Live Trip Companion.</h1>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -208,6 +208,15 @@ export default async function LiveTripPage({
         }
       : null;
   const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
+  const tripWindow = tripWindowState({
+    startDate: bundle.data.trip.start_date,
+    endDate: bundle.data.trip.end_date,
+    timezone: tripTimezone
+  });
+  const tripCompleted = tripWindow === "completed_trip";
+  const tripUpcoming = tripWindow === "future_trip";
+  const tripDatesMissing = tripWindow === "missing_dates";
+  const companionPageStatus = tripCompleted ? "Completed" : tripUpcoming ? "Upcoming" : tripDatesMissing ? "Dates needed" : "Live";
   function bookingTime(row: Record<string, unknown>, dateKey: string, timeKey: string) {
     const date = getRowString(row, dateKey);
     const time = getRowString(row, timeKey);
@@ -268,7 +277,7 @@ export default async function LiveTripPage({
 
   if (fieldTestMode) {
     return (
-      <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
+      <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
         <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-white px-4 py-3 text-ink shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -308,25 +317,25 @@ export default async function LiveTripPage({
           liveDemoEnabled={false}
           fieldTestMode
         />
-      </main>
+      </div>
     );
   }
 
   if (!fieldTestMode) {
     return (
-      <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+      <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
         <TripContextNav
           tripId={id}
           title={bundle.data.trip.title || destinationLabel}
           destination={destinationLabel}
           dates={bundle.data.trip.start_date && bundle.data.trip.end_date ? `${formatRoamlyDate(bundle.data.trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(bundle.data.trip.end_date, locale, { month: "short", day: "numeric" })}` : "Dates flexible"}
-          status="Live"
+          status={companionPageStatus}
         />
         <section className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">Active assistance</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">Live in {destinationLabel}</h1>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">Today is your plan. Live helps with the next step while you are moving.</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">{tripCompleted ? "Trip complete" : tripUpcoming ? "Coming up" : tripDatesMissing ? "Add trip dates" : "Active assistance"}</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
@@ -348,12 +357,12 @@ export default async function LiveTripPage({
           bookingDetails={bookingDetails}
           liveDemoEnabled={false}
         />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <TripContextNav
         tripId={id}
         title={bundle.data.trip.title || destinationLabel}
@@ -516,6 +525,6 @@ export default async function LiveTripPage({
         bookingDetails={bookingDetails}
         liveDemoEnabled={false}
       />
-    </main>
+    </div>
   );
 }

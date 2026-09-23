@@ -8,6 +8,7 @@ import ts from "typescript";
 const root = path.resolve(new URL("..", import.meta.url).pathname);
 const nodeRequire = createRequire(import.meta.url);
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const delegatedBriefings = [];
 
 function loadReminderModule() {
   const source = read("lib/roamly/preTripReminders.ts");
@@ -23,6 +24,17 @@ function loadReminderModule() {
       }
       if (id === "@/lib/roamly/companionNotifications") {
         return { queueCompanionNotification: async () => ({ ok: true }) };
+      }
+      if (id === "@/lib/roamly/preTrip7DayBriefing" || id === "@/lib/roamly/preTrip1DayBriefing" || id === "@/lib/roamly/travelDayBriefing" || id === "@/lib/roamly/dailyTripBriefing") {
+        return {
+          schedulePreTrip7DayBriefing: async ({ trip }) => {
+            delegatedBriefings.push({ trip_id: trip.id, event_type: "trip_predeparture_7d" });
+            return { scheduled: true };
+          },
+          schedulePreTrip1DayBriefing: async () => ({ ok: true }),
+          scheduleTravelDayBriefing: async () => ({ ok: true }),
+          scheduleDailyTripBriefing: async () => ({ ok: true })
+        };
       }
       if (id === "@/lib/supabase/admin") return { createSupabaseAdminClient: () => null };
       return nodeRequire(id);
@@ -48,6 +60,7 @@ function loadEmailConnectionModule() {
     require(id) {
       if (id === "@/lib/supabase/admin") return { createSupabaseAdminClient: () => null };
       if (id === "@/lib/roamly/bookingExtraction") return { extractAndMatchTravelEmailBooking: async () => null };
+      if (id === "@/lib/roamly/gmailDisconnect") return { revokeGoogleOAuthToken: async () => ({ ok: true }), stopGmailPushDelivery: async () => ({ ok: true }) };
       if (id === "@/lib/roamly/travelEmailFiltering") {
         return {
           filterTravelEmail: () => ({ shouldProcess: false }),
@@ -156,12 +169,19 @@ function fakeSupabaseForPreTripScheduler() {
         filters.push({ op: "not", column, value });
         return api;
       },
+      is(column, value) {
+        filters.push({ op: "is", column, value });
+        return api;
+      },
       gte(column, value) {
         filters.push({ op: "gte", column, value });
         return api;
       },
       lte(column, value) {
         filters.push({ op: "lte", column, value });
+        return api;
+      },
+      or() {
         return api;
       },
       contains() {
@@ -225,12 +245,12 @@ const schedulerResult = await reminders.schedulePreTripReminders({
 assert.equal(schedulerResult.ok, true, "future active eligible trip can schedule reminders");
 assert.equal(schedulerResult.scheduled, 1, "only the active trip schedules a pre-trip reminder");
 assert.deepEqual(
-  fakeSchedulerDb.scheduledEvents.map((event) => event.trip_id),
+  delegatedBriefings.map((event) => event.trip_id),
   ["trip-active"],
   "archived and cancelled trips do not schedule pre-trip reminders"
 );
 assert.deepEqual(
-  fakeSchedulerDb.scheduledEvents.map((event) => event.event_type),
+  delegatedBriefings.map((event) => event.event_type),
   ["trip_predeparture_7d"],
   "active future trip schedules the due 7-day reminder"
 );

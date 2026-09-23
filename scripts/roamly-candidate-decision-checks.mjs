@@ -1,5 +1,51 @@
 import assert from "node:assert/strict";
-import { buildGroundedDecisionCore, candidateDecisionForAi, normalizeMarketCandidate, optimizeGroundedDecision } from "../lib/roamly/candidateDecisionCore.ts";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import vm from "node:vm";
+import ts from "typescript";
+
+const root = path.resolve(new URL("..", import.meta.url).pathname);
+const require = createRequire(import.meta.url);
+
+function loadTsModule(entryFile) {
+  const cache = new Map();
+  function load(file) {
+    const absolute = path.join(root, file);
+    if (cache.has(absolute)) return cache.get(absolute).module.exports;
+    if (path.extname(absolute) === ".json") return JSON.parse(fs.readFileSync(absolute, "utf8"));
+    const source = fs.readFileSync(absolute, "utf8");
+    const compiled = ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true }
+    }).outputText;
+    const sandbox = {
+      exports: {},
+      module: { exports: {} },
+      require(id) {
+        if (id.startsWith("@/")) {
+          const local = id.slice(2);
+          return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
+        }
+        if (id.startsWith(".")) {
+          const local = path.join(path.dirname(file), id);
+          return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
+        }
+        return require(id);
+      },
+      URL,
+      URLSearchParams,
+      process
+    };
+    cache.set(absolute, sandbox);
+    sandbox.exports = sandbox.module.exports;
+    vm.runInNewContext(compiled, sandbox, { filename: file });
+    return sandbox.module.exports;
+  }
+  return load(entryFile);
+}
+
+const { buildGroundedDecisionCore, candidateDecisionForAi, normalizeMarketCandidate, optimizeGroundedDecision } =
+  loadTsModule("lib/roamly/candidateDecisionCore.ts");
 
 const payload = (overrides = {}) => ({
   origin: "YFC",
@@ -48,7 +94,7 @@ const hard = buildGroundedDecisionCore({
   payload: payload({ constraints: { flight: { requiredAirlines: ["Air Canada"], nonstopRequired: { value: true, priority: "hard" } } } }),
   marketResults: flights
 });
-assert.deepEqual(hard.eligibleCandidateIds, ["ac"]);
+assert.deepEqual(Array.from(hard.eligibleCandidateIds), ["ac"]);
 
 const soft = buildGroundedDecisionCore({
   payload: payload({ constraints: { flight: { preferredAirlines: ["Air Canada"] } } }),
@@ -64,8 +110,8 @@ const exact = buildGroundedDecisionCore({
   payload: payload({ explicitRequirements: [{ type: "activity", request: "CN Tower", priority: "hard" }] }),
   marketResults: [market("cn", "attraction", "CN Tower", { metadata: { providerPayload: { activity_id: "cn-1" } } })]
 });
-assert.deepEqual(exact.unresolvedExactRequests, []);
-assert.deepEqual(exact.selectedActivityCandidateIds, ["cn"]);
+assert.equal(exact.unresolvedExactRequests.length, 0);
+assert.deepEqual(Array.from(exact.selectedActivityCandidateIds), ["cn"]);
 const unresolved = buildGroundedDecisionCore({
   payload: payload({ explicitRequirements: [{ type: "activity", request: "Louvre", priority: "hard" }] }),
   marketResults: [market("other", "attraction", "Eiffel Tower")]
@@ -90,14 +136,6 @@ const unknownActivity = buildGroundedDecisionCore({
 });
 assert.equal(unknownActivity.budgetLedger.status, "BUDGET_UNCERTAIN");
 
-const optimized = buildGroundedDecisionCore({
-  payload: payload({ budgetAmount: 250 }),
-  marketResults: [
-    market("flight-expensive", "flight", "Air Canada", { price_amount: 180, metadata: { providerPayload: { total_price: 180 } } }),
-    market("flight-cheap", "flight", "WestJet", { price_amount: 80, metadata: { providerPayload: { airline: "WestJet", total_price: 80 } } }),
-    market("hotel", "hotel", "Hotel", { price_amount: 120, source: "hotel_provider", provider: "Hotel Provider" })
-  ]
-});
 const optimizedResult = optimizeGroundedDecision({ decision: buildGroundedDecisionCore({ payload: payload({ budgetAmount: 250, constraints: { flight: { preferredAirlines: ["Air Canada"] } } }), marketResults: [
   market("flight-expensive", "flight", "Air Canada", { price_amount: 180, metadata: { providerPayload: { airline: "Air Canada", total_price: 180 } } }),
   market("flight-cheap", "flight", "WestJet", { price_amount: 80, metadata: { providerPayload: { airline: "WestJet", total_price: 80 } } }),

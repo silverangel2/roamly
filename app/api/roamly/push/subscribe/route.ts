@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
+import { isValidPushKey, normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
 
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as {
@@ -10,7 +11,13 @@ export async function POST(request: NextRequest) {
   const tripId = typeof body.tripId === "string" && body.tripId.trim() ? body.tripId.trim() : undefined;
   const auth = await requireUserOrFieldTest(tripId);
   if (!auth.ok) return auth.response;
-  if (!body.endpoint) return NextResponse.json({ ok: false, error: "Push endpoint is required." }, { status: 400 });
+  const endpoint = normalizePushEndpoint(body.endpoint);
+  if (!endpoint) return NextResponse.json({ ok: false, error: "Push endpoint is invalid or unsupported." }, { status: 400 });
+  const p256dh = body.keys?.p256dh;
+  const authKey = body.keys?.auth;
+  if (!isValidPushKey(p256dh, "p256dh") || !isValidPushKey(authKey, "auth")) {
+    return NextResponse.json({ ok: false, error: "Push subscription keys are invalid." }, { status: 400 });
+  }
 
   // A field-test session is scoped to its controlled trip. A normal account
   // may only register a subscription while viewing one of its own trips.
@@ -27,7 +34,7 @@ export async function POST(request: NextRequest) {
   const { data: existing, error: existingError } = await auth.supabase
     .from("roamly_push_subscriptions")
     .select("id,user_id")
-    .eq("endpoint", body.endpoint)
+    .eq("endpoint", endpoint)
     .maybeSingle();
   if (existingError) return NextResponse.json({ ok: false, error: existingError.message }, { status: 500 });
   if (existing && existing.user_id !== auth.userId) {
@@ -38,9 +45,9 @@ export async function POST(request: NextRequest) {
     {
       user_id: auth.userId,
       trip_id: tripId || null,
-      endpoint: body.endpoint,
-      p256dh: body.keys?.p256dh || null,
-      auth: body.keys?.auth || null,
+      endpoint,
+      p256dh,
+      auth: authKey,
       user_agent: request.headers.get("user-agent") || null,
       enabled: true
     },

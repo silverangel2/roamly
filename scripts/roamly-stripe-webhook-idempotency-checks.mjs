@@ -7,6 +7,10 @@ const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 const billing = read("lib/roamly/billing.ts");
 const route = read("app/api/stripe/webhook/route.ts");
 const migration = read("supabase/migrations/20260908_roamly_stripe_webhook_idempotency.sql");
+const paidPurchaseHandler = billing.slice(
+  billing.indexOf("export async function applyPaidItineraryPurchase"),
+  billing.indexOf("export async function createBillingPortalSession")
+);
 
 assert.match(route, /constructEvent\(rawBody, signature, webhookSecret\)/);
 assert.match(route, /Missing Stripe signature.*status: 400/);
@@ -15,6 +19,8 @@ assert.match(route, /handleStripeWebhookEvent\(supabase, event\)/);
 assert.match(billing, /claimStripeWebhookEvent\(supabase, event\)/);
 assert.match(billing, /completeStripeWebhookEvent\(supabase, event\.id/);
 assert.match(billing, /failStripeWebhookEvent\(supabase, event\.id/);
+assert.match(paidPurchaseHandler, /if \(purchaseWrite\.error\) return \{ ok: false/ , "failed purchase-ledger writes must keep the webhook retryable");
+assert.match(paidPurchaseHandler, /if \(paymentWrite\.error\) return \{ ok: false/ , "failed payment-ledger writes must keep the webhook retryable");
 assert.ok(
   billing.indexOf("claimStripeWebhookEvent(supabase, event)") < billing.indexOf("applyPaidItineraryPurchase(supabase, checkoutSessionFromEvent(event))"),
   "claim must precede activation"
