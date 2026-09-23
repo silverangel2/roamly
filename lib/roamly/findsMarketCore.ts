@@ -140,7 +140,7 @@ export function klookFindCard(value: unknown): FindsCard | null {
     image: base.image,
     imageAlt: `${base.title} activity photo`,
     price: base.price,
-    priceNote: "starting price shown by partner",
+    priceNote: "starting price when checked",
     checkedAt: string(base.result.searched_at) || null
   };
 }
@@ -162,7 +162,7 @@ export function klookTransportFindCard(value: unknown): FindsCard | null {
     image: base.image,
     imageAlt: `${base.title} transport photo`,
     price: base.price,
-    priceNote: "starting price shown by partner",
+    priceNote: "starting price when checked",
     checkedAt: string(base.result.searched_at) || null
   };
 }
