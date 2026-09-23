@@ -341,6 +341,9 @@ export function StagedGenerationProgress({
   emailConfigured,
   maskedEmail,
   backgroundWorkerConfigured,
+  destinationLabel = "Your destination",
+  dateLabel = "Dates being shaped",
+  travelerLabel = "Your travelers",
   apiAuthToken = ""
 }: {
   tripId: string;
@@ -348,6 +351,9 @@ export function StagedGenerationProgress({
   emailConfigured: boolean;
   maskedEmail: string | null;
   backgroundWorkerConfigured: boolean;
+  destinationLabel?: string;
+  dateLabel?: string;
+  travelerLabel?: string;
   apiAuthToken?: string;
 }) {
   const router = useRouter();
@@ -720,6 +726,21 @@ export function StagedGenerationProgress({
               {viewState.body}
             </p>
 
+            <div className="mt-4 grid grid-cols-1 gap-2 border-y border-cloud/80 py-3 text-sm sm:grid-cols-3">
+              <div className="min-w-0">
+                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">Destination</p>
+                <p className="mt-1 truncate font-bold text-ink" title={destinationLabel}>{destinationLabel}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">When</p>
+                <p className="mt-1 truncate font-bold text-ink" title={dateLabel}>{dateLabel}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">Travelers</p>
+                <p className="mt-1 truncate font-bold text-ink" title={travelerLabel}>{travelerLabel}</p>
+              </div>
+            </div>
+
             {viewState.tone === "running" ? (
               <p className="mt-2 text-sm font-bold text-slate-500">
                 {backgroundWorkerConfigured
@@ -793,11 +814,36 @@ export function StagedGenerationProgress({
           ))}
         </div>
 
+        {progress.days.length ? (
+          <div className="rounded-2xl border border-cloud/80 bg-[#fbf8ef] p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Your trip outline</p>
+                <p className="mt-1 text-sm font-bold text-slate-600">Roamly is building the days in order and saving each completed day.</p>
+              </div>
+              <p className="text-xs font-black text-slate-500">{progress.completedDayCount} of {progress.totalDayCount} days ready</p>
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {progress.days.slice(0, 8).map((day) => {
+                const dayLabel = day.status === "complete" ? "Ready" : day.status === "failed" ? "Needs attention" : day.status === "generating" || day.status === "validating" ? "Building now" : "Queued";
+                const dayTone = day.status === "complete" ? "border-ocean/20 bg-ocean/10 text-ocean" : day.status === "failed" ? "border-coral/20 bg-coral/10 text-coral" : day.status === "generating" || day.status === "validating" ? "border-sky-200 bg-white text-sky-800" : "border-cloud bg-white text-slate-500";
+                return (
+                  <div key={day.dayNumber} className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${dayTone}`}>
+                    <span className="truncate font-bold">Day {day.dayNumber}{day.date ? ` · ${day.date}` : ""}</span>
+                    <span className="shrink-0 text-xs font-black">{dayLabel}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {progress.days.length > 8 ? <p className="mt-3 text-xs font-bold text-slate-500">{progress.days.length - 8} more days will appear as Roamly reaches them.</p> : null}
+          </div>
+        ) : null}
+
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {progress.status === "complete" ? (
             <Link
               href={`/trip/${tripId}`}
-              className="inline-flex justify-center rounded-full bg-ocean px-5 py-3 text-sm font-black text-white"
+              className="inline-flex min-h-11 justify-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25"
             >
               View itinerary
             </Link>
@@ -808,7 +854,7 @@ export function StagedGenerationProgress({
               type="button"
               onClick={() => void retryGeneration()}
               disabled={Boolean(busyRetryId)}
-              className="inline-flex justify-center rounded-full bg-coral px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+              className="inline-flex min-h-11 justify-center rounded-full bg-coral px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-coral/25 disabled:opacity-60"
             >
               {busyRetryId ? "Retrying..." : "Retry"}
             </button>
@@ -816,7 +862,7 @@ export function StagedGenerationProgress({
 
           <Link
             href="/dashboard"
-            className="inline-flex justify-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-black text-ink"
+            className="inline-flex min-h-11 justify-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-bold text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25"
           >
             Back to trips
           </Link>

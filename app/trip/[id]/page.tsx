@@ -584,8 +584,10 @@ function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelineItem; 
         <div className="min-w-0">
           <div className="flex flex-wrap items-start gap-2">
             <h4 className={`text-lg font-black leading-6 ${isQuiet ? "text-slate-700" : "text-ink"} sm:text-xl`}>{item.title}</h4>
-            {item.authority === "confirmed" ? <span className="rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-ocean">Confirmed</span> : null}
+            {item.authority === "confirmed" ? <span className="rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-ocean">Confirmed booking</span> : null}
             {item.authority === "must_do" ? <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-coral">Must-do</span> : null}
+            {item.authority === "supporting" ? <span className="rounded-full bg-lagoon/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-lagoon">Suggested</span> : null}
+            {item.statusText ? <span className="rounded-full bg-sun/15 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800">Needs confirmation</span> : null}
           </div>
           {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
           {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
@@ -2455,6 +2457,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     ? `${formatBudgetMoney(tripBudgetAmount, currency)}${headerBudgetBalance ? ` · ${headerBudgetBalance.text}` : ""}`
     : full?.estimated_budget_breakdown.total_estimate || "Flexible";
   const travelStyle = getTravelStyle(trip);
+  const travelerDetails = tripTravelerDetails(trip);
+  const travelerCount = travelerDetails.adults + travelerDetails.children + travelerDetails.infants;
+  const travelerLabel = `${travelerCount} ${travelerCount === 1 ? "traveler" : "travelers"}`;
   const emailConfigured = isEmailConfigured().configured;
   const maskedEmail = maskEmailAddress(current.user.email);
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
@@ -2613,6 +2618,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             <span className={readiness.state === "READY" ? "text-ocean" : readiness.state === "UNCERTAIN" ? "text-amber-800" : "text-coral"}>{completedTrip ? "Trip completed" : readiness.state === "READY" ? "Ready to go" : readiness.state === "UNCERTAIN" ? "Some details need confirmation" : "Action needed"}</span>
             <span>Budget: {headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain")}</span>
             <span>{dayCount ? `${dayCount} days` : "Dates flexible"}</span>
+            <span>{travelerLabel}</span>
             {confirmedBookingSnapshot.length ? <a href="#bookings" className="text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed →</a> : null}
             {trackingUnlocked ? <span className="text-ocean">Live Companion available</span> : null}
           </div>
@@ -2640,6 +2646,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                   emailConfigured={emailConfigured}
                   maskedEmail={maskedEmail}
                   backgroundWorkerConfigured={backgroundWorkerConfigured}
+                  destinationLabel={destinationLabel}
+                  dateLabel={formatDateRange(trip, locale)}
+                  travelerLabel={travelerLabel}
                   apiAuthToken={apiAuthToken}
                 />
               ) : null}
@@ -2742,7 +2751,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                         defaultChecked={dayNumber === (Number(one(search.focus)?.replace("day-", "")) || dayNumbersToRender[0])}
                       />
                     ))}
-                    <nav className="roamly-day-nav roamly-no-print sticky top-[8.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:top-[9.2rem] sm:mx-0 sm:rounded-full sm:border">
+                    <nav className="roamly-day-nav roamly-no-print md:sticky md:top-[9.2rem] z-10 -mx-4 mb-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fbf8ef]/95 px-4 py-2 backdrop-blur sm:mx-0 sm:rounded-full sm:border">
                       <div className="flex min-w-max gap-2">
                         {dayNumbersToRender.map((dayNumber) => (
                           <label
