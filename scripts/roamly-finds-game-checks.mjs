@@ -21,10 +21,10 @@ assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon disclosures are inc
 assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon disclosures are included only when partner links are configured");
 assert.match(tabs, /rel="noopener noreferrer"/, "external partner links are isolated from the opener");
 assert.match(findsPage, /Real listings and item photos/i, "the market distinguishes real listings from inspirational content");
-assert.match(tabs, /No placeholders, scraped stock photos, or pretend offers/i, "empty shelves do not imply inventory that is not connected");
+assert.match(tabs, /No unverified offers are shown/i, "empty shelves do not imply inventory that is not connected");
 assert.match(tabs, /key=\{`empty-\$\{active\}`\}/, "empty-state copy is remounted when the selected shelf changes");
 assert.match(tabs, /active === "amazon" \? emptyMessage/, "only the Amazon shelf shows the Amazon catalog message");
-assert.match(tabs, /No verified travel finds are available yet/, "the all-finds shelf has a category-neutral empty state");
+assert.match(tabs, /There are no verified travel finds here yet/, "the all-finds shelf has a category-neutral empty state");
 assert.match(puzzle, /Swap two pieces at a time/, "destination puzzle describes the playable swap mechanic");
 assert.match(puzzle, /setOrder\(\(current\)/, "puzzle swaps pieces interactively");
 assert.match(puzzle, /aria-pressed=\{selected === position\}/, "puzzle selection state is accessible");

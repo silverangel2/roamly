@@ -103,10 +103,10 @@ export function bookingFindCard(value: unknown): FindsCard | null {
   return {
     id: string(base.result.id) || bookingUrl,
     title: base.title,
-    eyebrow: stay22Url ? "Booking.com · via Stay22" : "Booking.com · available for your dates",
+    eyebrow: "Where to stay",
     description: stay22Url
-      ? "Booking.com returned this live stay and total for your dates. Continue to Booking.com through Stay22, then confirm the property, final price, taxes, room, and terms before booking."
-      : "Live total for your selected stay. Confirm final taxes, cancellation terms, and room details with Booking.com.",
+      ? "A current stay result for your selected dates. Check the property, final price, taxes, room, and cancellation terms before booking."
+      : "A current stay total for your selected dates. Check final taxes, cancellation terms, and room details before booking.",
     href: bookingUrl,
     provider: stay22Url ? "Booking.com via Stay22" : "Booking.com",
     // Booking Demand results require the Booking.com affiliate ID; Stay22 is the preferred handoff when configured.
@@ -129,8 +129,8 @@ export function klookFindCard(value: unknown): FindsCard | null {
   return {
     id: string(base.result.id) || base.href,
     title: base.title,
-    eyebrow: "Klook · partner listing",
-    description: "Partner listing and current starting price. Confirm date-specific availability, inclusions, and cancellation terms with Klook.",
+    eyebrow: "Things worth doing",
+    description: "A current experience listing and starting price. Check date-specific availability, inclusions, and cancellation terms before booking.",
     href: base.href,
     provider: "Klook",
     affiliate: true,
@@ -151,8 +151,8 @@ export function klookTransportFindCard(value: unknown): FindsCard | null {
   return {
     id: string(base.result.id) || base.href,
     title: base.title,
-    eyebrow: "Klook · partner listing",
-    description: "Partner listing and current starting price. Confirm the route, date-specific availability, inclusions, and terms with Klook.",
+    eyebrow: "Getting around",
+    description: "A current transport option and starting price. Check the route, date-specific availability, inclusions, and terms before booking.",
     href: base.href,
     provider: "Klook",
     affiliate: true,
@@ -190,8 +190,8 @@ export function flightFindCard(value: unknown): FindsCard | null {
   return {
     id: string(base.result.id) || base.href,
     title: route ? `${route} flight` : base.title,
-    eyebrow: "Travelpayouts · recent fare reference",
-    description: `Recent fare reference for your selected dates${details.length ? ` · ${details.join(" · ")}` : ""}. This is not a live quote; confirm current price, schedule, stops, and baggage with Aviasales before purchase.`,
+    eyebrow: "Flights worth checking",
+    description: `A recent fare reference for your selected dates${details.length ? ` · ${details.join(" · ")}` : ""}. This is not a live quote; confirm current price, schedule, stops, and baggage before purchase.`,
     href: base.href,
     provider: "Travelpayouts",
     affiliate: true,

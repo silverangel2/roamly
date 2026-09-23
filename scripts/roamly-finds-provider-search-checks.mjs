@@ -51,7 +51,7 @@ assert.match(component, /category: "hotel"/);
 assert.match(component, /category: "flight"/);
 assert.match(component, /searchPartner\(event, "attraction", "activity"\)/);
 assert.match(component, /store: false/);
-assert.match(component, /Roamly may earn a commission when you buy or book through some partner links/, "all live affiliate shelves must disclose commission relationships");
+assert.match(component, /Roamly may earn a commission when you buy or book through some links/, "all live affiliate shelves must disclose commission relationships");
 assert.match(component, /ArrowRight/);
 assert.match(component, /ArrowLeft/);
 assert.match(component, /event\.key === "Home"/);

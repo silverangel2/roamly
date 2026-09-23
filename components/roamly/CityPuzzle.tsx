@@ -125,18 +125,18 @@ export function CityPuzzle() {
             })}
           </div>
           <p className="mx-auto mt-3 max-w-[29rem] text-center text-[0.68rem] leading-5 text-[#526b62]">
-            {destination.kind === "photo" ? <>Photo: <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || "Photographer"}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a> · reduced-size Commons thumbnail</> : "AI-generated illustrative artwork — not a documentary photograph."}
+            {destination.kind === "photo" ? <>Photo: <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || "Photographer"}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a> · reduced-size Commons thumbnail</> : "A destination illustration."}
           </p>
           {solved ? <div className="roamly-enter mx-auto mt-5 max-w-[29rem] rounded-2xl border border-[#dce9df] bg-[#f5faf5] p-4 sm:p-5">
             <p role="status" aria-live="polite" className="text-lg font-black text-[#203c43]">You found {destination.city}, {destination.country}! ✨</p>
-            <p className="mt-1 text-sm leading-6 text-[#60766e]">Make it a real trip. Explore planning, compare current fares, or find a stay through Booking.com (via Stay22 where configured).</p>
+            <p className="mt-1 text-sm leading-6 text-[#60766e]">Make it a real trip. Explore planning, compare current fares, or find a stay through the seller.</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <a href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#0f6e66] px-5 text-xs font-extrabold text-white hover:bg-[#0e605a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Plan a trip</a>
               <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Check flights</a>
               <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Find hotels</a>
               <button type="button" onClick={nextPuzzle} className="inline-flex min-h-11 items-center justify-center rounded-full px-4 text-xs font-extrabold text-[#0f6e66] hover:bg-white">Next puzzle →</button>
             </div>
-            <p className="mt-3 text-[0.68rem] leading-5 text-[#526b62]">Affiliate availability depends on partner approval and production configuration. Prices and booking are confirmed with each provider.</p>
+            <p className="mt-3 text-[0.68rem] leading-5 text-[#526b62]">Availability depends on the seller. Prices and booking are confirmed before you commit.</p>
           </div> : <p className="mx-auto mt-3 max-w-[29rem] text-center text-xs text-[#526b62]">Tap a tile, then another tile to swap them.</p>}
         </div>
       </div>
