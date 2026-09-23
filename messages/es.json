@@ -12,12 +12,12 @@
       "account": "Cuenta",
       "pricing": "Precios",
       "planTrip": "Planear viaje",
-      "dashboard": "Dashboard",
-      "howItWorks": "How it works",
-      "upgrades": "Features",
-      "startPlanning": "Start planning",
-      "login": "Log in",
-      "logout": "Logout"
+      "dashboard": "Panel",
+      "howItWorks": "Cómo funciona",
+      "upgrades": "Funciones",
+      "startPlanning": "Empezar a planificar",
+      "login": "Iniciar sesión",
+      "logout": "Cerrar sesión"
     },
     "actions": {
       "startPlanning": "Empezar",
