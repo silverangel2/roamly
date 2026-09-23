@@ -46,5 +46,14 @@ assert.equal(delayedFlight.title, "フライトが2時間遅延");
 const hotelUpdate = localizeBookingChangeNotification("es", "booking_changed", "Hotel booking changed", "Roamly will check arrival, location, timing, and budget.", { eventType: "hotel_changed" });
 assert.equal(hotelUpdate.title, "Reserva de hotel modificada");
 assert.match(hotelUpdate.body, /presupuesto/);
+const gateChange = localizeBookingChangeNotification("fr", "gate_changed", "Gate changed", "Roamly updated the trip status with the new gate.", { eventType: "gate_changed" });
+assert.equal(gateChange.title, "Porte modifiée");
+assert.match(gateChange.body, /porte/);
+const connectionRisk = localizeBookingChangeNotification("ko", "missed_connection_risk", "Connection may be tight", "Roamly will check transfer time and downstream plans.", { eventType: "missed_connection_risk" });
+assert.equal(connectionRisk.title, "환승 시간이 빠듯할 수 있습니다");
+assert.match(connectionRisk.body, /환승 시간/);
+const closure = localizeBookingChangeNotification("ja", "attraction_closure", "Attraction closed", "Roamly will find a replacement or move the plan.", { eventType: "attraction_closure" });
+assert.equal(closure.title, "施設が休業しています");
+assert.match(closure.body, /代替案/);
 
 console.log("Scheduled and Companion briefing localization checks passed.");
