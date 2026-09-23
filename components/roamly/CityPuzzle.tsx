@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { StaticImageData } from "next/image";
+import commonsPhotos from "../../content/roamly-puzzle-commons-attribution.json";
 import amalfi from "../../content/social/roamly-25-day-reel-campaign/sources/amalfi-couple-01.png";
 import amsterdam from "../../content/social/roamly-25-day-reel-campaign/sources/amsterdam-transport-01.png";
 import bali from "../../content/social/roamly-25-day-reel-campaign/sources/bali-memories-01.png";
@@ -28,36 +29,42 @@ import turksCaicos from "../../content/social/roamly-25-day-reel-campaign/source
 import vancouver from "../../content/social/roamly-25-day-reel-campaign/sources/vancouver-confidence-01.png";
 import california from "../../content/social/roamly-25-day-reel-campaign/sources/pch-roadtrip-01.png";
 
-type PuzzleDestination = { city: string; country: string; image: StaticImageData; alt: string };
+type PuzzleDestination = { city: string; country: string; image: StaticImageData | string; alt: string; kind: "illustration" | "photo"; credit?: string; sourceUrl?: string; license?: string; licenseUrl?: string };
 
-// These are the 25 destination-specific campaign images currently approved in this project.
-// Keep the destination label paired with its own photo; do not fill the 100-place roadmap with mismatched imagery.
+const illustrations: PuzzleDestination[] = [
+  { city: "Amalfi Coast", country: "Italy", image: amalfi, alt: "Amalfi Coast-inspired scene", kind: "illustration" },
+  { city: "Amsterdam", country: "Netherlands", image: amsterdam, alt: "Amsterdam-inspired scene", kind: "illustration" },
+  { city: "Bali", country: "Indonesia", image: bali, alt: "Bali-inspired scene", kind: "illustration" },
+  { city: "Barcelona", country: "Spain", image: barcelona, alt: "Barcelona-inspired scene", kind: "illustration" },
+  { city: "Berlin", country: "Germany", image: berlin, alt: "Berlin-inspired scene", kind: "illustration" },
+  { city: "Copenhagen", country: "Denmark", image: copenhagen, alt: "Copenhagen-inspired scene", kind: "illustration" },
+  { city: "Costa Rica", country: "Costa Rica", image: costaRica, alt: "Costa Rica-inspired scene", kind: "illustration" },
+  { city: "Iceland", country: "Iceland", image: iceland, alt: "Iceland-inspired scene", kind: "illustration" },
+  { city: "Kyoto", country: "Japan", image: kyoto, alt: "Kyoto-inspired scene", kind: "illustration" },
+  { city: "London", country: "United Kingdom", image: london, alt: "London-inspired scene", kind: "illustration" },
+  { city: "Lisbon", country: "Portugal", image: lisbon, alt: "Lisbon-inspired scene", kind: "illustration" },
+  { city: "Ljubljana", country: "Slovenia", image: ljubljana, alt: "Ljubljana-inspired scene", kind: "illustration" },
+  { city: "Luang Prabang", country: "Laos", image: luangPrabang, alt: "Luang Prabang-inspired scene", kind: "illustration" },
+  { city: "Marrakech", country: "Morocco", image: marrakech, alt: "Marrakech-inspired scene", kind: "illustration" },
+  { city: "New York", country: "United States", image: newYork, alt: "New York-inspired scene", kind: "illustration" },
+  { city: "Oaxaca", country: "Mexico", image: oaxaca, alt: "Oaxaca-inspired scene", kind: "illustration" },
+  { city: "Paris", country: "France", image: paris, alt: "Paris-inspired scene", kind: "illustration" },
+  { city: "Patagonia", country: "Chile & Argentina", image: patagonia, alt: "Patagonia-inspired scene", kind: "illustration" },
+  { city: "Quebec City", country: "Canada", image: quebec, alt: "Quebec City-inspired scene", kind: "illustration" },
+  { city: "Rome", country: "Italy", image: rome, alt: "Rome-inspired scene", kind: "illustration" },
+  { city: "Santorini", country: "Greece", image: santorini, alt: "Santorini-inspired scene", kind: "illustration" },
+  { city: "Seoul", country: "South Korea", image: seoul, alt: "Seoul-inspired scene", kind: "illustration" },
+  { city: "Turks & Caicos", country: "Turks and Caicos", image: turksCaicos, alt: "Turks and Caicos-inspired scene", kind: "illustration" },
+  { city: "Vancouver", country: "Canada", image: vancouver, alt: "Vancouver-inspired scene", kind: "illustration" },
+  { city: "California Pacific Coast", country: "United States", image: california, alt: "California Pacific Coast-inspired scene", kind: "illustration" }
+];
 const destinations: PuzzleDestination[] = [
-  { city: "Amalfi Coast", country: "Italy", image: amalfi, alt: "The Amalfi Coast above the Mediterranean" },
-  { city: "Amsterdam", country: "Netherlands", image: amsterdam, alt: "Amsterdam canals and city streets" },
-  { city: "Bali", country: "Indonesia", image: bali, alt: "A lush Bali landscape" },
-  { city: "Barcelona", country: "Spain", image: barcelona, alt: "Barcelona rooftops in evening light" },
-  { city: "Berlin", country: "Germany", image: berlin, alt: "Berlin streets at night" },
-  { city: "Copenhagen", country: "Denmark", image: copenhagen, alt: "Copenhagen waterfront" },
-  { city: "Costa Rica", country: "Costa Rica", image: costaRica, alt: "A misty Costa Rican landscape" },
-  { city: "Iceland", country: "Iceland", image: iceland, alt: "Icelandic coast beneath a moody sky" },
-  { city: "Kyoto", country: "Japan", image: kyoto, alt: "A traditional Kyoto street" },
-  { city: "London", country: "United Kingdom", image: london, alt: "London lights reflected on a city street" },
-  { city: "Lisbon", country: "Portugal", image: lisbon, alt: "Lisbon streets and rooftops" },
-  { city: "Ljubljana", country: "Slovenia", image: ljubljana, alt: "Ljubljana old town" },
-  { city: "Luang Prabang", country: "Laos", image: luangPrabang, alt: "A quiet scene in Luang Prabang" },
-  { city: "Marrakech", country: "Morocco", image: marrakech, alt: "Marrakech in warm evening light" },
-  { city: "New York", country: "United States", image: newYork, alt: "A New York hotel entrance at evening" },
-  { city: "Oaxaca", country: "Mexico", image: oaxaca, alt: "A colorful Oaxaca street and food scene" },
-  { city: "Paris", country: "France", image: paris, alt: "Paris at blue hour" },
-  { city: "Patagonia", country: "Chile & Argentina", image: patagonia, alt: "Patagonia peaks above a deep blue lake" },
-  { city: "Quebec City", country: "Canada", image: quebec, alt: "A historic Quebec City weekend" },
-  { city: "Rome", country: "Italy", image: rome, alt: "A traveler exploring Rome" },
-  { city: "Santorini", country: "Greece", image: santorini, alt: "Whitewashed Santorini above the Aegean" },
-  { city: "Seoul", country: "South Korea", image: seoul, alt: "A Seoul neighborhood ready to explore" },
-  { city: "Turks & Caicos", country: "Turks and Caicos", image: turksCaicos, alt: "Turquoise water at Turks and Caicos" },
-  { city: "Vancouver", country: "Canada", image: vancouver, alt: "Vancouver between city and nature" },
-  { city: "California Pacific Coast", country: "United States", image: california, alt: "A Pacific Coast road trip in California" }
+  ...illustrations,
+  ...commonsPhotos.map((photo) => ({
+    ...photo,
+    kind: "photo" as const,
+    credit: photo.creator.replace(/^This photo was taken by /i, "").replace(/\s+\./g, ".").split(/Please credit| If you use/i)[0].replace(/[.:]+\s*$/, "").trim()
+  }))
 ];
 
 const solvedOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8];
@@ -106,16 +113,20 @@ export function CityPuzzle() {
           <h2 id="puzzle-title" className="mt-3 text-2xl font-black tracking-tight text-[#203c43] sm:text-3xl">Where will the pieces take you?</h2>
           <p className="mt-3 max-w-lg text-sm leading-6 text-[#5f756c]">Swap two pieces at a time to bring the picture together. Solve it to reveal the destination and turn inspiration into a trip.</p>
           <p aria-live="polite" className="mt-4 text-xs font-bold text-[#547067]">{solved ? `Solved in ${moves} swaps` : selected === null ? `Choose a piece · ${moves} ${moves === 1 ? "swap" : "swaps"}` : "Now choose another piece to swap."}</p>
-          <p className="mt-5 text-[0.68rem] leading-5 text-[#526b62]">These destination scenes are AI-generated illustrations, not verified photos. Finds shows actual places and partner listings when available.</p>
+          <p className="mt-5 text-[0.68rem] leading-5 text-[#526b62]">Explore 100 destinations through real travel photos and clearly labeled AI illustrations. Finds shows actual places and partner listings when available.</p>
         </div>
         <div className="p-4 sm:p-7 lg:p-9">
-          <div role="group" aria-label={`Jigsaw puzzle illustration inspired by ${destination.city}, ${destination.country}`} className="mx-auto grid aspect-square w-full max-w-[29rem] grid-cols-3 gap-1.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_10px_34px_rgba(39,88,80,0.12)] sm:gap-2 sm:p-2">
+          <div role="group" aria-label={`Jigsaw puzzle ${destination.kind === "photo" ? "photo of" : "illustration inspired by"} ${destination.city}, ${destination.country}`} className="mx-auto grid aspect-square w-full max-w-[29rem] grid-cols-3 gap-1.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_10px_34px_rgba(39,88,80,0.12)] sm:gap-2 sm:p-2">
             {order.map((piece, position) => {
               const row = Math.floor(piece / 3);
               const column = piece % 3;
-              return <button key={position} type="button" onClick={() => selectPiece(position)} aria-label={`Puzzle piece ${position + 1}${selected === position ? ", selected" : ""}`} aria-pressed={selected === position} className={`relative min-h-0 overflow-hidden rounded-lg transition duration-200 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66] ${selected === position ? "z-[1] scale-[0.96] ring-4 ring-[#0f6e66]" : "hover:brightness-105"}`} style={{ backgroundImage: `url("${destination.image.src}")`, backgroundSize: "300% 300%", backgroundPosition: `${column * 50}% ${row * 50}%` }} />;
+              const imageSrc = typeof destination.image === "string" ? destination.image : destination.image.src;
+              return <button key={position} type="button" onClick={() => selectPiece(position)} aria-label={`Puzzle piece ${position + 1}${selected === position ? ", selected" : ""}`} aria-pressed={selected === position} className={`relative min-h-0 overflow-hidden rounded-lg transition duration-200 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66] ${selected === position ? "z-[1] scale-[0.96] ring-4 ring-[#0f6e66]" : "hover:brightness-105"}`} style={{ backgroundImage: `url("${imageSrc}")`, backgroundSize: "300% 300%", backgroundPosition: `${column * 50}% ${row * 50}%` }} />;
             })}
           </div>
+          <p className="mx-auto mt-3 max-w-[29rem] text-center text-[0.68rem] leading-5 text-[#526b62]">
+            {destination.kind === "photo" ? <>Photo: <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || "Photographer"}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a> · reduced-size Commons thumbnail</> : "AI-generated illustrative artwork — not a documentary photograph."}
+          </p>
           {solved ? <div className="mx-auto mt-5 max-w-[29rem] rounded-2xl border border-[#dce9df] bg-[#f5faf5] p-4 sm:p-5" style={{ animation: "roamly-enter 360ms ease both" }}>
             <p role="status" aria-live="polite" className="text-lg font-black text-[#203c43]">You found {destination.city}, {destination.country}! ✨</p>
             <p className="mt-1 text-sm leading-6 text-[#60766e]">Make it a real trip. Explore planning, compare current fares, or find a stay through Booking.com (via Stay22 where configured).</p>
