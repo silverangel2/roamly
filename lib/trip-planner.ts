@@ -73,6 +73,7 @@ export type TripType = "single_destination" | "multi_city";
 export type TravelerDetails = {
   adults: number;
   children: number;
+  childAges?: number[];
   infants?: number;
 };
 

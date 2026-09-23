@@ -42,7 +42,7 @@ export async function getLiveRouteStatus(params: RouteRequest): Promise<LiveRout
   if (!destination) return unavailable(params.destination, "Destination address is missing.", mode);
 
   const key = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_DISTANCE_MATRIX_API_KEY;
-  if (!key) return unavailable(params.destination, "No live routing provider is connected.", mode);
+  if (!key) return unavailable(params.destination, "", mode);
 
   const origin = `${params.origin.latitude},${params.origin.longitude}`;
   const url = new URL("https://maps.googleapis.com/maps/api/distancematrix/json");

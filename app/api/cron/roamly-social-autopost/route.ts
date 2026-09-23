@@ -18,11 +18,12 @@ import {
 const SOCIAL_BRANDS = ["roamly", "reviewintel"] as const satisfies FacebookSocialBrand[];
 
 function authorized(request: NextRequest) {
-  const secret = (process.env.ROAMLY_SOCIAL_CRON_SECRET || process.env.CRON_SECRET || "").trim();
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
-  const vercelCronSchedule = request.headers.get("x-vercel-cron-schedule") || "";
-  return Boolean((secret && token && token === secret) || vercelCronSchedule === "*/30 * * * *");
+  const expectedSecrets = [process.env.CRON_SECRET, process.env.ROAMLY_SOCIAL_CRON_SECRET]
+    .map((value) => value?.trim() || "")
+    .filter(Boolean);
+  return Boolean(token && expectedSecrets.includes(token));
 }
 
 function normalizeBrand(value: unknown): FacebookSocialBrand | undefined {

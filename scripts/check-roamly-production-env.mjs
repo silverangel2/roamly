@@ -87,6 +87,11 @@ const checks = [
     keys: ["ROAMLY_NOTIFICATION_CRON_SECRET"]
   },
   {
+    label: "Field-test secret",
+    required: REQUIRED,
+    keys: ["ROAMLY_FIELD_TEST_SECRET"]
+  },
+  {
     label: "Itinerary generation cron secret",
     required: REQUIRED,
     keys: ["ROAMLY_GENERATION_CRON_SECRET", "CRON_SECRET"]

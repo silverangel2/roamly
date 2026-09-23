@@ -368,6 +368,18 @@ async function recordDestinationChangeGenerationFailure(params: { supabase: Supa
   });
 }
 
+async function recordIntentChangeGenerationFailure(params: { supabase: SupabaseClient; trip: RoamlyTripRecord; reason: string }) {
+  const proposalId = getRecord(params.trip.metadata)?.intent_change_proposal_id;
+  if (typeof proposalId !== "string") return;
+  const admin = createSupabaseAdminClient();
+  if (admin) await admin.rpc("roamly_fail_customer_trip_intent_change", {
+    p_proposal_id: proposalId,
+    p_user_id: params.trip.user_id,
+    p_successor_trip_id: params.trip.id,
+    p_reason: params.reason
+  });
+}
+
 function persistedTripStatusForGeneration(status: StagedGenerationStatus) {
   if (status === "complete") return "generated";
   if (status === "failed" || status === "partially_failed") return "draft";
@@ -1741,6 +1753,7 @@ async function completeGeneration(params: {
     await sendGenerationEmailSafely({ tripId: params.trip.id, kind: "failure", requestId: params.requestId });
     await recordDateChangeGenerationFailure({ supabase: params.supabase, trip: params.trip, reason: "FINAL_VALIDATION_FAILED" });
     await recordDestinationChangeGenerationFailure({ supabase: params.supabase, trip: params.trip, reason: "FINAL_VALIDATION_FAILED" });
+    await recordIntentChangeGenerationFailure({ supabase: params.supabase, trip: params.trip, reason: "FINAL_VALIDATION_FAILED" });
     return { state: failed, itinerary, validationFailed: true as const, validationErrors: validation.errors };
   }
 
@@ -1811,6 +1824,18 @@ async function completeGeneration(params: {
         p_successor_trip_id: params.trip.id
       });
       if (completion.error) throw new StagedGenerationError(completion.error.message, "DESTINATION_CHANGE_COMPLETION_FAILED", 500);
+    }
+  }
+  const intentChangeProposalId = getRecord(params.trip.metadata)?.intent_change_proposal_id;
+  if (typeof intentChangeProposalId === "string") {
+    const admin = createSupabaseAdminClient();
+    if (admin) {
+      const completion = await admin.rpc("roamly_complete_customer_trip_intent_change", {
+        p_proposal_id: intentChangeProposalId,
+        p_user_id: params.trip.user_id,
+        p_successor_trip_id: params.trip.id
+      });
+      if (completion.error) throw new StagedGenerationError(completion.error.message, "INTENT_CHANGE_COMPLETION_FAILED", 500);
     }
   }
   return { state: completed, itinerary, validationFailed: false as const, validationErrors: [] };
@@ -2184,6 +2209,7 @@ export async function advanceStagedItineraryGeneration(params: {
         await sendGenerationEmailSafely({ tripId: params.tripId, kind: "failure", requestId: params.requestId });
         await recordDateChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
         await recordDestinationChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
+        await recordIntentChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
       }
       if (generationError.permanent || exhausted) throw generationError;
       return { ok: false, status: updatedState.status, state: updatedState, advanced: false, error: generationError.code };
@@ -2259,6 +2285,7 @@ export async function advanceStagedItineraryGeneration(params: {
     if (generationError.permanent || !failedBatch) {
       await recordDateChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
       await recordDestinationChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
+      await recordIntentChangeGenerationFailure({ supabase: params.supabase, trip: claimedTrip, reason: generationError.code });
       throw generationError;
     }
     return { ok: false, status: updatedState.status, state: updatedState, advanced: false, error: generationError.code };

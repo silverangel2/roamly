@@ -13,9 +13,9 @@ function loadTsModule(entryFile) {
     const absolute = path.join(root, file);
     if (cache.has(absolute)) return cache.get(absolute).module.exports;
     if (absolute.endsWith(".json")) {
-      const module = { exports: JSON.parse(fs.readFileSync(absolute, "utf8")) };
-      cache.set(absolute, { module });
-      return module.exports;
+      const jsonModule = { exports: JSON.parse(fs.readFileSync(absolute, "utf8")) };
+      cache.set(absolute, { module: jsonModule });
+      return jsonModule.exports;
     }
     const source = fs.readFileSync(absolute, "utf8");
     const compiled = ts.transpileModule(source, {

@@ -3117,7 +3117,7 @@ async function publishFacebookReel(
     ? await probeFacebookPublicVisibility({ url: permalink, timeoutMs: 7000 })
     : { verified: false, reason: confirmationError ? "Meta final object confirmation failed." : "Public permalink is missing." };
   const classification = classifyFacebookPublication({ finish, confirmation, confirmationError, visibility });
-  const publishedVideoId = clean(String(confirmation.id || videoId));
+  const publishedVideoId = clean(String(confirmation.id || ""));
   const publishedPostId = clean(String(finish.post_id || finish.id || ""));
   if (classification.truth === "failed") {
     await admin
@@ -3522,18 +3522,24 @@ export async function runFacebookAutomationCycle(
 
     await releaseStaleLocks(admin, normalizedBrand);
     const validation = await validateFacebookPageConnection(normalizedBrand);
+    const postingConfig = await facebookBrandConfigForPosting(normalizedBrand);
+    const postingCredentialsAvailable = Boolean(
+      postingConfig.facebookEnabled && postingConfig.pageId && postingConfig.pageAccessToken
+    );
     const canPublish =
-      validation.ok &&
+      postingCredentialsAvailable &&
       !settings.manualReviewRequired &&
       (force || (settings.automationEnabled && !settings.paused));
     if (!canPublish) {
       const reason =
-        validation.blockingIssues[0] ||
+        (!postingCredentialsAvailable
+          ? `${postingConfig.label} Facebook posting credentials are missing.`
+          : validation.blockingIssues[0]) ||
         (settings.manualReviewRequired ? "Manual review is enabled." : settings.paused ? "Automation is paused." : "Automation is disabled.");
       const refill = await refillFacebookQueue(admin, trigger, normalizedBrand);
       summary.generated = "created" in refill ? refill.created || 0 : 0;
       summary.status = "skipped";
-      summary.blockingIssues = validation.blockingIssues.length ? validation.blockingIssues : [reason];
+      summary.blockingIssues = !postingCredentialsAvailable ? [reason] : validation.blockingIssues.length ? validation.blockingIssues : [reason];
       await finishCronLog(admin, cronId, "skipped", summary, reason);
       return summary;
     }

@@ -313,7 +313,7 @@ export function AdminLiveTestConsole({
         ) : null}
         {selectedTrip && !activePushSubscriptions.length ? (
           <p className="mt-4 rounded-2xl bg-sun/15 px-4 py-3 text-sm font-black leading-6 text-amber-900">
-            No push subscription found. Open Roamly on your phone, enable reminders, then run this test again.
+            No push subscription found. Open the field test on your phone and enable notifications, then run this test again.
           </p>
         ) : null}
       </section>

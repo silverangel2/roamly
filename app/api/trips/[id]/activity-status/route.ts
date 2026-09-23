@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { performActivityAction, type RoamlyActivityAction } from "@/lib/roamly/activityActions";
-import { requireUser } from "@/lib/roamly/auth";
+import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 
 const actionByStatus: Record<string, RoamlyActivityAction | null> = {
   active: "check_in",
@@ -13,7 +13,7 @@ const actionByStatus: Record<string, RoamlyActivityAction | null> = {
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const auth = await requireUser();
+  const auth = await requireUserOrFieldTest(id);
   if (!auth.ok) return auth.response;
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -30,8 +30,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const result = await performActivityAction(auth.supabase, {
-    userId: auth.user.id,
-    userEmail: auth.user.email,
+    userId: auth.userId,
+    userEmail: auth.userEmail,
     tripId: id,
     activityId,
     action,

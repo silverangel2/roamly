@@ -179,7 +179,7 @@ export function RoamlyLocationTracker() {
   }, [pathname]);
 
   const sendLocation = useCallback(
-    async (coords: GeolocationCoordinates, permissionState: "granted" | "denied" | "prompt" = "granted") => {
+    async (coords: GeolocationCoordinates, permissionState: "granted" | "denied" | "prompt" = "granted", capturedAt?: number) => {
       const response = await fetch("/api/roamly/location/update", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -187,6 +187,7 @@ export function RoamlyLocationTracker() {
           latitude: coords.latitude,
           longitude: coords.longitude,
           accuracy: coords.accuracy,
+          capturedAt: typeof capturedAt === "number" ? new Date(capturedAt).toISOString() : undefined,
           permissionState
         })
       });
@@ -224,7 +225,7 @@ export function RoamlyLocationTracker() {
           setEnabled(true);
           setLastPermissionState("granted");
           setBusy(false);
-          void sendLocation(position.coords);
+          void sendLocation(position.coords, "granted", position.timestamp);
         },
         async () => {
           setBusy(false);
@@ -252,7 +253,7 @@ export function RoamlyLocationTracker() {
     if (shouldThrottle("roamly_location_update", 10 * 60_000)) return;
 
     navigator.geolocation.getCurrentPosition(
-      (position) => void sendLocation(position.coords),
+      (position) => void sendLocation(position.coords, "granted", position.timestamp),
       () => undefined,
       { enableHighAccuracy: false, timeout: 8_000, maximumAge: 5 * 60_000 }
     );

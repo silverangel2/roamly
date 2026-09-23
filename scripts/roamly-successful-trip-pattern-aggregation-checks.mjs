@@ -16,5 +16,6 @@ assert.match(worker, /FEEDBACK_SCAN_LIMIT_REACHED/);
 assert.doesNotMatch(worker, /user_id/);
 assert.match(worker, /isPublishableSuccessfulTripPattern/);
 assert.match(worker, /successful_trip_experience_patterns/);
-assert.doesNotMatch(worker.slice(worker.indexOf("patterns.map((pattern) => ({")), worker.indexOf("{ onConflict: \"pattern_key\" }")), /trip_id|user_id/);
+const persistedPatternSource = worker;
+assert.doesNotMatch(persistedPatternSource, /trip_id|user_id/);
 console.log("successful trip pattern aggregation checks passed");

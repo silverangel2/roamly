@@ -3,10 +3,8 @@ import { FacebookAutomationControls } from "@/components/admin/social/FacebookAu
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
-import {
-  getStoredRoamlyFacebookConnection
-} from "@/lib/roamly/facebookConnector";
-import { getFacebookAutomationSummary } from "@/lib/roamly/socialAutomation";
+import { getStoredRoamlyFacebookConnection } from "@/lib/roamly/facebookConnector";
+import { getFacebookAutomationSummaries, getFacebookAutomationSummary } from "@/lib/roamly/socialAutomation";
 import { MetaVisibilityDiagnostic } from "@/components/admin/social/MetaVisibilityDiagnostic";
 
 function formatDate(value?: string | null) {
@@ -17,7 +15,11 @@ export default async function AdminSocialAutomationPage() {
   const state = await getRoamlyAdminPageState();
   if (!state.isAdmin || !state.admin) return <AdminAccessCard />;
 
-  const summary = await getFacebookAutomationSummary(state.admin, "roamly");
+  const [summary, summaries] = await Promise.all([
+    getFacebookAutomationSummary(state.admin, "roamly"),
+    getFacebookAutomationSummaries(state.admin)
+  ]);
+  const reviewIntelSummary = summaries.reviewintel;
 
   const facebookConnection =
     await getStoredRoamlyFacebookConnection().catch(() => null);
@@ -102,6 +104,7 @@ export default async function AdminSocialAutomationPage() {
 
       <section className="mt-6 grid gap-6">
         <FacebookAutomationControls summary={summary} brand="roamly" title="Roamly Facebook Reel controls" />
+        <FacebookAutomationControls summary={reviewIntelSummary} brand="reviewintel" title="ReviewIntel Facebook Reel controls" />
       </section>
 
       <section className="mt-6">

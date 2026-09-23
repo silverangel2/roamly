@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireUser } from "@/lib/roamly/auth";
+import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import { getLiveRouteStatus } from "@/lib/roamly/liveRouting";
 import { getTripBundle } from "@/lib/trips";
 import type { LiveCompanionActivity, LiveCoordinates } from "@/lib/roamly/liveCompanion";
@@ -17,11 +17,10 @@ function cleanString(value: unknown) {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await requireUser();
-  if (!auth.ok) return auth.response;
-
   const { id } = await context.params;
-  const bundle = await getTripBundle(auth.supabase, auth.user.id, id);
+  const auth = await requireUserOrFieldTest(id);
+  if (!auth.ok) return auth.response;
+  const bundle = await getTripBundle(auth.supabase, auth.userId, id);
   if (!bundle.data) {
     return NextResponse.json({ ok: false, error: "Trip not found." }, { status: 404 });
   }

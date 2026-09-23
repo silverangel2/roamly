@@ -112,6 +112,19 @@ export async function GET(request: NextRequest) {
       logAuthDiagnostic("oauth_callback_exchange_failed", {
         path: requestUrl.pathname,
         errorName: error.name || "auth_error",
+        errorMessage: error.message || "unknown_auth_error",
+        errorStatus:
+          "status" in error && typeof error.status === "number"
+            ? error.status
+            : null,
+        errorCode:
+          "code" in error && typeof error.code === "string"
+            ? error.code
+            : null,
+        ...getSupabaseAuthCookieDiagnostics(request.headers.get("cookie") || ""),
+        authCookiesQueued: cookiesToSet.some((cookie) =>
+          isSupabaseAuthCookieName(cookie.name)
+        ),
         supabaseProjectHost: getSupabaseProjectHost()
       });
       return loginRedirect("oauth_exchange_failed");

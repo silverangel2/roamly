@@ -351,7 +351,9 @@ export function selectNowAndNextActivity(params: {
   // target, regardless of GPS proximity or a later row's active-looking status.
   const first = sorted[0];
   const nowActivity = first && (!first.start || first.start.getTime() <= now.getTime()) ? first.activity : null;
-  const nextActivity = sorted.find(({ activity }) => activity.id !== nowActivity?.id)?.activity || null;
+  const nextActivity = nowActivity
+    ? sorted.find(({ activity }) => activity.id !== nowActivity.id)?.activity || null
+    : first?.activity || null;
 
   return { now: nowActivity, next: nextActivity };
 }
@@ -482,7 +484,7 @@ export function mapsUrlForActivity(activity?: LiveCompanionActivity | null) {
   return value ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(value)}` : "";
 }
 
-export function fallbackRouteStatus(activity?: LiveCompanionActivity | null, reason = "Live route provider unavailable."): LiveRouteStatus {
+export function fallbackRouteStatus(activity?: LiveCompanionActivity | null, reason = ""): LiveRouteStatus {
   return {
     status: "unavailable",
     durationMinutes: null,
@@ -516,7 +518,7 @@ export function evaluateNotificationDecision(params: {
     return now.getTime() - new Date(item.sentAt).getTime() < settings.cooldownMinutes * 60_000;
   });
   const onceOnly =
-    params.eventType === "arrival" || params.eventType === "late" || params.eventType === "trip_active";
+    params.eventType === "arrival" || params.eventType === "late" || params.eventType === "trip_active" || params.eventType === "activity_start";
   let suppressionReason = "";
   if (!params.activeWindow) suppressionReason = "outside_active_trip_window";
   else if (params.paused) suppressionReason = "paused";
@@ -618,7 +620,6 @@ export function buildLiveCompanionState(params: {
   });
   const alerts = [
     activation.active ? "" : activation.reason,
-    route.status === "verified" ? "" : route.reason,
     late.late ? late.adjustment : ""
   ].filter(Boolean);
 
