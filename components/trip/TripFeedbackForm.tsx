@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
+import type { TripFeedbackRecord } from "@/lib/roamly/tripFeedback";
 
 type FeedbackMode = "post_trip" | "in_trip";
 
@@ -42,7 +43,7 @@ function ScoreSelect({
   );
 }
 
-export function TripFeedbackForm({ tripId }: { tripId: string }) {
+export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: string; initialFeedback?: TripFeedbackRecord[] }) {
   const { locale, t } = useI18n();
   const [mode, setMode] = useState<FeedbackMode>("post_trip");
   const [overallSatisfaction, setOverallSatisfaction] = useState<number | null>(null);
@@ -65,6 +66,35 @@ export function TripFeedbackForm({ tripId }: { tripId: string }) {
   const [message, setMessage] = useState("");
   const [learned, setLearned] = useState<Array<{ preference_key: string; proposed_value: unknown; reason: string }>>([]);
   const [error, setError] = useState("");
+
+  const restoreFeedback = useCallback((feedbackType: FeedbackMode) => {
+    const saved = initialFeedback
+      .filter((entry) => entry.feedback_type === feedbackType)
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))[0];
+    setTripDay(saved?.trip_day ? String(saved.trip_day) : "");
+    setOverallSatisfaction(saved?.overall_satisfaction ?? null);
+    setTransportationSatisfaction(saved?.transportation_satisfaction ?? null);
+    setHotelLocationSatisfaction(saved?.hotel_location_satisfaction ?? null);
+    setHotelQualitySatisfaction(saved?.hotel_quality_satisfaction ?? null);
+    setBudgetAccuracy(saved?.budget_accuracy ?? null);
+    setScheduleRealism(saved?.schedule_realism ?? null);
+    setRecommendationUsefulness(saved?.recommendation_usefulness ?? null);
+    setPace(feedbackType === "in_trip" ? saved?.today_pace || "right" : saved?.itinerary_pace || "right");
+    setFavourites(saved?.favourite_activities.join(", ") || "");
+    setDisappointments(saved?.disappointing_activities.join(", ") || "");
+    setSkipped(saved?.skipped_activities.join(", ") || "");
+    setFreeText(saved?.free_text_feedback || "");
+    setWouldUseAgain(saved?.would_use_roamly_again ?? null);
+    setTransportDifficult(saved?.transportation_difficult ?? false);
+    setAdjustTomorrow(saved?.adjust_tomorrow ?? false);
+    setLearned(saved?.learned_preferences_json || []);
+    setMessage("");
+    setError("");
+  }, [initialFeedback]);
+
+  useEffect(() => {
+    restoreFeedback("post_trip");
+  }, [restoreFeedback]);
 
   async function submit() {
     setSaving(true);
@@ -116,7 +146,10 @@ export function TripFeedbackForm({ tripId }: { tripId: string }) {
           <button
             key={nextMode}
             type="button"
-            onClick={() => setMode(nextMode)}
+            onClick={() => {
+              setMode(nextMode);
+              restoreFeedback(nextMode);
+            }}
             className={`rounded-full px-4 py-2 text-sm font-black ${
               mode === nextMode ? "bg-ocean text-white" : "bg-slate-100 text-slate-700"
             }`}
