@@ -57,6 +57,33 @@ function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const PRETRIP_COPY = {
+  en: { week: "{destination} is one week away", tomorrow: "{destination} starts tomorrow", departure: "Departure", start: "Trip start", confirmed: "Confirmed", none: "No confirmed bookings are attached yet.", gap: "Still unresolved: {gaps}.", gaps: "confirmed transport, confirmed lodging", review: "Review trip" },
+  fr: { week: "Votre voyage à {destination} commence dans une semaine", tomorrow: "Votre voyage à {destination} commence demain", departure: "Départ", start: "Début du voyage", confirmed: "Confirmé", none: "Aucune réservation confirmée n’est encore associée.", gap: "À vérifier : {gaps}.", gaps: "transport confirmé, hébergement confirmé", review: "Vérifier le voyage" },
+  es: { week: "Tu viaje a {destination} comienza en una semana", tomorrow: "Tu viaje a {destination} comienza mañana", departure: "Salida", start: "Inicio del viaje", confirmed: "Confirmado", none: "Todavía no hay reservas confirmadas vinculadas.", gap: "Pendiente de resolver: {gaps}.", gaps: "transporte confirmado, alojamiento confirmado", review: "Revisar viaje" },
+  ja: { week: "{destination}への旅行まであと1週間です", tomorrow: "{destination}への旅行は明日始まります", departure: "出発", start: "旅行開始", confirmed: "確定済み", none: "確定済みの予約はまだ登録されていません。", gap: "未解決の項目：{gaps}。", gaps: "確定済みの交通、確定済みの宿泊", review: "旅行を確認" },
+  ko: { week: "{destination} 여행이 일주일 남았습니다", tomorrow: "{destination} 여행이 내일 시작됩니다", departure: "출발", start: "여행 시작", confirmed: "확정됨", none: "아직 확정된 예약이 연결되어 있지 않습니다.", gap: "아직 해결되지 않은 항목: {gaps}.", gaps: "확정된 교통편, 확정된 숙박", review: "여행 검토" },
+  zh: { week: "距离前往{destination}还有一周", tomorrow: "前往{destination}的行程明天开始", departure: "出发", start: "行程开始", confirmed: "已确认", none: "目前还没有关联已确认的预订。", gap: "尚待处理：{gaps}。", gaps: "已确认交通、已确认住宿", review: "查看行程" }
+} as const;
+
+function reminderCopy(locale: string, key: keyof typeof PRETRIP_COPY.en, values: Record<string, string> = {}) {
+  let result: string = PRETRIP_COPY[locale as keyof typeof PRETRIP_COPY]?.[key] || PRETRIP_COPY.en[key];
+  for (const [name, value] of Object.entries(values)) result = result.replaceAll(`{${name}}`, value);
+  return result;
+}
+
+function reminderLocale(trip: TripReminderRow) {
+  const metadata = tripMetadataRecord(trip);
+  const planning = metadata.planning && typeof metadata.planning === "object" && !Array.isArray(metadata.planning)
+    ? metadata.planning as Record<string, unknown>
+    : {};
+  const generated = metadata.generatedItinerary && typeof metadata.generatedItinerary === "object" && !Array.isArray(metadata.generatedItinerary)
+    ? metadata.generatedItinerary as Record<string, unknown>
+    : {};
+  const raw = (typeof generated.language === "string" ? generated.language : typeof planning.language === "string" ? planning.language : "en").toLowerCase().split(/[-_]/)[0];
+  return raw in PRETRIP_COPY ? raw : "en";
+}
+
 function datePartsInZone(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
@@ -154,14 +181,14 @@ export function tripStartInstant(params: {
     : null;
 }
 
-function formatBookingLine(booking: ConfirmedBookingRow, timezone: string) {
+function formatBookingLine(booking: ConfirmedBookingRow, timezone: string, locale: string) {
   const type = clean(booking.booking_type);
   const title = clean(booking.title) || clean(booking.provider_name) || "Confirmed booking";
   const provider = clean(booking.provider_name);
   const flight = clean(booking.flight_number);
   const start = bookingTime(booking);
   const when = start
-    ? new Intl.DateTimeFormat("en", {
+    ? new Intl.DateTimeFormat(locale, {
         timeZone: timezone,
         month: "short",
         day: "numeric",
@@ -170,16 +197,6 @@ function formatBookingLine(booking: ConfirmedBookingRow, timezone: string) {
       }).format(start)
     : "";
   return [type, title, provider, flight, when].filter(Boolean).join(" - ");
-}
-
-function unresolvedGapSummary(bookings: ConfirmedBookingRow[]) {
-  const active = bookings.filter(activeConfirmedBooking);
-  const types = new Set(active.map((booking) => clean(booking.booking_type)));
-  const gaps = [
-    !types.has("flight") && !types.has("transport") ? "confirmed transport" : "",
-    !types.has("hotel") ? "confirmed lodging" : ""
-  ].filter(Boolean);
-  return gaps.length ? `Still unresolved: ${gaps.join(", ")}.` : "";
 }
 
 export function preTripReminderVersion(params: {
@@ -226,7 +243,9 @@ export function buildPreTripReminderContent(params: {
   confirmedBookings: ConfirmedBookingRow[];
 }) {
   const destination = tripDestination(params.trip);
-  const startLabel = new Intl.DateTimeFormat("en", {
+  const locale = reminderLocale(params.trip);
+  const isWeek = params.type === "trip_predeparture_7d";
+  const startLabel = new Intl.DateTimeFormat(locale, {
     timeZone: params.timezone,
     weekday: "short",
     month: "short",
@@ -238,20 +257,21 @@ export function buildPreTripReminderContent(params: {
     .filter(activeConfirmedBooking)
     .filter((booking) => clean(booking.booking_status) !== "cancelled")
     .sort((a, b) => (bookingTime(a)?.getTime() || 0) - (bookingTime(b)?.getTime() || 0));
-  const highlights = activeBookings.slice(0, 4).map((booking) => formatBookingLine(booking, params.timezone));
-  const gap = unresolvedGapSummary(params.confirmedBookings);
+  const highlights = activeBookings.slice(0, 4).map((booking) => formatBookingLine(booking, params.timezone, locale));
+  const gaps = [
+    !activeBookings.some((booking) => ["flight", "transport"].includes(clean(booking.booking_type))) ? reminderCopy(locale, "gaps").split(/, |，|、/)[0] : "",
+    !activeBookings.some((booking) => clean(booking.booking_type) === "hotel") ? reminderCopy(locale, "gaps").split(/, |，|、/)[1] : ""
+  ].filter(Boolean);
 
   return {
     title:
-      params.type === "trip_predeparture_7d"
-        ? `${destination} is one week away`
-        : `${destination} starts tomorrow`,
+      reminderCopy(locale, isWeek ? "week" : "tomorrow", { destination }),
     body: [
-      `Trip start: ${startLabel}.`,
-      highlights.length ? `Confirmed: ${highlights.join("; ")}.` : "No confirmed bookings are attached yet.",
-      gap
+      `${reminderCopy(locale, isWeek ? "start" : "departure")}: ${startLabel}.`,
+      highlights.length ? `${reminderCopy(locale, "confirmed")}: ${highlights.join("; ")}.` : reminderCopy(locale, "none"),
+      gaps.length ? reminderCopy(locale, "gap", { gaps: gaps.join(", ") }) : ""
     ].filter(Boolean).join(" "),
-    actionLabel: "Review trip",
+    actionLabel: reminderCopy(locale, "review"),
     actionUrl: `/trip/${params.trip.id}/live`
   };
 }
