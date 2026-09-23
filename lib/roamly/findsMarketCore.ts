@@ -1,3 +1,5 @@
+import type { AmazonFindProduct } from "@/lib/roamly/amazonCreatorsCore";
+
 export type FindsCard = {
   id: string;
   title: string;
@@ -18,6 +20,27 @@ export type FindsCard = {
   savingPercent?: number | null;
   checkedAt?: string | null;
 };
+
+export function amazonFindCard(product: AmazonFindProduct, checkedAt?: string | null): FindsCard {
+  return {
+    id: `amazon-${product.id}`,
+    title: product.title,
+    eyebrow: "Worth packing",
+    description: "In stock when checked. Price, delivery, and seller details can change—confirm the latest offer before buying.",
+    href: product.href,
+    provider: "Amazon Associates",
+    affiliate: true,
+    category: "product",
+    icon: "✦",
+    action: product.deal ? "Check current offer" : "See the product",
+    image: product.imageUrl,
+    imageAlt: product.title,
+    price: product.price,
+    saving: product.saving,
+    savingPercent: product.savingPercent,
+    checkedAt: checkedAt || null
+  };
+}
 
 type RecordValue = Record<string, unknown>;
 

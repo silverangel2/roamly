@@ -14,9 +14,7 @@ for (const label of ["Stays", "Flights", "Things to do", "Travel essentials", "G
   assert.ok(tabs.includes(label), `Finds category tab exists: ${label}`);
 }
 assert.match(findsPage, /searchAmazonFindProducts/, "Amazon finds use actual Creator API product results");
-assert.match(findsPage, /product\.imageUrl/, "Amazon listing cards use the provider's product image");
-assert.match(findsPage, /product\.href/, "Amazon listing cards use the provider's item destination");
-assert.match(findsPage, /product\.savingPercent/, "sale claims only use provider savings data");
+assert.match(findsPage, /amazonFindCard\(product, productResults\.checkedAt\)/, "Amazon listing cards use the centralized provider-backed card mapping");
 assert.doesNotMatch(findsPage, /images\.unsplash\.com/, "market listings do not use generic stock imagery");
 assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon disclosures are included only when the live catalog is configured");
 assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon disclosures are included only when partner links are configured");

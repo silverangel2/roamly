@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { bookingFindCard, flightFindCard, klookFindCard, publicEventFindCard } from "../lib/roamly/findsMarketCore.ts";
+import { amazonFindCard, bookingFindCard, flightFindCard, klookFindCard, publicEventFindCard } from "../lib/roamly/findsMarketCore.ts";
 import { travelpayoutsBookingUrl } from "../lib/roamly/travelpayoutsLink.ts";
 
 const hotel = {
@@ -40,11 +40,29 @@ const flight = {
   price_amount: 780, currency: "CAD", booking_url: "https://www.aviasales.com/search/YHZ2209LIS1", searched_at: "2026-09-22T12:00:00.000Z",
   metadata: { providerPayload: { duration_to: 505, duration_back: 480, transfers: 1 } }
 };
+const product = amazonFindCard({
+  id: "B012345678",
+  title: "Travel packing cubes",
+  imageUrl: "https://m.media-amazon.com/images/I/test.jpg",
+  href: "https://www.amazon.ca/dp/B012345678?tag=roamly-20",
+  price: "CDN$19.99",
+  currency: "CAD",
+  saving: null,
+  savingPercent: null,
+  deal: false,
+  merchant: "Amazon.ca",
+  availability: "in_stock"
+});
+assert.match(product.href, /^https:\/\/www\.amazon\.ca\/dp\/B012345678\?/);
+assert.notEqual(product.href, "/plan", "Amazon product CTA remains item-specific");
 assert.match(flightFindCard(flight)?.image || "", /roamly-flight-route\.svg$/);
 assert.match(flightFindCard(flight)?.description || "", /Outbound 8h 25m · return 8h · 1 stop outbound/);
 assert.match(flightFindCard(flight)?.description || "", /not a live quote/i);
 assert.equal(flightFindCard(flight)?.checkedAt, null, "a current query timestamp must not be presented as the fare's verification time");
 assert.equal(flightFindCard({ ...flight, booking_url: "https://example.com/ticket" }), null, "flight CTA must remain on the expected ticket seller");
+assert.notEqual(flightFindCard(flight)?.href, "/plan", "flight CTA remains Travelpayouts-specific");
+assert.notEqual(bookingFindCard(hotel)?.href, "/plan", "hotel CTA remains property/search-specific");
+assert.notEqual(klookFindCard(activity)?.href, "/plan", "commercial activity CTA remains Klook-specific");
 assert.equal(travelpayoutsBookingUrl("/search/YHZ2209LIS1", "marker 123"), "https://www.aviasales.com/search/YHZ2209LIS1?marker=marker+123");
 assert.equal(travelpayoutsBookingUrl("search/YHZ2209LIS1?adults=1", "marker123"), "https://www.aviasales.com/search/YHZ2209LIS1?adults=1&marker=marker123", "affiliate marker is appended correctly when provider link has a query");
 assert.equal(travelpayoutsBookingUrl("https://example.com/fake", "marker123"), undefined, "provider links cannot redirect off Aviasales");

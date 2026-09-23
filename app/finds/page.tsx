@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { FindsTabs, type FindsCard } from "@/components/roamly/FindsTabs";
+import { FindsTabs } from "@/components/roamly/FindsTabs";
+import { amazonFindCard } from "@/lib/roamly/findsMarketCore";
 import { getAmazonAffiliateConfig, amazonAffiliateDisclosure } from "@/lib/roamly/amazonAffiliate";
 import { searchAmazonFindProducts } from "@/lib/roamly/amazonCreatorsApi";
 
@@ -32,24 +33,7 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
   const amazonReady = getAmazonAffiliateConfig().enabled;
   const productKeywords = clean(search.q) || (destination !== "your next somewhere" ? `${destination} travel essentials` : "travel essentials");
   const productResults = await searchAmazonFindProducts({ keywords: productKeywords });
-  const cards: FindsCard[] = productResults.products.map((product) => ({
-    id: `amazon-${product.id}`,
-    title: product.title,
-    eyebrow: "Worth packing",
-    description: "In stock when checked. Price, delivery, and seller details can change—confirm the latest offer before buying.",
-    href: product.href,
-    provider: "Amazon Associates",
-    affiliate: true,
-    category: "product",
-    icon: "✦",
-    action: product.deal ? "Check current offer" : "See the product",
-    image: product.imageUrl,
-    imageAlt: product.title,
-    price: product.price,
-    saving: product.saving,
-    savingPercent: product.savingPercent,
-    checkedAt: productResults.checkedAt
-  }));
+  const cards = productResults.products.map((product) => amazonFindCard(product, productResults.checkedAt));
   const emptyMessage = productResults.status === "not_configured"
     ? "The live travel essentials catalog is not available right now. Genuine items, photos, current offers, and direct seller links will appear when they are available. No guessed listings are used."
     : productResults.status === "unavailable"
