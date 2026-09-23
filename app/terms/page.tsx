@@ -26,7 +26,7 @@ const sections = [
 
 export default function TermsPage() {
   return (
-    <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
       <Badge>Terms</Badge>
       <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Roamly terms.</h1>
       <div className="mt-7 grid gap-4">
@@ -37,6 +37,6 @@ export default function TermsPage() {
           </Card>
         ))}
       </div>
-    </main>
+    </div>
   );
 }

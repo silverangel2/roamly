@@ -8,7 +8,7 @@ export default function ContactPage() {
   const supportEmail = getRoamlySupportEmail();
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
       <div className="grid gap-5 lg:grid-cols-[0.78fr_1.22fr]">
         <Card className="self-start overflow-hidden">
           <Badge>Contact</Badge>
@@ -25,6 +25,6 @@ export default function ContactPage() {
 
         <ContactForm supportEmail={supportEmail} />
       </div>
-    </main>
+    </div>
   );
 }
