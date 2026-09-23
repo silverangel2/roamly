@@ -115,19 +115,19 @@ export function DynamicDestinationHero() {
       <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-0 -z-10 h-72 w-72 rounded-full bg-[#ffe4c6]/75 blur-3xl" />
 
       <div className="mx-auto grid min-h-[calc(100svh-8rem)] w-full max-w-7xl items-center gap-9 px-5 py-8 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:py-12 lg:grid-cols-[0.88fr_1.12fr] lg:gap-12 lg:px-12">
-        <div className="roamly-enter order-2 flex flex-col items-start lg:order-1">
-          <p className="inline-flex items-center gap-2 rounded-full border border-[#cce4db] bg-white/85 px-3.5 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.16em] text-[#167b78] shadow-sm">
+        <div className="roamly-enter order-1 flex flex-col items-start lg:order-1">
+          <p className="inline-flex items-center gap-2 rounded-full border border-[#cce4db] bg-white/85 px-3.5 py-2 text-[0.7rem] font-extrabold uppercase tracking-[0.16em] text-[#0f6e66] shadow-sm">
             <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#ef9d69]" />
             Travel, with room to be you
           </p>
           <h1 className="mt-6 max-w-[36rem] text-[3.2rem] font-semibold leading-[0.96] tracking-[-0.055em] text-[#203c43] sm:text-6xl lg:text-[4.5rem]">
-            Go somewhere. <span className="text-[#16877f]">Feel at home there.</span>
+            Go somewhere. <span className="text-[#0f6e66]">Feel at home there.</span>
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-[#526b6c] sm:text-lg sm:leading-8">
             A thoughtful itinerary shaped around your pace, your budget, and the moments you want to remember.
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <Button href="/plan" className="min-h-12 rounded-full bg-[#16877f] px-6 text-white shadow-[0_10px_24px_rgba(22,135,127,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#11756e] hover:shadow-[0_14px_28px_rgba(22,135,127,0.25)] motion-reduce:transform-none motion-reduce:transition-none">
+            <Button href="/plan" className="min-h-12 rounded-full bg-[#0f6e66] px-6 text-white shadow-[0_10px_24px_rgba(22,135,127,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#0e605a] hover:shadow-[0_14px_28px_rgba(22,135,127,0.25)] motion-reduce:transform-none motion-reduce:transition-none">
               Start planning
             </Button>
             <span className="text-sm font-semibold text-[#617777]">One full itinerary included for life</span>
@@ -145,23 +145,23 @@ export function DynamicDestinationHero() {
                 onClick={() => setRotationPaused((paused) => !paused)}
                 aria-label={rotationPaused ? "Resume destination previews" : "Pause destination previews"}
                 aria-pressed={rotationPaused}
-                className="grid h-10 min-w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white px-3 text-xs font-extrabold text-[#267d78] transition duration-200 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#16877f]/20 motion-reduce:transition-none"
+                className="grid h-10 min-w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white px-3 text-xs font-extrabold text-[#267d78] transition duration-200 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 motion-reduce:transition-none"
               >
                 {rotationPaused ? "Play" : "Pause"}
               </button>
-              <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-10 w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#16877f]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">←</button>
-              <button type="button" onClick={() => move(1)} disabled={transitioning} aria-label="Next destination" className="grid h-10 w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#16877f]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">→</button>
+              <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-10 w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">←</button>
+              <button type="button" onClick={() => move(1)} disabled={transitioning} aria-label="Next destination" className="grid h-10 w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">→</button>
             </div>
           </div>
         </div>
 
-        <div className="roamly-enter order-1 lg:order-2" style={{ animationDelay: "100ms" }}>
-          <div className="relative mx-auto aspect-[1.04/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#dcebe8] shadow-[0_28px_80px_rgba(39,88,80,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
+        <div className="roamly-enter order-2 lg:order-2" style={{ animationDelay: "100ms" }}>
+          <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#dcebe8] shadow-[0_28px_80px_rgba(39,88,80,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
             <Image src={active.image} alt={active.alt} fill priority sizes="(min-width: 1024px) 54vw, 100vw" className="absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700" style={{ objectPosition: active.desktopPosition }} />
             <Image src={incoming.image} alt="" fill sizes="(min-width: 1024px) 54vw, 100vw" aria-hidden="true" className={`absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
             <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3 sm:bottom-6 sm:left-6 sm:right-6">
-              <div className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-lg backdrop-blur-md sm:px-5 sm:py-4">
-                <p className="text-[0.65rem] font-extrabold uppercase tracking-[0.16em] text-[#16877f]">Your next somewhere</p>
+              <div key={active.name} className="rounded-2xl border border-white/80 bg-white/90 px-4 py-3 shadow-lg backdrop-blur-md sm:px-5 sm:py-4">
+                <p className="text-[0.65rem] font-extrabold uppercase tracking-[0.16em] text-[#0f6e66]">Your next somewhere</p>
                 <p className="mt-1 text-xl font-bold tracking-tight text-[#203c43] sm:text-2xl">{active.name}</p>
                 <p className="mt-0.5 text-sm font-medium text-[#667d79]">{active.country}</p>
               </div>
