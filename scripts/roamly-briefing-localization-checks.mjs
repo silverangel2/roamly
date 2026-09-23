@@ -3,7 +3,7 @@ import { buildPreTrip7DayBriefingContent } from "../lib/roamly/preTrip7DayBriefi
 import { buildPreTrip1DayBriefingContent } from "../lib/roamly/preTrip1DayBriefingContent.ts";
 import { buildDailyTripBriefingContent } from "../lib/roamly/dailyTripBriefingContent.ts";
 import { buildTravelDayBriefingContent } from "../lib/roamly/travelDayBriefingContent.ts";
-import { companionBriefingMessage, localizeActivityNotification } from "../lib/roamly/briefingMessages.mjs";
+import { companionBriefingMessage, localizeActivityNotification, localizeBookingChangeNotification } from "../lib/roamly/briefingMessages.mjs";
 
 const common = { destination: "Lisbon", startDate: "2026-10-15", endDate: "2026-10-20", timezone: "Europe/Lisbon", tripStart: new Date("2026-10-15T10:00:00Z"), tripPath: "/trip/demo" };
 const week = buildPreTrip7DayBriefingContent({ ...common, confirmedBookings: [], gmailStatus: "connected", locale: "fr" });
@@ -38,5 +38,13 @@ assert.equal(startingNow.title, "Ahora: Museum visit");
 assert.match(startingNow.body, /empieza ahora/);
 assert.equal(companionBriefingMessage("fr", "dailyTitle", { destination: "Lisbonne" }), "Aujourd’hui à Lisbonne");
 assert.match(companionBriefingMessage("ja", "finalEnd"), /チェックアウト/);
+const cancelledFlight = localizeBookingChangeNotification("fr", "flight_cancelled", "Flight cancelled", "Roamly will look for affected plans and safer options.", { eventType: "flight_cancelled" });
+assert.equal(cancelledFlight.title, "Vol annulé");
+assert.match(cancelledFlight.body, /options plus sûres/);
+const delayedFlight = localizeBookingChangeNotification("ja", "flight_delay", "Flight delayed by 2 hours", "Roamly will check what this changes in your trip.", { eventType: "flight_delayed" });
+assert.equal(delayedFlight.title, "フライトが2時間遅延");
+const hotelUpdate = localizeBookingChangeNotification("es", "booking_changed", "Hotel booking changed", "Roamly will check arrival, location, timing, and budget.", { eventType: "hotel_changed" });
+assert.equal(hotelUpdate.title, "Reserva de hotel modificada");
+assert.match(hotelUpdate.body, /presupuesto/);
 
 console.log("Scheduled and Companion briefing localization checks passed.");

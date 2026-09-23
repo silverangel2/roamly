@@ -8,7 +8,7 @@ import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
 import { communicationPreferenceForNotificationType, getCompanionPreferencesForDelivery } from "@/lib/roamly/companionPreferences";
 import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
-import { localizeActivityNotification } from "@/lib/roamly/briefingMessages.mjs";
+import { localizeActivityNotification, localizeBookingChangeNotification } from "@/lib/roamly/briefingMessages.mjs";
 
 export type CompanionNotificationType =
   | "nearby_activity"
@@ -272,8 +272,9 @@ export async function queueCompanionNotification(
     if (!params.isTest) {
       const locale = getTripItineraryLanguage(lifecycle.result.data?.metadata);
       const localized = localizeActivityNotification(locale, params.type, params.title, params.body, params.metadata || {});
-      localizedTitle = localized.title;
-      localizedBody = localized.body;
+      const bookingLocalized = localizeBookingChangeNotification(locale, params.type, localized.title, localized.body, params.metadata || {});
+      localizedTitle = bookingLocalized.title;
+      localizedBody = bookingLocalized.body;
     }
   }
 

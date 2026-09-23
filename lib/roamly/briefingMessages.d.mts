@@ -14,6 +14,14 @@ export function localizeActivityNotification(
   metadata?: Record<string, unknown>
 ): { title: string; body: string };
 
+export function localizeBookingChangeNotification(
+  locale: RoamlyLocale,
+  notificationType: string,
+  title: string,
+  body: string,
+  metadata?: Record<string, unknown>
+): { title: string; body: string };
+
 export function companionBriefingMessage(
   locale: RoamlyLocale,
   key: string,
