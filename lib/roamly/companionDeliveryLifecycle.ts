@@ -28,7 +28,7 @@ export async function loadCompanionTripLifecycle(
 ) {
   const result = await supabase
     .from("roamly_trips")
-    .select("id,status,itinerary_status")
+    .select("id,status,itinerary_status,metadata")
     .eq("id", params.tripId)
     .eq("user_id", params.userId)
     .maybeSingle();

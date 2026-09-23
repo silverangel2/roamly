@@ -8,6 +8,8 @@ import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEve
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
 import { normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { localizeActivityNotification } from "@/lib/roamly/briefingMessages.mjs";
 
 export type NotificationPayload = {
   title: string;
@@ -86,6 +88,17 @@ export async function createInAppNotification(
   }
 ) {
   const writer = createSupabaseAdminClient() || supabase;
+  let title = params.title;
+  let body = params.body || "";
+  if (params.tripId) {
+    const tripResult = await writer.from("roamly_trips").select("metadata").eq("id", params.tripId).eq("user_id", params.userId).maybeSingle();
+    if (tripResult.data) {
+      const locale = getTripItineraryLanguage(tripResult.data.metadata);
+      const localized = localizeActivityNotification(locale, params.type, title, body, params.metadata || {});
+      title = localized.title;
+      body = localized.body;
+    }
+  }
   return writer
     .from("roamly_notifications")
     .insert({
@@ -93,8 +106,8 @@ export async function createInAppNotification(
       trip_id: params.tripId || null,
       event_id: params.eventId || null,
       type: params.type,
-      title: params.title,
-      body: params.body || null,
+      title,
+      body: body || null,
       action_url: params.actionUrl || null,
       status: params.status || "unread",
       scheduled_for: params.scheduledFor || null,

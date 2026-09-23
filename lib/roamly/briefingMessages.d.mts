@@ -5,3 +5,11 @@ export function briefingMessage(
   key: string,
   values?: Record<string, string>
 ): string;
+
+export function localizeActivityNotification(
+  locale: RoamlyLocale,
+  type: string,
+  title: string,
+  body: string,
+  metadata?: Record<string, unknown>
+): { title: string; body: string };
