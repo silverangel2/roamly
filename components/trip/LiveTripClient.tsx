@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
-import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
 import { clearActivityNotification, ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
@@ -13,6 +12,7 @@ import {
   buildLiveCompanionState,
   calculateDistanceMeters,
   fallbackRouteStatus,
+  isUsablePlaceLabel,
   isTodayWithinTripDates,
   mapsUrlForActivity,
   tripWindowState,
@@ -199,8 +199,20 @@ function routeCopy(route: LiveRouteStatus) {
 }
 
 function primaryAddress(activity: LiveCompanionActivity | null) {
-  if (!activity) return "No destination selected";
-  return activity.address || activity.placeName || activity.title;
+  if (!activity) return "Place details unavailable";
+  return [activity.address, activity.placeName, activity.title].find(isUsablePlaceLabel) || "Place details unavailable";
+}
+
+function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string) {
+  if (!activity) return fallback;
+  return [activity.title, activity.placeName, activity.address].find(isUsablePlaceLabel) || "Stop details need a check";
+}
+
+function activityDisplayDescription(activity: LiveCompanionActivity | null, fallback: string) {
+  if (!activity?.shortDescription) return fallback;
+  return isUsablePlaceLabel(activity.shortDescription)
+    ? activity.shortDescription
+    : "We could not verify the place details for this stop yet.";
 }
 
 function placeText(place: Pick<LiveSimulatorPlace, "title" | "address"> | string | null | undefined, destination = "") {
@@ -510,8 +522,7 @@ export function LiveTripClient({
   const nextTimingStatus = (nextActivity as (LiveCompanionActivity & { timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN" }) | null)?.timing_status;
   const mapsHref = useMemo(() => {
     const mapsTarget = currentActivity || nextActivity;
-    const direct = mapsTarget ? mapsUrlForActivity(mapsTarget) : "";
-    return direct || buildNavigationLinks({ destinationLabel: mapsTarget?.title, address: primaryAddress(mapsTarget) })[0]?.href || "";
+    return mapsUrlForActivity(mapsTarget);
   }, [currentActivity, nextActivity]);
   const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
@@ -1327,16 +1338,16 @@ export function LiveTripClient({
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{t("ui.status.now", "Now")}</p>
             <h1 className="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
-              {currentActivity?.title || t("ui.status.ready")}
+              {activityDisplayTitle(currentActivity, t("ui.status.ready"))}
             </h1>
             <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-slate-600">
-              {currentActivity?.shortDescription || model.activationReason}
+              {activityDisplayDescription(currentActivity, model.activationReason)}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
-                <p className="mt-1 truncate text-sm font-black">{nextActivity?.title || "Flexible time"}</p>
+                <p className="mt-1 truncate text-sm font-black">{activityDisplayTitle(nextActivity, "Flexible time")}</p>
                 {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
@@ -1421,7 +1432,7 @@ export function LiveTripClient({
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next step</p>
                 <p className="text-xs font-black text-slate-500">{nextActivity ? `${nextTimingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(nextStart?.toISOString() || null, timezone, locale)}` : "Flexible time"}</p>
               </div>
-              <p className="mt-3 text-lg font-black text-ink">{nextActivity?.title || "Keep this window open"}</p>
+              <p className="mt-3 text-lg font-black text-ink">{activityDisplayTitle(nextActivity, "Keep this window open")}</p>
               <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{nextActivity ? primaryAddress(nextActivity) : "Use it for rest, food, or your own plans."}</p>
             </section>
 

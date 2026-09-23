@@ -37,6 +37,12 @@ function compileTs(path) {
 const { calculateDistanceMeters, isWithinRadius, normalizeCoordinates } = compileTs("../lib/roamly/location.ts");
 const live = compileTs("../lib/roamly/liveCompanion.ts");
 
+assert.equal(live.isUsablePlaceLabel("Unresolved place"), false, "placeholder places must not be presented as real locations");
+assert.equal(live.isUsablePlaceLabel("Guided cultural tour at schemas.live.com attraction"), false, "schema host noise must not be presented as a real place");
+assert.equal(live.isUsablePlaceLabel("Royal Ontario Museum"), true, "verified place labels remain usable");
+assert.equal(live.mapsUrlForActivity({ id: "bad-place", title: "Unresolved place" }), "", "placeholder locations must not create misleading Maps links");
+assert.match(live.mapsUrlForActivity({ id: "good-place", title: "Royal Ontario Museum" }), /google\.com\/maps/, "verified place labels keep their Maps link");
+
 const cnTower = { latitude: 43.6426, longitude: -79.3871 };
 const ripley = { latitude: 43.6424, longitude: -79.386 };
 const montreal = { latitude: 45.5019, longitude: -73.5674 };

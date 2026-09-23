@@ -478,8 +478,19 @@ export function mapsUrlForActivity(activity?: LiveCompanionActivity | null) {
   if (!activity) return "";
   const value = validCoordinates(activity)
     ? `${activity.latitude},${activity.longitude}`
-    : [activity.placeName, activity.address, activity.title].filter(Boolean).join(" ");
+    : [activity.placeName, activity.address, activity.title]
+        .filter((item): item is string => isUsablePlaceLabel(item))
+        .join(" ");
   return value ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(value)}` : "";
+}
+
+export function isUsablePlaceLabel(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const label = value.trim();
+  if (!label || /^(?:unresolved place|unknown place|unknown location|location unavailable|no destination selected|not available|n\/a|tbd)$/i.test(label)) {
+    return false;
+  }
+  return !/\bschemas\.live\.com\b/i.test(label);
 }
 
 export function fallbackRouteStatus(activity?: LiveCompanionActivity | null, reason = "Live route provider unavailable."): LiveRouteStatus {
