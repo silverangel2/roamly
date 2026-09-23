@@ -6,6 +6,7 @@ import { activityEndDate, activityStartDate, tripWindowState, timezoneFromTripMe
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
+import { communicationPreferenceForNotificationType, getCompanionPreferencesForDelivery } from "@/lib/roamly/companionPreferences";
 
 export type CompanionNotificationType =
   | "nearby_activity"
@@ -245,6 +246,14 @@ async function suppressCompanionDelivery(
 export async function queueCompanionNotification(
   params: QueueCompanionNotificationParams
 ) {
+  if (!params.isTest && params.tripId) {
+    const preferenceKey = communicationPreferenceForNotificationType(params.type);
+    if (preferenceKey) {
+      const preferences = await getCompanionPreferencesForDelivery({ supabase: params.supabase, userId: params.userId, tripId: params.tripId });
+      if (!preferences) return { ok: false as const, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE", retryable: true };
+      if (!preferences[preferenceKey]) return { ok: true as const, suppressed: true as const, reason: "communication_preference_disabled" };
+    }
+  }
   if (params.tripId) {
     const lifecycle = await loadCompanionTripLifecycle(params.supabase, {
       tripId: params.tripId,
@@ -585,6 +594,11 @@ export async function sendCompanionNotificationDelivery(
       notificationId: claimedDelivery.notification_id || null
     }
   );
+
+  if (pushResult.suppressed) {
+    await suppressCompanionDelivery(admin, claimedDelivery, "Communication preference disabled.");
+    return { ok: true as const, suppressed: true as const, reason: "communication_preference_disabled" };
+  }
 
   const notificationId = claimedDelivery.notification_id
     ? String(claimedDelivery.notification_id)

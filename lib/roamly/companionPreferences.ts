@@ -23,6 +23,12 @@ export type CompanionPreferences = {
   backgroundLocationEnabled: boolean;
 };
 
+export type CommunicationPreferenceKey =
+  | "dailyBriefingEnabled"
+  | "importantTravelAlertsEnabled"
+  | "bookingNotificationsEnabled"
+  | "checkInRemindersEnabled";
+
 const DEFAULT_PREFERENCES: CompanionPreferences = {
   controlMode: "suggest_changes",
   allowFreeScheduleChanges: false,
@@ -52,7 +58,7 @@ function numberValue(value: unknown): number {
   return 0;
 }
 
-function mapPreferences(
+export function mapCompanionPreferences(
   row: Record<string, unknown> | null
 ): CompanionPreferences {
   if (!row) return DEFAULT_PREFERENCES;
@@ -108,7 +114,7 @@ export async function getCompanionPreferences(params: {
     .maybeSingle();
 
   if (!tripResult.error && tripResult.data) {
-    return mapPreferences(tripResult.data);
+    return mapCompanionPreferences(tripResult.data);
   }
 
   const accountResult = await params.supabase
@@ -119,10 +125,79 @@ export async function getCompanionPreferences(params: {
     .maybeSingle();
 
   if (!accountResult.error && accountResult.data) {
-    return mapPreferences(accountResult.data);
+    return mapCompanionPreferences(accountResult.data);
   }
 
   return DEFAULT_PREFERENCES;
+}
+
+/** Returns null on database errors; delivery code must not treat a failed read as consent. */
+export async function getCompanionPreferencesForDelivery(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+}): Promise<CompanionPreferences | null> {
+  const tripResult = await params.supabase
+    .from("roamly_companion_preferences")
+    .select("*")
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .maybeSingle();
+  if (tripResult.error) return null;
+  if (tripResult.data) return mapCompanionPreferences(tripResult.data);
+
+  const accountResult = await params.supabase
+    .from("roamly_companion_preferences")
+    .select("*")
+    .eq("user_id", params.userId)
+    .is("trip_id", null)
+    .maybeSingle();
+  if (accountResult.error) return null;
+  return mapCompanionPreferences(accountResult.data);
+}
+
+export function communicationPreferenceForPurpose(
+  purpose: string
+): CommunicationPreferenceKey | null {
+  if (["pretrip_7d", "pretrip_1d", "travel_day", "daily_trip_briefing"].includes(purpose)) {
+    return "dailyBriefingEnabled";
+  }
+  if (purpose === "booking_material_change") return "bookingNotificationsEnabled";
+  return null;
+}
+
+export async function getCommunicationPreferenceState(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string | null | undefined;
+  purpose: string;
+}): Promise<"enabled" | "disabled" | "unavailable"> {
+  const preferenceKey = communicationPreferenceForPurpose(params.purpose);
+  if (!preferenceKey) return "enabled";
+  if (!params.tripId) return "unavailable";
+  const preferences = await getCompanionPreferencesForDelivery({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId
+  });
+  if (!preferences) return "unavailable";
+  return preferences[preferenceKey] ? "enabled" : "disabled";
+}
+
+export function communicationPreferenceForNotificationType(
+  type: string
+): CommunicationPreferenceKey | null {
+  if (["flight_delay", "flight_cancelled"].includes(type)) return "importantTravelAlertsEnabled";
+  if (["booking_detected", "booking_confirmed", "booking_changed"].includes(type)) {
+    return "bookingNotificationsEnabled";
+  }
+  if (["nearby_activity", "activity_start", "next_activity", "leave_by", "late", "arrival", "check_in_reminder"].includes(type)) {
+    return "checkInRemindersEnabled";
+  }
+  if (["trip_predeparture_7d", "trip_predeparture_1d", "daily_briefing", "final_day_briefing"].includes(type)) {
+    return "dailyBriefingEnabled";
+  }
+  return null;
 }
 
 function isPaidOrExternalAction(actionType: string): boolean {

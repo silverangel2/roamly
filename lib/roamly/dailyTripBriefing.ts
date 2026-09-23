@@ -7,6 +7,7 @@ import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
 import { tripStartFromDate } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { buildDailyTripBriefingContent, dailyTripWindow, findFirstDailyEvent, type DailyTripActivity, type DailyTripBooking } from "@/lib/roamly/dailyTripBriefingContent";
+import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
 
 type DailyTrip = {
   id: string;
@@ -42,6 +43,9 @@ export async function scheduleDailyTripBriefing(params: { supabase: SupabaseClie
   const db = createSupabaseAdminClient() || params.supabase;
   const now = params.now || new Date();
   if (["archived", "cancelled", "completed"].includes(clean(params.trip.status)) || clean(params.trip.itinerary_status) === "cancelled") return { ok: true as const, scheduled: false, suppressed: "TRIP_NOT_ACTIVE" as const };
+  const preferenceState = await getCommunicationPreferenceState({ supabase: db, userId: params.trip.user_id, tripId: params.trip.id, purpose: "daily_trip_briefing" });
+  if (preferenceState === "unavailable") return { ok: false as const, scheduled: false, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE" };
+  if (preferenceState === "disabled") return { ok: true as const, scheduled: false, suppressed: "COMMUNICATION_PREFERENCE_DISABLED" as const };
   const timezone = timezoneFromTripMetadata(params.trip.metadata || {}, "UTC");
   const tripStart = tripStartFromDate(params.trip.start_date, timezone);
   if (!tripStart) return { ok: true as const, scheduled: false, suppressed: "TRIP_DATE_INVALID" as const };

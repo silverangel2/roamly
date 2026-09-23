@@ -2,7 +2,7 @@ import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendTripReminderEmail } from "@/lib/roamly/email";
-import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { communicationPreferenceForNotificationType, getCompanionPreferences, getCompanionPreferencesForDelivery } from "@/lib/roamly/companionPreferences";
 import { tripWindowState } from "@/lib/roamly/liveCompanion";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
@@ -116,6 +116,12 @@ export async function sendPushNotification(
   } = {}
 ) {
   const writer = createSupabaseAdminClient() || supabase;
+  const preferenceKey = communicationPreferenceForNotificationType(payload.type || "");
+  if (preferenceKey && payload.tripId) {
+    const preferences = await getCompanionPreferencesForDelivery({ supabase: writer, userId, tripId: payload.tripId });
+    if (!preferences) return { ok: false, sent: 0, failed: 0, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE" };
+    if (!preferences[preferenceKey]) return { ok: true, sent: 0, failed: 0, suppressed: true, error: "COMMUNICATION_PREFERENCE_DISABLED" };
+  }
   const actionScopedPayload = payload.type === "activity_start"
     ? { ...payload, appleMapsUrl: null, googleMapsUrl: null, citymapperUrl: null }
     : payload.type === "next_activity"
