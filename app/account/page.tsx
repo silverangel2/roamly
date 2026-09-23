@@ -39,7 +39,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
 
   if (!current.configured) {
     return (
-      <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <Badge tone="sun">Setup needed</Badge>
           <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">Connect Supabase to use accounts.</h1>
@@ -50,7 +50,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Button href="/">Back home</Button>
           </div>
         </Card>
-      </main>
+      </div>
     );
   }
 
@@ -73,7 +73,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const access = getRoamlyAccessForUser(current.user.email);
 
   return (
-    <main className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <section className="space-y-4">
           <Badge>Account</Badge>
@@ -145,6 +145,6 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           ) : null}
         </section>
       </div>
-    </main>
+    </div>
   );
 }
