@@ -66,6 +66,7 @@
     "email": {
       "sendTripDocument": "이 여행 문서 보내기",
       "recipientEmail": "받는 사람 이메일",
+      "importGmailOnly": "현재 Roamly는 Gmail만 지원합니다. Outlook 및 다른 이메일 서비스는 아직 연결할 수 없습니다.",
       "contact": {"contactName":"이름","contactEmail":"이메일","contactCategory":"카테고리","contactTripId":"여행 ID","contactSubject":"제목","contactMessage":"메시지","contactSupport":"이메일 도움이 필요하신가요? {email}으로 연락하세요.","contactSend":"메시지 보내기","contactSendFailed":"메시지를 보낼 수 없습니다.","contactReceived":"감사합니다. 메시지를 받았습니다.","contactCategory_support":"지원","contactCategory_billing":"결제","contactCategory_itinerary":"여행 일정","contactCategory_partner":"파트너","contactCategory_bug":"버그","contactCategory_other":"기타"},
       "booking": {"flight":"항공편","hotel":"호텔","activity":"활동","restaurant":"레스토랑","other":"기타","checkField":"이 항목을 확인하세요","add":"예약 추가","saveWhatBooked":"예약한 내용 저장","enterOrUpload":"직접 입력하거나 확인서를 업로드하세요.","upload":"확인서 업로드","manual":"직접 입력","back":"예약으로 돌아가기","review":"예약 검토","needsChecking":"저장하기 전에 일부 항목을 확인해야 합니다.","confirmDetails":"저장하기 전에 이 내용을 확인하세요.","airline":"항공사","flightNumber":"항공편 번호","from":"출발지","to":"도착지","airlineCode":"항공사 코드","gate":"게이트","confirmationCode":"확인 코드","address":"주소","location":"위치","hotelName":"호텔 이름","name":"이름","date":"날짜","departureTime":"출발 시간","arrivalDate":"도착 날짜","arrivalTime":"도착 시간","baggage":"수하물","duration":"소요 시간","checkIn":"체크인","checkOut":"체크아웃","optional":"선택 사항"}
     }

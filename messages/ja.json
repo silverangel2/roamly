@@ -66,6 +66,7 @@
     "email": {
       "sendTripDocument": "この旅のドキュメントを送信",
       "recipientEmail": "宛先メール",
+      "importGmailOnly": "現在、Roamlyが対応しているメールサービスはGmailのみです。Outlookやその他のメールサービスはまだ接続できません。",
       "contact": {"contactName":"名前","contactEmail":"メールアドレス","contactCategory":"カテゴリ","contactTripId":"旅行ID","contactSubject":"件名","contactMessage":"メッセージ","contactSupport":"メールでサポートが必要ですか？{email}までご連絡ください。","contactSend":"メッセージを送信","contactSendFailed":"メッセージを送信できませんでした。","contactReceived":"ありがとうございます。メッセージを受け取りました。","contactCategory_support":"サポート","contactCategory_billing":"請求","contactCategory_itinerary":"旅程","contactCategory_partner":"パートナー","contactCategory_bug":"不具合","contactCategory_other":"その他"},
       "booking": {"flight":"フライト","hotel":"ホテル","activity":"アクティビティ","restaurant":"レストラン","other":"その他","checkField":"この項目を確認","add":"予約を追加","saveWhatBooked":"予約内容を保存","enterOrUpload":"入力するか、確認書をアップロードしてください。","upload":"確認書をアップロード","manual":"手動で入力","back":"予約に戻る","review":"予約を確認","needsChecking":"保存する前に確認が必要な項目があります。","confirmDetails":"保存する前に内容を確認してください。","airline":"航空会社","flightNumber":"便名","from":"出発地","to":"到着地","airlineCode":"航空会社コード","gate":"搭乗口","confirmationCode":"確認コード","address":"住所","location":"場所","hotelName":"ホテル名","name":"名前","date":"日付","departureTime":"出発時刻","arrivalDate":"到着日","arrivalTime":"到着時刻","baggage":"手荷物","duration":"所要時間","checkIn":"チェックイン","checkOut":"チェックアウト","optional":"任意"}
     }

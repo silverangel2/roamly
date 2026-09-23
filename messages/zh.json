@@ -66,6 +66,7 @@
     "email": {
       "sendTripDocument": "发送这份旅程文档",
       "recipientEmail": "收件人邮箱",
+      "importGmailOnly": "目前 Roamly 仅支持 Gmail，暂不支持连接 Outlook 或其他电子邮件服务。",
       "contact": {"contactName":"姓名","contactEmail":"邮箱","contactCategory":"类别","contactTripId":"行程 ID","contactSubject":"主题","contactMessage":"消息","contactSupport":"需要通过邮件获得帮助？请联系 {email}。","contactSend":"发送消息","contactSendFailed":"无法发送消息。","contactReceived":"谢谢，我们已收到您的消息。","contactCategory_support":"支持","contactCategory_billing":"账单","contactCategory_itinerary":"行程","contactCategory_partner":"合作伙伴","contactCategory_bug":"错误","contactCategory_other":"其他"},
       "booking": {"flight":"航班","hotel":"酒店","activity":"活动","restaurant":"餐厅","other":"其他","checkField":"请检查此字段","add":"添加预订","saveWhatBooked":"保存预订内容","enterOrUpload":"请手动输入或上传确认信息。","upload":"上传确认信息","manual":"手动输入","back":"返回预订","review":"检查预订","needsChecking":"保存前需要检查部分字段。","confirmDetails":"保存前请确认这些信息。","airline":"航空公司","flightNumber":"航班号","from":"出发地","to":"目的地","airlineCode":"航空公司代码","gate":"登机口","confirmationCode":"确认码","address":"地址","location":"位置","hotelName":"酒店名称","name":"姓名","date":"日期","departureTime":"出发时间","arrivalDate":"到达日期","arrivalTime":"到达时间","baggage":"行李","duration":"时长","checkIn":"入住","checkOut":"退房","optional":"可选"}
     }
