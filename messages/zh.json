@@ -12,12 +12,12 @@
       "account": "账户",
       "pricing": "价格",
       "planTrip": "规划行程",
-      "dashboard": "Dashboard",
-      "howItWorks": "How it works",
-      "upgrades": "Features",
-      "startPlanning": "Start planning",
-      "login": "Log in",
-      "logout": "Logout"
+      "dashboard": "控制面板",
+      "howItWorks": "使用方式",
+      "upgrades": "功能",
+      "startPlanning": "开始规划",
+      "login": "登录",
+      "logout": "退出登录"
     },
     "actions": {
       "startPlanning": "开始规划",

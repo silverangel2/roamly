@@ -12,12 +12,12 @@
       "account": "アカウント",
       "pricing": "料金",
       "planTrip": "旅行を計画",
-      "dashboard": "Dashboard",
-      "howItWorks": "How it works",
-      "upgrades": "Features",
-      "startPlanning": "Start planning",
-      "login": "Log in",
-      "logout": "Logout"
+      "dashboard": "ダッシュボード",
+      "howItWorks": "使い方",
+      "upgrades": "機能",
+      "startPlanning": "旅行を計画する",
+      "login": "ログイン",
+      "logout": "ログアウト"
     },
     "actions": {
       "startPlanning": "計画を始める",

@@ -12,12 +12,12 @@
       "account": "계정",
       "pricing": "요금",
       "planTrip": "여행 계획",
-      "dashboard": "Dashboard",
-      "howItWorks": "How it works",
-      "upgrades": "Features",
-      "startPlanning": "Start planning",
-      "login": "Log in",
-      "logout": "Logout"
+      "dashboard": "대시보드",
+      "howItWorks": "이용 방법",
+      "upgrades": "기능",
+      "startPlanning": "여행 계획 시작",
+      "login": "로그인",
+      "logout": "로그아웃"
     },
     "actions": {
       "startPlanning": "계획 시작",
