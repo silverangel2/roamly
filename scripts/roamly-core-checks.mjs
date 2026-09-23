@@ -38,11 +38,11 @@ function loadTsModule(entryFile) {
       require(id) {
         if (id.startsWith("@/")) {
           const local = id.slice(2);
-          return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
+          return load(local.match(/\.(ts|tsx|mjs|json)$/) ? local : `${local}.ts`);
         }
         if (id.startsWith(".")) {
           const resolved = path.join(path.dirname(file), id);
-          return load(resolved.match(/\.(ts|tsx|json)$/) ? resolved : `${resolved}.ts`);
+          return load(resolved.match(/\.(ts|tsx|mjs|json)$/) ? resolved : `${resolved}.ts`);
         }
         return require(id);
       },
