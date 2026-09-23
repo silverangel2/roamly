@@ -12,6 +12,7 @@
     "test:plan-hydration": "node scripts/roamly-plan-hydration-checks.mjs",
     "test:confirmed-itinerary-anchors": "node --experimental-strip-types scripts/roamly-confirmed-itinerary-anchor-checks.mjs",
     "test:finds-game": "node scripts/roamly-finds-game-checks.mjs",
+    "test:curated-amazon-finds": "node --experimental-strip-types scripts/roamly-curated-amazon-finds-checks.mjs",
     "test:amazon-creators": "node --experimental-strip-types scripts/amazon-creators-core-checks.mjs",
     "test:booking-market-cache-policy": "node --experimental-strip-types scripts/roamly-booking-market-cache-policy-checks.mjs",
     "test:booking-photos": "node --experimental-strip-types scripts/roamly-booking-photo-checks.mjs",

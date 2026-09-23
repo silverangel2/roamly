@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { FindsTabs } from "@/components/roamly/FindsTabs";
 import { amazonFindCard } from "@/lib/roamly/findsMarketCore";
-import { getAmazonAffiliateConfig, amazonAffiliateDisclosure } from "@/lib/roamly/amazonAffiliate";
+import { amazonAffiliateDisclosure } from "@/lib/roamly/amazonAffiliate";
 import { searchAmazonFindProducts } from "@/lib/roamly/amazonCreatorsApi";
 import { Stay22LetMeAllezScript } from "@/components/roamly/FindsCommercialWidgets";
+import { curatedAmazonFindCards } from "@/lib/roamly/curatedAmazonFinds";
 
 export const metadata: Metadata = {
   title: "Roamly Finds",
@@ -31,10 +32,12 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
   const origin = clean(search.origin, 80);
   const startDate = cleanDate(search.startDate);
   const endDate = cleanDate(search.endDate);
-  const amazonReady = getAmazonAffiliateConfig().enabled;
   const productKeywords = clean(search.q) || (destination !== "your next somewhere" ? `${destination} travel essentials` : "travel essentials");
   const productResults = await searchAmazonFindProducts({ keywords: productKeywords });
-  const cards = productResults.products.map((product) => amazonFindCard(product, productResults.checkedAt));
+  const cards = [
+    ...productResults.products.map((product) => amazonFindCard(product, productResults.checkedAt)),
+    ...curatedAmazonFindCards()
+  ];
   const emptyMessage = productResults.status === "not_configured"
     ? "The live travel essentials catalog is not available right now. Genuine items, photos, current offers, and direct seller links will appear when they are available. No guessed listings are used."
     : productResults.status === "unavailable"
@@ -45,7 +48,7 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
     <div className="min-h-[75vh] bg-[#f7f8f4] px-4 py-6 text-[#203c43] sm:px-8 sm:py-10">
       <div className="mx-auto max-w-7xl">
         <Stay22LetMeAllezScript />
-        <FindsTabs cards={cards} destination={destination} origin={origin} startDate={startDate} endDate={endDate} emptyMessage={emptyMessage} disclosures={cards.length && amazonReady ? [amazonAffiliateDisclosure] : []} />
+        <FindsTabs cards={cards} destination={destination} origin={origin} startDate={startDate} endDate={endDate} emptyMessage={emptyMessage} disclosures={[amazonAffiliateDisclosure]} />
         <section className="mt-8 flex flex-col justify-between gap-4 rounded-[1.6rem] bg-[#e8f4ec] p-6 sm:flex-row sm:items-center sm:p-8">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#0f6e66]">A little travel daydream</p><h2 className="mt-2 text-2xl font-black tracking-tight">Can you guess the city from three clues?</h2><p className="mt-2 text-sm text-[#5c716c]">A tiny daily puzzle. No account or booking required.</p></div>
           <a href="/play" className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-6 text-sm font-extrabold text-[#28665d] transition hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none">Play the city puzzle <span aria-hidden="true" className="ml-2">→</span></a>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FindsCard } from "@/lib/roamly/findsMarketCore";
 import { activeFindsPromo, findsTravelServices, findsWidgets } from "@/lib/roamly/findsCommercialConfig";
 import { FindsPromo, FindsTrackedLink, FindsWidgetSection } from "@/components/roamly/FindsCommercialWidgets";
+import { curatedAmazonFindPresentation } from "@/lib/roamly/curatedAmazonFinds";
 
 type DestinationStory = {
   city: string;
@@ -126,6 +127,14 @@ function LiveCard({ card, kind, featured = false }: { card: FindsCard; kind: "pr
   </article>;
 }
 
+function CuratedProductCard({ card }: { card: FindsCard }) {
+  const presentation = curatedAmazonFindPresentation(card.id);
+  return <article className="snap-start min-w-[15.5rem] overflow-hidden rounded-[1.5rem] bg-white shadow-[0_14px_35px_rgba(32,60,67,0.07)] sm:min-w-[17rem]">
+    <div className={`grid aspect-[1.2/1] place-items-center bg-gradient-to-br ${presentation.tone} p-8`} aria-hidden="true"><span className="grid h-24 w-24 place-items-center rounded-[1.75rem] border border-white/80 bg-white/70 text-5xl font-light text-[#0f6e66] shadow-sm">{presentation.icon}</span></div>
+    <div className="p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0f6e66]">Travel edit</p><h3 className="mt-2 text-lg font-black leading-tight text-[#203c43]">{card.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-5 text-[#687c74]">{card.description}</p><a href={card.href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-10 items-center text-sm font-black text-[#0f6e66] underline decoration-[#9ac7ad] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f6e66]">{card.action}<span aria-hidden="true" className="ml-1">↗</span></a></div>
+  </article>;
+}
+
 function EditorialFlight({ card }: { card: FindsCard }) {
   return <article className="flex flex-col justify-between gap-5 rounded-[1.75rem] bg-[#e8f3ed] p-6 sm:flex-row sm:items-center sm:p-8">
     <div><h3 className="text-2xl font-black tracking-tight text-[#203c43]">{card.title}</h3><p className="mt-2 max-w-xl text-sm leading-6 text-[#60766d]">{card.description}</p></div>
@@ -133,9 +142,10 @@ function EditorialFlight({ card }: { card: FindsCard }) {
   </article>;
 }
 
-export function FindsEditorialMagazine({ cards, destination, emptyMessage, disclosures, liveTools, searchOpen, onSearchOpenChange }: { cards: FindsCard[]; destination: string; emptyMessage: string; disclosures: string[]; liveTools: ReactNode; searchOpen: boolean; onSearchOpenChange: (open: boolean) => void; onOpenSearch: (tab: "stays" | "flights" | "activities") => void }) {
+export function FindsEditorialMagazine({ cards, destination, disclosures, liveTools, searchOpen, onSearchOpenChange }: { cards: FindsCard[]; destination: string; emptyMessage: string; disclosures: string[]; liveTools: ReactNode; searchOpen: boolean; onSearchOpenChange: (open: boolean) => void; onOpenSearch: (tab: "stays" | "flights" | "activities") => void }) {
   const story = useMemo(() => storyFor(destination), [destination]);
   const products = cards.filter((card) => card.category === "product" && Boolean(card.image));
+  const curatedProducts = cards.filter((card) => card.category === "product" && card.recommendationLabel === "curated-category");
   const activities = cards.filter((card) => card.category === "activity");
   const hotels = cards.filter((card) => card.category === "hotel" && Boolean(card.image));
   const flights = cards.filter((card) => card.category === "flight");
@@ -150,7 +160,7 @@ export function FindsEditorialMagazine({ cards, destination, emptyMessage, discl
 
     <section className="mt-12" aria-labelledby="worth-packing-heading">
       <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">For the journey</p><h2 id="worth-packing-heading" className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">Worth packing</h2></div><p className="hidden text-xs text-[#7b8d85] sm:block">Real products only, when verified</p></div>
-      {products.length ? <div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-3">{products.slice(0, 6).map((card) => <LiveCard key={card.id} card={card} kind="product" />)}</div> : <div className="mt-5 rounded-[1.5rem] border border-dashed border-[#b9d7c5] bg-[#f5faf5] px-5 py-7 text-sm leading-6 text-[#60766d]">{emptyMessage}</div>}
+      {products.length ? <div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-3">{products.slice(0, 6).map((card) => <LiveCard key={card.id} card={card} kind="product" />)}</div> : <><p className="mt-3 max-w-2xl text-sm leading-6 text-[#60766d]">A few useful categories to browse before you go. These are ideas, not live product listings or price claims.</p><div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-3">{curatedProducts.map((card) => <CuratedProductCard key={card.id} card={card} />)}</div></>}
     </section>
 
     <section className="mt-12" aria-labelledby="stay-heading"><div className="mb-5"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">A place to begin</p><h2 id="stay-heading" className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">Where to stay</h2></div>{hotels[0] ? <LiveCard card={hotels[0]} kind="hotel" featured /> : <article className="rounded-[1.75rem] bg-[#e8f4ec] p-6 sm:p-9"><h3 className="text-2xl font-black tracking-tight text-[#203c43]">Find a place that fits the trip.</h3><p className="mt-3 max-w-2xl text-sm leading-6 text-[#60766d]">Explore current stay options through our hotel partner. Property details, final prices, and availability are confirmed on the seller’s site.</p><a href={findsTravelServices.stays.href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">Explore stays<span aria-hidden="true" className="ml-2">↗</span></a></article>}</section>
