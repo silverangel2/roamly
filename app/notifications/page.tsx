@@ -49,7 +49,7 @@ export default async function NotificationsPage() {
         .limit(20),
       supabase
         .from("roamly_companion_notification_deliveries")
-        .select("notification_id,status,created_at")
+        .select("notification_id,status,channel,created_at")
         .eq("user_id", current.user.id)
         .not("notification_id", "is", null)
         .order("created_at", { ascending: false })
@@ -58,7 +58,7 @@ export default async function NotificationsPage() {
 
   const latestDeliveryByNotification = new Map<
     string,
-    string
+    { status: string; channel: string | null }
   >();
 
   for (const delivery of companionDeliveries.data || []) {
@@ -70,20 +70,21 @@ export default async function NotificationsPage() {
     ) {
       latestDeliveryByNotification.set(
         delivery.notification_id,
-        delivery.status
+        { status: delivery.status, channel: delivery.channel || null }
       );
     }
   }
 
   const notificationItems = (
     notifications.data || []
-  ).map((notification) => ({
-    ...notification,
-    delivery_status:
-      latestDeliveryByNotification.get(
-        notification.id
-      ) || null
-  }));
+  ).map((notification) => {
+    const delivery = latestDeliveryByNotification.get(notification.id);
+    return {
+      ...notification,
+      delivery_status: delivery?.status || null,
+      delivery_channel: delivery?.channel || null
+    };
+  });
 
   const trip = tripResult.trip;
 
