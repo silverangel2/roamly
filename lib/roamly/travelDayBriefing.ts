@@ -8,6 +8,8 @@ import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from
 import { findFirstTravelDayEvent, buildTravelDayBriefingContent, travelDayWindow, type TravelDayActivity, type TravelDayBooking } from "@/lib/roamly/travelDayBriefingContent";
 import { tripStartFromDate } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
+import { translateKey } from "@/lib/i18n";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 
 type TravelDayTrip = {
   id: string;
@@ -110,7 +112,7 @@ export async function scheduleTravelDayBriefing(params: { supabase: SupabaseClie
     mustDo: mustDoFromTrip(currentTrip),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}/live`
   });
-  const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), supportEmail: getRoamlySupportEmail() });
+  const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), managePreferencesUrl: `/trip/${encodeURIComponent(currentTrip.id)}/live#companion-control-title`, managePreferencesLabel: translateKey(getTripItineraryLanguage(currentTrip.metadata), "ui.status.manageNotificationPreferences", "Manage notification preferences"), supportEmail: getRoamlySupportEmail() });
   const sent = await sendRoamlyEmail({ to: recipient, subject: rendered.subject, html: rendered.html, text: rendered.text, userId: currentTrip.user_id, tripId: currentTrip.id, idempotencyKey: claim.communicationId, metadata: { purpose: "travel_day", template: "travel_day" } });
   if (sent.ok) {
     await completeCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, provider: sent.provider, providerMessageId: sent.providerMessageId });

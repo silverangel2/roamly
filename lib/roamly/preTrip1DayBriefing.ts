@@ -8,6 +8,8 @@ import { communicationLogicalKey } from "@/lib/roamly/communicationPolicy";
 import { tripStartFromDate } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { buildPreTrip1DayBriefingContent, preTrip1DayWindow, type PreTrip1DayActivity, type PreTrip1DayBooking } from "@/lib/roamly/preTrip1DayBriefingContent";
 import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
+import { translateKey } from "@/lib/i18n";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 
 type PreTrip1DayTrip = {
   id: string;
@@ -152,6 +154,8 @@ export async function schedulePreTrip1DayBriefing(params: {
     summaryItems: content.summaryItems,
     ctaLabel: content.ctaLabel,
     ctaUrl: toRoamlyAbsoluteUrl(content.tripPath),
+    managePreferencesUrl: `/trip/${encodeURIComponent(currentTrip.id)}/live#companion-control-title`,
+    managePreferencesLabel: translateKey(getTripItineraryLanguage(currentTrip.metadata), "ui.status.manageNotificationPreferences", "Manage notification preferences"),
     supportEmail: getRoamlySupportEmail()
   });
   const sent = await sendRoamlyEmail({

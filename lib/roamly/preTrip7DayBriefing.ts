@@ -7,6 +7,8 @@ import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from
 import { buildPreTrip7DayBriefingContent, preTrip7DayWindow, tripStartFromDate, type PreTrip7DayBooking } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { communicationLogicalKey } from "@/lib/roamly/communicationPolicy";
 import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
+import { translateKey } from "@/lib/i18n";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 
 type PreTrip7DayTrip = {
   id: string;
@@ -127,6 +129,8 @@ export async function schedulePreTrip7DayBriefing(params: {
     summaryItems: currentContent.summaryItems,
     ctaLabel: currentContent.ctaLabel,
     ctaUrl: toRoamlyAbsoluteUrl(currentContent.tripPath),
+    managePreferencesUrl: `/trip/${encodeURIComponent(currentTrip.id)}/live#companion-control-title`,
+    managePreferencesLabel: translateKey(getTripItineraryLanguage(currentTrip.metadata), "ui.status.manageNotificationPreferences", "Manage notification preferences"),
     supportEmail: getRoamlySupportEmail()
   });
   const sent = await sendRoamlyEmail({

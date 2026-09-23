@@ -8,6 +8,8 @@ import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from
 import { tripStartFromDate } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { buildDailyTripBriefingContent, dailyTripWindow, findFirstDailyEvent, type DailyTripActivity, type DailyTripBooking } from "@/lib/roamly/dailyTripBriefingContent";
 import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
+import { translateKey } from "@/lib/i18n";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 
 type DailyTrip = {
   id: string;
@@ -93,7 +95,7 @@ export async function scheduleDailyTripBriefing(params: { supabase: SupabaseClie
     return { ok: true as const, scheduled: false, suppressed: "DAILY_TRIP_NO_LONGER_USEFUL" as const };
   }
   const content = buildDailyTripBriefingContent({ destination: clean(currentTrip.destination_name) || clean(currentTrip.destination_city) || clean(currentTrip.destination) || "your trip", dayKey: refreshedWindow.dayKey, timezone: currentTimezone, bookings, activities, now, mustDo: mustDoFromTrip(currentTrip), liveCompanionIncluded: currentTrip.tracking_unlocked === true || currentTrip.live_companion_unlocked === true, tripPath: `/trip/${encodeURIComponent(currentTrip.id)}/live` });
-  const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), supportEmail: getRoamlySupportEmail() });
+  const rendered = renderRoamlyEmailShell({ subject: content.subject, preheader: content.preheader, eyebrow: content.eyebrow, title: content.title, intro: content.intro, bodyHtml: renderEmailBodyCopy(content.body), bodyText: content.body, summaryItems: content.summaryItems, ctaLabel: content.ctaLabel, ctaUrl: toRoamlyAbsoluteUrl(content.tripPath), managePreferencesUrl: `/trip/${encodeURIComponent(currentTrip.id)}/live#companion-control-title`, managePreferencesLabel: translateKey(getTripItineraryLanguage(currentTrip.metadata), "ui.status.manageNotificationPreferences", "Manage notification preferences"), supportEmail: getRoamlySupportEmail() });
   const sent = await sendRoamlyEmail({ to: recipient, subject: rendered.subject, html: rendered.html, text: rendered.text, userId: currentTrip.user_id, tripId: currentTrip.id, idempotencyKey: claim.communicationId, metadata: { purpose: "daily_trip_briefing", template: "daily_trip_briefing", day: refreshedWindow.dayKey } });
   if (sent.ok) {
     await completeCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, provider: sent.provider, providerMessageId: sent.providerMessageId });
