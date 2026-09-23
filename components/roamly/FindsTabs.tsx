@@ -31,11 +31,18 @@ function dedupeCards(items: FindsCard[]) {
 
 export function FindsTabs({ cards, destination, origin, startDate, endDate, disclosures, emptyMessage }: { cards: FindsCard[]; destination: string; origin: string; startDate: string; endDate: string; disclosures: string[]; emptyMessage: string }) {
   const [active, setActive] = useState<string>("all");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [marketCards, setMarketCards] = useState(() => dedupeCards(cards));
   const [searchingHotels, setSearchingHotels] = useState(false);
   const [searchingCategory, setSearchingCategory] = useState<string | null>(null);
   const [hotelSearchMessage, setHotelSearchMessage] = useState("Add your destination and dates to see live hotel offers with property photos.");
   const [partnerSearchMessage, setPartnerSearchMessage] = useState<Record<string, string>>({});
+
+  function openSearch(tab: "stays" | "flights" | "activities") {
+    setActive(tab);
+    setSearchOpen(true);
+    document.getElementById("finds-live-options")?.scrollIntoView({ block: "start" });
+  }
   useEffect(() => {
     function syncTabFromHash() {
       const requestedTab = window.location.hash.match(/^#finds-tab-(.+)$/)?.[1];
@@ -203,5 +210,5 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
     </form> : null}
   </div>;
 
-  return <FindsEditorialMagazine cards={marketCards} destination={destination} emptyMessage={emptyMessage} disclosures={disclosures} liveTools={liveTools} />;
+  return <FindsEditorialMagazine cards={marketCards} destination={destination} emptyMessage={emptyMessage} disclosures={disclosures} liveTools={liveTools} searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} onOpenSearch={openSearch} />;
 }

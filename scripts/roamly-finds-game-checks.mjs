@@ -25,6 +25,14 @@ assert.match(magazine, /Real products only, when verified/i, "the magazine disti
 assert.match(tabs, /No unverified offers are shown/i, "empty shelves do not imply inventory that is not connected");
 assert.match(magazine, /emptyMessage/, "unavailable commercial feeds use honest editorial empty-state copy");
 assert.match(magazine, /Stories for wherever you’re going/, "the primary Finds surface is editorial rather than a search-results heading");
+assert.match(magazine, /aria-labelledby="stay-heading"[\s\S]*?Where to stay/, "the stay editorial slot remains visible when live inventory is empty");
+assert.match(magazine, /onOpenSearch\("stays"\)/, "the empty stay slot opens the stay search, not trip planning");
+assert.match(magazine, /aria-labelledby="activities-heading"[\s\S]*?Things worth doing/, "the activity editorial slot remains visible when live inventory is empty");
+assert.match(magazine, /onOpenSearch\("activities"\)/, "the empty activity slot opens activity discovery");
+assert.match(magazine, /Flights worth checking[\s\S]*?onOpenSearch\("flights"\)/, "the empty flight slot opens flight search");
+assert.equal((magazine.match(/href=\{card\.href\}/g) || []).length, 2, "product, hotel, activity, and flight cards use the item-specific card destination");
+assert.equal((magazine.match(/href=\{`\/plan/g) || []).length, 1, "the only planner link in the magazine is the intentional general destination-story action");
+assert.match(magazine, /Plan around \{story\.city\}/, "general destination editorial may retain its secondary planning action");
 assert.match(puzzle, /Swap two pieces at a time/, "destination puzzle describes the playable swap mechanic");
 assert.match(puzzle, /setOrder\(\(current\)/, "puzzle swaps pieces interactively");
 assert.match(puzzle, /aria-pressed=\{selected === position\}/, "puzzle selection state is accessible");
