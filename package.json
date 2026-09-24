@@ -85,6 +85,7 @@
     "test:contact-request-security": "node --experimental-strip-types scripts/roamly-contact-request-security-checks.mjs",
     "test:mobile-layout": "node scripts/roamly-mobile-layout-checks.mjs",
     "test:gmail-reconciliation": "node scripts/roamly-gmail-reconciliation-checks.mjs",
+    "test:gmail-extraction-persistence": "node scripts/roamly-gmail-extraction-persistence-checks.mjs",
     "test:pdf": "node scripts/roamly-pdf-checks.mjs",
     "test:tracking": "node scripts/roamly-tracking-checks.mjs",
     "test:production": "node scripts/roamly-production-checks.mjs",

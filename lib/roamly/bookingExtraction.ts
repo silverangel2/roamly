@@ -765,9 +765,10 @@ async function persistExtraction(params: {
       params.matchedBookingId || "pending"
     ].filter(Boolean).join(":")
   };
-  await params.supabase.from("booking_extraction_results").upsert(payload, {
+  const saved = await params.supabase.from("booking_extraction_results").upsert(payload, {
     onConflict: "user_id,source_type,source_reference"
   });
+  if (saved.error) throw new Error("GMAIL_BOOKING_EXTRACTION_PERSIST_FAILED");
 }
 
 export async function extractAndMatchTravelEmailBooking(params: {
