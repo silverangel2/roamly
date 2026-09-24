@@ -112,6 +112,46 @@ const exact = buildGroundedDecisionCore({
 });
 assert.equal(exact.unresolvedExactRequests.length, 0);
 assert.deepEqual(Array.from(exact.selectedActivityCandidateIds), ["cn"]);
+
+const travelerRequirements = buildGroundedDecisionCore({
+  payload: payload({ accessibilityNeeds: "wheelchair access", dietaryPreference: "vegetarian" }),
+  marketResults: [
+    market("accessible-food", "attraction", "Accessible food tour", {
+      metadata: { providerPayload: { accessibility_notes: ["wheelchair access"], dietary_notes: ["vegetarian"] } }
+    }),
+    market("unknown-food", "attraction", "Food tour without suitability metadata")
+  ]
+});
+assert.equal(travelerRequirements.constraints.activity.accessibilityRequirements?.priority, "hard");
+assert.equal(travelerRequirements.constraints.activity.accessibilityRequirements?.value?.[0], "wheelchair access");
+assert.equal(travelerRequirements.constraints.activity.dietaryPreferences?.[0], "vegetarian");
+assert.equal(travelerRequirements.eligibleCandidateIds.includes("accessible-food"), true, "grounded accessibility metadata remains eligible");
+assert.equal(travelerRequirements.eligibleCandidateIds.includes("unknown-food"), true, "missing accessibility metadata remains unknown, not false");
+assert.ok(travelerRequirements.recommendations.activity.rationale["accessible-food"].some((reason) => reason.includes("dietary fit evidence")), "dietary evidence reaches activity ranking");
+assert.ok(travelerRequirements.recommendations.activity.rationale["accessible-food"].some((reason) => reason.includes("accessibility evidence")), "accessibility evidence reaches activity ranking");
+assert.equal(candidateDecisionForAi(travelerRequirements).constraints.activity.dietaryPreferences?.[0], "vegetarian", "requirements reach AI decision context");
+const mergedTravelerRequirements = buildGroundedDecisionCore({
+  payload: payload({
+    accessibilityNeeds: "wheelchair access",
+    dietaryPreference: "vegetarian",
+    constraints: { activity: { preferredActivities: ["museum"] } }
+  }),
+  marketResults: []
+});
+assert.equal(mergedTravelerRequirements.constraints.activity.preferredActivities?.[0], "museum", "existing activity constraints are preserved");
+assert.equal(mergedTravelerRequirements.constraints.activity.accessibilityRequirements?.value?.[0], "wheelchair access", "direct accessibility needs survive constraint merging");
+assert.equal(mergedTravelerRequirements.constraints.activity.dietaryPreferences?.[0], "vegetarian", "direct dietary preferences survive constraint merging");
+const hotelAccessibility = buildGroundedDecisionCore({
+  payload: payload({ accessibilityNeeds: "wheelchair access" }),
+  marketResults: [
+    market("hotel-unknown-access", "hotel", "Hotel without accessibility metadata"),
+    market("hotel-accessible", "hotel", "Accessible hotel", { metadata: { providerPayload: { accessibility_notes: ["wheelchair access"] } } }),
+    market("hotel-incompatible-access", "hotel", "Hotel with conflicting accessibility metadata", { metadata: { providerPayload: { accessibility_notes: ["stairs only"] } } })
+  ]
+});
+assert.equal(hotelAccessibility.eligibleCandidateIds.includes("hotel-unknown-access"), true, "missing hotel accessibility metadata remains unknown, not false");
+assert.equal(hotelAccessibility.eligibleCandidateIds.includes("hotel-accessible"), true, "matching hotel accessibility evidence remains eligible");
+assert.equal(hotelAccessibility.eligibleCandidateIds.includes("hotel-incompatible-access"), false, "conflicting hotel accessibility evidence is filtered deterministically");
 const unresolved = buildGroundedDecisionCore({
   payload: payload({ explicitRequirements: [{ type: "activity", request: "Louvre", priority: "hard" }] }),
   marketResults: [market("other", "attraction", "Eiffel Tower")]

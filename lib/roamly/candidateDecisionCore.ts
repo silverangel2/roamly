@@ -60,6 +60,8 @@ export type HotelCandidate = CandidateBase & {
   roomDescription: string | null;
   occupancy?: { travelers: number; rooms: number; childAges: number[] } | null;
   amenities: string[];
+  accessibilityNotes?: string[];
+  accessibilityMetadataPresent?: boolean;
   pricePerNight: number | null;
   totalStayPrice: number | null;
   taxesFees: number | null;
@@ -84,6 +86,10 @@ export type ActivityCandidate = CandidateBase & {
   currency: string;
   availabilityStatus: "available" | "unverified" | "unknown";
   bookingRequired: boolean | null;
+  accessibilityNotes: string[];
+  dietaryNotes: string[];
+  accessibilityMetadataPresent: boolean;
+  dietaryMetadataPresent: boolean;
 };
 
 export type GroundedCandidate = FlightCandidate | HotelCandidate | ActivityCandidate;
@@ -153,6 +159,7 @@ export type CandidateRecommendations = {
 };
 
 export type GroundedDecision = {
+  constraints: TravelConstraints;
   candidates: GroundedCandidate[];
   eligibleCandidateIds: string[];
   recommendations: Record<CandidateCategory, CandidateRecommendations>;
@@ -223,6 +230,13 @@ function metadataList(result: MarketResult, key: string) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function metadataValuePresent(result: MarketResult, ...keys: string[]) {
+  return keys.some((key) => {
+    const value = providerField(result, key);
+    return Array.isArray(value) ? value.length > 0 : value !== null && value !== "";
+  });
+}
+
 export function normalizeMarketCandidate(result: MarketResult): GroundedCandidate | null {
   const category = result.category === "flight" ? "flight" : result.category === "hotel" ? "hotel" : ["attraction", "tour"].includes(result.category) ? "activity" : null;
   if (!category) return null;
@@ -275,6 +289,8 @@ export function normalizeMarketCandidate(result: MarketResult): GroundedCandidat
       checkOut: result.end_date || null,
       roomDescription: stringValue(providerField(result, "room_description", "room_type", "roomDescription")),
       amenities: metadataList(result, "amenities"),
+      accessibilityNotes: [...metadataList(result, "accessibility_notes"), ...metadataList(result, "accessibilityNotes")],
+      accessibilityMetadataPresent: metadataValuePresent(result, "accessibility_notes", "accessibilityNotes"),
       pricePerNight: numberValue(providerField(result, "price_per_night", "pricePerNight")),
       totalStayPrice: stay22 ? null : price(result),
       taxesFees: stay22 ? null : numberValue(providerField(result, "taxes_fees", "taxesFees")),
@@ -299,7 +315,11 @@ export function normalizeMarketCandidate(result: MarketResult): GroundedCandidat
     price: price(result),
     currency,
     availabilityStatus: result.price_type === "live_partner" ? "available" : "unverified",
-    bookingRequired: providerField(result, "booking_required", "bookingRequired") === null ? null : Boolean(providerField(result, "booking_required", "bookingRequired"))
+    bookingRequired: providerField(result, "booking_required", "bookingRequired") === null ? null : Boolean(providerField(result, "booking_required", "bookingRequired")),
+    accessibilityNotes: metadataList(result, "accessibility_notes"),
+    dietaryNotes: metadataList(result, "dietary_notes"),
+    accessibilityMetadataPresent: metadataValuePresent(result, "accessibility_notes", "accessibilityNotes"),
+    dietaryMetadataPresent: metadataValuePresent(result, "dietary_notes", "dietaryNotes")
   };
 }
 
@@ -338,13 +358,28 @@ export function constraintsFromPayload(payload: TripPlannerPayload): TravelConst
       travelers: { value: payload.travelersCount || payload.travelers?.adults || 1, priority: "hard" },
       rooms: { value: payload.rooms || 1, priority: "hard" },
       exactPropertyRequest: hotelRequirements[0] ? { value: hotelRequirements[0].request, priority: hotelRequirements[0].priority } : undefined,
-      requiredAmenities: payload.accessibilityNeeds ? { value: [payload.accessibilityNeeds], priority: "hard" } : undefined,
+      requiredAmenities: undefined,
+      accessibilityRequirements: payload.accessibilityNeeds ? { value: [payload.accessibilityNeeds], priority: "hard" } : undefined,
       preferredAmenities: payload.bedPreference && payload.bedPreference !== "No preference" ? [payload.bedPreference] : undefined
     },
     activity: {
       explicitRequestedActivities: explicit,
-      mustDoActivities: explicit.filter((item) => item.type === "activity" && item.priority === "hard")
+      mustDoActivities: explicit.filter((item) => item.type === "activity" && item.priority === "hard"),
+      accessibilityRequirements: payload.accessibilityNeeds ? { value: [payload.accessibilityNeeds], priority: "hard" } : undefined,
+      dietaryPreferences: payload.dietaryPreference ? [payload.dietaryPreference] : undefined
     }
+  };
+}
+
+function mergedConstraintsFromPayload(payload: TripPlannerPayload): TravelConstraints {
+  const derived = constraintsFromPayload(payload);
+  const supplied = payload.constraints || {};
+  return {
+    ...derived,
+    ...supplied,
+    flight: { ...derived.flight, ...supplied.flight },
+    hotel: { ...derived.hotel, ...supplied.hotel },
+    activity: { ...derived.activity, ...supplied.activity }
   };
 }
 
@@ -369,11 +404,14 @@ function matchesHardHotel(candidate: HotelCandidate, constraints: HotelConstrain
   if (hard(constraints.minimumQuality) !== undefined && candidate.quality == null) return false;
   if (hard(constraints.minimumQuality) !== undefined && candidate.quality! < hard(constraints.minimumQuality)!) return false;
   if (hard(constraints.parkingRequired) === true && !candidate.amenities.some((item) => /parking/i.test(item))) return false;
-  if (hard(constraints.accessibilityRequirements)?.length && !hard(constraints.accessibilityRequirements)!.every((requirement) => candidate.amenities.some((item) => containsMatch(item, requirement)))) return false;
+  const accessibilityRequirements = hard(constraints.accessibilityRequirements);
+  if (accessibilityRequirements?.length && candidate.accessibilityMetadataPresent && !accessibilityRequirements.every((requirement) => [...(candidate.accessibilityNotes || []), ...candidate.amenities].some((item) => containsMatch(item, requirement)))) return false;
   return true;
 }
 
 function matchesHardActivity(candidate: ActivityCandidate, constraints: ActivityConstraints) {
+  const accessibilityRequirements = hard(constraints.accessibilityRequirements);
+  if (accessibilityRequirements?.length && candidate.accessibilityMetadataPresent && !accessibilityRequirements.every((requirement) => candidate.accessibilityNotes.some((note) => containsMatch(note, requirement)))) return false;
   const mustDo = (constraints.mustDoActivities || []).filter((item): item is Extract<ExplicitTravelRequirement, { type: "activity" }> => item.type === "activity");
   for (const request of mustDo) {
     if (!containsMatch(candidate.canonicalName, request.request)) continue;
@@ -407,6 +445,9 @@ function scoreCandidate(candidate: GroundedCandidate, constraints: TravelConstra
     const preferredAmenities = constraints.hotel?.preferredAmenities || [];
     const matchedAmenities = preferredAmenities.filter((amenity) => candidate.amenities.some((item) => containsMatch(item, amenity)));
     if (matchedAmenities.length) { score += Math.min(15, matchedAmenities.length * 5); reasons.push(`preferred amenities: ${matchedAmenities.join(", ")}`); }
+    const accessibilityRequirements = hard(constraints.hotel?.accessibilityRequirements) || [];
+    const matchedAccessibilityRequirements = accessibilityRequirements.filter((requirement) => [...(candidate.accessibilityNotes || []), ...candidate.amenities].some((item) => containsMatch(item, requirement)));
+    if (matchedAccessibilityRequirements.length) { score += Math.min(20, matchedAccessibilityRequirements.length * 10); reasons.push(`accessibility evidence: ${matchedAccessibilityRequirements.join(", ")}`); }
     if (constraints.hotel?.parkingRequired?.priority === "soft" && constraints.hotel.parkingRequired.value === true && candidate.amenities.some((item) => /parking/i.test(item))) { score += 10; reasons.push("parking preference"); }
     if (candidate.totalStayPrice !== null) { score += Math.max(0, 20 - Math.round(candidate.totalStayPrice / 100)); reasons.push("priced stay"); }
     const personalizationScore = hotelPersonalizationScore({
@@ -419,6 +460,12 @@ function scoreCandidate(candidate: GroundedCandidate, constraints: TravelConstra
   } else {
     const preferred = [...(constraints.activity?.preferredActivities || []), ...(constraints.activity?.mustDoActivities || []).map((item) => item.type === "activity" ? item.request : "")];
     if (preferred.some((item) => containsMatch(candidate.canonicalName, item))) { score += 30; reasons.push("matches requested activity"); }
+    const dietaryPreferences = constraints.activity?.dietaryPreferences || [];
+    const matchedDietaryPreferences = dietaryPreferences.filter((preference) => candidate.dietaryNotes.some((note) => containsMatch(note, preference)));
+    if (matchedDietaryPreferences.length) { score += Math.min(20, matchedDietaryPreferences.length * 10); reasons.push(`dietary fit evidence: ${matchedDietaryPreferences.join(", ")}`); }
+    const accessibilityRequirements = hard(constraints.activity?.accessibilityRequirements) || [];
+    const matchedAccessibilityRequirements = accessibilityRequirements.filter((requirement) => candidate.accessibilityNotes.some((note) => containsMatch(note, requirement)));
+    if (matchedAccessibilityRequirements.length) { score += Math.min(20, matchedAccessibilityRequirements.length * 10); reasons.push(`accessibility evidence: ${matchedAccessibilityRequirements.join(", ")}`); }
     if (candidate.price !== null) { score += Math.max(0, 10 - Math.round(candidate.price / 50)); reasons.push("priced activity"); }
   }
   return { score, reasons };
@@ -475,7 +522,7 @@ function budgetLedger(input: { payload: TripPlannerPayload; selected: GroundedCa
 }
 
 export function buildGroundedDecisionCore(input: { payload: TripPlannerPayload; marketResults?: MarketResult[] | null; confirmedBookings?: ConfirmedBooking[]; allowances?: Array<{ category: string; description: string; amount: number | null; source: string; status: "estimated" | "unknown" }>; personalization?: TravelerPersonalizationContext }): GroundedDecision {
-  const constraints = input.payload.constraints || constraintsFromPayload(input.payload);
+  const constraints = mergedConstraintsFromPayload(input.payload);
   const normalized = (input.marketResults || []).map(normalizeMarketCandidate).filter((candidate): candidate is GroundedCandidate => Boolean(candidate));
   const eligible = normalized.filter((candidate) => candidate.category === "flight" ? matchesHardFlight(candidate, constraints.flight || {}) : candidate.category === "hotel" ? matchesHardHotel(candidate, constraints.hotel || {}) : matchesHardActivity(candidate, constraints.activity || {}));
   const recs = {
@@ -490,6 +537,7 @@ export function buildGroundedDecisionCore(input: { payload: TripPlannerPayload; 
   const selectedFlightCandidateId = confirmedTypes.has("flight") ? null : recs.flight.recommendedCandidateId;
   const selectedHotelCandidateId = confirmedTypes.has("hotel") ? null : recs.hotel.recommendedCandidateId;
   return {
+    constraints,
     candidates: normalized,
     eligibleCandidateIds: eligible.map((candidate) => candidate.candidateId),
     recommendations: { flight: recs.flight, hotel: recs.hotel, activity: recs.activity },
@@ -538,6 +586,7 @@ export function optimizeGroundedDecision(input: {
 
 export function candidateDecisionForAi(decision: GroundedDecision) {
   return {
+    constraints: decision.constraints,
     selectedFlight: decision.candidates.find((candidate) => candidate.candidateId === decision.selectedFlightCandidateId) || null,
     selectedHotel: decision.candidates.find((candidate) => candidate.candidateId === decision.selectedHotelCandidateId) || null,
     selectedActivities: decision.candidates.filter((candidate) => decision.selectedActivityCandidateIds.includes(candidate.candidateId)),

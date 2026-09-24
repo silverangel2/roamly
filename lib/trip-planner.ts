@@ -129,6 +129,7 @@ export type ActivityConstraints = {
   explicitRequestedActivities?: ExplicitTravelRequirement[];
   mustDoActivities?: ExplicitTravelRequirement[];
   preferredActivities?: string[];
+  dietaryPreferences?: string[];
   dateConstraints?: TravelConstraint<string[]>;
   timeConstraints?: TravelConstraint<string[]>;
   budgetLimit?: TravelConstraint<number>;

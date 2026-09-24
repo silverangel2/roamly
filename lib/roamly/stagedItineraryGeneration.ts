@@ -1161,6 +1161,7 @@ Prev end: ${previousEndingLocation || outline.hotelAreaRecommendation}
 Next start: ${nextStartRequirement || "hotel/base by evening when practical"}
 Avoid repeats: ${usedAttractions.slice(0, 12).join(" | ") || "none"}
 Prefs: ${payload.travelStyle}; ${payload.pace}; ${payload.walkingTolerance}; ${(payload.interests || []).join(", ") || "balanced"}
+Traveler requirements: accessibility needs=${payload.accessibilityNeeds || "none"} (hard only when grounded candidate metadata can verify it); dietary preference=${payload.dietaryPreference || "none"} (soft guidance unless an explicit hard requirement is present).
 Traveler anchors: ${payload.specialNotes || "none"}
 Confirmed bookings: ${JSON.stringify(payload.confirmedBookings || [])}
 Budget cues: ${JSON.stringify(compactPriceSummary(state.priceDiscovery))}
