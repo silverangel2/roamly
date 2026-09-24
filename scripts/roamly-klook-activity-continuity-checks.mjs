@@ -116,6 +116,7 @@ assert.equal(safeAffiliateRedirectUrl("https://www.klook.com@evil.example/activi
 
 const affiliateLinks = fs.readFileSync(path.join(root, "lib/roamly/affiliateLinks.ts"), "utf8");
 const intelligence = fs.readFileSync(path.join(root, "lib/roamly/itineraryIntelligence.ts"), "utf8");
+const marketSearch = fs.readFileSync(path.join(root, "lib/roamly/travelMarketSearch.ts"), "utf8");
 assert.match(affiliateLinks, /marketResultIsSelectedActivity/, "O: Klook enrichment uses the exact activity-result guard");
 assert.match(affiliateLinks, /if \(!cleanStringValue\(suggestion\.candidateId\)\) return null/, "W: ungrounded activities do not receive fallback Klook market actions");
 assert.match(intelligence, /candidateId: result\.id/, "Q: normalized activity suggestions retain the market result identity");
@@ -129,5 +130,6 @@ assert.doesNotMatch(affiliateLinks, /filter\(.*activity.*klook/i, "absence of Kl
 assert.doesNotMatch(affiliateLinks, /candidateDecisionCore/, "AO: ranking core is untouched");
 assert.doesNotMatch(affiliateLinks, /BOOKING_DEMAND_AFFILIATE_ID|bookingapi\.booking\.com.*affiliate/, "AT: no Booking Demand affiliate crossover");
 assert.doesNotMatch(affiliateLinks, /orders\/(?:preview|create)|payment[_ -]?token|checkout[_ -]?ready/i, "AV-AZ: no Orders/payment/checkout semantics added");
+assert.doesNotMatch(marketSearch, /reviewIntelNativeTravelSearch|review-insight-ai|getreviewintel\.com|\/Users\/junel\//i, "G-INV-04: production activity discovery has no ReviewIntel or developer-filesystem dependency");
 
 console.log("Roamly Klook activity continuity checks passed.");

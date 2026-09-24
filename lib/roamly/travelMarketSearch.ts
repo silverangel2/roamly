@@ -20,7 +20,6 @@ import {
   travelEvidenceScraperConfigured,
   type TravelEvidenceSubject
 } from "@/lib/roamly/travelEvidence";
-import { searchReviewIntelNativeTravelCandidates } from "@/lib/roamly/reviewIntelNativeTravelSearch";
 import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
 import {
   dedupeTravelResults,
@@ -638,12 +637,6 @@ function googleMapsSearchUrl(query: string) {
   return url.toString();
 }
 
-function genericMarketTitle(value: string) {
-  return /^(local bistro|museum or gallery|nightlife district|hotel room|hotel\/stay|things to do|book activities|find hotels?|flights? to book)$/i.test(
-    value.trim()
-  );
-}
-
 function resultRetrievalProvider(result: TravelMarketResult | undefined): TravelRetrievalProvider {
   const value = clean(result?.metadata?.retrieval_provider as string).toLowerCase();
   if (value === "native" || value === "provider_api" || value === "firecrawl_fallback" || value === "search_link_only") {
@@ -714,62 +707,6 @@ function dedupeMarketResults(results: TravelMarketResult[], limit = MAX_RESULTS_
       url: marketDisplayUrl(result)
     }),
     limit
-  );
-}
-
-async function searchReviewIntelNative(request: TravelMarketSearchRequest) {
-  if (!marketEnabled()) return [];
-  if (request.category === "flight") return [];
-  const candidates = await searchReviewIntelNativeTravelCandidates(request, { limit: MAX_RESULTS_PER_SEARCH });
-  return dedupeMarketResults(
-    candidates
-      .filter((candidate) => {
-        if (!candidate.title || genericMarketTitle(candidate.title)) return false;
-        return validateTravelResultForDisplay({
-          category: request.category,
-          expectedCategory: request.category,
-          title: candidate.title,
-          provider: candidate.domain || "ReviewIntel native retrieval",
-          url: candidate.url,
-          destination: request.destination || request.city,
-          city: request.city,
-          requestedDestination: request.destination || request.city,
-          source: candidate.source,
-          allowSearchFallback: false
-        }).ok;
-      })
-      .map((candidate) =>
-        withRetrievalProvider(
-          baseResult(request, {
-            title: candidate.title,
-            provider: "ReviewIntel native retrieval",
-            source: "roamly_internal",
-            price_type: "search_ready",
-            confidence: candidate.verificationStatus === "native_review_evidence" ? "medium" : "low",
-            booking_url: candidate.url,
-            normal_search_url: candidate.url,
-            searched_at: candidate.retrievedAt,
-            metadata: {
-              retrieval_provider: "native",
-              retrieval_timestamp: candidate.retrievedAt,
-              verification_status: candidate.verificationStatus,
-              source_url: candidate.url,
-              source_domain: candidate.domain,
-              rating: candidate.rating,
-              review_snippet: candidate.reviewSnippet,
-              reviewintel_native: {
-                queries: candidate.queries,
-                sources_checked: candidate.sourcesChecked,
-                diagnostics: candidate.diagnostics,
-                coverage_note: candidate.coverageNote
-              }
-            }
-          }),
-          "native"
-        )
-      ),
-    MAX_RESULTS_PER_SEARCH,
-    request
   );
 }
 
@@ -1328,14 +1265,7 @@ export async function searchTravelMarket(
     }
   }
 
-  let nativeResults: TravelMarketResult[] = [];
-  if (!providerResults.length) {
-    try {
-      nativeResults = await searchReviewIntelNative(normalized);
-    } catch (error) {
-      console.warn("[Roamly market] ReviewIntel native retrieval failed", error);
-    }
-  }
+  const nativeResults: TravelMarketResult[] = [];
 
   if (!providerResults.length && shouldAttemptProviderAfterNative(normalized, nativeResults) && liveConfigured && marketEnabled()) {
     providerAttempted = true;
