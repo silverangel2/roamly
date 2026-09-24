@@ -178,6 +178,81 @@ function cleanUpdate(input: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
+function actionAllowedStatuses(action: RoamlyActivityAction): RoamlyActivityStatus[] {
+  if (action === "check_in") return ["planned", "nearby"];
+  if (action === "skip") return ["planned", "nearby", "checked_in"];
+  return ["planned", "nearby", "checked_in"];
+}
+
+function actionAlreadyApplied(activity: LoadedActivity, action: RoamlyActivityAction) {
+  const status = activity.trackingActivity?.status || activity.displayActivity?.status;
+  return status === actionConfig[action].status;
+}
+
+function actionConflict(activity: LoadedActivity, action: RoamlyActivityAction) {
+  const status = activity.trackingActivity?.status || activity.displayActivity?.status;
+  if (!status || actionAlreadyApplied(activity, action)) return false;
+  if (action === "check_in") return ["skipped", "completed", "missed", "cancelled"].includes(status);
+  if (action === "skip") return ["completed", "missed", "cancelled"].includes(status);
+  return ["skipped", "missed", "cancelled"].includes(status);
+}
+
+async function transitionActivityAtomically(
+  supabase: SupabaseClient,
+  tripId: string,
+  loaded: LoadedActivity,
+  action: RoamlyActivityAction,
+  update: Record<string, unknown>
+) {
+  if (actionAlreadyApplied(loaded, action)) return { ok: true as const, transitioned: false, loaded };
+  if (actionConflict(loaded, action)) return { ok: false as const, error: "Activity is already in a different terminal state." };
+
+  const eligibleStatuses = actionAllowedStatuses(action);
+  const apply = async (table: "tracking" | "display", id: string) => supabase
+    .from(table === "tracking" ? "roamly_activities" : "roamly_trip_activities")
+    .update(update)
+    .eq("id", id)
+    .eq("trip_id", tripId)
+    .in("status", eligibleStatuses)
+    .select("*")
+    .maybeSingle();
+
+  if (loaded.trackingActivity) {
+    const result = await apply("tracking", loaded.trackingActivity.id);
+    if (result.error) return { ok: false as const, error: result.error.message };
+    if (result.data) {
+      if (loaded.displayActivity) {
+        const display = await supabase
+          .from("roamly_trip_activities")
+          .update(update)
+          .eq("id", loaded.displayActivity.id)
+          .eq("trip_id", tripId);
+        if (display.error) return { ok: false as const, error: display.error.message };
+      }
+      return {
+        ok: true as const,
+        transitioned: true,
+        loaded: { ...loaded, trackingActivity: result.data as TrackingActivity }
+      };
+    }
+  } else if (loaded.displayActivity) {
+    const result = await apply("display", loaded.displayActivity.id);
+    if (result.error) return { ok: false as const, error: result.error.message };
+    if (result.data) {
+      return {
+        ok: true as const,
+        transitioned: true,
+        loaded: { ...loaded, displayActivity: result.data as DisplayActivity }
+      };
+    }
+  }
+
+  const latest = await loadActivity(supabase, tripId, loaded.activityId);
+  if (latest && actionAlreadyApplied(latest, action)) return { ok: true as const, transitioned: false, loaded: latest };
+  if (latest && actionConflict(latest, action)) return { ok: false as const, error: "Activity is already in a different terminal state." };
+  return { ok: false as const, error: "Activity state changed before the action could be applied." };
+}
+
 async function cancelOutstandingEventsForActivity(supabase: SupabaseClient, userId: string, tripId: string, activityIds: string[]) {
   const ids = new Set(activityIds.filter(Boolean));
   if (!ids.size) return;
@@ -304,45 +379,41 @@ export async function performActivityAction(
   }
 
   const update = cleanUpdate(buildActionUpdate(params.action));
-  const results: Array<{ error: { message: string } | null }> = [];
-
-  if (loaded.trackingActivity) {
-    results.push(
-      await supabase
-        .from("roamly_activities")
-        .update(update)
-        .eq("id", loaded.trackingActivity.id)
-        .eq("trip_id", params.tripId)
-    );
-  }
-
-  if (loaded.displayActivity) {
-    results.push(
-      await supabase
-        .from("roamly_trip_activities")
-        .update(update)
-        .eq("id", loaded.displayActivity.id)
-        .eq("trip_id", params.tripId)
-    );
-  }
-
-  const failed = results.find((result) => result.error);
-  if (failed?.error) return { ok: false as const, error: failed.error.message };
+  const transition = await transitionActivityAtomically(supabase, params.tripId, loaded, params.action, update);
+  if (!transition.ok) return transition;
+  const current = transition.loaded;
 
   await cancelOutstandingEventsForActivity(
     supabase,
     tripResult.trip.user_id,
     params.tripId,
-    [params.activityId, loaded.trackingActivity?.id || "", loaded.displayActivity?.id || ""]
+    [params.activityId, current.trackingActivity?.id || "", current.displayActivity?.id || ""]
   );
+
+  if (!transition.transitioned) {
+    const upNext = await getUpNextActivity(supabase, params.tripId, params.location || undefined);
+    return {
+      ok: true as const,
+      idempotent: true as const,
+      trip: tripResult.trip,
+      activity: {
+        ...(current.trackingActivity || current.displayActivity),
+        status: actionConfig[params.action].status
+      },
+      upNextActivity: upNext.activity,
+      tripEventError: null,
+      companionEventId: null,
+      companionEventError: null
+    };
+  }
 
   const config = actionConfig[params.action];
   const tripEvent = await recordTripEvent(supabase, {
     userId: tripResult.trip.user_id,
     tripId: params.tripId,
-    activityId: loaded.trackingActivity?.id || null,
+    activityId: current.trackingActivity?.id || null,
     eventType: config.eventType,
-    eventTitle: `${config.titlePrefix}: ${loaded.title}`,
+    eventTitle: `${config.titlePrefix}: ${current.title}`,
     eventBody: config.body,
     latitude: params.location?.latitude,
     longitude: params.location?.longitude,
@@ -350,8 +421,8 @@ export async function performActivityAction(
     metadata: {
       source: params.source || "user_action",
       requestedActivityId: params.activityId,
-      trackingActivityId: loaded.trackingActivity?.id || null,
-      displayActivityId: loaded.displayActivity?.id || null,
+      trackingActivityId: current.trackingActivity?.id || null,
+      displayActivityId: current.displayActivity?.id || null,
       action: params.action,
       ...(params.simulated ? { simulated: true } : {})
     }
@@ -361,8 +432,8 @@ export async function performActivityAction(
     userId: tripResult.trip.user_id,
     tripId: params.tripId,
     action: params.action,
-    activityTitle: loaded.title,
-    activityId: loaded.trackingActivity?.id || loaded.displayActivity?.id || params.activityId,
+    activityTitle: current.title,
+    activityId: current.trackingActivity?.id || current.displayActivity?.id || params.activityId,
     source: params.source,
     simulated: params.simulated
   });
@@ -370,9 +441,10 @@ export async function performActivityAction(
   const upNext = await getUpNextActivity(supabase, params.tripId, params.location || undefined);
   return {
     ok: true as const,
+    idempotent: false as const,
     trip: tripResult.trip,
     activity: {
-      ...(loaded.trackingActivity || loaded.displayActivity),
+      ...(current.trackingActivity || current.displayActivity),
       status: actionConfig[params.action].status
     },
     upNextActivity: upNext.activity,
