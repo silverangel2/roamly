@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
@@ -388,6 +389,7 @@ export function LiveTripClient({
   fieldTestMode = false
 }: LiveTripClientProps) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const [items, setItems] = useState(activities);
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
   const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
@@ -416,6 +418,8 @@ export function LiveTripClient({
   const lastSentRef = useRef<{ at: number; location: LiveCoordinates } | null>(null);
   const lastRouteKeyRef = useRef("");
   const routeTimerRef = useRef<number | null>(null);
+  const foregroundRefreshTimerRef = useRef<number | null>(null);
+  const lastForegroundRefreshRef = useRef(0);
   const demoStateRef = useRef<LiveDemoState | null>(null);
   const demoStartedWatchRef = useRef(false);
 
@@ -969,33 +973,45 @@ export function LiveTripClient({
 
   useEffect(() => stopForegroundLocation, [stopForegroundLocation]);
 
+  const reconcileForeground = useCallback(() => {
+    if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+    if (foregroundRefreshTimerRef.current != null) return;
+
+    foregroundRefreshTimerRef.current = window.setTimeout(() => {
+      foregroundRefreshTimerRef.current = null;
+      if (document.visibilityState !== "visible") return;
+
+      const now = Date.now();
+      if (now - lastForegroundRefreshRef.current < 1000) return;
+      lastForegroundRefreshRef.current = now;
+
+      // Server-rendered trip, activity, booking, entitlement, and lifecycle
+      // props are authoritative. Refresh them as one bounded operation while
+      // preserving local permission/location/UI state in this client.
+      router.refresh();
+    }, 150);
+  }, [router]);
+
+  useEffect(() => {
+    const onResume = () => reconcileForeground();
+    window.addEventListener("pageshow", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      window.removeEventListener("pageshow", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+      if (foregroundRefreshTimerRef.current != null) {
+        window.clearTimeout(foregroundRefreshTimerRef.current);
+        foregroundRefreshTimerRef.current = null;
+      }
+    };
+  }, [reconcileForeground]);
+
   // Resume foreground sensing after reload when permission is already granted.
   // The trip-window guard prevents sensing before or after the eligible window.
   useEffect(() => {
     if (!mobileRuntime || !tripWindowActive || paused || companionEnabled === false || permission !== "granted" || watching) return;
     void startForegroundLocation();
   }, [companionEnabled, mobileRuntime, paused, permission, startForegroundLocation, tripWindowActive, watching]);
-
-  useEffect(() => {
-    if (!tripWindowActive || paused || companionEnabled === false) return;
-    let active = true;
-    const evaluateTimeLifecycle = () => {
-      void fetch(`/api/trips/${tripId}/live-companion/time-lifecycle`, { method: "POST" })
-        .then((response) => {
-          if (!active || response.ok) return;
-          throw new Error("Time lifecycle evaluation failed.");
-        })
-        .catch(() => undefined);
-    };
-    evaluateTimeLifecycle();
-    window.addEventListener("pageshow", evaluateTimeLifecycle);
-    document.addEventListener("visibilitychange", evaluateTimeLifecycle);
-    return () => {
-      active = false;
-      window.removeEventListener("pageshow", evaluateTimeLifecycle);
-      document.removeEventListener("visibilitychange", evaluateTimeLifecycle);
-    };
-  }, [companionEnabled, paused, tripId, tripWindowActive]);
 
   useEffect(() => {
     if (tripWindowActive && !paused && companionEnabled !== false) return;
