@@ -585,7 +585,22 @@ function buildDrivingOption(
     });
   }
 
-  const oneWayKm = distanceKm || 520;
+  if (distanceKm == null) {
+    const unavailable = unavailableOption({
+      mode: "drive",
+      origin: originLabel,
+      destination: destinationLabel,
+      input,
+      title: `${originLabel} to ${destinationLabel} driving route`,
+      reason: "Roamly cannot estimate driving time or cost until a route provider verifies the road distance.",
+      warning: "Route distance and duration are unknown. Open the map to verify the driving route before planning around it.",
+      source: "Google Maps search"
+    });
+    const mapUrl = drivingUrl(originLabel, destinationLabel);
+    return { ...unavailable, search_url: mapUrl, booking_url: mapUrl } satisfies TransportOption;
+  }
+
+  const oneWayKm = distanceKm;
   const roundTripMultiplier = input.returnToOrigin === false ? 1 : 2;
   const country = placeCountry(originPlace, input.originCountry) || placeCountry(destinationPlaceValue, input.destinationCountry);
   const fuelLiters = (oneWayKm * roundTripMultiplier * DEFAULT_FUEL_L_PER_100KM) / 100;
@@ -960,7 +975,7 @@ export function compareTransportOptions(input: TransportBuildInput, config: Buil
 
 export function transportOptionCostCents(option: TransportOption | null | undefined) {
   const amount = option ? optionAverage(option) : null;
-  return amount == null ? 0 : Math.max(0, Math.round(amount * 100));
+  return amount == null ? null : Math.max(0, Math.round(amount * 100));
 }
 
 export function isTransportOptionMarketResult(result: TravelMarketResult) {
