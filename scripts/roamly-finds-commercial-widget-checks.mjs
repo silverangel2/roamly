@@ -26,7 +26,7 @@ assert.ok(widget.includes("document.createElement(\"script\")"), "widgets must b
 assert.ok(!widget.includes("dangerouslySetInnerHTML"), "widgets must not use arbitrary HTML execution");
 assert.ok(widget.includes("strategy=\"afterInteractive\""), "Stay22 must load through Next Script after interaction");
 
-assert.ok(magazine.includes("activeFindsPromo"), "the magazine must consume the centralized promo configuration");
+assert.ok(magazine.includes("activePromo"), "the magazine must consume the resolved promo configuration");
 assert.ok(!magazine.includes("kkday.tpo.lu"), "promo URLs must not be scattered through magazine JSX");
 assert.ok(!magazine.includes("intui.tpo.lu"), "transfer URLs must not be scattered through magazine JSX");
 assert.ok(magazine.includes("findsTravelServices.stays.href") && magazine.includes("findsTravelServices.airportTransfer.href"), "commercial magazine actions must use their configured external destinations");

@@ -20,6 +20,8 @@ export type FindsPromoConfig = {
   description: string;
   href: string;
   placement: "feature" | "secondary";
+  startsAt?: string;
+  endsAt?: string;
 };
 
 const TRAVELPAYOUTS_WIDGET_ORIGIN = "https://tpwdgt.com";
@@ -98,6 +100,8 @@ export const activeFindsPromo: FindsPromoConfig = {
   href: "https://kkday.tpo.lu/DrPvqlSH",
   placement: "feature"
 };
+
+export const FINDS_PROMO_SETTING_KEY = "finds_active_promo";
 
 export const findsTravelServices = {
   airportTransfer: {

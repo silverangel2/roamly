@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FindsCard } from "@/lib/roamly/findsMarketCore";
-import { activeFindsPromo, findsTravelServices, findsWidgets } from "@/lib/roamly/findsCommercialConfig";
+import { findsTravelServices, findsWidgets, type FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
 import { FindsPromo, FindsTrackedLink, FindsWidgetSection } from "@/components/roamly/FindsCommercialWidgets";
 import { curatedAmazonFindPresentation } from "@/lib/roamly/curatedAmazonFinds";
 
@@ -177,7 +177,7 @@ function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; 
   </header>;
 }
 
-export function FindsEditorialMagazine({ cards, destination, disclosures, liveTools, searchOpen, onSearchOpenChange }: { cards: FindsCard[]; destination: string; emptyMessage: string; disclosures: string[]; liveTools: ReactNode; searchOpen: boolean; onSearchOpenChange: (open: boolean) => void; onOpenSearch: (tab: "stays" | "flights" | "activities") => void }) {
+export function FindsEditorialMagazine({ cards, destination, disclosures, activePromo, liveTools, searchOpen, onSearchOpenChange }: { cards: FindsCard[]; destination: string; emptyMessage: string; disclosures: string[]; activePromo: FindsPromoConfig | null; liveTools: ReactNode; searchOpen: boolean; onSearchOpenChange: (open: boolean) => void; onOpenSearch: (tab: "stays" | "flights" | "activities") => void }) {
   const story = useMemo(() => storyFor(destination), [destination]);
   const products = cards.filter((card) => card.category === "product" && Boolean(card.image));
   const curatedProducts = cards.filter((card) => card.category === "product" && card.recommendationLabel === "curated-category");
@@ -214,7 +214,7 @@ export function FindsEditorialMagazine({ cards, destination, disclosures, liveTo
 
     <section className="mt-12"><PhotoStory story={secondaryStory} /></section>
 
-    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="travel-tools-heading"><SectionHeading eyebrow="The little things that help" title="More ways to explore" description="A few useful extras, ready when you need them." id="travel-tools-heading" /><div className="grid gap-4 lg:grid-cols-2"><FindsPromo promo={activeFindsPromo} /><FindsTrackedLink href={findsTravelServices.airportTransfer.href} eyebrow={findsTravelServices.airportTransfer.eyebrow} headline={findsTravelServices.airportTransfer.headline} description={findsTravelServices.airportTransfer.description} action="Find an airport transfer" /></div><div className="mt-6 grid items-start gap-5 lg:grid-cols-2"><div className="rounded-[1.5rem] bg-white p-5 sm:rounded-[2rem] sm:p-7"><FindsWidgetSection config={findsWidgets.esim} /></div><div className="rounded-[1.5rem] bg-white p-5 sm:rounded-[2rem] sm:p-7"><FindsWidgetSection config={findsWidgets.travel} /></div></div><div className="mt-6"><PhotoStory story={utilityStory} /></div><div className="mt-6"><RentalWidgetDisclosure /></div></section>
+    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="travel-tools-heading"><SectionHeading eyebrow="The little things that help" title="More ways to explore" description="A few useful extras, ready when you need them." id="travel-tools-heading" /><div className="grid gap-4 lg:grid-cols-2">{activePromo ? <FindsPromo promo={activePromo} /> : null}<FindsTrackedLink href={findsTravelServices.airportTransfer.href} eyebrow={findsTravelServices.airportTransfer.eyebrow} headline={findsTravelServices.airportTransfer.headline} description={findsTravelServices.airportTransfer.description} action="Find an airport transfer" /></div><div className="mt-6 grid items-start gap-5 lg:grid-cols-2"><div className="rounded-[1.5rem] bg-white p-5 sm:rounded-[2rem] sm:p-7"><FindsWidgetSection config={findsWidgets.esim} /></div><div className="rounded-[1.5rem] bg-white p-5 sm:rounded-[2rem] sm:p-7"><FindsWidgetSection config={findsWidgets.travel} /></div></div><div className="mt-6"><PhotoStory story={utilityStory} /></div><div className="mt-6"><RentalWidgetDisclosure /></div></section>
 
     <details id="finds-live-options" open={searchOpen} onToggle={(event) => onSearchOpenChange(event.currentTarget.open)} className="mt-14 scroll-mt-8 overflow-hidden rounded-[1.5rem] border border-[#dce7dc] bg-white shadow-[0_16px_48px_rgba(32,60,67,0.06)] sm:mt-20 sm:rounded-[2rem]"><summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-5 text-sm font-black text-[#203c43] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/15 sm:px-8"><span><span className="block text-[10px] uppercase tracking-[0.18em] text-[#0f6e66]">Build your next trip</span><span className="mt-1 block text-base sm:text-lg">Search stays, flights and experiences</span></span><span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#edf5ee] text-xl text-[#0f6e66]">＋</span></summary><div className="border-t border-[#e5ece5] px-4 pb-5 sm:px-8 sm:pb-8">{liveTools}</div></details>
     <p className="mt-6 max-w-3xl text-xs leading-5 text-[#7b8d85]">Some links may earn Roamly a commission. The seller sets final prices, availability, and booking terms.{disclosures.length ? ` ${disclosures.join(" ")}` : null}</p>

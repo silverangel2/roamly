@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const adminLinks = [
   ["/admin", "Overview"],
   ["/admin/social", "Facebook Autopost"],
+  ["/admin/finds-promo", "Finds Promo"],
   ["/admin/social/library", "Content Library"],
   ["/admin/seo", "SEO Pages"],
   ["/admin/email", "Email Center"],

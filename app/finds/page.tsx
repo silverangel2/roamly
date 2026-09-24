@@ -5,6 +5,7 @@ import { amazonAffiliateDisclosure } from "@/lib/roamly/amazonAffiliate";
 import { searchAmazonFindProducts } from "@/lib/roamly/amazonCreatorsApi";
 import { Stay22LetMeAllezScript } from "@/components/roamly/FindsCommercialWidgets";
 import { curatedAmazonFindCards } from "@/lib/roamly/curatedAmazonFinds";
+import { getActiveFindsPromo } from "@/lib/roamly/findsPromoStore";
 
 export const metadata: Metadata = {
   title: "Roamly Finds",
@@ -34,6 +35,7 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
   const endDate = cleanDate(search.endDate);
   const productKeywords = clean(search.q) || (destination !== "your next somewhere" ? `${destination} travel essentials` : "travel essentials");
   const productResults = await searchAmazonFindProducts({ keywords: productKeywords });
+  const activePromo = await getActiveFindsPromo();
   const cards = [
     ...productResults.products.map((product) => amazonFindCard(product, productResults.checkedAt)),
     ...curatedAmazonFindCards()
@@ -48,7 +50,7 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
     <div className="min-h-[75vh] bg-[#fbfaf6] px-4 pb-12 pt-5 text-[#203c43] sm:px-8 sm:pb-16 sm:pt-8">
       <div className="mx-auto max-w-[1440px]">
         <Stay22LetMeAllezScript />
-        <FindsTabs cards={cards} destination={destination} origin={origin} startDate={startDate} endDate={endDate} emptyMessage={emptyMessage} disclosures={[amazonAffiliateDisclosure]} />
+        <FindsTabs cards={cards} destination={destination} origin={origin} startDate={startDate} endDate={endDate} emptyMessage={emptyMessage} disclosures={[amazonAffiliateDisclosure]} activePromo={activePromo} />
         <section className="mt-8 flex flex-col justify-between gap-4 rounded-[1.6rem] bg-[#e8f4ec] p-6 sm:flex-row sm:items-center sm:p-8">
           <div><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#0f6e66]">A little travel daydream</p><h2 className="mt-2 text-2xl font-black tracking-tight">Can you guess the city from three clues?</h2><p className="mt-2 text-sm text-[#5c716c]">A tiny daily puzzle. No account or booking required.</p></div>
           <a href="/play" className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-6 text-sm font-extrabold text-[#28665d] transition hover:-translate-y-0.5 hover:shadow-md motion-reduce:transform-none">Play the city puzzle <span aria-hidden="true" className="ml-2">→</span></a>

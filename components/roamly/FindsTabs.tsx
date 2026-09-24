@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { bookingFindCard, flightFindCard, klookFindCard, klookTransportFindCard, publicEventFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
 import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
+import type { FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
 
 export type { FindsCard } from "@/lib/roamly/findsMarketCore";
 
@@ -29,7 +30,7 @@ function dedupeCards(items: FindsCard[]) {
   });
 }
 
-export function FindsTabs({ cards, destination, origin, startDate, endDate, disclosures, emptyMessage }: { cards: FindsCard[]; destination: string; origin: string; startDate: string; endDate: string; disclosures: string[]; emptyMessage: string }) {
+export function FindsTabs({ cards, destination, origin, startDate, endDate, disclosures, emptyMessage, activePromo }: { cards: FindsCard[]; destination: string; origin: string; startDate: string; endDate: string; disclosures: string[]; emptyMessage: string; activePromo: FindsPromoConfig | null }) {
   const [active, setActive] = useState<string>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [marketCards, setMarketCards] = useState(() => dedupeCards(cards));
@@ -210,5 +211,5 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
     </form> : null}
   </div>;
 
-  return <FindsEditorialMagazine cards={marketCards} destination={destination} emptyMessage={emptyMessage} disclosures={disclosures} liveTools={liveTools} searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} onOpenSearch={openSearch} />;
+  return <FindsEditorialMagazine cards={marketCards} destination={destination} emptyMessage={emptyMessage} disclosures={disclosures} activePromo={activePromo} liveTools={liveTools} searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} onOpenSearch={openSearch} />;
 }

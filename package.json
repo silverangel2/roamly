@@ -18,6 +18,7 @@
     "test:booking-photos": "node --experimental-strip-types scripts/roamly-booking-photo-checks.mjs",
     "test:finds-providers": "node --experimental-strip-types scripts/roamly-finds-provider-search-checks.mjs",
     "test:finds-commercial-widgets": "node scripts/roamly-finds-commercial-widget-checks.mjs",
+    "test:finds-promo-admin": "node scripts/roamly-finds-promo-admin-checks.mjs",
     "test:market-search-request": "node --experimental-strip-types scripts/roamly-market-search-request-checks.mjs",
     "test:market-search-quota": "node --experimental-strip-types scripts/roamly-market-search-quota-checks.mjs",
     "test:klook-affiliate-links": "node --experimental-strip-types scripts/roamly-klook-affiliate-link-checks.mjs",
