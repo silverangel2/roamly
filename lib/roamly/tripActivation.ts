@@ -102,10 +102,6 @@ export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date"> & { day
   return getTripDayFromDate(trip.start_date, trip.days_count || null, timezoneFromTripMetadata((trip as TrackingTrip).metadata));
 }
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -353,15 +349,13 @@ async function shutdownCompletedTripIfNeeded(
 }
 
 export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string, tripId?: string) {
-  const today = todayIso();
   let query = supabase
     .from("roamly_trips")
     .select("*")
     .eq("user_id", userId)
     .eq("itinerary_locked", true)
     .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
-    .in("status", ["locked", "active", "planned"])
-    .or(`end_date.gte.${today},end_date.is.null`);
+    .in("status", ["locked", "active", "planned"]);
   if (tripId) query = query.eq("id", tripId);
   const { data, error } = await query
     .order("start_date", { ascending: true, nullsFirst: false })
