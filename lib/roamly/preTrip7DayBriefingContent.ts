@@ -1,5 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
+import type { PreTripRequirementSummary } from "./preTripRequirements";
 
 export type PreTrip7DayBooking = {
   id: string;
@@ -20,6 +21,7 @@ export type PreTrip7DayContentInput = {
   confirmedBookings: PreTrip7DayBooking[];
   gmailStatus: "connected" | "disconnected" | null;
   mustDo?: string | null;
+  preparationRequirements?: PreTripRequirementSummary[];
   tripPath: string;
   locale?: RoamlyLocale;
 };
@@ -74,13 +76,17 @@ export function buildPreTrip7DayBriefingContent(input: PreTrip7DayContentInput) 
     .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
-  const ready = attention.length === 0;
+  const preparationRequirements = (input.preparationRequirements || []).slice(0, 4);
+  const ready = attention.length === 0 && preparationRequirements.length === 0;
   const dates = input.startDate && input.endDate ? `${input.startDate} – ${input.endDate}` : input.startDate || null;
   const intro = msg(locale, ready ? "onTrackIntro" : "attentionIntro");
   const body = [
     ready ? msg(locale, "onTrack") : msg(locale, "attentionList"),
     confirmed.length ? `${msg(locale, "confirmed")}: ${confirmed.join("; ")}.` : msg(locale, "noBookings"),
     attention.length ? `${msg(locale, "needsAttention")}: ${attention.join("; ")}.` : "",
+    preparationRequirements.length
+      ? `${msg(locale, "needsAttention")}: ${preparationRequirements.map((requirement) => `${requirement.travelerLabel} — ${requirement.title}: ${requirement.summary}${requirement.actionUrl ? ` Official source: ${requirement.actionUrl}` : ""}`).join("; ")}.`
+      : "",
     input.gmailStatus === "connected" ? msg(locale, "bookingEmailOn") : "",
     input.gmailStatus === "disconnected" ? msg(locale, "bookingEmailOffWeek") : ""
   ].filter(Boolean).join("\n\n");

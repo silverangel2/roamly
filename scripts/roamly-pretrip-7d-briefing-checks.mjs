@@ -66,7 +66,31 @@ const roadTrip = buildPreTrip7DayBriefingContent({
 assert.equal(roadTrip.body.includes("hotel missing"), false);
 assert.equal(roadTrip.body.includes("flight missing"), false);
 
+const requirementContent = buildPreTrip7DayBriefingContent({
+  destination: "Paris",
+  startDate: "2026-10-15",
+  endDate: "2026-10-22",
+  timezone: "Europe/Paris",
+  confirmedBookings: [],
+  gmailStatus: null,
+  preparationRequirements: [{
+    travelerLabel: "Companion 1",
+    status: "UNKNOWN",
+    title: "Companion requirements",
+    summary: "Companion requirements need their own passport details.",
+    actionUrl: "https://france-visas.gouv.fr/en/"
+  }],
+  tripPath: "/trip/trip-4"
+});
+assert.match(requirementContent.body, /Companion 1/);
+assert.match(requirementContent.body, /Companion requirements/);
+assert.match(requirementContent.body, /https:\/\/france-visas\.gouv\.fr\/en\//);
+assert.doesNotMatch(requirementContent.body, /You need a visa/);
+assert.doesNotMatch(requirementContent.body, /all travelers are ready/i);
+assert.match(requirementContent.intro, /checking|attention|vérifier|revisar|確認|확인|留意/i);
+
 const implementation = fs.readFileSync(path.resolve("lib/roamly/preTrip7DayBriefing.ts"), "utf8");
+const requirementsLoader = fs.readFileSync(path.resolve("lib/roamly/preTripRequirements.ts"), "utf8");
 const scheduler = fs.readFileSync(path.resolve("lib/roamly/preTripReminders.ts"), "utf8");
 assert.match(implementation, /claimCommunication/);
 assert.match(implementation, /completeCommunication/);
@@ -80,6 +104,13 @@ assert.match(implementation, /uncertainAcceptance/);
 assert.equal(implementation.includes("queueCompanionNotification"), false);
 assert.equal(implementation.includes("send_email"), false);
 assert.match(implementation, /params\.now/);
+assert.match(implementation, /loadCurrentPreTripRequirements/);
+assert.match(implementation, /PRETRIP_7D_REQUIREMENTS_UNAVAILABLE/);
+assert.match(implementation, /preparationRequirements: requirements\.requirements/);
+assert.match(requirementsLoader, /buildTripTravelerRequirements/);
+assert.match(requirementsLoader, /listTripTravelers/);
+assert.match(requirementsLoader, /getTravelerMemory/);
+assert.match(requirementsLoader, /url\.protocol !== "https:"/);
 assert.match(scheduler, /schedulePreTrip7DayBriefing/);
 assert.match(scheduler, /filter\(\(type\) => !\["trip_predeparture_7d", "trip_predeparture_1d"\]\.includes\(type\)\)/);
 

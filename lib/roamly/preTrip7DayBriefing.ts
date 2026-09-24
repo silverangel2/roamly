@@ -9,6 +9,7 @@ import { communicationLogicalKey } from "@/lib/roamly/communicationPolicy";
 import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
 import { translateKey } from "@/lib/i18n";
 import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { loadCurrentPreTripRequirements } from "@/lib/roamly/preTripRequirements";
 
 type PreTrip7DayTrip = {
   id: string;
@@ -21,6 +22,8 @@ type PreTrip7DayTrip = {
   status?: string | null;
   itinerary_status?: string | null;
   metadata: Record<string, unknown> | null;
+  destination_country?: string | null;
+  travelers_count?: number | null;
 };
 
 function clean(value: unknown) {
@@ -77,7 +80,7 @@ export async function schedulePreTrip7DayBriefing(params: {
 
   const latestTrip = await db
     .from("roamly_trips")
-    .select("id,user_id,start_date,end_date,status,itinerary_status,metadata,destination,destination_name,destination_city")
+    .select("id,user_id,start_date,end_date,status,itinerary_status,metadata,destination,destination_name,destination_city,destination_country,travelers_count")
     .eq("id", params.trip.id)
     .eq("user_id", params.trip.user_id)
     .maybeSingle();
@@ -90,6 +93,15 @@ export async function schedulePreTrip7DayBriefing(params: {
   }
 
   const currentTrip = latestTrip.data as PreTrip7DayTrip;
+  const requirements = await loadCurrentPreTripRequirements({
+    supabase: db,
+    trip: currentTrip,
+    userId: currentTrip.user_id
+  });
+  if (!requirements.ok) {
+    await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "PRETRIP_7D_REQUIREMENTS_UNAVAILABLE", retryable: true });
+    return { ok: true as const, scheduled: false, suppressed: "PRETRIP_7D_REQUIREMENTS_UNAVAILABLE" as const };
+  }
   const currentBookings = await db
     .from("roamly_bookings")
     .select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,traveler_confirmed")
@@ -115,6 +127,7 @@ export async function schedulePreTrip7DayBriefing(params: {
     confirmedBookings: (currentBookings.data || []) as PreTrip7DayBooking[],
     gmailStatus: currentGmailResult.error ? null : currentGmailResult.data?.connection_status === "connected" ? "connected" : "disconnected",
     mustDo: mustDoFromTrip(currentTrip),
+    preparationRequirements: requirements.requirements,
     locale: getTripItineraryLanguage(currentTrip.metadata),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}`
   });

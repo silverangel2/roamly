@@ -1,5 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
+import type { PreTripRequirementSummary } from "./preTripRequirements";
 
 export type PreTrip1DayBooking = {
   id: string;
@@ -33,6 +34,7 @@ export type PreTrip1DayContentInput = {
   gmailStatus: "connected" | "disconnected" | null;
   liveCompanionIncluded: boolean;
   mustDo?: string | null;
+  preparationRequirements?: PreTripRequirementSummary[];
   tripPath: string;
   locale?: RoamlyLocale;
 };
@@ -87,10 +89,11 @@ export function buildPreTrip1DayBriefingContent(input: PreTrip1DayContentInput) 
     .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
+  const preparationRequirements = (input.preparationRequirements || []).slice(0, 4);
   const firstPlan = input.firstActivity && !["completed", "skipped"].includes(clean(input.firstActivity.status))
     ? [clean(input.firstActivity.title) || msg(locale, "firstUp"), dateLabel(input.firstActivity.scheduled_start, input.timezone, locale), clean(input.firstActivity.address)].filter(Boolean).join(" · ")
     : "";
-  const ready = attention.length === 0;
+  const ready = attention.length === 0 && preparationRequirements.length === 0;
   const dates = input.startDate && input.endDate ? `${input.startDate} – ${input.endDate}` : input.startDate || null;
   const tomorrow = dateLabel(input.tripStart.toISOString(), input.timezone, locale);
   const body = [
@@ -100,6 +103,9 @@ export function buildPreTrip1DayBriefingContent(input: PreTrip1DayContentInput) 
     stay.length ? `${msg(locale, "stay")}: ${stay[0]}.` : "",
     firstPlan ? `${msg(locale, "firstUp")}: ${firstPlan}.` : "",
     attention.length ? `${msg(locale, "needsAttention")}: ${attention.join("; ")}.` : "",
+    preparationRequirements.length
+      ? `${msg(locale, "needsAttention")}: ${preparationRequirements.map((requirement) => `${requirement.travelerLabel} — ${requirement.title}: ${requirement.summary}${requirement.actionUrl ? ` Official source: ${requirement.actionUrl}` : ""}`).join("; ")}.`
+      : "",
     input.gmailStatus === "connected" ? msg(locale, "bookingEmailOn") : "",
     input.gmailStatus === "disconnected" ? msg(locale, "bookingEmailOff") : "",
     input.liveCompanionIncluded ? msg(locale, "companionTomorrow") : ""

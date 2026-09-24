@@ -10,6 +10,7 @@ import { buildPreTrip1DayBriefingContent, preTrip1DayWindow, type PreTrip1DayAct
 import { getCommunicationPreferenceState } from "@/lib/roamly/companionPreferences";
 import { translateKey } from "@/lib/i18n";
 import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { loadCurrentPreTripRequirements } from "@/lib/roamly/preTripRequirements";
 
 type PreTrip1DayTrip = {
   id: string;
@@ -25,6 +26,8 @@ type PreTrip1DayTrip = {
   tracking_unlocked?: boolean | null;
   live_companion_unlocked?: boolean | null;
   metadata: Record<string, unknown> | null;
+  destination_country?: string | null;
+  travelers_count?: number | null;
 };
 
 function clean(value: unknown) {
@@ -85,7 +88,7 @@ export async function schedulePreTrip1DayBriefing(params: {
 
   const latestTrip = await db
     .from("roamly_trips")
-    .select("id,user_id,destination,destination_name,destination_city,start_date,end_date,special_notes,status,itinerary_status,tracking_unlocked,live_companion_unlocked,metadata")
+    .select("id,user_id,destination,destination_name,destination_city,destination_country,travelers_count,start_date,end_date,special_notes,status,itinerary_status,tracking_unlocked,live_companion_unlocked,metadata")
     .eq("id", params.trip.id)
     .eq("user_id", params.trip.user_id)
     .maybeSingle();
@@ -98,6 +101,15 @@ export async function schedulePreTrip1DayBriefing(params: {
   }
 
   const currentTrip = latestTrip.data as PreTrip1DayTrip;
+  const requirements = await loadCurrentPreTripRequirements({
+    supabase: db,
+    trip: currentTrip,
+    userId: currentTrip.user_id
+  });
+  if (!requirements.ok) {
+    await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "PRETRIP_1D_REQUIREMENTS_UNAVAILABLE", retryable: true });
+    return { ok: true as const, scheduled: false, suppressed: "PRETRIP_1D_REQUIREMENTS_UNAVAILABLE" as const };
+  }
   const currentBookings = await db
     .from("roamly_bookings")
     .select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,origin,destination,traveler_confirmed")
@@ -141,6 +153,7 @@ export async function schedulePreTrip1DayBriefing(params: {
     gmailStatus: gmail.error ? null : gmail.data?.connection_status === "connected" ? "connected" : "disconnected",
     liveCompanionIncluded: currentTrip.tracking_unlocked === true || currentTrip.live_companion_unlocked === true,
     mustDo: mustDoFromTrip(currentTrip),
+    preparationRequirements: requirements.requirements,
     locale: getTripItineraryLanguage(currentTrip.metadata),
     tripPath: `/trip/${encodeURIComponent(currentTrip.id)}`
   });

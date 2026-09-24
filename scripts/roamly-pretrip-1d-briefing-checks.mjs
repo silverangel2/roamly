@@ -59,6 +59,46 @@ assert.equal(content.body.includes("affiliate"), false);
 assert.equal(content.ctaLabel, "View tomorrow's plan");
 assert.equal(content.tripPath, "/trip/trip-1");
 
+const requirementContent = buildPreTrip1DayBriefingContent({
+  destination: "Tokyo",
+  startDate: "2026-10-15",
+  endDate: "2026-10-22",
+  timezone: "Asia/Tokyo",
+  tripStart,
+  bookings: [],
+  firstActivity: null,
+  gmailStatus: null,
+  liveCompanionIncluded: false,
+  preparationRequirements: [{
+    travelerLabel: "You",
+    status: "REVIEW_REQUIRED",
+    title: "Travel authorization and entry requirements",
+    summary: "Review the official entry guidance for your passport and trip details.",
+    actionUrl: "https://travel.state.gov/content/travel/en/us-visas/tourism-visit.html"
+  }],
+  tripPath: "/trip/trip-5"
+});
+assert.match(requirementContent.body, /Travel authorization and entry requirements/);
+assert.match(requirementContent.body, /Review the official entry guidance/);
+assert.match(requirementContent.body, /https:\/\/travel\.state\.gov/);
+assert.doesNotMatch(requirementContent.body, /You need a visa/);
+assert.match(requirementContent.intro, /check|vérification|revisión|確認|확인|检查/i);
+
+const resolved = buildPreTrip1DayBriefingContent({
+  destination: "Tokyo",
+  startDate: "2026-10-15",
+  endDate: "2026-10-22",
+  timezone: "Asia/Tokyo",
+  tripStart,
+  bookings: [],
+  firstActivity: null,
+  gmailStatus: null,
+  liveCompanionIncluded: false,
+  preparationRequirements: [],
+  tripPath: "/trip/trip-6"
+});
+assert.doesNotMatch(resolved.body, /Travel authorization|Companion requirements|Needs attention|要確認|Requiere atención/i);
+
 const roadTrip = buildPreTrip1DayBriefingContent({
   destination: "Cape Breton",
   startDate: "2026-10-15",
@@ -76,6 +116,7 @@ assert.equal(roadTrip.body.includes("hotel missing"), false);
 assert.equal(roadTrip.body.includes("Live Companion"), false);
 
 const implementation = fs.readFileSync(path.resolve("lib/roamly/preTrip1DayBriefing.ts"), "utf8");
+const requirementsLoader = fs.readFileSync(path.resolve("lib/roamly/preTripRequirements.ts"), "utf8");
 const scheduler = fs.readFileSync(path.resolve("lib/roamly/preTripReminders.ts"), "utf8");
 assert.match(implementation, /claimCommunication/);
 assert.match(implementation, /completeCommunication/);
@@ -87,6 +128,13 @@ assert.match(implementation, /preferredChannel: "email"/);
 assert.match(implementation, /\.eq\("trip_id", currentTrip\.id\)/);
 assert.match(implementation, /\.eq\("user_id", currentTrip\.user_id\)/);
 assert.match(implementation, /PRETRIP_1D_BOOKINGS_UNAVAILABLE/);
+assert.match(implementation, /loadCurrentPreTripRequirements/);
+assert.match(implementation, /PRETRIP_1D_REQUIREMENTS_UNAVAILABLE/);
+assert.match(implementation, /preparationRequirements: requirements\.requirements/);
+assert.match(requirementsLoader, /buildTripTravelerRequirements/);
+assert.match(requirementsLoader, /listTripTravelers/);
+assert.match(requirementsLoader, /getTravelerMemory/);
+assert.match(requirementsLoader, /url\.protocol !== "https:"/);
 assert.match(implementation, /uncertainAcceptance/);
 assert.equal(implementation.includes("queueCompanionNotification"), false);
 assert.equal(implementation.includes("send_email"), false);
