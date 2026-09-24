@@ -45,8 +45,8 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
       : "No in-stock travel essentials with a verified product photo and buy link came back for this search. Try another search.";
 
   return (
-    <div className="min-h-[75vh] bg-[#f7f8f4] px-4 py-6 text-[#203c43] sm:px-8 sm:py-10">
-      <div className="mx-auto max-w-7xl">
+    <div className="min-h-[75vh] bg-[#fbfaf6] px-4 pb-12 pt-5 text-[#203c43] sm:px-8 sm:pb-16 sm:pt-8">
+      <div className="mx-auto max-w-[1440px]">
         <Stay22LetMeAllezScript />
         <FindsTabs cards={cards} destination={destination} origin={origin} startDate={startDate} endDate={endDate} emptyMessage={emptyMessage} disclosures={[amazonAffiliateDisclosure]} />
         <section className="mt-8 flex flex-col justify-between gap-4 rounded-[1.6rem] bg-[#e8f4ec] p-6 sm:flex-row sm:items-center sm:p-8">
