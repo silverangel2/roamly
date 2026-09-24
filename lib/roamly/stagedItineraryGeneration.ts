@@ -912,6 +912,9 @@ function rehydrateGroundedTimelineItem(item: RoamlyActivitySeed, candidate: Trav
     source: candidate.source,
     factualStatus: candidateFactualStatus(candidate),
     title: candidate.title,
+    description: candidateFactualStatus(candidate) === "verified"
+      ? "Verified source result. Confirm current hours, route, and price before relying on it."
+      : "Search-backed result. Confirm current hours, route, availability, and price before relying on it.",
     location_name: location,
     map_query: [candidate.title, location].filter(Boolean).join(" "),
     estimated_cost: cost,
@@ -929,11 +932,22 @@ function rehydrateGroundedTimelineItem(item: RoamlyActivitySeed, candidate: Trav
 }
 
 function stripUnmatchedTimelineIdentity(item: RoamlyActivitySeed): RoamlyActivitySeed {
+  const type = stagedItemType(item);
+  const description = type === "meal"
+    ? "Keep this meal flexible until a place and current details are verified."
+    : type === "rest"
+      ? "A flexible rest window; keep plans open."
+      : type === "travel" || type === "transfer"
+        ? "Travel timing is planned; confirm route details before relying on it."
+        : type === "reminder"
+          ? "Planning reminder."
+          : "A flexible discovery suggestion; verify current details before relying on it.";
   return {
     ...item,
     candidateId: undefined,
     source: undefined,
     factualStatus: "DISCOVERY_SUGGESTION",
+    description,
     estimated_cost: null,
     cost_status: "UNKNOWN",
     booking_label: undefined,
