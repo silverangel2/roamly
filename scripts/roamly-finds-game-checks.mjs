@@ -20,6 +20,11 @@ assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon affiliate disclosur
 assert.match(findsPage, /curatedAmazonFindCards/, "Worth Packing includes curated category recommendations when the live catalog is unavailable");
 assert.match(magazine, /rel="noopener noreferrer"/, "external partner links are isolated from the opener");
 assert.match(magazine, /Curated travel essentials/i, "the magazine labels curated categories without implying live listings");
+assert.match(magazine, /w-\[calc\(100%_-_3rem\)\]/, "curated Worth Packing cards use a readable mobile rail width");
+assert.match(magazine, /md:grid-cols-3[\s\S]*lg:grid-cols-4/, "Worth Packing restores the complete desktop grid at larger breakpoints");
+assert.match(magazine, /<details open=\{open\}[\s\S]*Need a car\?/, "rental options use an accessible progressive-disclosure control");
+assert.match(magazine, /max-width: 1023px/, "rental disclosure defaults closed at mobile widths and remains open on desktop");
+assert.match(magazine, /FindsWidgetSection config=\{findsWidgets\.cars\}/, "the legitimate rental widget remains inside the disclosure");
 assert.match(tabs, /No unverified offers are shown/i, "empty shelves do not imply inventory that is not connected");
 assert.match(magazine, /not live product listings or price claims/i, "curated Amazon categories do not imply live inventory or prices");
 assert.match(magazine, /curatedProducts/, "Worth Packing renders curated category recommendations");

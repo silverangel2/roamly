@@ -129,10 +129,30 @@ function LiveCard({ card, kind, featured = false }: { card: FindsCard; kind: "pr
 
 function CuratedProductCard({ card }: { card: FindsCard }) {
   const presentation = curatedAmazonFindPresentation(card.id);
-  return <article className="snap-start min-w-[15.5rem] overflow-hidden rounded-[1.5rem] bg-white shadow-[0_14px_35px_rgba(32,60,67,0.07)] md:min-w-0 sm:min-w-[17rem]">
+  return <article className="snap-start w-[calc(100%_-_3rem)] shrink-0 overflow-hidden rounded-[1.5rem] bg-white shadow-[0_14px_35px_rgba(32,60,67,0.07)] md:w-auto md:min-w-0 md:shrink md:basis-auto">
     <div className={`grid aspect-[1.2/1] place-items-center bg-gradient-to-br ${presentation.tone} p-8`} aria-hidden="true"><span className="grid h-24 w-24 place-items-center rounded-[1.75rem] border border-white/80 bg-white/70 text-5xl font-light text-[#0f6e66] shadow-sm">{presentation.icon}</span></div>
     <div className="p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#0f6e66]">Travel edit</p><h3 className="mt-2 text-lg font-black leading-tight text-[#203c43]">{card.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-5 text-[#687c74]">{card.description}</p><a href={card.href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-10 items-center text-sm font-black text-[#0f6e66] underline decoration-[#9ac7ad] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f6e66]">{card.action}<span aria-hidden="true" className="ml-1">↗</span></a></div>
   </article>;
+}
+
+function RentalWidgetDisclosure() {
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 1023px)");
+    const update = () => setOpen(!query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="mx-auto max-w-3xl rounded-[1.5rem] border border-[#dce9df] bg-white/70 p-4 lg:border-0 lg:bg-transparent lg:p-0">
+    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-2 text-sm font-black text-[#203c43] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/15 lg:hidden">
+      <span><span className="block text-xs font-black uppercase tracking-[0.18em] text-[#0f6e66]">Need a car?</span><span className="mt-1 block">Keep the journey moving</span></span>
+      <span aria-hidden="true" className="text-xl text-[#0f6e66]">{open ? "−" : "+"}</span>
+    </summary>
+    <div className="pt-4 lg:pt-0"><FindsWidgetSection config={findsWidgets.cars} heading={false} className="mx-auto" /></div>
+  </details>;
 }
 
 function EditorialFlight({ card }: { card: FindsCard }) {
@@ -160,7 +180,7 @@ export function FindsEditorialMagazine({ cards, destination, disclosures, liveTo
 
     <section className="mt-12" aria-labelledby="worth-packing-heading">
       <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">For the journey</p><h2 id="worth-packing-heading" className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">Worth packing</h2></div><p className="hidden text-xs text-[#7b8d85] sm:block">Curated travel essentials</p></div>
-      {products.length ? <div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-3">{products.slice(0, 6).map((card) => <LiveCard key={card.id} card={card} kind="product" />)}</div> : <><p className="mt-3 max-w-2xl text-sm leading-6 text-[#60766d]">A few useful categories to browse before you go. These are ideas, not live product listings or price claims.</p><div className="mt-5 grid grid-cols-2 gap-4 md:grid md:grid-cols-3 lg:grid-cols-4">{curatedProducts.map((card) => <CuratedProductCard key={card.id} card={card} />)}</div></>}
+      {products.length ? <div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-3">{products.slice(0, 6).map((card) => <LiveCard key={card.id} card={card} kind="product" />)}</div> : <><p className="mt-3 max-w-2xl text-sm leading-6 text-[#60766d]">A few useful categories to browse before you go. These are ideas, not live product listings or price claims.</p><div className="mt-5 flex snap-x gap-4 overflow-x-auto pb-3 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-4">{curatedProducts.map((card) => <CuratedProductCard key={card.id} card={card} />)}</div></>}
     </section>
 
     <section className="mt-12" aria-labelledby="stay-heading"><div className="mb-5"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">A place to begin</p><h2 id="stay-heading" className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">Where to stay</h2></div>{hotels[0] ? <LiveCard card={hotels[0]} kind="hotel" featured /> : <article className="rounded-[1.75rem] bg-[#e8f4ec] p-6 sm:p-9"><h3 className="text-2xl font-black tracking-tight text-[#203c43]">Find a place that fits the trip.</h3><p className="mt-3 max-w-2xl text-sm leading-6 text-[#60766d]">Browse places to stay and confirm the latest price and availability before booking.</p><a href={findsTravelServices.stays.href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">Explore stays<span aria-hidden="true" className="ml-2">↗</span></a></article>}</section>
@@ -171,7 +191,7 @@ export function FindsEditorialMagazine({ cards, destination, disclosures, liveTo
 
     <section className="mt-12"><PhotoStory story={secondaryStory} /></section>
 
-    <section className="mt-12" aria-labelledby="travel-tools-heading"><div className="mb-6"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">Useful extras for the journey</p><h2 id="travel-tools-heading" className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">More ways to explore</h2></div><div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"><FindsPromo promo={activeFindsPromo} /><FindsTrackedLink href={findsTravelServices.airportTransfer.href} eyebrow={findsTravelServices.airportTransfer.eyebrow} headline={findsTravelServices.airportTransfer.headline} description={findsTravelServices.airportTransfer.description} action="Find an airport transfer" /></div><div className="mt-10 grid items-start gap-8 lg:grid-cols-2"><FindsWidgetSection config={findsWidgets.esim} /><FindsWidgetSection config={findsWidgets.travel} /></div><div className="mt-10"><PhotoStory story={utilityStory} /></div><div className="mt-10 max-w-3xl"><FindsWidgetSection config={findsWidgets.cars} className="mx-auto" /></div></section>
+    <section className="mt-12" aria-labelledby="travel-tools-heading"><div className="mb-6"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">Useful extras for the journey</p><h2 id="travel-tools-heading" className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">More ways to explore</h2></div><div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]"><FindsPromo promo={activeFindsPromo} /><FindsTrackedLink href={findsTravelServices.airportTransfer.href} eyebrow={findsTravelServices.airportTransfer.eyebrow} headline={findsTravelServices.airportTransfer.headline} description={findsTravelServices.airportTransfer.description} action="Find an airport transfer" /></div><div className="mt-10 grid items-start gap-8 lg:grid-cols-2"><FindsWidgetSection config={findsWidgets.esim} /><FindsWidgetSection config={findsWidgets.travel} /></div><div className="mt-10"><PhotoStory story={utilityStory} /></div><div className="mt-10"><RentalWidgetDisclosure /></div></section>
 
     <details id="finds-live-options" open={searchOpen} onToggle={(event) => onSearchOpenChange(event.currentTarget.open)} className="mt-12 rounded-[1.5rem] border border-[#e0e9e1] bg-white"><summary className="cursor-pointer list-none px-5 py-5 text-sm font-black text-[#203c43] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/15">More ways to explore <span className="ml-2 text-[#0f6e66]">＋</span></summary><div className="border-t border-[#e5ece5] px-5 pb-6">{liveTools}</div></details>
     <p className="mt-6 max-w-3xl text-xs leading-5 text-[#7b8d85]">Some links may earn Roamly a commission. The seller sets final prices, availability, and booking terms.{disclosures.length ? ` ${disclosures.join(" ")}` : null}</p>
