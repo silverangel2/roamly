@@ -139,6 +139,9 @@ export type RoamlyBookingSuggestion = {
   city?: string;
   country?: string;
   date?: string;
+  event_start_time?: string;
+  event_end_time?: string;
+  event_timezone?: string;
   time_window?: string;
   origin?: string;
   destination?: string;

@@ -389,11 +389,11 @@ function suggestedLabel(category: RoamlyBookingCategory, result?: TravelMarketRe
   return "Search";
 }
 
-function verificationStatus(result: TravelMarketResult | null | undefined) {
+function verificationStatus(result: TravelMarketResult | null | undefined, destinationTimezone?: string | null) {
   if (!result) return "search_link_only";
   if (result.category === "flight" && flightMarketFreshness(result) !== "fresh") return "search_link_only";
   if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "search_link_only";
-  if (result.source === "public_web" && publicEventTruthForMarketResult(result).state !== "CURRENT_VERIFIED") return "requires_verification";
+  if (result.source === "public_web" && publicEventTruthForMarketResult(result, new Date(), destinationTimezone).state !== "CURRENT_VERIFIED") return "requires_verification";
   const provider = clean(result.metadata?.retrieval_provider) as TravelRetrievalProvider;
   const nativeStatus = clean(result.metadata?.verification_status);
   if (nativeStatus === "native_review_evidence") return "native_verified";
@@ -413,11 +413,11 @@ function retrievalProvider(result: TravelMarketResult | null | undefined): Trave
   return "search_link_only";
 }
 
-function priceConfidence(result: TravelMarketResult | null | undefined): RoamlyBookingSuggestion["price_confidence"] {
+function priceConfidence(result: TravelMarketResult | null | undefined, destinationTimezone?: string | null): RoamlyBookingSuggestion["price_confidence"] {
   if (!result) return "unknown";
   if (result.category === "flight" && flightMarketFreshness(result) !== "fresh") return "unknown";
   if (result.source === "klook" && klookActivityActionState(result) !== "verified_partner") return "unknown";
-  if (result.source === "public_web" && publicEventTruthForMarketResult(result).state !== "CURRENT_VERIFIED") return "unknown";
+  if (result.source === "public_web" && publicEventTruthForMarketResult(result, new Date(), destinationTimezone).state !== "CURRENT_VERIFIED") return "unknown";
   if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "partner";
   if (result.price_type === "estimated_fallback") return "estimated";
   return "unknown";
@@ -494,8 +494,9 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
   const category = mapMarketCategory(result.category);
   const flightFresh = category !== "flight" || flightMarketFreshness(result) === "fresh";
   const directUrl = clean(flightFresh ? result.affiliate_url || result.booking_url || result.normal_search_url : searchUrlForCategory(category, payload, result.title));
-  const verification = verificationStatus(result);
-  const publicEventTruth = result.source === "public_web" ? publicEventTruthForMarketResult(result) : null;
+  const destinationTimezone = payload.destinationPlace?.timezone;
+  const verification = verificationStatus(result, destinationTimezone);
+  const publicEventTruth = result.source === "public_web" ? publicEventTruthForMarketResult(result, new Date(), destinationTimezone) : null;
   const providerUsed = retrievalProvider(result);
   const price = result.price_amount ?? result.price_min ?? null;
   const max = result.price_amount ?? result.price_max ?? null;
@@ -527,6 +528,9 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
     city: result.city,
     country: result.country,
     date: result.start_date,
+    event_start_time: result.source === "public_web" ? clean(result.metadata?.public_event && typeof result.metadata.public_event === "object" ? (result.metadata.public_event as Record<string, unknown>).startTime : "") || undefined : undefined,
+    event_end_time: result.source === "public_web" ? clean(result.metadata?.public_event && typeof result.metadata.public_event === "object" ? (result.metadata.public_event as Record<string, unknown>).endTime : "") || undefined : undefined,
+    event_timezone: result.source === "public_web" ? clean(result.metadata?.public_event && typeof result.metadata.public_event === "object" ? (result.metadata.public_event as Record<string, unknown>).timezone : "") || payload.destinationPlace?.timezone || undefined : undefined,
     origin: result.origin,
     destination: result.destination,
     departure_date: result.category === "flight" ? result.start_date : undefined,
@@ -553,7 +557,7 @@ function marketResultToSuggestion(result: TravelMarketResult, payload: TripPlann
     estimated_total_cost_min: category === "hotel" ? result.price_min ?? result.price_amount ?? null : undefined,
     estimated_total_cost_max: category === "hotel" ? result.price_max ?? result.price_amount ?? null : undefined,
     currency: result.currency || payload.budgetCurrency || "CAD",
-    price_confidence: priceConfidence(result),
+    price_confidence: priceConfidence(result, destinationTimezone),
     factual_status: result.source === "public_web"
       ? publicEventTruth?.state === "CURRENT_VERIFIED" ? "verified" : publicEventTruth?.state === "HISTORICAL" ? "unknown" : "search_ready"
       : undefined,

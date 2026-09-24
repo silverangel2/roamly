@@ -108,6 +108,10 @@ assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-1
 assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-10-10", ticketStatus: "unknown" }, new Date("2026-09-15T12:00:00.000Z")).ticketStatus, "unknown", "AR: unknown ticket status remains unknown");
 assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-10-10", ticketStatus: "available" }, new Date("2026-09-15T12:00:00.000Z")).ticketStatus, "available", "AS: ticket state remains separate from event truth");
 assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-10-10", priceStatus: "known" }, new Date("2026-09-15T12:00:00.000Z")).priceStatus, "known", "AT: price provenance remains separate from event truth");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-09-15", startTime: "10:00", endTime: "11:00", timezone: "America/Toronto" }, new Date("2026-09-15T15:30:00.000Z")).state, "HISTORICAL", "AU: an event whose supplied end time has passed is historical");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-09-15", startTime: "10:00", endTime: "11:00", timezone: "America/Toronto" }, new Date("2026-09-15T15:30:00.000Z")).reason, "PAST_EVENT_TIME", "AV: event-time expiry is distinguished from date expiry");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-09-15", startTime: "10:00", endTime: "11:00" }, new Date("2026-09-15T14:30:00.000Z")).state, "REVIEW_REQUIRED", "AW: event time without a timezone remains uncertain");
+assert.equal(evaluatePublicEventTruth({ source: "public_web", expiresAt: "2026-12-01T00:00:00.000Z", startDate: "2026-09-15", startTime: "10:00", endTime: "11:00", timezone: "America/Toronto" }, new Date("2026-09-15T14:00:00.000Z")).state, "CURRENT_VERIFIED", "AX: an event before its supplied end time remains current");
 
 const duplicate = dedupePublicEvents([publicFestival, publicFestival]);
 assert.equal(duplicate.length, 1, "AE: equivalent evidence dedupes deterministically");
@@ -122,6 +126,7 @@ assert.equal(publicFestival.timezone, undefined, "AI/AJ: unknown timezone remain
 
 const marketSearch = fs.readFileSync(path.join(root, "lib/roamly/travelMarketSearch.ts"), "utf8");
 const itinerary = fs.readFileSync(path.join(root, "lib/roamly/itineraryIntelligence.ts"), "utf8");
+const tripPage = fs.readFileSync(path.join(root, "app/trip/[id]/page.tsx"), "utf8");
 assert.match(marketSearch, /publicEventRequest/, "public event discovery is limited to event-shaped requests");
 assert.match(marketSearch, /options\.allowFirecrawlFallback[\s\S]*publicEventRequest\(normalized\)/, "existing Firecrawl fallback is reused");
 assert.match(marketSearch, /normalizePublicEventEvidence/, "search evidence uses the public event normalizer");
@@ -135,5 +140,8 @@ assert.doesNotMatch(marketSearch, /Klook.*replace|replace.*Klook/i, "Klook is no
 assert.doesNotMatch(marketSearch, /candidateDecisionCore|BOOKING_DEMAND_AFFILIATE_ID|orders\/(?:preview|create)/i, "AM/AS: unrelated authority is untouched");
 assert.doesNotMatch(itinerary, /affiliate_provider: .*public_web/, "public-web events are not affiliate providers");
 assert.match(itinerary, /candidateId: result\.id/, "grounded market identity remains available to activity intelligence");
+assert.match(itinerary, /event_start_time/, "AY: public event times survive into the persisted suggestion");
+assert.match(itinerary, /destinationPlace\?\.timezone/, "AZ: destination timezone is available to public-event truth evaluation");
+assert.match(tripPage, /market_source === "public_web" && suggestion\.factual_status === "unknown"\) return null/, "BA: historical public events do not retain a current booking action");
 
 console.log("Roamly public event discovery checks passed.");

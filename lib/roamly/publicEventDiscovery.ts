@@ -18,7 +18,7 @@ export type PublicEventTruthState = "CURRENT_VERIFIED" | "REVIEW_REQUIRED" | "HI
 
 export type PublicEventTruth = {
   state: PublicEventTruthState;
-  reason: "FRESH_EVIDENCE" | "MISSING_EXPIRY" | "MALFORMED_EXPIRY" | "EXPIRED_EVIDENCE" | "PAST_EVENT" | "MISSING_EVENT_DATE" | "MALFORMED_EVENT_DATE";
+  reason: "FRESH_EVIDENCE" | "MISSING_EXPIRY" | "MALFORMED_EXPIRY" | "EXPIRED_EVIDENCE" | "PAST_EVENT" | "PAST_EVENT_TIME" | "MISSING_EVENT_DATE" | "MALFORMED_EVENT_DATE" | "MALFORMED_EVENT_TIME" | "TIMEZONE_UNKNOWN";
   ticketStatus: PublicEventTicketStatus;
   priceStatus: PublicEventPriceStatus;
 };
@@ -131,6 +131,51 @@ function truthDate(value: unknown) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
   const parsed = new Date(`${raw}T00:00:00.000Z`);
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw ? null : raw;
+}
+
+function truthTime(value: unknown) {
+  const raw = text(value);
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}` : null;
+}
+
+function validTimezone(value: unknown) {
+  const timezone = text(value);
+  if (!timezone) return "";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format();
+    return timezone;
+  } catch {
+    return "";
+  }
+}
+
+function localDateTimeToUtc(date: string, time: string, timezone: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  let guess = Date.UTC(year, month - 1, day, hour, minute);
+  for (let index = 0; index < 3; index += 1) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(new Date(guess));
+    const value = (type: string) => Number(parts.find((part) => part.type === type)?.value || 0);
+    const rendered = Date.UTC(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"));
+    guess += Date.UTC(year, month - 1, day, hour, minute) - rendered;
+  }
+  return new Date(guess);
+}
+
+function localDateInTimezone(now: Date, timezone: string) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
 
 function safeHttpUrl(value: unknown) {
@@ -275,6 +320,10 @@ export function evaluatePublicEventTruth(input: {
   expiresAt?: unknown;
   startDate?: unknown;
   endDate?: unknown;
+  startTime?: unknown;
+  endTime?: unknown;
+  timezone?: unknown;
+  destinationTimezone?: unknown;
   ticketStatus?: unknown;
   priceStatus?: unknown;
 }, now = new Date()): PublicEventTruth {
@@ -282,12 +331,29 @@ export function evaluatePublicEventTruth(input: {
   const price = priceStatus(input.priceStatus, null);
   const start = truthDate(input.startDate);
   const end = truthDate(input.endDate) || start;
-  const today = now.toISOString().slice(0, 10);
   if (!start) return { state: "REVIEW_REQUIRED", reason: "MISSING_EVENT_DATE", ticketStatus: ticket, priceStatus: price };
   if (input.endDate != null && text(input.endDate) && !truthDate(input.endDate)) {
     return { state: "REVIEW_REQUIRED", reason: "MALFORMED_EVENT_DATE", ticketStatus: ticket, priceStatus: price };
   }
+  const timezone = validTimezone(input.timezone) || validTimezone(input.destinationTimezone);
+  const today = timezone ? localDateInTimezone(now, timezone) : now.toISOString().slice(0, 10);
   if (end && end < today) return { state: "HISTORICAL", reason: "PAST_EVENT", ticketStatus: ticket, priceStatus: price };
+  const rawStartTime = text(input.startTime);
+  const rawEndTime = text(input.endTime);
+  const startTime = rawStartTime ? truthTime(rawStartTime) : null;
+  const endTime = rawEndTime ? truthTime(rawEndTime) : null;
+  if ((rawStartTime && !startTime) || (rawEndTime && !endTime)) {
+    return { state: "REVIEW_REQUIRED", reason: "MALFORMED_EVENT_TIME", ticketStatus: ticket, priceStatus: price };
+  }
+  if ((startTime || endTime) && !timezone) {
+    return { state: "REVIEW_REQUIRED", reason: "TIMEZONE_UNKNOWN", ticketStatus: ticket, priceStatus: price };
+  }
+  if (timezone && endTime && end && end === today) {
+    const eventEnd = localDateTimeToUtc(end, endTime, timezone);
+    if (eventEnd.getTime() <= now.getTime()) {
+      return { state: "HISTORICAL", reason: "PAST_EVENT_TIME", ticketStatus: ticket, priceStatus: price };
+    }
+  }
   const rawExpiry = text(input.expiresAt);
   if (!rawExpiry) return { state: "REVIEW_REQUIRED", reason: "MISSING_EXPIRY", ticketStatus: ticket, priceStatus: price };
   const expiry = new Date(rawExpiry);
@@ -296,7 +362,7 @@ export function evaluatePublicEventTruth(input: {
   return { state: "CURRENT_VERIFIED", reason: "FRESH_EVIDENCE", ticketStatus: ticket, priceStatus: price };
 }
 
-export function publicEventTruthForMarketResult(result: Pick<TravelMarketResult, "source" | "expires_at" | "start_date" | "end_date" | "metadata">, now = new Date()) {
+export function publicEventTruthForMarketResult(result: Pick<TravelMarketResult, "source" | "expires_at" | "start_date" | "end_date" | "metadata">, now = new Date(), destinationTimezone?: string | null) {
   const event = result.metadata?.public_event && typeof result.metadata.public_event === "object"
     ? result.metadata.public_event as Record<string, unknown>
     : {};
@@ -305,6 +371,10 @@ export function publicEventTruthForMarketResult(result: Pick<TravelMarketResult,
     expiresAt: result.expires_at,
     startDate: result.start_date || event.startDate,
     endDate: result.end_date || event.endDate,
+    startTime: event.startTime,
+    endTime: event.endTime,
+    timezone: event.timezone,
+    destinationTimezone,
     ticketStatus: event.ticketStatus || result.metadata?.ticket_status,
     priceStatus: event.priceStatus || result.metadata?.price_status
   }, now);

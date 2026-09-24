@@ -455,6 +455,9 @@ function validateTripWide(itinerary: RoamlyItinerary, payload: TripPlannerPayloa
         source: suggestion.market_source,
         expiresAt: suggestion.expires_at,
         startDate: suggestion.date,
+        startTime: suggestion.event_start_time,
+        endTime: suggestion.event_end_time,
+        timezone: suggestion.event_timezone,
         ticketStatus: "unknown",
         priceStatus: suggestion.price_confidence === "unknown" ? "unknown" : undefined
       });

@@ -1219,6 +1219,8 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     }
   }
 
+  if (suggestion.market_source === "public_web" && suggestion.factual_status === "unknown") return null;
+
   if (affiliate) {
     return {
       href: affiliate,
