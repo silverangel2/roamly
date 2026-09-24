@@ -31,7 +31,7 @@ assert.match(magazine, /curatedProducts/, "Worth Packing renders curated categor
 assert.match(magazine, /Stories for wherever you’re going/, "the primary Finds surface is editorial rather than a search-results heading");
 assert.match(magazine, /aria-labelledby="stay-heading"[\s\S]*?Where to stay/, "the stay editorial slot remains visible when live inventory is empty");
 assert.match(magazine, /aria-labelledby="activities-heading"[\s\S]*?Things worth doing/, "the activity editorial slot remains visible when live inventory is empty");
-assert.equal((magazine.match(/href=\{card\.href\}/g) || []).length, 3, "live and curated product, hotel, activity, and flight cards use item-specific destinations");
+assert.equal((magazine.match(/href=\{card\.href\}/g) || []).length, 4, "live and curated product, hotel, activity, and flight links use item-specific destinations");
 assert.equal((magazine.match(/href=\{`\/plan/g) || []).length, 1, "the only planner link in the magazine is the intentional general destination-story action");
 assert.match(magazine, /Plan around \{story\.city\}/, "general destination editorial may retain its secondary planning action");
 assert.match(puzzle, /Swap two pieces at a time/, "destination puzzle describes the playable swap mechanic");
