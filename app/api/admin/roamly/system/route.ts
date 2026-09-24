@@ -6,6 +6,7 @@ import { getRoamlyLaunchReadiness } from "@/lib/roamly/launchReadiness";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getRoamlySocialEnvStatus } from "@/lib/roamly/social";
 import { ensureRoamlyProfile, getRoamlyProfileTableStatus, getRoamlyUserAppStatus } from "@/lib/roamly/profile";
+import { providerDiagnostics } from "@/lib/roamly/providers";
 
 const tables = [
   "roamly_profiles",
@@ -117,6 +118,7 @@ export async function GET() {
       locationSettingsCount: locationSettings.count || 0,
       lastLocationUpdate: lastLocation.data || null,
       affiliates: getAffiliateReadiness(),
+      providers: providerDiagnostics(),
       email: isEmailConfigured(),
       social: getRoamlySocialEnvStatus(),
       launchReadiness: getRoamlyLaunchReadiness(getRoamlyAccessForUser(guard.user.email)),

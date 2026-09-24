@@ -53,6 +53,10 @@ export type RoamlyProviderDiagnostics = {
   configured: boolean;
   required_env: string[];
   status: RoamlyProviderStatus;
+  commercial_routing: "available" | "unavailable" | "not_applicable";
+  authoritative_inventory: "available" | "unavailable" | "unknown" | "not_applicable";
+  authorization: "verified" | "unverified" | "not_applicable";
+  live_reachability: "verified" | "unverified" | "unavailable" | "not_applicable";
 };
 
 type AdapterConfig = {
@@ -165,6 +169,35 @@ function configured(config: AdapterConfig) {
   return config.requiredEnv.every(envConfigured);
 }
 
+function liveInventoryConfigured(kind: RoamlyProviderKind) {
+  if (kind === "flights") return Boolean(clean(process.env.TRAVELPAYOUTS_API_TOKEN));
+  if (kind === "hotels") {
+    return (
+      clean(process.env.ROAMLY_HOTEL_INVENTORY_PROVIDER).toLowerCase() === "booking" &&
+      Boolean(clean(process.env.BOOKING_DEMAND_API_TOKEN) && clean(process.env.BOOKING_DEMAND_AFFILIATE_ID))
+    );
+  }
+  if (kind === "activities") return Boolean(clean(process.env.KLOOK_API_KEY) && clean(process.env.ROAMLY_KLOOK_PARTNER_ID));
+  if (kind === "driving_distance" || kind === "maps") return Boolean(clean(process.env.GOOGLE_MAPS_API_KEY));
+  return false;
+}
+
+function diagnosticCapabilities(adapter: AdapterConfig, isConfigured: boolean): Pick<RoamlyProviderDiagnostics, "commercial_routing" | "authoritative_inventory" | "authorization" | "live_reachability"> {
+  const commercial = ["flights", "hotels", "activities", "affiliates"].includes(adapter.kind)
+    ? isConfigured ? "available" : "unavailable"
+    : "not_applicable";
+  const liveConfigured = liveInventoryConfigured(adapter.kind);
+  const inventory = ["flights", "hotels", "activities", "driving_distance", "maps"].includes(adapter.kind)
+    ? liveConfigured ? "unknown" : "unavailable"
+    : "not_applicable";
+  return {
+    commercial_routing: commercial as RoamlyProviderDiagnostics["commercial_routing"],
+    authoritative_inventory: inventory as RoamlyProviderDiagnostics["authoritative_inventory"],
+    authorization: liveConfigured ? "unverified" : "not_applicable",
+    live_reachability: liveConfigured ? "unverified" : ["flights", "hotels", "activities", "driving_distance", "maps"].includes(adapter.kind) ? "unavailable" : "not_applicable"
+  };
+}
+
 function unavailable<T>(config: AdapterConfig, requiredEnv = config.requiredEnv): RoamlyProviderResponse<T> {
   return {
     provider: config.provider,
@@ -212,12 +245,17 @@ function available<T>(config: AdapterConfig, normalized: T, raw: unknown = null)
 export function providerDiagnostics(): RoamlyProviderDiagnostics[] {
   return Object.values(ADAPTERS).map((adapter) => {
     const isConfigured = configured(adapter);
+    const capabilities = diagnosticCapabilities(adapter, isConfigured);
+    const inventoryDomain = ["flights", "hotels", "activities"].includes(adapter.kind);
     return {
       kind: adapter.kind,
       provider: adapter.provider,
       configured: isConfigured,
       required_env: adapter.requiredEnv,
-      status: isConfigured ? "available" : "unavailable"
+      status: inventoryDomain
+        ? capabilities.authoritative_inventory === "unknown" || capabilities.commercial_routing === "available" ? "degraded" : "unavailable"
+        : isConfigured ? "available" : "unavailable",
+      ...capabilities
     };
   });
 }

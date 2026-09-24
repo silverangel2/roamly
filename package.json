@@ -24,6 +24,7 @@
     "test:klook-affiliate-links": "node --experimental-strip-types scripts/roamly-klook-affiliate-link-checks.mjs",
     "test:market-provider-errors": "node --experimental-strip-types scripts/roamly-market-provider-error-checks.mjs",
     "test:travelpayouts-credentials": "node scripts/roamly-travelpayouts-token-checks.mjs",
+    "test:provider-diagnostics": "node scripts/roamly-provider-diagnostics-checks.mjs",
     "test:gmail-disconnect-privacy": "node --experimental-strip-types scripts/roamly-gmail-disconnect-checks.mjs",
     "test:session-token-scopes": "node --experimental-strip-types scripts/roamly-session-token-scope-checks.mjs",
     "test:facebook-publication-truth": "node --experimental-strip-types scripts/facebook-publication-truth-checks.mjs",
