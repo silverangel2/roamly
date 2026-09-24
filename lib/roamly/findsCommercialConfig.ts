@@ -94,7 +94,7 @@ export const activeFindsPromo: FindsPromoConfig = {
   type: "tracked_link",
   eyebrow: "A little extra to discover",
   headline: "Find something memorable for the journey",
-  description: "Browse the current experience selection from Roamly’s travel partners.",
+  description: "Browse the current experience selection and find something memorable for the journey.",
   href: "https://kkday.tpo.lu/DrPvqlSH",
   placement: "feature"
 };
@@ -103,7 +103,7 @@ export const findsTravelServices = {
   airportTransfer: {
     eyebrow: "Getting from the airport",
     headline: "Start the trip smoothly",
-    description: "Explore airport transfer options through the supplied travel partner.",
+    description: "Find an airport transfer and make the first leg of the trip easier.",
     href: "https://intui.tpo.lu/6GQiV5Ai"
   },
   stays: {

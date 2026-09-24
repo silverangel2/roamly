@@ -19,7 +19,7 @@ assert.doesNotMatch(findsPage, /images\.unsplash\.com/, "market listings do not 
 assert.match(findsPage, /amazonAffiliateDisclosure/, "Amazon affiliate disclosure is included for curated links");
 assert.match(findsPage, /curatedAmazonFindCards/, "Worth Packing includes curated category recommendations when the live catalog is unavailable");
 assert.match(magazine, /rel="noopener noreferrer"/, "external partner links are isolated from the opener");
-assert.match(magazine, /Real products only, when verified/i, "the magazine distinguishes real listings from inspirational content");
+assert.match(magazine, /Curated travel essentials/i, "the magazine labels curated categories without implying live listings");
 assert.match(tabs, /No unverified offers are shown/i, "empty shelves do not imply inventory that is not connected");
 assert.match(magazine, /not live product listings or price claims/i, "curated Amazon categories do not imply live inventory or prices");
 assert.match(magazine, /curatedProducts/, "Worth Packing renders curated category recommendations");
