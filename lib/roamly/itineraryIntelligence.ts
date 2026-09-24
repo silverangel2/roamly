@@ -298,11 +298,35 @@ function applyMarketIdentity(
   usedMarketIds.add(candidate.id);
   const verification = verificationStatus(candidate);
   const location = clean(candidate.title) || clean(candidate.city) || clean(candidate.destination) || clean(item.location_name);
+  const factualStatus: RoamlyActivitySeed["factualStatus"] =
+    verification === "verified" || verification === "native_verified"
+      ? "verified"
+      : candidate.price_type === "search_ready"
+        ? "search_ready"
+        : candidate.price_type === "estimated_fallback"
+          ? "estimated"
+          : "unknown";
+  const costStatus: RoamlyActivitySeed["cost_status"] =
+    (verification !== "verified" && verification !== "native_verified") || candidate.price_amount == null
+      ? "UNKNOWN"
+      : candidate.price_type === "live_partner" || candidate.price_type === "cached_recent"
+        ? "LIVE_SEARCH"
+        : "ESTIMATED";
   return {
     ...item,
+    candidateId: candidate.id,
+    source: candidate.source,
+    factualStatus,
     title: candidate.title,
     location_name: location,
     map_query: clean(candidate.normal_search_url || candidate.booking_url) ? candidate.title : `${candidate.title} ${candidate.city || candidate.destination || ""}`,
+    estimated_cost: costStatus === "UNKNOWN" || typeof candidate.price_amount !== "number" || !Number.isFinite(candidate.price_amount) ? null : candidate.price_amount,
+    cost_status: costStatus,
+    booking_label: undefined,
+    booking: undefined,
+    affiliate_category: undefined,
+    coordinates: null,
+    timing_status: "PLANNED" as const,
     description:
       verification === "verified" || verification === "native_verified"
         ? `Verified source result. ${clean(item.description) || "Confirm current hours, route, and price before going."}`

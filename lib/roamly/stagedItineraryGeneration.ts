@@ -834,6 +834,7 @@ function marketVerificationStatus(result: TravelMarketResult) {
 function compactVerifiedCandidate(result: TravelMarketResult) {
   const evidence = compactTravelEvidence(getRecord(result.metadata)?.travel_evidence);
   return {
+    candidateId: result.id,
     category: result.category,
     title: result.title,
     provider: result.provider,
@@ -847,6 +848,150 @@ function compactVerifiedCandidate(result: TravelMarketResult) {
     has_booking_or_search_url: Boolean(result.affiliate_url || result.booking_url || result.normal_search_url),
     rating: getRecord(evidence)?.marketplace_rating
   };
+}
+
+function candidateFactualStatus(result: TravelMarketResult): RoamlyActivitySeed["factualStatus"] {
+  const verification = marketVerificationStatus(result);
+  if (verification === "requires_verification" || verification === "search_link_only") {
+    return result.price_type === "search_ready" ? "search_ready" : "unknown";
+  }
+  if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "verified";
+  if (result.price_type === "search_ready") return "search_ready";
+  if (result.price_type === "estimated_fallback") return "estimated";
+  return "unknown";
+}
+
+function candidateCostStatus(result: TravelMarketResult): RoamlyActivitySeed["cost_status"] {
+  const verification = marketVerificationStatus(result);
+  if (verification !== "verified" && verification !== "native_verified") return "UNKNOWN";
+  if (result.price_type === "live_partner" || result.price_type === "cached_recent") return "LIVE_SEARCH";
+  if (result.price_type === "search_ready" || result.price_type === "estimated_fallback") return "ESTIMATED";
+  return "UNKNOWN";
+}
+
+function timelineCandidateCategory(item: RoamlyActivitySeed): TravelMarketResult["category"][] {
+  const type = stagedItemType(item);
+  if (type === "meal") return ["restaurant"];
+  if (type === "hotel") return ["hotel"];
+  if (type === "travel") return ["flight", "transport"];
+  if (type === "transfer") return ["transport"];
+  if (type === "activity") return ["attraction", "tour"];
+  return ["attraction", "tour", "restaurant", "hotel", "flight", "transport"];
+}
+
+function confirmedBookingForItem(item: RoamlyActivitySeed, payload: TripPlannerPayload) {
+  if (item.item_type !== "booking" && item.plan_role !== "protected_anchor") return false;
+  const title = normalizedTextKey(item.title);
+  return (payload.confirmedBookings || []).find((booking) => {
+    const bookingTitle = normalizedTextKey(getString(booking.title, ""));
+    return Boolean(title && bookingTitle && (title === bookingTitle || title.includes(bookingTitle) || bookingTitle.includes(title)));
+  }) || null;
+}
+
+function isUnresolvedMustDo(item: RoamlyActivitySeed) {
+  return Boolean(item.must_do || item.plan_role === "must_do") && !item.candidateId;
+}
+
+function isGenericNonInventoryItem(item: RoamlyActivitySeed) {
+  const type = stagedItemType(item);
+  if (["rest", "transfer", "travel", "reminder"].includes(type)) return true;
+  const text = `${item.title} ${item.description} ${item.location_name}`.toLowerCase();
+  if (type === "meal") return (!item.location_name || isGenericPlaceName(item.location_name)) && /\b(breakfast|brunch|lunch|dinner|meal|food|near the hotel|nearby)\b/.test(text);
+  if (type === "hotel") return /\b(check[- ]?in|check[- ]?out|accommodation|hotel base|luggage|bags?|baggage)\b/.test(text);
+  return /\b(free time|explore|exploration|neighborhood walk|neighbourhood walk|old town|old port|downtown|city centre|city center)\b/.test(text);
+}
+
+function rehydrateGroundedTimelineItem(item: RoamlyActivitySeed, candidate: TravelMarketResult): RoamlyActivitySeed {
+  const location = candidate.city || candidate.destination || "";
+  const cost = candidateCostStatus(candidate) !== "UNKNOWN" && typeof candidate.price_amount === "number" && Number.isFinite(candidate.price_amount)
+    ? candidate.price_amount
+    : null;
+  return {
+    ...item,
+    candidateId: candidate.id,
+    source: candidate.source,
+    factualStatus: candidateFactualStatus(candidate),
+    title: candidate.title,
+    location_name: location,
+    map_query: [candidate.title, location].filter(Boolean).join(" "),
+    estimated_cost: cost,
+    cost_status: cost == null ? "UNKNOWN" : candidateCostStatus(candidate),
+    booking_label: undefined,
+    booking: undefined,
+    affiliate_category: undefined,
+    coordinates: null,
+    timing_status: "PLANNED",
+    uncertainty: Array.from(new Set([
+      ...(item.uncertainty || []),
+      "Timeline placement is planned; verify exact hours, availability, and route before relying on it."
+    ]))
+  };
+}
+
+function stripUnmatchedTimelineIdentity(item: RoamlyActivitySeed): RoamlyActivitySeed {
+  return {
+    ...item,
+    candidateId: undefined,
+    source: undefined,
+    factualStatus: "DISCOVERY_SUGGESTION",
+    estimated_cost: null,
+    cost_status: "UNKNOWN",
+    booking_label: undefined,
+    booking: undefined,
+    affiliate_category: undefined,
+    coordinates: null,
+    timing_status: "PLANNED",
+    uncertainty: Array.from(new Set([...(item.uncertainty || []), "This is a planning suggestion, not verified inventory."]))
+  };
+}
+
+function rehydrateConfirmedBookingItem(item: RoamlyActivitySeed, booking: NonNullable<TripPlannerPayload["confirmedBookings"]>[number]): RoamlyActivitySeed {
+  const amount = typeof booking.amount_cents === "number" && Number.isFinite(booking.amount_cents)
+    ? booking.amount_cents / 100
+    : null;
+  const location = getString(booking.address || booking.city, "");
+  return {
+    ...stripUnmatchedTimelineIdentity(item),
+    anchor_id: item.anchor_id || undefined,
+    plan_role: "protected_anchor",
+    item_type: "booking",
+    title: getString(booking.title, item.title),
+    description: `${getString(booking.provider_name, "Confirmed booking")}. Keep this booking fixed; other plans must adapt around it.`,
+    location_name: location,
+    map_query: location || getString(booking.title, item.title),
+    estimated_cost: amount,
+    cost_status: amount == null ? "UNKNOWN" : "CONFIRMED",
+    factualStatus: "verified",
+    uncertainty: amount == null ? ["Price was not present in the confirmed booking record."] : []
+  };
+}
+
+/**
+ * Binds factual timeline items to the grounded market set before they can be
+ * assembled into the persisted itinerary. Model-provided identity and facts
+ * are never accepted as evidence on their own.
+ */
+export function enforceGroundedTimelineCandidates(day: RoamlyDayPlan, payload: TripPlannerPayload): RoamlyDayPlan {
+  const marketResults = itineraryMarketResults(payload);
+  const byId = new Map(marketResults.map((result) => [result.id, result]));
+  const timeline = day.live_timeline.flatMap((item) => {
+    if (item.candidateId) {
+      const candidate = byId.get(item.candidateId);
+      if (!candidate || !timelineCandidateCategory(item).includes(candidate.category)) return [];
+      return [rehydrateGroundedTimelineItem(item, candidate)];
+    }
+
+    const confirmedBooking = confirmedBookingForItem(item, payload);
+    if (confirmedBooking) return [rehydrateConfirmedBookingItem(item, confirmedBooking)];
+    if (isUnresolvedMustDo(item)) return [stripUnmatchedTimelineIdentity(item)];
+    if (isGenericNonInventoryItem(item)) return [stripUnmatchedTimelineIdentity(item)];
+
+    // A specific activity/place without a real candidate identity is not safe
+    // to persist. Protected must-dos and bookings are reintroduced later by
+    // repairItineraryForTravelRequirements from canonical payload state.
+    return [];
+  });
+  return { ...day, live_timeline: timeline };
 }
 
 function verifiedCandidatesForPrompt(payload: TripPlannerPayload, state: StagedGenerationState, limit = 10) {
@@ -1057,6 +1202,7 @@ Rules:
 - Return exactly ${days.length} day objects.
 - Use 4 to 6 ordered items per day.
 - Prefer exact verified candidate names for attractions, tours, restaurants, hotels, and transport anchors.
+- A factual item candidateId must exactly match a candidateId in Verified candidates; never invent or infer an identity.
 - Only selected grounded candidates may be represented as factual inventory. Preserve candidateId, source, and factualStatus when used.
 - Any idea not tied to a selected candidate is DISCOVERY_SUGGESTION; do not add price, availability, provider, schedule, or booking claims.
 - Treat activityDecision as deterministic feasibility and fit guidance. Do not schedule INFEASIBLE candidates; preserve protected confirmed bookings and must-dos; only flexible recommendations may be displaced by a higher-fit feasible special event.
@@ -1219,6 +1365,7 @@ export function repairStagedDayForGenerationValidation(
   const hasMarketCandidates = itineraryMarketResults(payload).length > 0;
   const deduped = day.live_timeline
     .map((item) => cleanItem(item))
+    .map((item) => ({ ...item, item_type: stagedItemType(item) }))
     .filter((item) => shouldKeepGeneratedItem(item, payload, hasMarketCandidates))
     .filter((item) => {
       const key = normalizedTextKey(item.title || item.map_query || item.location_name);
@@ -1227,7 +1374,7 @@ export function repairStagedDayForGenerationValidation(
       return true;
     });
 
-  const scheduled = repairTimelineSchedule(deduped);
+  const scheduled = repairTimelineSchedule(enforceGroundedTimelineCandidates({ ...day, live_timeline: deduped }, payload).live_timeline);
   const explicitFood = (day.food || []).filter((item) => item && !isGenericPlaceName(item)).slice(0, 3);
   const food = explicitFood.length
     ? explicitFood
