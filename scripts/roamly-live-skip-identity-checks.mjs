@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { localizeActivityRecords, orderActivitiesByItinerary } from "../lib/roamly/liveActivityBinding.ts";
-import { mergeLiveActivityStatuses, selectNowAndNextActivity } from "../lib/roamly/liveCompanion.ts";
+import {
+  mergeLiveActivityStatuses,
+  persistSkippedActivityIds,
+  readPersistedSkippedActivityIds,
+  selectNowAndNextActivity
+} from "../lib/roamly/liveCompanion.ts";
 
 const tiedCreatedAt = "2026-09-25T12:00:00.000Z";
 
@@ -104,6 +109,30 @@ const staleAfterSkip = mergeLiveActivityStatuses(
 assert.equal(staleAfterSkip.find((item) => item.id === "food-id").status, "skipped", "stale refreshed props cannot restore a skipped Now stop");
 assert.equal(staleAfterSkip.find((item) => item.id === "hotel-id").status, "skipped");
 
+const storageValues = new Map();
+const storage = {
+  getItem: (key) => storageValues.get(key) ?? null,
+  removeItem: (key) => storageValues.delete(key),
+  setItem: (key, value) => storageValues.set(key, value)
+};
+const persisted = new Set(["food-id"]);
+persistSkippedActivityIds("trip-id", persisted, storage);
+const remountedSkippedIds = readPersistedSkippedActivityIds("trip-id", storage);
+const remountedActivities = mergeLiveActivityStatuses(
+  [
+    { id: "food-id", title: "Providence attraction ticket", status: "planned", timeLabel: "3:15 PM" },
+    { id: "restaurant-id", title: "Providence restaurants", status: "planned", timeLabel: "5:00 PM" }
+  ],
+  remountedSkippedIds
+);
+const remountedSelection = selectNowAndNextActivity({
+  activities: remountedActivities,
+  tripStartDate: "2026-09-25",
+  timezone: "America/New_York",
+  now: "2026-09-25T20:00:00.000Z"
+});
+assert.equal(remountedSelection.now?.id, "restaurant-id", "persisted skip survives stale planned props on remount");
+
 const translated = {
   daily_itinerary: [
     {
@@ -167,9 +196,13 @@ assert.match(trips, /order\("day_number"\)\.order\("created_at"\)\.order\("id"\)
 assert.match(trips, /orderActivitiesByItinerary\(/);
 const runAction = client.slice(client.indexOf("const runAction = useCallback"), client.indexOf("const notificationActionHandledRef"));
 assert.match(runAction, /item\.id === activityId \? \{ \.\.\.item, status: nextStatus \} : item/);
-assert.match(runAction, /action === "skip"\) locallySkippedActivityIdsRef\.current\.add\(activityId\)/);
+assert.match(runAction, /action === "skip"\) \{/);
+assert.match(runAction, /locallySkippedActivityIdsRef\.current\.add\(activityId\)/);
+assert.match(runAction, /persistSkippedActivityIds\(tripId, locallySkippedActivityIdsRef\.current\)/);
 assert.doesNotMatch(runAction, /item\.title === updatedTitle/);
 assert.match(client, /mergeLiveActivityStatuses\(activities, locallySkippedActivityIdsRef\.current\)/);
+assert.match(client, /readPersistedSkippedActivityIds\(tripId\)/);
+assert.match(client, /persistSkippedActivityIds\(tripId, locallySkippedActivityIdsRef\.current\)/);
 assert.match(runAction, /setNotice\(updatedTitle \? `\$\{confirmation\} \$\{updatedTitle\}` : confirmation\)/);
 assert.match(client, /onClick=\{\(\) => void runAction\(currentActivity\.id, "complete"\)\}/);
 assert.match(client, /onClick=\{\(\) => void runAction\(currentActivity\.id, "skip"\)\}/);
