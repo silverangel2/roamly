@@ -18,6 +18,8 @@ import {
   isTodayWithinTripDates,
   mergeLiveActivityStatuses,
   mapsUrlForActivity,
+  persistSkippedActivityIds,
+  readPersistedSkippedActivityIds,
   tripWindowState,
   type LiveBookingDetails,
   type LiveCompanionActivity,
@@ -402,7 +404,8 @@ export function LiveTripClient({
 }: LiveTripClientProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
-  const [items, setItems] = useState(activities);
+  const locallySkippedActivityIdsRef = useRef<Set<string>>(readPersistedSkippedActivityIds(tripId));
+  const [items, setItems] = useState(() => mergeLiveActivityStatuses(activities, locallySkippedActivityIdsRef.current));
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
   const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
   const [pushReady, setPushReady] = useState(false);
@@ -435,8 +438,6 @@ export function LiveTripClient({
   const lastForegroundRefreshRef = useRef(0);
   const demoStateRef = useRef<LiveDemoState | null>(null);
   const demoStartedWatchRef = useRef(false);
-  const locallySkippedActivityIdsRef = useRef<Set<string>>(new Set());
-
   const demoActive = Boolean(demoState && liveDemoEnabled);
   const activeActivities = useMemo(
     () => (demoActive && demoState ? makeDemoActivities(tripId, demoState, timezone) : items),
@@ -1182,7 +1183,10 @@ export function LiveTripClient({
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not update activity.");
       const updatedTitle = typeof data?.activity?.title === "string" ? data.activity.title : "";
-      if (action === "skip") locallySkippedActivityIdsRef.current.add(activityId);
+      if (action === "skip") {
+        locallySkippedActivityIdsRef.current.add(activityId);
+        persistSkippedActivityIds(tripId, locallySkippedActivityIdsRef.current);
+      }
       setItems((current) => current.map((item) => (
         item.id === activityId ? { ...item, status: nextStatus } : item
       )));

@@ -69,6 +69,38 @@ export function mergeLiveActivityStatuses<T extends { id: string; status?: strin
   );
 }
 
+type LiveSkippedActivityStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
+
+export function readPersistedSkippedActivityIds(
+  tripId: string,
+  storage?: LiveSkippedActivityStorage | null
+) {
+  const target = storage ?? (typeof window !== "undefined" ? window.sessionStorage : null);
+  if (!target || !tripId) return new Set<string>();
+  try {
+    const value = JSON.parse(target.getItem(`roamly:live-skipped:${tripId}`) || "[]");
+    return new Set<string>(Array.isArray(value) ? value.filter((id): id is string => typeof id === "string" && id.length > 0) : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+export function persistSkippedActivityIds(
+  tripId: string,
+  activityIds: ReadonlySet<string>,
+  storage?: LiveSkippedActivityStorage | null
+) {
+  const target = storage ?? (typeof window !== "undefined" ? window.sessionStorage : null);
+  if (!target || !tripId) return;
+  try {
+    const key = `roamly:live-skipped:${tripId}`;
+    if (activityIds.size === 0) target.removeItem(key);
+    else target.setItem(key, JSON.stringify(Array.from(activityIds).sort()));
+  } catch {
+    // Session storage can be unavailable in private or restricted browser contexts.
+  }
+}
+
 export type LiveCompanionTrip = {
   id: string;
   title?: string | null;
