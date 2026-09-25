@@ -38,6 +38,7 @@ import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRA
 import { buildTravelerPersonalizationContext, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { readRelevantSuccessfulTripPatterns, selectRelevantSuccessfulTripPatterns } from "@/lib/roamly/successfulTripExperiencePatterns";
 
 export type StagedGenerationStatus =
   | "queued"
@@ -284,6 +285,10 @@ export function getStagedGenerationState(metadata: unknown, expectedTripId?: str
     confirmed_preferences: getRecord(storedPersonalization?.accepted) || {},
     inferred_preferences: getRecord(storedPersonalization?.inferred) || {}
   });
+  personalization.aggregateGuidance = selectRelevantSuccessfulTripPatterns(
+    Array.isArray(storedPersonalization?.aggregateGuidance) ? storedPersonalization.aggregateGuidance : [],
+    payload
+  );
   return {
     version: 2,
     tripId: stateTripId || scopedTripId,
@@ -1071,14 +1076,36 @@ function groundedDecisionForPrompt(state: StagedGenerationState) {
 }
 
 function personalizationPrompt(state: StagedGenerationState) {
+  const aggregateGuidance = state.personalization.aggregateGuidance || [];
   if (!state.personalization.enabled) {
-    return "Historical traveler personalization: disabled. Do not use stored durable or inferred preferences.";
+    return `Historical traveler personalization: disabled. Do not use stored durable or inferred preferences.\n${aggregateGuidancePrompt(aggregateGuidance)}`;
   }
   return `Historical traveler personalization (soft guidance only): ${JSON.stringify({
     accepted: state.personalization.accepted,
     inferred: state.personalization.inferred
   })}
+${aggregateGuidancePrompt(aggregateGuidance)}
 Rules: accepted preferences are soft guidance; inferred preferences are lower-confidence and non-binding. Current-trip explicit hard and soft instructions override historical preferences. Confirmed bookings are fixed anchors and override recommendations. Do not invent facts, availability, prices, or requests from these preferences. Do not infer nationality, health, family status, finances, or other personal attributes. Affiliate optimization remains lower priority than traveler fit.`;
+}
+
+function aggregateGuidancePrompt(patterns: Array<Record<string, unknown>>) {
+  if (!patterns.length) return "Anonymous aggregate successful-trip guidance: none relevant.";
+  return `Anonymous aggregate successful-trip guidance (soft historical context only; not provider facts, live inventory, availability, prices, booking evidence, or hard constraints): ${JSON.stringify(patterns.map((pattern) => ({
+    destinationKey: pattern.destinationKey,
+    travelStyle: pattern.travelStyle,
+    accommodationPreference: pattern.accommodationPreference,
+    transportationPreference: pattern.transportationPreference,
+    durationBucket: pattern.durationBucket,
+    travelersBucket: pattern.travelersBucket,
+    sampleCount: pattern.sampleCount,
+    averageSatisfaction: pattern.averageSatisfaction,
+    averageScheduleRealism: pattern.averageScheduleRealism,
+    averageBudgetAccuracy: pattern.averageBudgetAccuracy,
+    averageHotelLocationSatisfaction: pattern.averageHotelLocationSatisfaction,
+    averageHotelQualitySatisfaction: pattern.averageHotelQualitySatisfaction,
+    averageTransportationSatisfaction: pattern.averageTransportationSatisfaction
+  })))}
+Use only to choose among already grounded, eligible candidates. Never create or name a candidate, provider, price, schedule, availability, coordinates, route, URL, booking, or factual venue from this guidance. Current requirements, must-dos, confirmed bookings, deterministic eligibility, feasibility, budget truth, current explicit preferences, and accepted user-specific preferences always override aggregate guidance.`;
 }
 
 function outlinePrompt(payload: TripPlannerPayload, state: StagedGenerationState) {
@@ -1650,12 +1677,19 @@ export async function prepareStagedGenerationContext(params: {
   tripId: string;
   payload: TripPlannerPayload;
 }) {
-  const [committed, confirmedBookings, travelerMemory] = await Promise.all([
+  const [committed, confirmedBookings, travelerMemory, aggregateGuidance] = await Promise.all([
     getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId, params.payload.budgetCurrency),
     getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId),
-    getTravelerMemory(params.supabase, params.userId)
+    getTravelerMemory(params.supabase, params.userId),
+    (async () => {
+      const admin = createSupabaseAdminClient();
+      return admin
+        ? readRelevantSuccessfulTripPatterns({ supabase: admin, input: params.payload })
+        : [];
+    })()
   ]);
   const personalization = buildTravelerPersonalizationContext(travelerMemory.profile);
+  personalization.aggregateGuidance = aggregateGuidance;
   const marketSearch = await searchTripMarketPrices(params.payload, {
     supabase: params.supabase,
     store: true

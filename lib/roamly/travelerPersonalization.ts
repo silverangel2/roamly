@@ -1,3 +1,5 @@
+import type { SuccessfulTripExperiencePattern } from "@/lib/roamly/successfulTripExperiencePatterns";
+
 export const GENERATION_PERSONALIZATION_KEYS = [
   "preferred_travel_pace",
   "maximum_comfortable_driving_hours",
@@ -27,6 +29,7 @@ export type TravelerPersonalizationContext = {
   enabled: boolean;
   accepted: Partial<Record<GenerationPersonalizationKey, unknown>>;
   inferred: Partial<Record<GenerationPersonalizationKey, unknown>>;
+  aggregateGuidance: SuccessfulTripExperiencePattern[];
 };
 
 type ProfileMemory = {
@@ -62,7 +65,7 @@ function safePreferences(value: Record<string, unknown> | null | undefined) {
 
 export function buildTravelerPersonalizationContext(profile: ProfileMemory | null | undefined): TravelerPersonalizationContext {
   if (!profile || profile.personalization_enabled === false) {
-    return { enabled: false, accepted: {}, inferred: {} };
+    return { enabled: false, accepted: {}, inferred: {}, aggregateGuidance: [] };
   }
 
   const accepted = safePreferences(profile.confirmed_preferences);
@@ -71,7 +74,7 @@ export function buildTravelerPersonalizationContext(profile: ProfileMemory | nul
     Object.entries(allInferred).filter(([key]) => !Object.prototype.hasOwnProperty.call(accepted, key))
   ) as Partial<Record<GenerationPersonalizationKey, unknown>>;
 
-  return { enabled: true, accepted, inferred };
+  return { enabled: true, accepted, inferred, aggregateGuidance: [] };
 }
 
 export function personalizationText(value: unknown) {
