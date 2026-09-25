@@ -14,6 +14,7 @@ import {
 import {
   claimGenerationJobByTrip,
   claimGenerationJobs,
+  cancelGenerationJobForTerminalTrip,
   createOrResumeGenerationJob,
   markQueueFromLegacyState,
   reconcileGenerationLayersFromStagedState,
@@ -25,6 +26,7 @@ import {
 import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
 import { getPublicSupabaseHost, logGenerationDiagnostic } from "@/lib/roamly/generationDiagnostics";
 import { isMissingTableError } from "@/lib/trips";
+import { generationTripIsTerminal } from "@/lib/roamly/generationLifecycle";
 
 export type RoamlyGenerationWorkerConfig = {
   batchSize: number;
@@ -273,6 +275,7 @@ async function ensureTripJob(params: {
 }) {
   const trip = await loadTrip(params.admin, params.tripId, params.userId);
   if (!trip) return { ok: false as const, error: "Trip not found.", jobReady: false };
+  if (generationTripIsTerminal(trip)) return { ok: false as const, error: "TRIP_TERMINAL", jobReady: false };
   const state = getStagedGenerationState(trip.metadata, params.tripId);
   const result = await createOrResumeGenerationJob({
     supabase: params.admin,
@@ -446,6 +449,26 @@ async function processClaimedJob(params: {
       let trip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id);
       if (!trip) {
         throw new StagedGenerationError("Trip not found.", "TRIP_NOT_FOUND", 404, true);
+      }
+
+      if (generationTripIsTerminal(trip)) {
+        const cancelled = await cancelGenerationJobForTerminalTrip({
+          supabase: params.admin,
+          jobId: params.job.id,
+          userId: params.job.user_id,
+          reason: "TRIP_TERMINAL"
+        });
+        if (!cancelled.ok) throw new StagedGenerationError(cancelled.error, "TRIP_TERMINAL", 409, true);
+        return {
+          tripId: params.job.trip_id,
+          jobId: params.job.id,
+          ok: true,
+          claimed: true,
+          advanced,
+          terminal: true,
+          skipped: true,
+          error: "TRIP_TERMINAL"
+        } satisfies RoamlyGenerationWorkerResult;
       }
 
       let state = getStagedGenerationState(trip.metadata, params.job.trip_id);
@@ -804,6 +827,24 @@ async function processClaimedJob(params: {
       errorMessage: errorMessage(error)
     });
     const terminalTrip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id).catch(() => null);
+    if (terminalTrip && generationTripIsTerminal(terminalTrip)) {
+      const cancelled = await cancelGenerationJobForTerminalTrip({
+        supabase: params.admin,
+        jobId: params.job.id,
+        userId: params.job.user_id,
+        reason: "TRIP_TERMINAL"
+      });
+      return {
+        tripId: params.job.trip_id,
+        jobId: params.job.id,
+        ok: cancelled.ok,
+        claimed: true,
+        advanced,
+        terminal: true,
+        skipped: true,
+        error: cancelled.ok ? "TRIP_TERMINAL" : cancelled.error
+      } satisfies RoamlyGenerationWorkerResult;
+    }
     const terminalState = terminalTrip ? getStagedGenerationState(terminalTrip.metadata, params.job.trip_id) : null;
     if (terminalState && terminalStatus(terminalState.status)) {
       const code = terminalState.lastErrorCode || errorCode(error);

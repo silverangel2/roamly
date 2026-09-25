@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { lockGeneratedItinerary, markFreeItineraryUsed, type RoamlyItineraryUnlockSource } from "@/lib/roamly/billing";
+import { markFreeItineraryUsed, type RoamlyItineraryUnlockSource } from "@/lib/roamly/billing";
 import {
   completeGenerationJob,
   finalizeGenerationCompletion,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/roamly/generationDiagnostics";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { isMissingTableError } from "@/lib/trips";
+import { generationTripIsTerminal } from "@/lib/roamly/generationLifecycle";
 
 type FinalizationTrip = {
   id: string;
@@ -149,12 +150,6 @@ async function loadStoredFinalItinerary(params: {
 
 function normalizeUnlockSource(value: unknown): RoamlyItineraryUnlockSource {
   return value === "free" || value === "paid" || value === "bundle" || value === "admin" ? value : "paid";
-}
-
-function paymentStatusForUnlockSource(value: RoamlyItineraryUnlockSource) {
-  if (value === "free") return "free";
-  if (value === "bundle") return "bundled";
-  return "paid";
 }
 
 async function recordFreeFinalizationFailure(params: {
@@ -513,30 +508,19 @@ async function finalizeTripDirectly(params: {
   completedAt: string;
   unlockSource: RoamlyItineraryUnlockSource;
 }) {
-  const { error } = await params.supabase
-    .from("roamly_trips")
-    .update({
-      status: "generated",
-      itinerary_status: "generated",
-      itinerary_locked: true,
-      itinerary_locked_at: params.trip.itinerary_locked_at || params.completedAt,
-      itinerary_generated_at: params.trip.itinerary_generated_at || params.completedAt,
-      itinerary_unlock_source: params.trip.itinerary_unlock_source || params.unlockSource,
-      itinerary_payment_status:
-        params.trip.itinerary_payment_status && params.trip.itinerary_payment_status !== "unpaid"
-          ? params.trip.itinerary_payment_status
-          : paymentStatusForUnlockSource(params.unlockSource),
-      metadata: finalizedMetadata({
-        metadata: params.trip.metadata,
-        generationState: params.generationState,
-        completedAt: params.completedAt
-      }),
-      updated_at: params.completedAt
-    })
-    .eq("id", params.trip.id)
-    .eq("user_id", params.trip.user_id);
-
+  const { data, error } = await params.supabase.rpc("roamly_finalize_generation_trip", {
+    p_trip_id: params.trip.id,
+    p_user_id: params.trip.user_id,
+    p_metadata: finalizedMetadata({
+      metadata: params.trip.metadata,
+      generationState: params.generationState,
+      completedAt: params.completedAt
+    }),
+    p_unlock_source: params.unlockSource,
+    p_completed_at: params.completedAt
+  });
   if (error) return { ok: false as const, error: error.message };
+  if (data !== true) return { ok: false as const, error: "TRIP_TERMINAL" };
   return { ok: true as const };
 }
 
@@ -560,6 +544,7 @@ export async function finalizeCompletedStagedGeneration(params: {
   if (!loaded.trip) return { ok: false as const, error: "Trip not found." };
 
   const trip = loaded.trip;
+  if (generationTripIsTerminal(trip)) return { ok: false as const, error: "TRIP_TERMINAL" };
   const state = params.state || getStagedGenerationState(trip.metadata, params.tripId);
   const stored = await loadStoredFinalItinerary({ supabase, trip });
   const eligible = state?.status === "complete" || stored.exists;
@@ -597,10 +582,9 @@ export async function finalizeCompletedStagedGeneration(params: {
     }
   }
 
-  if (!trip.itinerary_locked || !trip.itinerary_generated_at) {
-    const lock = await lockGeneratedItinerary(supabase, trip.user_id, trip.id, unlockSource);
-    if (lock.error) return { ok: false as const, error: lock.error.message };
-  }
+  const current = await loadTrip({ supabase, tripId: trip.id, userId: trip.user_id });
+  if (current.error) return { ok: false as const, error: current.error };
+  if (generationTripIsTerminal(current.trip)) return { ok: false as const, error: "TRIP_TERMINAL" };
 
   const direct = await finalizeTripDirectly({
     supabase,

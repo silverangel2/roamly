@@ -16,6 +16,7 @@ import {
 } from "@/lib/roamly/brain/stages";
 import { getTravelerMemory, preferenceInfluenceSummary } from "@/lib/roamly/travelerMemory";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
+import { generationTripIsTerminal } from "@/lib/roamly/generationLifecycle";
 
 export { ROAMLY_BRAIN_STAGES, ROAMLY_BRAIN_VERSION, type RoamlyBrainStageType };
 export type GenerationJobStatus = "queued" | "running" | "waiting" | "completed" | "failed" | "cancelled";
@@ -378,6 +379,16 @@ export async function createOrResumeGenerationJob(params: {
 }) {
   const supabase = adminOrClient(params.supabase);
   if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+
+  const tripLookup = await supabase
+    .from("roamly_trips")
+    .select("id,status,itinerary_status")
+    .eq("id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (tripLookup.error) return { ok: false as const, error: tripLookup.error.message };
+  if (!tripLookup.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
+  if (generationTripIsTerminal(tripLookup.data)) return { ok: false as const, error: "TRIP_TERMINAL" };
 
   const idempotencyKey = generationIdempotencyKey(params.tripId);
   const existing = await supabase
@@ -959,6 +970,35 @@ export async function completeGenerationJob(params: {
   });
   if (error) return { ok: false as const, error: rpcError(error), job: null as RoamlyGenerationJob | null };
   return { ok: true as const, job: (data || null) as RoamlyGenerationJob | null };
+}
+
+export async function cancelGenerationJobForTerminalTrip(params: {
+  supabase: SupabaseClient;
+  jobId: string;
+  userId: string;
+  reason?: string;
+}) {
+  const now = new Date().toISOString();
+  const { data, error } = await params.supabase
+    .from("roamly_trip_generation_jobs")
+    .update({
+      status: "cancelled",
+      locked_at: null,
+      locked_by: null,
+      lease_expires_at: null,
+      cancelled_at: now,
+      cancellation_reason: (params.reason || "TRIP_TERMINAL").slice(0, 500),
+      last_error_code: "TRIP_TERMINAL",
+      last_error_message: "Generation stopped because the owning trip is terminal.",
+      updated_at: now
+    })
+    .eq("id", params.jobId)
+    .eq("user_id", params.userId)
+    .in("status", ["queued", "running", "waiting", "failed"])
+    .select("id")
+    .maybeSingle();
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const, cancelled: Boolean(data) };
 }
 
 export async function finalizeGenerationCompletion(params: {

@@ -12,12 +12,12 @@ assert.match(billing, /alreadyClaimedByThisTrip/);
 assert.match(billing, /return \{ ok: true as const, alreadyClaimed: true as const \}/);
 
 const claimIndex = finalization.indexOf('if (unlockSource === "free")');
-const lockIndex = finalization.indexOf("lockGeneratedItinerary", claimIndex);
 const directFinalizeIndex = finalization.indexOf("finalizeTripDirectly", claimIndex);
+const atomicFinalizeIndex = finalization.indexOf('rpc("roamly_finalize_generation_trip"');
 assert.ok(claimIndex >= 0, "free finalization must have an entitlement gate");
-assert.ok(lockIndex > claimIndex, "free entitlement must be checked before itinerary locking");
 assert.ok(directFinalizeIndex > claimIndex, "free entitlement must be checked before final trip finalization");
-assert.doesNotMatch(finalization.slice(claimIndex, lockIndex), /markFreeItineraryUsed\([\s\S]*?\.catch\(\(\) => null\)/);
+assert.ok(atomicFinalizeIndex >= 0, "finalization must use the lifecycle-guarded RPC");
+assert.doesNotMatch(finalization.slice(claimIndex), /markFreeItineraryUsed\([\s\S]*?\.catch\(\(\) => null\)/);
 assert.match(finalization, /FREE_ENTITLEMENT_CLAIM_RETRYABLE/);
 assert.match(finalization, /FREE_ITINERARY_ALREADY_USED/);
 
