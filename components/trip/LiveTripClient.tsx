@@ -183,6 +183,16 @@ function formatMeters(value: number | null | undefined) {
   return `${(value / 1000).toFixed(1)} km`;
 }
 
+function activityProgressLabel(status: string | null | undefined) {
+  if (status === "checked_in") return "Checked in";
+  if (status === "completed") return "Completed";
+  if (status === "skipped") return "Skipped";
+  if (status === "missed") return "Missed";
+  if (status === "nearby") return "Nearby";
+  if (status === "active") return "Active";
+  return "Planned";
+}
+
 function statusLabel(status: string | null | undefined) {
   if (status === "active") return "Live";
   if (status === "schedule_only") return "Schedule only";
@@ -525,6 +535,13 @@ export function LiveTripClient({
 
   const currentActivity = model.now || null;
   const nextActivity = model.next || liveActivities.find((item) => item.id !== currentActivity?.id) || null;
+  const todayActivities = useMemo(() => {
+    return [...liveActivities].sort((a, b) => {
+      const aStart = activityStartDate({ activity: a, tripStartDate: activeTripStartDate, timezone })?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bStart = activityStartDate({ activity: b, tripStartDate: activeTripStartDate, timezone })?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aStart - bStart;
+    });
+  }, [activeTripStartDate, liveActivities, timezone]);
   const nextTimingStatus = (nextActivity as (LiveCompanionActivity & { timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN" }) | null)?.timing_status;
   const mapsHref = useMemo(() => {
     const mapsTarget = currentActivity || nextActivity;
@@ -1163,13 +1180,19 @@ export function LiveTripClient({
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not update activity.");
       const updatedTitle = typeof data?.activity?.title === "string" ? data.activity.title : "";
-      setItems((current) => current.map((item) => (
-        item.id === activityId || (updatedTitle && item.title === updatedTitle)
-          ? { ...item, status: nextStatus }
-          : item
-      )));
+      setItems((current) => {
+        const idMatch = current.some((item) => item.id === activityId);
+        return current.map((item) => {
+          if (item.id === activityId) return { ...item, status: nextStatus };
+          if (!idMatch && updatedTitle && item.title === updatedTitle && item.status !== "completed" && item.status !== "skipped") {
+            return { ...item, status: nextStatus };
+          }
+          return item;
+        });
+      });
       void clearActivityNotification(tripId, activityId);
-      setNotice(action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.");
+      const confirmation = action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.";
+      setNotice(updatedTitle ? `${confirmation} ${updatedTitle}` : confirmation);
     } catch (err) {
       setError(localizeCustomerError(locale, err));
     } finally {
@@ -1418,21 +1441,50 @@ export function LiveTripClient({
                 >
                   {t("ui.actions.checkIn")}
                 </button>
-                <details className="relative">
-                  <summary className="flex min-h-12 cursor-pointer list-none items-center rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink">More options</summary>
-                  <div className="absolute left-0 top-full z-10 mt-2 w-64 rounded-2xl border border-cloud bg-white p-3 shadow-soft">
-                    <p className="text-xs font-bold leading-5 text-slate-500">Skip this activity from Live guidance. The rest of your trip keeps its scheduled times.</p>
-                    <button
-                      type="button"
-                      onClick={() => void runAction(currentActivity.id, "skip")}
-                      disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                      className="mt-3 min-h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 disabled:opacity-45"
-                    >
-                      Skip this activity
-                    </button>
-                  </div>
-                </details>
+                <button
+                  type="button"
+                  onClick={() => void runAction(currentActivity.id, "complete")}
+                  disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                  className="min-h-12 rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-45"
+                >
+                  Complete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void runAction(currentActivity.id, "skip")}
+                  disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                  className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 disabled:opacity-45"
+                >
+                  Skip this activity
+                </button>
               </div>
+            ) : null}
+            {currentActivity && !tripCompleted ? (
+              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Skip or complete this stop. The rest of today keeps its scheduled times.</p>
+            ) : null}
+            {notice ? (
+              <p role="status" aria-live="polite" className="mt-3 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
+                {notice}
+              </p>
+            ) : null}
+            {todayActivities.length ? (
+              <ul className="mt-4 grid gap-1.5" aria-label="Today">
+                {todayActivities.map((activity) => {
+                  const terminal = ["completed", "skipped", "checked_in", "missed"].includes(String(activity.status));
+                  const progress = activity.id === currentActivity?.id && !terminal ? "Now" : activityProgressLabel(activity.status);
+                  return (
+                    <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="min-w-0 truncate font-bold text-slate-600">
+                        <span className="mr-2 font-black text-slate-400">{activity.timeLabel || "Flexible"}</span>
+                        {activity.title}
+                      </span>
+                      <span className={classNames("shrink-0 text-xs font-black uppercase tracking-[0.08em]", terminal ? "text-ocean" : "text-slate-400")}>
+                        {progress}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             ) : null}
 
             <a
