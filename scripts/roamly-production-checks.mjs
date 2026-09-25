@@ -315,7 +315,7 @@ const billing = read("lib/roamly/billing.ts");
 assert.ok(billing.includes("ROAMLY_STRIPE_FEATURES_PRICE_ID") || read("lib/env.ts").includes("ROAMLY_STRIPE_FEATURES_PRICE_ID"));
 assert.ok(billing.includes("Live Trip Companion"), "billing copy should use Live Trip Companion");
 
-const generateRoute = read("app/api/trips/generate/route.ts");
+const generateRoute = read("lib/roamly/tripGenerationRoute.ts");
 assert.ok(generateRoute.includes("startStagedItineraryGeneration"), "generation route must create a staged generation job");
 assert.ok(generateRoute.includes("prepareStagedGenerationContext"), "generation route must prepare staged price/booking context");
 assert.ok(generateRoute.includes("createOrResumeGenerationJob"), "generation route must create or resume a durable queue job");

@@ -1151,7 +1151,7 @@ const aiGenerator = read("lib/ai/roamly-itinerary.ts");
 assert.ok(!aiGenerator.includes("buildFallbackItinerary"), "paid itinerary generation must not silently build a template fallback");
 assert.ok(!aiGenerator.includes("local-starter-itinerary"), "paid itinerary generation must not return the local starter itinerary");
 
-const generateRouteDiagnostics = read("app/api/trips/generate/route.ts");
+const generateRouteDiagnostics = read("lib/roamly/tripGenerationRoute.ts");
 [
   "generation_route_request_received",
   "generation_route_auth_failed",

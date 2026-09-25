@@ -977,9 +977,9 @@ export function TripPlanForm({
       body: JSON.stringify(generationPayload)
     });
     const data = await response.json().catch(() => null);
-    if ((response.ok || response.status === 202) && data?.tripId) {
+    if ((response.ok || response.status === 202) && data?.tripId && data?.unlockSource === "free") {
       setNotice("Opening your free itinerary...");
-      router.push(data.previewUrl || GUEST_ITINERARY_PATH);
+      router.push(GUEST_ITINERARY_PATH);
       return;
     }
     throw new Error(data?.message || data?.error || GENERATION_ERROR_MESSAGE);

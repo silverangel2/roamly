@@ -6,6 +6,8 @@ export const GUEST_ACCOUNT_WALL = [
   "Live Companion",
   "Paid packs"
 ] as const;
+export const GUEST_PAID_ENTITLEMENT_MESSAGE =
+  "Paid itineraries, Live Companion, and paid packs need an account and a paid entitlement.";
 
 export type GuestItineraryStatus = "building" | "ready" | "failed";
 
@@ -82,6 +84,26 @@ function daysFromMetadata(metadata: unknown) {
     .map(dayFromRecord)
     .filter((day): day is GuestItineraryDayView => Boolean(day))
     .sort((a, b) => a.dayNumber - b.dayNumber);
+}
+
+function paidUnlockSource(value: string) {
+  return value === "paid" || value === "bundle" || value === "admin";
+}
+
+export function guestFreeItineraryEntitlement(trip: {
+  itinerary_payment_status?: string | null;
+  itinerary_unlock_source?: string | null;
+  tracking_unlocked?: boolean | null;
+  live_companion_unlocked?: boolean | null;
+  metadata?: unknown;
+}) {
+  const payment = clip(trip.itinerary_payment_status, 40).toLowerCase();
+  const source = clip(trip.itinerary_unlock_source, 40).toLowerCase();
+  const generationSource = clip(asRecord(asRecord(trip.metadata)?.generation)?.unlockSource, 40).toLowerCase();
+  const paidItinerary = payment === "paid" || payment === "bundled" || paidUnlockSource(source) || paidUnlockSource(generationSource);
+  const paidPack = trip.tracking_unlocked === true || trip.live_companion_unlocked === true;
+  if (paidItinerary || paidPack) return { allowed: false as const, code: "PAYMENT_REQUIRED" as const };
+  return { allowed: true as const, code: "free" as const };
 }
 
 export function publicGuestItineraryView(input: {

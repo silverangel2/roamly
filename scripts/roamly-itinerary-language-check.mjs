@@ -9,7 +9,7 @@ const language = read("lib/roamly/generationLanguage.ts");
 const legacy = read("lib/ai/roamly-itinerary.ts");
 const staged = read("lib/roamly/stagedItineraryGeneration.ts");
 const daily = read("lib/roamly/brain/dailyItineraryStage.ts");
-const route = read("app/api/trips/generate/route.ts");
+const route = read("lib/roamly/tripGenerationRoute.ts");
 const itinerary = read("lib/itinerary.ts");
 
 for (const locale of ["en", "fr", "es", "ja", "ko", "zh"]) {

@@ -50,7 +50,7 @@ function loadTsModule(entryFile) {
 }
 
 process.env.ROAMLY_SESSION_TOKEN_SECRET = "guest-itinerary-test-secret";
-const { publicGuestItineraryView, GUEST_FREE_ITINERARY_DISCLAIMER, GUEST_ACCOUNT_WALL, GUEST_ITINERARY_PATH } = loadTsModule("lib/roamly/guestItineraryView.ts");
+const { publicGuestItineraryView, guestFreeItineraryEntitlement, GUEST_FREE_ITINERARY_DISCLAIMER, GUEST_ACCOUNT_WALL, GUEST_ITINERARY_PATH, GUEST_PAID_ENTITLEMENT_MESSAGE } = loadTsModule("lib/roamly/guestItineraryView.ts");
 const { signGuestItineraryCookie, verifyGuestItineraryCookie } = loadTsModule("lib/roamly/guestItineraryAccess.ts");
 
 const fullJson = {
@@ -123,6 +123,25 @@ const failed = publicGuestItineraryView({ tripStatus: "failed", metadata: { gene
 assert.equal(failed.status, "failed");
 assert.equal(failed.days.length, 0);
 
+assert.equal(guestFreeItineraryEntitlement({ itinerary_payment_status: "free", itinerary_unlock_source: "free" }).allowed, true);
+assert.equal(guestFreeItineraryEntitlement({ itinerary_payment_status: "unpaid" }).allowed, true);
+assert.equal(guestFreeItineraryEntitlement({}).allowed, true);
+for (const trip of [
+  { itinerary_payment_status: "paid" },
+  { itinerary_payment_status: "bundled" },
+  { itinerary_unlock_source: "paid" },
+  { itinerary_unlock_source: "bundle" },
+  { itinerary_unlock_source: "admin" },
+  { tracking_unlocked: true },
+  { live_companion_unlocked: true },
+  { itinerary_payment_status: "unpaid", metadata: { generation: { unlockSource: "paid" } } }
+]) {
+  const decision = guestFreeItineraryEntitlement(trip);
+  assert.equal(decision.allowed, false, JSON.stringify(trip));
+  assert.equal(decision.code, "PAYMENT_REQUIRED");
+}
+assert.match(GUEST_PAID_ENTITLEMENT_MESSAGE, /Paid itineraries, Live Companion, and paid packs/);
+
 const token = signGuestItineraryCookie("trip-1", "user-1");
 assert.equal(verifyGuestItineraryCookie(token)?.tripId, "trip-1");
 assert.equal(verifyGuestItineraryCookie(token)?.userId, "user-1");
@@ -140,10 +159,15 @@ assert.equal(verifyGuestItineraryCookie(`${expiredBody}.${expiredSignature}`), n
 const planForm = fs.readFileSync(path.join(root, "components/plan/TripPlanForm.tsx"), "utf8");
 const guestPage = fs.readFileSync(path.join(root, "components/plan/GuestFreeItinerary.tsx"), "utf8");
 const guestRoute = fs.readFileSync(path.join(root, "app/api/trips/guest-itinerary/route.ts"), "utf8");
-const generateRoute = fs.readFileSync(path.join(root, "app/api/trips/generate/route.ts"), "utf8");
+const generateRoute = fs.readFileSync(path.join(root, "lib/roamly/tripGenerationRoute.ts"), "utf8");
+const generateEntry = fs.readFileSync(path.join(root, "app/api/trips/generate/route.ts"), "utf8");
 
 assert.match(planForm, /fetch\("\/api\/trips\/guest-itinerary"/);
 assert.match(planForm, /requestGuestFreeItinerary\(generationPayload\)/);
+assert.match(planForm, /data\?\.unlockSource === "free"/);
+assert.match(planForm, /router\.push\(GUEST_ITINERARY_PATH\)/);
+const guestRequest = planForm.slice(planForm.indexOf("async function requestGuestFreeItinerary"), planForm.indexOf("const restorePlanDraft"));
+assert.doesNotMatch(guestRequest, /previewUrl/);
 assert.match(planForm, /submitPlan\(generationPayload\)/);
 assert.match(planForm, /const PLAN_RESUME_PATH = "\/plan\?resumePlan=1&continueGenerate=1"/);
 assert.match(
@@ -175,14 +199,35 @@ assert.match(guestRoute, /email_confirm:\s*true/);
 assert.match(guestRoute, /roamly_guest_itinerary:\s*true/);
 assert.match(guestRoute, /@example\.com/);
 assert.match(guestRoute, /generateTripForActor/);
-assert.match(guestRoute, /eq\("user_id", access\.userId\)/);
+assert.match(guestRoute, /eq\("user_id", userId\)/);
+assert.match(guestRoute, /delete body\.tripId/);
+assert.match(guestRoute, /email:\s*null/);
+assert.match(guestRoute, /payload\.unlockSource === "free"/);
+assert.match(guestRoute, /roamly_guest_itinerary === true/);
+assert.ok(
+  guestRoute.indexOf("guestFreeItineraryEntitlement(trip)") < guestRoute.indexOf("publicGuestItineraryView("),
+  "guest read must enforce the free entitlement before returning itinerary days"
+);
+assert.doesNotMatch(guestRoute, /\.\.\.payload|\/api\/stripe|checkout:/);
 assert.match(guestRoute, new RegExp(`previewUrl: ${GUEST_ITINERARY_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|GUEST_ITINERARY_PATH`));
 assert.doesNotMatch(guestRoute, /searchParams/);
+for (const paidRoute of [
+  "app/api/stripe/checkout/itinerary/route.ts",
+  "app/api/stripe/checkout/bundle/route.ts",
+  "app/api/stripe/checkout/complete-trip/route.ts",
+  "app/api/stripe/checkout/features/route.ts",
+  "app/api/stripe/create-trip-checkout/route.ts"
+]) {
+  assert.match(fs.readFileSync(path.join(root, paidRoute), "utf8"), /requireUser\(\)/, `${paidRoute} must still require an account`);
+}
+assert.match(fs.readFileSync(path.join(root, "middleware.ts"), "utf8"), /"\/trip"/);
 assert.match(generateRoute, /export async function generateTripForActor/);
 assert.match(generateRoute, /const auth = await requireUser\(\)/);
 assert.ok(
   generateRoute.indexOf("const auth = await requireUser()") < generateRoute.indexOf("return generateTripForActor(request, auth, requestId)"),
   "authenticated generate still requires a user before running the shared handler"
 );
+assert.match(generateEntry, /export \{ POST \} from "@\/lib\/roamly\/tripGenerationRoute"/);
+assert.doesNotMatch(generateEntry, /generateTripForActor/);
 
 console.log("PASS: guests receive the free itinerary before login, and resume still generates after login");
