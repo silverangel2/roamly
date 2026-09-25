@@ -58,6 +58,17 @@ export type LiveCompanionActivity = {
   booking?: LiveBookingDetails | null;
 };
 
+export function mergeLiveActivityStatuses<T extends { id: string; status?: string | null }>(
+  activities: T[],
+  locallySkippedActivityIds: ReadonlySet<string>
+) {
+  return activities.map((activity) =>
+    locallySkippedActivityIds.has(activity.id) && activity.status !== "skipped"
+      ? { ...activity, status: "skipped" }
+      : activity
+  );
+}
+
 export type LiveCompanionTrip = {
   id: string;
   title?: string | null;

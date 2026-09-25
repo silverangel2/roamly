@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { localizeActivityRecords, orderActivitiesByItinerary } from "../lib/roamly/liveActivityBinding.ts";
-import { selectNowAndNextActivity } from "../lib/roamly/liveCompanion.ts";
+import { mergeLiveActivityStatuses, selectNowAndNextActivity } from "../lib/roamly/liveCompanion.ts";
 
 const tiedCreatedAt = "2026-09-25T12:00:00.000Z";
 
@@ -94,6 +94,16 @@ assert.equal(selection.now?.id, "night-id");
 assert.equal(selection.now?.title, "Events festivals concerts nightlife");
 assert.notEqual(selection.now?.title, "Providence hotel search");
 
+const staleAfterSkip = mergeLiveActivityStatuses(
+  [
+    { id: "hotel-id", status: "skipped" },
+    { id: "food-id", status: "planned" }
+  ],
+  new Set(["food-id"])
+);
+assert.equal(staleAfterSkip.find((item) => item.id === "food-id").status, "skipped", "stale refreshed props cannot restore a skipped Now stop");
+assert.equal(staleAfterSkip.find((item) => item.id === "hotel-id").status, "skipped");
+
 const translated = {
   daily_itinerary: [
     {
@@ -157,7 +167,9 @@ assert.match(trips, /order\("day_number"\)\.order\("created_at"\)\.order\("id"\)
 assert.match(trips, /orderActivitiesByItinerary\(/);
 const runAction = client.slice(client.indexOf("const runAction = useCallback"), client.indexOf("const notificationActionHandledRef"));
 assert.match(runAction, /item\.id === activityId \? \{ \.\.\.item, status: nextStatus \} : item/);
+assert.match(runAction, /action === "skip"\) locallySkippedActivityIdsRef\.current\.add\(activityId\)/);
 assert.doesNotMatch(runAction, /item\.title === updatedTitle/);
+assert.match(client, /mergeLiveActivityStatuses\(activities, locallySkippedActivityIdsRef\.current\)/);
 assert.match(runAction, /setNotice\(updatedTitle \? `\$\{confirmation\} \$\{updatedTitle\}` : confirmation\)/);
 assert.match(client, /onClick=\{\(\) => void runAction\(currentActivity\.id, "complete"\)\}/);
 assert.match(client, /onClick=\{\(\) => void runAction\(currentActivity\.id, "skip"\)\}/);

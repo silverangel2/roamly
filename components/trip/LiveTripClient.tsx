@@ -16,6 +16,7 @@ import {
   fallbackRouteStatus,
   isUsablePlaceLabel,
   isTodayWithinTripDates,
+  mergeLiveActivityStatuses,
   mapsUrlForActivity,
   tripWindowState,
   type LiveBookingDetails,
@@ -434,6 +435,7 @@ export function LiveTripClient({
   const lastForegroundRefreshRef = useRef(0);
   const demoStateRef = useRef<LiveDemoState | null>(null);
   const demoStartedWatchRef = useRef(false);
+  const locallySkippedActivityIdsRef = useRef<Set<string>>(new Set());
 
   const demoActive = Boolean(demoState && liveDemoEnabled);
   const activeActivities = useMemo(
@@ -608,7 +610,7 @@ export function LiveTripClient({
   }, [fieldTestMode, permission, tripId]);
 
   useEffect(() => {
-    setItems(activities);
+    setItems(mergeLiveActivityStatuses(activities, locallySkippedActivityIdsRef.current));
   }, [activities]);
 
   useEffect(() => {
@@ -1180,6 +1182,7 @@ export function LiveTripClient({
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not update activity.");
       const updatedTitle = typeof data?.activity?.title === "string" ? data.activity.title : "";
+      if (action === "skip") locallySkippedActivityIdsRef.current.add(activityId);
       setItems((current) => current.map((item) => (
         item.id === activityId ? { ...item, status: nextStatus } : item
       )));
