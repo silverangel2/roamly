@@ -1180,16 +1180,9 @@ export function LiveTripClient({
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not update activity.");
       const updatedTitle = typeof data?.activity?.title === "string" ? data.activity.title : "";
-      setItems((current) => {
-        const idMatch = current.some((item) => item.id === activityId);
-        return current.map((item) => {
-          if (item.id === activityId) return { ...item, status: nextStatus };
-          if (!idMatch && updatedTitle && item.title === updatedTitle && item.status !== "completed" && item.status !== "skipped") {
-            return { ...item, status: nextStatus };
-          }
-          return item;
-        });
-      });
+      setItems((current) => current.map((item) => (
+        item.id === activityId ? { ...item, status: nextStatus } : item
+      )));
       void clearActivityNotification(tripId, activityId);
       const confirmation = action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.";
       setNotice(updatedTitle ? `${confirmation} ${updatedTitle}` : confirmation);
