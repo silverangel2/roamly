@@ -13,6 +13,7 @@ import {
   summarizeStoredItinerary
 } from "@/lib/roamly/generationDiagnostics";
 import { assignStableItineraryIdentities } from "@/lib/roamly/itineraryRepair";
+import { orderActivitiesByItinerary } from "@/lib/roamly/liveActivityBinding";
 
 export type RoamlyTripRecord = {
   id: string;
@@ -224,7 +225,7 @@ export async function getTripBundle(
         .limit(1)
         .maybeSingle(),
       supabase.from("roamly_itinerary_days").select("*").eq("trip_id", tripId).order("day_number"),
-      supabase.from("roamly_trip_activities").select("*").eq("trip_id", tripId).order("day_number").order("created_at"),
+      supabase.from("roamly_trip_activities").select("*").eq("trip_id", tripId).order("day_number").order("created_at").order("id"),
       supabase.from("roamly_trip_checklists").select("*").eq("trip_id", tripId).eq("user_id", userId).order("created_at")
     ]);
 
@@ -246,14 +247,17 @@ export async function getTripBundle(
     ? { ...rawItinerary, full_json: sanitizeStoredItinerary(rawItinerary.full_json) || rawItinerary.full_json }
     : null;
   const checklist = (checklistResult.data as ChecklistRecord[] | null) ?? checklistFromItinerary(tripRecord, itinerary);
-  const activities = (((activitiesResult.data as ActivityRecord[] | null) ?? [])).map((activity) => ({
-    ...activity,
-    title: safeTravelIdentity(activity.title) || "Unresolved place",
-    location_name: safeTravelIdentity(activity.location_name) || null,
-    map_query: safeTravelIdentity(activity.map_query) || null,
-    estimated_cost: null,
-    timing_status: (activity as ActivityRecord & { metadata?: Record<string, unknown> }).metadata?.timing_status === "FACTUAL" ? "FACTUAL" as const : "PLANNED" as const
-  }));
+  const activities = orderActivitiesByItinerary(
+    (((activitiesResult.data as Array<ActivityRecord & { created_at?: string | null }> | null) ?? [])).map((activity) => ({
+      ...activity,
+      title: safeTravelIdentity(activity.title) || "Unresolved place",
+      location_name: safeTravelIdentity(activity.location_name) || null,
+      map_query: safeTravelIdentity(activity.map_query) || null,
+      estimated_cost: null,
+      timing_status: (activity as ActivityRecord & { metadata?: Record<string, unknown> }).metadata?.timing_status === "FACTUAL" ? "FACTUAL" as const : "PLANNED" as const
+    })),
+    itinerary?.full_json || null
+  );
 
   return {
     data: {

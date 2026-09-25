@@ -5,12 +5,13 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
-import { getTripDayFromDate, type RoamlyItinerary } from "@/lib/itinerary";
+import { getTripDayFromDate } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { localizeActivityRecords } from "@/lib/roamly/liveActivityBinding";
 import { timezoneFromTripMetadata, tripWindowState, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
 import {
   getTripBudgetAmount,
@@ -21,7 +22,7 @@ import {
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { evaluateConfirmedBookingCost } from "@/lib/roamly/bookings";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
-import { getTripBundle, groupActivitiesByDay, type ActivityRecord } from "@/lib/trips";
+import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
 import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
 import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
 import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
@@ -69,28 +70,6 @@ function getNumberOrNull(value: unknown) {
 function getRowString(row: Record<string, unknown>, key: string) {
   const value = row[key];
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function localizeActivityRecords(activities: ActivityRecord[], itinerary: RoamlyItinerary | null) {
-  if (!itinerary) return activities;
-  const localizedByDay = new Map(itinerary.daily_itinerary.map((day) => [day.day_number, day.live_timeline]));
-  const seenByDay = new Map<number, number>();
-
-  return activities.map((activity) => {
-    const index = seenByDay.get(activity.day_number) || 0;
-    seenByDay.set(activity.day_number, index + 1);
-    const localized = localizedByDay.get(activity.day_number)?.[index];
-    if (!localized) return activity;
-    return {
-      ...activity,
-      title: localized.title || activity.title,
-      description: localized.description || activity.description,
-      location_name: localized.location_name || activity.location_name,
-      estimated_cost: localized.estimated_cost ?? activity.estimated_cost,
-      category: localized.category || activity.category,
-      map_query: localized.map_query || activity.map_query
-    };
-  });
 }
 
 export default async function LiveTripPage({
@@ -141,7 +120,7 @@ export default async function LiveTripPage({
   const localizedFull = bundle.data.itinerary?.full_json
     ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
     : null;
-  const localizedActivities = localizeActivityRecords(bundle.data.activities, localizedFull);
+  const localizedActivities = localizeActivityRecords(bundle.data.activities, localizedFull, bundle.data.itinerary?.full_json || null);
   const daysCount = getTripDaysCount(bundle.data.trip);
   const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
   const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, timezoneFromTripMetadata(bundle.data.trip.metadata));
