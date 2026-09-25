@@ -49,6 +49,7 @@ function chronology(a: LifecycleActivity, b: LifecycleActivity) {
 }
 
 const unresolvedStatuses = ["planned", "nearby"] as const;
+export const LIVE_COMPANION_PROCESSING_PAGE_SIZE = 100;
 
 async function expireActivities(admin: SupabaseClient, trip: TrackingTrip, activities: LifecycleActivity[], timezone: string, now: Date) {
   const expired = activities.filter((activity) => {
@@ -164,19 +165,46 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
   return { expired, started: pushed.ok && !queued.deduplicated ? 1 : 0, skipped: queued.deduplicated ? "already_delivered_or_queued" : undefined };
 }
 
-export async function processLiveCompanionTimeLifecycle(params: { now?: Date; limit?: number } = {}) {
+export async function processLiveCompanionTimeLifecycle(params: { now?: Date } = {}) {
   const admin = createSupabaseAdminClient();
   if (!admin) return { ok: false as const, error: "Supabase service role is not configured." };
   const now = params.now || new Date();
-  const tripsResult = await admin.from("roamly_trips").select("*").eq("itinerary_locked", true).or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true").in("status", ["locked", "active", "planned"]).order("start_date", { ascending: true, nullsFirst: false }).limit(Math.max(1, Math.min(params.limit || 100, 500)));
-  if (tripsResult.error) return { ok: false as const, error: tripsResult.error.message };
   const results = [];
-  for (const trip of (tripsResult.data || []) as TrackingTrip[]) {
-    try {
-      results.push({ tripId: trip.id, result: await processTrip(admin, trip, now) });
-    } catch (error) {
-      results.push({ tripId: trip.id, result: { expired: 0, started: 0, error: error instanceof Error ? error.message : "Lifecycle processing failed." } });
+  const pageSize = LIVE_COMPANION_PROCESSING_PAGE_SIZE;
+  let cursor: { startDate: string; id: string } | null = null;
+
+  for (;;) {
+    const query = admin
+      .from("roamly_trips")
+      .select("*")
+      .not("start_date", "is", null)
+      .eq("itinerary_locked", true)
+      .or(cursor
+        ? `and(or(tracking_unlocked.eq.true,live_companion_unlocked.eq.true),or(start_date.gt.${cursor.startDate},and(start_date.eq.${cursor.startDate},id.gt.${cursor.id})))`
+        : "tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
+      .in("status", ["locked", "active", "planned"])
+      .order("start_date", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true })
+      .range(0, pageSize - 1);
+
+    const tripsResult = await query;
+    if (tripsResult.error) return { ok: false as const, error: tripsResult.error.message, processed: results.length, results };
+    const page = (tripsResult.data || []) as TrackingTrip[];
+    if (!page.length) break;
+    for (const trip of page) {
+      try {
+        results.push({ tripId: trip.id, result: await processTrip(admin, trip, now) });
+      } catch (error) {
+        results.push({ tripId: trip.id, result: { expired: 0, started: 0, error: error instanceof Error ? error.message : "Lifecycle processing failed." } });
+      }
     }
+
+    const last = page[page.length - 1];
+    if (!last.start_date || !last.id || (cursor && cursor.startDate === last.start_date && cursor.id === last.id)) {
+      return { ok: false as const, error: "Live Companion lifecycle pagination cursor did not advance.", processed: results.length, results };
+    }
+    cursor = { startDate: last.start_date, id: last.id };
+    if (page.length < pageSize) break;
   }
   return { ok: true as const, processed: results.length, results };
 }

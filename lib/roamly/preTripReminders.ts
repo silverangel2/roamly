@@ -53,6 +53,8 @@ const REMINDER_WINDOWS: Record<PreTripReminderType, { days: number; label: strin
   trip_predeparture_1d: { days: 1, label: "One day before travel" }
 };
 
+export const PRE_TRIP_PROCESSING_PAGE_SIZE = 50;
+
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -413,102 +415,121 @@ export async function schedulePreTripReminders(params?: {
   const startLower = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const startUpper = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
-    .from("roamly_trips")
-    .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,special_notes,status,itinerary_status,metadata")
-    .not("start_date", "is", null)
-    .lte("start_date", startUpper)
-    .or(`end_date.gte.${startLower},start_date.gte.${startLower}`)
-    .neq("status", "archived")
-    .neq("status", "cancelled")
-    .order("start_date", { ascending: true })
-    .limit(100);
-
-  if (error) return { ok: false as const, error: error.message };
-
   const results = [];
-  for (const trip of (data || []) as TripReminderRow[]) {
-    try {
-      const confirmedBookings = await loadConfirmedBookings({
-        supabase,
-        tripId: trip.id,
-        userId: trip.user_id
-      });
-      const start = tripStartInstant({ trip, confirmedBookings });
-      if (!start) continue;
-      const version = preTripReminderVersion({ trip, confirmedBookings });
-      const dueTypes = duePreTripReminderTypes({
-        tripStart: start.start,
-        now
-      }).filter((type) => !["trip_predeparture_7d", "trip_predeparture_1d"].includes(type));
-      results.push({
-        tripId: trip.id,
-        type: "trip_predeparture_7d",
-        result: await schedulePreTrip7DayBriefing({
+  let cursor: { startDate: string; id: string } | null = null;
+  let processedTrips = 0;
+
+  for (;;) {
+    const query = supabase
+      .from("roamly_trips")
+      .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,special_notes,status,itinerary_status,metadata")
+      .not("start_date", "is", null)
+      .lte("start_date", startUpper)
+      .or(cursor
+        ? `and(or(end_date.gte.${startLower},start_date.gte.${startLower}),or(start_date.gt.${cursor.startDate},and(start_date.eq.${cursor.startDate},id.gt.${cursor.id})))`
+        : `end_date.gte.${startLower},start_date.gte.${startLower}`)
+      .neq("status", "archived")
+      .neq("status", "cancelled")
+      .order("start_date", { ascending: true })
+      .order("id", { ascending: true })
+      .range(0, PRE_TRIP_PROCESSING_PAGE_SIZE - 1);
+
+    const { data, error } = await query;
+    if (error) return { ok: false as const, error: error.message, processedTrips, results };
+    const page = (data || []) as TripReminderRow[];
+    if (!page.length) break;
+
+    for (const trip of page) {
+      processedTrips += 1;
+      try {
+        const confirmedBookings = await loadConfirmedBookings({
           supabase,
-          trip,
-          confirmedBookings,
+          tripId: trip.id,
+          userId: trip.user_id
+        });
+        const start = tripStartInstant({ trip, confirmedBookings });
+        if (!start) continue;
+        const version = preTripReminderVersion({ trip, confirmedBookings });
+        const dueTypes = duePreTripReminderTypes({
+          tripStart: start.start,
           now
-        })
-      });
-      results.push({
-        tripId: trip.id,
-        type: "trip_predeparture_1d",
-        result: await schedulePreTrip1DayBriefing({
-          supabase,
-          trip,
-          bookings: confirmedBookings,
-          now
-        })
-      });
-      results.push({
-        tripId: trip.id,
-        type: "travel_day",
-        result: await scheduleTravelDayBriefing({
-          supabase,
-          trip,
-          bookings: confirmedBookings,
-          now
-        })
-      });
-      results.push({
-        tripId: trip.id,
-        type: "daily_trip_briefing",
-        result: await scheduleDailyTripBriefing({
-          supabase,
-          trip,
-          bookings: confirmedBookings,
-          now
-        })
-      });
-      for (const type of dueTypes) {
+        }).filter((type) => !["trip_predeparture_7d", "trip_predeparture_1d"].includes(type));
         results.push({
           tripId: trip.id,
-          type,
-          result: await scheduleSingleReminder({
+          type: "trip_predeparture_7d",
+          result: await schedulePreTrip7DayBriefing({
             supabase,
             trip,
-            type,
-            tripStart: start.start,
-            timezone: start.timezone,
             confirmedBookings,
-            version
+            now
           })
         });
+        results.push({
+          tripId: trip.id,
+          type: "trip_predeparture_1d",
+          result: await schedulePreTrip1DayBriefing({
+            supabase,
+            trip,
+            bookings: confirmedBookings,
+            now
+          })
+        });
+        results.push({
+          tripId: trip.id,
+          type: "travel_day",
+          result: await scheduleTravelDayBriefing({
+            supabase,
+            trip,
+            bookings: confirmedBookings,
+            now
+          })
+        });
+        results.push({
+          tripId: trip.id,
+          type: "daily_trip_briefing",
+          result: await scheduleDailyTripBriefing({
+            supabase,
+            trip,
+            bookings: confirmedBookings,
+            now
+          })
+        });
+        for (const type of dueTypes) {
+          results.push({
+            tripId: trip.id,
+            type,
+            result: await scheduleSingleReminder({
+              supabase,
+              trip,
+              type,
+              tripStart: start.start,
+              timezone: start.timezone,
+              confirmedBookings,
+              version
+            })
+          });
+        }
+      } catch (error) {
+        results.push({
+          tripId: trip.id,
+          error: error instanceof Error ? error.message : "Pre-trip reminder scheduling failed."
+        });
       }
-    } catch (error) {
-      results.push({
-        tripId: trip.id,
-        error: error instanceof Error ? error.message : "Pre-trip reminder scheduling failed."
-      });
     }
+
+    const last = page[page.length - 1];
+    if (!last.start_date || !last.id || (cursor && cursor.startDate === last.start_date && cursor.id === last.id)) {
+      return { ok: false as const, error: "Pre-trip reminder pagination cursor did not advance.", processedTrips, results };
+    }
+    cursor = { startDate: last.start_date, id: last.id };
+    if (page.length < PRE_TRIP_PROCESSING_PAGE_SIZE) break;
   }
 
   const failures = results.filter((result) => "error" in result).length;
   const scheduledResults = results.filter((result) => "result" in result);
   return {
     ok: failures === 0,
-    processedTrips: (data || []).length,
+    processedTrips,
     scheduled: scheduledResults.filter((result) => "result" in result && result.result?.scheduled).length,
     deduplicated: scheduledResults.filter((result) => "result" in result && result.result && "deduplicated" in result.result && result.result.deduplicated === true).length,
     failures,
