@@ -215,6 +215,50 @@ export function isTodayWithinTripDates(params: {
   return compareIsoDate(params.startDate, today) <= 0 && compareIsoDate(params.endDate, today) >= 0;
 }
 
+export type ActiveTripSelectionCandidate = {
+  id: string;
+  status?: string | null;
+  itinerary_locked?: boolean | null;
+  itinerary_status?: string | null;
+  itinerary_generated_at?: string | null;
+  tracking_unlocked?: boolean | null;
+  live_companion_unlocked?: boolean | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  metadata?: unknown;
+};
+
+function activeTripStatusRank(status: string | null | undefined) {
+  if (status === "active") return 0;
+  if (status === "locked") return 1;
+  if (status === "planned") return 2;
+  return 3;
+}
+
+export function selectActiveTrip<T extends ActiveTripSelectionCandidate>(
+  candidates: T[],
+  now: string | Date = new Date()
+) {
+  return candidates
+    .filter((candidate) =>
+      ["locked", "active", "planned"].includes(String(candidate.status || "")) &&
+      Boolean(candidate.itinerary_locked || candidate.itinerary_status === "locked" || candidate.itinerary_generated_at) &&
+      Boolean(candidate.tracking_unlocked || candidate.live_companion_unlocked) &&
+      isTodayWithinTripDates({
+        startDate: candidate.start_date,
+        endDate: candidate.end_date,
+        timezone: timezoneFromTripMetadata(candidate.metadata),
+        now
+      })
+    )
+    .sort((a, b) =>
+      activeTripStatusRank(a.status) - activeTripStatusRank(b.status) ||
+      String(a.start_date || "").localeCompare(String(b.start_date || "")) ||
+      String(a.end_date || "").localeCompare(String(b.end_date || "")) ||
+      a.id.localeCompare(b.id)
+    )[0] || null;
+}
+
 export function tripWindowState(params: {
   startDate?: string | null;
   endDate?: string | null;

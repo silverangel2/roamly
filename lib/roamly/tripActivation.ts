@@ -16,7 +16,7 @@ import {
   activityStartDate,
   buildLiveCompanionState,
   evaluateNotificationDecision,
-  isTodayWithinTripDates,
+  selectActiveTrip,
   selectNowAndNextActivity,
   tripWindowState,
   timezoneFromTripMetadata,
@@ -357,21 +357,10 @@ export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: 
     .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
     .in("status", ["locked", "active", "planned"]);
   if (tripId) query = query.eq("id", tripId);
-  const { data, error } = await query
-    .order("start_date", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const { data, error } = await query;
 
   if (error) return { trip: null, error: error.message };
-  const trip = ((data || []) as TrackingTrip[]).find((candidate) =>
-    isTripLocked(candidate) &&
-    tripHasTrackingUnlock(candidate) &&
-    isTodayWithinTripDates({
-      startDate: candidate.start_date,
-      endDate: candidate.end_date,
-      timezone: timezoneFromTripMetadata(candidate.metadata)
-    })
-  ) || null;
+  const trip = selectActiveTrip((data || []) as TrackingTrip[]);
   return { trip };
 }
 

@@ -9,7 +9,7 @@ import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMeta
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n-server";
-import { isTodayWithinTripDates, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import { isTodayWithinTripDates, selectActiveTrip, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 
 type DashboardTrip = {
   id: string;
@@ -108,7 +108,6 @@ export default async function DashboardPage() {
           .eq("user_id", current.user.id)
           .neq("status", "archived")
           .order("created_at", { ascending: false })
-          .limit(20)
       : { data: [] },
     supabase ? hasUsedFreeItinerary(supabase, current.user.id) : Promise.resolve({ used: false, entitlement: null, error: null })
   ]);
@@ -116,12 +115,7 @@ export default async function DashboardPage() {
   const typedTrips = (trips || []) as DashboardTrip[];
   const locked = typedTrips.filter((trip) => isTripLocked(trip));
   const drafts = typedTrips.filter((trip) => !isTripLocked(trip));
-  const liveTrips = typedTrips.filter((trip) => tripHasTrackingUnlock(trip));
-  const activeNow = liveTrips.find((trip) => isTodayWithinTripDates({
-    startDate: trip.start_date,
-    endDate: trip.end_date,
-    timezone: timezoneFromTripMetadata(trip.metadata)
-  }));
+  const activeNow = selectActiveTrip(typedTrips);
   const primaryTrip = activeNow || typedTrips[0];
 
   return (

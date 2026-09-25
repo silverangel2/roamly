@@ -15,8 +15,13 @@ assert.doesNotMatch(
 );
 assert.match(
   activationSource,
+  /selectActiveTrip\(\(data \|\| \[\]\) as TrackingTrip\[\]\)/,
+  "active-trip selection must use the shared selector"
+);
+assert.match(
+  read("lib/roamly/liveCompanion.ts"),
   /isTodayWithinTripDates\([\s\S]*timezone: timezoneFromTripMetadata\(candidate\.metadata\)/,
-  "destination timezone must remain authoritative for active-trip selection"
+  "destination timezone must remain authoritative inside the shared selector"
 );
 
 function compileLiveCompanion() {
