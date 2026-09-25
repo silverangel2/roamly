@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
+import { isFreshLocationObservation } from "@/lib/roamly/location";
 import { getLiveRouteStatus } from "@/lib/roamly/liveRouting";
 import { getTripBundle } from "@/lib/trips";
 import type { LiveCompanionActivity, LiveCoordinates } from "@/lib/roamly/liveCompanion";
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const origin: LiveCoordinates | null =
     originLatitude == null || originLongitude == null
+      || !isFreshLocationObservation(body.capturedAt)
       ? null
       : {
           latitude: originLatitude,

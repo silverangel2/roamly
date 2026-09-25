@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeCoordinates } from "@/lib/roamly/location";
+import { isFreshLocationObservation, normalizeCoordinates } from "@/lib/roamly/location";
 import { performActivityAction } from "@/lib/roamly/activityActions";
 import { getFieldTestSession, requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -10,10 +10,13 @@ export async function POST(request: NextRequest) {
   const tripId = typeof body.tripId === "string" ? body.tripId : "";
   const auth = await requireUserOrFieldTest(tripId);
   if (!auth.ok) return auth.response;
-  const location = normalizeCoordinates({
+  const submittedLocation = normalizeCoordinates({
     latitude: body.latitude as number,
     longitude: body.longitude as number
   });
+  // Coordinates only participate in proximity checks when paired with a
+  // still-fresh GPS observation. Manual check-in remains available without GPS.
+  const location = submittedLocation && isFreshLocationObservation(body.capturedAt) ? submittedLocation : null;
   const access = auth.fieldTest ? { hasQaAccess: true } : getRoamlyAccessForUser(auth.userEmail);
   const simulated = body.simulated === true && access.hasQaAccess;
 

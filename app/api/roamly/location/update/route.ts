@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { normalizeCoordinates } from "@/lib/roamly/location";
+import { isFreshLocationObservation, normalizeCoordinates } from "@/lib/roamly/location";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { activateTripIfNearby } from "@/lib/roamly/tripActivation";
 import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
@@ -7,21 +7,6 @@ import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { processLiveCompanionDemoUpdate } from "@/lib/roamly/liveCompanionDemo";
 
 const permissionStates = new Set(["granted", "denied", "prompt"]);
-const MAX_LOCATION_AGE_MS = 10 * 60_000;
-const MAX_LOCATION_FUTURE_SKEW_MS = 2 * 60_000;
-
-function parseCapturedAt(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date : null;
-  }
-  if (typeof value === "string" && value.trim()) {
-    const date = new Date(value);
-    return Number.isFinite(date.getTime()) ? date : null;
-  }
-  return null;
-}
-
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const permissionState =
@@ -61,7 +46,7 @@ export async function POST(request: NextRequest) {
     longitude: body.longitude as number,
     accuracy: body.accuracy as number | null
   });
-  const capturedAt = parseCapturedAt(body.capturedAt);
+  const capturedAt = body.capturedAt;
 
   const existing = await auth.supabase
     .from("roamly_location_settings")
@@ -97,16 +82,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Valid latitude and longitude are required." }, { status: 400 });
   }
 
-  if (capturedAt) {
-    const age = Date.now() - capturedAt.getTime();
-    if (age > MAX_LOCATION_AGE_MS || age < -MAX_LOCATION_FUTURE_SKEW_MS) {
-      return NextResponse.json({
-        ok: true,
-        staleLocation: true,
-        tripActivated: false,
-        message: "Location update was too old to process."
-      });
-    }
+  if (!isFreshLocationObservation(capturedAt)) {
+    return NextResponse.json({
+      ok: true,
+      staleLocation: true,
+      tripActivated: false,
+      message: "Location update was too old or invalid to process."
+    });
   }
 
   if (!existing.data?.location_tracking_enabled) {
@@ -124,7 +106,7 @@ export async function POST(request: NextRequest) {
       last_permission_state: "granted",
       last_seen_latitude: location.latitude,
       last_seen_longitude: location.longitude,
-      last_seen_at: new Date().toISOString()
+      last_seen_at: new Date(typeof capturedAt === "number" ? capturedAt : String(capturedAt)).toISOString()
     })
     .eq("user_id", auth.userId)
     .eq("location_tracking_enabled", true)

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
+import { isFreshLocationObservation } from "@/lib/roamly/location";
 import { clearActivityNotification, ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
@@ -400,6 +401,7 @@ export function LiveTripClient({
   const [routeBusy, setRouteBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [nowTick, setNowTick] = useState(() => new Date());
+  const usableLocation = location && isFreshLocationObservation(location.capturedAt, nowTick.getTime()) ? location : null;
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -500,7 +502,7 @@ export function LiveTripClient({
         },
         activities: liveActivities,
         permission,
-        location,
+        location: usableLocation,
         route,
         now: nowTick
       }),
@@ -512,7 +514,7 @@ export function LiveTripClient({
       companionEnabled,
       companionPausedUntil,
       liveActivities,
-      location,
+      usableLocation,
       permission,
       route,
       timezone,
@@ -724,7 +726,7 @@ export function LiveTripClient({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
-        capturedAt: new Date(position.timestamp || Date.now()).toISOString()
+        capturedAt: Number.isFinite(position.timestamp) ? new Date(position.timestamp).toISOString() : null
       };
       setPermission("granted");
       setLocation(nextLocation);
@@ -943,7 +945,7 @@ export function LiveTripClient({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
-        capturedAt: new Date(position.timestamp || Date.now()).toISOString()
+        capturedAt: Number.isFinite(position.timestamp) ? new Date(position.timestamp).toISOString() : null
       };
       const nextDemo = createDemoState(nextLocation);
       demoStateRef.current = nextDemo;
@@ -1027,8 +1029,9 @@ export function LiveTripClient({
         nextActivity.latitude,
         nextActivity.longitude,
         nextActivity.address,
-        location?.latitude,
-        location?.longitude,
+        usableLocation?.latitude,
+        usableLocation?.longitude,
+        usableLocation?.capturedAt,
         online
       ].join("|");
       if (key === lastRouteKeyRef.current) return;
@@ -1042,7 +1045,7 @@ export function LiveTripClient({
         });
         return;
       }
-      if (!location) {
+      if (!usableLocation) {
         setRoute(fallbackRouteStatus(nextActivity, "Location is unavailable. Open Maps for directions."));
         return;
       }
@@ -1052,9 +1055,10 @@ export function LiveTripClient({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          originLatitude: location.latitude,
-          originLongitude: location.longitude,
-          accuracy: location.accuracy,
+          originLatitude: usableLocation.latitude,
+          originLongitude: usableLocation.longitude,
+          accuracy: usableLocation.accuracy,
+          capturedAt: usableLocation.capturedAt,
           destinationId: nextActivity.id,
           destinationTitle: nextActivity.title,
           destinationAddress: nextActivity.address,
@@ -1077,7 +1081,7 @@ export function LiveTripClient({
     return () => {
       if (routeTimerRef.current) window.clearTimeout(routeTimerRef.current);
     };
-  }, [location, mapsHref, nextActivity, online, tripId]);
+  }, [usableLocation, mapsHref, nextActivity, online, tripId]);
 
   async function saveLiveControls(patch: { liveCompanionEnabled?: boolean; liveCompanionPausedUntil?: string | null }) {
     setError("");
@@ -1136,6 +1140,8 @@ export function LiveTripClient({
           ? "/api/roamly/activities/skip"
           : "/api/roamly/activities/complete";
     const nextStatus = action === "check-in" ? "checked_in" : action === "skip" ? "skipped" : "completed";
+    const currentActionLocation =
+      actionLocation && isFreshLocationObservation(actionLocation.capturedAt) ? actionLocation : null;
 
     try {
       const response = await fetch(endpoint, {
@@ -1144,12 +1150,12 @@ export function LiveTripClient({
         body: JSON.stringify({
           tripId,
           activityId,
-          ...(actionLocation
+          ...(currentActionLocation
             ? {
-                latitude: actionLocation.latitude,
-                longitude: actionLocation.longitude,
-                accuracy: actionLocation.accuracy,
-                capturedAt: actionLocation.capturedAt
+                latitude: currentActionLocation.latitude,
+                longitude: currentActionLocation.longitude,
+                accuracy: currentActionLocation.accuracy,
+                capturedAt: currentActionLocation.capturedAt
               }
             : {})
         })
@@ -1209,7 +1215,7 @@ export function LiveTripClient({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: position.coords.accuracy,
-            capturedAt: new Date(position.timestamp || Date.now()).toISOString()
+            capturedAt: Number.isFinite(position.timestamp) ? new Date(position.timestamp).toISOString() : null
           };
           setLocation(actionLocation);
         }

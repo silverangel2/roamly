@@ -173,7 +173,7 @@ export default async function LiveTripPage({
     }),
     supabase
       .from("roamly_location_settings")
-      .select("last_permission_state,last_seen_latitude,last_seen_longitude,last_seen_at,location_tracking_enabled")
+      .select("last_permission_state,location_tracking_enabled")
       .eq("user_id", current.user.id)
       .maybeSingle()
   ]);
@@ -198,15 +198,6 @@ export default async function LiveTripPage({
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
   const locationRow = getRecord(locationSettingsResult.data);
   const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
-  const latestLatitude = getNumberOrNull(locationRow?.last_seen_latitude);
-  const latestLongitude = getNumberOrNull(locationRow?.last_seen_longitude);
-  const latestLocation =
-    latestLatitude != null && latestLongitude != null
-      ? {
-          latitude: latestLatitude,
-          longitude: latestLongitude
-        }
-      : null;
   const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
   const tripWindow = tripWindowState({
     startDate: bundle.data.trip.start_date,
@@ -312,7 +303,6 @@ export default async function LiveTripPage({
           companionPausedUntil={preferences.liveCompanionPausedUntil}
           backgroundLocationEnabled={preferences.backgroundLocationEnabled}
           initialPermissionState={permissionState}
-          initialLocation={latestLocation}
           bookingDetails={bookingDetails}
           liveDemoEnabled={false}
           fieldTestMode
@@ -353,7 +343,6 @@ export default async function LiveTripPage({
           companionPausedUntil={preferences.liveCompanionPausedUntil}
           backgroundLocationEnabled={preferences.backgroundLocationEnabled}
           initialPermissionState={permissionState}
-          initialLocation={latestLocation}
           bookingDetails={bookingDetails}
           liveDemoEnabled={false}
         />
@@ -521,7 +510,6 @@ export default async function LiveTripPage({
         companionPausedUntil={preferences.liveCompanionPausedUntil}
         backgroundLocationEnabled={preferences.backgroundLocationEnabled}
         initialPermissionState={permissionState}
-        initialLocation={latestLocation}
         bookingDetails={bookingDetails}
         liveDemoEnabled={false}
       />

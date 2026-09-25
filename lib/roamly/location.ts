@@ -7,6 +7,23 @@ export type LocationInput = Coordinates & {
   accuracy?: number | null;
 };
 
+// Keep aligned with the foreground tracker cadence (10 minutes) and tolerate
+// small device/server clock skew without accepting genuinely future fixes.
+export const PRECISE_LOCATION_MAX_AGE_MS = 10 * 60_000;
+export const PRECISE_LOCATION_MAX_FUTURE_SKEW_MS = 2 * 60_000;
+
+export function isFreshLocationObservation(capturedAt: unknown, now = Date.now()) {
+  const observedAt =
+    typeof capturedAt === "number" && Number.isFinite(capturedAt)
+      ? capturedAt
+      : typeof capturedAt === "string" && capturedAt.trim()
+        ? Date.parse(capturedAt)
+        : Number.NaN;
+  if (!Number.isFinite(observedAt) || !Number.isFinite(now)) return false;
+  const age = now - observedAt;
+  return age < PRECISE_LOCATION_MAX_AGE_MS && age >= -PRECISE_LOCATION_MAX_FUTURE_SKEW_MS;
+}
+
 export function normalizeCoordinates(input: Partial<LocationInput> | null | undefined): LocationInput | null {
   const latitude = Number(input?.latitude);
   const longitude = Number(input?.longitude);
