@@ -29,7 +29,8 @@ assert.ok(widget.includes("strategy=\"afterInteractive\""), "Stay22 must load th
 assert.ok(magazine.includes("activePromo"), "the magazine must consume the resolved promo configuration");
 assert.ok(!magazine.includes("kkday.tpo.lu"), "promo URLs must not be scattered through magazine JSX");
 assert.ok(!magazine.includes("intui.tpo.lu"), "transfer URLs must not be scattered through magazine JSX");
-assert.ok(magazine.includes("findsTravelServices.stays.href") && magazine.includes("findsTravelServices.airportTransfer.href"), "commercial magazine actions must use their configured external destinations");
+assert.ok(magazine.includes('onClick={() => onOpenSearch("stays")}'), "the stay editorial action must open the destination-aware live search instead of a generic misdirecting hotel link");
+assert.ok(magazine.includes("findsTravelServices.airportTransfer.href"), "airport-transfer actions must use their configured external destination");
 assert.ok(magazine.includes("findsWidgets.esim"), "the approved eSIM widget must be part of the magazine");
 assert.ok(magazine.includes("findsWidgets.flights"), "the approved flight widget must be part of the magazine");
 assert.ok(magazine.includes("findsWidgets.experiences107") && magazine.includes("findsWidgets.experiences121"), "both approved experience widgets must be part of the magazine");
