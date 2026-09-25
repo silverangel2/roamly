@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test:facebook-autopost": "node scripts/facebook-autopost-regression-checks.mjs",
     "test:plan-hydration": "node scripts/roamly-plan-hydration-checks.mjs",
+    "test:guest-plan-preview": "node scripts/roamly-guest-plan-preview-checks.mjs",
     "test:confirmed-itinerary-anchors": "node --experimental-strip-types scripts/roamly-confirmed-itinerary-anchor-checks.mjs",
     "test:finds-game": "node scripts/roamly-finds-game-checks.mjs",
     "test:curated-amazon-finds": "node --experimental-strip-types scripts/roamly-curated-amazon-finds-checks.mjs",

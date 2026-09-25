@@ -31,6 +31,7 @@ import {
 } from "@/lib/roamly/authenticatedFetch";
 import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
+import { GUEST_ITINERARY_PATH } from "@/lib/roamly/guestItineraryView";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 
@@ -134,8 +135,12 @@ function selectedOptionClass(label: string) {
     : selectedPrimaryOptionClass;
 }
 
+function planAuthUrl(pathname: "/login" | "/signup") {
+  return `${pathname}?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+}
+
 function planLoginUrl() {
-  return `/login?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+  return planAuthUrl("/login");
 }
 
 function cleanTripId(value: unknown) {
@@ -964,6 +969,22 @@ export function TripPlanForm({
     router.push(planLoginUrl());
   }
 
+  async function requestGuestFreeItinerary(generationPayload: TripPlannerPayload) {
+    const response = await fetch("/api/trips/guest-itinerary", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: jsonHeaders(),
+      body: JSON.stringify(generationPayload)
+    });
+    const data = await response.json().catch(() => null);
+    if ((response.ok || response.status === 202) && data?.tripId && data?.unlockSource === "free") {
+      setNotice("Opening your free itinerary...");
+      router.push(GUEST_ITINERARY_PATH);
+      return;
+    }
+    throw new Error(data?.message || data?.error || GENERATION_ERROR_MESSAGE);
+  }
+
   const restorePlanDraft = useCallback((record: Record<string, unknown>) => {
     const travelers = getRecord(record.travelers);
     setStep(clampStep(record.currentStep ?? record.step));
@@ -1291,17 +1312,38 @@ export function TripPlanForm({
       await createDraftAndStartCheckout();
       return;
     }
+    const authenticated = Boolean(apiAuthToken) || Boolean(await resolveSessionUser());
     saveCurrentPlanDraft();
     let generationPayload = payload;
     if (!priceDiscovery) {
       const checked = await runPriceDiscovery();
-      if (!checked) return;
-      generationPayload = {
-        ...payload,
-        priceDiscoveryId: checked.discoveryId,
-        budgetConstraint: checked.budgetConstraint,
-        priceDiscovery: checked.discovery as unknown as Record<string, unknown>
-      };
+      if (!checked) {
+        if (authenticated) return;
+        setError("");
+      } else {
+        generationPayload = {
+          ...payload,
+          priceDiscoveryId: checked.discoveryId,
+          budgetConstraint: checked.budgetConstraint,
+          priceDiscovery: checked.discovery as unknown as Record<string, unknown>
+        };
+      }
+    }
+    if (!authenticated) {
+      if (generationInFlight.current) return;
+      generationInFlight.current = true;
+      setLoading(true);
+      setNotice("Starting itinerary generation...");
+      try {
+        await requestGuestFreeItinerary(generationPayload);
+      } catch (err) {
+        setNotice("");
+        setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
+      } finally {
+        generationInFlight.current = false;
+        setLoading(false);
+      }
+      return;
     }
     await submitPlan(generationPayload);
   }
@@ -1335,7 +1377,7 @@ export function TripPlanForm({
           setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
         }
-        redirectToLoginForGeneration();
+        await requestGuestFreeItinerary(generationPayload);
         return;
       }
 
