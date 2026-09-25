@@ -67,13 +67,18 @@ export function deriveTripGenerationStatus({
   const rawCompletedLayerCount = layers.length
     ? layers.filter((layer) => isCompletedStatus(layer.status)).length
     : queueCompleted || metadataCompleted;
+  const finalizationFailure = [
+    "FREE_ENTITLEMENT_CLAIM_RETRYABLE",
+    "FREE_ITINERARY_ALREADY_USED"
+  ].includes(String(metadataProgress.lastErrorCode || ""));
   const explicitFailure =
     isFailedStatus(latestJob?.status) ||
     layers.some((layer) => isFailedStatus(layer.status)) ||
-    isFailedStatus(metadataProgress.status);
+    isFailedStatus(metadataProgress.status) ||
+    finalizationFailure;
 
   const tripAlreadyGenerated =
-    hasFullItinerary === true ||
+    (!explicitFailure && hasFullItinerary === true) ||
     normalizedStatus(tripStatus) === "generated" ||
     normalizedStatus(itineraryStatus) === "generated" ||
     normalizedStatus(itineraryStatus) === "locked";
@@ -90,7 +95,7 @@ export function deriveTripGenerationStatus({
     !explicitFailure;
 
   const isComplete =
-    tripAlreadyGenerated || jobMarkedComplete || layersMarkedComplete || countsMarkedComplete;
+    !finalizationFailure && (tripAlreadyGenerated || jobMarkedComplete || layersMarkedComplete || countsMarkedComplete);
   const isFailed =
     !isComplete && explicitFailure;
   const totalDayCount = Math.max(metadataTotal, 1);

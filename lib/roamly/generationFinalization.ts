@@ -157,6 +157,48 @@ function paymentStatusForUnlockSource(value: RoamlyItineraryUnlockSource) {
   return "paid";
 }
 
+async function recordFreeFinalizationFailure(params: {
+  supabase: SupabaseClient;
+  trip: FinalizationTrip;
+  generationState: Record<string, unknown>;
+  error: string;
+  retryable: boolean;
+}) {
+  const updatedAt = nowIso();
+  const generation = {
+    ...params.generationState,
+    status: params.retryable ? "complete" : "failed",
+    currentStage: params.retryable ? "complete" : "failed",
+    worker: null,
+    updatedAt,
+    lastError: params.error,
+    lastErrorCode: params.retryable ? "FREE_ENTITLEMENT_CLAIM_RETRYABLE" : "FREE_ITINERARY_ALREADY_USED"
+  };
+  const metadata = {
+    ...getRecord(params.trip.metadata),
+    generation
+  };
+  const { error } = await params.supabase
+    .from("roamly_trips")
+    .update({
+      status: "generating",
+      itinerary_status: "generating",
+      metadata,
+      updated_at: updatedAt
+    })
+    .eq("id", params.trip.id)
+    .eq("user_id", params.trip.user_id);
+
+  if (error) {
+    logGenerationDiagnostic("free_itinerary_finalization_state_write_failed", {
+      route: "generationFinalization",
+      tripId: params.trip.id,
+      supabaseHost: getPublicSupabaseHost(),
+      errorCode: error.message
+    });
+  }
+}
+
 function storedDayRecords(stored: StoredFinalItinerary) {
   const days = Array.isArray(stored.fullJson?.daily_itinerary) ? stored.fullJson.daily_itinerary : [];
   return days
@@ -527,8 +569,32 @@ export async function finalizeCompletedStagedGeneration(params: {
   const generationState = completedGenerationState({ tripId: trip.id, state, stored, completedAt });
   const unlockSource = normalizeUnlockSource(state?.unlockSource || trip.itinerary_unlock_source);
 
-  if (unlockSource === "free" && trip.itinerary_unlock_source !== "free" && trip.itinerary_payment_status !== "free") {
-    await markFreeItineraryUsed(supabase, trip.user_id, trip.id).catch(() => null);
+  if (unlockSource === "free") {
+    let claim: Awaited<ReturnType<typeof markFreeItineraryUsed>>;
+    try {
+      claim = await markFreeItineraryUsed(supabase, trip.user_id, trip.id);
+    } catch (error) {
+      await recordFreeFinalizationFailure({
+        supabase,
+        trip,
+        generationState: generationState || {},
+        error: error instanceof Error ? error.message : "FREE_ITINERARY_CLAIM_FAILED",
+        retryable: true
+      });
+      return { ok: false as const, error: "FREE_ITINERARY_CLAIM_RETRYABLE" };
+    }
+
+    if (!claim.ok) {
+      const alreadyUsed = claim.error === "FREE_ITINERARY_ALREADY_USED";
+      await recordFreeFinalizationFailure({
+        supabase,
+        trip,
+        generationState: generationState || {},
+        error: claim.error || (alreadyUsed ? "FREE_ITINERARY_ALREADY_USED" : "FREE_ITINERARY_CLAIM_FAILED"),
+        retryable: !alreadyUsed
+      });
+      return { ok: false as const, error: claim.error || "FREE_ITINERARY_CLAIM_RETRYABLE" };
+    }
   }
 
   if (!trip.itinerary_locked || !trip.itinerary_generated_at) {

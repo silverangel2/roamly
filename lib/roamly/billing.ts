@@ -433,6 +433,14 @@ export async function claimFreeItinerary(
     createSupabaseAdminClient() || supabase;
 
   const now = new Date().toISOString();
+  const readExisting = () => writer
+    .from("roamly_user_entitlements")
+    .select("free_itinerary_used_at,free_itinerary_trip_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const alreadyClaimedByThisTrip = (row: { free_itinerary_used_at?: string | null; free_itinerary_trip_id?: string | null } | null | undefined) =>
+    isFreeItineraryConsumed(row?.free_itinerary_used_at) && row?.free_itinerary_trip_id === tripId;
+
   const claimExisting = await writer
     .from("roamly_user_entitlements")
     .update({
@@ -447,6 +455,13 @@ export async function claimFreeItinerary(
     .maybeSingle();
 
   if (claimExisting.error) {
+    // The conditional update may have committed before its response was lost.
+    // Re-read the owner so an ambiguous success remains idempotent for the
+    // same generation, while all other errors remain failures.
+    const observed = await readExisting();
+    if (!observed.error && alreadyClaimedByThisTrip(observed.data)) {
+      return { ok: true as const, alreadyClaimed: true as const };
+    }
     return {
       ok: false as const,
       error: claimExisting.error.message
@@ -456,12 +471,7 @@ export async function claimFreeItinerary(
   const writeResult = claimExisting.data
     ? claimExisting
     : await (async () => {
-        const { data: existing, error: readError } =
-          await writer
-            .from("roamly_user_entitlements")
-            .select("free_itinerary_used_at")
-            .eq("user_id", userId)
-            .maybeSingle();
+        const { data: existing, error: readError } = await readExisting();
 
         if (readError) {
           return {
@@ -471,6 +481,12 @@ export async function claimFreeItinerary(
         }
 
         if (isFreeItineraryConsumed(existing?.free_itinerary_used_at)) {
+          if (alreadyClaimedByThisTrip(existing)) {
+            return {
+              data: { id: existing?.free_itinerary_trip_id || tripId, alreadyClaimed: true },
+              error: null
+            };
+          }
           return {
             data: null,
             error: {
@@ -498,6 +514,13 @@ export async function claimFreeItinerary(
       message === "FREE_ITINERARY_ALREADY_USED" ||
       /duplicate key|unique constraint|23505/i.test(message);
 
+    if (alreadyUsed) {
+      const observed = await readExisting();
+      if (!observed.error && alreadyClaimedByThisTrip(observed.data)) {
+        return { ok: true as const, alreadyClaimed: true as const };
+      }
+    }
+
     return {
       ok: false as const,
       error: alreadyUsed
@@ -514,15 +537,17 @@ export async function claimFreeItinerary(
     };
   }
 
-  await recordAppEvent(writer, {
-    userId,
-    eventType:
-      "free_itinerary_used",
-    metadata: {
-      tripId,
-      allowance: "lifetime"
-    }
-  });
+  if (!(writeResult.data && typeof writeResult.data === "object" && "alreadyClaimed" in writeResult.data && writeResult.data.alreadyClaimed === true)) {
+    await recordAppEvent(writer, {
+      userId,
+      eventType:
+        "free_itinerary_used",
+      metadata: {
+        tripId,
+        allowance: "lifetime"
+      }
+    });
+  }
 
   return {
     ok: true as const
