@@ -27,7 +27,7 @@ import {
   validateTravelResultForDisplay
 } from "@/lib/roamly/travelResultValidation";
 import type { TravelerDetails, TripPlannerPayload } from "@/lib/trip-planner";
-import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelCandidate } from "@/lib/roamly/hotelInventory";
+import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelInventoryState, type HotelCandidate } from "@/lib/roamly/hotelInventory";
 import { evaluatePublicEventForTrip, normalizePublicEventEvidence, publicEventToMarketResult } from "@/lib/roamly/publicEventDiscovery";
 import { isTravelMarketResultCacheable } from "@/lib/roamly/travelMarketCachePolicy";
 import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
@@ -135,6 +135,7 @@ export type TravelMarketSearchResponse = {
   providerConfigured: boolean;
   providerAttempted: boolean;
   providerUsed: TravelRetrievalProvider;
+  hotelInventoryState?: HotelInventoryState;
   warning?: string;
 };
 
@@ -931,14 +932,16 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
   return dedupeMarketResults(results.map((item) => withRetrievalProvider(item, "firecrawl_fallback")), MAX_RESULTS_PER_SEARCH, request);
 }
 
-async function liveProviderResults(request: TravelMarketSearchRequest) {
-  if (request.category === "flight") return searchTravelpayouts(request);
+type LiveProviderResults = { results: TravelMarketResult[]; hotelInventoryState?: HotelInventoryState };
+
+async function liveProviderResults(request: TravelMarketSearchRequest): Promise<LiveProviderResults> {
+  if (request.category === "flight") return { results: await searchTravelpayouts(request) };
   if (request.category === "hotel") {
     const provider = createBookingDemandProvider();
     const destination = request.destination || request.city || "";
     const countryCode = normalizeCountryCode(request.country);
     const location = countryCode ? await provider.resolveLocation({ query: destination, country: countryCode }) : null;
-    if (!location || !["EXACT", "STRONG_MATCH"].includes(location.status) || location.providerLocationId == null) return [];
+    if (!location || !["EXACT", "STRONG_MATCH"].includes(location.status) || location.providerLocationId == null) return { results: [], hotelInventoryState: location?.providerState };
     const result = await provider.searchHotels({
       destination: request.destination || request.city,
       checkIn: cleanDate(request.start_date),
@@ -962,15 +965,15 @@ async function liveProviderResults(request: TravelMarketSearchRequest) {
         maximumNightlyPrice: request.maximum_nightly_price == null ? undefined : { value: request.maximum_nightly_price, priority: "hard" }
       }
     });
-    return hotelInventoryToMarketResults(result, request);
+    return { results: hotelInventoryToMarketResults(result, request), hotelInventoryState: result.state };
   }
   if (request.category === "attraction" || request.category === "tour") {
-    return searchKlook(request);
+    return { results: await searchKlook(request) };
   }
   if (request.category === "transport" && isKlookTransportSearch(request)) {
-    return searchKlook(request);
+    return { results: await searchKlook(request) };
   }
-  return [];
+  return { results: [] };
 }
 
 function hotelInventoryToMarketResults(result: HotelInventoryResult, request: TravelMarketSearchRequest): TravelMarketResult[] {
@@ -1123,7 +1126,7 @@ function shouldAttemptProviderAfterNative(request: TravelMarketSearchRequest, na
   return request.category === "flight" || request.category === "hotel" || request.category === "attraction" || request.category === "tour" || request.category === "transport";
 }
 
-function searchReadyResult(request: TravelMarketSearchRequest, warning?: string) {
+function searchReadyResult(request: TravelMarketSearchRequest, warning?: string, metadata: Record<string, unknown> = {}) {
   const source: TravelMarketSource =
     request.category === "flight" && travelpayoutsAffiliateConfigured()
       ? "travelpayouts"
@@ -1142,6 +1145,7 @@ function searchReadyResult(request: TravelMarketSearchRequest, warning?: string)
     confidence: "low",
     metadata: {
       warning: warning || "No live provider price was returned. Verify price and availability before booking.",
+      ...metadata,
       ...(subject
         ? {
             travel_evidence: buildSearchReadyTravelEvidence({
@@ -1240,6 +1244,7 @@ export async function searchTravelMarket(
       const results = normalized.category === "hotel" ? rankHotelMarketResults(deduped, normalized) : deduped;
       if (results.length) {
         const providerUsed = resultRetrievalProvider(results[0]);
+        const cachedHotelInventoryState = normalized.category === "hotel" ? results.find((result) => typeof result.metadata?.hotel_inventory_state === "string")?.metadata?.hotel_inventory_state as HotelInventoryState | undefined : undefined;
         logMarketProviderUsed({
           category: normalized.category,
           searchKey,
@@ -1247,7 +1252,7 @@ export async function searchTravelMarket(
           cacheHit: true,
           count: results.length
         });
-        return { results, cacheHit: true, searchKey, providerConfigured: configured, providerAttempted: false, providerUsed };
+        return { results, cacheHit: true, searchKey, providerConfigured: configured, providerAttempted: false, providerUsed, hotelInventoryState: cachedHotelInventoryState };
       }
     }
   }
@@ -1255,13 +1260,17 @@ export async function searchTravelMarket(
   let providerResults: TravelMarketResult[] = [];
   let providerAttempted = false;
   let providerFailure: string | null = null;
+  let hotelInventoryState: HotelInventoryState | undefined = normalized.category === "hotel" && !liveConfigured ? "PROVIDER_NOT_CONFIGURED" : undefined;
   if (normalized.category === "hotel" && liveConfigured && marketEnabled()) {
     providerAttempted = true;
     try {
-      providerResults = await liveProviderResults(normalized);
+      const live = await liveProviderResults(normalized);
+      providerResults = live.results;
+      hotelInventoryState = live.hotelInventoryState;
     } catch (error) {
       console.error("[Roamly market] provider search failed", error);
       providerFailure = travelMarketProviderFailureMessage(error);
+      hotelInventoryState = "PROVIDER_UNAVAILABLE";
     }
   }
 
@@ -1270,10 +1279,13 @@ export async function searchTravelMarket(
   if (!providerResults.length && shouldAttemptProviderAfterNative(normalized, nativeResults) && liveConfigured && marketEnabled()) {
     providerAttempted = true;
     try {
-      providerResults = await liveProviderResults(normalized);
+      const live = await liveProviderResults(normalized);
+      providerResults = live.results;
+      hotelInventoryState = live.hotelInventoryState;
     } catch (error) {
       console.error("[Roamly market] provider search failed", error);
       providerFailure = travelMarketProviderFailureMessage(error);
+      hotelInventoryState = "PROVIDER_UNAVAILABLE";
     }
   }
 
@@ -1301,8 +1313,18 @@ export async function searchTravelMarket(
     : primaryResults.length
       ? primaryResults
       : discoveryResults;
+  const hotelFailureWarning = normalized.category === "hotel" && hotelInventoryState && hotelInventoryState !== "OK"
+    ? hotelInventoryState === "NO_RESULTS"
+      ? "Booking.com returned no accommodations for this stay."
+      : hotelInventoryState === "NO_AVAILABLE_RATE"
+        ? "Booking.com returned accommodations, but no eligible rate was available for this stay."
+        : providerFailure || "Authoritative hotel inventory could not be checked. Verify current availability before booking."
+    : undefined;
+  const fallbackMetadata = normalized.category === "hotel" && hotelInventoryState
+    ? { hotel_inventory_state: hotelInventoryState, hotel_inventory_truth: hotelInventoryState === "NO_RESULTS" ? "ZERO_RESULTS" : hotelInventoryState === "OK" ? "INVENTORY" : "UNAVAILABLE" }
+    : {};
   const deduped = dedupeMarketResults(
-    (selectedResults.length ? selectedResults : [withRetrievalProvider(searchReadyResult(normalized, warning), "search_link_only")]).map(attachStaticTravelEvidence),
+    (selectedResults.length ? selectedResults : [withRetrievalProvider(searchReadyResult(normalized, hotelFailureWarning || warning, fallbackMetadata), "search_link_only")]).map(attachStaticTravelEvidence),
     MAX_RESULTS_PER_SEARCH,
     normalized
   );
@@ -1327,6 +1349,7 @@ export async function searchTravelMarket(
     providerConfigured: configured,
     providerAttempted,
     providerUsed,
+    hotelInventoryState,
     warning:
       providerUsed === "provider_api"
         ? undefined

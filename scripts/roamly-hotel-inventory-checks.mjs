@@ -287,6 +287,39 @@ const rateLimited = await createBookingDemandProvider(async () => ({ status: 429
 assert.equal(rateLimited.state, "RATE_LIMITED");
 const timedOut = await createBookingDemandProvider(async () => { throw new DOMException("timeout", "AbortError"); }).searchHotels({ ...bookingInput, exactPropertyRequest: null });
 assert.equal(timedOut.state, "TIMEOUT");
+for (const status of [401, 403]) {
+  const authFailure = await createBookingDemandProvider(async () => ({ status, ok: false, json: async () => ({}) })).searchHotels({ ...bookingInput, exactPropertyRequest: null });
+  assert.equal(authFailure.state, "AUTH_FAILURE", `HTTP ${status} is an authorization failure, not zero inventory`);
+  assert.equal(authFailure.candidates.length, 0);
+}
+for (const status of [500, 502, 503]) {
+  const unavailable = await createBookingDemandProvider(async () => ({ status, ok: false, json: async () => ({}) })).searchHotels({ ...bookingInput, exactPropertyRequest: null });
+  assert.equal(unavailable.state, "PROVIDER_UNAVAILABLE", `HTTP ${status} is provider unavailable, not zero inventory`);
+  assert.equal(unavailable.candidates.length, 0);
+}
+const networkFailure = await createBookingDemandProvider(async () => { throw new Error("DNS failure"); }).searchHotels({ ...bookingInput, exactPropertyRequest: null });
+assert.equal(networkFailure.state, "PROVIDER_UNAVAILABLE");
+assert.notEqual(networkFailure.state, "NO_RESULTS");
+const malformedJson = await createBookingDemandProvider(async () => ({ status: 200, ok: true, json: async () => { throw new Error("invalid JSON"); } })).searchHotels({ ...bookingInput, exactPropertyRequest: null });
+assert.equal(malformedJson.state, "MALFORMED_PROVIDER_RESPONSE");
+const validZero = await createBookingDemandProvider(async () => ({ status: 200, ok: true, json: async () => ({ data: [] }) })).searchHotels({ ...bookingInput, exactPropertyRequest: null });
+assert.equal(validZero.state, "NO_RESULTS");
+assert.equal(validZero.candidates.length, 0);
+const filteredToZero = await createBookingDemandProvider(async () => ({ status: 200, ok: true, json: async () => ({ data: [{ id: 1005, name: "No Rate Fixture", products: [] }] }) })).searchHotels({ ...bookingInput, exactPropertyRequest: null });
+assert.equal(filteredToZero.state, "NO_AVAILABLE_RATE");
+let detailsFailureCalls = 0;
+const detailsFailure = await createBookingDemandProvider(async (url) => {
+  detailsFailureCalls += 1;
+  if (url.endsWith("/accommodations/details")) return { status: 503, ok: false, json: async () => ({}) };
+  return { status: 200, ok: true, json: async () => ({ data: [{ id: 1001, name: "Stay Truth Fixture", currency: { accommodation: "CAD" }, products: [{ id: "rate-1", price: { total: 610, charges: [] }, number_available_at_this_price: 1 }] }] }) };
+}).searchHotels({ ...bookingInput, exactPropertyRequest: null, providerLocationType: "city" });
+assert.equal(detailsFailureCalls, 2);
+assert.equal(detailsFailure.state, "OK", "optional details failure does not erase successful stay inventory");
+assert.equal(detailsFailure.candidates[0].totalStayPrice, 610);
+const marketSearchSource = fs.readFileSync(path.resolve(root, "lib/roamly/travelMarketSearch.ts"), "utf8");
+assert.match(marketSearchSource, /hotelInventoryState\?: HotelInventoryState/);
+assert.match(marketSearchSource, /hotel_inventory_truth/);
+assert.match(marketSearchSource, /Authoritative hotel inventory could not be checked/);
 if (oldToken === undefined) delete process.env.BOOKING_DEMAND_API_TOKEN; else process.env.BOOKING_DEMAND_API_TOKEN = oldToken;
 if (oldAffiliate === undefined) delete process.env.BOOKING_DEMAND_AFFILIATE_ID; else process.env.BOOKING_DEMAND_AFFILIATE_ID = oldAffiliate;
 if (oldProvider === undefined) delete process.env.ROAMLY_HOTEL_INVENTORY_PROVIDER; else process.env.ROAMLY_HOTEL_INVENTORY_PROVIDER = oldProvider;
