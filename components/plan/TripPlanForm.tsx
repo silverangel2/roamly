@@ -31,6 +31,7 @@ import {
 } from "@/lib/roamly/authenticatedFetch";
 import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
+import { buildGuestDayPreview, type GuestDayPreview } from "@/lib/roamly/guestPlanPreview";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 
@@ -134,8 +135,12 @@ function selectedOptionClass(label: string) {
     : selectedPrimaryOptionClass;
 }
 
+function planAuthUrl(pathname: "/login" | "/signup") {
+  return `${pathname}?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+}
+
 function planLoginUrl() {
-  return `/login?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+  return planAuthUrl("/login");
 }
 
 function cleanTripId(value: unknown) {
@@ -579,8 +584,10 @@ export function TripPlanForm({
   const [restoreNotice, setRestoreNotice] = useState(false);
   const [draftHydratedState, setDraftHydratedState] = useState(false);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
+  const [guestPreview, setGuestPreview] = useState<GuestDayPreview | null>(null);
   const [authStatus, setAuthStatus] = useState<BrowserAuthStatus>(apiAuthToken ? "authenticated" : "loading");
   const trackedSelections = useRef(new Set<string>());
+  const guestPreviewRef = useRef<HTMLDivElement | null>(null);
   const generationInFlight = useRef(false);
   const draftHydrated = useRef(false);
   const resumeGenerateAttempted = useRef(false);
@@ -964,6 +971,26 @@ export function TripPlanForm({
     router.push(planLoginUrl());
   }
 
+  function showGuestDayPreview(generationPayload: TripPlannerPayload) {
+    const discovery =
+      generationPayload.priceDiscovery ||
+      (priceDiscovery as unknown as Record<string, unknown> | null) ||
+      undefined;
+    setGuestPreview(
+      buildGuestDayPreview({
+        ...generationPayload,
+        priceDiscovery: discovery
+      })
+    );
+    setNotice("");
+    setError("");
+  }
+
+  function continueGuestPlanWithAccount(pathname: "/login" | "/signup") {
+    saveCurrentPlanDraft();
+    router.push(planAuthUrl(pathname));
+  }
+
   const restorePlanDraft = useCallback((record: Record<string, unknown>) => {
     const travelers = getRecord(record.travelers);
     setStep(clampStep(record.currentStep ?? record.step));
@@ -1049,6 +1076,7 @@ export function TripPlanForm({
     setPriceDiscovery(null);
     setPriceDiscoveryId(null);
     setBudgetConstraint("");
+    setGuestPreview(null);
   }
 
   useEffect(() => {
@@ -1094,6 +1122,11 @@ export function TripPlanForm({
     draftHydrated.current = true;
     setDraftHydratedState(true);
   }, [bookingFallbackSource, fallbackCategory, fallbackDestination, fallbackEndDate, fallbackOrigin, fallbackStartDate, queryDestination, restorePlanDraft, shouldShowResumeNotice]);
+
+  useEffect(() => {
+    if (!guestPreview) return;
+    guestPreviewRef.current?.scrollIntoView({ block: "nearest" });
+  }, [guestPreview]);
 
   useEffect(() => {
     if (!draftHydrated.current) return;
@@ -1155,6 +1188,7 @@ export function TripPlanForm({
   function goBack() {
     setError("");
     setNotice("");
+    setGuestPreview(null);
     setStep((current) => Math.max(current - 1, 0));
   }
 
@@ -1291,17 +1325,26 @@ export function TripPlanForm({
       await createDraftAndStartCheckout();
       return;
     }
+    const authenticated = Boolean(apiAuthToken) || Boolean(await resolveSessionUser());
     saveCurrentPlanDraft();
     let generationPayload = payload;
     if (!priceDiscovery) {
       const checked = await runPriceDiscovery();
-      if (!checked) return;
-      generationPayload = {
-        ...payload,
-        priceDiscoveryId: checked.discoveryId,
-        budgetConstraint: checked.budgetConstraint,
-        priceDiscovery: checked.discovery as unknown as Record<string, unknown>
-      };
+      if (!checked) {
+        if (authenticated) return;
+        setError("");
+      } else {
+        generationPayload = {
+          ...payload,
+          priceDiscoveryId: checked.discoveryId,
+          budgetConstraint: checked.budgetConstraint,
+          priceDiscovery: checked.discovery as unknown as Record<string, unknown>
+        };
+      }
+    }
+    if (!authenticated) {
+      showGuestDayPreview(generationPayload);
+      return;
     }
     await submitPlan(generationPayload);
   }
@@ -1335,7 +1378,7 @@ export function TripPlanForm({
           setError("Your login session could not be confirmed. Refresh this page and try again.");
           return;
         }
-        redirectToLoginForGeneration();
+        showGuestDayPreview(generationPayload);
         return;
       }
 
@@ -1874,6 +1917,24 @@ export function TripPlanForm({
         </div>
       ) : null}
 
+      {guestPreview ? (
+        <div ref={guestPreviewRef} data-guest-day-preview className="mt-4 rounded-[1.5rem] border border-ocean/20 bg-white p-4 shadow-soft">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Day 1 preview")}</p>
+          <h3 className="mt-2 text-xl font-black text-ink">{guestPreview.title}</h3>
+          <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{guestPreview.summary}</p>
+          <p className="mt-3 text-sm font-black leading-6 text-ink">{guestPreview.disclaimer}</p>
+          <div className="mt-4 grid gap-3">
+            {guestPreview.blocks.map((block) => (
+              <div key={block.period} className="rounded-2xl bg-mist p-3">
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-600">{translateText(block.period)}</p>
+                <p className="mt-1 text-sm font-black text-ink">{block.title}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{block.detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-7 grid grid-cols-2 gap-3 border-t border-cloud/80 pt-5">
         <button
           type="button"
@@ -1891,6 +1952,14 @@ export function TripPlanForm({
           className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25", primaryActionClass)}
           >
             {translateText("Continue")}
+          </button>
+        ) : guestPreview ? (
+          <button
+            type="button"
+            onClick={() => continueGuestPlanWithAccount("/signup")}
+            className={classNames("min-h-12 rounded-xl px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25", primaryActionClass)}
+          >
+            {translateText("Sign up to save and continue")}
           </button>
         ) : (
           <button
@@ -1914,7 +1983,20 @@ export function TripPlanForm({
         )}
       </div>
 
-      {step === steps.length - 1 ? (
+      {guestPreview ? (
+        <div className="mt-3 text-center">
+          <p className="text-xs font-bold leading-5 text-slate-500">
+            {translateText("Create an account to save this plan, regenerate it, or continue past day 1.")}
+          </p>
+          <button
+            type="button"
+            onClick={() => continueGuestPlanWithAccount("/login")}
+            className="mt-2 min-h-11 text-sm font-black text-ocean underline decoration-ocean/30 underline-offset-4 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20"
+          >
+            {translateText("Log in to save and continue")}
+          </button>
+        </div>
+      ) : step === steps.length - 1 ? (
         <p className="mt-3 text-center text-xs font-bold leading-5 text-slate-500">
           {freeItineraryUsed
             ? testerAccess
