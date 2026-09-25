@@ -106,33 +106,45 @@ export function GuestFreeItinerary() {
       ) : null}
 
       {itinerary?.status === "ready" && itinerary.days.length > 0 ? (
-        <div data-guest-account-wall className="mt-6 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
-          <p className="text-sm font-black leading-6 text-ink">
-            {translateText("Sign in to save this itinerary, keep it, or continue.")}
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {translateText("Live Companion and paid packs need an account and a paid entitlement.")}
-          </p>
-          <ul className="mt-3 grid gap-1 text-sm font-semibold leading-6 text-slate-600">
-            {GUEST_ACCOUNT_WALL.map((item) => (
-              <li key={item}>{translateText(item)}</li>
-            ))}
-          </ul>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <>
+          <div data-guest-live-companion-offer className="mt-6 rounded-2xl border border-ocean/20 bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Live Companion")}</p>
+            <h3 className="mt-2 text-lg font-black text-ink">{translateText("Add Live Companion")}</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              {translateText("Pre-trip reminders, a booking timeline, and up-next help for this trip. This is an offer only. Nothing is unlocked yet.")}
+            </p>
             <Link
               href={planAuthUrl("/login")}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-center text-sm font-semibold text-white"
+              className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl border border-ocean/30 bg-ocean/5 px-5 py-3 text-sm font-semibold text-ocean"
             >
-              {translateText("Sign in to save")}
-            </Link>
-            <Link
-              href={planAuthUrl("/signup")}
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-cloud bg-white px-5 py-3 text-center text-sm font-semibold text-ocean"
-            >
-              {translateText("Create an account")}
+              {translateText("Add Live Companion")}
             </Link>
           </div>
-        </div>
+          <div data-guest-account-wall className="mt-4 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+            <p className="text-sm font-black leading-6 text-ink">
+              {translateText("Sign in to save this itinerary, purchase Live Companion, or buy paid packs.")}
+            </p>
+            <ul className="mt-3 grid gap-1 text-sm font-semibold leading-6 text-slate-600">
+              {GUEST_ACCOUNT_WALL.map((item) => (
+                <li key={item}>{translateText(item)}</li>
+              ))}
+            </ul>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link
+                href={planAuthUrl("/login")}
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-center text-sm font-semibold text-white"
+              >
+                {translateText("Sign in to save")}
+              </Link>
+              <Link
+                href={planAuthUrl("/signup")}
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-cloud bg-white px-5 py-3 text-center text-sm font-semibold text-ocean"
+              >
+                {translateText("Create an account")}
+              </Link>
+            </div>
+          </div>
+        </>
       ) : null}
       {!itinerary ? (
         <Link href="/plan" className="mt-4 inline-flex text-sm font-black text-ocean underline decoration-ocean/30 underline-offset-4">

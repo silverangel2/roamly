@@ -187,12 +187,13 @@ assert.match(unauthenticatedGenerate, /requestGuestFreeItinerary\(generationPayl
 assert.doesNotMatch(unauthenticatedGenerate, /redirectToLoginForGeneration\(\)/);
 
 assert.match(guestPage, /data-guest-free-itinerary/);
-assert.match(guestPage, /itinerary\?\.status === "ready" && itinerary\.days\.length > 0 \? \([\s\S]*data-guest-account-wall/);
+assert.match(guestPage, /itinerary\?\.status === "ready" && itinerary\.days\.length > 0 \? \([\s\S]*data-guest-live-companion-offer[\s\S]*data-guest-account-wall/);
 assert.match(guestPage, /fetch\("\/api\/trips\/guest-itinerary"/);
-assert.match(guestPage, /Sign in to save this itinerary, keep it, or continue\./);
+assert.match(guestPage, /This is an offer only\. Nothing is unlocked yet\./);
+assert.match(guestPage, /Sign in to save this itinerary, purchase Live Companion, or buy paid packs\./);
 assert.match(guestPage, /const PLAN_RESUME_PATH = "\/plan\?resumePlan=1&continueGenerate=1"/);
 assert.match(guestPage, /Sign in to save/);
-assert.doesNotMatch(guestPage, /checkout|progressbar|percent/i);
+assert.doesNotMatch(guestPage, /\/api\/stripe|\/live-companion|checkout|progressbar|percent/i);
 const guestGenerate = planForm.slice(planForm.indexOf("if (!authenticated)"), planForm.indexOf("await submitPlan(generationPayload)"));
 assert.match(guestGenerate, /requestGuestFreeItinerary\(generationPayload\)/);
 assert.doesNotMatch(guestGenerate, /redirectToLoginForGeneration|planLoginUrl|\/login/);
