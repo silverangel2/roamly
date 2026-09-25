@@ -73,7 +73,7 @@ export function GuestFreeItinerary() {
       ) : null}
       {itinerary?.status === "failed" ? (
         <p className="mt-4 text-sm font-bold leading-6 text-slate-600">
-          {translateText("Roamly could not finish this free itinerary. Create an account to try again from your saved plan.")}
+          {translateText("Roamly could not finish this free itinerary.")}
         </p>
       ) : null}
 
@@ -105,30 +105,35 @@ export function GuestFreeItinerary() {
         </div>
       ) : null}
 
-      <div data-guest-account-wall className="mt-6 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
-        <p className="text-sm font-black leading-6 text-ink">
-          {translateText("Create an account to save this itinerary, continue beyond this free itinerary, or unlock Live Companion and paid packs.")}
-        </p>
-        <ul className="mt-3 grid gap-1 text-sm font-semibold leading-6 text-slate-600">
-          {GUEST_ACCOUNT_WALL.map((item) => (
-            <li key={item}>{translateText(item)}</li>
-          ))}
-        </ul>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <Link
-            href={planAuthUrl("/signup")}
-            className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-center text-sm font-semibold text-white"
-          >
-            {translateText("Sign up to save")}
-          </Link>
-          <Link
-            href={planAuthUrl("/login")}
-            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-cloud bg-white px-5 py-3 text-center text-sm font-semibold text-ocean"
-          >
-            {translateText("Log in")}
-          </Link>
+      {itinerary?.status === "ready" && itinerary.days.length > 0 ? (
+        <div data-guest-account-wall className="mt-6 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+          <p className="text-sm font-black leading-6 text-ink">
+            {translateText("Sign in to save this itinerary, keep it, or continue.")}
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            {translateText("Live Companion and paid packs need an account and a paid entitlement.")}
+          </p>
+          <ul className="mt-3 grid gap-1 text-sm font-semibold leading-6 text-slate-600">
+            {GUEST_ACCOUNT_WALL.map((item) => (
+              <li key={item}>{translateText(item)}</li>
+            ))}
+          </ul>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Link
+              href={planAuthUrl("/login")}
+              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-center text-sm font-semibold text-white"
+            >
+              {translateText("Sign in to save")}
+            </Link>
+            <Link
+              href={planAuthUrl("/signup")}
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-cloud bg-white px-5 py-3 text-center text-sm font-semibold text-ocean"
+            >
+              {translateText("Create an account")}
+            </Link>
+          </div>
         </div>
-      </div>
+      ) : null}
       {!itinerary ? (
         <Link href="/plan" className="mt-4 inline-flex text-sm font-black text-ocean underline decoration-ocean/30 underline-offset-4">
           {translateText("Back to plan")}
