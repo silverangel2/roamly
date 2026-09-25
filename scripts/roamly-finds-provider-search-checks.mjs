@@ -76,6 +76,11 @@ const [component, magazine, route, market, nextConfig] = await Promise.all([
   readFile(new URL("../next.config.ts", import.meta.url), "utf8")
 ]);
 assert.match(component, /category: "hotel"/);
+assert.match(component, /Where are you staying\?/ , "hotel search has one clear destination field");
+assert.match(component, /<PlaceSelector label="Where are you staying\?"/, "hotel country is derived from a selected place instead of a second free-text field");
+assert.match(component, /normalizeCountryCode\(countryValue\)/, "hotel search rejects destinations without a recognized country");
+assert.doesNotMatch(component, /name="stayCountry"|name="stayDestination"/, "hotel search cannot submit duplicate independently typed destination/country values");
+assert.match(component, /Choose a destination from the place suggestions/, "unresolved custom text explains how to get a grounded hotel search");
 assert.match(component, /category: "flight"/);
 assert.match(component, /searchPartner\(event, "attraction", "activity"\)/);
 assert.match(component, /store: false/);
