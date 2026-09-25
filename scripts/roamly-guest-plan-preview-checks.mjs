@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
@@ -23,6 +24,7 @@ function loadTsModule(entryFile) {
       process,
       URL,
       URLSearchParams,
+      Buffer,
       Date,
       setTimeout,
       clearTimeout,
@@ -35,6 +37,7 @@ function loadTsModule(entryFile) {
           const local = path.join(path.dirname(file), id);
           return load(local.match(/\.(ts|tsx|mjs|json)$/) ? local : `${local}.ts`);
         }
+        if (id.startsWith("node:")) return require(id.slice(5));
         return require(id);
       }
     };
@@ -46,184 +49,140 @@ function loadTsModule(entryFile) {
   return load(entryFile);
 }
 
-const { buildGuestDayPreview } = loadTsModule("lib/roamly/guestPlanPreview.ts");
+process.env.ROAMLY_SESSION_TOKEN_SECRET = "guest-itinerary-test-secret";
+const { publicGuestItineraryView, GUEST_FREE_ITINERARY_DISCLAIMER, GUEST_ACCOUNT_WALL, GUEST_ITINERARY_PATH } = loadTsModule("lib/roamly/guestItineraryView.ts");
+const { signGuestItineraryCookie, verifyGuestItineraryCookie } = loadTsModule("lib/roamly/guestItineraryAccess.ts");
 
-function preview(overrides = {}) {
-  return buildGuestDayPreview({
-    tripType: "single_destination",
-    origin: "Ottawa",
-    destination: "Montreal",
-    destinationCity: "Montreal",
-    startDate: "2026-10-10",
-    endDate: "2026-10-12",
-    daysCount: 3,
-    travelersCount: 2,
-    budgetAmount: 1500,
-    budgetCurrency: "CAD",
-    travelStyle: "Balanced",
-    interests: ["Culture"],
-    pace: "Balanced",
-    accommodationPreference: "Mid-range",
-    transportationPreference: "Mixed",
-    specialNotes: "",
-    ...overrides
-  });
-}
-
-function assertNoFabricatedCommerce(sample) {
-  const json = JSON.stringify(sample);
-  assert.doesNotMatch(json, /https?:\/\//i, "guest preview must not include booking or payment links");
-  assert.doesNotMatch(json, /confirmed|checkout|payment|reserved|\$\d/i, "guest preview must not fabricate payments or bookings");
-  assert.equal(sample.disclaimer, "Sample of day 1. Nothing is booked or charged.");
-  assert.equal(
-    JSON.stringify(sample.continuesBehindAccount),
-    JSON.stringify(["Save this plan", "Regenerate the itinerary", "Continue past day 1"])
-  );
-  assert.equal(sample.blocks.length, 3);
-}
-
-const montreal = preview();
-assert.equal(montreal.source, "known_place");
-assert.equal(montreal.blocks[1].title, "Notre-Dame Basilica of Montreal");
-assert.match(montreal.blocks[0].title, /Arrive from Ottawa/);
-assert.equal(montreal.dateLabel, "2026-10-10");
-assertNoFabricatedCommerce(montreal);
-
-const nature = preview({ interests: ["Nature"] });
-assert.equal(nature.blocks[1].title, "Mount Royal lookout");
-assertNoFabricatedCommerce(nature);
-
-const lisbon = preview({
-  origin: "Toronto",
-  destination: "Lisbon",
-  destinationCity: "Lisbon",
-  interests: ["Food"],
-  priceDiscovery: {
-    marketResults: [
-      {
-        category: "attraction",
-        title: "Lisbon top attraction ticket",
-        source: "roamly_internal",
-        city: "Lisbon"
-      }
-    ]
-  }
-});
-assert.equal(lisbon.source, "trip_inputs");
-assert.equal(lisbon.blocks[1].title, "Food time in Lisbon");
-assert.match(lisbon.blocks[1].detail, /does not invent a venue/);
-assertNoFabricatedCommerce(lisbon);
-
-const searchTemplates = preview({
-  priceDiscovery: {
-    marketResults: [
-      {
-        category: "attraction",
-        title: "Montreal, Canada events festivals concerts nightlife 2026-10-10 to 2026-10-12",
-        source: "roamly_internal",
-        city: "Montreal"
-      },
-      {
-        category: "attraction",
-        title: "Notre-Dame Basilica Admission Ticket",
-        source: "roamly_internal",
-        city: "Montreal"
-      },
-      {
-        category: "tour",
-        title: "Montreal, Canada walking highlights tour",
-        source: "roamly_internal",
-        city: "Montreal"
-      },
-      {
-        category: "restaurant",
-        title: "restaurant reservations Montreal, Canada",
-        source: "roamly_internal",
-        city: "Montreal"
-      },
-      {
-        category: "restaurant",
-        title: "Montreal, Canada restaurants official menu reservations",
-        source: "roamly_internal",
-        city: "Montreal"
-      }
-    ]
-  }
-});
-assert.equal(searchTemplates.source, "market_result");
-assert.equal(searchTemplates.blocks[1].title, "Notre-Dame Basilica Admission Ticket");
-assert.equal(searchTemplates.blocks[2].title, "Old Montreal");
-assertNoFabricatedCommerce(searchTemplates);
-
-const searched = preview({
-  interests: ["Nature"],
-  priceDiscovery: {
-    marketResults: [
-      {
-        category: "flight",
-        title: "Ottawa to Montreal flight",
-        source: "travelpayouts",
-        city: "Montreal"
-      },
-      {
-        category: "attraction",
-        title: "Montreal Museum of Fine Arts",
-        source: "klook",
-        city: "Montreal"
-      },
-      {
-        category: "restaurant",
-        title: "Schwartz's Deli",
-        source: "public_web",
-        city: "Montreal"
-      }
-    ]
-  }
-});
-assert.equal(searched.source, "market_result");
-assert.equal(searched.blocks[1].title, "Montreal Museum of Fine Arts");
-assert.equal(searched.blocks[2].title, "Schwartz's Deli");
-assert.doesNotMatch(searched.blocks[0].detail, /flight/);
-assertNoFabricatedCommerce(searched);
-
-const multiCity = preview({
-  tripType: "multi_city",
-  destination: "Quebec City → Montreal",
-  destinationCity: "Montreal",
-  destinationStops: [
-    { label: "Quebec City", value: "Quebec City", city: "Quebec City", source: "custom" },
-    { label: "Montreal", value: "Montreal", city: "Montreal", source: "custom" }
+const fullJson = {
+  trip_title: "Montreal long weekend",
+  destination_summary: "Three days in Montreal.",
+  generation_note: "Generated through Roamly staged AI generation.",
+  booking_suggestions: [{ title: "Hotel checkout", affiliate_url: "https://example.test/book", estimated_cost_min: 120 }],
+  daily_itinerary: [
+    {
+      day_number: 1,
+      date: "2026-10-10",
+      title: "Old Montreal",
+      morning: "Arrive and walk the old port.",
+      afternoon: "Notre-Dame Basilica.",
+      evening: "Dinner in the Latin Quarter.",
+      food: ["Schwartz's"],
+      estimated_cost: 80,
+      live_timeline: [{ time_label: "09:00", title: "Old Port", description: "https://maps.example/secret" }]
+    },
+    {
+      day_number: 2,
+      date: "2026-10-11",
+      title: "Plateau",
+      morning: "Mount Royal lookout.",
+      afternoon: "Mile End wander.",
+      evening: "Local show.",
+      food: [],
+      live_timeline: []
+    }
   ]
+};
+
+const ready = publicGuestItineraryView({
+  tripTitle: "Draft",
+  destination: "Montreal",
+  itineraryStatus: "generated",
+  fullJson
 });
-assert.match(multiCity.title, /Quebec City/);
-assert.equal(multiCity.source, "trip_inputs");
-assertNoFabricatedCommerce(multiCity);
+assert.equal(ready.status, "ready");
+assert.equal(ready.disclaimer, GUEST_FREE_ITINERARY_DISCLAIMER);
+assert.equal(ready.days.length, 2);
+assert.equal(ready.days[0].title, "Old Montreal");
+assert.equal(ready.days[0].afternoon, "Notre-Dame Basilica.");
+assert.equal(ready.days[1].morning, "Mount Royal lookout.");
+assert.equal(ready.days[0].timeline[0].title, "Old Port");
+assert.equal(JSON.stringify(ready.continuesBehindAccount), JSON.stringify(GUEST_ACCOUNT_WALL));
+const readyJson = JSON.stringify(ready);
+assert.doesNotMatch(readyJson, /https?:\/\//i);
+assert.doesNotMatch(readyJson, /affiliate_url|booking_suggestions|checkout/i);
+assert.equal("estimated_cost" in ready.days[0], false);
+
+const building = publicGuestItineraryView({
+  destination: "Montreal",
+  tripStatus: "generating",
+  metadata: {
+    generation: {
+      status: "generating",
+      generatedDays: {
+        "2": { day_number: 2, title: "Day two", morning: "Market", afternoon: "Museum", evening: "River" },
+        "1": { day_number: 1, title: "Day one", morning: "Arrival", afternoon: "Basilica", evening: "Dinner" }
+      }
+    }
+  }
+});
+assert.equal(building.status, "building");
+assert.equal(JSON.stringify(building.days.map((day) => day.dayNumber)), JSON.stringify([1, 2]));
+assert.equal(building.days[1].title, "Day two");
+
+const failed = publicGuestItineraryView({ tripStatus: "failed", metadata: { generation: { status: "failed" } } });
+assert.equal(failed.status, "failed");
+assert.equal(failed.days.length, 0);
+
+const token = signGuestItineraryCookie("trip-1", "user-1");
+assert.equal(verifyGuestItineraryCookie(token)?.tripId, "trip-1");
+assert.equal(verifyGuestItineraryCookie(token)?.userId, "user-1");
+assert.equal(verifyGuestItineraryCookie(`${token}x`), null);
+assert.equal(verifyGuestItineraryCookie("not-a-token"), null);
+const expiredBody = Buffer.from(JSON.stringify({
+  purpose: "roamly_guest_itinerary",
+  tripId: "trip-1",
+  userId: "user-1",
+  exp: 1
+}), "utf8").toString("base64url");
+const expiredSignature = crypto.createHmac("sha256", process.env.ROAMLY_SESSION_TOKEN_SECRET).update(expiredBody).digest("base64url");
+assert.equal(verifyGuestItineraryCookie(`${expiredBody}.${expiredSignature}`), null);
 
 const planForm = fs.readFileSync(path.join(root, "components/plan/TripPlanForm.tsx"), "utf8");
-const previewSource = fs.readFileSync(path.join(root, "lib/roamly/guestPlanPreview.ts"), "utf8");
-assert.match(planForm, /buildGuestDayPreview/);
-assert.match(planForm, /data-guest-day-preview/);
-assert.match(planForm, /guestPreview\.disclaimer/);
-assert.match(previewSource, /Sample of day 1\. Nothing is booked or charged\./);
-assert.match(planForm, /Create an account to save this plan, regenerate it, or continue past day 1\./);
-assert.match(planForm, /Sign up to save and continue/);
-assert.match(planForm, /Log in to save and continue/);
+const guestPage = fs.readFileSync(path.join(root, "components/plan/GuestFreeItinerary.tsx"), "utf8");
+const guestRoute = fs.readFileSync(path.join(root, "app/api/trips/guest-itinerary/route.ts"), "utf8");
+const generateRoute = fs.readFileSync(path.join(root, "app/api/trips/generate/route.ts"), "utf8");
+
+assert.match(planForm, /fetch\("\/api\/trips\/guest-itinerary"/);
+assert.match(planForm, /requestGuestFreeItinerary\(generationPayload\)/);
+assert.match(planForm, /submitPlan\(generationPayload\)/);
 assert.match(planForm, /const PLAN_RESUME_PATH = "\/plan\?resumePlan=1&continueGenerate=1"/);
 assert.match(
   planForm,
   /if \(!sessionUser && !apiAuthToken\) return;[\s\S]*resumeGenerateAttempted\.current = true;[\s\S]*void submitPlanRef\.current\?\.\(\)/
 );
-assert.match(planForm, /submitPlan\(generationPayload\)/);
+assert.doesNotMatch(planForm, /data-guest-day-preview|buildGuestDayPreview|showGuestDayPreview/);
+assert.match(planForm, /redirectToLoginForGeneration\(\)/);
+assert.match(planForm, /router\.push\(planLoginUrl\(\)\)/);
 
 const generateHandler = planForm.slice(planForm.indexOf('fetchWithSupabaseAuth("/api/trips/generate"'));
 const unauthenticatedGenerate = generateHandler.slice(
   generateHandler.indexOf("if (response.status === 401)"),
   generateHandler.indexOf("if (response.ok && data?.tripId)")
 );
-assert.match(unauthenticatedGenerate, /showGuestDayPreview\(generationPayload\)/);
+assert.match(unauthenticatedGenerate, /requestGuestFreeItinerary\(generationPayload\)/);
 assert.doesNotMatch(unauthenticatedGenerate, /redirectToLoginForGeneration\(\)/);
-assert.match(planForm, /redirectToLoginForGeneration\(\)/, "paid checkout still sends an unauthenticated save to login");
-assert.match(planForm, /function redirectToLoginForGeneration\(\)/);
-assert.match(planForm, /router\.push\(planLoginUrl\(\)\)/);
 
-console.log("PASS: guest day-1 preview is real, unpaid, and still resumes after login");
+assert.match(guestPage, /data-guest-free-itinerary/);
+assert.match(guestPage, /data-guest-account-wall/);
+assert.match(guestPage, /fetch\("\/api\/trips\/guest-itinerary"/);
+assert.match(guestPage, /Create an account to save this itinerary, continue beyond this free itinerary, or unlock Live Companion and paid packs\./);
+assert.match(guestPage, /const PLAN_RESUME_PATH = "\/plan\?resumePlan=1&continueGenerate=1"/);
+assert.match(guestPage, /Sign up to save/);
+assert.doesNotMatch(guestPage, /checkout|progressbar|percent/i);
+
+assert.match(guestRoute, /admin\.auth\.admin\.createUser/);
+assert.match(guestRoute, /email_confirm:\s*true/);
+assert.match(guestRoute, /roamly_guest_itinerary:\s*true/);
+assert.match(guestRoute, /@example\.com/);
+assert.match(guestRoute, /generateTripForActor/);
+assert.match(guestRoute, /eq\("user_id", access\.userId\)/);
+assert.match(guestRoute, new RegExp(`previewUrl: ${GUEST_ITINERARY_PATH.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}|GUEST_ITINERARY_PATH`));
+assert.doesNotMatch(guestRoute, /searchParams/);
+assert.match(generateRoute, /export async function generateTripForActor/);
+assert.match(generateRoute, /const auth = await requireUser\(\)/);
+assert.ok(
+  generateRoute.indexOf("const auth = await requireUser()") < generateRoute.indexOf("return generateTripForActor(request, auth, requestId)"),
+  "authenticated generate still requires a user before running the shared handler"
+);
+
+console.log("PASS: guests receive the free itinerary before login, and resume still generates after login");

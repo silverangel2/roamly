@@ -834,27 +834,23 @@ async function checkRoamlyGenerationSchema(supabase: Awaited<ReturnType<typeof c
   };
 }
 
-export async function POST(request: NextRequest) {
-  const requestId = randomUUID();
-  logGenerationDiagnostic("generation_route_request_received", {
-    requestId,
-    route: request.nextUrl.pathname,
-    supabaseHost: getPublicSupabaseHost(),
-    method: request.method
-  });
-  const auth = await requireUser();
-  if (!auth.ok) {
-    logGenerationDiagnostic("generation_route_auth_failed", {
+type TripGenerationClient = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+
+export async function generateTripForActor(
+  request: NextRequest,
+  actor: { supabase: TripGenerationClient; user: { id: string; email?: string | null } },
+  existingRequestId?: string
+) {
+  const requestId = existingRequestId || randomUUID();
+  if (!existingRequestId) {
+    logGenerationDiagnostic("generation_route_request_received", {
       requestId,
       route: request.nextUrl.pathname,
       supabaseHost: getPublicSupabaseHost(),
-      status: auth.response.status,
-      errorCode: "AUTH_REQUIRED"
+      method: request.method
     });
-    return auth.response;
   }
-
-  const { supabase, user } = auth;
+  const { supabase, user } = actor;
   logGenerationDiagnostic("generation_route_auth_success", {
     requestId,
     route: request.nextUrl.pathname,
@@ -1037,4 +1033,27 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  const requestId = randomUUID();
+  logGenerationDiagnostic("generation_route_request_received", {
+    requestId,
+    route: request.nextUrl.pathname,
+    supabaseHost: getPublicSupabaseHost(),
+    method: request.method
+  });
+  const auth = await requireUser();
+  if (!auth.ok) {
+    logGenerationDiagnostic("generation_route_auth_failed", {
+      requestId,
+      route: request.nextUrl.pathname,
+      supabaseHost: getPublicSupabaseHost(),
+      status: auth.response.status,
+      errorCode: "AUTH_REQUIRED"
+    });
+    return auth.response;
+  }
+
+  return generateTripForActor(request, auth, requestId);
 }
