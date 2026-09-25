@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { localizeActivityRecords, orderActivitiesByItinerary } from "../lib/roamly/liveActivityBinding.ts";
+import { localizeActivityRecords, mergePersistedSkipStatuses, orderActivitiesByItinerary } from "../lib/roamly/liveActivityBinding.ts";
 import {
   mergeLiveActivityStatuses,
   persistSkippedActivityIds,
@@ -133,6 +133,61 @@ const remountedSelection = selectNowAndNextActivity({
 });
 assert.equal(remountedSelection.now?.id, "restaurant-id", "persisted skip survives stale planned props on remount");
 
+const serverReconciledActivities = mergePersistedSkipStatuses(
+  [
+    { id: "display-food", day_number: 1, time_label: "3:15 PM", title: "Providence attraction ticket", status: "planned" },
+    { id: "display-food-next", day_number: 1, time_label: "5:00 PM", title: "Providence restaurants", status: "planned" }
+  ],
+  [
+    { day_number: 1, time_label: "3:15 PM", title: "Providence attraction ticket", status: "skipped" },
+    { day_number: 1, time_label: "5:00 PM", title: "Providence restaurants", status: "planned" }
+  ]
+);
+assert.equal(serverReconciledActivities[0].status, "skipped", "server tracking status must override stale display status after a full reload");
+assert.equal(serverReconciledActivities[1].status, "planned", "server skip reconciliation must not alter other activities");
+
+const duplicateServerSkips = mergePersistedSkipStatuses(
+  [
+    { id: "day-one-stop", day_number: 1, time_label: "3:15 PM", title: "City museum", status: "planned" },
+    { id: "day-two-stop", day_number: 2, time_label: "3:15 PM", title: "City museum", status: "planned" }
+  ],
+  [{ day_number: 2, time_label: "3:15 PM", title: "City museum", status: "skipped" }]
+);
+assert.equal(duplicateServerSkips[0].status, "planned", "a skipped title on another day must not alter this stop");
+assert.equal(duplicateServerSkips[1].status, "skipped", "the exact day/time identity receives the persisted skip");
+
+const ambiguousServerSkip = mergePersistedSkipStatuses(
+  [
+    { id: "museum-day-one", day_number: 1, time_label: null, title: "City museum", status: "planned" },
+    { id: "museum-day-two", day_number: 2, time_label: null, title: "City museum", status: "planned" }
+  ],
+  [{ day_number: null, time_label: null, title: "City museum", status: "skipped" }]
+);
+assert.deepEqual(ambiguousServerSkip.map((activity) => activity.status), ["planned", "planned"], "ambiguous legacy identity must not skip duplicate display stops");
+
+const baseItineraryForServerSkip = {
+  daily_itinerary: [{
+    day_number: 1,
+    live_timeline: [{ title: "City museum", time_label: "3:15 PM", description: "Visit the museum" }]
+  }]
+};
+const translatedItineraryForServerSkip = {
+  daily_itinerary: [{
+    day_number: 1,
+    live_timeline: [{ title: "Musée de la ville", time_label: "3:15 PM", description: "Visitez le musée" }]
+  }]
+};
+const translatedServerSkip = localizeActivityRecords(
+  mergePersistedSkipStatuses(
+    [{ id: "display-museum", day_number: 1, time_label: "3:15 PM", title: "City museum", status: "planned" }],
+    [{ day_number: 1, time_label: "3:15 PM", title: "City museum", status: "skipped" }]
+  ),
+  translatedItineraryForServerSkip,
+  baseItineraryForServerSkip
+);
+assert.equal(translatedServerSkip[0].title, "Musée de la ville");
+assert.equal(translatedServerSkip[0].status, "skipped", "server status reconciliation must survive customer-language localization");
+
 const translated = {
   daily_itinerary: [
     {
@@ -191,7 +246,8 @@ const page = await readFile(new URL("../app/trip/[id]/live/page.tsx", import.met
 const trips = await readFile(new URL("../lib/trips.ts", import.meta.url), "utf8");
 const client = await readFile(new URL("../components/trip/LiveTripClient.tsx", import.meta.url), "utf8");
 assert.doesNotMatch(page, /seenByDay/);
-assert.match(page, /localizeActivityRecords\(bundle\.data\.activities, localizedFull, bundle\.data\.itinerary\?\.full_json/);
+assert.match(page, /mergePersistedSkipStatuses\(\s*bundle\.data\.activities,/);
+assert.match(page, /localizeActivityRecords\(\s*activitiesWithServerSkips,/);
 assert.match(trips, /order\("day_number"\)\.order\("created_at"\)\.order\("id"\)/);
 assert.match(trips, /orderActivitiesByItinerary\(/);
 const runAction = client.slice(client.indexOf("const runAction = useCallback"), client.indexOf("const notificationActionHandledRef"));

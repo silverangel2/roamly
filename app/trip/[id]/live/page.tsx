@@ -11,7 +11,7 @@ import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
-import { localizeActivityRecords } from "@/lib/roamly/liveActivityBinding";
+import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
 import { timezoneFromTripMetadata, tripWindowState, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
 import {
   getTripBudgetAmount,
@@ -120,18 +120,10 @@ export default async function LiveTripPage({
   const localizedFull = bundle.data.itinerary?.full_json
     ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
     : null;
-  const localizedActivities = localizeActivityRecords(bundle.data.activities, localizedFull, bundle.data.itinerary?.full_json || null);
   const daysCount = getTripDaysCount(bundle.data.trip);
   const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
   const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, timezoneFromTripMetadata(bundle.data.trip.metadata));
-  const activitiesByDay = groupActivitiesByDay(localizedActivities);
-  const dayActivities = activitiesByDay[currentDay] || bundle.data.activities.slice(0, 4);
-  const nextActivity =
-    dayActivities.find((activity) => !["completed", "skipped", "missed"].includes(activity.status)) ||
-    dayActivities[0] ||
-    null;
-  const nearbyActivity = dayActivities.find((activity) => activity.status === "nearby") || null;
-  const [companion, bookingsResult, trackingActivitiesResult, preferences, locationSettingsResult] = await Promise.all([
+  const [companion, bookingsResult, trackingActivitiesResult, trackingDaysResult, preferences, locationSettingsResult] = await Promise.all([
     buildLiveCompanionSummary(supabase, current.user.id, id),
     supabase
       .from("roamly_bookings")
@@ -142,9 +134,13 @@ export default async function LiveTripPage({
       .order("start_at", { ascending: true, nullsFirst: false }),
     supabase
       .from("roamly_activities")
-      .select("id,title,category,address,city,country,latitude,longitude,status,sort_order")
+      .select("id,title,category,address,city,country,latitude,longitude,status,sort_order,trip_day_id,metadata")
       .eq("trip_id", id)
       .order("sort_order", { ascending: true }),
+    supabase
+      .from("roamly_trip_days")
+      .select("id,day_number")
+      .eq("trip_id", id),
     getCompanionPreferences({
       supabase,
       userId: current.user.id,
@@ -156,6 +152,32 @@ export default async function LiveTripPage({
       .eq("user_id", current.user.id)
       .maybeSingle()
   ]);
+
+  const trackingDayNumbers = new Map(
+    ((trackingDaysResult.data || []) as Array<{ id: string; day_number: number }>).map((day) => [day.id, day.day_number])
+  );
+  const trackingActivityRows = ((trackingActivitiesResult.data || []) as Array<Record<string, unknown>>);
+  const activitiesWithServerSkips = mergePersistedSkipStatuses(
+    bundle.data.activities,
+    trackingActivityRows.map((activity) => ({
+      title: getRowString(activity, "title") || "",
+      status: getRowString(activity, "status") || "",
+      day_number: getRowString(activity, "trip_day_id") ? trackingDayNumbers.get(getRowString(activity, "trip_day_id")!) ?? null : null,
+      time_label: getRowString(getRecord(activity.metadata) || {}, "time_label")
+    }))
+  );
+  const localizedActivitiesWithServerSkips = localizeActivityRecords(
+    activitiesWithServerSkips,
+    localizedFull,
+    bundle.data.itinerary?.full_json || null
+  );
+  const activitiesByDay = groupActivitiesByDay(localizedActivitiesWithServerSkips);
+  const dayActivities = activitiesByDay[currentDay] || localizedActivitiesWithServerSkips.slice(0, 4);
+  const nextActivity =
+    dayActivities.find((activity) => !["completed", "skipped", "missed"].includes(activity.status)) ||
+    dayActivities[0] ||
+    null;
+  const nearbyActivity = dayActivities.find((activity) => activity.status === "nearby") || null;
 
   const companionMetadata = getRecord(getRecord(companion.trip?.metadata)?.companion) || {};
   const countryInfo = (getRecord(companionMetadata.travelCountryInfo) || {}) as {
@@ -173,7 +195,6 @@ export default async function LiveTripPage({
   const totalBudgetCents = budgetAmount == null ? null : Math.round(budgetAmount * 100);
   const remainingBudgetCents = totalBudgetCents == null || committedBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
   const tripCountdown = daysUntil(bundle.data.trip.start_date);
-  const trackingActivityRows = ((trackingActivitiesResult.data || []) as Record<string, unknown>[]);
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
   const locationRow = getRecord(locationSettingsResult.data);
   const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
@@ -211,7 +232,7 @@ export default async function LiveTripPage({
     updatedAt: getRowString(booking, "updated_at") || getRowString(booking, "created_at")
   }));
   const simulatorPlaces: LiveSimulatorPlace[] = [
-    ...localizedActivities.map((activity, index) => ({
+    ...localizedActivitiesWithServerSkips.map((activity, index) => ({
       id: `activity:${activity.id || activity.title || index}`,
       title: activity.title || "Trip activity",
       kind: "activity" as const,

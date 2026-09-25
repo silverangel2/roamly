@@ -17,6 +17,47 @@ function normalizeBindingText(value: string | null | undefined) {
   return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+export function mergePersistedSkipStatuses<T extends BindableActivity & { status: string }>(
+  displayActivities: T[],
+  trackingActivities: Array<{
+    title: string;
+    status: string;
+    day_number: number | null;
+    time_label: string | null;
+  }>
+) {
+  const displayTitleCounts = new Map<string, number>();
+  for (const activity of displayActivities) {
+    const title = normalizeBindingText(activity.title);
+    displayTitleCounts.set(title, (displayTitleCounts.get(title) || 0) + 1);
+  }
+
+  return displayActivities.map((activity) => {
+    if (activity.status === "skipped") return activity;
+
+    let matches = trackingActivities.filter((tracked) =>
+      tracked.status === "skipped" && normalizeBindingText(tracked.title) === normalizeBindingText(activity.title)
+    );
+    const sameDay = matches.filter((tracked) => tracked.day_number === activity.day_number);
+    if (sameDay.length) matches = sameDay;
+    else if (matches.some((tracked) => tracked.day_number != null)) return activity;
+
+    const activityTime = normalizeBindingText(activity.time_label);
+    if (activityTime) {
+      const sameTime = matches.filter((tracked) => normalizeBindingText(tracked.time_label) === activityTime);
+      if (sameTime.length) matches = sameTime;
+      else if (matches.some((tracked) => normalizeBindingText(tracked.time_label))) return activity;
+    } else if (
+      (displayTitleCounts.get(normalizeBindingText(activity.title)) || 0) > 1 &&
+      matches.some((tracked) => tracked.day_number == null || !normalizeBindingText(tracked.time_label))
+    ) {
+      return activity;
+    }
+
+    return matches.length === 1 ? { ...activity, status: "skipped" } : activity;
+  });
+}
+
 function hasBindingTitle(title: string | null | undefined) {
   const text = normalizeBindingText(title);
   return Boolean(text && text !== "unresolved place");
