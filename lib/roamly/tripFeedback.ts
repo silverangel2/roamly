@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { TRAVELER_PREFERENCE_KEYS, type TravelerPreferenceKey } from "@/lib/roamly/travelerMemory";
 import { buildSuccessfulTripExperienceContext, type SuccessfulTripExperienceContext } from "@/lib/roamly/successfulTripExperience";
+import { isCanonicalCompletedTrip } from "@/lib/roamly/tripCompletion";
 
 export type TripFeedbackType = "post_trip" | "in_trip";
 
@@ -245,12 +246,20 @@ export async function submitTripFeedback(params: {
 }) {
   const trip = await params.supabase
     .from("roamly_trips")
-    .select("id,destination,destination_city,destination_country,start_date,end_date,travelers_count,travel_style,accommodation_preference,transportation_preference,metadata")
+    .select("id,status,destination,destination_city,destination_country,start_date,end_date,travelers_count,travel_style,accommodation_preference,transportation_preference,metadata")
     .eq("id", params.tripId)
     .eq("user_id", params.userId)
     .maybeSingle();
   if (trip.error) return { ok: false as const, error: trip.error.message };
   if (!trip.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
+  if (!isCanonicalCompletedTrip({
+    status: trip.data.status,
+    startDate: trip.data.start_date,
+    endDate: trip.data.end_date,
+    metadata: trip.data.metadata
+  }) && params.input.feedbackType !== "in_trip") {
+    return { ok: false as const, error: "TRIP_NOT_COMPLETED" };
+  }
 
   const proposals = proposePreferenceUpdatesFromFeedback(params.input);
   const itinerary = await params.supabase
