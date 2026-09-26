@@ -10,6 +10,7 @@ type NotificationItem = {
   type: string;
   status: string;
   action_url?: string | null;
+  action_state?: "available" | "history" | "unavailable";
   created_at: string;
   delivery_status?: string | null;
   delivery_channel?: string | null;
@@ -172,13 +173,19 @@ export function NotificationTimelineCard({
                   </div>
 
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    {item.action_url ? (
+                    {item.action_url && item.action_state !== "history" && item.action_state !== "unavailable" ? (
                       <a
                         href={item.action_url}
                         className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
                       >
                         {t("ui.actions.open")}
                       </a>
+                    ) : null}
+
+                    {item.action_state === "history" ? (
+                      <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">
+                        History only
+                      </span>
                     ) : null}
 
                     {item.status !== "read" ? (

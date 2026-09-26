@@ -315,6 +315,78 @@ export function tripWindowState(params: {
   return "active" as const;
 }
 
+export type CustomerTripLifecycleInput = {
+  status?: string | null;
+  itineraryStatus?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  metadata?: unknown;
+};
+
+export type CustomerTripLifecycleState = "upcoming" | "active" | "completed" | "cancelled" | "archived" | "missing_dates";
+
+export function customerTripLifecycleState(trip: CustomerTripLifecycleInput, now: string | Date = new Date()): CustomerTripLifecycleState {
+  const status = String(trip.status || "").trim().toLowerCase();
+  const itineraryStatus = String(trip.itineraryStatus || "").trim().toLowerCase();
+  if (status === "archived") return "archived";
+  if (status === "cancelled" || itineraryStatus === "cancelled") return "cancelled";
+  if (status === "completed") return "completed";
+  const window = tripWindowState({
+    startDate: trip.startDate,
+    endDate: trip.endDate,
+    timezone: timezoneFromTripMetadata(trip.metadata),
+    now
+  });
+  if (window === "completed_trip") return "completed";
+  if (window === "future_trip") return "upcoming";
+  if (window === "active") return "active";
+  return "missing_dates";
+}
+
+export type CustomerNotificationItem = {
+  id: string;
+  trip_id?: string | null;
+  type: string;
+  title: string;
+  body?: string | null;
+  created_at: string;
+  scheduled_for?: string | null;
+  action_url?: string | null;
+};
+
+function normalizedNotificationValue(value: unknown) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function equivalentNotificationKey(item: CustomerNotificationItem) {
+  if (!item.trip_id) return null;
+  return [item.trip_id, normalizedNotificationValue(item.type), normalizedNotificationValue(item.title), normalizedNotificationValue(item.body), normalizedNotificationValue(item.scheduled_for)].join("|");
+}
+
+export function dedupeEquivalentNotifications<T extends CustomerNotificationItem>(items: T[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = equivalentNotificationKey(item);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export type NotificationActionState = "available" | "history" | "unavailable";
+
+export function notificationActionState(params: {
+  actionUrl?: string | null;
+  trip?: CustomerTripLifecycleInput | null;
+  now?: string | Date;
+}): NotificationActionState {
+  if (!params.actionUrl || !params.trip) return "unavailable";
+  const state = customerTripLifecycleState(params.trip, params.now);
+  if (state === "completed" || state === "cancelled" || state === "archived") return "history";
+  return state === "upcoming" || state === "active" ? "available" : "unavailable";
+}
+
 export function calculateDistanceMeters(
   fromLatitude: number,
   fromLongitude: number,

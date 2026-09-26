@@ -12,7 +12,7 @@ import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
-import { timezoneFromTripMetadata, tripWindowState, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
 import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
@@ -27,6 +27,7 @@ import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
 import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
 import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
+import { customerTripLifecycleState } from "@/lib/roamly/liveCompanion";
 
 function formatMoney(cents: number | null, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
   if (cents == null) return "Not set";
@@ -110,12 +111,20 @@ export default async function LiveTripPage({
   const locked = isTripLocked(bundle.data.trip);
   const companionUnlocked = tripHasTrackingUnlock(bundle.data.trip);
   const fieldTestMode = fieldTestRequested && access.hasQaAccess && bundle.data.trip.metadata?.field_test === true;
+  const tripLifecycle = customerTripLifecycleState({
+    status: bundle.data.trip.status,
+    itineraryStatus: bundle.data.trip.itinerary_status,
+    startDate: bundle.data.trip.start_date,
+    endDate: bundle.data.trip.end_date,
+    metadata: bundle.data.trip.metadata
+  });
+  const tripCompleted = tripLifecycle === "completed";
   if (!locked || (!companionUnlocked && !access.hasQaAccess)) redirect(`/trip/${id}`);
   if (access.hasQaAccess && locked && !companionUnlocked) {
     await unlockLiveCompanion(supabase, id, "admin");
   }
 
-  await scheduleCompanionEvents(supabase, id);
+  if (!tripCompleted) await scheduleCompanionEvents(supabase, id);
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";
   const localizedFull = bundle.data.itinerary?.full_json
     ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
@@ -199,14 +208,8 @@ export default async function LiveTripPage({
   const locationRow = getRecord(locationSettingsResult.data);
   const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
   const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
-  const tripWindow = tripWindowState({
-    startDate: bundle.data.trip.start_date,
-    endDate: bundle.data.trip.end_date,
-    timezone: tripTimezone
-  });
-  const tripCompleted = tripWindow === "completed_trip";
-  const tripUpcoming = tripWindow === "future_trip";
-  const tripDatesMissing = tripWindow === "missing_dates";
+  const tripUpcoming = tripLifecycle === "upcoming";
+  const tripDatesMissing = tripLifecycle === "missing_dates";
   const companionPageStatus = tripCompleted ? "Completed" : tripUpcoming ? "Upcoming" : tripDatesMissing ? "Dates needed" : "Live";
   function bookingTime(row: Record<string, unknown>, dateKey: string, timeKey: string) {
     const date = getRowString(row, dateKey);
@@ -378,18 +381,18 @@ export default async function LiveTripPage({
         </div>
         <div className="sm:px-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Up next activity</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">{nextActivity?.title || "Flexible time"}</h2>
+          <h2 className="mt-2 text-2xl font-black text-ink">{tripCompleted ? "Historical itinerary" : nextActivity?.title || "Flexible time"}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            {nextActivity?.time_label || nearbyActivity?.title || "Roamly will surface the next useful stop."}
+            {tripCompleted ? "Live actions are unavailable after trip completion." : nextActivity?.time_label || nearbyActivity?.title || "Roamly will surface the next useful stop."}
           </p>
         </div>
         <div className="sm:px-5 sm:last:pr-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
-            {committedBudgetUncertain ? "Budget uncertain" : formatMoney(remainingBudgetCents, budgetCurrency, locale)}
+            {tripCompleted ? "History retained" : committedBudgetUncertain ? "Budget uncertain" : formatMoney(remainingBudgetCents, budgetCurrency, locale)}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                  Booked items: {committedBudgetCents == null ? "Amount unavailable" : formatMoney(committedBudgetCents, budgetCurrency, locale)}
+                  {tripCompleted ? "Confirmed bookings and itinerary details remain available." : `Booked items: ${committedBudgetCents == null ? "Amount unavailable" : formatMoney(committedBudgetCents, budgetCurrency, locale)}`}
           </p>
         </div>
       </section>
@@ -398,10 +401,10 @@ export default async function LiveTripPage({
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Next reminder</p>
           <h2 className="mt-2 text-2xl font-black text-ink">
-            {companion.nextEvent?.title || "No scheduled reminder yet"}
+            {tripCompleted ? "No active reminder" : companion.nextEvent?.title || "No scheduled reminder yet"}
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            {companion.nextEvent?.body || "Roamly will keep your in-app timeline ready. Phone reminders are optional."}
+            {tripCompleted ? "Historical companion events remain available below." : companion.nextEvent?.body || "Roamly will keep your in-app timeline ready. Phone reminders are optional."}
           </p>
         </div>
         <details className="border-l-2 border-ocean/30 bg-mist/45 px-4 py-3">
@@ -414,16 +417,18 @@ export default async function LiveTripPage({
         </details>
       </section>
 
-      <section className="mb-5">
-        <CompanionControlCard tripId={id} />
-      </section>
+      {!tripCompleted ? (
+        <section className="mb-5">
+          <CompanionControlCard tripId={id} />
+        </section>
+      ) : null}
 
-      <section
+      {!tripCompleted ? <section
         id="companion-repairs"
         className="mb-5"
       >
         <CompanionRepairCenter tripId={id} />
-      </section>
+      </section> : null}
 
       <section className="mb-5">
         <CompanionEventTimeline tripId={id} />
@@ -496,23 +501,31 @@ export default async function LiveTripPage({
         </Card>
       </section>
 
-      <LiveTripClient
-        tripId={id}
-        activities={dayActivities}
-        checklist={bundle.data.checklist}
-        canSimulateLocation={false}
-        destinationLabel={destinationLabel}
-        simulatorPlaces={simulatorPlaces}
-        tripStartDate={bundle.data.trip.start_date}
-        tripEndDate={bundle.data.trip.end_date}
-        timezone={tripTimezone}
-        companionEnabled={preferences.liveCompanionEnabled}
-        companionPausedUntil={preferences.liveCompanionPausedUntil}
-        backgroundLocationEnabled={preferences.backgroundLocationEnabled}
-        initialPermissionState={permissionState}
-        bookingDetails={bookingDetails}
-        liveDemoEnabled={false}
-      />
+      {tripCompleted ? (
+        <Card>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip complete</p>
+          <h2 className="mt-2 text-2xl font-black text-ink">Live Companion is closed for this trip</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
+        </Card>
+      ) : (
+        <LiveTripClient
+          tripId={id}
+          activities={dayActivities}
+          checklist={bundle.data.checklist}
+          canSimulateLocation={false}
+          destinationLabel={destinationLabel}
+          simulatorPlaces={simulatorPlaces}
+          tripStartDate={bundle.data.trip.start_date}
+          tripEndDate={bundle.data.trip.end_date}
+          timezone={tripTimezone}
+          companionEnabled={preferences.liveCompanionEnabled}
+          companionPausedUntil={preferences.liveCompanionPausedUntil}
+          backgroundLocationEnabled={preferences.backgroundLocationEnabled}
+          initialPermissionState={permissionState}
+          bookingDetails={bookingDetails}
+          liveDemoEnabled={false}
+        />
+      )}
     </div>
   );
 }

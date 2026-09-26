@@ -79,6 +79,7 @@ import { countMaterialTravelRequirements } from "@/lib/roamly/travelRequirements
 import { buildTripTravelerRequirements, listTripTravelers } from "@/lib/roamly/tripTravelers";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
+import { customerTripLifecycleState } from "@/lib/roamly/liveCompanion";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
@@ -2467,7 +2468,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
   const confirmedBookingSnapshot = importedBookings.filter((booking) => isConfirmedBookingSnapshot(booking as Record<string, unknown>));
   const unresolvedBookingSnapshot = importedBookings.filter((booking) => !isConfirmedBookingSnapshot(booking as Record<string, unknown>));
-  const completedTrip = trip.status === "completed";
+  const completedTrip = customerTripLifecycleState({
+    status: trip.status,
+    itineraryStatus: trip.itinerary_status,
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    metadata: trip.metadata
+  }) === "completed";
   const postTripFeedbackResult = completedTrip
     ? await supabase.from("trip_feedback").select("id").eq("trip_id", id).eq("user_id", current.user.id).eq("feedback_type", "post_trip").limit(1)
     : { data: [] as Array<{ id: string }>, error: null };
@@ -2541,8 +2548,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const focusedBooking = actionFocus === "flight" || actionFocus === "hotel" || actionFocus === "activity" ? actionFocus : null;
   const focusedBookingLabel = focusedBooking === "flight" ? "flight" : focusedBooking === "hotel" ? "stay" : focusedBooking === "activity" ? "activity" : null;
   const focusedBudget = actionFocus === "budget";
-  const commandNextTitle = attentionText || readiness.upcomingActions[0] || focusNextItem?.title || "Your trip is ready to review.";
-  const commandNextMeta = focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
+  const commandNextTitle = completedTrip ? null : attentionText || readiness.upcomingActions[0] || focusNextItem?.title || "Your trip is ready to review.";
+  const commandNextMeta = completedTrip ? "" : focusNextItem?.time || (unresolvedBookingSnapshot[0] ? bookingDetailText(unresolvedBookingSnapshot[0] as Record<string, unknown>, locale) : "");
   const packingItems = full ? packingChecklistItems(checklist, full).slice(0, 8) : [];
   const localTipItems = full?.local_tips.slice(0, 6) || [];
   const safetyItems = full?.safety_notes.slice(0, 6) || [];
@@ -2622,7 +2629,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             <span>{dayCount ? `${dayCount} days` : "Dates flexible"}</span>
             <span>{travelerLabel}</span>
             {confirmedBookingSnapshot.length ? <a href="#bookings" className="text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed →</a> : null}
-            {trackingUnlocked ? <span className="text-ocean">Live Companion available</span> : null}
+            {trackingUnlocked && !completedTrip ? <span className="text-ocean">Live Companion available</span> : null}
           </div>
               {itineraryLocked ? <NoticeBanner>This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.</NoticeBanner> : null}
               {checkoutNeedsAttention ? (
@@ -2684,7 +2691,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           title={tripTitle}
           destination={destinationLabel}
           dates={formatDateRange(trip, locale)}
-          status={canShowFull ? "Ready" : itineraryLocked ? "Locked" : "Planning"}
+          status={completedTrip ? "Completed" : canShowFull ? "Ready" : itineraryLocked ? "Locked" : "Planning"}
           showContext={false}
         />
 

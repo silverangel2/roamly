@@ -17,6 +17,7 @@ import {
   type TrackingActivity
 } from "@/lib/roamly/tripActivation";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+import { dedupeEquivalentNotifications, notificationActionState } from "@/lib/roamly/liveCompanion";
 
 export default async function NotificationsPage() {
   const current = await getCurrentUser();
@@ -43,7 +44,7 @@ export default async function NotificationsPage() {
       getActiveOrUpcomingTrip(supabase, current.user.id),
       supabase
         .from("roamly_notifications")
-        .select("id,title,body,type,status,action_url,created_at")
+        .select("id,trip_id,title,body,type,status,action_url,created_at,scheduled_for")
         .eq("user_id", current.user.id)
         .order("created_at", { ascending: false })
         .limit(20),
@@ -75,7 +76,7 @@ export default async function NotificationsPage() {
     }
   }
 
-  const notificationItems = (
+  const rawNotificationItems = (
     notifications.data || []
   ).map((notification) => {
     const delivery = latestDeliveryByNotification.get(notification.id);
@@ -83,6 +84,34 @@ export default async function NotificationsPage() {
       ...notification,
       delivery_status: delivery?.status || null,
       delivery_channel: delivery?.channel || null
+    };
+  });
+
+  const notificationTripIds = [...new Set(rawNotificationItems.map((item) => item.trip_id).filter((id): id is string => Boolean(id)))];
+  const tripRowsResult = notificationTripIds.length
+    ? await supabase
+        .from("roamly_trips")
+        .select("id,status,itinerary_status,start_date,end_date,metadata")
+        .eq("user_id", current.user.id)
+        .in("id", notificationTripIds)
+    : { data: [], error: null };
+  const tripById = new Map((tripRowsResult.data || []).map((trip) => [trip.id, trip]));
+  const notificationItems = dedupeEquivalentNotifications(rawNotificationItems).map((notification) => {
+    const trip = notification.trip_id ? tripById.get(notification.trip_id) : null;
+    const actionState = notificationActionState({
+      actionUrl: notification.action_url,
+      trip: trip ? {
+        status: trip.status,
+        itineraryStatus: trip.itinerary_status,
+        startDate: trip.start_date,
+        endDate: trip.end_date,
+        metadata: trip.metadata
+      } : null
+    });
+    return {
+      ...notification,
+      action_url: actionState === "available" ? notification.action_url : null,
+      action_state: actionState
     };
   });
 
