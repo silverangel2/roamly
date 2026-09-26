@@ -76,6 +76,9 @@ const countryAliases: Record<string, string> = {
   BRITAIN: "GB",
   "GREAT BRITAIN": "GB",
   "UNITED KINGDOM": "GB",
+  "TURKS & CAICOS": "TC",
+  "TURKS AND CAICOS": "TC",
+  "TURKS AND CAICOS ISLANDS": "TC",
   FR: "FR",
   FRA: "FR",
   FRANCE: "FR"

@@ -197,7 +197,7 @@ export function FindsEditorialMagazine({ cards, destination, disclosures, active
       <p className="max-w-sm text-sm leading-6 text-[#61766d] sm:pb-1 sm:text-right">Stories for wherever you’re going—thoughtful trip essentials and real options to explore.</p>
     </header>
     <nav aria-label="Explore this page" className="-mx-4 mb-6 flex snap-x gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:mb-8 sm:px-0">
-      {[["worth-packing-heading", "Worth packing"], ["stay-heading", "Stays"], ["flights-heading", "Flights"], ["activities-heading", "Things to do"], ["travel-tools-heading", "More to explore"]].map(([href, label]) => <a key={href} href={`#${href}`} className="min-h-10 shrink-0 snap-start rounded-full border border-[#dce7dc] bg-white/80 px-4 py-2 text-xs font-bold text-[#365f56] transition hover:border-[#91bba7] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">{label}</a>)}
+      {[["worth-packing", "Worth packing"], ["stay-heading", "Stays"], ["flights-heading", "Flights"], ["activities-heading", "Things to do"], ["travel-tools-heading", "More to explore"]].map(([href, label]) => <a key={href} href={`#${href}`} className="min-h-10 shrink-0 snap-start rounded-full border border-[#dce7dc] bg-white/80 px-4 py-2 text-xs font-bold text-[#365f56] transition hover:border-[#91bba7] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">{label}</a>)}
     </nav>
     <PhotoStory story={story} feature />
 
