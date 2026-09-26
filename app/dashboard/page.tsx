@@ -3,13 +3,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { DeleteTripButton } from "@/components/trip/DeleteTripButton";
-import { hasUsedFreeItinerary, isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
+import { hasUsedFreeItinerary, isTripLocked } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n-server";
-import { isTodayWithinTripDates, selectActiveTrip, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import { selectActiveTrip } from "@/lib/roamly/liveCompanion";
+import { dashboardTripPresentation } from "@/lib/roamly/dashboardTripPresentation";
 
 type DashboardTrip = {
   id: string;
@@ -38,13 +39,7 @@ function formatDate(value: string | null, locale: RoamlyLocale) {
 
 function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale }) {
   const locked = isTripLocked(trip);
-  const hasTracking = tripHasTrackingUnlock(trip);
-  const liveNow = hasTracking && isTodayWithinTripDates({
-    startDate: trip.start_date,
-    endDate: trip.end_date,
-    timezone: timezoneFromTripMetadata(trip.metadata)
-  });
-  const href = hasTracking ? `/trip/${trip.id}/live` : `/trip/${trip.id}`;
+  const presentation = dashboardTripPresentation(trip);
   const destination = getTripDestinationLabel(trip) || "Trip";
   const daysCount = getTripDaysCount(trip);
 
@@ -53,7 +48,7 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
-            {liveNow ? "Live Trip Companion" : hasTracking ? "Companion unlocked" : locked ? "Locked itinerary" : trip.status}
+            {presentation.eyebrow === "Draft" && locked ? "Locked itinerary" : presentation.eyebrow}
           </p>
           <h3 className="mt-2 text-xl font-black text-ink">{trip.title || destination}</h3>
           <p className="mt-1 text-sm font-bold text-slate-500">
@@ -61,12 +56,12 @@ function TripCard({ trip, locale }: { trip: DashboardTrip; locale: RoamlyLocale 
           </p>
         </div>
         <span className="rounded-full bg-mist px-3 py-2 text-xs font-black text-slate-600">
-          {liveNow ? "Live" : hasTracking ? "Unlocked" : locked ? "Itinerary" : "Draft"}
+          {locked && presentation.lifecycle !== "completed" && presentation.lifecycle !== "archived" ? "Itinerary" : presentation.badge}
         </span>
       </div>
       <div className="mt-4">
-        <Button href={href} className="w-full sm:w-auto">
-          {liveNow ? "Open Live" : hasTracking ? "Open companion" : locked ? "Open plan" : "Open trip"}
+        <Button href={presentation.href} className="w-full sm:w-auto">
+          {locked && presentation.lifecycle !== "completed" && presentation.lifecycle !== "archived" ? "Open plan" : presentation.action}
         </Button>
         <DeleteTripButton
           tripId={trip.id}
@@ -99,7 +94,7 @@ export default async function DashboardPage() {
     redirect("/login?next=/dashboard");
   }
   const supabase = await createSupabaseServerClient();
-  const [, { data: trips }, free] = await Promise.all([
+  const [, tripResult, free] = await Promise.all([
     supabase ? ensureRoamlyProfileBestEffort(current.user, {}, supabase, "dashboard_page") : Promise.resolve(null),
     supabase
       ? supabase
@@ -108,15 +103,33 @@ export default async function DashboardPage() {
           .eq("user_id", current.user.id)
           .neq("status", "archived")
           .order("created_at", { ascending: false })
-      : { data: [] },
+      : { data: null, error: new Error("Trip history is unavailable.") },
     supabase ? hasUsedFreeItinerary(supabase, current.user.id) : Promise.resolve({ used: false, entitlement: null, error: null })
   ]);
 
-  const typedTrips = (trips || []) as DashboardTrip[];
+  const tripQueryError = tripResult.error;
+  const typedTrips = (tripResult.data || []) as DashboardTrip[];
   const locked = typedTrips.filter((trip) => isTripLocked(trip));
   const drafts = typedTrips.filter((trip) => !isTripLocked(trip));
   const activeNow = selectActiveTrip(typedTrips);
   const primaryTrip = activeNow || typedTrips[0];
+
+  if (tripQueryError) {
+    return (
+      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+        <Card>
+          <Badge tone="sun">Trips unavailable</Badge>
+          <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">We couldn&apos;t load your trip history.</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+            Your trips are still safe. Try again in a moment.
+          </p>
+          <div className="mt-5">
+            <Button href="/dashboard">Try again</Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
