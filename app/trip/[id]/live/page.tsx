@@ -332,23 +332,31 @@ export default async function LiveTripPage({
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
-        <LiveTripClient
-          tripId={id}
-          activities={dayActivities}
-          checklist={bundle.data.checklist}
-          canSimulateLocation={false}
-          destinationLabel={destinationLabel}
-          simulatorPlaces={simulatorPlaces}
-          tripStartDate={bundle.data.trip.start_date}
-          tripEndDate={bundle.data.trip.end_date}
-          timezone={tripTimezone}
-          companionEnabled={preferences.liveCompanionEnabled}
-          companionPausedUntil={preferences.liveCompanionPausedUntil}
-          backgroundLocationEnabled={preferences.backgroundLocationEnabled}
-          initialPermissionState={permissionState}
-          bookingDetails={bookingDetails}
-          liveDemoEnabled={false}
-        />
+        {tripCompleted ? (
+          <Card>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip complete</p>
+            <h2 className="mt-2 text-2xl font-black text-ink">Live Companion is closed for this trip</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
+          </Card>
+        ) : (
+          <LiveTripClient
+            tripId={id}
+            activities={dayActivities}
+            checklist={bundle.data.checklist}
+            canSimulateLocation={false}
+            destinationLabel={destinationLabel}
+            simulatorPlaces={simulatorPlaces}
+            tripStartDate={bundle.data.trip.start_date}
+            tripEndDate={bundle.data.trip.end_date}
+            timezone={tripTimezone}
+            companionEnabled={preferences.liveCompanionEnabled}
+            companionPausedUntil={preferences.liveCompanionPausedUntil}
+            backgroundLocationEnabled={preferences.backgroundLocationEnabled}
+            initialPermissionState={permissionState}
+            bookingDetails={bookingDetails}
+            liveDemoEnabled={false}
+          />
+        )}
       </div>
     );
   }
