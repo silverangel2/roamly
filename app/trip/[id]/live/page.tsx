@@ -119,7 +119,7 @@ export default async function LiveTripPage({
     metadata: bundle.data.trip.metadata
   });
   const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
-  if (!locked || (!companionUnlocked && !access.hasQaAccess)) redirect(`/trip/${id}`);
+  if ((!locked && !tripCompleted) || (!companionUnlocked && !access.hasQaAccess && !tripCompleted)) redirect(`/trip/${id}`);
   if (access.hasQaAccess && locked && !companionUnlocked) {
     await unlockLiveCompanion(supabase, id, "admin");
   }
