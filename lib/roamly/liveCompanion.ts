@@ -325,6 +325,10 @@ export type CustomerTripLifecycleInput = {
 
 export type CustomerTripLifecycleState = "upcoming" | "active" | "completed" | "cancelled" | "archived" | "missing_dates";
 
+export function isCustomerTripTerminalState(state: CustomerTripLifecycleState) {
+  return state === "completed" || state === "cancelled" || state === "archived";
+}
+
 export function customerTripLifecycleState(trip: CustomerTripLifecycleInput, now: string | Date = new Date()): CustomerTripLifecycleState {
   const status = String(trip.status || "").trim().toLowerCase();
   const itineraryStatus = String(trip.itineraryStatus || "").trim().toLowerCase();

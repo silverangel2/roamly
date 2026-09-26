@@ -79,7 +79,7 @@ import { countMaterialTravelRequirements } from "@/lib/roamly/travelRequirements
 import { buildTripTravelerRequirements, listTripTravelers } from "@/lib/roamly/tripTravelers";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
-import { customerTripLifecycleState } from "@/lib/roamly/liveCompanion";
+import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
@@ -2468,13 +2468,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
   const confirmedBookingSnapshot = importedBookings.filter((booking) => isConfirmedBookingSnapshot(booking as Record<string, unknown>));
   const unresolvedBookingSnapshot = importedBookings.filter((booking) => !isConfirmedBookingSnapshot(booking as Record<string, unknown>));
-  const completedTrip = customerTripLifecycleState({
+  const tripLifecycle = customerTripLifecycleState({
     status: trip.status,
     itineraryStatus: trip.itinerary_status,
     startDate: trip.start_date,
     endDate: trip.end_date,
     metadata: trip.metadata
-  }) === "completed";
+  });
+  const completedTrip = isCustomerTripTerminalState(tripLifecycle);
   const postTripFeedbackResult = completedTrip
     ? await supabase.from("trip_feedback").select("id").eq("trip_id", id).eq("user_id", current.user.id).eq("feedback_type", "post_trip").limit(1)
     : { data: [] as Array<{ id: string }>, error: null };

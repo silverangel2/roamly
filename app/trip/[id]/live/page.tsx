@@ -27,7 +27,7 @@ import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
 import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
 import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
-import { customerTripLifecycleState } from "@/lib/roamly/liveCompanion";
+import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
 
 function formatMoney(cents: number | null, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
   if (cents == null) return "Not set";
@@ -118,7 +118,7 @@ export default async function LiveTripPage({
     endDate: bundle.data.trip.end_date,
     metadata: bundle.data.trip.metadata
   });
-  const tripCompleted = tripLifecycle === "completed";
+  const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
   if (!locked || (!companionUnlocked && !access.hasQaAccess)) redirect(`/trip/${id}`);
   if (access.hasQaAccess && locked && !companionUnlocked) {
     await unlockLiveCompanion(supabase, id, "admin");
