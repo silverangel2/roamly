@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { BookingWalletTimeline } from "@/components/companion/BookingWalletTimeline";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { tripHasTrackingUnlock } from "@/lib/roamly/billing";
+import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, isMissingTableError } from "@/lib/trips";
 import { getServerLocale } from "@/lib/i18n-server";
@@ -113,6 +114,14 @@ export default async function TripBookingsPage({ params, searchParams }: { param
   const dates = trip.start_date && trip.end_date
     ? `${formatRoamlyDate(trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(trip.end_date, locale, { month: "short", day: "numeric" })}`
     : "Dates flexible";
+  const tripLifecycle = customerTripLifecycleState({
+    status: trip.status,
+    itineraryStatus: trip.itinerary_status,
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    metadata: trip.metadata
+  });
+  const companionOperational = !isCustomerTripTerminalState(tripLifecycle) && tripHasTrackingUnlock(trip);
 
   return (
     <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
@@ -122,7 +131,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
       <BookingWalletTimeline
         tripId={id}
         bookings={mergeBookings(walletBookings, legacyBookings)}
-        companionUnlocked={tripHasTrackingUnlock(trip)}
+        companionUnlocked={companionOperational}
         locale={locale}
         focus={focus === "flight" || focus === "hotel" || focus === "activity" ? focus : null}
         referrals={referrals}
