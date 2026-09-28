@@ -16,6 +16,152 @@ export const SIGNAL_COOLDOWN_CLASSES = {
 export const SIGNAL_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const SIGNAL_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
+export type OperationsEventType =
+  | "RELEASE_COMPLETED"
+  | "RELEASE_FAILED"
+  | "PUBLIC_UI_REGRESSION_DETECTED"
+  | "PROVIDER_DEGRADED"
+  | "PROVIDER_RECOVERED"
+  | "PROVIDER_RESPONSE_INVALID"
+  | "FUNNEL_ANOMALY_DETECTED"
+  | "CAMPAIGN_PIPELINE_FAILURE"
+  | "CUSTOMER_JOURNEY_FAILURE"
+  | "BOOKING_RECONCILIATION_FAILURE";
+
+export type OperationsEventProducer =
+  | "release_pipeline"
+  | "public_surface_checks"
+  | "provider_health_monitor"
+  | "campaign_system"
+  | "customer_workflow_monitor"
+  | "booking_reconciliation_monitor";
+
+export type OperationsEventDefinition = {
+  eventType: OperationsEventType;
+  producer: OperationsEventProducer;
+  signalType: string;
+  specialist: SpecialistId;
+  subsystem: string;
+  dedupeIdentity: "event_type_and_correlation_key";
+  requiredAuthority: "LEVEL_1_OBSERVE";
+  cooldownClass: keyof typeof SIGNAL_COOLDOWN_CLASSES;
+  privacy: "sanitized_operational";
+  evidenceRequired: "deterministic_check" | "safe_production_health";
+  tokenBudget: 0;
+  financialBudgetUsd: 0;
+};
+
+export const OPERATIONS_EVENT_CATALOG: Readonly<Record<OperationsEventType, OperationsEventDefinition>> = {
+  RELEASE_COMPLETED: {
+    eventType: "RELEASE_COMPLETED", producer: "release_pipeline", signalType: "ux.release.completed",
+    specialist: "UX_PRODUCT_EXPERIENCE", subsystem: "ux", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "deterministic_failure", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  RELEASE_FAILED: {
+    eventType: "RELEASE_FAILED", producer: "release_pipeline", signalType: "ux.release.failed",
+    specialist: "UX_PRODUCT_EXPERIENCE", subsystem: "ux", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "deterministic_failure", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  PUBLIC_UI_REGRESSION_DETECTED: {
+    eventType: "PUBLIC_UI_REGRESSION_DETECTED", producer: "public_surface_checks", signalType: "ux.public_ui.regression",
+    specialist: "UX_PRODUCT_EXPERIENCE", subsystem: "ux", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "deterministic_failure", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  PROVIDER_DEGRADED: {
+    eventType: "PROVIDER_DEGRADED", producer: "provider_health_monitor", signalType: "provider.degraded",
+    specialist: "PROVIDER_TRAVEL_INTELLIGENCE", subsystem: "provider", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "operational_incident", privacy: "sanitized_operational", evidenceRequired: "safe_production_health", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  PROVIDER_RECOVERED: {
+    eventType: "PROVIDER_RECOVERED", producer: "provider_health_monitor", signalType: "provider.recovered",
+    specialist: "PROVIDER_TRAVEL_INTELLIGENCE", subsystem: "provider", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "recovery", privacy: "sanitized_operational", evidenceRequired: "safe_production_health", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  PROVIDER_RESPONSE_INVALID: {
+    eventType: "PROVIDER_RESPONSE_INVALID", producer: "provider_health_monitor", signalType: "provider.response.invalid",
+    specialist: "PROVIDER_TRAVEL_INTELLIGENCE", subsystem: "provider", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "operational_incident", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  FUNNEL_ANOMALY_DETECTED: {
+    eventType: "FUNNEL_ANOMALY_DETECTED", producer: "campaign_system", signalType: "marketing.funnel.anomaly",
+    specialist: "MARKETING_GROWTH", subsystem: "marketing", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "operational_incident", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  CAMPAIGN_PIPELINE_FAILURE: {
+    eventType: "CAMPAIGN_PIPELINE_FAILURE", producer: "campaign_system", signalType: "marketing.campaign.failure",
+    specialist: "MARKETING_GROWTH", subsystem: "marketing", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "operational_incident", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  CUSTOMER_JOURNEY_FAILURE: {
+    eventType: "CUSTOMER_JOURNEY_FAILURE", producer: "customer_workflow_monitor", signalType: "customer_experience.journey.failure",
+    specialist: "CUSTOMER_EXPERIENCE", subsystem: "customer_experience", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "operational_incident", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  },
+  BOOKING_RECONCILIATION_FAILURE: {
+    eventType: "BOOKING_RECONCILIATION_FAILURE", producer: "booking_reconciliation_monitor", signalType: "customer_experience.booking_reconciliation.failure",
+    specialist: "CUSTOMER_EXPERIENCE", subsystem: "customer_experience", dedupeIdentity: "event_type_and_correlation_key", requiredAuthority: "LEVEL_1_OBSERVE",
+    cooldownClass: "operational_incident", privacy: "sanitized_operational", evidenceRequired: "deterministic_check", tokenBudget: 0, financialBudgetUsd: 0
+  }
+} as const;
+
+const SENSITIVE_EVENT_TEXT = /(body|content|credential|email|gmail|gps|latitude|longitude|password|payment|secret|token|authorization|api[_-]?key|screenshot|location|customer|trip|user)/i;
+
+export type OperationsEventInput = {
+  eventType: string;
+  producer: string;
+  eventId: string;
+  observedAt: string;
+  correlationKey: string;
+  evidenceReference: string;
+  safeMetadata?: unknown;
+  customerFacing?: boolean;
+};
+
+export type OperationsEventNormalizationResult =
+  | { ok: true; event: OperationsEventDefinition; signal: SignalEnvelope }
+  | { ok: false; error: string };
+
+function isEventType(value: string): value is OperationsEventType {
+  return Object.hasOwn(OPERATIONS_EVENT_CATALOG, value);
+}
+
+function isEventProducer(value: string): value is OperationsEventProducer {
+  return ["release_pipeline", "public_surface_checks", "provider_health_monitor", "campaign_system", "customer_workflow_monitor", "booking_reconciliation_monitor"].includes(value);
+}
+
+export function normalizeOperationsEvent(input: OperationsEventInput, now = Date.now()): OperationsEventNormalizationResult {
+  if (!isEventType(input.eventType)) return { ok: false, error: "EVENT_NOT_REGISTERED" };
+  const event = OPERATIONS_EVENT_CATALOG[input.eventType];
+  if (!isEventProducer(input.producer) || input.producer !== event.producer) return { ok: false, error: "EVENT_PRODUCER_NOT_AUTHORIZED" };
+  if (event.eventType === "RELEASE_COMPLETED" || event.eventType === "RELEASE_FAILED") {
+    if (input.customerFacing !== true) return { ok: false, error: "EVENT_SCOPE_NOT_ELIGIBLE" };
+  }
+  if (!input.correlationKey || !input.evidenceReference || SENSITIVE_EVENT_TEXT.test(input.correlationKey) || SENSITIVE_EVENT_TEXT.test(input.evidenceReference)) {
+    return { ok: false, error: "EVENT_EVIDENCE_OR_CORRELATION_INVALID" };
+  }
+  if (event.evidenceRequired === "deterministic_check" && !input.evidenceReference.startsWith("check:")) return { ok: false, error: "EVENT_DETERMINISTIC_EVIDENCE_REQUIRED" };
+  if (event.evidenceRequired === "safe_production_health" && !input.evidenceReference.startsWith("health:")) return { ok: false, error: "EVENT_HEALTH_EVIDENCE_REQUIRED" };
+  const normalized = normalizeOperationsSignal({
+    signalId: input.eventId,
+    signalType: event.signalType,
+    source: event.cooldownClass === "deterministic_failure" ? "deterministic_check" : "operational_incident",
+    observedAt: input.observedAt,
+    subsystem: event.subsystem,
+    severity: "low",
+    priority: "normal",
+    cooldownClass: event.cooldownClass,
+    requiredAuthority: event.requiredAuthority,
+    safeMetadata: input.safeMetadata as Record<string, string | number | boolean> | undefined,
+    dedupeKey: `event:${event.eventType}:${input.correlationKey}`,
+    evidenceReference: input.evidenceReference,
+    correlationKey: input.correlationKey,
+    expiresAt: new Date(now + SIGNAL_MAX_AGE_MS).toISOString()
+  }, now);
+  if (!normalized.ok) return normalized;
+  if (normalized.signal.suggestedSpecialist !== event.specialist) return { ok: false, error: "EVENT_SPECIALIST_ROUTING_INVALID" };
+  return { ok: true, event, signal: normalized.signal };
+}
+
 export type SignalEnvelope = {
   signalId: string;
   signalType: string;
