@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { OperationsJob } from "@/lib/roamly/opsControlPlane";
+import { executiveReportPersistenceRow, type ExecutiveReportArtifact } from "@/lib/roamly/executiveSecretary";
 
 const JOB_COLUMNS = "id,role,initiating_signal,priority,risk,authority_level,status,objective,subsystem,scope_json,allowed_operations,allowed_files,forbidden_operations,dependencies,acceptance_criteria,evidence_requirements,token_budget,financial_budget_usd,max_attempts,retry_count,dedupe_key,cooldown_until,escalation_reason,owner_approval_required,runner_id,created_at,updated_at,started_at,completed_at";
+const EXECUTIVE_REPORT_COLUMNS = "id,report_identity,report_type,period_start,period_end,generation_status,payload_json,evidence_references,generated_at,schema_version,created_at,updated_at";
 function admin(supabase?: SupabaseClient | null) { return createSupabaseAdminClient() || supabase || null; }
 
 export async function listOperationsJobs(supabase?: SupabaseClient | null, limit = 50) {
@@ -60,4 +62,23 @@ export async function enqueueOperationsJob(job: OperationsJob, supabase?: Supaba
     return { ok: false as const, error: "OPERATIONS_JOB_INSERT_FAILED", duplicate: false };
   }
   return { ok: true as const, duplicate: false, jobId: job.id };
+}
+
+export async function listExecutiveReports(supabase?: SupabaseClient | null, limit = 20) {
+  const client = admin(supabase);
+  if (!client) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING", reports: [] };
+  const result = await client.from("roamly_ops_executive_reports").select(EXECUTIVE_REPORT_COLUMNS).order("period_start", { ascending: false }).limit(Math.min(100, Math.max(1, limit)));
+  if (result.error) return { ok: false as const, error: "EXECUTIVE_REPORT_SCHEMA_UNAVAILABLE", reports: [] };
+  return { ok: true as const, reports: result.data || [] };
+}
+
+export async function persistExecutiveReport(report: ExecutiveReportArtifact, supabase?: SupabaseClient | null) {
+  const client = admin(supabase);
+  if (!client) return { ok: false as const, reused: false, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+  const inserted = await client.from("roamly_ops_executive_reports").insert(executiveReportPersistenceRow(report)).select(EXECUTIVE_REPORT_COLUMNS).maybeSingle();
+  if (!inserted.error) return { ok: true as const, reused: false, report: inserted.data };
+  if (inserted.error.code !== "23505") return { ok: false as const, reused: false, error: inserted.error.code === "42P01" || inserted.error.code === "PGRST205" ? "EXECUTIVE_REPORT_SCHEMA_UNAVAILABLE" : "EXECUTIVE_REPORT_INSERT_FAILED" };
+  const existing = await client.from("roamly_ops_executive_reports").select(EXECUTIVE_REPORT_COLUMNS).eq("report_identity", report.reportId).maybeSingle();
+  if (existing.error || !existing.data) return { ok: false as const, reused: false, error: "EXECUTIVE_REPORT_IDEMPOTENCY_LOOKUP_FAILED" };
+  return { ok: true as const, reused: true, report: existing.data };
 }

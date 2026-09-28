@@ -81,6 +81,6 @@ assert.deepEqual(vercel.crons.filter(({ path }) => path.includes("roamly-operati
   { path: "/api/cron/roamly-operations-signals?scheduleId=seo_weekly", schedule: "17 4 * * 1" },
   { path: "/api/cron/roamly-operations-signals?scheduleId=security_weekly", schedule: "17 5 * * 0" }
 ]);
-assert.equal(vercel.crons.some(({ path }) => /ux|provider|marketing|customer-experience|finops|executive/i.test(path)), false);
+assert.equal(vercel.crons.some(({ path }) => /ux|provider|marketing|customer-experience|finops/i.test(path)), false);
 
 console.log("Roamly Phase 8B event-driven wake-up checks passed");

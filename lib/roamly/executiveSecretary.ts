@@ -3,6 +3,12 @@ import type { OperationsRisk, OwnerApprovalCategory } from "./opsControlPlane";
 export const EXECUTIVE_SECRETARY_ROLE = "EXECUTIVE_SECRETARY" as const;
 export const REPORT_PERIODS = ["weekly", "monthly", "quarterly", "year_end"] as const;
 export type ReportPeriod = typeof REPORT_PERIODS[number];
+export const EXECUTIVE_REPORT_SCHEDULES = [
+  { period: "weekly", cadence: "17 7 * * 1", target: "Monday 07:17 UTC", enabled: false },
+  { period: "monthly", cadence: "17 8 1 * *", target: "1st day of month 08:17 UTC", enabled: false },
+  { period: "quarterly", cadence: "17 9 1 1,4,7,10 *", target: "Quarter start 09:17 UTC", enabled: false },
+  { period: "year_end", cadence: "17 10 1 1 *", target: "January 1 10:17 UTC", enabled: false }
+] as const;
 export const EXECUTIVE_PRIORITIES = ["ROUTINE", "INFORMATIONAL", "WATCH", "OWNER_ATTENTION", "URGENT_OWNER_DECISION"] as const;
 export type ExecutivePriority = typeof EXECUTIVE_PRIORITIES[number];
 
@@ -72,6 +78,17 @@ export type ExecutiveRecord = {
   evidenceReferences: ExecutiveEvidenceReference[];
 };
 
+export type ExecutiveReportArtifact = {
+  reportId: string;
+  reportType: ReportPeriod;
+  period: ExecutiveRecord["period"];
+  generatedAt: string;
+  status: "GENERATED";
+  tokenBudget: 0;
+  financialBudgetUsd: 0;
+  record: ExecutiveRecord;
+};
+
 const SENSITIVE_TEXT = /(raw|body|content|cookie|credential|email|gps|latitude|longitude|password|payment|prompt|secret|token|authorization|api[_-]?key|screenshot)/i;
 const TERMINAL = new Set(["COMPLETED", "FAILED", "BLOCKED", "CANCELLED"]);
 
@@ -101,6 +118,26 @@ export function reportPeriodBounds(period: ReportPeriod, at = new Date()): { kin
   const end = new Date(Date.UTC(start.getUTCFullYear() + 1, 0, 1));
   start.setUTCMonth(0, 1);
   return { kind: period, start: iso(start), end: iso(end) };
+}
+
+export function completedReportPeriodBounds(period: ReportPeriod, at = new Date()) {
+  const current = reportPeriodBounds(period, at);
+  const end = new Date(current.start);
+  const start = new Date(current.start);
+  if (period === "weekly") {
+    start.setUTCDate(start.getUTCDate() - 7);
+  } else if (period === "monthly") {
+    start.setUTCMonth(start.getUTCMonth() - 1);
+  } else if (period === "quarterly") {
+    start.setUTCMonth(start.getUTCMonth() - 3);
+  } else {
+    start.setUTCFullYear(start.getUTCFullYear() - 1);
+  }
+  return { kind: period, start: iso(start), end: iso(end) };
+}
+
+export function executiveReportIdentity(period: ReportPeriod, at = new Date()) {
+  return `executive:${period}:${completedReportPeriodBounds(period, at).start}`;
 }
 
 function inPeriod(value: string | null | undefined, period: { start: string; end: string }) {
@@ -145,8 +182,9 @@ export function buildExecutiveRecord(input: {
   jobs: readonly ExecutiveJobSnapshot[];
   decisions?: readonly ExecutiveDecisionSnapshot[];
   finopsRecords?: readonly { jobId?: string; inputTokens?: number | null; outputTokens?: number | null; financialCostUsd?: number | null; valueStatus?: string }[];
+  periodBounds?: ExecutiveRecord["period"];
 }): ExecutiveRecord {
-  const period = reportPeriodBounds(input.period, input.at);
+  const period = input.periodBounds || reportPeriodBounds(input.period, input.at);
   const jobs = input.jobs.filter((job) => inPeriod(job.created_at, period) || inPeriod(job.updated_at, period) || inPeriod(job.completed_at, period));
   const decisions = (input.decisions || []).filter((decision) => inPeriod(decision.decided_at, period));
   const priorityCounts = emptyPriorityCounts();
@@ -192,8 +230,30 @@ export function buildExecutiveRecord(input: {
   };
 }
 
+export function buildExecutiveReport(input: Omit<Parameters<typeof buildExecutiveRecord>[0], "periodBounds">): ExecutiveReportArtifact {
+  const at = input.at || new Date();
+  const period = completedReportPeriodBounds(input.period, at);
+  const record = buildExecutiveRecord({ ...input, periodBounds: period });
+  return {
+    reportId: executiveReportIdentity(input.period, at),
+    reportType: input.period,
+    period,
+    generatedAt: at.toISOString(),
+    status: "GENERATED",
+    tokenBudget: 0,
+    financialBudgetUsd: 0,
+    record
+  };
+}
+
+export function dedupeExecutiveReports(reports: readonly ExecutiveReportArtifact[]) {
+  const unique = new Map<string, ExecutiveReportArtifact>();
+  for (const report of reports) if (!unique.has(report.reportId)) unique.set(report.reportId, report);
+  return [...unique.values()];
+}
+
 export function executiveCanPerform(action: string) {
-  return !/(dispatch|priority|budget|spend|production|commit|push|deploy|level.?3|customer.?truth|provider.?configuration)/i.test(action);
+  return !/(dispatch|repriorit|priority|budget|spend|production|commit|push|deploy|level.?3|customer.?truth|provider.?configuration)/i.test(action);
 }
 
 export function suppressExecutiveNoise(records: readonly ExecutiveRecord[]) {
@@ -221,5 +281,33 @@ export function safeExecutiveSummary(record: ExecutiveRecord) {
     finops: record.finops,
     unresolvedIssueCount: record.issues.length,
     ownerDecisionCount: record.decisionsRequired.length
+  };
+}
+
+export function safeExecutiveReport(report: ExecutiveReportArtifact) {
+  return {
+    reportId: report.reportId,
+    reportType: report.reportType,
+    period: report.period,
+    generatedAt: report.generatedAt,
+    status: report.status,
+    tokenBudget: report.tokenBudget,
+    financialBudgetUsd: report.financialBudgetUsd,
+    summary: safeExecutiveSummary(report.record)
+  };
+}
+
+export function executiveReportPersistenceRow(report: ExecutiveReportArtifact) {
+  const safe = safeExecutiveReport(report);
+  return {
+    report_identity: report.reportId,
+    report_type: report.reportType,
+    period_start: report.period.start,
+    period_end: report.period.end,
+    generation_status: "GENERATED" as const,
+    payload_json: safe,
+    evidence_references: report.record.evidenceReferences.slice(0, 100),
+    generated_at: report.generatedAt,
+    schema_version: "phase8c2.v1"
   };
 }
