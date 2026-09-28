@@ -7,6 +7,7 @@ import { probeFacebookAccessibleUrl, probeFacebookPublicVisibility } from "@/lib
 import { classifyFacebookPublication, type FacebookPublicationTruth } from "@/lib/roamly/facebookPublicationTruth";
 import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
 import { selectCampaignPhotoAsset } from "@/lib/roamly/facebookCampaignMedia";
+import { buildRoamlyContentVariant } from "@/lib/roamly/socialContentVariation";
 
 import {
   getRoamlyFacebookConnectionStatus,
@@ -900,7 +901,8 @@ function captionFor({
   affiliateLink,
   disclosure,
   promotional,
-  brand
+  brand,
+  bodyOverride
 }: {
   category: string;
   destination: string;
@@ -911,6 +913,7 @@ function captionFor({
   disclosure: string;
   promotional: boolean;
   brand: FacebookSocialBrand;
+  bodyOverride?: string;
 }) {
   if (brand === "reviewintel") {
     const bodies: Record<string, string> = {
@@ -959,10 +962,10 @@ function captionFor({
             : promotional
               ? "feature"
               : "default";
-  return [hook, bodies[key], `${cta}: ${link}`, affiliateLink ? `Travel essential link: ${affiliateLink}` : "", disclosure].filter(Boolean).join("\n\n");
+  return [hook, bodyOverride || bodies[key], `${cta}: ${link}`, affiliateLink ? `Travel essential link: ${affiliateLink}` : "", disclosure].filter(Boolean).join("\n\n");
 }
 
-function hashtagsFor(category: string, destination: string, index: number, brand: FacebookSocialBrand) {
+function hashtagsFor(category: string, destination: string, index: number, brand: FacebookSocialBrand, variationTerms: string[] = []) {
   const base = brand === "reviewintel"
     ? REVIEWINTEL_HASHTAG_GROUPS[index % REVIEWINTEL_HASHTAG_GROUPS.length]
     : HASHTAG_GROUPS[index % HASHTAG_GROUPS.length];
@@ -978,7 +981,7 @@ function hashtagsFor(category: string, destination: string, index: number, brand
       ? ["fypシ", "fypシ゚viralシ", "fypviralシ"]
       : [];
 
-  return uniqueHashtags([...base, ...specific, ...fixedReachHashtags]);
+  return uniqueHashtags([...base, ...specific, ...variationTerms, ...fixedReachHashtags]);
 }
 
 function mediaDirectionFor(format: FacebookPostFormat, category: string, destination: string, topic: string, brand: FacebookSocialBrand) {
@@ -1282,6 +1285,7 @@ async function buildDrafts(
     const topic = brand === "reviewintel" ? REVIEWINTEL_TOPIC_ROTATION[index % REVIEWINTEL_TOPIC_ROTATION.length] : TOPIC_ROTATION[index % TOPIC_ROTATION.length];
     const destination = brand === "reviewintel" ? "ReviewIntel" : DESTINATION_ROTATION[index % DESTINATION_ROTATION.length];
     const postFormat = determineFormat();
+    const contentVariant = brand === "roamly" ? buildRoamlyContentVariant(index, destination) : null;
     const promotional = isPromotional(settings, category, index);
     const cta =
       brand === "reviewintel"
@@ -1291,7 +1295,7 @@ async function buildDrafts(
     const useAffiliate = shouldUseAffiliate(settings, category, index, brand);
     const affiliateLink = useAffiliate ? affiliateLinkFor(topic, index, brand) : "";
     const disclosure = affiliateLink ? config.affiliateDisclosure : "";
-    const hook = hookFor(category, topic, destination, index, brand);
+    const hook = contentVariant?.hook || hookFor(category, topic, destination, index, brand);
     const caption = captionFor({
       category,
       destination,
@@ -1301,9 +1305,16 @@ async function buildDrafts(
       affiliateLink,
       disclosure,
       promotional,
-      brand
+      brand,
+      bodyOverride: contentVariant?.body
     });
-    const hashtags = hashtagsFor(category, brand === "reviewintel" ? topic : destination, index, brand);
+    const hashtags = hashtagsFor(
+      category,
+      brand === "reviewintel" ? topic : destination,
+      index,
+      brand,
+      contentVariant?.hashtagTerms || []
+    );
     const campaignPhoto = brand === "roamly"
       ? await pickCampaignPhotoAsset(admin, brand, destination, topic)
       : null;
@@ -1313,7 +1324,7 @@ async function buildDrafts(
     }
     const suggestedMedia = campaignPhoto?.media_url || "";
     const selectedMediaUrl = campaignPhoto?.media_url || "";
-    const conceptKey = `${brand}-${slug(category)}-${slug(topic)}-${slug(destination)}-${String(index).padStart(3, "0")}`;
+    const conceptKey = `${brand}-${slug(category)}-${slug(topic)}-${slug(destination)}-${contentVariant?.key || "legacy"}-${String(index).padStart(3, "0")}`;
     const draftBase = {
       contentType: category,
       postFormat,
@@ -1342,6 +1353,10 @@ async function buildDrafts(
         sourceMediaUrl: campaignPhoto?.media_url || null,
         sourceImageUrl: campaignPhoto?.media_url || null,
         visualSelection: campaignPhoto ? "destination_matched_approved_photo" : null,
+        contentVariant: contentVariant?.key || null,
+        contentIntent: contentVariant?.intent.key || null,
+        contentMoment: contentVariant?.moment.key || null,
+        contentAngle: contentVariant?.angle.key || null,
         promotional,
         affiliate: Boolean(affiliateLink),
         reelOnly: true,
