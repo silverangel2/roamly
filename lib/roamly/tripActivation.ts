@@ -10,6 +10,7 @@ import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
+import { clearLastLocationIfNoOperationalTrip } from "@/lib/roamly/locationLifecycle";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
   activityEndDate,
@@ -344,6 +345,8 @@ async function shutdownCompletedTripIfNeeded(
     .update({ status: "missed", completed_at: completedAt })
     .eq("trip_id", trip.id)
     .in("status", ["planned", "nearby", "active"]);
+
+  await clearLastLocationIfNoOperationalTrip(supabase, userId);
 
   return true;
 }

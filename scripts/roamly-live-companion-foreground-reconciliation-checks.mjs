@@ -16,7 +16,11 @@ assert.match(client, /addEventListener\("visibilitychange", onResume\)/);
 assert.match(client, /foregroundRefreshTimerRef/);
 assert.match(client, /setTimeout\(\(\) =>/);
 assert.match(client, /lastForegroundRefreshRef/);
-assert.match(client, /setItems\(activities\)/, "server prop changes must replace authoritative activity state");
+assert.match(
+  client,
+  /useEffect\(\(\) => \{\s*setItems\(mergeLiveActivityStatuses\(activities, locallySkippedActivityIdsRef\.current\)\);\s*\}, \[activities\]\)/s,
+  "server prop changes must replace authoritative activity state while preserving persisted local skips"
+);
 
 const resumeSection = client.slice(client.indexOf("const reconcileForeground"), client.indexOf("// Resume foreground sensing"));
 assert.doesNotMatch(resumeSection, /fetch\(/, "resume reconciliation must not invoke a notification lifecycle endpoint");

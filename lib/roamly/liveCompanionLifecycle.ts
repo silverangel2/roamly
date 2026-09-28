@@ -15,6 +15,7 @@ import {
   sendCompanionNotificationDelivery
 } from "@/lib/roamly/companionNotifications";
 import type { TrackingActivity, TrackingTrip } from "@/lib/roamly/tripActivation";
+import { clearLastLocationIfNoOperationalTrip } from "@/lib/roamly/locationLifecycle";
 
 type LifecycleActivity = Pick<TrackingActivity, "id" | "title" | "scheduled_start" | "scheduled_end" | "sort_order" | "status" | "description" | "address" | "city" | "region" | "country" | "latitude" | "longitude" | "radius_meters">;
 
@@ -75,6 +76,7 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
 
   if (window === "completed_trip") {
     await admin.from("roamly_trips").update({ status: trip.status === "cancelled" ? "cancelled" : "completed", trip_companion_status: "completed" }).eq("id", trip.id).eq("user_id", trip.user_id);
+    await clearLastLocationIfNoOperationalTrip(admin, trip.user_id);
     return { expired: 0, started: 0, skipped: "trip_end" };
   }
   if (window !== "active" || !isTodayWithinTripDates({ startDate: trip.start_date, endDate: trip.end_date, timezone, now })) {

@@ -3160,9 +3160,11 @@ assert.ok(!fieldTestAccess.includes("ROAMLY_ADMIN_SESSION_SECRET"), "Field-test 
 assert.ok(fieldTestAccess.includes("ROAMLY_FIELD_TEST_SECRET_NOT_CONFIGURED"), "Missing field-test secret must fail closed");
 const locationUpdateRoute = read("app/api/roamly/location/update/route.ts");
 const locationSettingsRoute = read("app/api/roamly/location/settings/route.ts");
+const locationLifecycle = read("lib/roamly/locationLifecycle.ts");
+const locationMigration = read("supabase/migrations/20260928000200_roamly_terminal_location_cleanup.sql");
 assert.ok(locationUpdateRoute.includes("auth.fieldTest"), "Location update must distinguish field-test sessions");
 assert.ok(locationSettingsRoute.includes("update.last_seen_latitude = null") && locationSettingsRoute.includes("update.last_seen_longitude = null") && locationSettingsRoute.includes("update.last_seen_at = null"), "turning off trip sensing must clear the last stored coordinates and timestamp");
-assert.ok(locationUpdateRoute.includes('.eq("location_tracking_enabled", true)'), "location writes must be conditional on tracking still being enabled to prevent off-toggle races");
+assert.ok(locationLifecycle.includes("roamly_write_foreground_location") && locationMigration.includes("location_tracking_enabled is true"), "location writes must be conditional on tracking still being enabled at the database boundary to prevent off-toggle races");
 assert.ok(locationUpdateRoute.includes("last_seen_latitude: null") && locationUpdateRoute.includes("last_seen_longitude: null") && locationUpdateRoute.includes("last_seen_at: null"), "denied or unavailable location permission must clear the last stored location");
 assert.ok(!locationUpdateRoute.includes("location_tracking_enabled: true,\n      notification_enabled:"), "a stale location request must not re-enable tracking after the user turns it off");
 assert.ok(locationUpdateRoute.includes('"liveDemo"'), "Field-test location updates must block Live Demo payloads");

@@ -33,6 +33,8 @@ assert.equal(isFreshLocationObservation(observedAt(0), now + 1_000), true, "new 
 
 const read = (path) => fs.readFileSync(new URL(path, import.meta.url), "utf8");
 const updateRoute = read("../app/api/roamly/location/update/route.ts");
+const locationLifecycle = read("../lib/roamly/locationLifecycle.ts");
+const locationMigration = read("../supabase/migrations/20260928000200_roamly_terminal_location_cleanup.sql");
 const checkInRoute = read("../app/api/roamly/activities/check-in/route.ts");
 const routeApi = read("../app/api/trips/[id]/live-companion/route/route.ts");
 const livePage = read("../app/trip/[id]/live/page.tsx");
@@ -42,7 +44,9 @@ const timezone = read("./roamly-trip-activation-timezone-checks.mjs");
 const idempotency = read("./roamly-live-companion-action-idempotency-checks.mjs");
 
 assert.match(updateRoute, /if \(!isFreshLocationObservation\(capturedAt\)\)/, "server proximity/trip activation rejects stale, missing, or malformed GPS timestamps");
-assert.match(updateRoute, /last_seen_at: new Date\(typeof capturedAt/, "storage preserves the original GPS observation time, not request receipt time");
+assert.match(updateRoute, /observedAt = new Date\(typeof capturedAt/, "foreground route preserves the original GPS observation time");
+assert.match(locationLifecycle, /p_observed_at: params\.observedAt/, "location writer passes the original observation time to the database");
+assert.match(locationMigration, /last_seen_at = p_observed_at/, "database storage preserves the original GPS observation time, not request receipt time");
 assert.match(updateRoute, /last_seen_latitude: null[\s\S]*last_seen_longitude: null[\s\S]*last_seen_at: null/, "denied or unavailable GPS clears cached precise location");
 assert.doesNotMatch(livePage, /last_seen_latitude|last_seen_longitude|initialLocation=\{latestLocation\}/, "resume never hydrates persisted coordinates whose historical timestamp semantics are ambiguous");
 assert.match(liveClient, /location: usableLocation/, "stale in-memory coordinates cannot drive focus/proximity state");

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
 import { normalizeCoordinates } from "@/lib/roamly/location";
 import { activateTripIfNearby } from "@/lib/roamly/tripActivation";
+import { writeForegroundLocation } from "@/lib/roamly/locationLifecycle";
 
 export async function POST(request: NextRequest) {
   const guard = await requireRoamlyAdmin();
@@ -66,20 +67,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await guard.admin
+  const settings = await guard.admin
     .from("roamly_location_settings")
     .upsert(
       {
         user_id: trip.user_id,
         location_tracking_enabled: true,
         notification_enabled: true,
-        last_permission_state: "granted",
-        last_seen_latitude: location.latitude,
-        last_seen_longitude: location.longitude,
-        last_seen_at: new Date().toISOString()
+        last_permission_state: "granted"
       },
       { onConflict: "user_id" }
     );
+  if (settings.error) return NextResponse.json({ ok: false, error: "Could not prepare field-test location settings." }, { status: 500 });
+
+  const locationWrite = await writeForegroundLocation({
+    supabase: guard.admin,
+    userId: trip.user_id,
+    tripId: trip.id,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    observedAt: new Date().toISOString()
+  });
+  if (locationWrite.error) return NextResponse.json({ ok: false, error: "Could not save this field-test location." }, { status: 500 });
+  if (!locationWrite.written) return NextResponse.json({ ok: false, error: "Field-test trip is not operational." }, { status: 409 });
 
   const activation = await activateTripIfNearby(
     guard.admin,

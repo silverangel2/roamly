@@ -5,6 +5,7 @@ import { activateTripIfNearby } from "@/lib/roamly/tripActivation";
 import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { processLiveCompanionDemoUpdate } from "@/lib/roamly/liveCompanionDemo";
+import { writeForegroundLocation } from "@/lib/roamly/locationLifecycle";
 
 const permissionStates = new Set(["granted", "denied", "prompt"]);
 export async function POST(request: NextRequest) {
@@ -100,28 +101,25 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { data: locationWrite, error: locationWriteError } = await auth.supabase
-    .from("roamly_location_settings")
-    .update({
-      last_permission_state: "granted",
-      last_seen_latitude: location.latitude,
-      last_seen_longitude: location.longitude,
-      last_seen_at: new Date(typeof capturedAt === "number" ? capturedAt : String(capturedAt)).toISOString()
-    })
-    .eq("user_id", auth.userId)
-    .eq("location_tracking_enabled", true)
-    .select("user_id")
-    .maybeSingle();
+  const observedAt = new Date(typeof capturedAt === "number" ? capturedAt : String(capturedAt)).toISOString();
+  const locationWrite = await writeForegroundLocation({
+    supabase: auth.supabase,
+    userId: auth.userId,
+    tripId: tripId || null,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    observedAt
+  });
 
-  if (locationWriteError) {
+  if (locationWrite.error) {
     return NextResponse.json({ ok: false, error: "Could not save this location update." }, { status: 500 });
   }
-  if (!locationWrite) {
+  if (!locationWrite.written) {
     return NextResponse.json({
       ok: true,
-      trackingDisabled: true,
+      trackingDisabled: false,
       tripActivated: false,
-      message: "Location permission is disabled in this Roamly account."
+      message: "No operational trip currently requires foreground location."
     });
   }
 
