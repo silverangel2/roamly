@@ -95,7 +95,7 @@ export function NotificationTimelineCard({
       )
     );
 
-    await fetch(
+    const response = await fetch(
       "/api/roamly/notifications/read",
       {
         method: "POST",
@@ -106,7 +106,11 @@ export function NotificationTimelineCard({
           notificationId: id
         })
       }
-    ).catch(() => undefined);
+    ).catch(() => null);
+
+    if (response?.ok) {
+      window.dispatchEvent(new Event("roamly:shell-state-refresh"));
+    }
   }
 
   return (

@@ -9,6 +9,7 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { TranslatedTextBoundary } from "@/components/i18n/TranslatedTextBoundary";
 import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { countUnreadNotifications, shouldLoadShellState } from "@/lib/roamly/appShellState";
 
 export type AppShellAuthState = {
   authenticated: boolean;
@@ -86,16 +87,29 @@ function AppShellContent({
 
       if (notificationsResponse?.ok) {
         const data = await notificationsResponse.json().catch(() => null);
-        const unread = Array.isArray(data?.notifications)
-          ? data.notifications.filter((item: { status?: string }) => item.status !== "read").length
-          : 0;
-        setUnreadCount(unread);
+        setUnreadCount(Array.isArray(data?.notifications) ? countUnreadNotifications(data.notifications) : 0);
       }
     }
 
-    void loadMobileState();
+    const handleNotificationShellState = (event: Event) => {
+      if (pathname !== "/notifications") return;
+      const detail = (event as CustomEvent<{ activeTripId?: unknown; unreadCount?: unknown }>).detail;
+      setActiveTripId(typeof detail?.activeTripId === "string" ? detail.activeTripId : "");
+      setUnreadCount(typeof detail?.unreadCount === "number" && Number.isFinite(detail.unreadCount) ? detail.unreadCount : 0);
+    };
+
+    const handleShellStateRefresh = () => {
+      void loadMobileState();
+    };
+
+    window.addEventListener("roamly:notifications-shell-state", handleNotificationShellState);
+    window.addEventListener("roamly:shell-state-refresh", handleShellStateRefresh);
+    if (shouldLoadShellState(authenticated, pathname)) void loadMobileState();
+
     return () => {
       alive = false;
+      window.removeEventListener("roamly:notifications-shell-state", handleNotificationShellState);
+      window.removeEventListener("roamly:shell-state-refresh", handleShellStateRefresh);
     };
   }, [authenticated, pathname]);
 

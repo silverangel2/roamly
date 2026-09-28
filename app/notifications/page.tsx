@@ -18,6 +18,7 @@ import {
 } from "@/lib/roamly/tripActivation";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { dedupeEquivalentNotifications, notificationActionState } from "@/lib/roamly/liveCompanion";
+import { NotificationShellStateBridge } from "@/components/roamly/NotificationShellStateBridge";
 
 export default async function NotificationsPage() {
   const current = await getCurrentUser();
@@ -39,7 +40,7 @@ export default async function NotificationsPage() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) redirect("/dashboard");
 
-  const [tripResult, notifications, companionDeliveries] =
+  const [tripResult, notifications, companionDeliveries, unreadNotifications] =
     await Promise.all([
       getActiveOrUpcomingTrip(supabase, current.user.id),
       supabase
@@ -54,7 +55,12 @@ export default async function NotificationsPage() {
         .eq("user_id", current.user.id)
         .not("notification_id", "is", null)
         .order("created_at", { ascending: false })
-        .limit(100)
+        .limit(100),
+      supabase
+        .from("roamly_notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", current.user.id)
+        .neq("status", "read")
     ]);
 
   const latestDeliveryByNotification = new Map<
@@ -120,6 +126,7 @@ export default async function NotificationsPage() {
   if (!trip) {
     return (
       <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+        <NotificationShellStateBridge activeTripId="" unreadCount={unreadNotifications.count || 0} />
         <section className="mb-6">
           <NotificationTimelineCard initialItems={notificationItems} />
         </section>
@@ -170,6 +177,7 @@ export default async function NotificationsPage() {
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
       <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} />
 
       <section className="mt-6">
