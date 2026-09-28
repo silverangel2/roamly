@@ -23,6 +23,14 @@ export type AdrianSignal = {
   attemptCeiling?: number;
   approvalCategory?: string | null;
   dependencies?: string[];
+  dedupeKey?: string;
+  cooldownSeconds?: number;
+  safeMetadata?: Record<string, string | number | boolean>;
+  evidenceReference?: string | null;
+  correlationKey?: string | null;
+  observedAt?: string;
+  cooldownClass?: string;
+  expiresAt?: string;
 };
 
 export type AdrianDecision = {
@@ -69,7 +77,7 @@ export function adrianTriage(signal: AdrianSignal, scheduler: OperationsSchedule
     priority: signal.priority || "normal",
     risk: signal.risk || "low",
     authorityLevel: signal.requestedAuthority,
-    scope: { orchestration: { signalId: signal.signalId, specialist: signal.specialist, source: signal.source, code: signal.code, authorityCeiling: policy.maxAuthority, triage: "accepted" }, approvalCategory: signal.approvalCategory || null },
+    scope: { orchestration: { signalId: signal.signalId, specialist: signal.specialist, source: signal.source, code: signal.code, authorityCeiling: policy.maxAuthority, triage: "accepted" }, signal: { observedAt: signal.observedAt || null, cooldownClass: signal.cooldownClass || null, expiresAt: signal.expiresAt || null, dedupeKey: signal.dedupeKey || null, safeMetadata: signal.safeMetadata || {}, evidenceReference: signal.evidenceReference || null, correlationKey: signal.correlationKey || null }, approvalCategory: signal.approvalCategory || null },
     allowedOperations: ["read_approved_repository_state", "record_deterministic_evidence", "prepare_bounded_diagnosis"],
     forbiddenOperations: ["code_edit", "commit", "push", "deploy", "production_mutation", "customer_data_access", "spending", "credential_access", "arbitrary_command", "provider_configuration_change", "customer_truth_change"],
     dependencies: signal.dependencies || [],
@@ -79,9 +87,9 @@ export function adrianTriage(signal: AdrianSignal, scheduler: OperationsSchedule
     financialBudgetUsd,
     maxAttempts,
     ownerApprovalRequired: approval,
-    cooldownUntil: new Date(now + policy.cooldownSeconds * 1000).toISOString(),
+    cooldownUntil: new Date(now + Math.max(policy.cooldownSeconds, signal.cooldownSeconds || 0) * 1000).toISOString(),
     runnerId: policy.runners[signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE"],
-    dedupeKey: duplicateJobKey({ role: policy.role, subsystem: signal.subsystem, objective: signal.signalId, signal: signal.code })
+    dedupeKey: signal.dedupeKey || duplicateJobKey({ role: policy.role, subsystem: signal.subsystem, objective: signal.signalId, signal: signal.code })
   });
   if (!scheduler.enqueue(job)) return { accepted: false, reason: "DUPLICATE_OR_COOLDOWN_SUPPRESSED", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: approval, job: null };
   return { accepted: true, reason: approval ? "ACCEPTED_AWAITING_OWNER_APPROVAL" : "ACCEPTED_QUEUED", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: approval, job: { ...job, status: approval ? "AWAITING_APPROVAL" : "QUEUED" } };
