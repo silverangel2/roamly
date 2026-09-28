@@ -191,6 +191,26 @@ function nullableText(value: unknown) {
   return text || null;
 }
 
+const RAW_EVIDENCE_KEYS = new Set([
+  "rawextractedtext",
+  "rawtext",
+  "ocrtext",
+  "extractedtext",
+  "rawevidence"
+]);
+
+function sanitizeBookingEvidence(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeBookingEvidence);
+  if (!value || typeof value !== "object") return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (RAW_EVIDENCE_KEYS.has(key.replace(/[_-]/g, "").toLowerCase())) continue;
+    output[key] = sanitizeBookingEvidence(child);
+  }
+  return output;
+}
+
 function nullableTimestamp(value: unknown) {
   const text = clean(value);
   if (!text) return null;
@@ -342,7 +362,7 @@ function canonicalBookingType(type: TripBookingType) {
   return type;
 }
 
-function canonicalRowToTripBookingRecord(
+export function serializeTripBookingRecord(
   row: Record<string, unknown>
 ): TripBookingRecord {
   const metadata =
@@ -352,77 +372,56 @@ function canonicalRowToTripBookingRecord(
       ? (row.metadata as Record<string, unknown>)
       : {};
 
+  const referral = bookingReferralMetadata(metadata);
   return {
-    ...row,
+    id: String(row.id || ""),
+    trip_id: String(row.trip_id || ""),
+    user_id: String(row.user_id || ""),
     booking_type: legacyBookingType(row.booking_type),
     booking_status: legacyBookingStatus(row.booking_status),
-
-    provider:
-      typeof row.provider_name === "string"
-        ? row.provider_name
-        : null,
-
-    confirmation_code:
-      typeof row.confirmation_number === "string"
-        ? row.confirmation_number
-        : null,
-
-    recommendation_id: bookingReferralMetadata(metadata).recommendationId,
-
-    affiliate_click_id: bookingReferralMetadata(metadata).affiliateClickId,
-
-    referral_id: typeof row.referral_id === "string" ? row.referral_id : null,
-
-    affiliate_conversion_id: bookingReferralMetadata(metadata).affiliateConversionId,
-
-    source_reference: bookingReferralMetadata(metadata).sourceReference,
-
-    start_time:
-      typeof row.start_at === "string"
-        ? row.start_at
-        : null,
-
-    end_time:
-      typeof row.end_at === "string"
-        ? row.end_at
-        : null,
-
-    timezone:
-      typeof metadata.timezone === "string"
-        ? metadata.timezone
-        : null,
-
-    location_name:
-      typeof metadata.locationName === "string"
-        ? metadata.locationName
-        : null,
-
+    provider: nullableText(row.provider_name),
+    provider_booking_id: nullableText(row.provider_booking_id),
+    confirmation_code: nullableText(row.confirmation_number),
+    recommendation_id: referral.recommendationId,
+    affiliate_click_id: referral.affiliateClickId,
+    referral_id: nullableText(row.referral_id),
+    affiliate_conversion_id: referral.affiliateConversionId,
+    source_type: normalizedSourceType(row.source_type),
+    source_reference: nullableText(row.source_reference) || referral.sourceReference,
+    title: nullableText(row.title) || "Trip booking",
+    start_time: typeof row.start_at === "string" ? row.start_at : null,
+    end_time: typeof row.end_at === "string" ? row.end_at : null,
+    timezone: typeof metadata.timezone === "string" ? metadata.timezone : null,
+    origin: nullableText(row.origin),
+    destination: nullableText(row.destination),
+    location_name: typeof metadata.locationName === "string" ? metadata.locationName : null,
+    address: nullableText(row.address),
     coordinates:
-      metadata.coordinates &&
-      typeof metadata.coordinates === "object"
-        ? metadata.coordinates
+      metadata.coordinates && typeof metadata.coordinates === "object" && !Array.isArray(metadata.coordinates)
+        ? sanitizeBookingEvidence(metadata.coordinates) as Record<string, unknown>
         : null,
-
-    airline_code:
-      typeof metadata.airlineCode === "string"
-        ? metadata.airlineCode
-        : null,
-
-    check_in_time:
-      typeof row.check_in_at === "string"
-        ? row.check_in_at
-        : null,
-
-    check_out_time:
-      typeof row.check_out_at === "string"
-        ? row.check_out_at
-        : null,
-
-    superseded_by_booking_id:
-      typeof row.superseded_by_booking_id === "string"
-        ? row.superseded_by_booking_id
-        : null
-  } as TripBookingRecord;
+    flight_number: nullableText(row.flight_number),
+    airline_code: typeof metadata.airlineCode === "string" ? metadata.airlineCode : null,
+    terminal: nullableText(row.terminal),
+    gate: nullableText(row.gate),
+    room_type: nullableText(row.room_type),
+    check_in_time: typeof row.check_in_at === "string" ? row.check_in_at : null,
+    check_out_time: typeof row.check_out_at === "string" ? row.check_out_at : null,
+    reservation_requirements: sanitizeBookingEvidence(row.reservation_requirements || {}) as Record<string, unknown>,
+    total_price: typeof row.total_price === "number" ? row.total_price : null,
+    currency: normalizedCurrency(row.currency),
+    taxes_and_fees: typeof row.taxes_and_fees === "number" ? row.taxes_and_fees : null,
+    cancellation_deadline: typeof row.cancellation_deadline === "string" ? row.cancellation_deadline : null,
+    cancellation_terms: nullableText(row.cancellation_terms),
+    traveler_confirmed: row.traveler_confirmed === true,
+    last_synced_at: typeof row.last_synced_at === "string" ? row.last_synced_at : null,
+    created_at: typeof row.created_at === "string" ? row.created_at : "",
+    updated_at: typeof row.updated_at === "string" ? row.updated_at : "",
+    superseded_by_booking_id: nullableText(row.superseded_by_booking_id),
+    booking_segments: Array.isArray(row.booking_segments)
+      ? row.booking_segments as BookingSegmentRecord[]
+      : undefined
+  };
 }
 
 export function normalizeTripBookingInput(input: TripBookingInput) {
@@ -592,7 +591,7 @@ export async function listTripBookings(params: {
 
   return {
     bookings: (data || []).map((row) =>
-      canonicalRowToTripBookingRecord(
+      serializeTripBookingRecord(
         row as unknown as Record<string, unknown>
       )
     ),
@@ -1017,7 +1016,7 @@ export async function createTripBooking(params: {
     const previousConfirmed = previousBooking.traveler_confirmed === true || ["booked", "paid", "reserved"].includes(previousStatus);
     if (previousConfirmed && !booking.traveler_confirmed) {
       return {
-        booking: canonicalRowToTripBookingRecord(previousBooking),
+        booking: serializeTripBookingRecord(previousBooking),
         error: null,
         created: false,
         meaningfulChange: null,
@@ -1040,7 +1039,7 @@ export async function createTripBooking(params: {
     if (!revision.ok) return { booking: null, error: revision.error };
     if (!revision.applied) {
       return {
-        booking: canonicalRowToTripBookingRecord(previousBooking),
+        booking: serializeTripBookingRecord(previousBooking),
         error: null,
         reconciliation: revision
       };
@@ -1090,7 +1089,7 @@ export async function createTripBooking(params: {
       });
       if (duplicate.reusable && duplicate.booking) {
         return {
-          booking: canonicalRowToTripBookingRecord(duplicate.booking),
+          booking: serializeTripBookingRecord(duplicate.booking),
           error: null,
           created: false,
           duplicate: true
@@ -1108,7 +1107,7 @@ export async function createTripBooking(params: {
         .maybeSingle();
       if (!duplicate.error && duplicate.data) {
         return {
-          booking: canonicalRowToTripBookingRecord(duplicate.data as Record<string, unknown>),
+          booking: serializeTripBookingRecord(duplicate.data as Record<string, unknown>),
           error: null,
           reconciliation: {
             ok: true as const,
@@ -1141,7 +1140,7 @@ export async function createTripBooking(params: {
       reconciliation: params.input.reconciliation
     });
     if (!revision.ok) return { booking: null, error: revision.error };
-    if (!revision.applied) return { booking: canonicalRowToTripBookingRecord(savedRow), error: null, reconciliation: revision };
+    if (!revision.applied) return { booking: serializeTripBookingRecord(savedRow), error: null, reconciliation: revision };
     const refreshed = await params.supabase
       .from("roamly_bookings")
       .select("*")
@@ -1154,7 +1153,7 @@ export async function createTripBooking(params: {
   }
 
   const createdBooking =
-    canonicalRowToTripBookingRecord(savedRow);
+    serializeTripBookingRecord(savedRow);
 
   const segments = normalizeBookingSegments(
     params.input.segments

@@ -40,7 +40,6 @@ export type ExtractedBooking = {
   country: string;
   latitude: number | null;
   longitude: number | null;
-  raw_extracted_text: string;
   extraction_confidence: "low" | "medium" | "high";
   metadata: Record<string, unknown>;
 };
@@ -59,6 +58,13 @@ const bookingTypes = new Set<RoamlyBookingType>([
 
 const statuses = new Set(["booked", "paid", "reserved", "cancelled", "unknown"]);
 const confidenceValues = new Set(["low", "medium", "high"]);
+const RAW_EVIDENCE_KEYS = new Set([
+  "rawextractedtext",
+  "rawtext",
+  "ocrtext",
+  "extractedtext",
+  "rawevidence"
+]);
 
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -68,6 +74,18 @@ function getOpenAIClient() {
 
 function asText(value: unknown) {
   return typeof value === "string" ? redactSensitivePaymentDetails(value.trim()) : "";
+}
+
+function sanitizeEvidenceMetadata(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeEvidenceMetadata);
+  if (!value || typeof value !== "object") return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (RAW_EVIDENCE_KEYS.has(key.replace(/[_-]/g, "").toLowerCase())) continue;
+    output[key] = sanitizeEvidenceMetadata(child);
+  }
+  return output;
 }
 
 function asNullableNumber(value: unknown) {
@@ -114,7 +132,7 @@ export function normalizeExtractedBooking(value: Record<string, unknown>): Extra
   const confidence = asText(value.extraction_confidence);
   const metadata =
     typeof value.metadata === "object" && value.metadata
-      ? (value.metadata as Record<string, unknown>)
+      ? sanitizeEvidenceMetadata(value.metadata) as Record<string, unknown>
       : {};
 
   return {
@@ -143,7 +161,6 @@ export function normalizeExtractedBooking(value: Record<string, unknown>): Extra
     country: asText(value.country),
     latitude: asNullableNumber(value.latitude),
     longitude: asNullableNumber(value.longitude),
-    raw_extracted_text: asText(value.raw_extracted_text),
     extraction_confidence: confidenceValues.has(confidence) ? (confidence as ExtractedBooking["extraction_confidence"]) : "medium",
     metadata
   };
@@ -160,7 +177,6 @@ export async function extractBookingFromScreenshot(file: File): Promise<{ bookin
       booking: normalizeExtractedBooking({
         title: file.name || "Uploaded booking screenshot",
         booking_type: "other",
-        raw_extracted_text: "OpenAI vision is not configured. Confirm the booking manually.",
         extraction_confidence: "low",
         metadata: { fileName: file.name, mimeType: file.type }
       })
@@ -183,7 +199,7 @@ export async function extractBookingFromScreenshot(file: File): Promise<{ bookin
           {
             type: "text",
             text:
-              "Extract a travel booking. Fields: booking_type, provider_name, title, confirmation_number, flight_number, airline_code, terminal, gate, baggage, duration, origin, destination, booking_status, amount_cents, currency, start_date, end_date, start_time, end_time, address, city, region, country, latitude, longitude, raw_extracted_text, extraction_confidence, metadata. For flight screenshots, capture exact departure/arrival times, airline, flight number, terminal, gate, baggage, duration, origin, and destination when visible. If unsure, use empty string/null and low confidence."
+              "Extract a travel booking into normalized fields only: booking_type, provider_name, title, confirmation_number, flight_number, airline_code, terminal, gate, baggage, duration, origin, destination, booking_status, amount_cents, currency, start_date, end_date, start_time, end_time, address, city, region, country, latitude, longitude, extraction_confidence, metadata. Do not return OCR transcripts, raw screenshot text, full model responses, payment credentials, or unrelated document text. For flight screenshots, capture exact departure/arrival times, airline, flight number, terminal, gate, baggage, duration, origin, and destination when visible. If unsure, use empty string/null and low confidence."
           },
           { type: "image_url", image_url: { url: dataUrl } }
         ]
@@ -257,7 +273,6 @@ export async function saveConfirmedBooking(
   );
   const requirements: Record<string, unknown> = {
     extraction_confidence: booking.extraction_confidence,
-    raw_extracted_text: booking.raw_extracted_text || null,
     source_metadata: booking.metadata || {}
   };
   if (booking.baggage) requirements.baggage = booking.baggage;

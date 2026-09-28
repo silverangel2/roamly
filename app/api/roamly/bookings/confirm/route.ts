@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
       metadata: {
         evidenceState: "pending",
         extractionConfidence: booking.extraction_confidence,
-        rawExtractedText: booking.raw_extracted_text,
         sourceMetadata: booking.metadata
       }
     }

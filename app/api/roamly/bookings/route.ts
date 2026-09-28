@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
+import { listTripBookings } from "@/lib/roamly/bookingWallet";
 
 export async function GET(request: NextRequest) {
   const auth = await requireUser();
@@ -8,14 +9,13 @@ export async function GET(request: NextRequest) {
   const tripId = request.nextUrl.searchParams.get("tripId") || "";
   if (!tripId) return NextResponse.json({ ok: false, error: "Trip is required." }, { status: 400 });
 
-  const { data: bookings, error } = await auth.supabase
-    .from("roamly_bookings")
-    .select("*")
-    .eq("user_id", auth.user.id)
-    .eq("trip_id", tripId)
-    .order("start_at", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const result = await listTripBookings({
+    supabase: auth.supabase,
+    userId: auth.user.id,
+    tripId,
+    includeSegments: true
+  });
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, bookings: bookings || [] });
+  if (result.error) return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
+  return NextResponse.json({ ok: true, bookings: result.bookings });
 }

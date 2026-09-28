@@ -32,7 +32,6 @@ type Booking = {
   country?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  raw_extracted_text?: string | null;
   extraction_confidence?: string | null;
 };
 
