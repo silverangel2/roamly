@@ -112,7 +112,8 @@ assert.ok(billing.includes("STRIPE_PRICE_MISSING"), "missing Stripe Price IDs mu
 assert.ok(billing.includes("STRIPE_PRICE_AMOUNT_MISMATCH"), "Stripe Price amount mismatch must be detected");
 assert.ok(billing.includes("STRIPE_PRICE_CURRENCY_MISMATCH"), "Stripe Price currency mismatch must be detected");
 assert.ok(billing.includes("getOrCreateStripeCustomer"), "checkout must create or reuse one Stripe customer per user");
-assert.ok(billing.includes("findReusablePendingCheckoutSession"), "checkout must reuse open pending sessions to reduce duplicate checkout attempts");
+assert.ok(billing.includes("roamly_claim_checkout_attempt"), "checkout must claim one database-backed pending attempt before Stripe creation");
+assert.ok(billing.includes("roamly_checkout_attempt_${attempt.purchaseId}"), "checkout must use stable attempt-scoped Stripe idempotency");
 assert.ok(!billing.includes("price_data"), "production checkout must not silently fall back to inline Stripe price_data");
 assert.ok(billing.includes("handleStripeWebhookEvent"), "Stripe webhooks must use centralized processing");
 assert.ok(

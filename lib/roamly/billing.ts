@@ -280,37 +280,42 @@ async function getOrCreateStripeCustomer(
   return created;
 }
 
-async function findReusablePendingCheckoutSession(
-  stripe: Stripe,
+type CheckoutAttempt = {
+  purchaseId: string;
+  stripeCheckoutSessionId: string | null;
+  purchaseStatus: "pending" | "paid" | "failed" | "cancelled" | "expired";
+};
+
+async function claimCheckoutAttempt(
   writer: SupabaseClient,
-  userId: string,
-  tripId: string,
-  purchaseType: RoamlyPurchaseType
+  params: { userId: string; tripId: string; purchaseType: RoamlyPurchaseType; amountCents: number; currency: string }
 ) {
-  const pending = await writer
+  const result = await writer.rpc("roamly_claim_checkout_attempt", {
+    p_user_id: params.userId,
+    p_trip_id: params.tripId,
+    p_purchase_type: params.purchaseType,
+    p_amount_cents: params.amountCents,
+    p_currency: params.currency
+  });
+  if (result.error) return { attempt: null as CheckoutAttempt | null, error: result.error.message };
+  const row = Array.isArray(result.data) ? result.data[0] : result.data;
+  if (!row?.purchase_id) return { attempt: null as CheckoutAttempt | null, error: "CHECKOUT_ATTEMPT_CLAIM_FAILED" };
+  return {
+    attempt: {
+      purchaseId: String(row.purchase_id),
+      stripeCheckoutSessionId: typeof row.stripe_checkout_session_id === "string" ? row.stripe_checkout_session_id : null,
+      purchaseStatus: row.purchase_status as CheckoutAttempt["purchaseStatus"]
+    },
+    error: null
+  };
+}
+
+async function expireCheckoutAttempt(writer: SupabaseClient, purchaseId: string) {
+  return writer
     .from("roamly_itinerary_purchases")
-    .select("stripe_checkout_session_id")
-    .eq("user_id", userId)
-    .eq("trip_id", tripId)
-    .eq("purchase_type", purchaseType)
-    .eq("status", "pending")
-    .order("created_at", { ascending: false })
-    .limit(5);
-
-  if (pending.error) return null;
-
-  for (const row of pending.data || []) {
-    const sessionId = typeof row.stripe_checkout_session_id === "string" ? row.stripe_checkout_session_id : "";
-    if (!sessionId) continue;
-    try {
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-      if (session.status === "open" && session.url) return session;
-    } catch {
-      // Ignore stale or deleted sessions and create a fresh one.
-    }
-  }
-
-  return null;
+    .update({ status: "expired", metadata: { expired_at: new Date().toISOString(), reason: "stripe_session_expired" } })
+    .eq("id", purchaseId)
+    .eq("status", "pending");
 }
 
 function paymentIntentId(session: Stripe.Checkout.Session) {
@@ -760,8 +765,46 @@ async function createCheckoutSession(
   const priceValidation = await validateStripePriceForPurchase(stripe, purchaseType);
   if (!priceValidation.ok) return priceValidation;
   const writer = createSupabaseAdminClient() || supabase;
-  const reusable = await findReusablePendingCheckoutSession(stripe, writer, user.id, tripId, purchaseType);
-  if (reusable?.url) return { ok: true as const, url: reusable.url, sessionId: reusable.id, reused: true as const };
+  const claimed = await claimCheckoutAttempt(writer, {
+    userId: user.id,
+    tripId,
+    purchaseType,
+    amountCents: priceValidation.price.unit_amount || option.amount,
+    currency: priceValidation.price.currency || roamlyConfig.currency
+  });
+  if (!claimed.attempt) return { ok: false as const, status: 503, error: claimed.error || "CHECKOUT_ATTEMPT_CLAIM_FAILED" };
+
+  let attempt = claimed.attempt;
+  if (attempt.purchaseStatus === "paid") {
+    return { ok: false as const, status: 409, error: "CHECKOUT_ALREADY_COMPLETED", message: "This purchase has already been completed." };
+  }
+  if (attempt.stripeCheckoutSessionId) {
+    let existingSession: Stripe.Checkout.Session;
+    try {
+      existingSession = await stripe.checkout.sessions.retrieve(attempt.stripeCheckoutSessionId);
+    } catch {
+      return { ok: false as const, status: 503, error: "CHECKOUT_SESSION_LOOKUP_FAILED", message: "The existing checkout could not be verified. Please retry." };
+    }
+    if (existingSession.status === "open" && existingSession.url) {
+      return { ok: true as const, url: existingSession.url, sessionId: existingSession.id, reused: true as const };
+    }
+    if (existingSession.status === "complete") {
+      return { ok: false as const, status: 409, error: "CHECKOUT_ALREADY_COMPLETED", message: "This checkout has already been completed. Your purchase is being confirmed." };
+    }
+    await expireCheckoutAttempt(writer, attempt.purchaseId);
+    const retryClaim = await claimCheckoutAttempt(writer, {
+      userId: user.id,
+      tripId,
+      purchaseType,
+      amountCents: priceValidation.price.unit_amount || option.amount,
+      currency: priceValidation.price.currency || roamlyConfig.currency
+    });
+    if (!retryClaim.attempt) return { ok: false as const, status: 503, error: retryClaim.error || "CHECKOUT_ATTEMPT_CLAIM_FAILED" };
+    attempt = retryClaim.attempt;
+    if (attempt.stripeCheckoutSessionId) {
+      return { ok: false as const, status: 503, error: "CHECKOUT_ATTEMPT_CHANGED", message: "The checkout changed while it was being retried. Please retry." };
+    }
+  }
 
   const customer = await getOrCreateStripeCustomer(stripe, writer, user);
   const metadata = {
@@ -779,7 +822,6 @@ async function createCheckoutSession(
     checkoutKind: purchaseType
   };
 
-  const idempotencyWindow = Math.floor(Date.now() / 60_000);
   const session = await stripe.checkout.sessions.create({
     mode: priceValidation.mode,
     customer: customer.id,
@@ -802,27 +844,29 @@ async function createCheckoutSession(
         : undefined,
     allow_promotion_codes: true
   }, {
-    idempotencyKey: `roamly_checkout_${user.id}_${tripId}_${purchaseType}_${idempotencyWindow}`
+    idempotencyKey: `roamly_checkout_attempt_${attempt.purchaseId}`
   });
 
-  await writer.from("roamly_itinerary_purchases").insert({
-    user_id: user.id,
-    trip_id: tripId,
-    purchase_type: purchaseType,
-    amount_cents: session.amount_total || option.amount,
-    currency: session.currency || roamlyConfig.currency,
+  const purchaseUpdate = await writer.from("roamly_itinerary_purchases").update({
     stripe_checkout_session_id: session.id,
-    status: "pending"
-  });
+    amount_cents: session.amount_total || option.amount,
+    currency: session.currency || roamlyConfig.currency
+  }).eq("id", attempt.purchaseId).eq("status", "pending");
+  if (purchaseUpdate.error) {
+    return { ok: false as const, status: 503, error: "CHECKOUT_ATTEMPT_PERSIST_FAILED", message: "Checkout was created but could not be saved locally. Please retry so Roamly can recover the same checkout safely." };
+  }
 
-  await writer.from("roamly_trip_payments").insert({
+  const paymentWrite = await writer.from("roamly_trip_payments").upsert({
     user_id: user.id,
     trip_id: tripId,
     stripe_session_id: session.id,
     amount: session.amount_total || option.amount,
     currency: session.currency || roamlyConfig.currency,
     status: "pending"
-  });
+  }, { onConflict: "stripe_session_id" });
+  if (paymentWrite.error) {
+    return { ok: false as const, status: 503, error: "CHECKOUT_PAYMENT_PERSIST_FAILED", message: "Checkout was created but payment state could not be saved locally. Please retry safely." };
+  }
 
   await recordAppEvent(writer, {
     userId: user.id,
