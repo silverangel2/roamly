@@ -60,9 +60,22 @@ assert.equal(scheduleSignal("not-registered", now).error, "SCHEDULE_NOT_REGISTER
 
 const route = await readFile(new URL("../app/api/cron/roamly-operations-signals/route.ts", import.meta.url), "utf8");
 const vercelConfig = await readFile(new URL("../vercel.json", import.meta.url), "utf8");
+const crons = JSON.parse(vercelConfig).crons;
 assert.match(route, /isCronRequestAuthorized/);
 assert.match(route, /x-roamly-schedule-id/);
+assert.match(route, /\|\| "gap_audit_daily"/);
+assert.match(route, /scheduleId !== "gap_audit_daily"/);
 assert.doesNotMatch(route, /searchParams.*secret|console\.(log|warn).*secret/i);
 assert.doesNotMatch(route, /customer|gmail|latitude|longitude|payment|credential|token/i);
-assert.doesNotMatch(vercelConfig, /roamly-operations-signals/);
+assert.deepEqual(crons, [
+  { path: "/api/cron/roamly-live-companion", schedule: "*/5 * * * *" },
+  { path: "/api/cron/roamly-notifications", schedule: "0 13 * * *" },
+  { path: "/api/cron/roamly-social-autopost", schedule: "*/30 * * * *" },
+  { path: "/api/cron/roamly-itinerary-generation", schedule: "*/5 * * * *" },
+  { path: "/api/cron/roamly-booking-monitor", schedule: "*/10 * * * *" },
+  { path: "/api/cron/roamly-successful-trip-patterns", schedule: "17 4 * * *" },
+  { path: "/api/cron/roamly-operations-signals", schedule: "17 3 * * *" }
+]);
+assert.equal(crons.some(({ path }) => path.includes("seo") || path.includes("security")), false);
+assert.equal(scheduleSignal("gap_audit_daily", now).signal.suggestedSpecialist, "GAP_AUDIT_QA_RELIABILITY");
 console.log("Roamly Phase 6 signal and scheduling checks passed");

@@ -42,8 +42,13 @@ export async function GET(request: NextRequest) {
   const secret = configuredSecret();
   if (!secret) return NextResponse.json({ ok: false, error: "Operations signal secret is not configured." }, { status: 503 });
   if (!isCronRequestAuthorized(request.headers, secret)) return unauthorized();
-  const scheduleId = request.headers.get("x-roamly-schedule-id")?.trim() || "";
-  if (!scheduleId) return NextResponse.json({ ok: false, error: "Schedule identity required." }, { status: 400 });
+  // Vercel Cron authenticates with Authorization but does not send a custom
+  // schedule header. This endpoint is intentionally bound to the first
+  // production schedule until separately secured endpoints are introduced.
+  const scheduleId = request.headers.get("x-roamly-schedule-id")?.trim() || "gap_audit_daily";
+  if (scheduleId !== "gap_audit_daily") {
+    return NextResponse.json({ ok: false, error: "Schedule is not active." }, { status: 400 });
+  }
   const normalized = scheduleSignal(scheduleId);
   if (!normalized.ok) return NextResponse.json({ ok: false, error: normalized.error }, { status: 400 });
   const result = await persistTriage(normalized.signal);
