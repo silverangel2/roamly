@@ -10,8 +10,11 @@ const precheck = read("supabase/checks/20260929000100_roamly_trip_feedback_save_
 const postcheck = read("supabase/checks/20260929000100_roamly_trip_feedback_save_idempotency_postcheck.sql");
 
 assert.match(feedback, /\.upsert\(feedbackPayload[\s\S]*?onConflict: "trip_id,user_id,feedback_slot"/);
-assert.match(feedback, /\.eq\("feedback_slot", feedbackType === "post_trip" \? 0 : cleanDay\(params\.input\.tripDay\) \?\? -1\)/);
-assert.match(feedback, /if \(proposals\.length && !existing\.data\)/, "repeat saves must not create duplicate preference events");
+assert.match(feedback, /onConflict: "trip_id,user_id,feedback_slot"/);
+assert.match(feedback, /from\("traveler_preference_events"\)\.upsert/);
+assert.match(feedback, /onConflict: "feedback_learning_identity"/);
+assert.match(feedback, /ignoreDuplicates: true/);
+assert.match(feedback, /FEEDBACK_LEARNING_SAVE_FAILED/);
 assert.match(migration, /generated always as/i);
 assert.match(migration, /feedback_type = 'post_trip' then 0/i);
 assert.match(migration, /coalesce\(trip_day, -1\)/i);

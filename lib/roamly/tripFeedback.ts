@@ -274,16 +274,6 @@ export async function submitTripFeedback(params: {
   const experienceContext = storedItinerary
     ? buildSuccessfulTripExperienceContext(trip.data, storedItinerary, params.input)
     : null;
-  const feedbackType = params.input.feedbackType === "in_trip" ? "in_trip" : "post_trip";
-  const existingQuery = params.supabase
-    .from("trip_feedback")
-    .select("id")
-    .eq("trip_id", params.tripId)
-    .eq("user_id", params.userId)
-    .eq("feedback_slot", feedbackType === "post_trip" ? 0 : cleanDay(params.input.tripDay) ?? -1);
-  const existing = await existingQuery.limit(1).maybeSingle();
-  if (existing.error) return { ok: false as const, error: existing.error.message };
-
   const { data, error } = await params.supabase
     .from("trip_feedback")
     .upsert(feedbackPayload(params.userId, params.tripId, params.input, proposals, experienceContext), {
@@ -294,8 +284,8 @@ export async function submitTripFeedback(params: {
   if (error) return { ok: false as const, error: error.message };
   const feedback = normalizeFeedbackRow(data as Record<string, unknown>);
 
-  if (proposals.length && !existing.data) {
-    await params.supabase.from("traveler_preference_events").insert(
+  if (proposals.length) {
+    const learningWrite = await params.supabase.from("traveler_preference_events").upsert(
       proposals.map((proposal) => ({
         user_id: params.userId,
         source_trip_id: params.tripId,
@@ -306,8 +296,19 @@ export async function submitTripFeedback(params: {
         source: "trip_feedback",
         confidence: proposal.confidence,
         status: "proposed"
-      }))
+      })),
+      {
+        onConflict: "feedback_learning_identity",
+        ignoreDuplicates: true
+      }
     );
+    if (learningWrite.error) {
+      return {
+        ok: false as const,
+        error: "FEEDBACK_LEARNING_SAVE_FAILED",
+        feedback
+      };
+    }
   }
 
   return {
