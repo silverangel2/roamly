@@ -5,6 +5,7 @@ import { processGenerationQueue } from "@/lib/roamly/generationWorker";
 import { runStuckGenerationDetector } from "@/lib/roamly/silentFailureDetectors";
 import { runBookingMonitorHealthDetector } from "@/lib/roamly/bookingMonitorHealth";
 import { runCommunicationStuckDetector } from "@/lib/roamly/communicationStuckDetector";
+import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -42,7 +43,10 @@ export async function POST(request: NextRequest) {
         }
       : undefined
   });
-  const detector = await runStuckGenerationDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
+  const detector = await runStuckGenerationDetector().catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "stuck_generation", route: "/api/cron/roamly-itinerary-generation" });
+    return detectorFailureResult("stuck_generation");
+  });
 
   return NextResponse.json({ ...summary, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
 }
@@ -59,9 +63,18 @@ export async function GET(request: NextRequest) {
     reason: "vercel_cron_wake",
     executionDeadlineMs
   });
-  const detector = await runStuckGenerationDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
-  const bookingMonitorHealth = await runBookingMonitorHealthDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
-  const communicationStuck = await runCommunicationStuckDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }));
+  const detector = await runStuckGenerationDetector().catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "stuck_generation", route: "/api/cron/roamly-itinerary-generation" });
+    return detectorFailureResult("stuck_generation");
+  });
+  const bookingMonitorHealth = await runBookingMonitorHealthDetector().catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "booking_monitor_health", route: "/api/cron/roamly-itinerary-generation" });
+    return detectorFailureResult("booking_monitor_health");
+  });
+  const communicationStuck = await runCommunicationStuckDetector().catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "communication_stuck", route: "/api/cron/roamly-itinerary-generation" });
+    return detectorFailureResult("communication_stuck");
+  });
 
   return NextResponse.json({ ...summary, silentFailureDetector: detector, bookingMonitorHealth, communicationStuck }, { status: summary.ok ? 200 : 500 });
 }

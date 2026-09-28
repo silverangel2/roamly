@@ -5,6 +5,7 @@ import { sendScheduledTripNotifications } from "@/lib/roamly/pushServer";
 import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
 import { runPaidActivationMissingDetector } from "@/lib/roamly/silentFailureDetectors";
 import { recordNotificationSchedulerSuccess } from "@/lib/roamly/communicationHealth";
+import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
 
 export async function GET(request: NextRequest) {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -53,7 +54,10 @@ export async function GET(request: NextRequest) {
           ? error.message
           : "Pre-trip reminder scheduling failed."
     })),
-    runPaidActivationMissingDetector().catch(() => ({ ok: false, detected: 0, recovered: 0, error: "DETECTOR_FAILED" }))
+    runPaidActivationMissingDetector().catch(async () => {
+      await recordBackgroundDetectorFailure({ detector: "paid_activation_missing", route: "/api/cron/roamly-notifications" });
+      return detectorFailureResult("paid_activation_missing");
+    })
   ]);
 
   const [scheduledResult, companionResult] =

@@ -14,6 +14,7 @@ import {
 } from "@/lib/roamly/liveProviderAdapters";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 import { runGmailStalenessDetector } from "@/lib/roamly/gmailStalenessDetector";
+import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
 
 type ConnectionRow = {
   id: string;
@@ -748,12 +749,10 @@ export async function runScheduledBookingMonitor() {
       emailFailures +
       flightMonitor.failures;
 
-    const gmailStaleness = await runGmailStalenessDetector({ supabase: admin }).catch(() => ({
-      ok: false,
-      detected: 0,
-      recovered: 0,
-      error: "GMAIL_STALENESS_DETECTOR_FAILED"
-    }));
+    const gmailStaleness = await runGmailStalenessDetector({ supabase: admin }).catch(async () => {
+      await recordBackgroundDetectorFailure({ detector: "gmail_staleness", route: "/api/cron/roamly-booking-monitor" });
+      return detectorFailureResult("gmail_staleness");
+    });
 
     const status =
       totalFailures === 0
