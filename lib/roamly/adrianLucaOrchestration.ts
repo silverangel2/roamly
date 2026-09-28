@@ -164,3 +164,15 @@ export function safeOrchestrationSummary(scope: unknown) {
     triage: typeof orchestration.triage === "string" ? orchestration.triage : "Unknown"
   };
 }
+
+export function safeWorkerSummary(scope: unknown) {
+  const worker = (scope as { worker?: Record<string, unknown> } | null)?.worker;
+  if (!worker || typeof worker !== "object") return null;
+  return {
+    provider: typeof worker.provider === "string" ? worker.provider : "Unknown",
+    repositoryRevision: typeof worker.repositoryRevision === "string" ? worker.repositoryRevision.slice(0, 80) : "Unknown",
+    runnerId: typeof worker.runnerId === "string" ? worker.runnerId : "Unknown",
+    network: worker.network === "NONE" ? "NONE" : "Unknown",
+    cleanupState: typeof worker.cleanupState === "string" ? worker.cleanupState : "Unknown"
+  };
+}

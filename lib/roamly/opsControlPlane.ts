@@ -185,7 +185,8 @@ const REGISTERED_RUNNERS = {
   "phase1.policy-self-check": (): DeterministicRunnerResult => ({ runnerId: "phase1.policy-self-check", ok: true, summary: "Operations policy registry is available.", metadata: { mutatesProduction: false } }),
   "phase1.orchestration-smoke": (): DeterministicRunnerResult => ({ runnerId: "phase1.orchestration-smoke", ok: true, summary: "Controlled deterministic orchestration smoke completed.", metadata: { mutatesProduction: false } }),
   "phase2.gap-audit.observe": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.observe", ok: true, summary: "Allowlisted Gap Audit observation runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_1_OBSERVE" } }),
-  "phase2.gap-audit.diagnose": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.diagnose", ok: true, summary: "Allowlisted Gap Audit diagnosis runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_2_DIAGNOSE" } })
+  "phase2.gap-audit.diagnose": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.diagnose", ok: true, summary: "Allowlisted Gap Audit diagnosis runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_2_DIAGNOSE" } }),
+  "phase4.worker-contract-smoke": (): DeterministicRunnerResult => ({ runnerId: "phase4.worker-contract-smoke", ok: true, summary: "Provider-neutral simulated worker contract completed.", metadata: { mutatesProduction: false, network: "NONE", secrets: "NONE" } })
 } as const;
 
 export type RegisteredRunnerId = keyof typeof REGISTERED_RUNNERS;
