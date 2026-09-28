@@ -9,10 +9,32 @@ import {
   stay22Config
 } from "@/lib/roamly/findsCommercialConfig";
 
+const WIDGET_RENDER_TIMEOUT_MS = 8_000;
+
+type WidgetState = "loading" | "ready" | "unavailable";
+
+function isVisibleWidgetElement(element: Element) {
+  if (!(element instanceof HTMLElement || element instanceof SVGElement)) return false;
+  const style = window.getComputedStyle(element);
+  if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
+}
+
+export function hasUsableTravelpayoutsContent(host: HTMLElement) {
+  return Array.from(host.children).some((element) => {
+    if (element.tagName === "SCRIPT" || element.tagName === "STYLE" || element.tagName === "NOSCRIPT") return false;
+    if (!isVisibleWidgetElement(element)) return false;
+    if (element.matches("iframe, img, video, canvas, svg, object, embed, a, button")) return true;
+    return Boolean(element.textContent?.trim());
+  });
+}
+
 export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(false);
-  const [state, setState] = useState<"waiting" | "loading" | "failed">("waiting");
+  const [state, setState] = useState<WidgetState>("loading");
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (visible) return;
@@ -33,29 +55,53 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
 
   useEffect(() => {
     if (!visible || !isTrustedTravelpayoutsWidgetUrl(config.src)) {
-      if (visible) setState("failed");
+      if (visible) setState("unavailable");
       return;
     }
     const host = hostRef.current;
-    if (!host || host.querySelector(`[data-roamly-widget-id="${config.id}"]`)) return;
+    if (!host) return;
 
     setState("loading");
+    let settled = false;
+    const settleUnavailable = () => {
+      if (settled) return;
+      settled = true;
+      setState("unavailable");
+    };
+    const settleReadyIfUsable = () => {
+      if (!settled && hasUsableTravelpayoutsContent(host)) {
+        settled = true;
+        setState("ready");
+      }
+    };
+    const observer = typeof MutationObserver === "undefined"
+      ? null
+      : new MutationObserver(settleReadyIfUsable);
+    observer?.observe(host, { childList: true, subtree: true, characterData: true });
+    const timeout = window.setTimeout(settleUnavailable, WIDGET_RENDER_TIMEOUT_MS);
     const script = document.createElement("script");
     script.async = true;
     script.charset = "utf-8";
     script.src = config.src;
     script.dataset.roamlyWidgetId = config.id;
-    script.addEventListener("load", () => setState("waiting"), { once: true });
-    script.addEventListener("error", () => setState("failed"), { once: true });
+    script.addEventListener("load", settleReadyIfUsable, { once: true });
+    script.addEventListener("error", settleUnavailable, { once: true });
     host.appendChild(script);
     return () => {
+      settled = true;
+      window.clearTimeout(timeout);
+      observer?.disconnect();
       host.replaceChildren();
     };
-  }, [config.id, config.src, visible]);
+  }, [config.id, config.src, retryNonce, visible]);
 
   return <div className="min-w-0 overflow-hidden" aria-busy={state === "loading"}>
-    {state === "failed" ? <p className="rounded-2xl border border-dashed border-[#c8ddd0] bg-[#f7fbf7] px-4 py-5 text-sm leading-6 text-[#60766d]">This travel option is unavailable right now. Nothing has been substituted or guessed.</p> : null}
-    {state !== "failed" ? <div ref={hostRef} aria-label={config.heading} style={{ minHeight: `${visible ? config.minHeight : 72}px` }} className="min-w-0 overflow-hidden" /> : null}
+    {state === "unavailable" ? <div className="rounded-2xl border border-dashed border-[#c8ddd0] bg-[#f7fbf7] px-4 py-5 text-sm leading-6 text-[#60766d]" role="status" aria-live="polite">
+      <p>Live offers aren’t available right now.</p>
+      <p className="mt-1">Nothing has been substituted or guessed.</p>
+      <button type="button" onClick={() => { setState("loading"); setRetryNonce((value) => value + 1); }} className="mt-4 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">Retry</button>
+    </div> : null}
+    <div ref={hostRef} aria-label={state === "unavailable" ? undefined : config.heading} aria-hidden={state === "unavailable"} style={{ minHeight: state === "unavailable" ? 0 : `${visible ? config.minHeight : 72}px`, display: state === "unavailable" ? "none" : undefined }} className="min-w-0 overflow-hidden" />
   </div>;
 }
 
