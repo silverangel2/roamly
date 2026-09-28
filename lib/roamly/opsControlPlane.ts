@@ -173,7 +173,7 @@ export function budgetAllows(job: Pick<OperationsJob, "tokenBudget" | "financial
 
 export function dispatchAllowed(job: OperationsJob, input: { activeGlobalJobs: number; globalLimit: number; lockedSubsystems: string[]; dependencyStates: Record<string, OperationsJobState>; usage?: { tokens: number; financialCostUsd: number }; now?: number; allowedAuthorityLevels?: AutonomyLevel[] }) {
   const allowedAuthorityLevels = input.allowedAuthorityLevels || ["LEVEL_1_OBSERVE"];
-  if (job.status !== "QUEUED" || !allowedAuthorityLevels.includes(job.authorityLevel) || !job.runnerId || !isRegisteredRunner(job.runnerId)) return false;
+  if (job.status !== "QUEUED" || job.ownerApprovalRequired || !allowedAuthorityLevels.includes(job.authorityLevel) || !job.runnerId || !isRegisteredRunner(job.runnerId)) return false;
   if (input.activeGlobalJobs >= input.globalLimit || input.lockedSubsystems.includes(job.subsystem)) return false;
   if (job.cooldownUntil && Date.parse(job.cooldownUntil) > (input.now || Date.now())) return false;
   if (job.dependencies.some((id) => input.dependencyStates[id] !== "COMPLETED")) return false;
