@@ -11,7 +11,7 @@ assert.equal(triage.job?.runnerId, "phase2.gap-audit.diagnose");
 assert.equal(triage.job?.tokenBudget, 0);
 
 assert.equal(adrianTriage(signal, scheduler).accepted, false, "duplicate signal is suppressed");
-assert.equal(adrianTriage({ ...signal, specialist: "SEO" }, new OperationsScheduler()).reason, "UNKNOWN_SPECIALIST");
+assert.equal(adrianTriage({ ...signal, specialist: "FUTURE_UNREGISTERED_SPECIALIST" }, new OperationsScheduler()).reason, "UNKNOWN_SPECIALIST");
 assert.equal(adrianTriage({ ...signal, requestedAuthority: "LEVEL_3_SAFE_REPAIR" }, new OperationsScheduler()).reason, "AUTHORITY_EXCEEDS_PHASE3_POLICY");
 assert.equal(adrianTriage({ ...signal, tokenBudget: 1 }, new OperationsScheduler()).reason, "BUDGET_EXCEEDS_SPECIALIST_POLICY");
 assert.equal(adrianTriage({ ...signal, approvalCategory: "database_migration" }, new OperationsScheduler()).ownerApprovalRequired, true, "owner-gated work is identified");
@@ -33,7 +33,7 @@ assert.equal(lockPlan.ready, false);
 assert.equal(lockPlan.blockedReason, "SUBSYSTEM_LOCK_CONFLICT");
 assert.equal(dispatchAllowed({ ...triage.job, status: "QUEUED", ownerApprovalRequired: true }, { activeGlobalJobs: 0, globalLimit: 1, lockedSubsystems: [], dependencyStates: {}, allowedAuthorityLevels: ["LEVEL_1_OBSERVE", "LEVEL_2_DIAGNOSE"] }), false);
 assert.equal(lucaDispatchAllowed({ ...plan, tokenBudget: 1 }, triage.job, { activeGlobalJobs: 0, globalLimit: 1, lockedSubsystems: [], dependencyStates: {}, usage: { tokens: 1, financialCostUsd: 0 } }), false, "plan cannot bypass job budget");
-assert.equal(lucaDispatchAllowed({ ...plan, authorityCeiling: "LEVEL_3_SAFE_REPAIR" }, triage.job, { activeGlobalJobs: 0, globalLimit: 1, lockedSubsystems: [], dependencyStates: {}, usage: { tokens: 0, financialCostUsd: 0 } }), true, "plan metadata cannot grant authority beyond the job");
+assert.equal(lucaDispatchAllowed({ ...plan, authorityCeiling: "LEVEL_3_SAFE_REPAIR" }, triage.job, { activeGlobalJobs: 0, globalLimit: 1, lockedSubsystems: [], dependencyStates: {}, usage: { tokens: 0, financialCostUsd: 0 } }), false, "plan metadata cannot grant authority beyond the job");
 
 const source = await import("node:fs/promises").then(({ readFile }) => Promise.all([
   readFile(new URL("../lib/roamly/adrianLucaOrchestration.ts", import.meta.url), "utf8"),

@@ -1,24 +1,13 @@
 // @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
-import { assertAuthorityUnchanged, budgetAllows, createOperationsJob, dispatchAllowed, duplicateJobKey, isRegisteredRunner, ownerApprovalRequired, type AutonomyLevel, type OperationsJob, type OperationsPriority, type OperationsRisk, type OperationsRole, type OperationsScheduler } from "./opsControlPlane.ts";
+import { assertAuthorityUnchanged, budgetAllows, createOperationsJob, dispatchAllowed, duplicateJobKey, isRegisteredRunner, ownerApprovalRequired, type AutonomyLevel, type OperationsJob, type OperationsPriority, type OperationsRisk, type OperationsScheduler } from "./opsControlPlane.ts";
+// @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
+import { SPECIALIST_PROFILES, specialistSupportsRunner, specialistSupportsSignal, specialistSupportsSubsystem, type SpecialistId as OrganizationSpecialistId } from "./specialistOrganization.ts";
 
 const AUTHORITY_RANK: Record<AutonomyLevel, number> = { LEVEL_1_OBSERVE: 1, LEVEL_2_DIAGNOSE: 2, LEVEL_3_SAFE_REPAIR: 3, LEVEL_4_OWNER_APPROVAL: 4 };
 
 export const PHASE3_MAX_AUTHORITY: AutonomyLevel = "LEVEL_2_DIAGNOSE";
-export const SPECIALIST_REGISTRY = {
-  GAP_AUDIT_QA_RELIABILITY: {
-    role: "GAP_AUDIT_QA" as OperationsRole,
-    maxAuthority: "LEVEL_2_DIAGNOSE" as AutonomyLevel,
-    runners: { LEVEL_1_OBSERVE: "phase2.gap-audit.observe", LEVEL_2_DIAGNOSE: "phase2.gap-audit.diagnose" },
-    allowedOperations: ["read_approved_repository_state", "record_deterministic_evidence", "prepare_bounded_diagnosis"] as string[],
-    forbiddenOperations: ["code_edit", "commit", "push", "deploy", "production_mutation", "customer_data_access", "spending", "credential_access", "arbitrary_command"] as string[],
-    tokenBudget: 0,
-    financialBudgetUsd: 0,
-    maxAttempts: 1,
-    cooldownSeconds: 300
-  }
-} as const;
-
-export type SpecialistId = keyof typeof SPECIALIST_REGISTRY;
+export const SPECIALIST_REGISTRY = SPECIALIST_PROFILES;
+export type SpecialistId = OrganizationSpecialistId;
 export type AdrianSignal = {
   signalId: string;
   source: "deterministic_check" | "operational_incident" | "failed_job" | "schedule";
@@ -57,8 +46,13 @@ export function adrianTriage(signal: AdrianSignal, scheduler: OperationsSchedule
   if (!validSignal(signal)) return { accepted: false, reason: "INVALID_SIGNAL", specialist: null, authorityCeiling: null, ownerApprovalRequired: false, job: null };
   if (!supportedSpecialist(signal.specialist)) return { accepted: false, reason: "UNKNOWN_SPECIALIST", specialist: null, authorityCeiling: null, ownerApprovalRequired: false, job: null };
   const policy = SPECIALIST_REGISTRY[signal.specialist];
+  if (!specialistSupportsSignal(signal.specialist, { code: signal.code, subsystem: signal.subsystem })) return { accepted: false, reason: "SIGNAL_UNSUPPORTED_BY_SPECIALIST", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: false, job: null };
+  if (!specialistSupportsSubsystem(signal.specialist, signal.subsystem)) return { accepted: false, reason: "SUBSYSTEM_UNSUPPORTED_BY_SPECIALIST", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: false, job: null };
   if (AUTHORITY_RANK[signal.requestedAuthority] > AUTHORITY_RANK[policy.maxAuthority] || AUTHORITY_RANK[signal.requestedAuthority] > AUTHORITY_RANK[PHASE3_MAX_AUTHORITY]) {
     return { accepted: false, reason: "AUTHORITY_EXCEEDS_PHASE3_POLICY", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: false, job: null };
+  }
+  if (!specialistSupportsRunner(signal.specialist, signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE", policy.runners[signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE"] || null)) {
+    return { accepted: false, reason: "SPECIALIST_RUNNER_POLICY_INVALID", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: false, job: null };
   }
   const tokenBudget = signal.tokenBudget ?? policy.tokenBudget;
   const financialBudgetUsd = signal.financialBudgetUsd ?? policy.financialBudgetUsd;
@@ -76,8 +70,8 @@ export function adrianTriage(signal: AdrianSignal, scheduler: OperationsSchedule
     risk: signal.risk || "low",
     authorityLevel: signal.requestedAuthority,
     scope: { orchestration: { signalId: signal.signalId, specialist: signal.specialist, source: signal.source, code: signal.code, authorityCeiling: policy.maxAuthority, triage: "accepted" }, approvalCategory: signal.approvalCategory || null },
-    allowedOperations: policy.allowedOperations,
-    forbiddenOperations: policy.forbiddenOperations,
+    allowedOperations: ["read_approved_repository_state", "record_deterministic_evidence", "prepare_bounded_diagnosis"],
+    forbiddenOperations: ["code_edit", "commit", "push", "deploy", "production_mutation", "customer_data_access", "spending", "credential_access", "arbitrary_command", "provider_configuration_change", "customer_truth_change"],
     dependencies: signal.dependencies || [],
     acceptanceCriteria: ["Required deterministic evidence is recorded.", "No forbidden operation is attempted."],
     evidenceRequirements: ["deterministic_check"],
@@ -148,7 +142,8 @@ export function lucaPlan(job: OperationsJob, dependencyStates: Record<string, Op
 }
 
 export function lucaDispatchAllowed(plan: LucaPlan, job: OperationsJob, input: Parameters<typeof dispatchAllowed>[1]) {
-  if (!plan.ready || plan.jobId !== job.id || plan.specialist !== "GAP_AUDIT_QA_RELIABILITY" || !isRegisteredRunner(job.runnerId)) return false;
+  if (!plan.ready || plan.jobId !== job.id || plan.authorityCeiling !== job.authorityLevel || AUTHORITY_RANK[plan.authorityCeiling] > AUTHORITY_RANK[PHASE3_MAX_AUTHORITY] || !isRegisteredRunner(job.runnerId) || !specialistSupportsRunner(plan.specialist, job.authorityLevel as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE", job.runnerId)) return false;
+  if (plan.tokenBudget !== job.tokenBudget || plan.financialBudgetUsd !== job.financialBudgetUsd) return false;
   if (!budgetAllows(job, input.usage || { tokens: 0, financialCostUsd: 0 })) return false;
   return dispatchAllowed(job, { ...input, allowedAuthorityLevels: ["LEVEL_1_OBSERVE", "LEVEL_2_DIAGNOSE"] });
 }
