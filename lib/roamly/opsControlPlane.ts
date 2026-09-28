@@ -171,8 +171,9 @@ export function budgetAllows(job: Pick<OperationsJob, "tokenBudget" | "financial
   return usage.tokens >= 0 && usage.financialCostUsd >= 0 && usage.tokens <= job.tokenBudget && usage.financialCostUsd <= job.financialBudgetUsd;
 }
 
-export function dispatchAllowed(job: OperationsJob, input: { activeGlobalJobs: number; globalLimit: number; lockedSubsystems: string[]; dependencyStates: Record<string, OperationsJobState>; usage?: { tokens: number; financialCostUsd: number }; now?: number }) {
-  if (job.status !== "QUEUED" || job.authorityLevel !== "LEVEL_1_OBSERVE" || !job.runnerId) return false;
+export function dispatchAllowed(job: OperationsJob, input: { activeGlobalJobs: number; globalLimit: number; lockedSubsystems: string[]; dependencyStates: Record<string, OperationsJobState>; usage?: { tokens: number; financialCostUsd: number }; now?: number; allowedAuthorityLevels?: AutonomyLevel[] }) {
+  const allowedAuthorityLevels = input.allowedAuthorityLevels || ["LEVEL_1_OBSERVE"];
+  if (job.status !== "QUEUED" || !allowedAuthorityLevels.includes(job.authorityLevel) || !job.runnerId || !isRegisteredRunner(job.runnerId)) return false;
   if (input.activeGlobalJobs >= input.globalLimit || input.lockedSubsystems.includes(job.subsystem)) return false;
   if (job.cooldownUntil && Date.parse(job.cooldownUntil) > (input.now || Date.now())) return false;
   if (job.dependencies.some((id) => input.dependencyStates[id] !== "COMPLETED")) return false;
@@ -182,7 +183,9 @@ export function dispatchAllowed(job: OperationsJob, input: { activeGlobalJobs: n
 export type DeterministicRunnerResult = { runnerId: string; ok: boolean; summary: string; metadata: Record<string, string | number | boolean> };
 const REGISTERED_RUNNERS = {
   "phase1.policy-self-check": (): DeterministicRunnerResult => ({ runnerId: "phase1.policy-self-check", ok: true, summary: "Operations policy registry is available.", metadata: { mutatesProduction: false } }),
-  "phase1.orchestration-smoke": (): DeterministicRunnerResult => ({ runnerId: "phase1.orchestration-smoke", ok: true, summary: "Controlled deterministic orchestration smoke completed.", metadata: { mutatesProduction: false } })
+  "phase1.orchestration-smoke": (): DeterministicRunnerResult => ({ runnerId: "phase1.orchestration-smoke", ok: true, summary: "Controlled deterministic orchestration smoke completed.", metadata: { mutatesProduction: false } }),
+  "phase2.gap-audit.observe": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.observe", ok: true, summary: "Allowlisted Gap Audit observation runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_1_OBSERVE" } }),
+  "phase2.gap-audit.diagnose": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.diagnose", ok: true, summary: "Allowlisted Gap Audit diagnosis runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_2_DIAGNOSE" } })
 } as const;
 
 export type RegisteredRunnerId = keyof typeof REGISTERED_RUNNERS;
