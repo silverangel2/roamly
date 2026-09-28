@@ -43,10 +43,16 @@ export async function GET(request: NextRequest) {
   if (!secret) return NextResponse.json({ ok: false, error: "Operations signal secret is not configured." }, { status: 503 });
   if (!isCronRequestAuthorized(request.headers, secret)) return unauthorized();
   // Vercel Cron authenticates with Authorization but does not send a custom
-  // schedule header. This endpoint is intentionally bound to the first
-  // production schedule until separately secured endpoints are introduced.
-  const scheduleId = request.headers.get("x-roamly-schedule-id")?.trim() || "gap_audit_daily";
-  if (scheduleId !== "gap_audit_daily") {
+  // schedule header. The schedule ID is a non-secret, allowlisted query
+  // parameter in the Vercel cron path; the bearer/header secret remains the
+  // only authorization mechanism.
+  const urlScheduleId = new URL(request.url).searchParams.get("scheduleId")?.trim() || "";
+  const headerScheduleId = request.headers.get("x-roamly-schedule-id")?.trim() || "";
+  if (urlScheduleId && headerScheduleId && urlScheduleId !== headerScheduleId) {
+    return NextResponse.json({ ok: false, error: "Schedule identity mismatch." }, { status: 400 });
+  }
+  const scheduleId = urlScheduleId || headerScheduleId || "gap_audit_daily";
+  if (!["gap_audit_daily", "seo_weekly", "security_weekly"].includes(scheduleId)) {
     return NextResponse.json({ ok: false, error: "Schedule is not active." }, { status: 400 });
   }
   const normalized = scheduleSignal(scheduleId);

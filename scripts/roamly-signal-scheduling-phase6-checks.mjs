@@ -63,8 +63,11 @@ const vercelConfig = await readFile(new URL("../vercel.json", import.meta.url), 
 const crons = JSON.parse(vercelConfig).crons;
 assert.match(route, /isCronRequestAuthorized/);
 assert.match(route, /x-roamly-schedule-id/);
+assert.match(route, /searchParams\.get\("scheduleId"\)/);
 assert.match(route, /\|\| "gap_audit_daily"/);
-assert.match(route, /scheduleId !== "gap_audit_daily"/);
+assert.match(route, /Schedule identity mismatch/);
+assert.match(route, /seo_weekly/);
+assert.match(route, /security_weekly/);
 assert.doesNotMatch(route, /searchParams.*secret|console\.(log|warn).*secret/i);
 assert.doesNotMatch(route, /customer|gmail|latitude|longitude|payment|credential|token/i);
 assert.deepEqual(crons, [
@@ -74,8 +77,17 @@ assert.deepEqual(crons, [
   { path: "/api/cron/roamly-itinerary-generation", schedule: "*/5 * * * *" },
   { path: "/api/cron/roamly-booking-monitor", schedule: "*/10 * * * *" },
   { path: "/api/cron/roamly-successful-trip-patterns", schedule: "17 4 * * *" },
-  { path: "/api/cron/roamly-operations-signals", schedule: "17 3 * * *" }
+  { path: "/api/cron/roamly-operations-signals", schedule: "17 3 * * *" },
+  { path: "/api/cron/roamly-operations-signals?scheduleId=seo_weekly", schedule: "17 4 * * 1" },
+  { path: "/api/cron/roamly-operations-signals?scheduleId=security_weekly", schedule: "17 5 * * 0" }
 ]);
-assert.equal(crons.some(({ path }) => path.includes("seo") || path.includes("security")), false);
+assert.deepEqual(crons.filter(({ path }) => path.includes("roamly-operations-signals")), [
+  { path: "/api/cron/roamly-operations-signals", schedule: "17 3 * * *" },
+  { path: "/api/cron/roamly-operations-signals?scheduleId=seo_weekly", schedule: "17 4 * * 1" },
+  { path: "/api/cron/roamly-operations-signals?scheduleId=security_weekly", schedule: "17 5 * * 0" }
+]);
+assert.equal(crons.some(({ path }) => path.includes("ux") || path.includes("provider") || path.includes("marketing") || path.includes("customer-experience") || path.includes("finops") || path.includes("executive")), false);
 assert.equal(scheduleSignal("gap_audit_daily", now).signal.suggestedSpecialist, "GAP_AUDIT_QA_RELIABILITY");
+assert.equal(scheduleSignal("seo_weekly", now).signal.suggestedSpecialist, "SEO");
+assert.equal(scheduleSignal("security_weekly", now).signal.suggestedSpecialist, "SECURITY_PRIVACY");
 console.log("Roamly Phase 6 signal and scheduling checks passed");

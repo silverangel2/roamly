@@ -27,6 +27,14 @@
     {
       "path": "/api/cron/roamly-operations-signals",
       "schedule": "17 3 * * *"
+    },
+    {
+      "path": "/api/cron/roamly-operations-signals?scheduleId=seo_weekly",
+      "schedule": "17 4 * * 1"
+    },
+    {
+      "path": "/api/cron/roamly-operations-signals?scheduleId=security_weekly",
+      "schedule": "17 5 * * 0"
     }
   ]
 }

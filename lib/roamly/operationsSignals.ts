@@ -153,9 +153,9 @@ export function triageOperationsSignal(signal: SignalEnvelope, scheduler = new O
 }
 
 export const PHASE6_SCHEDULES = [
-  { id: "gap_audit_daily", cadence: "17 3 * * *", specialist: "GAP_AUDIT_QA_RELIABILITY", signalType: "schedule.gap_audit.daily", subsystem: "reliability", enabled: false },
-  { id: "seo_weekly", cadence: "17 4 * * 1", specialist: "SEO", signalType: "schedule.seo.weekly", subsystem: "seo", enabled: false },
-  { id: "security_weekly", cadence: "17 5 * * 0", specialist: "SECURITY_PRIVACY", signalType: "schedule.security.weekly", subsystem: "security", enabled: false }
+  { id: "gap_audit_daily", cadence: "17 3 * * *", specialist: "GAP_AUDIT_QA_RELIABILITY", signalType: "schedule.gap_audit.daily", subsystem: "reliability", enabled: true },
+  { id: "seo_weekly", cadence: "17 4 * * 1", specialist: "SEO", signalType: "schedule.seo.weekly", subsystem: "seo", enabled: true },
+  { id: "security_weekly", cadence: "17 5 * * 0", specialist: "SECURITY_PRIVACY", signalType: "schedule.security.weekly", subsystem: "security", enabled: true }
 ] as const;
 
 export function scheduleSignal(scheduleId: string, now = Date.now()): SignalNormalizationResult {
