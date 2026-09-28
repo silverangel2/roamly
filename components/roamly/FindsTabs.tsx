@@ -5,6 +5,8 @@ import { bookingFindCard, flightFindCard, klookFindCard, klookTransportFindCard,
 import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
 import type { FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
 import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
+import { PlaceSelector } from "@/components/roamly/PlaceSelector";
+import { normalizePlaceText, recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
 
 export type { FindsCard } from "@/lib/roamly/findsMarketCore";
 
@@ -31,6 +33,14 @@ function dedupeCards(items: FindsCard[]) {
   });
 }
 
+function initialHotelPlace(destination: string): NormalizedPlace | null {
+  const normalized = normalizePlaceText(destination).toLowerCase();
+  if (!normalized || normalized === "your next somewhere") return null;
+  return recommendedPlaces.find((place) =>
+    [place.value, place.label, place.city].some((candidate) => normalizePlaceText(candidate || "").toLowerCase() === normalized)
+  ) || null;
+}
+
 export function FindsTabs({ cards, destination, origin, startDate, endDate, disclosures, emptyMessage, activePromo }: { cards: FindsCard[]; destination: string; origin: string; startDate: string; endDate: string; disclosures: string[]; emptyMessage: string; activePromo: FindsPromoConfig | null }) {
   const [active, setActive] = useState<string>("all");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -39,6 +49,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
   const [searchingCategory, setSearchingCategory] = useState<string | null>(null);
   const [hotelSearchMessage, setHotelSearchMessage] = useState("Add your destination and dates to see live hotel offers with property photos.");
   const [partnerSearchMessage, setPartnerSearchMessage] = useState<Record<string, string>>({});
+  const [hotelDestination, setHotelDestination] = useState<NormalizedPlace | null>(() => initialHotelPlace(destination));
 
   function openSearch(tab: "stays" | "flights" | "activities") {
     setActive(tab);
@@ -70,16 +81,16 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
 
   async function searchHotels(form: HTMLFormElement) {
     const values = new FormData(form);
-    const destinationValue = String(values.get("stayDestination") || "").trim();
-    const countryValue = String(values.get("stayCountry") || "").trim();
+    const destinationValue = hotelDestination?.city?.trim() || hotelDestination?.value?.trim() || "";
+    const countryValue = hotelDestination?.country?.trim() || "";
     const checkIn = String(values.get("stayCheckIn") || "");
     const checkOut = String(values.get("stayCheckOut") || "");
     const travelers = Number(values.get("stayTravelers") || 1);
     const rooms = Number(values.get("stayRooms") || 1);
     const maximumNightlyPrice = Number(values.get("stayMaxNightlyPrice") || 0);
     const hotelPreferences = String(values.get("stayPreferences") || "").trim();
-    if (!destinationValue || !countryValue || !normalizeCountryCode(countryValue)) {
-      setHotelSearchMessage("Add a destination and a recognized country before searching verified stays.");
+    if (hotelDestination?.source === "custom" || !destinationValue || !countryValue || !normalizeCountryCode(countryValue)) {
+      setHotelSearchMessage("Choose a destination from the place suggestions so we can verify its country before searching stays.");
       return;
     }
     if (!checkIn || !checkOut || checkOut <= checkIn) {
@@ -189,8 +200,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       {tabs.map((item, index) => <button key={item.id} id={`finds-tab-${item.id}`} type="button" role="tab" tabIndex={active === item.id ? 0 : -1} aria-selected={active === item.id} aria-controls="finds-live-panel" onKeyDown={(event) => handleTabKeyDown(event, index)} onClick={() => setActive(item.id)} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 ${active === item.id ? "bg-[#203c43] text-white" : "border border-[#e0e8e1] bg-white text-[#547067] hover:border-[#b7d9c8]"}`}>{item.label}</button>)}
     </div>
     {active === "stays" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchHotels(event.currentTarget); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-6">
-      <label className="text-xs font-bold text-[#547067] lg:col-span-2">Destination<input name="stayDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Lisbon" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">Country<input name="stayCountry" placeholder="Portugal" required maxLength={60} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <div className="lg:col-span-2"><PlaceSelector label="Where are you staying?" value={hotelDestination} onChange={setHotelDestination} placeholder="Search a city or destination" helper="Choose a suggested place with its country. We use that match to search the right area." /></div>
       <label className="text-xs font-bold text-[#547067]">Check in<input name="stayCheckIn" type="date" defaultValue={startDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <label className="text-xs font-bold text-[#547067]">Check out<input name="stayCheckOut" type="date" defaultValue={endDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingHotels} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingHotels ? "Checking…" : "Check current stays"}</button></div>
