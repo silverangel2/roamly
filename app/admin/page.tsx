@@ -10,7 +10,8 @@ const tools = [
   ["Users", "/admin/users"],
   ["System", "/admin/system"],
   ["Traffic", "/admin/traffic"],
-  ["Launch Readiness", "/admin/launch"]
+  ["Launch Readiness", "/admin/launch"],
+  ["Operations", "/admin/operations"]
 ] as const;
 
 export default function AdminPage() {

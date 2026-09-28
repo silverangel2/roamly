@@ -17,6 +17,7 @@ const adminLinks = [
   ["/admin/traffic", "Traffic"],
   ["/admin/notifications", "Notifications"],
   ["/admin/launch", "Launch Readiness"],
+  ["/admin/operations", "Operations"],
   ["/admin/settings", "Settings"]
 ];
 
