@@ -34,6 +34,13 @@ import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
 import { resolveTravelIataCode } from "@/lib/roamly/airportResolver";
 import { buildKlookProductAffiliateUrl } from "@/lib/roamly/klookAffiliateLink";
 import { travelMarketProviderFailureMessage } from "@/lib/roamly/travelMarketProviderError";
+import { recordOperationalEvent } from "@/lib/roamly/operationalIncidents";
+import {
+  classifyTravelMarketProviderError,
+  travelMarketFailureClassFromHotelState,
+  travelMarketProviderIncident,
+  type TravelMarketFailureClass
+} from "@/lib/roamly/travelMarketProviderDiagnostics";
 import { travelpayoutsBookingUrl } from "@/lib/roamly/travelpayoutsLink";
 import { rankHotelMarketResults } from "@/lib/roamly/hotelMarketRelevance";
 
@@ -676,6 +683,51 @@ function logMarketProviderUsed(params: {
   console.info("[Roamly market] retrieval provider used", params);
 }
 
+function activeProviderForRequest(request: TravelMarketSearchRequest) {
+  if (request.category === "flight") return "travelpayouts";
+  if (request.category === "hotel") return "booking_demand";
+  if (request.category === "attraction" || request.category === "tour" || (request.category === "transport" && isKlookTransportSearch(request))) return "klook";
+  return "unknown";
+}
+
+function recordMarketProviderFailure(params: {
+  provider: string;
+  operation: string;
+  category: string;
+  failureClass: Exclude<TravelMarketFailureClass, "ZERO_RESULTS" | "CONFIGURATION_UNAVAILABLE" | "STALE_OR_UNUSABLE_RESULT">;
+  retryable: boolean;
+  httpStatus?: number | null;
+}) {
+  const incident = travelMarketProviderIncident(params);
+  void recordOperationalEvent({
+    severity: incident.severity,
+    subsystem: "providers",
+    eventCode: incident.eventCode,
+    fingerprintParts: incident.fingerprintParts,
+    eventKey: incident.eventKey,
+    correlationId: incident.correlationId,
+    safeMetadata: incident.safeMetadata
+  }).catch(() => {
+    console.warn("[Roamly market] provider diagnostic unavailable", {
+      provider: params.provider,
+      failureClass: params.failureClass
+    });
+  });
+}
+
+function recordHotelInventoryFailure(request: TravelMarketSearchRequest, state: HotelInventoryState | undefined) {
+  if (!state) return;
+  const classified = travelMarketFailureClassFromHotelState(state);
+  if (!classified) return;
+  recordMarketProviderFailure({
+    provider: "booking_demand",
+    operation: "hotel_search",
+    category: request.category,
+    failureClass: classified.failureClass,
+    retryable: classified.retryable
+  });
+}
+
 function marketDisplayUrl(result: TravelMarketResult) {
   return result.booking_url || result.affiliate_url || result.normal_search_url || "";
 }
@@ -870,7 +922,7 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
         }),
         signal: AbortSignal.timeout(5_000)
       });
-      if (!response.ok) throw new Error(`Firecrawl returned ${response.status}`);
+      if (!response.ok) throw Object.assign(new Error("Firecrawl travel discovery request failed"), { status: response.status });
       const json = (await response.json()) as Record<string, unknown>;
       for (const item of arrayFromUnknown(json.data || json.results).slice(0, limitPerQuery)) {
         if (publicEventRequest(request)) {
@@ -927,6 +979,15 @@ async function searchScraperDiscovery(request: TravelMarketSearchRequest) {
       }
     } catch (error) {
       console.warn("[Roamly market] scraper discovery failed", error);
+      const classified = classifyTravelMarketProviderError(error);
+      recordMarketProviderFailure({
+        provider: "firecrawl",
+        operation: "public_event_discovery",
+        category: request.category,
+        failureClass: classified.failureClass,
+        retryable: classified.retryable,
+        httpStatus: classified.httpStatus
+      });
     }
   }
   return dedupeMarketResults(results.map((item) => withRetrievalProvider(item, "firecrawl_fallback")), MAX_RESULTS_PER_SEARCH, request);
@@ -1267,8 +1328,18 @@ export async function searchTravelMarket(
       const live = await liveProviderResults(normalized);
       providerResults = live.results;
       hotelInventoryState = live.hotelInventoryState;
+      recordHotelInventoryFailure(normalized, hotelInventoryState);
     } catch (error) {
       console.error("[Roamly market] provider search failed", error);
+      const classified = classifyTravelMarketProviderError(error);
+      recordMarketProviderFailure({
+        provider: activeProviderForRequest(normalized),
+        operation: "live_search",
+        category: normalized.category,
+        failureClass: classified.failureClass,
+        retryable: classified.retryable,
+        httpStatus: classified.httpStatus
+      });
       providerFailure = travelMarketProviderFailureMessage(error);
       hotelInventoryState = "PROVIDER_UNAVAILABLE";
     }
@@ -1282,8 +1353,18 @@ export async function searchTravelMarket(
       const live = await liveProviderResults(normalized);
       providerResults = live.results;
       hotelInventoryState = live.hotelInventoryState;
+      recordHotelInventoryFailure(normalized, hotelInventoryState);
     } catch (error) {
       console.error("[Roamly market] provider search failed", error);
+      const classified = classifyTravelMarketProviderError(error);
+      recordMarketProviderFailure({
+        provider: activeProviderForRequest(normalized),
+        operation: "live_search",
+        category: normalized.category,
+        failureClass: classified.failureClass,
+        retryable: classified.retryable,
+        httpStatus: classified.httpStatus
+      });
       providerFailure = travelMarketProviderFailureMessage(error);
       hotelInventoryState = "PROVIDER_UNAVAILABLE";
     }
