@@ -14,6 +14,8 @@ type FindsCategory = "hotel" | "flight" | "activity" | "product" | "transport";
 
 type FindsTab = { id: string; label: string; categories: readonly FindsCategory[] };
 
+const PARTNER_SEARCH_TIMEOUT_MS = 15_000;
+
 const tabs: readonly FindsTab[] = [
   { id: "all", label: "For your trip", categories: [] },
   { id: "stays", label: "Stays", categories: ["hotel"] },
@@ -140,27 +142,33 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
   }
 
   async function searchPartner(form: HTMLFormElement, category: "flight" | "attraction" | "transport", cardCategory: "flight" | "activity" | "transport") {
-    const values = new FormData(form);
-    const destinationValue = String(values.get("partnerDestination") || "").trim();
-    const originValue = String(values.get("flightOrigin") || "").trim();
-    const titleValue = String(values.get("activityQuery") || "").trim();
-    const departure = String(values.get("flightDeparture") || values.get("activityDate") || values.get("transportDate") || startDate || "");
-    const returnDate = String(values.get("flightReturn") || "");
-    if (!destinationValue || (category === "flight" && (!originValue || !departure)) || ((category === "attraction" || category === "transport") && !titleValue)) {
-      setPartnerSearchMessage((current) => ({ ...current, [category]: "Add the required trip details to search current offers." }));
-      return;
-    }
-    if (category === "flight" && returnDate && returnDate < departure) {
-      setPartnerSearchMessage((current) => ({ ...current, [category]: "Return date must be the same as or later than departure." }));
-      return;
-    }
-    setSearchingCategory(category);
-    setPartnerSearchMessage((current) => ({ ...current, [category]: category === "flight" ? "Checking current flight fares…" : category === "transport" ? "Looking for current transport options…" : "Looking for current experiences…" }));
+    let searchStarted = false;
+    let timeoutId: number | null = null;
     try {
+      const values = new FormData(form);
+      const destinationValue = String(values.get("partnerDestination") || "").trim();
+      const originValue = String(values.get("flightOrigin") || "").trim();
+      const titleValue = String(values.get("activityQuery") || "").trim();
+      const departure = String(values.get("flightDeparture") || values.get("activityDate") || values.get("transportDate") || startDate || "");
+      const returnDate = String(values.get("flightReturn") || "");
+      if (!destinationValue || (category === "flight" && (!originValue || !departure)) || ((category === "attraction" || category === "transport") && !titleValue)) {
+        setPartnerSearchMessage((current) => ({ ...current, [category]: "Add the required trip details to search current offers." }));
+        return;
+      }
+      if (category === "flight" && returnDate && returnDate < departure) {
+        setPartnerSearchMessage((current) => ({ ...current, [category]: "Return date must be the same as or later than departure." }));
+        return;
+      }
+      searchStarted = true;
+      setSearchingCategory(category);
+      setPartnerSearchMessage((current) => ({ ...current, [category]: category === "flight" ? "Checking current flight fares…" : category === "transport" ? "Looking for current transport options…" : "Looking for current experiences…" }));
+      const controller = new AbortController();
+      timeoutId = window.setTimeout(() => controller.abort(), PARTNER_SEARCH_TIMEOUT_MS);
       const response = await fetch("/api/roamly/market-search", {
         method: "POST",
         headers: { "content-type": "application/json" },
         cache: "no-store",
+        signal: controller.signal,
         body: JSON.stringify({
           category,
           origin: originValue,
@@ -178,20 +186,41 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
         setPartnerSearchMessage((current) => ({ ...current, [category]: "Sign in to search current fares and experiences. Only verified results are shown." }));
         return;
       }
-      const body = await response.json().catch(() => ({})) as { results?: unknown; warning?: string };
-      const results = Array.isArray(body.results) ? body.results : [];
+      const body = await response.json().catch(() => null) as { results?: unknown; warning?: unknown; error?: unknown } | null;
+      if (!response.ok) {
+        const warning = typeof body?.warning === "string" ? body.warning : null;
+        setPartnerSearchMessage((current) => ({
+          ...current,
+          [category]: warning || (category === "flight" ? "Current flight search is temporarily unavailable. No stale fares are being shown." : "The current search is temporarily unavailable. No stale offers are being shown.")
+        }));
+        return;
+      }
+      if (!body || !Array.isArray(body.results)) {
+        setPartnerSearchMessage((current) => ({
+          ...current,
+          [category]: category === "flight" ? "Current flight search returned an unreadable response. No fares are being shown." : "The current search returned an unreadable response. No offers are being shown."
+        }));
+        return;
+      }
+      const results = body.results;
+      const warning = typeof body.warning === "string" ? body.warning : null;
       const cardsForShelf = results.map((item) => category === "flight" ? flightFindCard(item) : category === "transport" ? klookTransportFindCard(item) : publicEventFindCard(item) || klookFindCard(item)).filter((card): card is FindsCard => Boolean(card));
       setMarketCards((current) => dedupeCards([...current.filter((card) => card.category !== cardCategory), ...cardsForShelf]));
       setPartnerSearchMessage((current) => ({
         ...current,
         [category]: cardsForShelf.length
           ? `${cardsForShelf.length} current ${cardCategory === "flight" ? "flight option" : cardCategory === "transport" ? "transport option" : "experience"}${cardsForShelf.length === 1 ? "" : "s"} found. Confirm the final price and availability before booking.`
-          : body.warning || `No current ${cardCategory === "flight" ? "fare" : cardCategory === "transport" ? "transport option" : "experience"} with a verified link${cardCategory !== "flight" ? " and image" : ""} came back. No unverified offers are shown.`
+          : warning || `No current ${cardCategory === "flight" ? "fare" : cardCategory === "transport" ? "transport option" : "experience"} with a verified link${cardCategory !== "flight" ? " and image" : ""} came back. No unverified offers are shown.`
       }));
-    } catch {
-      setPartnerSearchMessage((current) => ({ ...current, [category]: "Search is temporarily unavailable. No stale offers are being shown." }));
+    } catch (error) {
+      const timedOut = error instanceof DOMException && error.name === "AbortError";
+      setPartnerSearchMessage((current) => ({
+        ...current,
+        [category]: timedOut && category === "flight" ? "Flight search timed out. Current fares are unavailable right now. No stale fares are being shown." : "Search is temporarily unavailable. No stale offers are being shown."
+      }));
     } finally {
-      setSearchingCategory(null);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      if (searchStarted) setSearchingCategory(null);
     }
   }
 
@@ -208,13 +237,13 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       <label className="text-xs font-bold text-[#547067]">Rooms<input name="stayRooms" type="number" min="1" max="10" defaultValue="1" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <p aria-live="polite" data-find-state={searchingHotels ? "loading" : hotelSearchMessage === "Add your destination and dates to see live hotel offers with property photos." ? "idle" : "terminal"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-4">{hotelSearchMessage}</p>
     </form> : null}
-    {active === "flights" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "flight", "flight"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-5">
-      <label className="text-xs font-bold text-[#547067]">From<input name="flightOrigin" defaultValue={origin} placeholder="Halifax" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">To<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Lisbon" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">Depart<input name="flightDeparture" type="date" defaultValue={startDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+    {active === "flights" ? <form id="finds-live-panel" noValidate onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "flight", "flight"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-5">
+      <label className="text-xs font-bold text-[#547067]">From<input name="flightOrigin" defaultValue={origin} placeholder="Halifax" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">To<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Lisbon" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Depart<input name="flightDeparture" type="date" defaultValue={startDate} aria-required="true" className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <label className="text-xs font-bold text-[#547067]">Return<input name="flightReturn" type="date" defaultValue={endDate} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingCategory === "flight"} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingCategory === "flight" ? "Checking…" : "Check flights"}</button></div>
-      <p aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-5">{partnerSearchMessage.flight || "Only current/search-derived fares are shown when the approved flight feed returns one."}</p>
+      <p key={partnerSearchMessage.flight || "flight-idle"} aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-5">{partnerSearchMessage.flight || "Only current/search-derived fares are shown when the approved flight feed returns one."}</p>
     </form> : null}
     {active === "activities" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "attraction", "activity"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-xs font-bold text-[#547067]">Destination<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Tokyo" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
