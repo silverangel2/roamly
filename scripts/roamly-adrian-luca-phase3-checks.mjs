@@ -12,7 +12,8 @@ assert.equal(triage.job?.tokenBudget, 0);
 
 assert.equal(adrianTriage(signal, scheduler).accepted, false, "duplicate signal is suppressed");
 assert.equal(adrianTriage({ ...signal, specialist: "FUTURE_UNREGISTERED_SPECIALIST" }, new OperationsScheduler()).reason, "UNKNOWN_SPECIALIST");
-assert.equal(adrianTriage({ ...signal, requestedAuthority: "LEVEL_3_SAFE_REPAIR" }, new OperationsScheduler()).reason, "AUTHORITY_EXCEEDS_PHASE3_POLICY");
+assert.equal(adrianTriage({ ...signal, requestedAuthority: "LEVEL_3_SAFE_REPAIR" }, new OperationsScheduler()).reason, "ACCEPTED_QUEUED", "gap auditor LEVEL_3 safe-repair signal accepted under the owner grant");
+assert.equal(adrianTriage({ ...signal, specialist: "SEO", code: "seo.crawlability.failed", subsystem: "seo", requestedAuthority: "LEVEL_3_SAFE_REPAIR" }, new OperationsScheduler()).reason, "AUTHORITY_EXCEEDS_PHASE3_POLICY", "ungranted specialists still cannot reach LEVEL_3");
 assert.equal(adrianTriage({ ...signal, tokenBudget: 1 }, new OperationsScheduler()).reason, "BUDGET_EXCEEDS_SPECIALIST_POLICY");
 assert.equal(adrianTriage({ ...signal, approvalCategory: "database_migration" }, new OperationsScheduler()).ownerApprovalRequired, true, "owner-gated work is identified");
 

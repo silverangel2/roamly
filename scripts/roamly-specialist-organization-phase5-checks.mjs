@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import {
   SPECIALIST_PROFILES,
   SPECIALIST_MAX_AUTHORITY,
+  SAFE_REPAIR_MAX_AUTHORITY,
+  specialistMayReachLevel3,
   routeSpecialistSignal,
   specialistSupportsRunner,
   specialistSupportsSignal,
@@ -23,7 +25,11 @@ const fixtures = [
 
 assert.equal(Object.keys(SPECIALIST_PROFILES).length, 7, "all Phase 2 and Phase 5 specialists are registered");
 for (const [specialist, code, subsystem] of fixtures) {
-  assert.equal(SPECIALIST_PROFILES[specialist].maxAuthority, SPECIALIST_MAX_AUTHORITY);
+  // Level-3 grant (owner-approved 2026-09-30): only the gap audit profile may
+  // reach LEVEL_3_SAFE_REPAIR; the other six stay at the LEVEL_2 ceiling.
+  const expectedAuthority = specialist === "GAP_AUDIT_QA_RELIABILITY" ? SAFE_REPAIR_MAX_AUTHORITY : SPECIALIST_MAX_AUTHORITY;
+  assert.equal(SPECIALIST_PROFILES[specialist].maxAuthority, expectedAuthority, `${specialist} authority ceiling`);
+  assert.equal(specialistMayReachLevel3(specialist), specialist === "GAP_AUDIT_QA_RELIABILITY", `${specialist} level-3 grant scope`);
   assert.equal(SPECIALIST_PROFILES[specialist].financialBudgetUsd, 0);
   assert.equal(SPECIALIST_PROFILES[specialist].tokenBudget, 0);
   assert.equal(SPECIALIST_PROFILES[specialist].network, "NONE");
@@ -44,7 +50,18 @@ assert.equal(seoDecision.job?.runnerId, "phase5.seo.diagnose");
 assert.equal(seoDecision.job?.authorityLevel, "LEVEL_2_DIAGNOSE");
 assert.equal(adrianTriage(seoSignal, seoScheduler).accepted, false, "duplicate signal is suppressed");
 assert.equal(adrianTriage({ ...seoSignal, specialist: "UNREGISTERED" }, new OperationsScheduler()).reason, "UNKNOWN_SPECIALIST");
-assert.equal(adrianTriage({ ...seoSignal, requestedAuthority: "LEVEL_3_SAFE_REPAIR" }, new OperationsScheduler()).reason, "AUTHORITY_EXCEEDS_PHASE3_POLICY");
+assert.equal(adrianTriage({ ...seoSignal, requestedAuthority: "LEVEL_3_SAFE_REPAIR" }, new OperationsScheduler()).reason, "AUTHORITY_EXCEEDS_PHASE3_POLICY", "SEO stays LEVEL_2: per-profile ceiling still rejects LEVEL_3");
+
+// Gap audit LEVEL_3 triage: the granted profile accepts LEVEL_3 safe-repair
+// signals and routes to the registered safe-repair runner; ungranted
+// specialists cannot use the LEVEL_3 runner.
+const gapSignal = { signalId: "phase5-gap-1", source: "deterministic_check", code: "gap.audit.failed", objective: "Diagnose gap audit evidence", subsystem: "operations_control_plane", specialist: "GAP_AUDIT_QA_RELIABILITY", requestedAuthority: "LEVEL_3_SAFE_REPAIR", tokenBudget: 0, financialBudgetUsd: 0, attemptCeiling: 1 };
+const gapDecision = adrianTriage(gapSignal, new OperationsScheduler(), Date.parse("2026-09-28T12:00:00Z"));
+assert.equal(gapDecision.accepted, true, "gap audit LEVEL_3 safe-repair signal is accepted");
+assert.equal(gapDecision.job?.authorityLevel, "LEVEL_3_SAFE_REPAIR");
+assert.equal(gapDecision.job?.runnerId, "phase2.gap-audit.safe-repair");
+assert.equal(specialistSupportsRunner("GAP_AUDIT_QA_RELIABILITY", "LEVEL_3_SAFE_REPAIR", "phase2.gap-audit.safe-repair"), true);
+assert.equal(specialistSupportsRunner("SEO", "LEVEL_3_SAFE_REPAIR", "phase2.gap-audit.safe-repair"), false, "SEO cannot use the LEVEL_3 runner");
 assert.equal(adrianTriage({ ...seoSignal, tokenBudget: 1 }, new OperationsScheduler()).reason, "BUDGET_EXCEEDS_SPECIALIST_POLICY");
 assert.equal(adrianTriage({ ...seoSignal, subsystem: "billing" }, new OperationsScheduler()).reason, "SUBSYSTEM_UNSUPPORTED_BY_SPECIALIST");
 assert.equal(adrianTriage({ ...seoSignal, code: "security.authorization.failed", subsystem: "authorization" }, new OperationsScheduler()).reason, "SIGNAL_UNSUPPORTED_BY_SPECIALIST");
