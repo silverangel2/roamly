@@ -23,6 +23,7 @@ type GuestItineraryResponse = {
   stays: GuestBookingCard[];
   flights: GuestBookingCard[];
   experiences: GuestBookingCard[];
+  essentials: GuestBookingCard[];
 };
 
 function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
@@ -85,7 +86,10 @@ export function GuestFreeItinerary() {
         ...data,
         stays: Array.isArray(data.stays) ? data.stays : [],
         flights: Array.isArray(data.flights) ? data.flights : [],
-        experiences: Array.isArray(data.experiences) ? data.experiences : []
+        experiences: Array.isArray(data.experiences) ? data.experiences : [],
+        essentials: Array.isArray((data as { essentials?: unknown }).essentials)
+          ? (data as { essentials: GuestBookingCard[] }).essentials
+          : []
       } as GuestItineraryResponse);
       if (data.status === "building") timer = window.setTimeout(load, 3000);
     }
@@ -159,7 +163,7 @@ export function GuestFreeItinerary() {
         </div>
       ) : null}
 
-      {itinerary?.status === "ready" && (itinerary.stays.length > 0 || itinerary.flights.length > 0 || itinerary.experiences.length > 0) ? (
+      {itinerary?.status === "ready" && (itinerary.stays.length > 0 || itinerary.flights.length > 0 || itinerary.experiences.length > 0 || itinerary.essentials.length > 0) ? (
         <div className="mt-6 grid gap-4">
           {itinerary.stays.length ? (
             <section className="rounded-2xl bg-mist p-4">
@@ -180,6 +184,13 @@ export function GuestFreeItinerary() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Experiences")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText("Bookable experiences for your interests")}</h3>
               <BookingCardList cards={itinerary.experiences} />
+            </section>
+          ) : null}
+          {itinerary.essentials.length ? (
+            <section className="rounded-2xl bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Travel essentials")}</p>
+              <h3 className="mt-1 text-lg font-black text-ink">{translateText("Amazon finds for your trip")}</h3>
+              <BookingCardList cards={itinerary.essentials} />
             </section>
           ) : null}
           <p className="text-xs font-semibold leading-5 text-slate-500">
