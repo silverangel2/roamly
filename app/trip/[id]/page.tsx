@@ -371,11 +371,11 @@ function BudgetSummary({
         <div className="mt-3 divide-y divide-[#e8dfd0]">
           {presentation.costDrivers.map((row) => (
             <div key={row.label} className="flex items-center justify-between gap-4 py-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-black text-ink">{row.label}</p>
                 <p className="text-xs font-bold text-slate-500">{row.status === "committed" ? "Committed" : row.status === "unknown" ? "Not priced yet" : "Expected"}</p>
               </div>
-              <p className="text-sm font-black text-ink">{row.value}</p>
+              <p className="shrink-0 text-sm font-black text-ink">{row.value}</p>
             </div>
           ))}
           {!presentation.costDrivers.length ? <p className="py-3 text-sm font-bold text-slate-500">No category-level costs are available yet.</p> : null}

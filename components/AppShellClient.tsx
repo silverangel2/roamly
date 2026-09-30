@@ -172,7 +172,7 @@ function AppShellContent({
               />
             </Link>
 
-            <nav aria-label="Primary navigation" className="hidden items-center gap-2 md:flex">
+            <nav aria-label="Primary navigation" className="hidden items-center gap-2 lg:flex">
               {desktopRoutes.map((route) => (
                 <Link
                   key={route.href}
@@ -219,7 +219,7 @@ function AppShellContent({
           </div>
         </header>
 
-        <main className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] md:pb-0">
+        <main className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-0">
           {children}
         </main>
 
@@ -227,7 +227,7 @@ function AppShellContent({
 
         <nav
           aria-label="Mobile navigation"
-          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl md:hidden ${
+          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl lg:hidden ${
             authenticated ? "grid-cols-5" : "grid-cols-5"
           }`}
         >

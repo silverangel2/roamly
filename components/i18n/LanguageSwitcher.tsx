@@ -9,7 +9,7 @@ export function LanguageSwitcher() {
   return (
     <label className="flex min-h-11 items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-black text-ink shadow-soft ring-1 ring-cloud dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:ring-slate-700">
       <span className="sr-only">{t("ui.language", "Language")}</span>
-      <span aria-hidden="true">{t("ui.language", "Language")}</span>
+      <span aria-hidden="true" className="hidden min-[320px]:inline">{t("ui.language", "Language")}</span>
       <select
         value={locale}
         onChange={(event) => setLocale(event.target.value as RoamlyLocale)}
