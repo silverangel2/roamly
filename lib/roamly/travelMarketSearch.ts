@@ -1,5 +1,7 @@
+import "server-only";
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   buildAttractionTicketSearchUrl,
   buildFlightSearchUrl,
@@ -497,7 +499,12 @@ async function storeResults(
 ) {
   const cacheableResults = results.filter(isTravelMarketResultCacheable);
   if (!supabase || !cacheableResults.length) return;
-  const { error } = await supabase.from("roamly_market_prices").insert(cacheableResults.map((result) => databaseRow(result, searchKey)));
+  const trustedWriter = createSupabaseAdminClient();
+  if (!trustedWriter) {
+    console.error("[Roamly market] trusted cache writer unavailable; skipping cache persistence");
+    return;
+  }
+  const { error } = await trustedWriter.from("roamly_market_prices").insert(cacheableResults.map((result) => databaseRow(result, searchKey)));
   if (error && !isMissingMarketTable(error.message)) {
     console.error("[Roamly market] cache write failed", error.message);
   }
