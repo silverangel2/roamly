@@ -1,4 +1,6 @@
-import type { OperationsRisk, OwnerApprovalCategory } from "./opsControlPlane";
+import type { OperationsRisk, OwnerApprovalCategory, RevenueImpactLevel } from "./opsControlPlane.ts";
+// @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
+import { REVENUE_IMPACT_RANK } from "./opsControlPlane.ts";
 
 export const EXECUTIVE_SECRETARY_ROLE = "EXECUTIVE_SECRETARY" as const;
 export const REPORT_PERIODS = ["weekly", "monthly", "quarterly", "year_end"] as const;
@@ -61,6 +63,19 @@ export type ExecutiveRecord = {
   priorityCounts: Record<ExecutivePriority, number>;
   specialistActivity: Record<string, number>;
   issues: Array<{ key: string; status: "open" | "resolved"; severity: string; jobIds: string[]; evidenceReferences: string[] }>;
+  /**
+   * Money-first view: open issues ordered by revenue impact (highest
+   * first). Briefings lead with this section so the owner sees what moves
+   * revenue before anything else.
+   */
+  moneyFirst: Array<{
+    key: string;
+    status: "open" | "resolved";
+    severity: string;
+    revenueImpact: RevenueImpactLevel | null;
+    revenueRationale: string | null;
+    jobIds: string[];
+  }>;
   decisionsRequired: Array<{ jobId: string; category: string; risk: string; evidenceIds: string[] }>;
   decisionsRecorded: Array<{ jobId: string; decision: string; category: string; decidedAt: string | null; evidenceIds: string[] }>;
   finops: {
@@ -156,7 +171,18 @@ function findingFromScope(scope: unknown) {
   const id = typeof finding.findingId === "string" ? finding.findingId : null;
   const severity = typeof finding.severity === "string" ? finding.severity : "unknown";
   const confirmed = finding.confirmed === true;
-  return id ? { id: safeKey(id), severity, confirmed } : null;
+  const impact = (finding as { revenueImpact?: unknown }).revenueImpact;
+  let revenueImpact: RevenueImpactLevel | null = null;
+  let revenueRationale: string | null = null;
+  if (impact && typeof impact === "object") {
+    const level = (impact as { level?: unknown }).level;
+    const rationale = (impact as { rationale?: unknown }).rationale;
+    if ((level === "high" || level === "medium" || level === "low") && typeof rationale === "string" && rationale.trim()) {
+      revenueImpact = level;
+      revenueRationale = rationale.slice(0, 140);
+    }
+  }
+  return id ? { id: safeKey(id), severity, confirmed, revenueImpact, revenueRationale } : null;
 }
 
 function priorityFor(job: ExecutiveJobSnapshot, finding: ReturnType<typeof findingFromScope>): ExecutivePriority {
@@ -189,7 +215,7 @@ export function buildExecutiveRecord(input: {
   const decisions = (input.decisions || []).filter((decision) => inPeriod(decision.decided_at, period));
   const priorityCounts = emptyPriorityCounts();
   const specialistActivity: Record<string, number> = {};
-  const issuesByKey = new Map<string, { status: "open" | "resolved"; severity: string; jobIds: string[]; evidenceReferences: string[] }>();
+  const issuesByKey = new Map<string, { status: "open" | "resolved"; severity: string; jobIds: string[]; evidenceReferences: string[]; revenueImpact: RevenueImpactLevel | null; revenueRationale: string | null }>();
   const evidenceReferences: ExecutiveEvidenceReference[] = [];
   let recovered = 0;
   for (const job of jobs) {
@@ -201,12 +227,22 @@ export function buildExecutiveRecord(input: {
     if (job.status === "COMPLETED" && finding) {
       const key = finding.id;
       const existing = issuesByKey.get(key);
-      if (existing) { existing.status = "resolved"; existing.jobIds.push(job.id); } else issuesByKey.set(key, { status: "resolved", severity: finding.severity, jobIds: [job.id], evidenceReferences: [] });
+      if (existing) {
+        existing.status = "resolved"; existing.jobIds.push(job.id);
+        if (finding.revenueImpact && (!existing.revenueImpact || REVENUE_IMPACT_RANK[finding.revenueImpact] > REVENUE_IMPACT_RANK[existing.revenueImpact])) {
+          existing.revenueImpact = finding.revenueImpact; existing.revenueRationale = finding.revenueRationale;
+        }
+      } else issuesByKey.set(key, { status: "resolved", severity: finding.severity, jobIds: [job.id], evidenceReferences: [], revenueImpact: finding.revenueImpact, revenueRationale: finding.revenueRationale });
       recovered += 1;
     } else if (finding && !["COMPLETED", "CANCELLED"].includes(job.status)) {
       const key = finding.id;
       const existing = issuesByKey.get(key);
-      if (existing) { existing.status = "open"; existing.jobIds.push(job.id); } else issuesByKey.set(key, { status: "open", severity: finding.severity, jobIds: [job.id], evidenceReferences: [] });
+      if (existing) {
+        existing.status = "open"; existing.jobIds.push(job.id);
+        if (finding.revenueImpact && (!existing.revenueImpact || REVENUE_IMPACT_RANK[finding.revenueImpact] > REVENUE_IMPACT_RANK[existing.revenueImpact])) {
+          existing.revenueImpact = finding.revenueImpact; existing.revenueRationale = finding.revenueRationale;
+        }
+      } else issuesByKey.set(key, { status: "open", severity: finding.severity, jobIds: [job.id], evidenceReferences: [], revenueImpact: finding.revenueImpact, revenueRationale: finding.revenueRationale });
     }
     if (finding) evidenceReferences.push({ jobId: job.id, evidenceIds: [], source: "job" });
   }
@@ -214,6 +250,16 @@ export function buildExecutiveRecord(input: {
   const decisionsRecorded = decisions.map((decision) => ({ jobId: decision.job_id, decision: safeKey(decision.decision), category: safeKey(decision.requested_category), decidedAt: decision.decided_at || null, evidenceIds: Array.isArray(decision.evidence_ids) ? decision.evidence_ids.slice(0, 20).filter((id): id is string => typeof id === "string") : [] }));
   const finops = { records: input.finopsRecords?.length || 0, knownTokenRecords: (input.finopsRecords || []).filter((record) => record.inputTokens !== null && record.outputTokens !== null).length, unknownTokenRecords: (input.finopsRecords || []).filter((record) => record.inputTokens === null || record.outputTokens === null).length, knownCostRecords: (input.finopsRecords || []).filter((record) => record.financialCostUsd !== null).length, unknownCostRecords: (input.finopsRecords || []).filter((record) => record.financialCostUsd === null).length, confirmedRevenue: (input.finopsRecords || []).some((record) => record.valueStatus === "CONFIRMED_REVENUE") ? "PRESENT" as const : "UNKNOWN" as const, attributedRevenue: (input.finopsRecords || []).some((record) => record.valueStatus === "ATTRIBUTED_REVENUE") ? "PRESENT" as const : "UNKNOWN" as const, estimatedValue: (input.finopsRecords || []).some((record) => record.valueStatus === "ESTIMATED_VALUE") ? "PRESENT" as const : "UNKNOWN" as const, costAvoided: (input.finopsRecords || []).some((record) => record.valueStatus === "COST_AVOIDED") ? "PRESENT" as const : "UNKNOWN" as const };
   const unresolved = [...issuesByKey.entries()].filter(([, issue]) => issue.status === "open").map(([key, issue]) => ({ key, ...issue }));
+  const moneyFirst = unresolved
+    .map((issue) => ({
+      key: issue.key,
+      status: issue.status as "open" | "resolved",
+      severity: issue.severity,
+      revenueImpact: issue.revenueImpact,
+      revenueRationale: issue.revenueRationale,
+      jobIds: issue.jobIds
+    }))
+    .sort((a, b) => (b.revenueImpact ? REVENUE_IMPACT_RANK[b.revenueImpact] : 0) - (a.revenueImpact ? REVENUE_IMPACT_RANK[a.revenueImpact] : 0));
   return {
     role: EXECUTIVE_SECRETARY_ROLE,
     period,
@@ -222,6 +268,7 @@ export function buildExecutiveRecord(input: {
     priorityCounts,
     specialistActivity,
     issues: unresolved,
+    moneyFirst,
     decisionsRequired,
     decisionsRecorded,
     finops,
@@ -253,6 +300,11 @@ export function dedupeExecutiveReports(reports: readonly ExecutiveReportArtifact
 }
 
 export function executiveCanPerform(action: string) {
+  // Level-3 grant (owner-approved 2026-09-30): the executive secretary may
+  // coordinate bounded safe repairs — prepare, validate, brief, review, and
+  // record them. It still may not dispatch jobs, touch budgets or spending,
+  // reach production, or grant authority.
+  if (/^(prepare|validate|brief|review|record)( a| the)? bounded safe[- ]repair\b/i.test(action.trim())) return true;
   return !/(dispatch|repriorit|priority|budget|spend|production|commit|push|deploy|level.?3|customer.?truth|provider.?configuration)/i.test(action);
 }
 
@@ -275,12 +327,33 @@ export function safeExecutiveSummary(record: ExecutiveRecord) {
   return {
     period: record.period,
     generatedAt: record.generatedAt,
+    moneyFirst: record.moneyFirst,
     counts: record.counts,
     priorityCounts: record.priorityCounts,
     specialistActivity: record.specialistActivity,
     finops: record.finops,
     unresolvedIssueCount: record.issues.length,
     ownerDecisionCount: record.decisionsRequired.length
+  };
+}
+
+/**
+ * Money-first briefing: the owner-facing summary that leads with revenue
+ * impact — the top money-moving open issues first — before operational
+ * counts. Deterministic, zero marginal cost, no invented metrics: every
+ * entry carries only recorded severities and rationales.
+ */
+export function buildMoneyFirstBriefing(record: ExecutiveRecord) {
+  return {
+    period: record.period,
+    generatedAt: record.generatedAt,
+    moneyFirst: record.moneyFirst,
+    topMoneyIssues: record.moneyFirst.slice(0, 5),
+    openMoneyIssueCount: record.moneyFirst.length,
+    ownerDecisionsRequired: record.decisionsRequired.length,
+    counts: record.counts,
+    priorityCounts: record.priorityCounts,
+    finops: record.finops
   };
 }
 

@@ -1,5 +1,7 @@
 // @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
-import { OperationsScheduler, type OperationsEvidence, type OperationsJob, type OperationsRisk, createEvidence, createOperationsJob, duplicateJobKey, assertAuthorityUnchanged } from "./opsControlPlane.ts";
+import { OperationsScheduler, type OperationsEvidence, type OperationsJob, type OperationsRisk, type RevenueImpact, REVENUE_IMPACT_RANK, createEvidence, createOperationsJob, duplicateJobKey, assertAuthorityUnchanged, revenueImpact } from "./opsControlPlane.ts";
+// @ts-expect-error Direct deterministic Node checks resolve local TypeScript modules by extension.
+import { createSafeRepairJob, SAFE_REPAIR_CONSTRAINTS } from "./specialistOrganization.ts";
 
 export type GapAuditCheckId =
   | "control_plane_dispatch_contract"
@@ -31,6 +33,7 @@ export type GapAuditFinding = {
   reproducible: boolean;
   affectedFiles: string[];
   customerImpact: string | null;
+  revenueImpact: RevenueImpact;
   recommendedNextAction: string;
   acceptanceCriteria: string[];
   approvalCategory: string | null;
@@ -98,6 +101,13 @@ function riskForSeverity(severity: GapAuditCheckResult["severity"]): OperationsR
   return "low";
 }
 
+const CHECK_REVENUE_IMPACT: Record<GapAuditCheckId, RevenueImpact> = {
+  control_plane_dispatch_contract: revenueImpact("medium", "A broken dispatch gate stalls every specialist job behind all revenue fixes."),
+  operations_admin_boundary: revenueImpact("medium", "Leaked ops data erodes trust in the automation that protects revenue."),
+  customer_route_isolation: revenueImpact("high", "Customer routes touching ops internals risk outages that directly kill bookings."),
+  evidence_sanitization: revenueImpact("low", "Weak evidence hygiene slows audits but does not directly touch revenue.")
+};
+
 export function findingFromCheck(check: GapAuditCheckResult): GapAuditFinding | null {
   if (check.ok) return null;
   return {
@@ -112,10 +122,71 @@ export function findingFromCheck(check: GapAuditCheckResult): GapAuditFinding | 
     reproducible: check.reproducible,
     affectedFiles: check.affectedFiles,
     customerImpact: check.customerImpact,
+    revenueImpact: CHECK_REVENUE_IMPACT[check.checkId],
     recommendedNextAction: "Review the bounded affected files and prepare a separately approved repair plan.",
     acceptanceCriteria: ["Re-run the failed deterministic check with a passing result.", "Confirm no customer travel truth or sensitive evidence boundary changed."],
     approvalCategory: null
   };
+}
+
+const RISK_RANK: Record<OperationsRisk, number> = { low: 1, medium: 2, high: 3, critical: 4 };
+
+/**
+ * Money-first prioritization: dedupe findings across specialists by
+ * findingId, then order by revenue impact (highest first), breaking ties by
+ * risk. This is the single repair queue the owner sees.
+ */
+export function prioritizeMoneyFirst(findings: GapAuditFinding[]): GapAuditFinding[] {
+  const seen = new Set<string>();
+  return findings
+    .filter((finding) => {
+      if (seen.has(finding.findingId)) return false;
+      seen.add(finding.findingId);
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        REVENUE_IMPACT_RANK[b.revenueImpact.level] - REVENUE_IMPACT_RANK[a.revenueImpact.level] ||
+        RISK_RANK[b.risk] - RISK_RANK[a.risk]
+    );
+}
+
+/**
+ * Build the money-first safe-repair queue: prioritized findings become
+ * bounded LEVEL_3 safe-repair jobs when a caller-supplied line-change
+ * estimate fits the safe-repair constraints. Findings without a usable
+ * estimate (or too broad to be bounded) are returned in needsEstimate —
+ * never guessed, never forced into a repair.
+ */
+export function buildMoneyFirstRepairQueue(
+  findings: GapAuditFinding[],
+  linesChangedEstimates: Record<string, number>
+): { queue: OperationsJob[]; needsEstimate: GapAuditFinding[] } {
+  const queue: OperationsJob[] = [];
+  const needsEstimate: GapAuditFinding[] = [];
+  for (const finding of prioritizeMoneyFirst(findings)) {
+    const estimatedLinesChanged = linesChangedEstimates[finding.findingId];
+    try {
+      if (!Number.isFinite(estimatedLinesChanged)) throw new Error("SAFE_REPAIR_LINES_ESTIMATE_REQUIRED");
+      if (finding.affectedFiles.length > SAFE_REPAIR_CONSTRAINTS.maxFilesChanged) throw new Error("SAFE_REPAIR_TOO_MANY_FILES");
+      queue.push(
+        createSafeRepairJob({
+          role: "GAP_AUDIT_QA",
+          initiatingSignal: `deterministic_check:${finding.checkId}`,
+          objective: `Safe repair: ${finding.summary}`,
+          subsystem: finding.subsystem,
+          allowedFiles: finding.affectedFiles,
+          estimatedLinesChanged,
+          acceptanceCriteria: finding.acceptanceCriteria,
+          findingId: finding.findingId,
+          approvalCategory: finding.approvalCategory
+        })
+      );
+    } catch {
+      needsEstimate.push(finding);
+    }
+  }
+  return { queue, needsEstimate };
 }
 
 export function observeGapAudit(snapshot: GapAuditSourceSnapshot, scheduler = new OperationsScheduler()) {
@@ -171,6 +242,8 @@ export function safeFindingSummary(scope: unknown) {
     severity: typeof finding.severity === "string" ? finding.severity : "Unknown",
     confirmed: finding.confirmed === true,
     summary: typeof finding.summary === "string" ? finding.summary.slice(0, 240) : "No summary",
+    revenueImpact: finding.revenueImpact && typeof finding.revenueImpact === "object" && typeof finding.revenueImpact.level === "string" ? finding.revenueImpact.level : "Unknown",
+    revenueRationale: finding.revenueImpact && typeof finding.revenueImpact === "object" && typeof finding.revenueImpact.rationale === "string" ? finding.revenueImpact.rationale.slice(0, 140) : null,
     recommendedNextAction: typeof finding.recommendedNextAction === "string" ? finding.recommendedNextAction.slice(0, 240) : "No recommendation"
   };
 }

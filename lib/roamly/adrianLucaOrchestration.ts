@@ -5,7 +5,7 @@ import { SPECIALIST_PROFILES, specialistSupportsRunner, specialistSupportsSignal
 
 const AUTHORITY_RANK: Record<AutonomyLevel, number> = { LEVEL_1_OBSERVE: 1, LEVEL_2_DIAGNOSE: 2, LEVEL_3_SAFE_REPAIR: 3, LEVEL_4_OWNER_APPROVAL: 4 };
 
-export const PHASE3_MAX_AUTHORITY: AutonomyLevel = "LEVEL_2_DIAGNOSE";
+export const PHASE3_MAX_AUTHORITY: AutonomyLevel = "LEVEL_3_SAFE_REPAIR";
 export const SPECIALIST_REGISTRY = SPECIALIST_PROFILES;
 export type SpecialistId = OrganizationSpecialistId;
 export type AdrianSignal = {
@@ -59,7 +59,7 @@ export function adrianTriage(signal: AdrianSignal, scheduler: OperationsSchedule
   if (AUTHORITY_RANK[signal.requestedAuthority] > AUTHORITY_RANK[policy.maxAuthority] || AUTHORITY_RANK[signal.requestedAuthority] > AUTHORITY_RANK[PHASE3_MAX_AUTHORITY]) {
     return { accepted: false, reason: "AUTHORITY_EXCEEDS_PHASE3_POLICY", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: false, job: null };
   }
-  if (!specialistSupportsRunner(signal.specialist, signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE", policy.runners[signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE"] || null)) {
+  if (!specialistSupportsRunner(signal.specialist, signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE" | "LEVEL_3_SAFE_REPAIR", policy.runners[signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE" | "LEVEL_3_SAFE_REPAIR"] || null)) {
     return { accepted: false, reason: "SPECIALIST_RUNNER_POLICY_INVALID", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: false, job: null };
   }
   const tokenBudget = signal.tokenBudget ?? policy.tokenBudget;
@@ -88,7 +88,7 @@ export function adrianTriage(signal: AdrianSignal, scheduler: OperationsSchedule
     maxAttempts,
     ownerApprovalRequired: approval,
     cooldownUntil: new Date(now + Math.max(policy.cooldownSeconds, signal.cooldownSeconds || 0) * 1000).toISOString(),
-    runnerId: policy.runners[signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE"],
+    runnerId: policy.runners[signal.requestedAuthority as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE" | "LEVEL_3_SAFE_REPAIR"],
     dedupeKey: signal.dedupeKey || duplicateJobKey({ role: policy.role, subsystem: signal.subsystem, objective: signal.signalId, signal: signal.code })
   });
   if (!scheduler.enqueue(job)) return { accepted: false, reason: "DUPLICATE_OR_COOLDOWN_SUPPRESSED", specialist: signal.specialist, authorityCeiling: policy.maxAuthority, ownerApprovalRequired: approval, job: null };
@@ -118,7 +118,7 @@ export type LucaPlan = {
 };
 
 export function lucaPlan(job: OperationsJob, dependencyStates: Record<string, OperationsJob["status"]>, lockedSubsystems: string[] = []): LucaPlan {
-  const specialist = Object.entries(SPECIALIST_REGISTRY).find(([, policy]) => policy.role === job.role && policy.runners[job.authorityLevel as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE"] === job.runnerId)?.[0] as SpecialistId | undefined;
+  const specialist = Object.entries(SPECIALIST_REGISTRY).find(([, policy]) => policy.role === job.role && policy.runners[job.authorityLevel as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE" | "LEVEL_3_SAFE_REPAIR"] === job.runnerId)?.[0] as SpecialistId | undefined;
   if (!specialist) throw new Error("UNSUPPORTED_SPECIALIST_OR_RUNNER");
   if (AUTHORITY_RANK[job.authorityLevel] > AUTHORITY_RANK[PHASE3_MAX_AUTHORITY]) throw new Error("LUCA_AUTHORITY_CEILING_EXCEEDED");
   const missing = job.dependencies.filter((dependency) => dependencyStates[dependency] !== "COMPLETED");
@@ -150,10 +150,10 @@ export function lucaPlan(job: OperationsJob, dependencyStates: Record<string, Op
 }
 
 export function lucaDispatchAllowed(plan: LucaPlan, job: OperationsJob, input: Parameters<typeof dispatchAllowed>[1]) {
-  if (!plan.ready || plan.jobId !== job.id || plan.authorityCeiling !== job.authorityLevel || AUTHORITY_RANK[plan.authorityCeiling] > AUTHORITY_RANK[PHASE3_MAX_AUTHORITY] || !isRegisteredRunner(job.runnerId) || !specialistSupportsRunner(plan.specialist, job.authorityLevel as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE", job.runnerId)) return false;
+  if (!plan.ready || plan.jobId !== job.id || plan.authorityCeiling !== job.authorityLevel || AUTHORITY_RANK[plan.authorityCeiling] > AUTHORITY_RANK[PHASE3_MAX_AUTHORITY] || !isRegisteredRunner(job.runnerId) || !specialistSupportsRunner(plan.specialist, job.authorityLevel as "LEVEL_1_OBSERVE" | "LEVEL_2_DIAGNOSE" | "LEVEL_3_SAFE_REPAIR", job.runnerId)) return false;
   if (plan.tokenBudget !== job.tokenBudget || plan.financialBudgetUsd !== job.financialBudgetUsd) return false;
   if (!budgetAllows(job, input.usage || { tokens: 0, financialCostUsd: 0 })) return false;
-  return dispatchAllowed(job, { ...input, allowedAuthorityLevels: ["LEVEL_1_OBSERVE", "LEVEL_2_DIAGNOSE"] });
+  return dispatchAllowed(job, { ...input, allowedAuthorityLevels: ["LEVEL_1_OBSERVE", "LEVEL_2_DIAGNOSE", "LEVEL_3_SAFE_REPAIR"] });
 }
 
 export function safeOrchestrationSummary(scope: unknown) {

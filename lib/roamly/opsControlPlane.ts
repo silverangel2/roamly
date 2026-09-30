@@ -34,6 +34,29 @@ export type OwnerApprovalCategory = typeof OWNER_APPROVAL_CATEGORIES[number];
 export type OperationsPriority = "critical" | "high" | "normal" | "low";
 export type OperationsRisk = "low" | "medium" | "high" | "critical";
 
+/**
+ * Revenue impact scoring (owner goal: make money through website traffic,
+ * less expenses, more income). Every specialist finding carries one of these:
+ * a relative high/medium/low judgment plus a one-line rationale. Rationales
+ * must never invent metrics — no fabricated dollar amounts, percentages, or
+ * visitor counts — enforced by revenueImpact().
+ */
+export const REVENUE_IMPACT_LEVELS = ["high", "medium", "low"] as const;
+export type RevenueImpactLevel = typeof REVENUE_IMPACT_LEVELS[number];
+export type RevenueImpact = { level: RevenueImpactLevel; rationale: string };
+export const REVENUE_IMPACT_RANK: Record<RevenueImpactLevel, number> = { high: 3, medium: 2, low: 1 };
+
+const FABRICATED_METRIC_PATTERN = /\$\d[\d,]*(?:\.\d+)?\b|\b\d+(?:\.\d+)?%|\b\d{4,}\s+(?:visitors|users|clicks|trials|bookings|dollars|followers|views)\b/i;
+
+export function revenueImpact(level: RevenueImpactLevel, rationale: string): RevenueImpact {
+  if (!REVENUE_IMPACT_LEVELS.includes(level)) throw new Error("REVENUE_IMPACT_LEVEL_INVALID");
+  const clean = rationale.trim();
+  if (!clean) throw new Error("REVENUE_IMPACT_RATIONALE_REQUIRED");
+  if (clean.length > 140) throw new Error("REVENUE_IMPACT_RATIONALE_TOO_LONG");
+  if (FABRICATED_METRIC_PATTERN.test(clean)) throw new Error("REVENUE_IMPACT_METRIC_FABRICATION_FORBIDDEN");
+  return { level, rationale: clean };
+}
+
 export type OperationsJob = {
   id: string;
   role: OperationsRole;
@@ -186,6 +209,8 @@ const REGISTERED_RUNNERS = {
   "phase1.orchestration-smoke": (): DeterministicRunnerResult => ({ runnerId: "phase1.orchestration-smoke", ok: true, summary: "Controlled deterministic orchestration smoke completed.", metadata: { mutatesProduction: false } }),
   "phase2.gap-audit.observe": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.observe", ok: true, summary: "Allowlisted Gap Audit observation runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_1_OBSERVE" } }),
   "phase2.gap-audit.diagnose": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.diagnose", ok: true, summary: "Allowlisted Gap Audit diagnosis runner completed.", metadata: { mutatesProduction: false, specialist: "GAP_AUDIT_QA", authority: "LEVEL_2_DIAGNOSE" } }),
+  "phase2.gap-audit.safe-repair": (): DeterministicRunnerResult => ({ runnerId: "phase2.gap-audit.safe-repair", ok: true, summary: "Allowlisted Gap Audit bounded safe-repair runner completed.", metadata: { mutatesProduction: false, network: "NONE", specialist: "GAP_AUDIT_QA", authority: "LEVEL_3_SAFE_REPAIR", bounded: true } }),
+  "phase8.secretary.safe-repair": (): DeterministicRunnerResult => ({ runnerId: "phase8.secretary.safe-repair", ok: true, summary: "Allowlisted Executive Secretary bounded safe-repair coordination runner completed.", metadata: { mutatesProduction: false, network: "NONE", specialist: "EXECUTIVE_SECRETARY", authority: "LEVEL_3_SAFE_REPAIR", bounded: true } }),
   "phase4.worker-contract-smoke": (): DeterministicRunnerResult => ({ runnerId: "phase4.worker-contract-smoke", ok: true, summary: "Provider-neutral simulated worker contract completed.", metadata: { mutatesProduction: false, network: "NONE", secrets: "NONE" } }),
   "phase5.seo.observe": (): DeterministicRunnerResult => ({ runnerId: "phase5.seo.observe", ok: true, summary: "Allowlisted SEO observation runner completed.", metadata: { mutatesProduction: false, network: "NONE" } }),
   "phase5.seo.diagnose": (): DeterministicRunnerResult => ({ runnerId: "phase5.seo.diagnose", ok: true, summary: "Allowlisted SEO diagnosis runner completed.", metadata: { mutatesProduction: false, network: "NONE" } }),

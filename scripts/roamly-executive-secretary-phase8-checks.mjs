@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildExecutiveRecord, classifyExecutiveJob, executiveCanPerform, reportPeriodBounds, safeExecutiveSummary, suppressExecutiveNoise } from "../lib/roamly/executiveSecretary.ts";
+import { buildExecutiveRecord, buildMoneyFirstBriefing, classifyExecutiveJob, executiveCanPerform, reportPeriodBounds, safeExecutiveSummary, suppressExecutiveNoise } from "../lib/roamly/executiveSecretary.ts";
 
 const at = new Date("2026-09-28T12:00:00.000Z");
 const weekly = reportPeriodBounds("weekly", at);
@@ -29,10 +29,31 @@ assert.equal(executiveCanPerform("summarize sanitized evidence"), true);
 assert.equal(executiveCanPerform("dispatch a repair job"), false);
 assert.equal(executiveCanPerform("raise financial budget"), false);
 assert.equal(executiveCanPerform("grant Level 3"), false);
+// Level-3 grant (owner-approved 2026-09-30): the secretary may coordinate
+// bounded safe repairs — but nothing beyond that allowlist.
+assert.equal(executiveCanPerform("prepare bounded safe repair brief"), true);
+assert.equal(executiveCanPerform("validate bounded safe-repair evidence"), true);
+assert.equal(executiveCanPerform("record bounded safe repair outcome"), true);
+assert.equal(executiveCanPerform("deploy bounded safe repair"), false, "deploy is never allowlisted");
+assert.equal(executiveCanPerform("dispatch bounded safe repair job"), false, "dispatch is never allowlisted");
 const compact = suppressExecutiveNoise([record]);
 assert.equal(compact.routineJobs, 1);
 assert.equal(compact.ownerDecisionsRequired, 1);
 const safe = safeExecutiveSummary(record);
 assert.equal(safe.finops.unknownCostRecords, 1);
 assert.equal(JSON.stringify(safe).includes("Healthy check"), false, "executive summary does not copy raw job text");
+
+// Money-first briefing: open issues lead with revenue impact, highest first.
+const moneyJobs = [
+  { id: "job-low", role: "SEO", status: "BLOCKED", risk: "low", priority: "normal", subsystem: "seo", objective: "Low impact issue", created_at: "2026-09-28T09:00:00.000Z", updated_at: "2026-09-28T09:01:00.000Z", scope_json: { finding: { findingId: "GAP-low", severity: "low", confirmed: true, revenueImpact: { level: "low", rationale: "Slows audits but does not touch revenue." } } } },
+  { id: "job-high", role: "GAP_AUDIT_QA", status: "BLOCKED", risk: "high", priority: "high", subsystem: "reliability", objective: "High impact issue", created_at: "2026-09-28T10:00:00.000Z", updated_at: "2026-09-28T10:01:00.000Z", scope_json: { finding: { findingId: "GAP-high", severity: "high", confirmed: true, revenueImpact: { level: "high", rationale: "Customer routes touching ops internals risk outages that kill bookings." } } } }
+];
+const moneyRecord = buildExecutiveRecord({ period: "weekly", at, jobs: moneyJobs, decisions: [], finopsRecords: [] });
+assert.equal(moneyRecord.moneyFirst.length, 2, "open issues carry revenue impact");
+assert.equal(moneyRecord.moneyFirst[0].key, "GAP-high", "money-first ordering puts highest revenue impact first");
+assert.equal(moneyRecord.moneyFirst[0].revenueImpact, "high");
+assert.equal(moneyRecord.moneyFirst[1].revenueImpact, "low");
+const briefing = buildMoneyFirstBriefing(moneyRecord);
+assert.equal(briefing.topMoneyIssues[0].key, "GAP-high", "briefing leads with the top money issue");
+assert.equal(briefing.openMoneyIssueCount, 2);
 console.log("Roamly Phase 8 Executive Secretary checks passed");
