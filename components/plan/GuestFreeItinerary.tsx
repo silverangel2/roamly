@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/I18nProvider";
 import {
   GUEST_ACCOUNT_WALL,
   GUEST_FREE_ITINERARY_DISCLAIMER,
+  type GuestBookingCard,
   type GuestItineraryDayView,
   type GuestItineraryStatus
 } from "@/lib/roamly/guestItineraryView";
@@ -19,7 +20,41 @@ type GuestItineraryResponse = {
   disclaimer: string;
   status: GuestItineraryStatus;
   days: GuestItineraryDayView[];
+  stays: GuestBookingCard[];
+  flights: GuestBookingCard[];
+  experiences: GuestBookingCard[];
 };
+
+function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
+  if (!cards.length) return null;
+  return (
+    <ul className="mt-3 grid gap-2">
+      {cards.map((card) => (
+        <li key={`${card.title}-${card.url}`} className="rounded-xl bg-white p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black leading-5 text-ink">{card.title}</p>
+              {card.detail ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{card.detail}</p> : null}
+              <p className="mt-1 text-xs font-bold text-slate-500">
+                {card.priceLabel ? <span className="text-ocean">{card.priceLabel}</span> : null}
+                {card.priceLabel && card.provider ? " · " : null}
+                {card.provider ? <span>{card.provider}</span> : null}
+              </p>
+            </div>
+            <a
+              href={card.url}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
+            >
+              {card.ctaLabel}
+            </a>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function planAuthUrl(pathname: "/login" | "/signup") {
   return `${pathname}?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
@@ -44,7 +79,14 @@ export function GuestFreeItinerary() {
         return;
       }
       setError("");
-      setItinerary(data as GuestItineraryResponse);
+      // Older API responses may not include the booking sections; default them
+      // so rendering never crashes on a missing array.
+      setItinerary({
+        ...data,
+        stays: Array.isArray(data.stays) ? data.stays : [],
+        flights: Array.isArray(data.flights) ? data.flights : [],
+        experiences: Array.isArray(data.experiences) ? data.experiences : []
+      } as GuestItineraryResponse);
       if (data.status === "building") timer = window.setTimeout(load, 3000);
     }
 
@@ -95,13 +137,54 @@ export function GuestFreeItinerary() {
                   {day.timeline.map((item) => (
                     <li key={`${day.dayNumber}-${item.time}-${item.title}`} className="text-sm font-semibold leading-6 text-slate-700">
                       {item.time ? <span className="font-black text-ink">{item.time}. </span> : null}
-                      {item.title}
+                      {item.bookingUrl ? (
+                        <a
+                          href={item.bookingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer sponsored"
+                          className="font-black text-ocean underline decoration-ocean/30 underline-offset-4"
+                        >
+                          {item.title}
+                          {item.bookingLabel ? ` · ${item.bookingLabel}` : ""}
+                        </a>
+                      ) : (
+                        item.title
+                      )}
                     </li>
                   ))}
                 </ul>
               ) : null}
             </article>
           ))}
+        </div>
+      ) : null}
+
+      {itinerary?.status === "ready" && (itinerary.stays.length > 0 || itinerary.flights.length > 0 || itinerary.experiences.length > 0) ? (
+        <div className="mt-6 grid gap-4">
+          {itinerary.stays.length ? (
+            <section className="rounded-2xl bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Where to stay")}</p>
+              <h3 className="mt-1 text-lg font-black text-ink">{translateText("Stay picks matched to your budget")}</h3>
+              <BookingCardList cards={itinerary.stays} />
+            </section>
+          ) : null}
+          {itinerary.flights.length ? (
+            <section className="rounded-2xl bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Flights & getting there")}</p>
+              <h3 className="mt-1 text-lg font-black text-ink">{translateText("Best flight and cheaper ways there")}</h3>
+              <BookingCardList cards={itinerary.flights} />
+            </section>
+          ) : null}
+          {itinerary.experiences.length ? (
+            <section className="rounded-2xl bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Experiences")}</p>
+              <h3 className="mt-1 text-lg font-black text-ink">{translateText("Bookable experiences for your interests")}</h3>
+              <BookingCardList cards={itinerary.experiences} />
+            </section>
+          ) : null}
+          <p className="text-xs font-semibold leading-5 text-slate-500">
+            {translateText("Booking links may earn Roamly a commission at no extra cost to you. Prices and availability change — verify before booking.")}
+          </p>
         </div>
       ) : null}
 

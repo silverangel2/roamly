@@ -11,6 +11,13 @@ export const GUEST_PAID_ENTITLEMENT_MESSAGE =
 
 export type GuestItineraryStatus = "building" | "ready" | "failed";
 
+export type GuestItineraryTimelineItem = {
+  time: string;
+  title: string;
+  bookingUrl: string | null;
+  bookingLabel: string | null;
+};
+
 export type GuestItineraryDayView = {
   dayNumber: number;
   date: string | null;
@@ -19,7 +26,16 @@ export type GuestItineraryDayView = {
   afternoon: string;
   evening: string;
   food: string[];
-  timeline: Array<{ time: string; title: string }>;
+  timeline: GuestItineraryTimelineItem[];
+};
+
+export type GuestBookingCard = {
+  title: string;
+  detail: string;
+  priceLabel: string | null;
+  url: string;
+  provider: string;
+  ctaLabel: string;
 };
 
 export type GuestItineraryView = {
@@ -28,6 +44,9 @@ export type GuestItineraryView = {
   disclaimer: typeof GUEST_FREE_ITINERARY_DISCLAIMER;
   status: GuestItineraryStatus;
   days: GuestItineraryDayView[];
+  stays: GuestBookingCard[];
+  flights: GuestBookingCard[];
+  experiences: GuestBookingCard[];
   continuesBehindAccount: readonly string[];
 };
 
@@ -61,7 +80,13 @@ function dayFromRecord(value: unknown): GuestItineraryDayView | null {
     timeline: timeline
       .map((item) => {
         const record = asRecord(item);
-        return { time: clip(record?.time_label, 40), title: clip(record?.title, 180) };
+        const booking = asRecord(record?.booking);
+        return {
+          time: clip(record?.time_label, 40),
+          title: clip(record?.title, 180),
+          bookingUrl: clip(booking?.url, 500) || null,
+          bookingLabel: clip(booking?.ctaLabel, 80) || clip(record?.booking_label, 80) || null
+        };
       })
       .filter((item) => item.title)
       .slice(0, 8)
@@ -88,6 +113,72 @@ function daysFromMetadata(metadata: unknown) {
 
 function paidUnlockSource(value: string) {
   return value === "paid" || value === "bundle" || value === "admin";
+}
+
+function bookingPriceLabel(suggestion: Record<string, unknown>): string | null {
+  const currency = clip(suggestion.currency, 12) || "CAD";
+  const min = typeof suggestion.estimated_cost_min === "number" && Number.isFinite(suggestion.estimated_cost_min)
+    ? Math.round(suggestion.estimated_cost_min)
+    : null;
+  const max = typeof suggestion.estimated_cost_max === "number" && Number.isFinite(suggestion.estimated_cost_max)
+    ? Math.round(suggestion.estimated_cost_max)
+    : null;
+  const nightlyMin =
+    typeof suggestion.estimated_nightly_cost_min === "number" && Number.isFinite(suggestion.estimated_nightly_cost_min)
+      ? Math.round(suggestion.estimated_nightly_cost_min)
+      : null;
+  const nightlyMax =
+    typeof suggestion.estimated_nightly_cost_max === "number" && Number.isFinite(suggestion.estimated_nightly_cost_max)
+      ? Math.round(suggestion.estimated_nightly_cost_max)
+      : null;
+  const nightly = nightlyMin ?? nightlyMax;
+  if (nightly != null) {
+    const range = nightlyMin != null && nightlyMax != null && nightlyMax > nightlyMin ? `${nightlyMin}–${nightlyMax}` : `${nightly}`;
+    return `about ${currency} ${range}/night`;
+  }
+  if (min != null && max != null && max > min) return `${currency} ${min}–${max}`;
+  if (max != null) return `about ${currency} ${max}`;
+  if (min != null) return `from ${currency} ${min}`;
+  return null;
+}
+
+function bookingCardFromSuggestion(value: unknown): GuestBookingCard | null {
+  const suggestion = asRecord(value);
+  if (!suggestion) return null;
+  const url = clip(suggestion.affiliate_url, 1000) || clip(suggestion.normal_search_url, 1000);
+  const title = clip(suggestion.title, 180) || clip(suggestion.booking_label, 180);
+  if (!url || !title) return null;
+  // Never surface internal/placeholder links to guests.
+  if (/^https?:\/\/roamly\.local/i.test(url)) return null;
+  const detail =
+    clip(suggestion.why_recommended, 280) ||
+    clip(suggestion.description, 280) ||
+    clip(suggestion.reason, 280);
+  return {
+    title,
+    detail,
+    priceLabel: bookingPriceLabel(suggestion),
+    url,
+    provider: clip(suggestion.affiliate_provider, 80) || clip(suggestion.provider, 80) || clip(suggestion.provider_or_search_source, 80),
+    ctaLabel: clip(suggestion.booking_label, 80) || "View option"
+  };
+}
+
+function bookingSection(fullJson: unknown, categories: string[], limit = 3): GuestBookingCard[] {
+  const suggestions = asRecord(fullJson)?.booking_suggestions;
+  if (!Array.isArray(suggestions)) return [];
+  const cards: GuestBookingCard[] = [];
+  for (const suggestion of suggestions) {
+    const record = asRecord(suggestion);
+    const category = (clip(record?.booking_category, 40) || clip(record?.category, 40)).toLowerCase();
+    if (!categories.includes(category)) continue;
+    const card = bookingCardFromSuggestion(suggestion);
+    if (card && !cards.some((existing) => existing.title === card.title && existing.url === card.url)) {
+      cards.push(card);
+    }
+    if (cards.length >= limit) break;
+  }
+  return cards;
 }
 
 export function guestFreeItineraryEntitlement(trip: {
@@ -138,6 +229,9 @@ export function publicGuestItineraryView(input: {
     disclaimer: GUEST_FREE_ITINERARY_DISCLAIMER,
     status,
     days,
+    stays: bookingSection(input.fullJson, ["hotel"]),
+    flights: bookingSection(input.fullJson, ["flight", "transport", "car_rental"]),
+    experiences: bookingSection(input.fullJson, ["attraction", "tour", "activity"]),
     continuesBehindAccount: GUEST_ACCOUNT_WALL
   };
 }
