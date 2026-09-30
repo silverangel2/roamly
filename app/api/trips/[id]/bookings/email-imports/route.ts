@@ -36,7 +36,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     );
   }
 
-  const imports = (data || []).map((row) => {
+  const imports = ((data || []) as Array<{
+    id: unknown;
+    trip_id: unknown;
+    overall_confidence: unknown;
+    match_reasons: unknown;
+    extracted_booking_json: unknown;
+  }>).map((row) => {
     const booking = ((row.extracted_booking_json || {}) as Partial<TripBookingInput>) || {};
     return {
       id: String(row.id),

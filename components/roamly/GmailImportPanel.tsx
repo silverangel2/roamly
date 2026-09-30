@@ -173,7 +173,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
           typeof data?.error === "string" && data.error ? data.error : "We could not attach that booking."
         );
       }
-      setImports((list) => list.filter((item) => item.id !== importId));
+      setImports((list: PendingImport[]) => list.filter((item: PendingImport) => item.id !== importId));
       setNotice("Booking added to your trip.");
       router.refresh();
     } catch (err) {
@@ -199,7 +199,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
           typeof data?.error === "string" && data.error ? data.error : "We could not discard that import."
         );
       }
-      setImports((list) => list.filter((item) => item.id !== importId));
+      setImports((list: PendingImport[]) => list.filter((item: PendingImport) => item.id !== importId));
       setNotice("Import discarded. The original email is untouched.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "We could not discard that import.");
@@ -282,7 +282,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
               this trip, or discard the rest.
             </p>
             <div className="mt-3 grid gap-2">
-              {imports.map((item) => (
+              {imports.map((item: PendingImport) => (
                 <article key={item.id} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">

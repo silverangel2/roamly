@@ -55,8 +55,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "TRIP_LOOKUP_FAILED" }, { status: 500 });
   }
 
+  const tripRows = (activeTrips || []) as Array<{ user_id: unknown }>;
   const activeUserIds = new Set(
-    (activeTrips || []).map((trip) => String((trip as { user_id: unknown }).user_id)).filter(Boolean)
+    tripRows.map((trip) => String(trip.user_id)).filter(Boolean)
   );
   if (activeUserIds.size === 0) {
     return NextResponse.json({ ok: true, synced: 0, skipped: 0, total: 0 });
@@ -74,11 +75,13 @@ export async function GET(request: NextRequest) {
   }
 
   const now = Date.now();
-  const candidates = (connections || [])
+  type ConnectionRow = { user_id: unknown; provider?: unknown; last_synced_at?: string | null };
+  const connectionRows = (connections || []) as ConnectionRow[];
+  const candidates = connectionRows
     .filter((connection) => {
-      const userId = String((connection as { user_id: unknown }).user_id || "");
+      const userId = String(connection.user_id || "");
       if (!userId || !activeUserIds.has(userId)) return false;
-      const lastSynced = (connection as { last_synced_at?: string | null }).last_synced_at;
+      const lastSynced = connection.last_synced_at;
       if (lastSynced) {
         const syncedAt = new Date(lastSynced).getTime();
         if (Number.isFinite(syncedAt) && now - syncedAt < RECENT_SYNC_SKIP_MS) return false;
@@ -92,8 +95,8 @@ export async function GET(request: NextRequest) {
   const failures: Array<{ userId: string; provider: string; error: string }> = [];
 
   for (const connection of candidates) {
-    const userId = String((connection as { user_id: unknown }).user_id || "");
-    const provider = String((connection as { provider?: unknown }).provider || "");
+    const userId = String(connection.user_id || "");
+    const provider = String(connection.provider || "");
     try {
       const result =
         provider === OUTLOOK_PROVIDER
