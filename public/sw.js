@@ -37,13 +37,26 @@ self.addEventListener("push", (event) => {
     actions.push({ action: "skip", title: "Skip" });
   }
 
+  // Only time-critical alerts persist on screen. Routine nudges ("starting
+  // soon", nearby, booking confirmations) auto-dismiss so the phone is never
+  // flooded with sticky notifications.
+  const PERSISTENT_EVENT_TYPES = new Set([
+    "activity_start",
+    "leave_by",
+    "late",
+    "arrival",
+    "flight_delay",
+    "flight_cancelled"
+  ]);
+  const sticky = data.eventType ? PERSISTENT_EVENT_TYPES.has(data.eventType) : false;
+
   const options = {
     body: data.body || "Open Roamly to see what is next.",
     icon: "/icon.svg",
     badge: "/icon.svg",
     tag: data.tag || activityTag || undefined,
     actions,
-    requireInteraction: true,
+    requireInteraction: sticky,
     data: {
       tripId: data.tripId || null,
       activityId: data.activityId || null,
