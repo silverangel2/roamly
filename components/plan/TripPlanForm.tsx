@@ -412,13 +412,15 @@ function TextInput({
   onChange,
   ariaLabel,
   type = "text",
-  min
+  min,
+  disabled
 }: {
   value: string;
   onChange: (value: string) => void;
   ariaLabel: string;
   type?: "text" | "date" | "number";
   min?: string | number;
+  disabled?: boolean;
 }) {
 
 return (
@@ -428,7 +430,8 @@ return (
       type={type}
       min={min ?? (type === "date" ? todayIsoDate() : undefined)}
       aria-label={ariaLabel}
-      className="mt-2 min-h-12 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+      disabled={disabled}
+      className={`mt-2 min-h-12 w-full rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-base font-semibold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10${disabled ? " cursor-not-allowed opacity-60" : ""}`}
     />
   );
 }
@@ -1139,7 +1142,11 @@ export function TripPlanForm({
       if (adultCount < 1) return "Add at least one adult traveler.";
       if (roomCount < 1) return "Add at least one room.";
     }
-    if (stepToValidate === 2 && !budgetAmount) return "Add an estimated budget.";
+    if (stepToValidate === 2) {
+      const amount = toNumberOrNull(budgetAmount);
+      if (amount == null || amount <= 0) return "Add an estimated budget.";
+      if (amount < 100) return `Please enter a realistic trip budget (at least 100 ${budgetCurrency}).`;
+    }
     if (stepToValidate === 3 && interests.length === 0) return "Pick at least one interest.";
     return "";
   }
@@ -1698,7 +1705,7 @@ export function TripPlanForm({
             <label className="block">
               <FieldLabel>{translateText("Or number of days")}</FieldLabel>
               <TextInput
-                value={daysCount}
+                value={tripDateRange.ok ? String(resolvedDaysCount ?? "") : daysCount}
                 onChange={(value) => {
                   setDaysCount(value);
                   resetDiscovery();
@@ -1706,18 +1713,23 @@ export function TripPlanForm({
                 type="number"
                 min={1}
                 ariaLabel="Number of travel days"
+                disabled={tripDateRange.ok}
               />
+              {tripDateRange.ok ? (
+                <p className="mt-1 text-xs font-semibold text-slate-500">{translateText("Trip length comes from your dates above.")}</p>
+              ) : null}
             </label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <label className="block"><FieldLabel>{translateText("Adults")}</FieldLabel><TextInput value={adults} onChange={setAdults} type="number" min={1} ariaLabel="Adults" /></label>
+              <label className="block"><FieldLabel>{translateText("Children")}</FieldLabel><TextInput value={children} onChange={setChildren} type="number" min={0} ariaLabel="Children" /></label>
+              <label className="block"><FieldLabel>{translateText("Infants")}</FieldLabel><TextInput value={infants} onChange={setInfants} type="number" min={0} ariaLabel="Infants" /></label>
+              <label className="block"><FieldLabel>{translateText("Rooms")}</FieldLabel><TextInput value={rooms} onChange={setRooms} type="number" min={1} ariaLabel="Rooms" /></label>
+            </div>
             <details className="group border-y border-cloud/80 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
-                {translateText("More traveler and stay details")}
+                {translateText("Stay details")}
                 <span className="float-right text-slate-600 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <label className="block"><FieldLabel>{translateText("Children")}</FieldLabel><TextInput value={children} onChange={setChildren} type="number" min={0} ariaLabel="Children" /></label>
-                <label className="block"><FieldLabel>{translateText("Infants")}</FieldLabel><TextInput value={infants} onChange={setInfants} type="number" min={0} ariaLabel="Infants" /></label>
-                <label className="block"><FieldLabel>{translateText("Rooms")}</FieldLabel><TextInput value={rooms} onChange={setRooms} type="number" min={1} ariaLabel="Rooms" /></label>
-              </div>
               <label className="mt-3 block"><FieldLabel>{translateText("Bed preference")}</FieldLabel><SelectField value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} /></label>
             </details>
             <StepError error={translateText(error)} />
