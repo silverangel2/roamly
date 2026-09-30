@@ -1,17 +1,44 @@
 import type { Metadata } from "next";
-import { FindsDirectPartners } from "@/components/roamly/FindsDirectPartners";
+import { FindsQuickBook } from "@/components/roamly/FindsQuickBook";
+import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
+import { amazonFindCard } from "@/lib/roamly/findsMarketCore";
+import { amazonAffiliateDisclosure } from "@/lib/roamly/amazonAffiliate";
+import { searchAmazonFindProducts } from "@/lib/roamly/amazonCreatorsApi";
+import { Stay22LetMeAllezScript } from "@/components/roamly/FindsCommercialWidgets";
+import { curatedAmazonFindCards } from "@/lib/roamly/curatedAmazonFinds";
+import { getActiveFindsPromo } from "@/lib/roamly/findsPromoStore";
 
 export const metadata: Metadata = {
   title: "Roamly Finds",
-  description: "Start with trusted travel partners for stays, flights, activities, gear, and eSIMs."
+  description: "A visual collection of useful travel finds, beautiful stays, flight ideas, experiences, and essentials."
 };
 
 export const dynamic = "force-dynamic";
 
-export default function FindsPage() {
+type SearchParams = Promise<{ destination?: string; q?: string }>;
+
+function clean(value: string | undefined, maxLength = 100) {
+  return (value || "").trim().slice(0, maxLength);
+}
+
+export default async function FindsPage({ searchParams }: { searchParams: SearchParams }) {
+  const search = await searchParams;
+  const destination = clean(search.destination) || "your next somewhere";
+  const productKeywords = clean(search.q) || (destination !== "your next somewhere" ? `${destination} travel essentials` : "travel essentials");
+  const productResults = await searchAmazonFindProducts({ keywords: productKeywords });
+  const activePromo = await getActiveFindsPromo();
+  const cards = [
+    ...productResults.products.map((product) => amazonFindCard(product, productResults.checkedAt)),
+    ...curatedAmazonFindCards()
+  ];
+
   return (
-    <main className="min-h-[75vh] bg-[#fbfaf6] px-4 pb-12 pt-8 text-[#203c43] sm:px-8 sm:pb-16 sm:pt-12">
-      <FindsDirectPartners />
-    </main>
+    <div className="min-h-[75vh] bg-[#fbfaf6] px-4 pb-12 pt-5 text-[#203c43] sm:px-8 sm:pb-16 sm:pt-8">
+      <div className="mx-auto max-w-[1440px]">
+        <Stay22LetMeAllezScript />
+        <FindsQuickBook />
+        <FindsEditorialMagazine cards={cards} destination={destination} emptyMessage="No verified live listing is available for this section right now." disclosures={[amazonAffiliateDisclosure]} activePromo={activePromo} />
+      </div>
+    </div>
   );
 }
