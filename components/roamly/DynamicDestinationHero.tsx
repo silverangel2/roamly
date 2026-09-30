@@ -145,12 +145,12 @@ export function DynamicDestinationHero() {
                 onClick={() => setRotationPaused((paused) => !paused)}
                 aria-label={rotationPaused ? "Resume destination previews" : "Pause destination previews"}
                 aria-pressed={rotationPaused}
-                className="grid h-10 min-w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white px-3 text-xs font-extrabold text-[#267d78] transition duration-200 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 motion-reduce:transition-none"
+                className="grid h-11 min-w-11 place-items-center rounded-full border border-[#d7e3dc] bg-white px-3 text-xs font-extrabold text-[#267d78] transition duration-200 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 motion-reduce:transition-none"
               >
                 {rotationPaused ? "Play" : "Pause"}
               </button>
-              <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-10 w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">←</button>
-              <button type="button" onClick={() => move(1)} disabled={transitioning} aria-label="Next destination" className="grid h-10 w-10 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">→</button>
+              <button type="button" onClick={() => move(-1)} disabled={transitioning} aria-label="Previous destination" className="grid h-11 w-11 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">←</button>
+              <button type="button" onClick={() => move(1)} disabled={transitioning} aria-label="Next destination" className="grid h-11 w-11 place-items-center rounded-full border border-[#d7e3dc] bg-white text-lg text-[#267d78] transition duration-200 hover:-translate-y-0.5 hover:border-[#82c7b6] hover:bg-[#effaf6] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 disabled:cursor-wait disabled:opacity-60 motion-reduce:transform-none motion-reduce:transition-none">→</button>
             </div>
           </div>
         </div>
