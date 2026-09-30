@@ -1516,7 +1516,7 @@ export function TripPlanForm({
     ) : (
     <section className="min-w-0 border-y border-cloud/90 bg-[#fffdf8]/70 px-0 py-5 sm:py-7">
       <div className="flex items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
             {translateText("Step")} {step + 1} {translateText("of")} {steps.length} <span className="text-slate-600">· {translateText(steps[step].detail)}</span>
           </p>
