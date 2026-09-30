@@ -50,7 +50,25 @@ function notificationForEvent(params: {
   summary: string;
   tripId: string;
   repairProposalId?: string | null;
+  requiresApproval?: boolean;
 }) {
+  // Approval-required repairs deep-link to the review screen where the
+  // traveler sees old vs new times and can Approve or keep the original.
+  // The flight_delay / flight_delayed type mapping below is untouched.
+  if (params.repairProposalId && params.requiresApproval) {
+    return {
+      type: "repair_proposed" as const,
+      priority:
+        params.severity === "critical"
+          ? ("critical" as const)
+          : ("important" as const),
+      title: "Roamly prepared a trip repair",
+      body: "Review the proposed timing changes before anything in your plan moves.",
+      actionLabel: "Review repair",
+      actionUrl: `/trip/${params.tripId}/companion/repair/${params.repairProposalId}`
+    };
+  }
+
   const actionUrl = `/trip/${params.tripId}/live`;
 
   if (params.eventType === "flight_cancelled") {
@@ -246,17 +264,28 @@ export async function processCompanionBookingChange(
       ? repairProposal.id
       : null;
 
+  const autoApplied =
+    repairResult.ok &&
+    "appliedAutomatically" in repairResult &&
+    repairResult.appliedAutomatically === true;
+
   await params.supabase
     .from("companion_events")
     .update({
+      // When the repair engine already applied (and verified) the repair,
+      // its terminal status stands — do not clobber it back to "proposed".
       // A timing disruption without an exact V1 repair target is not resolved.
       // Keep it processing so the customer is not shown a false resolution;
       // non-V1 event behavior remains unchanged.
-      status: repairProposal
-        ? "proposed"
-        : ["flight_delayed", "flight_time_changed"].includes(params.eventType)
-          ? "processing"
-          : "resolved",
+      ...(autoApplied
+        ? {}
+        : {
+            status: repairProposal
+              ? "proposed"
+              : ["flight_delayed", "flight_time_changed"].includes(params.eventType)
+                ? "processing"
+                : "resolved"
+          }),
       requires_user_approval:
         params.requiresUserApproval === true ||
         impactResult.impact.travelerActionRequired === true
@@ -270,7 +299,10 @@ export async function processCompanionBookingChange(
     title: params.title,
     summary: params.summary,
     tripId: params.tripId,
-    repairProposalId
+    repairProposalId,
+    requiresApproval:
+      params.requiresUserApproval === true ||
+      impactResult.impact.travelerActionRequired === true
   });
 
   const queuedNotification = await queueCompanionNotification({
