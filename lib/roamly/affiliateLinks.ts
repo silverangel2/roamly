@@ -12,6 +12,7 @@ import {
   safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
 import { buildKlookSearchUrl, isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
+import { buildAmazonSearchUrl, buildPreTripEssentials } from "@/lib/roamly/amazonAffiliate";
 import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import { reconcileAffiliateAction, type ConfirmedBookingEvidence } from "@/lib/roamly/affiliateActionReconciliation";
@@ -1232,6 +1233,61 @@ function buildBrainBookingSuggestions(params: {
         why_recommended:
           cleanStringValue(activity.description) ||
           "Fits your route, timing, destination, and interests."
+      } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+    }
+  }
+
+  // Airport/station transfers: taxi or private van for the last mile.
+  // Only when the destination resolved to a real place and the traveler is
+  // not driving themselves. Honest "check availability" card — the transport
+  // affiliate (or Maps directions fallback) supplies the booking surface.
+  if (Boolean(resolvedDestination) && recommendedTransport?.mode !== "drive") {
+    generated.push({
+      booking_category: "transport",
+      category: "transport",
+      title: `Airport taxi or private van transfer in ${destination}`,
+      description:
+        `Door-to-door taxi or private van between the airport or station and your stay in ${destination}. ` +
+        `Availability and fixed pricing vary by date — check live options before you travel.`,
+      destination,
+      origin: origin || undefined,
+      departure_date: payload.startDate,
+      return_date: payload.endDate,
+      provider: "Roamly transfers",
+      provider_or_search_source: "Roamly transfers",
+      url_type: "affiliate",
+      has_affiliate_url: true,
+      booking_label: "Check transfer options",
+      normal_search_url: `https://www.google.com/search?q=${encodeURIComponent(
+        `${destination} airport taxi private van transfer`
+      )}`,
+      why_recommended: "Covers the last mile between arrival and your stay without relying on local taxi queues."
+    } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+  }
+
+  // Amazon travel essentials: the pre-trip essentials engine builds
+  // trip-aware picks (luggage, power, comfort, weather, documents,
+  // destination-specific). Surface the top picks as "product" suggestions so
+  // the pipeline attaches the Amazon associate-tagged search URLs.
+  // These are "finds" (search links), never claimed exact products.
+  if (!hasSuggestionCategory(suggestions, "product")) {
+    const essentials = buildPreTripEssentials(payload).slice(0, 4);
+    for (const essential of essentials) {
+      generated.push({
+        booking_category: "product",
+        category: "product",
+        title: essential.title,
+        description:
+          `${essential.reason} Category: ${essential.category}. ` +
+          `Prices and availability vary — check current Amazon listings and reviews.`,
+        destination,
+        provider: "Amazon",
+        provider_or_search_source: "Amazon",
+        url_type: "affiliate",
+        has_affiliate_url: true,
+        booking_label: "Shop travel gear",
+        normal_search_url: buildAmazonSearchUrl(essential.search_query),
+        why_recommended: essential.reason
       } as unknown as RoamlyItinerary["booking_suggestions"][number]);
     }
   }

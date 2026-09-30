@@ -47,6 +47,7 @@ export type GuestItineraryView = {
   stays: GuestBookingCard[];
   flights: GuestBookingCard[];
   experiences: GuestBookingCard[];
+  essentials: GuestBookingCard[];
   continuesBehindAccount: readonly string[];
 };
 
@@ -232,6 +233,7 @@ export function publicGuestItineraryView(input: {
     stays: bookingSection(input.fullJson, ["hotel"]),
     flights: bookingSection(input.fullJson, ["flight", "transport", "car_rental"]),
     experiences: bookingSection(input.fullJson, ["attraction", "tour", "activity"]),
+    essentials: bookingSection(input.fullJson, ["product"], 4),
     continuesBehindAccount: GUEST_ACCOUNT_WALL
   };
 }
