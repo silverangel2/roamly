@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { bookingFindCard, flightFindCard, klookFindCard, klookTransportFindCard, publicEventFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
+import { bookingFindCard, flightFindCard, flightFindHandoff, klookFindCard, klookTransportFindCard, publicEventFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
 import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
 import type { FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
 import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
@@ -53,6 +53,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
   const [searchingCategory, setSearchingCategory] = useState<string | null>(null);
   const [hotelSearchMessage, setHotelSearchMessage] = useState("Add your destination and dates to see live hotel offers with property photos.");
   const [partnerSearchMessage, setPartnerSearchMessage] = useState<Record<string, string>>({});
+  const [partnerSearchHandoff, setPartnerSearchHandoff] = useState<Record<string, string>>({});
   const [hotelDestination, setHotelDestination] = useState<NormalizedPlace | null>(() => initialHotelPlace(destination));
 
   function openSearch(tab: "stays" | "flights" | "activities") {
@@ -185,6 +186,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       }
       searchStarted = true;
       setSearchingCategory(category);
+      setPartnerSearchHandoff((current) => ({ ...current, [category]: "" }));
       setPartnerSearchMessage((current) => ({ ...current, [category]: category === "flight" ? "Checking current flight fares…" : category === "transport" ? "Looking for current transport options…" : "Looking for current experiences…" }));
       const controller = new AbortController();
       timeoutId = window.setTimeout(() => controller.abort(), PARTNER_SEARCH_TIMEOUT_MS);
@@ -228,8 +230,12 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       }
       const results = body.results;
       const warning = typeof body.warning === "string" ? body.warning : null;
+      const handoff = category === "flight"
+        ? results.map(flightFindHandoff).find((href): href is string => Boolean(href)) || ""
+        : "";
       const cardsForShelf = results.map((item) => category === "flight" ? flightFindCard(item) : category === "transport" ? klookTransportFindCard(item) : publicEventFindCard(item) || klookFindCard(item)).filter((card): card is FindsCard => Boolean(card));
       setMarketCards((current) => dedupeCards([...current.filter((card) => card.category !== cardCategory), ...cardsForShelf]));
+      setPartnerSearchHandoff((current) => ({ ...current, [category]: cardsForShelf.length ? "" : handoff }));
       setPartnerSearchMessage((current) => ({
         ...current,
         [category]: cardsForShelf.length
@@ -267,7 +273,10 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       <label className="text-xs font-bold text-[#547067]">Depart<input name="flightDeparture" type="date" defaultValue={startDate} aria-required="true" className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <label className="text-xs font-bold text-[#547067]">Return<input name="flightReturn" type="date" defaultValue={endDate} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingCategory === "flight"} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingCategory === "flight" ? "Checking…" : "Check flights"}</button></div>
-      <p key={partnerSearchMessage.flight || "flight-idle"} aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-5">{partnerSearchMessage.flight || (flightLiveSearchConfigured ? "Checking current fares with the approved flight feed." : "Open a real partner search with your route and dates. Roamly does not independently verify fares here.")}</p>
+      <div className="sm:col-span-2 lg:col-span-5">
+        <p key={partnerSearchMessage.flight || "flight-idle"} aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179]">{partnerSearchMessage.flight || (flightLiveSearchConfigured ? "Checking current fares with the approved flight feed." : "Open a real partner search with your route and dates. Roamly does not independently verify fares here.")}</p>
+        {partnerSearchHandoff.flight ? <a href={partnerSearchHandoff.flight} target="_blank" rel="noopener noreferrer" className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border border-[#0f6e66] bg-[#0f6e66] px-4 py-3 text-center text-sm font-black text-white shadow-sm transition hover:bg-[#0b5b55] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Check current flights on Aviasales <span aria-hidden="true" className="ml-2">↗</span></a> : null}
+      </div>
     </form> : null}
     {active === "activities" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "attraction", "activity"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-xs font-bold text-[#547067]">Destination<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Tokyo" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>

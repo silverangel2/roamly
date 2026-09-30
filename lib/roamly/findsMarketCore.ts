@@ -255,3 +255,9 @@ export function flightFindCard(value: unknown): FindsCard | null {
     checkedAt: null
   };
 }
+
+export function flightFindHandoff(value: unknown): string | null {
+  const result = record(value);
+  if (!result || result.source !== "travelpayouts" || result.category !== "flight") return null;
+  return providerUrl(result.booking_url, "aviasales.com") || providerUrl(result.affiliate_url, "aviasales.com") || null;
+}

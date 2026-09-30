@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { amazonFindCard, bookingFindCard, flightFindCard, klookFindCard, publicEventFindCard } from "../lib/roamly/findsMarketCore.ts";
+import { amazonFindCard, bookingFindCard, flightFindCard, flightFindHandoff, klookFindCard, publicEventFindCard } from "../lib/roamly/findsMarketCore.ts";
 import { travelpayoutsBookingUrl } from "../lib/roamly/travelpayoutsLink.ts";
 
 const hotel = {
@@ -61,6 +61,17 @@ assert.match(flightFindCard(flight)?.description || "", /not a live quote/i);
 assert.equal(flightFindCard(flight)?.checkedAt, null, "a current query timestamp must not be presented as the fare's verification time");
 const recentFlight = { ...flight, price_type: "cached_recent", provider: "Travelpayouts recent fare data", metadata: { ...flight.metadata, found_at: "2026-09-30T03:00:00.000Z" } };
 assert.equal(flightFindCard(recentFlight)?.priceNote, "recent fare reference · not live", "Data API fare observations must not be labeled live");
+const noRecentFareFlight = {
+  ...flight,
+  category: "flight",
+  price_type: "search_ready",
+  price_amount: undefined,
+  booking_url: "https://www.aviasales.com/search/YSJ1610DVO31111?marker=750294"
+};
+assert.equal(flightFindCard(noRecentFareFlight), null, "zero-result handoffs must not fabricate a priced flight card");
+assert.equal(flightFindHandoff(noRecentFareFlight), noRecentFareFlight.booking_url, "zero-result flight handoff uses the returned provider URL");
+assert.match(flightFindHandoff(noRecentFareFlight) || "", /YSJ1610DVO31111\?marker=750294/, "flight handoff preserves route, dates, and affiliate marker");
+assert.equal(flightFindHandoff({ ...noRecentFareFlight, booking_url: "https://example.com/fake" }), null, "flight handoff rejects non-Aviasales URLs");
 assert.equal(flightFindCard({ ...flight, booking_url: "https://example.com/ticket" }), null, "flight CTA must remain on the expected ticket seller");
 assert.notEqual(flightFindCard(flight)?.href, "/plan", "flight CTA remains Travelpayouts-specific");
 assert.notEqual(bookingFindCard(hotel)?.href, "/plan", "hotel CTA remains property/search-specific");
@@ -92,6 +103,10 @@ assert.match(component, /Choose a destination from the place suggestions/, "unre
 assert.match(placeSelector, /onChange\(cleaned \? normalizeCustomPlace\(cleaned\) : null\)/, "typing invalidates the previous verified place");
 assert.match(placeSelector, /onChange\(place\)/, "only an explicitly selected suggestion becomes the place value");
 assert.match(component, /category: "flight"/);
+assert.match(component, /flightFindHandoff/);
+assert.match(component, /Check current flights on Aviasales/);
+assert.match(component, /target="_blank" rel="noopener noreferrer"/);
+assert.match(component, /partnerSearchHandoff\.flight/);
 assert.match(component, /searchPartner\(event\.currentTarget, "attraction", "activity"\)/, "activity search keeps the current form interaction contract");
 assert.match(component, /store: false/);
 assert.match(magazine, /Some links may earn Roamly a commission/, "all live affiliate shelves must disclose commission relationships");
