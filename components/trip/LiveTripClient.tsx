@@ -1572,7 +1572,7 @@ export function LiveTripClient({
 
             {hasDirectionLinks ? (
               <div id="live-directions" className="mt-5 scroll-mt-24 rounded-2xl border border-cloud bg-white p-3">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Directions</p>
                   <div className="grid grid-cols-3 gap-1 rounded-xl bg-mist p-1" role="group" aria-label="Travel mode">
                     {(
@@ -1588,7 +1588,7 @@ export function LiveTripClient({
                         onClick={() => updateDirectionMode(option.mode)}
                         aria-pressed={directionMode === option.mode}
                         className={classNames(
-                          "min-h-9 rounded-lg px-3 text-xs font-black transition-colors",
+                          "min-h-11 rounded-lg px-3 text-xs font-black transition-colors",
                           directionMode === option.mode ? "bg-ink text-white shadow" : "text-slate-500"
                         )}
                       >
@@ -1597,7 +1597,7 @@ export function LiveTripClient({
                     ))}
                   </div>
                 </div>
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="mt-2 grid grid-cols-1 gap-2 min-[380px]:grid-cols-3">
                   {directionLinks.google ? (
                     <a
                       href={directionLinks.google}
