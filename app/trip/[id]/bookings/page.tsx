@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { BookingWalletTimeline } from "@/components/companion/BookingWalletTimeline";
+import { GmailImportPanel } from "@/components/roamly/GmailImportPanel";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
@@ -128,6 +129,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-8">
         <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" />
       </div>
+      <GmailImportPanel tripId={id} locale={locale} />
       <BookingWalletTimeline
         tripId={id}
         bookings={mergeBookings(walletBookings, legacyBookings)}
