@@ -34,6 +34,15 @@ function formatMoney(cents: number | null, currency: string, locale: Parameters<
   return formatRoamlyCurrency(cents / 100, (currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
 }
 
+/** Short "Sep 7" / "Sep 7 - Sep 9" range for nav headers; a single-day trip
+ *  shows one date instead of the redundant "Sep 7 - Sep 7". */
+function formatShortDateRange(startDate: string | null, endDate: string | null, locale: string) {
+  if (!startDate || !endDate) return "Dates flexible";
+  const start = formatRoamlyDate(startDate, locale, { month: "short", day: "numeric" });
+  const end = formatRoamlyDate(endDate, locale, { month: "short", day: "numeric" });
+  return start === end ? start : `${start} - ${end}`;
+}
+
 function daysUntil(date: string | null) {
   if (!date) return null;
   const start = new Date(`${date}T00:00:00`);
@@ -318,7 +327,7 @@ export default async function LiveTripPage({
           tripId={id}
           title={bundle.data.trip.title || destinationLabel}
           destination={destinationLabel}
-          dates={bundle.data.trip.start_date && bundle.data.trip.end_date ? `${formatRoamlyDate(bundle.data.trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(bundle.data.trip.end_date, locale, { month: "short", day: "numeric" })}` : "Dates flexible"}
+          dates={formatShortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date, locale)}
           status={companionPageStatus}
         />
         <section className="mb-5 flex items-end justify-between gap-4">
@@ -364,7 +373,7 @@ export default async function LiveTripPage({
         tripId={id}
         title={bundle.data.trip.title || destinationLabel}
         destination={destinationLabel}
-        dates={bundle.data.trip.start_date && bundle.data.trip.end_date ? `${formatRoamlyDate(bundle.data.trip.start_date, locale, { month: "short", day: "numeric" })} - ${formatRoamlyDate(bundle.data.trip.end_date, locale, { month: "short", day: "numeric" })}` : "Dates flexible"}
+        dates={formatShortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date, locale)}
         status="Today"
       />
       <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

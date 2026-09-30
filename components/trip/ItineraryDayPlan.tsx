@@ -543,7 +543,7 @@ export function DayTimelineCard({
   return (
     <section
       id={`day-${day.day_number}`}
-      className="roamly-day-print scroll-mt-40 rounded-[1.75rem] border border-cloud bg-white px-5 py-6 shadow-[0_24px_60px_-30px_rgba(16,32,51,0.28)] sm:px-8 sm:py-8"
+      className="roamly-day-print roamly-enter roamly-lift scroll-mt-40 rounded-[1.75rem] border border-cloud bg-white px-5 py-6 shadow-[0_24px_60px_-30px_rgba(16,32,51,0.28)] sm:px-8 sm:py-8"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

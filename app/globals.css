@@ -90,6 +90,27 @@ select {
   animation: roamly-enter 650ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
 
+/* Apple-like tactile press: buttons and nav links shrink a touch while held. */
+.roamly-press {
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.roamly-press:active {
+  transform: scale(0.96);
+}
+
+/* Apple-like card lift: day cards feel tactile on hover (pointer devices only). */
+@media (hover: hover) and (pointer: fine) {
+  .roamly-lift {
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1), box-shadow 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .roamly-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 30px 70px -30px rgba(16, 32, 51, 0.32);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -97,6 +118,16 @@ select {
 
   .roamly-enter {
     animation: none !important;
+  }
+
+  .roamly-press,
+  .roamly-lift {
+    transition: none !important;
+  }
+
+  .roamly-press:active,
+  .roamly-lift:hover {
+    transform: none !important;
   }
 }
 
