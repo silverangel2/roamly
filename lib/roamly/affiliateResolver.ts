@@ -234,6 +234,10 @@ function klookSearchUrl(input: AffiliateResolverInput) {
   return target || referral;
 }
 
+export function buildKlookSearchUrl(query = "travel activities") {
+  return klookSearchUrl({ category: "activity", query });
+}
+
 export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLinkResolution {
   if (input.category === "flight") {
     const provider = clean(process.env.ROAMLY_FLIGHT_AFFILIATE_PROVIDER || "travelpayouts").toLowerCase();
