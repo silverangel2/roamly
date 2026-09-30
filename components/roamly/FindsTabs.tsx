@@ -51,7 +51,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
   const [marketCards, setMarketCards] = useState(() => dedupeCards(cards));
   const [searchingHotels, setSearchingHotels] = useState(false);
   const [searchingCategory, setSearchingCategory] = useState<string | null>(null);
-  const [hotelSearchMessage, setHotelSearchMessage] = useState("Add your destination and dates to see live hotel offers with property photos.");
+  const [hotelSearchMessage, setHotelSearchMessage] = useState("Add your destination and dates to search stay options with the booking partner.");
   const [partnerSearchMessage, setPartnerSearchMessage] = useState<Record<string, string>>({});
   const [partnerSearchHandoff, setPartnerSearchHandoff] = useState<Record<string, string>>({});
   const [hotelDestination, setHotelDestination] = useState<NormalizedPlace | null>(() => initialHotelPlace(destination));
@@ -103,7 +103,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       return;
     }
     setSearchingHotels(true);
-    setHotelSearchMessage("Checking current stays and property photos…");
+    setHotelSearchMessage("Opening stay options with the booking partner…");
     try {
       const response = await fetch("/api/roamly/market-search", {
         method: "POST",
@@ -133,7 +133,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       const stays = results.map(bookingFindCard).filter((card): card is FindsCard => Boolean(card));
       setMarketCards((current) => dedupeCards([...current.filter((card) => card.category !== "hotel"), ...stays]));
       setHotelSearchMessage(stays.length
-        ? `${stays.length} current stays matched these dates and are ranked by your stated preferences, then nightly price. ${maximumNightlyPrice > 0 ? `All shown are within your CAD ${maximumNightlyPrice}/night limit. ` : ""}Check the final offer before booking.`
+        ? `${stays.length} verified provider stays matched these dates and are ranked by your stated preferences, then nightly price. ${maximumNightlyPrice > 0 ? `All shown are within your CAD ${maximumNightlyPrice}/night limit. ` : ""}Check the final offer before booking.`
         : body.warning || (maximumNightlyPrice > 0
           ? `No verified live stays fit your CAD ${maximumNightlyPrice}/night limit for these dates. Try raising the limit or changing your dates.`
           : "No live hotel offers with a verified property photo and booking link came back for these dates. Nothing has been substituted or guessed."));
@@ -262,10 +262,10 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       <div className="lg:col-span-2"><PlaceSelector label="Where are you staying?" value={hotelDestination} onChange={setHotelDestination} placeholder="Search a city or destination" helper="Choose a suggested place with its country. We use that match to search the right area." /></div>
       <label className="text-xs font-bold text-[#547067]">Check in<input name="stayCheckIn" type="date" defaultValue={startDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <label className="text-xs font-bold text-[#547067]">Check out<input name="stayCheckOut" type="date" defaultValue={endDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <div className="flex items-end"><button disabled={searchingHotels} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingHotels ? "Checking…" : "Check current stays"}</button></div>
+      <div className="flex items-end"><button disabled={searchingHotels} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingHotels ? "Opening…" : "Search stays"}</button></div>
       <label className="text-xs font-bold text-[#547067]">Travelers<input name="stayTravelers" type="number" min="1" max="20" defaultValue="2" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <label className="text-xs font-bold text-[#547067]">Rooms<input name="stayRooms" type="number" min="1" max="10" defaultValue="1" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <p aria-live="polite" data-find-state={searchingHotels ? "loading" : hotelSearchMessage === "Add your destination and dates to see live hotel offers with property photos." ? "idle" : "terminal"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-4">{hotelSearchMessage}</p>
+      <p aria-live="polite" data-find-state={searchingHotels ? "loading" : hotelSearchMessage === "Add your destination and dates to search stay options with the booking partner." ? "idle" : "terminal"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-4">{hotelSearchMessage}</p>
     </form> : null}
     {active === "flights" ? <form id="finds-live-panel" noValidate onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "flight", "flight"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-5">
       <label className="text-xs font-bold text-[#547067]">From<input name="flightOrigin" defaultValue={origin} placeholder="Halifax" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>

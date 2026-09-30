@@ -38,9 +38,9 @@ export async function POST(request: NextRequest) {
   if (!tripId) {
     const marketRequest = parseMarketSearchRequest(body);
     if (!marketRequest) return NextResponse.json({ ok: false, error: "A valid category is required." }, { status: 400 });
-    // Ordinary logged-out Finds flight discovery is a public provider handoff.
+    // Ordinary logged-out Finds flight and hotel discovery are public provider handoffs.
     // It never exposes trip/account data and deliberately does not write cache rows.
-    if (marketRequest.category === "flight") {
+    if (marketRequest.category === "flight" || marketRequest.category === "hotel") {
       const admin = publicMarketSearchAdminClient();
       const clientIp = trustedPublicMarketClientIp(request.headers.get("x-forwarded-for"));
       const actorHash = clientIp ? publicMarketActorHash(clientIp, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;

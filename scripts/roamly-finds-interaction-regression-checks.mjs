@@ -37,9 +37,11 @@ try {
     await page.getByRole("textbox", { name: "Check in", exact: true }).fill("2026-09-26");
     await page.getByRole("textbox", { name: "Check out", exact: true }).fill("2026-09-27");
     const stayMessage = page.locator('p[aria-live="polite"]');
-    const stayFormState = await page.getByRole("button", { name: "Check current stays", exact: true }).evaluate((button) => ({ formId: button.form?.id || null, valid: button.form?.checkValidity() || false }));
+    const stayButton = page.locator('#finds-live-panel button[type="submit"]');
+    const stayFormState = await stayButton.evaluate((button) => ({ formId: button.form?.id || null, valid: button.form?.checkValidity() || false, disabled: button.disabled, label: button.textContent?.trim() || "" }));
     if (stayFormState.formId !== "finds-live-panel" || !stayFormState.valid) throw new Error(`${viewport.name}: stay CTA form association/validity failed: ${JSON.stringify(stayFormState)}`);
-    await page.getByRole("button", { name: "Check current stays", exact: true }).click();
+    if (stayFormState.disabled || stayFormState.label !== "Search stays") throw new Error(`${viewport.name}: Stay22 search CTA was not available: ${JSON.stringify(stayFormState)}`);
+    await stayButton.click();
     await page.locator('[data-find-state="terminal"]').waitFor({ state: "visible", timeout: 5000 });
 
     await page.getByRole("tab", { name: "Flights", exact: true }).click();

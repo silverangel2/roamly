@@ -81,13 +81,14 @@ assert.equal(travelpayoutsBookingUrl("search/YHZ2209LIS1?adults=1", "marker123")
 assert.equal(travelpayoutsBookingUrl("https://example.com/fake", "marker123"), undefined, "provider links cannot redirect off Aviasales");
 assert.equal(travelpayoutsBookingUrl("/search/YHZ2209LIS1", ""), undefined, "flight offers without a configured marker are withheld");
 
-const [component, magazine, route, market, nextConfig, placeSelector] = await Promise.all([
+const [component, magazine, route, market, nextConfig, placeSelector, page] = await Promise.all([
   readFile(new URL("../components/roamly/FindsTabs.tsx", import.meta.url), "utf8"),
   readFile(new URL("../components/roamly/FindsEditorialMagazine.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/api/roamly/market-search/route.ts", import.meta.url), "utf8"),
   readFile(new URL("../lib/roamly/travelMarketSearch.ts", import.meta.url), "utf8"),
   readFile(new URL("../next.config.ts", import.meta.url), "utf8"),
-  readFile(new URL("../components/roamly/PlaceSelector.tsx", import.meta.url), "utf8")
+  readFile(new URL("../components/roamly/PlaceSelector.tsx", import.meta.url), "utf8"),
+  readFile(new URL("../app/finds/page.tsx", import.meta.url), "utf8")
 ]);
 assert.match(component, /category: "hotel"/);
 assert.match(component, /Where are you staying\?/ , "hotel search has one clear destination field");
@@ -109,6 +110,9 @@ assert.match(component, /target="_blank" rel="noopener noreferrer"/);
 assert.match(component, /partnerSearchHandoff\.flight/);
 assert.match(component, /searchPartner\(event\.currentTarget, "attraction", "activity"\)/, "activity search keeps the current form interaction contract");
 assert.match(component, /store: false/);
+assert.match(component, /Search stays/);
+assert.doesNotMatch(component, /hotelLiveSearchConfigured/, "Stays must not depend on direct Booking Demand configuration");
+assert.doesNotMatch(page, /hotelInventoryConfigured\(\)/, "Finds page must not gate Stay22 on Booking Demand configuration");
 assert.match(magazine, /Some links may earn Roamly a commission/, "all live affiliate shelves must disclose commission relationships");
 assert.match(component, /ArrowRight/);
 assert.match(component, /ArrowLeft/);

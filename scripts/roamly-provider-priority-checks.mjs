@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { createRequire } from "node:module";
+import { randomUUID } from "node:crypto";
 import ts from "typescript";
 
 const root = path.resolve(new URL("..", import.meta.url).pathname);
@@ -27,6 +28,7 @@ function loadTsModule(entryFile) {
       exports: {},
       module: { exports: {} },
       require(id) {
+        if (id === "server-only") return {};
         if (id.startsWith("@/")) {
           const local = id.slice(2);
           return load(local.match(/\.(ts|tsx|json)$/) ? local : `${local}.ts`);
@@ -39,6 +41,7 @@ function loadTsModule(entryFile) {
       },
       URL,
       URLSearchParams,
+      randomUUID,
       process
     };
     cache.set(absolute, sandbox);
@@ -57,12 +60,50 @@ process.env.ROAMLY_KLOOK_PARTNER_ID = "test-klook";
 const resolver = loadTsModule("lib/roamly/affiliateResolver.ts");
 const neutrality = loadTsModule("lib/roamly/affiliateNeutrality.ts");
 const links = loadTsModule("lib/roamly/bookingLinks.ts");
+delete process.env.ROAMLY_HOTEL_INVENTORY_PROVIDER;
+delete process.env.BOOKING_DEMAND_API_TOKEN;
+delete process.env.BOOKING_DEMAND_AFFILIATE_ID;
 
-const hotel = resolver.resolveAffiliateLink({ category: "hotel", destination: "Montreal, Canada", title: "Hotel Bonaventure" });
+const hotel = resolver.resolveAffiliateLink({
+  category: "hotel",
+  destination: "Toronto, Canada",
+  title: "Toronto hotel search",
+  startDate: "2026-10-01",
+  endDate: "2026-10-04",
+  travelers: 2,
+  adults: 2,
+  rooms: 1
+});
 assert.equal(hotel.provider, "stay22");
 assert.equal(hotel.fallbackBehavior, "affiliate");
 assert.match(hotel.finalUrl, /stay22\.com/);
 assert.equal(hotel.disclosureRequired, true);
+assert.match(hotel.finalUrl, /address=Toronto%2C(?:%20|\+)Canada/);
+assert.match(hotel.finalUrl, /checkin=2026-10-01/);
+assert.match(hotel.finalUrl, /checkout=2026-10-04/);
+assert.match(hotel.finalUrl, /adults=2/);
+assert.match(hotel.finalUrl, /rooms=1/);
+
+const market = loadTsModule("lib/roamly/travelMarketSearch.ts");
+const publicHotel = await market.searchTravelMarket({
+  category: "hotel",
+  destination: "Toronto",
+  city: "Toronto",
+  country: "Canada",
+  start_date: "2026-10-01",
+  end_date: "2026-10-04",
+  travelers: 2,
+  rooms: 1,
+  currency: "CAD"
+}, { forceRefresh: true, store: false });
+assert.equal(publicHotel.providerUsed, "search_link_only");
+assert.equal(publicHotel.results[0].source, "stay22");
+assert.equal(publicHotel.results[0].price_amount, undefined);
+assert.match(publicHotel.results[0].booking_url || "", /stay22\.com\/allez\/booking/);
+assert.match(publicHotel.results[0].booking_url || "", /checkin=2026-10-01/);
+assert.match(publicHotel.results[0].booking_url || "", /checkout=2026-10-04/);
+assert.match(publicHotel.results[0].booking_url || "", /adults=2/);
+assert.match(publicHotel.results[0].booking_url || "", /rooms=1/);
 
 const flight = resolver.resolveAffiliateLink({
   category: "flight",
