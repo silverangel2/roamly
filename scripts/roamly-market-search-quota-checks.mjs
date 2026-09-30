@@ -16,8 +16,9 @@ assert.deepEqual(await consumeMarketSearchQuota(mock({ data: [{ allowed: false, 
 assert.deepEqual(await consumeMarketSearchQuota(mock({ data: null, error: new Error("missing migration") })), { ok: false }, "missing quota storage fails closed");
 assert.deepEqual(await consumeMarketSearchQuota(mock({ data: [{ allowed: true }], error: null })), { ok: false }, "malformed RPC responses fail closed");
 
-const [migration, route] = await Promise.all([
+const [migration, publicMigration, route] = await Promise.all([
   readFile(new URL("../supabase/migrations/20260928_roamly_market_search_rate_limits.sql", import.meta.url), "utf8"),
+  readFile(new URL("../supabase/migrations/20260930000200_roamly_public_market_search_rate_limits.sql", import.meta.url), "utf8"),
   readFile(new URL("../app/api/roamly/market-search/route.ts", import.meta.url), "utf8")
 ]);
 assert.match(migration, /auth\.uid\(\)/, "identity must be derived server-side");
@@ -26,8 +27,19 @@ assert.match(migration, /day_count > 120/);
 assert.match(migration, /on conflict \(user_id, bucket\) do update/i, "quota increments must be atomic across concurrent server instances");
 assert.match(migration, /enable row level security/i);
 assert.match(migration, /grant execute on function public\.roamly_consume_market_search_quota\(\) to authenticated/i);
+assert.match(publicMigration, /roamly_consume_public_market_search_quota\(p_actor_hash text\)/);
+assert.match(publicMigration, /current_setting\('request\.jwt\.claims', true\)/, "service-role defense must use the JSON JWT claims GUC");
+assert.doesNotMatch(publicMigration, /request\.jwt\.claim\.role/, "do not depend on the legacy individual role GUC");
+assert.match(publicMigration, /grant execute on function public\.roamly_consume_public_market_search_quota\(text\) to service_role/i);
+assert.match(publicMigration, /minute_count > 6/);
+assert.match(publicMigration, /day_count > 60/);
 assert.match(route, /status: 429/);
 assert.match(route, /"Retry-After"/);
 assert.match(route, /status: 503/);
+assert.match(route, /consumePublicMarketSearchQuota\(admin, actorHash\)/, "logged-out flight Finds consumes the public quota");
+assert.match(route, /searchTravelMarket\(marketRequest, \{ forceRefresh, store: false \}\)/, "public Finds cannot persist market results");
+assert.match(route, /warning: response\.warning \|\|/, "provider timeout and unavailable warnings must remain truthful");
+assert.ok(route.indexOf("if (marketRequest.category === \"flight\")") < route.indexOf("const auth = await requireUser()"), "public flight Finds branch must precede authentication");
+assert.ok(route.indexOf("const auth = await requireUser()") > route.indexOf("if (!tripId)"), "trip-linked searches remain authenticated");
 assert.equal((route.match(/consumeMarketSearchQuota\(auth\.supabase\)/g) || []).length, 2, "both standalone and trip-linked searches are limited");
 console.log("Roamly market search quota checks passed.");

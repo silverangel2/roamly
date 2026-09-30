@@ -27,6 +27,12 @@ export type FindsPromoConfig = {
 const TRAVELPAYOUTS_WIDGET_ORIGIN = "https://tpwdgt.com";
 const TRAVELPAYOUTS_WIDGET_PATH = "/content";
 
+// This is a public affiliate identifier, not a live-inventory credential.
+export const findsFlightHandoff = {
+  marker: "750294",
+  provider: "Aviasales"
+} as const;
+
 export const findsWidgets = {
   experiences107: {
     id: "travelpayouts-experiences-107",

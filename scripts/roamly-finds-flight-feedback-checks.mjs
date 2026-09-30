@@ -28,6 +28,11 @@ assert.match(component, /Current flight search returned an unreadable response\.
 assert.match(component, /Search is temporarily unavailable\. No stale offers are being shown/);
 assert.match(component, /No current \$\{cardCategory === "flight" \? "fare"/);
 assert.match(component, /flightFindCard\(item\)/);
+assert.match(component, /buildAviasalesDeepLink/);
+assert.match(component, /findsFlightHandoff\.marker/);
+assert.match(component, /Opening your \$\{originValue\} to \$\{destinationValue\} search on \$\{findsFlightHandoff\.provider\}/);
+assert.match(component, /window\.location\.assign\(handoffUrl\)/);
+assert.match(component, /Add a return date so we can open the provider search/);
 assert.doesNotMatch(component, /flightFindCard\(\{/, "flight feedback must not construct fallback inventory");
 assert.doesNotMatch(component, /\/plan/, "flight feedback must not introduce a fabricated internal booking fallback");
 

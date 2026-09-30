@@ -12,13 +12,18 @@ try {
     const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height }, isMobile: viewport.name === "mobile", hasTouch: viewport.name === "mobile" });
     const hydrationErrors = [];
     const marketRequests = [];
+    let flightHandoffUrl = "";
     page.on("request", (request) => { if (request.url().includes("/api/roamly/market-search")) marketRequests.push(request.method()); });
     page.on("response", (response) => { if (response.url().includes("/api/roamly/market-search")) marketRequests.push(`status:${response.status()}`); });
     page.on("pageerror", (error) => { if (/hydration|server rendered/i.test(error.message)) hydrationErrors.push(`pageerror: ${error.message}`); });
     page.on("console", (message) => { if (message.type() === "error" && /hydration|server rendered/i.test(message.text())) hydrationErrors.push(`console: ${message.text()}`); });
     await page.route("**/api/roamly/market-search", async (route) => {
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      await route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "AUTH_REQUIRED" }) });
+      await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ ok: false, error: "PROVIDER_UNAVAILABLE", warning: "The partner is temporarily unavailable. No offer was verified; please try again shortly." }) });
+    });
+    await page.route("https://www.aviasales.com/**", async (route) => {
+      flightHandoffUrl = route.request().url();
+      await route.abort();
     });
     await page.goto(`${baseUrl}/finds?destination=Turks%20%26%20Caicos&startDate=2026-09-26&endDate=2026-09-27`, { waitUntil: "networkidle" });
 
@@ -41,11 +46,13 @@ try {
     await page.getByRole("textbox", { name: "From", exact: true }).fill("YHZ");
     await page.getByRole("textbox", { name: "To", exact: true }).fill("LIS");
     await page.getByRole("textbox", { name: "Depart", exact: true }).fill("2026-09-26");
+    await page.getByRole("textbox", { name: "Return", exact: true }).fill("2026-09-27");
     const flightMessage = page.locator('p[aria-live="polite"]');
     const flightFormId = await page.getByRole("button", { name: "Check flights", exact: true }).evaluate((button) => button.form?.id || null);
     if (flightFormId !== "finds-live-panel") throw new Error(`${viewport.name}: flight CTA is not associated with the live form`);
     await page.getByRole("button", { name: "Check flights", exact: true }).click();
-    if (!marketRequests.includes("POST")) throw new Error(`${viewport.name}: flight CTA did not start a provider request`);
+    if (!marketRequests.includes("POST") && !flightHandoffUrl) throw new Error(`${viewport.name}: flight CTA did not start a provider search or handoff`);
+    if (flightHandoffUrl && !/\/search\/YHZ2609LIS2709\d\?marker=750294/.test(flightHandoffUrl)) throw new Error(`${viewport.name}: flight handoff did not preserve route, dates, and affiliate marker: ${flightHandoffUrl}`);
     await page.locator('[data-find-state="terminal"]').waitFor({ state: "visible", timeout: 5000 });
 
     await page.getByRole("tab", { name: "Things to do", exact: true }).click();

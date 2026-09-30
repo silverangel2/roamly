@@ -6,6 +6,13 @@ const hotel = parseMarketSearchRequest({
   category: "hotel", destination: "Lisbon", country: "Portugal", start_date: "2026-10-10", end_date: "2026-10-13",
   travelers: 999, rooms: 99, currency: "eur", maximum_nightly_price: "220", hotel_preferences: "quiet, walkable"
 });
+const saintJohnDavao = parseMarketSearchRequest({
+  category: "flight", origin: "Saint John", destination: "Davao", city: "Davao", title: "Saint John to Davao",
+  start_date: "2026-10-16", end_date: "2026-11-30", travelers: 1, currency: "CAD", force_refresh: true, store: false
+});
+assert.equal(saintJohnDavao?.category, "flight", "the production Saint John to Davao regression request parses as a flight");
+assert.equal(saintJohnDavao?.origin, "Saint John");
+assert.equal(saintJohnDavao?.destination, "Davao");
 assert.equal(hotel?.travelers, 20, "traveler count is bounded");
 assert.equal(hotel?.rooms, 10, "room count is bounded");
 assert.equal(hotel?.currency, "EUR");

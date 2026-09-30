@@ -8,6 +8,7 @@ import { findSelectedHotelForRevalidation, refreshTripMarketPricesForTrip } from
 import { getTripBundle, isMissingTableError } from "@/lib/trips";
 import { parseMarketSearchRequest } from "@/lib/roamly/marketSearchRequest";
 import { consumeMarketSearchQuota } from "@/lib/roamly/marketSearchQuota";
+import { consumePublicMarketSearchQuota, publicMarketActorHash, publicMarketSearchAdminClient, trustedPublicMarketClientIp } from "@/lib/roamly/publicMarketSearchQuota";
 import { resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
 
 const MAX_REQUEST_BYTES = 16_384;
@@ -17,9 +18,6 @@ function getString(value: unknown, maxLength = 100) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireUser();
-  if (!auth.ok) return auth.response;
-
   const rawBody = await request.text();
   if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
     return NextResponse.json({ ok: false, error: "Search request is too large." }, { status: 413 });
@@ -40,6 +38,33 @@ export async function POST(request: NextRequest) {
   if (!tripId) {
     const marketRequest = parseMarketSearchRequest(body);
     if (!marketRequest) return NextResponse.json({ ok: false, error: "A valid category is required." }, { status: 400 });
+    // Ordinary logged-out Finds flight discovery is a public provider handoff.
+    // It never exposes trip/account data and deliberately does not write cache rows.
+    if (marketRequest.category === "flight") {
+      const admin = publicMarketSearchAdminClient();
+      const clientIp = trustedPublicMarketClientIp(request.headers.get("x-forwarded-for"));
+      const actorHash = clientIp ? publicMarketActorHash(clientIp, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+      if (!admin || !actorHash) {
+        return NextResponse.json({ ok: false, error: "Public live search is temporarily unavailable. Please try again shortly." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+      }
+      const quota = await consumePublicMarketSearchQuota(admin, actorHash);
+      if (!quota.ok) {
+        return NextResponse.json({ ok: false, error: "Public live search is temporarily unavailable. Please try again shortly." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+      }
+      if (!quota.allowed) {
+        return NextResponse.json({ ok: false, error: "Public live-search limit reached. Please try again after the reset." }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": String(quota.retryAfterSeconds) } });
+      }
+      const response = await searchTravelMarket(marketRequest, { forceRefresh, store: false });
+      return NextResponse.json({
+        ok: true,
+        ...response,
+        warning: response.warning || (response.providerUsed === "provider_api"
+          ? undefined
+          : "Continue to the travel partner to check current fares and availability.")
+      });
+    }
+    const auth = await requireUser();
+    if (!auth.ok) return auth.response;
     const quota = await consumeMarketSearchQuota(auth.supabase);
     if (!quota.ok) {
       return NextResponse.json({ ok: false, error: "Live search is temporarily unavailable. Please try again shortly." }, { status: 503, headers: { "Cache-Control": "no-store" } });
@@ -74,6 +99,9 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ ok: true, ...response, results });
   }
+
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const bundle = await getTripBundle(auth.supabase, auth.user.id, tripId);
   if (!bundle.data) {

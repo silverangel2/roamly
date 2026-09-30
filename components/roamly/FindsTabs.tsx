@@ -7,6 +7,8 @@ import type { FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
 import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { normalizePlaceText, recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
+import { buildAviasalesDeepLink } from "@/lib/roamly/bookingLinks";
+import { findsFlightHandoff } from "@/lib/roamly/findsCommercialConfig";
 
 export type { FindsCard } from "@/lib/roamly/findsMarketCore";
 
@@ -43,7 +45,7 @@ function initialHotelPlace(destination: string): NormalizedPlace | null {
   ) || null;
 }
 
-export function FindsTabs({ cards, destination, origin, startDate, endDate, disclosures, emptyMessage, activePromo }: { cards: FindsCard[]; destination: string; origin: string; startDate: string; endDate: string; disclosures: string[]; emptyMessage: string; activePromo: FindsPromoConfig | null }) {
+export function FindsTabs({ cards, destination, origin, startDate, endDate, disclosures, emptyMessage, activePromo, flightLiveSearchConfigured }: { cards: FindsCard[]; destination: string; origin: string; startDate: string; endDate: string; disclosures: string[]; emptyMessage: string; activePromo: FindsPromoConfig | null; flightLiveSearchConfigured: boolean }) {
   const [active, setActive] = useState<string>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [marketCards, setMarketCards] = useState(() => dedupeCards(cards));
@@ -159,6 +161,28 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
         setPartnerSearchMessage((current) => ({ ...current, [category]: "Return date must be the same as or later than departure." }));
         return;
       }
+      if (category === "flight" && !flightLiveSearchConfigured) {
+        if (!returnDate) {
+          setPartnerSearchMessage((current) => ({ ...current, flight: "Add a return date so we can open the provider search with your full trip." }));
+          return;
+        }
+        const handoffUrl = buildAviasalesDeepLink({
+          origin: originValue,
+          destination: destinationValue,
+          departureDate: departure,
+          returnDate,
+          travelers: 1,
+          marker: findsFlightHandoff.marker
+        });
+        if (!handoffUrl) {
+          setPartnerSearchMessage((current) => ({ ...current, flight: "We couldn’t match one or both locations to a flight-search airport. Try a city or airport code." }));
+          return;
+        }
+        setSearchingCategory(category);
+        setPartnerSearchMessage((current) => ({ ...current, flight: `Opening your ${originValue} to ${destinationValue} search on ${findsFlightHandoff.provider}…` }));
+        window.location.assign(handoffUrl);
+        return;
+      }
       searchStarted = true;
       setSearchingCategory(category);
       setPartnerSearchMessage((current) => ({ ...current, [category]: category === "flight" ? "Checking current flight fares…" : category === "transport" ? "Looking for current transport options…" : "Looking for current experiences…" }));
@@ -243,7 +267,7 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       <label className="text-xs font-bold text-[#547067]">Depart<input name="flightDeparture" type="date" defaultValue={startDate} aria-required="true" className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <label className="text-xs font-bold text-[#547067]">Return<input name="flightReturn" type="date" defaultValue={endDate} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingCategory === "flight"} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingCategory === "flight" ? "Checking…" : "Check flights"}</button></div>
-      <p key={partnerSearchMessage.flight || "flight-idle"} aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-5">{partnerSearchMessage.flight || "Only current/search-derived fares are shown when the approved flight feed returns one."}</p>
+      <p key={partnerSearchMessage.flight || "flight-idle"} aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-5">{partnerSearchMessage.flight || (flightLiveSearchConfigured ? "Checking current fares with the approved flight feed." : "Open a real partner search with your route and dates. Roamly does not independently verify fares here.")}</p>
     </form> : null}
     {active === "activities" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "attraction", "activity"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-xs font-bold text-[#547067]">Destination<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Tokyo" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
