@@ -11,7 +11,7 @@ import {
   roamlyDiscoveryUrl,
   safeExternalUrl
 } from "@/lib/roamly/bookingLinks";
-import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
+import { buildKlookSearchUrl, isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, testAffiliateLinks, type AffiliateCategory } from "@/lib/roamly/affiliateResolver";
 import { calculateRoamlyBudgetBrain, type RoamlyBudgetBrainPlan } from "@/lib/roamly/budgetBrain";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 import { reconcileAffiliateAction, type ConfirmedBookingEvidence } from "@/lib/roamly/affiliateActionReconciliation";
@@ -994,6 +994,70 @@ function buildBrainBookingSuggestions(params: {
     } as unknown as RoamlyItinerary["booking_suggestions"][number]);
   }
 
+  // Cheaper alternatives: the best flight is covered above ("Compare this
+  // route" opens the full comparison). Here we surface up to two lower-cost
+  // ways to get there by train, bus, or car — only when genuinely plausible.
+  // Implausible train/bus legs have no URLs after enrichment and are filtered.
+  const recommendedCost = cleanNumber(
+    recommendedTransport?.estimated_cost_max ?? recommendedTransport?.estimated_cost_min
+  );
+  const cheaperTransportOptions = (estimatedBudgetBreakdown.transport_options || [])
+    .filter((option) => Boolean(option) && option !== recommendedTransport)
+    .filter((option) => option.mode === "train" || option.mode === "bus" || option.mode === "drive")
+    .filter((option) => option.realistic !== false && option.availability !== "not_available")
+    .filter((option) => cleanStringValue(option.booking_url || option.search_url).length > 0)
+    .filter((option) => {
+      const cost = cleanNumber(option.estimated_cost_max ?? option.estimated_cost_min);
+      if (recommendedCost != null && cost != null) return cost < recommendedCost;
+      return option.budget_fit !== "expensive";
+    })
+    .sort(
+      (a, b) =>
+        (cleanNumber(a.estimated_cost_max ?? a.estimated_cost_min) ?? Number.POSITIVE_INFINITY) -
+        (cleanNumber(b.estimated_cost_max ?? b.estimated_cost_min) ?? Number.POSITIVE_INFINITY)
+    )
+    .slice(0, 2);
+
+  for (const option of cheaperTransportOptions) {
+    const modeLabel = option.mode === "drive" ? "drive" : option.mode;
+    const costMin = cleanNumber(option.estimated_cost_min);
+    const costMax = cleanNumber(option.estimated_cost_max);
+    const costLabel =
+      costMin != null && costMax != null && costMax > costMin
+        ? `${costMin}-${costMax} ${option.currency || currency}`
+        : costMax != null
+          ? `about ${costMax} ${option.currency || currency}`
+          : null;
+    generated.push({
+      booking_category: "transport",
+      category: "transport",
+      title: `Cheaper option: ${cleanStringValue(option.title) || `${origin || "Origin"} to ${destination} by ${modeLabel}`}`,
+      description: [
+        cleanStringValue(option.reason || option.why_recommended) || "A lower-cost way to get there for your dates.",
+        costLabel ? `Estimated ${costLabel}.` : null,
+        cleanStringValue(option.warning) || null,
+        cleanStringValue(option.duration_label) ? `About ${option.duration_label}.` : null
+      ]
+        .filter(Boolean)
+        .join(" "),
+      origin: cleanStringValue(option.origin) || origin,
+      destination: cleanStringValue(option.destination) || destination,
+      departure_date: cleanStringValue(option.departure_date) || payload.startDate,
+      return_date: cleanStringValue(option.return_date) || payload.endDate,
+      provider: cleanStringValue(option.source) || "Roamly transport estimate",
+      url_type: "direct",
+      has_affiliate_url: false,
+      normal_search_url: cleanStringValue(option.search_url || option.booking_url),
+      affiliate_url: "",
+      booking_label: "See this option",
+      why_recommended: cleanStringValue(option.why_recommended) || "Lower estimated cost than the recommended route.",
+      estimated_cost_min: costMin,
+      estimated_cost_max: costMax,
+      currency: cleanStringValue(option.currency) || currency,
+      price_confidence: "estimated"
+    } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+  }
+
   const budget = estimatedBudgetBreakdown;
   const nightlyTarget =
     budgetBrain.hotelNightlyTarget ||
@@ -1014,17 +1078,17 @@ function buildBrainBookingSuggestions(params: {
     Boolean(resolvedDestination) &&
     existingRealHotelCount < 3
   ) {
-    const stayCandidates = recommendedStayCandidates({
-      destination,
-      nightlyTarget
-    }).slice(0, Math.max(0, 3 - existingRealHotelCount));
-
     const budgetLabel = nightlyTarget
       ? `${Math.round(nightlyTarget)} ${currency} per night target`
       : "budget-matched nightly target";
     const reserveLabel = budgetBrain.hotelReserve
       ? `${budgetBrain.hotelReserve} ${currency} stay reserve`
       : "hotel reserve set before transport and extras";
+
+    const stayCandidates = recommendedStayCandidates({
+      destination,
+      nightlyTarget
+    }).slice(0, Math.max(0, 3 - existingRealHotelCount));
 
     for (const stayCandidate of stayCandidates) {
       generated.push({
@@ -1050,6 +1114,68 @@ function buildBrainBookingSuggestions(params: {
         normal_search_url: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${stayCandidate.name} ${destination}`)}`
       } as unknown as RoamlyItinerary["booking_suggestions"][number]);
     }
+
+    // Universal fallback: every destination gets budget-matched stay areas
+    // with Stay22 affiliate deep links (dates, travelers, nightly target).
+    // These are honest "check availability" searches, never invented hotels.
+    const remainingHotelSlots = Math.max(0, 3 - existingRealHotelCount - stayCandidates.length);
+    if (remainingHotelSlots > 0) {
+      const roomTypeLabel = /hostel/i.test(`${payload.bedPreference || ""} ${payload.accommodationPreference || ""}`)
+        ? "Hostel or simple private room"
+        : /apartment/i.test(`${payload.bedPreference || ""} ${payload.accommodationPreference || ""}`)
+          ? "Apartment-style stay"
+          : /luxury/i.test(`${payload.bedPreference || ""} ${payload.accommodationPreference || ""}`)
+            ? "Upper-upscale hotel room"
+            : "Standard hotel room";
+      const nights = (() => {
+        const start = Date.parse(cleanStringValue(payload.startDate));
+        const end = Date.parse(cleanStringValue(payload.endDate));
+        if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+          return Math.max(1, Math.round((end - start) / 86400000));
+        }
+        return null;
+      })();
+      const stayAreas = [
+        {
+          area: `Central ${destination}`,
+          reason: "Keeps first-time activity clusters, meals, and transit close together."
+        },
+        {
+          area: `${destination} transit-connected area`,
+          reason: "Balances value with station and public-transit access to the itinerary stops."
+        },
+        {
+          area: `Quieter ${destination} base`,
+          reason: "Better for noise, parking, or neighbourhood style when centrality matters less."
+        }
+      ].slice(0, remainingHotelSlots);
+
+      for (const stayArea of stayAreas) {
+        generated.push({
+          booking_category: "hotel",
+          category: "hotel",
+          title: `${roomTypeLabel} near ${stayArea.area}`,
+          description: [
+            stayArea.reason,
+            `${reserveLabel}.`,
+            `${budgetLabel}${nights ? ` for ${nights} night${nights === 1 ? "" : "s"}` : ""}.`,
+            "Verify current rates and availability for your dates before booking."
+          ].join(" "),
+          destination,
+          neighborhood: stayArea.area,
+          room_type: roomTypeLabel,
+          budget_target: budgetLabel,
+          why_recommended: stayArea.reason,
+          recommendation_reason: stayArea.reason,
+          provider: "Roamly stay shortlist",
+          provider_or_search_source: "Roamly stay shortlist",
+          url_type: "affiliate",
+          has_affiliate_url: true,
+          booking_label: "Check availability",
+          normal_search_url: ""
+        } as unknown as RoamlyItinerary["booking_suggestions"][number]);
+      }
+    }
   }
 
   if (!hasSuggestionCategory(suggestions, "activity")) {
@@ -1067,25 +1193,45 @@ function buildBrainBookingSuggestions(params: {
       })
       .slice(0, 3);
 
+    const interestLabel = Array.isArray(payload.interests) && payload.interests.length
+      ? payload.interests.slice(0, 4).join(", ")
+      : "";
+
     for (const activity of activities) {
       const title = cleanStringValue(activity.title);
+      const activityPlace = cleanStringValue(activity.location_name || destination);
+      // Klook affiliate search (aid-tagged). Honest "search on Klook" link:
+      // never claims the exact activity is bookable, just searches Klook's
+      // catalog for this experience in this destination.
+      const klookUrl = buildKlookSearchUrl(
+        [title, activityPlace].filter(Boolean).join(" ") || "travel activities"
+      );
+      const fallbackUrl = destination
+        ? `https://www.google.com/search?q=${encodeURIComponent(
+            `${title} ${destination} official site details`
+          )}`
+        : "";
 
       generated.push({
         booking_category: "activity",
         category: "activity",
-        title: `Recommended activity: ${title}`,
-        description:
+        title,
+        description: [
           cleanStringValue(activity.description) ||
-          "Chosen because it fits the trip route, timing, and destination.",
-        destination: cleanStringValue(activity.location_name || destination),
-        provider: "Official or local search",
+            "Chosen because it fits the trip route, timing, and destination.",
+          interestLabel ? `Matched to your interests: ${interestLabel}.` : null
+        ]
+          .filter(Boolean)
+          .join(" "),
+        destination: activityPlace,
+        provider: klookUrl ? "Klook" : "Official or local search",
+        provider_or_search_source: klookUrl ? "Klook search" : "Official or local search",
         url_type: "direct",
-        booking_label: "Open details",
-        normal_search_url: destination
-          ? `https://www.google.com/search?q=${encodeURIComponent(
-              `${title} ${destination} official site details`
-            )}`
-          : ""
+        booking_label: klookUrl ? "Search on Klook" : "Open details",
+        normal_search_url: klookUrl || fallbackUrl,
+        why_recommended:
+          cleanStringValue(activity.description) ||
+          "Fits your route, timing, destination, and interests."
       } as unknown as RoamlyItinerary["booking_suggestions"][number]);
     }
   }
