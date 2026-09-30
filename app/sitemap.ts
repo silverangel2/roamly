@@ -4,7 +4,7 @@ import { ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = ROAMLY_PUBLIC_DOMAIN;
-  const staticRoutes = ["", "/plan", "/pricing", "/contact", "/privacy", "/terms"].map((path) => ({
+  const staticRoutes = ["", "/plan", "/pricing", "/finds", "/play", "/contact", "/privacy", "/terms"].map((path) => ({
     url: `${base}${path}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,

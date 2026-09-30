@@ -1,8 +1,20 @@
+import type { Metadata } from "next";
 import { ContactForm } from "@/components/contact/ContactForm";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlySupportEmail } from "@/lib/roamly/email";
+
+export const metadata: Metadata = {
+  title: "Contact Roamly — Trip & Account Support",
+  description: "Need help with a trip or your Roamly account? Contact support with your destination, account email, and a short description of what happened.",
+  openGraph: {
+    title: "Contact Roamly — trip & account support",
+    description: "Need help with a trip or your Roamly account? Reach Roamly support.",
+    url: "https://roamlyhq.com/contact",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 
 export default function ContactPage() {
   const supportEmail = getRoamlySupportEmail();

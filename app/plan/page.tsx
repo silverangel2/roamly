@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { TripPlanForm } from "@/components/plan/TripPlanForm";
 import { getServerLocale } from "@/lib/i18n-server";
 import { translateKey } from "@/lib/i18n";
@@ -7,6 +8,17 @@ import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Plan a Trip by Budget — AI Itinerary Planner",
+  description: "Roamly builds a realistic, budget-aware day-by-day trip itinerary around your pace, interests, and budget. Start with one free itinerary.",
+  openGraph: {
+    title: "Roamly — Plan a trip by budget | AI itinerary planner",
+    description: "Build a realistic, budget-aware day-by-day itinerary with Roamly's AI trip planner. Start with one free itinerary.",
+    url: "https://roamlyhq.com/plan",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 
 export default async function PlanPage() {
   const locale = await getServerLocale();

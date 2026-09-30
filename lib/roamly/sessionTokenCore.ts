@@ -13,7 +13,10 @@ export type RoamlySessionScope = { method: "GET" | "POST"; path: string };
 const TOKEN_TTL_SECONDS = 6 * 60 * 60;
 
 function tokenSecret() {
-  return process.env.ROAMLY_SESSION_TOKEN_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  // Fail closed: never fall back to the Supabase service-role key. Callers
+  // (createRoamlySessionToken / verifyRoamlySessionToken) already refuse to
+  // mint or verify when this returns "".
+  return process.env.ROAMLY_SESSION_TOKEN_SECRET || "";
 }
 
 function base64UrlEncode(value: string) {

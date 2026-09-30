@@ -12,6 +12,23 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
 
+  // P0-2: baseline HTTP security headers. No blocking CSP — Travelpayouts/Stay22
+  // widgets and inline scripts would break; consider CSP-Report-Only first.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(self)" }
+        ]
+      }
+    ];
+  },
+
   serverExternalPackages: ["@ffmpeg-installer/ffmpeg"],
 
   outputFileTracingIncludes: {

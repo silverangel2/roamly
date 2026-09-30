@@ -1487,17 +1487,16 @@ export function LiveTripClient({
               </ul>
             ) : null}
 
-            <a
-              href={mapsHref || "#"}
-              target={mapsHref ? "_blank" : undefined}
-              rel={mapsHref ? "noreferrer" : undefined}
-              className={classNames(
-                "mt-5 hidden min-h-12 items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink md:inline-flex",
-                !mapsHref && "pointer-events-none opacity-50"
-              )}
-            >
-              {t("ui.status.openMaps")}
-            </a>
+            {mapsHref ? (
+              <a
+                href={mapsHref}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 hidden min-h-12 items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink md:inline-flex"
+              >
+                {t("ui.status.openMaps")}
+              </a>
+            ) : null}
           </div>
 
           <div className="grid gap-3">
@@ -1777,17 +1776,16 @@ export function LiveTripClient({
             >
               {t("ui.actions.checkIn")}
             </button>
-            <a
-              href={mapsHref || "#"}
-              target={mapsHref ? "_blank" : undefined}
-              rel={mapsHref ? "noreferrer" : undefined}
-              className={classNames(
-                "flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-4 py-2 text-sm font-black text-white",
-                !mapsHref && "pointer-events-none opacity-45"
-              )}
-            >
-              {t("ui.status.openMaps")}
-            </a>
+            {mapsHref ? (
+              <a
+                href={mapsHref}
+                target="_blank"
+                rel="noreferrer"
+                className="flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-4 py-2 text-sm font-black text-white"
+              >
+                {t("ui.status.openMaps")}
+              </a>
+            ) : null}
           </div>
         </section>
       ) : null}

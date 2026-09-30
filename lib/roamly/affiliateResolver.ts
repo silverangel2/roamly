@@ -1,5 +1,5 @@
 import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
-import { buildAviasalesDeepLink, safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { buildAviasalesDeepLink, buildTransportSearchUrl, safeExternalUrl } from "@/lib/roamly/bookingLinks";
 import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
 import { resolveCityPlace } from "@/lib/roamly/placeResolver";
 
@@ -287,7 +287,7 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
 
   if (input.category === "transport") {
     const configured = klookConfigured() && /\b(airport|transfer|shuttle|pass|rail|train|bus|ferry|transport)\b/i.test(searchText(input));
-    return result(
+    const resolution = result(
       input,
       "klook",
       configured ? klookSearchUrl({ ...input, query: searchText(input) || `${primaryPlace(input)} airport transfer` }) : "",
@@ -295,6 +295,31 @@ export function resolveAffiliateLink(input: AffiliateResolverInput): AffiliateLi
       configured,
       configured ? [] : ["ROAMLY_KLOOK_PARTNER_ID or ROAMLY_KLOOK_REFERRAL_URL for bookable transfers"]
     );
+    if (resolution.finalUrl) return resolution;
+    // P1-5: when no bookable affiliate is configured, degrade to a usable
+    // Google Maps directions link instead of hiding the transport CTA.
+    const mapsUrl = buildTransportSearchUrl({
+      origin: input.origin,
+      destination: input.destination || input.route,
+      date: input.startDate
+    });
+    if (mapsUrl) {
+      return {
+        ...resolution,
+        finalUrl: mapsUrl,
+        provider: "google_maps",
+        ctaLabel: "Get directions",
+        disclosureRequired: false,
+        disclosure: "",
+        trackingMetadata: { ...resolution.trackingMetadata, provider: "google_maps", affiliate: false },
+        fallbackBehavior: "internal_discovery" as const,
+        missingConfiguration: [
+          ...resolution.missingConfiguration,
+          "Transport degraded to Google Maps directions (no bookable affiliate configured)"
+        ]
+      };
+    }
+    return resolution;
   }
 
   if (input.category === "product") {
@@ -337,7 +362,7 @@ export function getAffiliateProviderStatuses(): ProviderStatus[] {
       configured: test.configured,
       priority: index + 1,
       missingConfiguration: test.missingConfiguration,
-      defaultFallback: test.fallbackBehavior === "affiliate" ? "Affiliate link" : "Hidden until configured",
+      defaultFallback: test.fallbackBehavior === "affiliate" ? "Affiliate link" : test.fallbackBehavior === "internal_discovery" ? "Maps directions fallback" : "Hidden until configured",
       test
     };
   });

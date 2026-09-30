@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { AuthForm } from "@/components/auth/AuthForm";
@@ -36,6 +37,17 @@ function selectAuthNextPath(queryNext: string | string[] | undefined, cookieNext
 
   return nextPath;
 }
+
+export const metadata: Metadata = {
+  title: "Create Your Free Roamly Account",
+  description: "Sign up free and build one custom trip itinerary. Keep every trip, plan, and booking in one place — no subscription required.",
+  openGraph: {
+    title: "Create your free Roamly account",
+    description: "Sign up free, build one custom trip itinerary, and keep every trip in one place.",
+    url: "https://roamlyhq.com/signup",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 
 export default async function SignupPage({ searchParams }: SignupPageProps) {
   const params = searchParams ? await searchParams : {};

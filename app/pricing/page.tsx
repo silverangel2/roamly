@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -41,6 +42,17 @@ const included = [
   "Packing and emergency tips",
   "Booking-aware planning"
 ];
+
+export const metadata: Metadata = {
+  title: "Pricing — One-Time Trip Plans, No Subscriptions",
+  description: "Roamly pricing: one free itinerary, full day-by-day trip itineraries from $4.99 CAD, and Live Trip Companion packs. One-time prices, no subscriptions.",
+  openGraph: {
+    title: "Roamly Pricing — one-time trip plans",
+    description: "One free itinerary, full trip itineraries from $4.99 CAD, Live Trip Companion packs. One-time prices, no subscriptions.",
+    url: "https://roamlyhq.com/pricing",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 
 export default function PricingPage() {
   return (
