@@ -174,6 +174,12 @@ function formatDateRange(trip: RoamlyTripRecord, locale = "en") {
   return start || end || "Dates flexible";
 }
 
+/** "1 day" / "3 days" — never "1 days". */
+function formatDayCount(dayCount: number, flexibleLabel = "Dates flexible") {
+  if (!dayCount) return flexibleLabel;
+  return dayCount === 1 ? "1 day" : `${dayCount} days`;
+}
+
 function maskEmailAddress(email?: string | null) {
   const value = (email || "").trim();
   const [local, domain] = value.split("@");
@@ -1719,7 +1725,7 @@ function CompactPrintItinerary({
           <PrintInfoCell label="Destination" value={destinationLabel} />
           <PrintInfoCell label="Dates" value={formatDateRange(trip, locale)} />
           <PrintInfoCell label="Travellers" value={travelerSummary(trip)} />
-          <PrintInfoCell label="Days" value={dayCount ? `${dayCount} days` : "Flexible"} />
+          <PrintInfoCell label="Days" value={formatDayCount(dayCount, "Flexible")} />
           <PrintInfoCell label="Budget" value={budgetDisplay} />
           <PrintInfoCell label="Style" value={travelStyle} />
         </div>
@@ -2166,7 +2172,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-bold text-slate-600">
             <span className={readiness.state === "READY" ? "text-ocean" : readiness.state === "UNCERTAIN" ? "text-amber-800" : "text-coral"}>{completedTrip ? "Trip completed" : readiness.state === "READY" ? "Ready to go" : readiness.state === "UNCERTAIN" ? "Some details need confirmation" : "Action needed"}</span>
             <span>Budget: {headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain")}</span>
-            <span>{dayCount ? `${dayCount} days` : "Dates flexible"}</span>
+            <span>{formatDayCount(dayCount)}</span>
             <span>{travelerLabel}</span>
             {confirmedBookingSnapshot.length ? <a href="#bookings" className="text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed →</a> : null}
             {trackingUnlocked && !completedTrip ? <span className="text-ocean">Live Companion available</span> : null}
@@ -2233,7 +2239,22 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           dates={formatDateRange(trip, locale)}
           status={completedTrip ? "Completed" : canShowFull ? "Ready" : itineraryLocked ? "Locked" : "Planning"}
           showContext={false}
+          contentReady={canShowFull && !!full && !generationPanelVisible}
         />
+
+        {!canShowFull && !generationPanelVisible ? (
+          <section id="day-by-day" className="roamly-enter mt-4 scroll-mt-32 rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-8 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-8">
+            <p className="roamly-eyebrow">{completedTrip ? "Trip completed" : "Itinerary"}</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">
+              {completedTrip ? "This trip has no saved day-by-day plan" : "Your itinerary isn't ready yet"}
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+              {completedTrip
+                ? "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here."
+                : "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here."}
+            </p>
+          </section>
+        ) : null}
 
         {canShowFull && full && !generationPanelVisible ? (
           <>
@@ -2241,6 +2262,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               <style>{`
                 .roamly-tab-input{position:absolute;opacity:0;pointer-events:none}
                 .roamly-tab-panel{display:none}
+                @keyframes roamly-panel-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+                .roamly-tab-panel,.roamly-day-panel{animation:roamly-panel-in .45s cubic-bezier(0.32,0.72,0,1)}
+                .roamly-tab-nav label{transition:transform .18s cubic-bezier(0.32,0.72,0,1),background-color .25s ease,border-color .25s ease,color .25s ease}
+                .roamly-tab-nav label:active{transform:scale(0.95)}
+                .roamly-day-nav label{transition:transform .18s cubic-bezier(0.32,0.72,0,1),background-color .25s ease,border-color .25s ease}
+                .roamly-day-nav label:active{transform:scale(0.95)}
+                @media (prefers-reduced-motion:reduce){.roamly-tab-panel,.roamly-day-panel{animation:none}.roamly-tab-nav label,.roamly-day-nav label{transition:none}}
                 #roamly-tab-day-by-day:checked ~ .roamly-tab-panels .roamly-panel-day-by-day,
                 #roamly-tab-overview:checked ~ .roamly-tab-panels .roamly-panel-overview,
                 #roamly-tab-budget:checked ~ .roamly-tab-panels .roamly-panel-budget,
