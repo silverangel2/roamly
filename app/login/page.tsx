@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { AuthForm } from "@/components/auth/AuthForm";
@@ -36,6 +37,17 @@ function selectAuthNextPath(queryNext: string | string[] | undefined, cookieNext
 
   return nextPath;
 }
+
+export const metadata: Metadata = {
+  title: "Log In to Roamly",
+  description: "Log in to Roamly to access your saved trips, day-by-day itineraries, and Live Trip Companion.",
+  openGraph: {
+    title: "Log in to Roamly",
+    description: "Log in to access your saved trips, itineraries, and Live Trip Companion.",
+    url: "https://roamlyhq.com/login",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = searchParams ? await searchParams : {};

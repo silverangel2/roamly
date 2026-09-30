@@ -9,8 +9,14 @@ import { curatedAmazonFindCards } from "@/lib/roamly/curatedAmazonFinds";
 import { getActiveFindsPromo } from "@/lib/roamly/findsPromoStore";
 
 export const metadata: Metadata = {
-  title: "Roamly Finds",
-  description: "A visual collection of useful travel finds, beautiful stays, flight ideas, experiences, and essentials."
+  title: "Roamly Finds — Travel Deals, Stays & Gear",
+  description: "A visual collection of useful travel finds, beautiful stays, flight ideas, experiences, and essentials.",
+  openGraph: {
+    title: "Roamly Finds — travel deals, stays & gear",
+    description: "Useful travel finds, beautiful stays, flight ideas, experiences, and essentials — curated by Roamly.",
+    url: "https://roamlyhq.com/finds",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
 };
 
 export const dynamic = "force-dynamic";

@@ -56,7 +56,15 @@ export async function generateMetadata({ params }: GuidePageProps): Promise<Meta
       description: page.meta_description,
       url: canonical,
       siteName: "Roamly",
-      type: "article"
+      type: "article",
+      images: [
+        {
+          url: "https://roamlyhq.com/opengraph-image",
+          width: 1200,
+          height: 630,
+          alt: page.seo_title
+        }
+      ]
     }
   };
 }
@@ -76,7 +84,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
         <script
           type="application/ld+json"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(page.json_ld) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(page.json_ld).replace(/</g, "\u003c") }}
         />
       ) : null}
       <Badge>Roamly Guide</Badge>

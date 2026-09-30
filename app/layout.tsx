@@ -19,6 +19,21 @@ export const metadata: Metadata = {
       { url: "/icon-512.png?v=3", sizes: "512x512", type: "image/png" }
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }]
+  },
+  openGraph: {
+    title: "Roamly - AI travel planner for beautiful budget-aware trips",
+    description: "Plan realistic single-city and multi-city trips, organize bookings, and travel with a live AI companion.",
+    url: "https://roamlyhq.com",
+    siteName: "Roamly",
+    type: "website",
+    locale: "en_CA",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Roamly - AI travel planner for beautiful budget-aware trips",
+    description: "Plan realistic single-city and multi-city trips, organize bookings, and travel with a live AI companion.",
+    images: ["https://roamlyhq.com/opengraph-image"]
   }
 };
 
