@@ -5,12 +5,15 @@ import { defineMoneyFinding, runMoneyChecks } from "./specialist-money-check-uti
 /**
  * MARKETING_GROWTH specialist money checks — turn autopost output into app
  * trials. Guards the money-critical invariants of the social automation
- * engine: every Roamly post must link to /plan with attribution, carry a
+ * engine (lib/roamly/socialAutomation.ts + lib/roamly/socialCaptions.ts): every Roamly post must link to /plan with attribution, carry a
  * call to action, disclose affiliate links, and pass the quality gate.
  * Never invents metrics — all checks are structural.
  */
 
-const engine = await readFile(new URL("../lib/roamly/socialAutomation.ts", import.meta.url), "utf8");
+const engineSources = ["../lib/roamly/socialAutomation.ts", "../lib/roamly/socialCaptions.ts"];
+const engine = (
+  await Promise.all(engineSources.map((file) => readFile(new URL(file, import.meta.url), "utf8")))
+).join("\n");
 
 await runMoneyChecks(
   "MARKETING_GROWTH",
