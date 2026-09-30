@@ -40,10 +40,10 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data?.error || t("ui.email.contactSendFailed"));
+        throw new Error(data?.error || t("ui.email.contact.contactSendFailed"));
       }
 
-      setNotice(data?.message || t("ui.email.contactReceived"));
+      setNotice(data?.message || t("ui.email.contact.contactReceived"));
       setName("");
       setEmail("");
       setCategory("support");
@@ -52,7 +52,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       setMessage("");
       setCompanyWebsite("");
     } catch (err) {
-      setError(localizeCustomerError(locale, err, "ui.email.contactSendFailed"));
+      setError(localizeCustomerError(locale, err, "ui.email.contact.contactSendFailed"));
     } finally {
       setBusy(false);
     }
@@ -66,7 +66,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="text-sm font-black text-ink">{t("ui.email.contactName")}</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contact.contactName")}</span>
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -76,7 +76,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
           />
         </label>
         <label className="block">
-          <span className="text-sm font-black text-ink">{t("ui.email.contactEmail")}</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contact.contactEmail")}</span>
           <input
             value={email}
             onChange={(event) => setEmail(event.target.value)}
@@ -90,7 +90,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
 
       <div className="grid gap-4 sm:grid-cols-[0.8fr_1.2fr]">
         <label className="block">
-          <span className="text-sm font-black text-ink">{t("ui.email.contactCategory")}</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contact.contactCategory")}</span>
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
@@ -98,13 +98,13 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
           >
             {categories.map(([value]) => (
               <option key={value} value={value}>
-                {t(`ui.email.contactCategory_${value}`)}
+                {t(`ui.email.contact.contactCategory_${value}`)}
               </option>
             ))}
           </select>
         </label>
         <label className="block">
-          <span className="text-sm font-black text-ink">{t("ui.email.contactTripId")}</span>
+          <span className="text-sm font-black text-ink">{t("ui.email.contact.contactTripId")}</span>
           <input
             value={tripId}
             onChange={(event) => setTripId(event.target.value)}
@@ -115,7 +115,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       </div>
 
       <label className="block">
-        <span className="text-sm font-black text-ink">{t("ui.email.contactSubject")}</span>
+        <span className="text-sm font-black text-ink">{t("ui.email.contact.contactSubject")}</span>
         <input
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
@@ -126,7 +126,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       </label>
 
       <label className="block">
-        <span className="text-sm font-black text-ink">{t("ui.email.contactMessage")}</span>
+        <span className="text-sm font-black text-ink">{t("ui.email.contact.contactMessage")}</span>
         <textarea
           value={message}
           onChange={(event) => setMessage(event.target.value)}
@@ -138,14 +138,14 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs font-bold leading-5 text-slate-500">
-          {t("ui.email.contactSupport", "Need help by email? Contact {email}.").replace("{email}", supportEmail)}
+          {t("ui.email.contact.contactSupport", "Need help by email? Contact {email}.").replace("{email}", supportEmail)}
         </p>
         <button
           type="submit"
           disabled={busy}
           className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-60"
         >
-          {busy ? t("ui.status.sending") : t("ui.email.contactSend")}
+          {busy ? t("ui.status.sending") : t("ui.email.contact.contactSend")}
         </button>
       </div>
 
