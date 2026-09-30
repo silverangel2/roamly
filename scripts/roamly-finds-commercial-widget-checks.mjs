@@ -23,6 +23,8 @@ assert.ok(config.includes("https://intui.tpo.lu/6GQiV5Ai"), "the airport-transfe
 
 assert.ok(widget.includes("isTrustedTravelpayoutsWidgetUrl(config.src)"), "widget execution must enforce the trusted URL allowlist");
 assert.ok(widget.includes("document.createElement(\"script\")"), "widgets must be inserted as client-side scripts");
+assert.ok(widget.includes("tp-cascoon"), "Travelpayouts custom-element widgets must count as usable rendered content");
+assert.ok(widget.includes("window.setInterval(settleReadyIfUsable, 250)"), "widget readiness must recheck custom-element layout after insertion");
 assert.ok(!widget.includes("dangerouslySetInnerHTML"), "widgets must not use arbitrary HTML execution");
 assert.ok(widget.includes("strategy=\"afterInteractive\""), "Stay22 must load through Next Script after interaction");
 

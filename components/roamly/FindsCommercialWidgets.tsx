@@ -25,7 +25,7 @@ export function hasUsableTravelpayoutsContent(host: HTMLElement) {
   return Array.from(host.children).some((element) => {
     if (element.tagName === "SCRIPT" || element.tagName === "STYLE" || element.tagName === "NOSCRIPT") return false;
     if (!isVisibleWidgetElement(element)) return false;
-    if (element.matches("iframe, img, video, canvas, svg, object, embed, a, button")) return true;
+    if (element.matches("tp-cascoon, iframe, img, video, canvas, svg, object, embed, a, button")) return true;
     return Boolean(element.textContent?.trim());
   });
 }
@@ -63,14 +63,23 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
 
     setState("loading");
     let settled = false;
+    let poll: number | null = null;
+    const stopPolling = () => {
+      if (poll !== null) {
+        window.clearInterval(poll);
+        poll = null;
+      }
+    };
     const settleUnavailable = () => {
       if (settled) return;
       settled = true;
+      stopPolling();
       setState("unavailable");
     };
     const settleReadyIfUsable = () => {
       if (!settled && hasUsableTravelpayoutsContent(host)) {
         settled = true;
+        stopPolling();
         setState("ready");
       }
     };
@@ -78,6 +87,7 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
       ? null
       : new MutationObserver(settleReadyIfUsable);
     observer?.observe(host, { childList: true, subtree: true, characterData: true });
+    poll = window.setInterval(settleReadyIfUsable, 250);
     const timeout = window.setTimeout(settleUnavailable, WIDGET_RENDER_TIMEOUT_MS);
     const script = document.createElement("script");
     script.async = true;
@@ -89,6 +99,7 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
     host.appendChild(script);
     return () => {
       settled = true;
+      stopPolling();
       window.clearTimeout(timeout);
       observer?.disconnect();
       host.replaceChildren();
