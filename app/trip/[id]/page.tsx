@@ -11,6 +11,13 @@ import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshBu
 import { StagedGenerationProgress } from "@/components/trip/StagedGenerationProgress";
 import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
+import {
+  SectionHeading,
+  NavigationChipList,
+  buildDisplayTimelineItems,
+  DayTimelineCard,
+  BuildingDayCard
+} from "@/components/trip/ItineraryDayPlan";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -294,475 +301,7 @@ function PrimaryTripAction({
   );
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
-  summary
-}: {
-  eyebrow: string;
-  title: string;
-  summary?: string;
-}) {
-  return (
-    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-ocean">{eyebrow}</p>
-        <h2 className="mt-1 text-2xl font-black tracking-tight text-ink sm:text-3xl">{title}</h2>
-      </div>
-      {summary ? <p className="max-w-xl text-sm font-bold leading-6 text-slate-600">{summary}</p> : null}
-    </div>
-  );
-}
-
-function NavigationChipList({ query }: { query: string }) {
-  const labels: Record<string, string> = {
-    google_maps: "Google Maps",
-    apple_maps: "Apple Maps",
-    citymapper: "Citymapper"
-  };
-  const links = buildNavigationLinks({ destinationLabel: query, address: query });
-
-  return (
-    <div className="roamly-no-print mt-2 flex flex-wrap gap-2">
-      {links.map((link) => (
-        <a
-          key={link.provider}
-          href={link.href}
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-full border border-ocean/20 bg-ocean/5 px-3 py-1.5 text-[0.72rem] font-black text-ocean transition hover:border-ocean/40 hover:bg-ocean/10"
-        >
-          {labels[link.provider] || link.label}
-        </a>
-      ))}
-    </div>
-  );
-}
-
-type DisplayTimelineItem = {
-  itemId: string;
-  itemType: string;
-  time: string;
-  sortMinutes: number | null;
-  title: string;
-  description: string;
-  location: string;
-  category: string;
-  durationLabel: string;
-  travelLabel: string;
-  transferNote: string;
-  mapQuery: string;
-  warning: string;
-  role: string;
-  why: string;
-  statusText: string;
-  authority: "confirmed" | "must_do" | "flexible" | "supporting";
-};
-
-const genericStopPatterns = [
-  /^local bistro$/i,
-  /^museum or gallery$/i,
-  /^nightlife district$/i,
-  /^hotel room$/i,
-  /^planned activity$/i,
-  /^activity title$/i,
-  /^things to do$/i,
-  /^book activities$/i,
-  /^find hotels?$/i,
-  /^hotel\/stay to book$/i,
-  /^flights? to book$/i,
-  /^neighborhood lunch and explore$/i,
-  /^easy evening finish$/i,
-  /^.+ first stop$/i
-];
-
-function isGenericStopText(value: string) {
-  const text = value.trim();
-  if (!text) return true;
-  return genericStopPatterns.some((pattern) => pattern.test(text));
-}
-
-function timelineText(record: Record<string, unknown>, ...keys: string[]) {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return "";
-}
-
-function timelineNumber(record: Record<string, unknown>, ...keys: string[]) {
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.round(value));
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value.replace(/[^0-9.]/g, ""));
-      if (Number.isFinite(parsed)) return Math.max(0, Math.round(parsed));
-    }
-  }
-  return null;
-}
-
-function parseClockMinutes(value: string) {
-  const raw = value.trim();
-  if (!raw) return null;
-  const military = raw.match(/^(\d{1,2}):(\d{2})$/);
-  if (military) {
-    const hour = Number(military[1]);
-    const minute = Number(military[2]);
-    return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 ? hour * 60 + minute : null;
-  }
-  const twelve = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
-  if (!twelve) return null;
-  let hour = Number(twelve[1]);
-  const minute = Number(twelve[2] || "0");
-  const period = twelve[3].toUpperCase();
-  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null;
-  if (period === "PM" && hour !== 12) hour += 12;
-  if (period === "AM" && hour === 12) hour = 0;
-  return hour * 60 + minute;
-}
-
-function formatClock(value: string) {
-  const minutes = parseClockMinutes(value);
-  if (minutes == null) return value;
-  const hour24 = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-  const period = hour24 >= 12 ? "PM" : "AM";
-  const hour12 = hour24 % 12 || 12;
-  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
-}
-
-function isTransferLike(record: Record<string, unknown>) {
-  const text = [
-    timelineText(record, "item_type", "type"),
-    timelineText(record, "category"),
-    timelineText(record, "title"),
-    timelineText(record, "travel_mode", "transportMode", "transport_mode")
-  ]
-    .join(" ")
-    .toLowerCase();
-  return /\b(travel|transfer|transit|taxi|rideshare|shuttle|walk to|travel to|transfer to|drive to|get to)\b/.test(text);
-}
-
-function isMajorTravel(record: Record<string, unknown>) {
-  const type = timelineText(record, "item_type", "type").toLowerCase();
-  const mode = timelineText(record, "travel_mode", "transportMode", "transport_mode").toLowerCase();
-  const title = timelineText(record, "title").toLowerCase();
-  const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
-  if (type === "travel" && /\b(flight|train|rail|bus|ferry|drive|inter[- ]?city)\b/.test(`${mode} ${title}`)) return true;
-  return Boolean(minutes != null && minutes >= 60);
-}
-
-function cleanTimelineTitle(record: Record<string, unknown>) {
-  const rawTitle = timelineText(record, "title", "name");
-  const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
-  const mapQuery = timelineText(record, "map_query", "mapQuery");
-  const category = timelineText(record, "category", "item_type", "type");
-
-  if (rawTitle && !isGenericStopText(rawTitle)) return rawTitle;
-  if (location && !isGenericStopText(location)) {
-    if (/meal|lunch|dinner|breakfast|food/i.test(`${rawTitle} ${category}`)) return `${rawTitle || "Meal"} at ${location}`;
-    return location;
-  }
-  if (mapQuery && !isGenericStopText(mapQuery)) return mapQuery;
-  return "";
-}
-
-function transferSummary(record: Record<string, unknown>) {
-  const origin = timelineText(record, "origin");
-  const destination = timelineText(record, "destination", "location_name", "location");
-  const mode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
-  const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
-  const title = cleanTimelineTitle(record) || timelineText(record, "title");
-  const route = origin && destination ? `${origin} to ${destination}` : destination || title;
-  return [mode || "Transfer", route, minutes ? `${minutes} min` : ""].filter(Boolean).join(" · ");
-}
-
-function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][number], confirmedBookings: readonly Record<string, unknown>[] = []) {
-  const output: DisplayTimelineItem[] = [];
-  const seen = new Set<string>();
-  const pendingTransfers: string[] = [];
-
-  for (const item of day.live_timeline || []) {
-    const record = item as unknown as Record<string, unknown>;
-    const transferLike = isTransferLike(record);
-
-    if (transferLike && !isMajorTravel(record)) {
-      const summary = transferSummary(record);
-      if (summary) pendingTransfers.push(summary);
-      continue;
-    }
-
-    const title = cleanTimelineTitle(record);
-    const type = timelineText(record, "item_type", "type");
-    const category = timelineText(record, "category") || type || "Stop";
-    const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
-    const description = timelineText(record, "description", "summary", "details", "notes");
-    const start = timelineText(record, "startTime", "start_time");
-    const end = timelineText(record, "endTime", "end_time");
-    const timeLabel = timelineText(record, "time_label", "time") || (start ? formatClock(start) : "");
-    const timingStatus = timelineText(record, "timing_status").toUpperCase();
-    const time = start && end ? `${timingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(start)}-${formatClock(end)}` : timeLabel;
-    const sortMinutes = parseClockMinutes(start || timeLabel);
-    const duration = timelineNumber(record, "durationMinutes", "duration_minutes");
-    const travelMinutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes");
-    const mapQuery = timelineText(record, "map_query", "mapQuery") || location || title;
-    const isLunch = /\blunch\b/i.test(`${title} ${description} ${category}`);
-    const warning =
-      isLunch && sortMinutes != null && sortMinutes > 14 * 60
-        ? "Late lunch timing. Treat this as an intentional rest or adjust earlier."
-        : "";
-    const role = timelineText(record, "plan_role", "role").toLowerCase();
-    const routingStatus = timelineText(record, "routing_status").toUpperCase();
-    const costStatus = timelineText(record, "cost_status").toUpperCase();
-    const authority = isConfirmedItineraryBookingAnchor(title, confirmedBookings)
-      ? "confirmed"
-      : role === "must_do" || record.must_do === true
-        ? "must_do"
-        : role === "supporting" || role === "alternative" || type === "rest"
-          ? "flexible"
-          : "supporting";
-    const statusText = routingStatus === "UNCERTAIN"
-      ? "Route details to confirm"
-      : costStatus === "UNKNOWN"
-        ? "Price not available yet"
-        : "";
-    const why = timelineText(record, "why_recommended", "whyRecommended", "selection_reason", "selectionReason", "reason");
-
-    if (!title && !description) continue;
-    if (!transferLike && title && isGenericStopText(title) && (!location || isGenericStopText(location))) continue;
-
-    const key = `${time}|${title}|${location}`.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    output.push({
-      itemId: timelineText(record, "item_id"),
-      itemType: type,
-      time: time || "Flexible",
-      sortMinutes,
-      title: title || category,
-      description,
-      location,
-      category,
-      durationLabel: duration ? `${duration} min` : timelineText(record, "duration"),
-      travelLabel: travelMinutes ? `${travelMinutes} min travel` : "",
-      transferNote: pendingTransfers.splice(0).join(" / "),
-      mapQuery,
-      warning,
-      role,
-      why,
-      statusText,
-      authority
-    });
-
-    if (output.length >= 6) break;
-  }
-
-  return output.sort((a, b) => (a.sortMinutes ?? 10_000) - (b.sortMinutes ?? 10_000));
-}
-
-function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelineItem; tripId: string; dayId?: string }) {
-  const meta = [item.location].filter(Boolean);
-  const secondary = [
-    item.durationLabel ? `Duration: ${item.durationLabel}` : "",
-    item.travelLabel ? `Travel: ${item.travelLabel}` : "",
-    item.transferNote ? `Arrival/transfer: ${item.transferNote}` : "",
-    item.description
-  ].filter(Boolean);
-  const isQuiet = item.authority === "flexible";
-  const marker = item.authority === "confirmed" ? "bg-ocean" : item.authority === "must_do" ? "bg-coral" : isQuiet ? "bg-slate-300" : "bg-lagoon";
-
-  return (
-    <article className={`relative border-l-2 pl-5 sm:pl-7 ${isQuiet ? "border-slate-200" : item.authority === "confirmed" ? "border-ocean/40" : "border-[#e8dfd0]"}`}>
-      <span className={`absolute -left-[0.42rem] top-1.5 h-3 w-3 rounded-full ring-4 ring-[#fffdf8] ${marker}`} />
-      <div className="grid gap-2 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-4">
-        <div className="flex items-baseline gap-2 sm:block">
-          <p className={`text-sm font-black ${item.time === "Flexible" ? "text-slate-400" : "text-ocean"}`}>{item.time}</p>
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p>
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-start gap-2">
-            <h4 className={`text-lg font-black leading-6 ${isQuiet ? "text-slate-700" : "text-ink"} sm:text-xl`}>{item.title}</h4>
-            {item.authority === "confirmed" ? <span className="rounded-full bg-ocean/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-ocean">Confirmed booking</span> : null}
-            {item.authority === "must_do" ? <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-coral">Must-do</span> : null}
-            {item.authority === "supporting" ? <span className="rounded-full bg-lagoon/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-lagoon">Suggested</span> : null}
-            {item.statusText ? <span className="rounded-full bg-sun/15 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800">Needs confirmation</span> : null}
-          </div>
-          {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
-          {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
-          {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
-          {item.authority === "flexible" && item.itemType === "activity" && dayId && item.itemId ? (
-            <>
-              <CustomerActivityRemoval tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
-              <CustomerActivityReplacement tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
-            </>
-          ) : null}
-          {item.why || secondary.length ? (
-            <details className="mt-3 rounded-[0.8rem] bg-[#f8faf8] px-3 py-2">
-              <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">{item.why ? "Why this & details" : "Details"}</summary>
-              <div className="mt-2 grid gap-1">
-                {item.why ? <p className="text-sm font-semibold leading-6 text-slate-600"><span className="font-black text-ink">Why this:</span> {item.why}</p> : null}
-                {secondary.map((line) => (
-                  <p key={line} className="text-sm font-semibold leading-6 text-slate-600">{line}</p>
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function DayTimelineCard({
-  tripId,
-  day,
-  currency,
-  locale,
-  confirmedBookings
-}: {
-  tripId: string;
-  day: RoamlyItinerary["daily_itinerary"][number];
-  currency: string;
-  locale: string;
-  confirmedBookings: readonly Record<string, unknown>[];
-}) {
-  const timelineItems = buildDisplayTimelineItems(day, confirmedBookings);
-  const places = [
-    ...timelineItems.map((item) => item.mapQuery),
-    ...day.map_queries
-  ]
-    .map((item) => getString(item))
-    .filter((item) => item && !isGenericStopText(item))
-    .filter((item, index, list) => list.indexOf(item) === index)
-    .slice(0, 5);
-  const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];
-  const daySummary = compact(
-    day.primary_plan || day.morning || day.afternoon || day.evening,
-    timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
-    155
-  );
-  const hasUncertainty = Boolean(day.plan_status === "uncertain" || day.uncertainty?.length || timelineItems.some((item) => item.statusText));
-  const repairCandidate = day.conflict_id ? (() => {
-    for (const item of day.live_timeline || []) {
-      const candidate = findRepairTarget({ ...({ daily_itinerary: [day] } as RoamlyItinerary) }, day.conflict_id, item.item_id || "");
-      if (candidate.repairability === "REPAIRABLE" && candidate.target) return { target: candidate.target, item: candidate.item };
-    }
-    return null;
-  })() : null;
-
-  return (
-    <section
-      id={`day-${day.day_number}`}
-    className="roamly-day-print scroll-mt-40 border-y border-[#e8dfd0] bg-[#fffdf8]/60 py-4 sm:py-6"
-    >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Day {day.day_number}{day.date ? ` · ${formatTripDate(day.date, locale)}` : ""}</p>
-          <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">{day.title || "Your day"}</h3>
-          {day.city ? <p className="mt-1 text-sm font-bold text-slate-500">{day.city}</p> : null}
-        </div>
-        {typeof day.estimated_cost === "number" ? <span className="w-fit text-xs font-black text-slate-500">Day estimate · {formatMoney(day.estimated_cost, currency)}</span> : null}
-      </div>
-
-      <div className="mt-5 grid gap-3 border-y border-[#eee5d7] py-4 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.6fr)] sm:items-start">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">The plan</p>
-          <p className="mt-1 text-base font-bold leading-6 text-ink">{daySummary}</p>
-        </div>
-        <div className="border-l-2 border-ocean/50 bg-[#f5f7f3] px-3 py-3">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next</p>
-          <p className="mt-1 text-sm font-black leading-5 text-ink">{firstAction ? firstAction.title : "Choose a day when you are ready to plan."}</p>
-          {hasUncertainty ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">Some details still need confirmation.</p> : null}
-        </div>
-      </div>
-
-      <div className="mt-5">
-        {repairCandidate ? <PlanningConflictRepair tripId={tripId} conflictId={repairCandidate.target.conflictId} dayId={day.day_id!} targetItemId={repairCandidate.target.itemId} targetTitle={repairCandidate.target.title} protectedTitles={timelineItems.filter((item) => item.authority === "confirmed" || item.authority === "must_do").map((item) => item.title)} /> : null}
-        <div className="grid gap-5">
-          {timelineItems.length ? (
-            timelineItems.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} />
-            ))
-          ) : (
-            <div className="rounded-xl bg-[#f5f7f3] px-4 py-4 text-sm font-semibold leading-6 text-slate-600">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
-          )}
-        </div>
-
-        {day.alternatives?.length || day.uncertainty?.length ? (
-          <details className="mt-4 border-y border-[#e8dfd0] bg-[#f8faf8]/70 px-3 py-3">
-            <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Planning notes</summary>
-            <div className="mt-2 grid gap-3">
-              {day.alternatives?.length ? (
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Alternatives</p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{day.alternatives.slice(0, 3).join(" · ")}</p>
-                </div>
-              ) : null}
-              {day.uncertainty?.length ? (
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Still to confirm</p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{day.uncertainty.slice(0, 3).join(" · ")}</p>
-                </div>
-              ) : null}
-            </div>
-          </details>
-        ) : null}
-
-        {day.food.length ? (
-          <details className="mt-3 border-y border-[#e8dfd0] bg-[#f8faf8]/70 px-3 py-3">
-            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Food ideas</summary>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{day.food.slice(0, 3).join(" · ")}</p>
-          </details>
-        ) : null}
-
-        {places.length ? (
-          <details className="mt-3 border-y border-cloud bg-white/70 px-3 py-3">
-            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Map details</summary>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
-              {places.map((query) => (
-                <div key={query} className="rounded-[0.9rem] border border-cloud bg-white px-3 py-3">
-                  <p className="text-sm font-black leading-5 text-ink">{query}</p>
-                  <NavigationChipList query={query} />
-                </div>
-              ))}
-            </div>
-          </details>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function BuildingDayCard({
-  dayNumber,
-  date,
-  status
-}: {
-  dayNumber: number;
-  date?: string | null;
-  status?: string | null;
-}) {
-  return (
-    <section
-      id={`day-${dayNumber}`}
-      className="roamly-day-print scroll-mt-36 rounded-[1.15rem] border border-dashed border-[#e8dfd0] bg-white/75 px-4 py-4"
-    >
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
-        Day {dayNumber}
-        {date ? ` · ${formatTripDate(date)}` : ""}
-      </p>
-      <h3 className="mt-1 text-lg font-black leading-6 tracking-tight text-ink sm:text-2xl">
-        {status === "failed" ? "Failed" : "Building..."}
-      </h3>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-500">
-        {status === "failed" ? "This day needs attention. Completed days remain available." : "Roamly is still building this day."}
-      </p>
-    </section>
-  );
-}
+/* Day-plan UI moved to @/components/trip/ItineraryDayPlan.tsx */
 
 function BudgetSummary({
   trip,
@@ -2090,7 +1629,7 @@ function PrintInfoCell({ label, value }: { label: string; value: string }) {
 }
 
 function CompactPrintDay({ day, currency, confirmedBookings }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string; confirmedBookings: readonly Record<string, unknown>[] }) {
-  const items = buildDisplayTimelineItems(day, confirmedBookings).slice(0, 6);
+  const items = buildDisplayTimelineItems(day, confirmedBookings).items.slice(0, 6);
 
   return (
     <section className="roamly-pdf-day">
@@ -2481,7 +2020,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : { data: [] as Array<{ id: string }>, error: null };
   const hasPostTripFeedback = postTripFeedbackResult.error ? null : Boolean(postTripFeedbackResult.data?.length);
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
-  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>) : [];
+  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>).items : [];
   const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
   const budgetPresentation = full
     ? buildBudgetPresentation({
@@ -2561,8 +2100,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const hasTravelNotes = [packingItems, localTipItems, safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0);
   const hasRequirements = countMaterialTravelRequirements(travelRequirements) > 0;
   const briefingTabs = [
+    ["roamly-tab-day-by-day", "Itinerary"],
     ["roamly-tab-overview", "Snapshot"],
-    ["roamly-tab-day-by-day", "Plan"],
     ["roamly-tab-budget", "Budget"],
     ["roamly-tab-bookings", "Bookings"],
     ...(hasRequirements ? [["roamly-tab-requirements", "Entry requirements"]] : []),
@@ -2726,7 +2265,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 @media print{.roamly-tab-panel,.roamly-day-panel{display:block!important}.roamly-tab-nav,.roamly-day-nav{display:none!important}}
               `}</style>
               {briefingTabs.map(([tabId]) => (
-                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === (actionFocus === "requirements" && hasRequirements ? "roamly-tab-requirements" : "roamly-tab-overview")} />
+                <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === (actionFocus === "requirements" && hasRequirements ? "roamly-tab-requirements" : "roamly-tab-day-by-day")} />
               ))}
 
               <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
