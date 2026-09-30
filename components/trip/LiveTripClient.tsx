@@ -17,6 +17,8 @@ import {
   isUsablePlaceLabel,
   isTodayWithinTripDates,
   mergeLiveActivityStatuses,
+  directionLinksForActivity,
+  googleMapsUrlForActivity,
   mapsUrlForActivity,
   persistSkippedActivityIds,
   readPersistedSkippedActivityIds,
@@ -24,6 +26,8 @@ import {
   type LiveBookingDetails,
   type LiveCompanionActivity,
   type LiveCoordinates,
+  type LiveDirectionLinks,
+  type LiveDirectionMode,
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
@@ -418,6 +422,19 @@ export function LiveTripClient({
   const usableLocation = location && isFreshLocationObservation(location.capturedAt, nowTick.getTime()) ? location : null;
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
+  const [directionMode, setDirectionMode] = useState<LiveDirectionMode>(() => {
+    if (typeof window === "undefined") return "walking";
+    const stored = window.localStorage.getItem("roamly-direction-mode");
+    return stored === "transit" || stored === "driving" ? stored : "walking";
+  });
+  const updateDirectionMode = useCallback((mode: LiveDirectionMode) => {
+    setDirectionMode(mode);
+    try {
+      window.localStorage.setItem("roamly-direction-mode", mode);
+    } catch {
+      // Storage is a nicety, not a requirement.
+    }
+  }, []);
   const [error, setError] = useState("");
   const [qaBusy, setQaBusy] = useState("");
   const [demoState, setDemoState] = useState<LiveDemoState | null>(null);
@@ -548,8 +565,25 @@ export function LiveTripClient({
   const nextTimingStatus = (nextActivity as (LiveCompanionActivity & { timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN" }) | null)?.timing_status;
   const mapsHref = useMemo(() => {
     const mapsTarget = currentActivity || nextActivity;
-    return mapsUrlForActivity(mapsTarget);
-  }, [currentActivity, nextActivity]);
+    return googleMapsUrlForActivity(mapsTarget, directionMode);
+  }, [currentActivity, nextActivity, directionMode]);
+  const directionLinks: LiveDirectionLinks = useMemo(
+    () => directionLinksForActivity(currentActivity || nextActivity, directionMode),
+    [currentActivity, nextActivity, directionMode]
+  );
+  const hasDirectionLinks = Boolean(directionLinks.google || directionLinks.apple || directionLinks.citymapper);
+  const gpsStatus = useMemo(() => {
+    if (usableLocation) {
+      const accuracy = usableLocation.accuracy != null ? ` \u00b1${Math.round(usableLocation.accuracy)}m` : "";
+      return { ok: true, copy: `GPS live${accuracy}` };
+    }
+    if (location) return { ok: false, copy: "GPS updating\u2026" };
+    if (watching) return { ok: false, copy: "Waiting for GPS\u2026" };
+    return { ok: false, copy: "GPS off" };
+  }, [usableLocation, location, watching]);
+  const scrollToDirections = useCallback(() => {
+    document.getElementById("live-directions")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
   const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
   const activeStep = currentActivity || nextActivity;
@@ -1399,6 +1433,10 @@ export function LiveTripClient({
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
                 <p className="mt-1 text-sm font-black">{countdownCopy(model.countdownMinutes)}</p>
                 {model.route.status === "verified" ? <p className="mt-1 text-xs font-bold text-slate-500">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">Travel time still uncertain</p> : null}
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                  <span className={classNames("h-1.5 w-1.5 rounded-full", gpsStatus.ok ? "bg-emerald-500" : "bg-sun")} aria-hidden="true" />
+                  {gpsStatus.copy}
+                </p>
               </div>
             </div>
 
@@ -1487,15 +1525,69 @@ export function LiveTripClient({
               </ul>
             ) : null}
 
-            {mapsHref ? (
-              <a
-                href={mapsHref}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-5 hidden min-h-12 items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink md:inline-flex"
-              >
-                {t("ui.status.openMaps")}
-              </a>
+            {hasDirectionLinks ? (
+              <div id="live-directions" className="mt-5 scroll-mt-24 rounded-2xl border border-cloud bg-white p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Directions</p>
+                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-mist p-1" role="group" aria-label="Travel mode">
+                    {(
+                      [
+                        { mode: "walking", label: "Walk" },
+                        { mode: "transit", label: "Transit" },
+                        { mode: "driving", label: "Drive" }
+                      ] as Array<{ mode: LiveDirectionMode; label: string }>
+                    ).map((option) => (
+                      <button
+                        key={option.mode}
+                        type="button"
+                        onClick={() => updateDirectionMode(option.mode)}
+                        aria-pressed={directionMode === option.mode}
+                        className={classNames(
+                          "min-h-9 rounded-lg px-3 text-xs font-black transition-colors",
+                          directionMode === option.mode ? "bg-ink text-white shadow" : "text-slate-500"
+                        )}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {directionLinks.google ? (
+                    <a
+                      href={directionLinks.google}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-11 items-center justify-center rounded-xl bg-ocean px-2 py-2 text-center text-xs font-black text-white"
+                    >
+                      Google Maps
+                    </a>
+                  ) : null}
+                  {directionLinks.apple ? (
+                    <a
+                      href={directionLinks.apple}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-11 items-center justify-center rounded-xl bg-ink px-2 py-2 text-center text-xs font-black text-white"
+                    >
+                      Apple Maps
+                    </a>
+                  ) : null}
+                  {directionLinks.citymapper ? (
+                    <a
+                      href={directionLinks.citymapper}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-h-11 items-center justify-center rounded-xl bg-sun px-2 py-2 text-center text-xs font-black text-ink"
+                    >
+                      Citymapper
+                    </a>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-[11px] font-semibold leading-4 text-slate-400">
+                  Citymapper is best for walking and public transport; Google and Apple follow your travel mode.
+                </p>
+              </div>
             ) : null}
           </div>
 
@@ -1640,8 +1732,7 @@ export function LiveTripClient({
               {alert}
             </p>
           ))}
-          {notice ? <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
-          {error ? <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+          {error ? <p role="alert" className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
         </section>
       ) : null}
 
@@ -1677,8 +1768,14 @@ export function LiveTripClient({
         </article>
       </section> : null}
 
-      <section className="hidden" aria-hidden="true">
-        {liveActivities.slice(0, 6).map((activity) => (
+      <section
+        className={deepLinkedActivityId ? "grid scroll-mt-24 gap-3" : "hidden"}
+        aria-hidden={deepLinkedActivityId ? undefined : "true"}
+      >
+        {(deepLinkedActivityId
+          ? liveActivities.filter((activity) => activity.id === deepLinkedActivityId)
+          : liveActivities.slice(0, 6)
+        ).map((activity) => (
           <article
             key={activity.id}
             id={`live-activity-${activity.id}`}
@@ -1776,15 +1873,14 @@ export function LiveTripClient({
             >
               {t("ui.actions.checkIn")}
             </button>
-            {mapsHref ? (
-              <a
-                href={mapsHref}
-                target="_blank"
-                rel="noreferrer"
+            {hasDirectionLinks ? (
+              <button
+                type="button"
+                onClick={scrollToDirections}
                 className="flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-4 py-2 text-sm font-black text-white"
               >
-                {t("ui.status.openMaps")}
-              </a>
+                Directions
+              </button>
             ) : null}
           </div>
         </section>
