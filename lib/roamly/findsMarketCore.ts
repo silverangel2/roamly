@@ -82,9 +82,9 @@ function formatPrice(amount: unknown, currency: unknown) {
   }
 }
 
-function listingBase(value: unknown, source: string, category: FindsCard["category"], host: "booking.com" | "klook.com" | "aviasales.com", imageHost: "bstatic.com" | "klook.com" | "none") {
+function listingBase(value: unknown, source: string, category: FindsCard["category"], host: "booking.com" | "klook.com" | "aviasales.com", imageHost: "bstatic.com" | "klook.com" | "none", allowedPriceTypes: string[] = ["live_partner"]) {
   const result = record(value);
-  if (!result || result.source !== source || result.price_type !== "live_partner") return null;
+  if (!result || result.source !== source || !allowedPriceTypes.includes(string(result.price_type))) return null;
   const metadata = record(result.metadata);
   const providerPayload = record(metadata?.providerPayload);
   const title = string(result.title);
@@ -218,7 +218,7 @@ export function publicEventFindCard(value: unknown): FindsCard | null {
 }
 
 export function flightFindCard(value: unknown): FindsCard | null {
-  const base = listingBase(value, "travelpayouts", "flight", "aviasales.com", "none");
+  const base = listingBase(value, "travelpayouts", "flight", "aviasales.com", "none", ["cached_recent", "live_partner"]);
   if (!base) return null;
   const route = [string(base.result.origin), string(base.result.destination)].filter(Boolean).join(" → ");
   const minutesLabel = (value: unknown) => {

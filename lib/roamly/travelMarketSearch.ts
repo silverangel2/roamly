@@ -612,12 +612,14 @@ function buildTransportOptionsSearchKey(payload: TripPlannerPayload) {
 }
 
 async function fetchJson(url: string, init?: RequestInit) {
-  const response = await fetch(url, {
-    ...init,
-    signal: AbortSignal.timeout(8_000)
-  });
+  const response = await fetch(url, { ...init, signal: AbortSignal.timeout(8_000) });
   if (!response.ok) throw Object.assign(new Error("Travel market provider request failed"), { status: response.status });
-  return (await response.json()) as unknown;
+  const body = await response.text();
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    throw Object.assign(new Error("Travel market provider returned malformed JSON"), { code: "MALFORMED_RESPONSE", status: response.status });
+  }
 }
 
 function arrayFromUnknown(value: unknown): Array<Record<string, unknown>> {
@@ -784,6 +786,12 @@ async function searchTravelpayouts(request: TravelMarketSearchRequest) {
   const json = await fetchJson(url.toString(), {
     headers: { "X-Access-Token": clean(process.env.TRAVELPAYOUTS_API_TOKEN) }
   });
+  if (json && typeof json === "object" && !Array.isArray(json)) {
+    const providerResponse = json as Record<string, unknown>;
+    if (providerResponse.success === false || typeof providerResponse.error === "string") {
+      throw Object.assign(new Error("Travelpayouts returned a provider error"), { code: "PROVIDER_RESPONSE_ERROR" });
+    }
+  }
   return arrayFromUnknown(json)
     .map((item) => {
       const price = providerPrice(item);
@@ -791,13 +799,17 @@ async function searchTravelpayouts(request: TravelMarketSearchRequest) {
       const bookingUrl = travelpayoutsBookingUrl(item.link, process.env.ROAMLY_TRAVELPAYOUTS_MARKER);
       return baseResult(request, {
         title: `${origin} to ${destination} flight`,
-        provider: "Travelpayouts",
+        provider: "Travelpayouts recent fare data",
         source: "travelpayouts",
         price_amount: price,
-        price_type: "live_partner",
-        confidence: "high",
+        price_type: "cached_recent",
+        confidence: "medium",
         booking_url: bookingUrl,
-        metadata: { providerPayload: item }
+        metadata: {
+          providerPayload: item,
+          provider_data_kind: "recent_fare_observation",
+          found_at: item.found_at ?? item.foundAt ?? null
+        }
       });
     })
     .filter((item): item is TravelMarketResult => Boolean(item))
@@ -1408,11 +1420,14 @@ export async function searchTravelMarket(
         ? "Booking.com returned accommodations, but no eligible rate was available for this stay."
         : providerFailure || "Authoritative hotel inventory could not be checked. Verify current availability before booking."
     : undefined;
+  const flightNoRecentFareWarning = normalized.category === "flight" && liveConfigured && providerAttempted && !providerResults.length && !providerFailure
+    ? "No recent fare was available for this route and date window. Check current flights on Aviasales."
+    : undefined;
   const fallbackMetadata = normalized.category === "hotel" && hotelInventoryState
     ? { hotel_inventory_state: hotelInventoryState, hotel_inventory_truth: hotelInventoryState === "NO_RESULTS" ? "ZERO_RESULTS" : hotelInventoryState === "OK" ? "INVENTORY" : "UNAVAILABLE" }
     : {};
   const deduped = dedupeMarketResults(
-    (selectedResults.length ? selectedResults : [withRetrievalProvider(searchReadyResult(normalized, hotelFailureWarning || warning, fallbackMetadata), "search_link_only")]).map(attachStaticTravelEvidence),
+    (selectedResults.length ? selectedResults : [withRetrievalProvider(searchReadyResult(normalized, hotelFailureWarning || flightNoRecentFareWarning || warning, fallbackMetadata), "search_link_only")]).map(attachStaticTravelEvidence),
     MAX_RESULTS_PER_SEARCH,
     normalized
   );
@@ -1441,7 +1456,7 @@ export async function searchTravelMarket(
     warning:
       providerUsed === "provider_api"
         ? undefined
-        : providerFailure || (providerUsed === "native"
+        : providerFailure || flightNoRecentFareWarning || (providerUsed === "native"
             ? "ReviewIntel native retrieval found source results, but live price and availability were not verified."
             : warning)
   };
