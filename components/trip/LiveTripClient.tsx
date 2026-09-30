@@ -1265,8 +1265,13 @@ export function LiveTripClient({
         item.id === activityId ? { ...item, status: nextStatus } : item
       )));
       void clearActivityNotification(tripId, activityId);
-      const confirmation = action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.";
-      setNotice(updatedTitle ? `${confirmation} ${updatedTitle}` : confirmation);
+      // queuedOffline is set by the service worker when this write was stored
+      // in the offline outbox (Background Sync) instead of reaching the API.
+      const queuedOffline = data?.queuedOffline === true;
+      const confirmation = queuedOffline
+        ? "Will sync when back online."
+        : action === "check-in" ? "Check-in saved." : action === "skip" ? "Activity skipped." : "Activity marked done.";
+      setNotice(!queuedOffline && updatedTitle ? `${confirmation} ${updatedTitle}` : confirmation);
     } catch (err) {
       setError(localizeCustomerError(locale, err));
     } finally {

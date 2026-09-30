@@ -25,6 +25,10 @@
    "schedule": "*/10 * * * *"
   },
   {
+   "path": "/api/cron/roamly-email-sync",
+   "schedule": "*/30 * * * *"
+  },
+  {
    "path": "/api/cron/roamly-successful-trip-patterns",
    "schedule": "17 4 * * *"
   },
@@ -57,4 +61,4 @@
    "schedule": "17 10 1 1 *"
   }
  ]
-}
+ }

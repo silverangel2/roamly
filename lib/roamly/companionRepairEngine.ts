@@ -9,6 +9,14 @@ import { payloadFromTrip } from "@/lib/roamly/marketPriceRefresh";
 import { validateItineraryDeterministically } from "@/lib/roamly/itineraryValidation";
 import { deriveTripReadiness } from "@/lib/roamly/tripReadiness";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  applyShiftTimingProposal,
+  buildShiftTimingContext,
+  shiftActionRows,
+  shiftProposalSummary,
+  shiftProposedChanges,
+  type ShiftTimingContext
+} from "@/lib/roamly/companionShiftTiming";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -400,7 +408,7 @@ export async function createCompanionRepairProposal(params: {
   if (existing.data) {
     if (
       ["flight_delayed", "flight_time_changed"].includes(String(eventResult.data.event_type)) &&
-      existing.data.operation !== "REMOVE_OPTIONAL_ACTIVITY"
+      !["REMOVE_OPTIONAL_ACTIVITY", "SHIFT_ACTIVITY_TIMING"].includes(String(existing.data.operation))
     ) {
       return { ok: false, error: "COMPANION_REPAIR_EVIDENCE_INCOMPLETE" };
     }
@@ -419,7 +427,10 @@ export async function createCompanionRepairProposal(params: {
     };
   }
 
-  const v1ContextResult = ["flight_delayed", "flight_time_changed"].includes(String(eventResult.data.event_type))
+  const isFlightTimingEvent = ["flight_delayed", "flight_time_changed"].includes(
+    String(eventResult.data.event_type)
+  );
+  const v1ContextResult = isFlightTimingEvent
     ? await verifiedRepairContext({
         supabase: params.supabase,
         event: asRecord(eventResult.data),
@@ -428,10 +439,39 @@ export async function createCompanionRepairProposal(params: {
         userId: params.userId
       })
     : null;
-  if (v1ContextResult && !v1ContextResult.ok) return { ok: false, error: v1ContextResult.error };
-  const v1Context = v1ContextResult?.context || null;
+  const v1Context = v1ContextResult && v1ContextResult.ok ? v1ContextResult.context : null;
 
-  const safeActions = v1Context
+  /*
+   * Fallback: when the V1 verified removal target is not proven (the common
+   * case — a delay that shifts timing without making an optional activity
+   * infeasible), build a provider-validated timing shift instead of leaving
+   * the companion event "processing" forever. The shift delta comes only
+   * from the monitor's old/new booking rows (provider times); nothing is
+   * invented.
+   */
+  let shiftContext: ShiftTimingContext | null = null;
+  if (isFlightTimingEvent && !v1Context) {
+    const shiftResult = await buildShiftTimingContext({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      event: asRecord(eventResult.data),
+      impact: asRecord(impactResult.data)
+    });
+    if (shiftResult.ok) {
+      shiftContext = shiftResult.context;
+    }
+  }
+  if (!v1Context && !shiftContext) {
+    return {
+      ok: false,
+      error:
+        (v1ContextResult && !v1ContextResult.ok ? v1ContextResult.error : null) ||
+        "COMPANION_REPAIR_UNAVAILABLE"
+    };
+  }
+
+  const safeActions = v1Context || shiftContext
     ? []
     : asArray(impactResult.data.safe_automatic_actions)
         .map((action) => normalizeAction(action, false))
@@ -449,9 +489,11 @@ export async function createCompanionRepairProposal(params: {
         },
         requiresApproval: true
       }]
-    : asArray(impactResult.data.approval_required_actions)
-        .map((action) => normalizeAction(action, true))
-        .filter((action): action is RepairAction => Boolean(action));
+    : shiftContext
+      ? []
+      : asArray(impactResult.data.approval_required_actions)
+          .map((action) => normalizeAction(action, true))
+          .filter((action): action is RepairAction => Boolean(action));
 
   const allActions = [...safeActions, ...approvalActions];
   const affectedLayers = Array.isArray(eventResult.data.affected_layers)
@@ -462,6 +504,10 @@ export async function createCompanionRepairProposal(params: {
 
   const requiresApproval =
     Boolean(v1Context) ||
+    (shiftContext
+      ? Boolean(eventResult.data.requires_user_approval) ||
+        Boolean(impactResult.data.traveler_action_required)
+      : false) ||
     Boolean(eventResult.data.requires_user_approval) ||
     Boolean(impactResult.data.traveler_action_required) ||
     approvalActions.length > 0;
@@ -473,18 +519,27 @@ export async function createCompanionRepairProposal(params: {
       impact_result_id: impactResult.data.id,
       trip_id: params.tripId,
       user_id: params.userId,
-      summary: proposalSummary({
-        eventTitle: eventResult.data.title,
-        safeCount: safeActions.length,
-        approvalCount: approvalActions.length
-      }),
+      summary: shiftContext
+        ? shiftProposalSummary({
+            eventTitle: eventResult.data.title,
+            shiftMinutes: shiftContext.shiftMinutes,
+            targetCount: shiftContext.shifts.length,
+            requiresApproval
+          })
+        : proposalSummary({
+            eventTitle: eventResult.data.title,
+            safeCount: safeActions.length,
+            approvalCount: approvalActions.length
+          }),
       affected_layers: affectedLayers,
-      proposed_changes_json: allActions.map((action) => ({
-        action_type: action.actionType,
-        before: action.before,
-        after: action.after,
-        requires_approval: action.requiresApproval
-      })),
+      proposed_changes_json: shiftContext
+        ? shiftProposedChanges(shiftContext.shifts, requiresApproval)
+        : allActions.map((action) => ({
+            action_type: action.actionType,
+            before: action.before,
+            after: action.after,
+            requires_approval: action.requiresApproval
+          })),
       cost_change:
         typeof impactResult.data.cost_impact_json?.amount === "number"
           ? impactResult.data.cost_impact_json.amount
@@ -505,6 +560,17 @@ export async function createCompanionRepairProposal(params: {
             expected_content_hash: v1Context.expectedContentHash,
             expected_event_fingerprint: v1Context.expectedEventFingerprint,
             expected_source_booking_updated_at: v1Context.expectedSourceBookingUpdatedAt,
+            verification_status: "pending"
+          }
+        : {}),
+      ...(shiftContext
+        ? {
+            itinerary_id: shiftContext.itineraryId,
+            operation: "SHIFT_ACTIVITY_TIMING",
+            expected_revision: shiftContext.expectedRevision,
+            expected_content_hash: shiftContext.expectedContentHash,
+            expected_event_fingerprint: shiftContext.expectedEventFingerprint,
+            expected_source_booking_updated_at: shiftContext.expectedSourceBookingUpdatedAt,
             verification_status: "pending"
           }
         : {}),
@@ -553,6 +619,26 @@ export async function createCompanionRepairProposal(params: {
     savedActions = actionsInsert.data || [];
   }
 
+  if (shiftContext) {
+    const shiftRows = shiftActionRows({
+      proposalId: proposalInsert.data.id,
+      tripId: params.tripId,
+      userId: params.userId,
+      shifts: shiftContext.shifts,
+      requiresApproval
+    });
+    const shiftInsert = await writer
+      .from("companion_actions")
+      .insert(shiftRows)
+      .select("*");
+
+    if (shiftInsert.error) {
+      return { ok: false, error: shiftInsert.error.message };
+    }
+
+    savedActions = shiftInsert.data || [];
+  }
+
   let appliedAutomatically = false;
 
   const companionPreferences = await getCompanionPreferences({
@@ -566,45 +652,71 @@ export async function createCompanionRepairProposal(params: {
       ? impactResult.data.cost_impact_json.amount
       : 0;
 
-  const everySafeActionMayAutoApply =
-    safeActions.length > 0 &&
-    safeActions.every((action) =>
-      canAutomaticallyApplyCompanionAction({
+  const everySafeActionMayAutoApply = shiftContext
+    ? canAutomaticallyApplyCompanionAction({
         preferences: companionPreferences,
-        actionType: action.actionType,
-        requiresApproval: action.requiresApproval,
+        actionType: "SHIFT_ACTIVITY_TIMING",
+        requiresApproval: false,
         costChange
       })
-    );
+    : safeActions.length > 0 &&
+      safeActions.every((action) =>
+        canAutomaticallyApplyCompanionAction({
+          preferences: companionPreferences,
+          actionType: action.actionType,
+          requiresApproval: action.requiresApproval,
+          costChange
+        })
+      );
 
   if (
     !requiresApproval &&
     everySafeActionMayAutoApply
   ) {
     try {
-      appliedAutomatically = await applySafeActions({
-        supabase: params.supabase,
-        proposalId: proposalInsert.data.id,
-        tripId: params.tripId,
-        userId: params.userId,
-        affectedLayers
-      });
+      if (shiftContext) {
+        /*
+         * Flight-aware automatic re-timing: apply the provider-validated
+         * shift atomically via Postgres, then verify. The RPC is idempotent
+         * and enforces the same optimistic-concurrency evidence as V1.
+         */
+        const shiftApply = await applyShiftTimingProposal({
+          supabase: params.supabase,
+          userId: params.userId,
+          tripId: params.tripId,
+          repairProposalId: proposalInsert.data.id
+        });
 
-      if (appliedAutomatically) {
-        await writer
-          .from("companion_repair_proposals")
-          .update({
-            status: "applied",
-            applied_at: new Date().toISOString()
-          })
-          .eq("id", proposalInsert.data.id)
-          .eq("user_id", params.userId);
+        if (!shiftApply.ok) {
+          throw new Error(shiftApply.error);
+        }
 
-        await writer
-          .from("companion_events")
-          .update({ status: "applied" })
-          .eq("id", params.companionEventId)
-          .eq("user_id", params.userId);
+        appliedAutomatically = true;
+      } else {
+        appliedAutomatically = await applySafeActions({
+          supabase: params.supabase,
+          proposalId: proposalInsert.data.id,
+          tripId: params.tripId,
+          userId: params.userId,
+          affectedLayers
+        });
+
+        if (appliedAutomatically) {
+          await writer
+            .from("companion_repair_proposals")
+            .update({
+              status: "applied",
+              applied_at: new Date().toISOString()
+            })
+            .eq("id", proposalInsert.data.id)
+            .eq("user_id", params.userId);
+
+          await writer
+            .from("companion_events")
+            .update({ status: "applied" })
+            .eq("id", params.companionEventId)
+            .eq("user_id", params.userId);
+        }
       }
     } catch (error) {
       await writer
@@ -758,6 +870,50 @@ export async function approveCompanionRepairProposal(params: {
       ok: true,
       proposal: updatedProposal.data || proposalResult.data,
       actions: updatedActions.data || actionsResult.data || [],
+      appliedAutomatically: false
+    };
+  }
+
+  if (proposalResult.data.operation === "SHIFT_ACTIVITY_TIMING") {
+    /*
+     * Traveler approved the re-timing: apply the provider-validated shift
+     * atomically via Postgres, then verify. Never auto-applies — this branch
+     * only runs from the explicit approve route.
+     */
+    const shiftApply = await applyShiftTimingProposal({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      repairProposalId: params.repairProposalId
+    });
+
+    if (!shiftApply.ok) {
+      await writer
+        .from("companion_repair_proposals")
+        .update({ status: "failed" })
+        .eq("id", params.repairProposalId)
+        .eq("user_id", params.userId);
+
+      return { ok: false, error: shiftApply.error };
+    }
+
+    const updatedProposal = await params.supabase
+      .from("companion_repair_proposals")
+      .select("*")
+      .eq("id", params.repairProposalId)
+      .eq("user_id", params.userId)
+      .single();
+    const updatedActions = await params.supabase
+      .from("companion_actions")
+      .select("*")
+      .eq("repair_proposal_id", params.repairProposalId)
+      .eq("user_id", params.userId)
+      .order("created_at", { ascending: true });
+
+    return {
+      ok: true,
+      proposal: updatedProposal.data || proposalResult.data,
+      actions: updatedActions.data || [],
       appliedAutomatically: false
     };
   }
