@@ -9,7 +9,7 @@ import { getTripDayFromDate } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
-import { buildLiveCompanionSummary, scheduleCompanionEvents, unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
+import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
 import { timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
@@ -119,10 +119,7 @@ export default async function LiveTripPage({
     metadata: bundle.data.trip.metadata
   });
   const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
-  if ((!locked && !tripCompleted) || (!companionUnlocked && !access.hasQaAccess && !tripCompleted)) redirect(`/trip/${id}`);
-  if (access.hasQaAccess && locked && !companionUnlocked) {
-    await unlockLiveCompanion(supabase, id, "admin");
-  }
+  if ((!locked && !tripCompleted) || (!companionUnlocked && !tripCompleted)) redirect(`/trip/${id}`);
 
   if (!tripCompleted) await scheduleCompanionEvents(supabase, id);
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";

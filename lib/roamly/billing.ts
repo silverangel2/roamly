@@ -693,7 +693,7 @@ export async function lockGeneratedItinerary(
   source: RoamlyItineraryUnlockSource
 ) {
   const now = new Date().toISOString();
-  const paymentStatus = source === "free" ? "free" : source === "bundle" ? "bundled" : "paid";
+  const paymentStatus = source === "free" ? "free" : source === "bundle" ? "bundled" : source === "paid" ? "paid" : "unpaid";
   return supabase
     .from("roamly_trips")
     .update({
@@ -936,8 +936,7 @@ export async function createBundleCheckoutSession(
       .update({
         itinerary_unlock_source: "admin",
         tracking_unlocked: true,
-        tracking_unlock_source: "admin",
-        tracking_paid_at: new Date().toISOString()
+        tracking_unlock_source: "admin"
       })
       .eq("id", tripId)
       .eq("user_id", user.id);

@@ -87,7 +87,6 @@ export function canUsePaidItinerary(userEmail: NullableEmail, entitlements: Roam
 }
 
 export function canUseLiveCompanion(userEmail: NullableEmail, entitlements: RoamlyEntitlements = {}) {
-  if (isRoamlyTester(userEmail)) return true;
   if (entitlements.completePackUnlocked) return true;
   return Boolean(
     entitlements.trackingUnlocked ||

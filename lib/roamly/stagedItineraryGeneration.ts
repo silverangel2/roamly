@@ -12,7 +12,6 @@ import { enforceSelectedHotelIdentity } from "@/lib/roamly/selectedHotelIdentity
 import { normalizeLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import { markFreeItineraryUsed, lockGeneratedItinerary } from "@/lib/roamly/billing";
-import { unlockLiveCompanion } from "@/lib/roamly/tripCompanion";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
@@ -1984,7 +1983,6 @@ async function completeGeneration(params: {
 
   const lock = await lockGeneratedItinerary(params.supabase, params.trip.user_id, params.trip.id, completed.unlockSource || "paid");
   if (lock.error) throw new StagedGenerationError(lock.error.message, "ITINERARY_LOCK_FAILED", 500);
-  if (completed.qaTester) await unlockLiveCompanion(params.supabase, params.trip.id, "admin");
   await persistState({ supabase: params.supabase, trip: params.trip, state: completed });
   await recordTripEvent(params.supabase, {
     userId: params.trip.user_id,

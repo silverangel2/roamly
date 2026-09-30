@@ -383,17 +383,19 @@ export async function unlockLiveCompanion(
       ? trip.trip_companion_status
       : "scheduled";
 
+  const unlockUpdate: Record<string, unknown> = {
+    tracking_unlocked: true,
+    tracking_unlock_source: source,
+    live_companion_unlocked: true,
+    live_companion_unlocked_at: trip.live_companion_unlocked_at || now,
+    live_companion_source: source,
+    trip_companion_status: companionStatus
+  };
+  if (source !== "admin") unlockUpdate.tracking_paid_at = trip.tracking_paid_at || now;
+
   const { error } = await writer
     .from("roamly_trips")
-    .update({
-      tracking_unlocked: true,
-      tracking_unlock_source: source,
-      tracking_paid_at: trip.tracking_paid_at || now,
-      live_companion_unlocked: true,
-      live_companion_unlocked_at: trip.live_companion_unlocked_at || now,
-      live_companion_source: source,
-      trip_companion_status: companionStatus
-    })
+    .update(unlockUpdate)
     .eq("id", tripId)
     .eq("user_id", trip.user_id);
 

@@ -2392,8 +2392,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       generationStatus !== "complete" &&
       (!canShowFull || generationFailed)
   );
-  const trackingUnlocked = tripHasTrackingUnlock(trip) || (access.hasQaAccess && itineraryLocked);
-  const paidForItinerary = isItineraryPaid(trip) || access.hasQaAccess;
+  const trackingUnlocked = tripHasTrackingUnlock(trip);
+  const paidForItinerary = isItineraryPaid(trip);
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
   const checkoutProcessing = Boolean(checkoutAwaitingWebhook && !paidForItinerary && !trackingUnlocked);
   const checkoutStartFailed = one(search.checkout) === "failed";

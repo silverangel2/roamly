@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateDistanceMeters, isWithinRadius, type LocationInput } from "@/lib/roamly/location";
@@ -64,7 +63,7 @@ const actionConfig = {
   }
 };
 
-async function getTripForAction(supabase: SupabaseClient, tripId: string, userId?: string | null, userEmail?: string | null) {
+async function getTripForAction(supabase: SupabaseClient, tripId: string, userId?: string | null) {
   let query = supabase
     .from("roamly_trips")
     .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked,live_companion_unlocked")
@@ -74,8 +73,7 @@ async function getTripForAction(supabase: SupabaseClient, tripId: string, userId
   if (error) return { trip: null, error: error.message };
   if (!data) return { trip: null, error: "Trip not found." };
   const trip = data as ActionTrip;
-  const access = getRoamlyAccessForUser(userEmail);
-  if (!isTripLocked(trip) || (!tripHasTrackingUnlock(trip) && !access.hasQaAccess)) {
+  if (!isTripLocked(trip) || !tripHasTrackingUnlock(trip)) {
     return { trip: null, error: "Live Trip Companion requires a locked itinerary and the companion add-on." };
   }
   return { trip, error: null };
@@ -337,7 +335,7 @@ export async function performActivityAction(
     requireNearbyForCheckIn?: boolean;
   }
 ) {
-  const tripResult = await getTripForAction(supabase, params.tripId, params.userId, params.userEmail);
+  const tripResult = await getTripForAction(supabase, params.tripId, params.userId);
   if (!tripResult.trip) return { ok: false as const, error: tripResult.error || "Trip not found." };
 
   const loaded = await loadActivity(supabase, params.tripId, params.activityId);
