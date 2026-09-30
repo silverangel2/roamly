@@ -195,6 +195,9 @@ export type DisplayTimelineItem = {
   authority: "confirmed" | "must_do" | "flexible" | "supporting";
   /** True when the displayed time comes from a verified booking, not the plan draft. */
   timeFromBooking: boolean;
+  /** True when the displayed time was shifted by a provider-validated flight-delay repair. */
+  timeRetimed: boolean;
+  retimedMinutes: number | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -297,7 +300,9 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
     why: "",
     statusText: "",
     authority: "confirmed",
-    timeFromBooking: Boolean(timing.start)
+    timeFromBooking: Boolean(timing.start),
+    timeRetimed: false,
+    retimedMinutes: null
   };
 }
 
@@ -323,6 +328,10 @@ function applyConfirmedBookings(
         item.time = timing.end ? `${formatClock(timing.start)}–${formatClock(timing.end)}` : formatClock(timing.start);
         item.sortMinutes = parseClockMinutes(timing.start);
         item.timeFromBooking = true;
+        // A verified booking time is authoritative: it supersedes the plan's
+        // re-time marker rather than stacking two provenances on one time.
+        item.timeRetimed = false;
+        item.retimedMinutes = null;
       }
       item.authority = "confirmed";
       consolidated += 1;
@@ -387,6 +396,8 @@ export function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"
         ? "Price not available yet"
         : "";
     const why = timelineText(record, "why_recommended", "whyRecommended", "selection_reason", "selectionReason", "reason");
+    const retimedBy = timelineText(record, "retimed_by_event");
+    const retimedMinutes = timelineNumber(record, "retimed_minutes");
 
     if (!title && !description) continue;
     if (!transferLike && title && isGenericStopText(title) && (!location || isGenericStopText(location))) continue;
@@ -413,7 +424,9 @@ export function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"
       why,
       statusText,
       authority,
-      timeFromBooking: false
+      timeFromBooking: false,
+      timeRetimed: Boolean(retimedBy),
+      retimedMinutes
     });
 
     if (output.length >= 6) break;
@@ -447,6 +460,11 @@ export function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelin
           ) : (
             <p className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p>
           )}
+          {item.timeRetimed ? (
+            <p className="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-amber-800">
+              Re-timed{item.retimedMinutes ? ` ${item.retimedMinutes > 0 ? "+" : ""}${item.retimedMinutes} min` : ""}
+            </p>
+          ) : null}
         </div>
 
         <div className="min-w-0">
