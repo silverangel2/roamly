@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { useRouter } from "next/navigation";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { useI18n } from "@/components/i18n/I18nProvider";
@@ -444,6 +445,7 @@ export function LiveTripClient({
   const [setupComplete, setSetupComplete] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  const [tripLinkCopied, setTripLinkCopied] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [deepLinkedActivityId, setDeepLinkedActivityId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState(simulatorPlaces[0]?.id || "");
@@ -819,6 +821,44 @@ export function LiveTripClient({
       timeout: 20_000
     });
   }, [fieldTestMode, sendLocationUpdate, tripId]);
+
+  const liveTripUrl = typeof window !== "undefined" ? `${window.location.origin}/trip/${tripId}/live` : "";
+  const canNativeShare = typeof navigator !== "undefined" && typeof (navigator as Navigator & { share?: unknown }).share === "function";
+
+  function installGuideVariant(): "ios" | "samsung" | "firefox" | "chrome" {
+    if (typeof navigator === "undefined") return "chrome";
+    const ua = navigator.userAgent || "";
+    const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (iOS) return "ios";
+    if (/SamsungBrowser/i.test(ua)) return "samsung";
+    if (/Firefox|FxiOS/i.test(ua)) return "firefox";
+    return "chrome";
+  }
+  const guideVariant = installGuideVariant();
+
+  async function copyTripLink() {
+    if (!liveTripUrl) return;
+    try {
+      await navigator.clipboard.writeText(liveTripUrl);
+      setTripLinkCopied(true);
+      window.setTimeout(() => setTripLinkCopied(false), 2500);
+    } catch {
+      setTripLinkCopied(false);
+    }
+  }
+
+  async function shareTripLink() {
+    if (!liveTripUrl) return;
+    try {
+      await (navigator as Navigator & { share: (data: { title?: string; text?: string; url?: string }) => Promise<void> }).share({
+        title: "Roamly Live Companion",
+        text: "Open my trip in Roamly",
+        url: liveTripUrl
+      });
+    } catch {
+      /* user dismissed the share sheet */
+    }
+  }
 
   async function startInstall() {
     if (deferredInstallPrompt) {
@@ -1605,28 +1645,72 @@ export function LiveTripClient({
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
               {!mobileRuntime ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-lg font-black text-amber-900">Live Companion runs on your phone</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Open this trip on your phone to finish setup.</p>
+                  <h3 className="text-lg font-black text-amber-900">Continue on your phone</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Live Companion runs on your phone. Scan the code with your phone&apos;s camera to open this trip there.</p>
+                  {liveTripUrl ? (
+                    <div className="mt-4 flex flex-col items-center">
+                      <div className="rounded-2xl bg-white p-3 shadow-soft">
+                        <QRCodeSVG value={liveTripUrl} size={168} />
+                      </div>
+                      <div className="mt-4 grid w-full gap-2 sm:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => void copyTripLink()}
+                          className="min-h-12 rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink"
+                        >
+                          {tripLinkCopied ? "Link copied ✓" : "Copy trip link"}
+                        </button>
+                        {canNativeShare ? (
+                          <button
+                            type="button"
+                            onClick={() => void shareTripLink()}
+                            className="min-h-12 rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white"
+                          >
+                            Send to my phone
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : !isStandalone ? (
                 <div className="mt-3 rounded-2xl border border-amber-200/30 bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-900">Install Roamly on your Home Screen</h3>
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{fieldTestMode ? "Live Companion works from the Roamly Home Screen app." : "Install Roamly on your Home Screen to receive Live Companion trip alerts."}</p>
+                  <h3 className="text-xl font-black text-amber-900">Add Roamly to your Home Screen</h3>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">The Home Screen app opens Roamly&apos;s homepage — open your trip from there to finish setup and get live alerts.</p>
                   <button type="button" onClick={() => void startInstall()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink">
-                    Install Roamly
+                    {deferredInstallPrompt ? "Add to Home Screen" : "Show me how"}
                   </button>
                   {installGuideOpen ? (
                     <div className="mt-4 rounded-2xl bg-white p-4 text-ink">
-                      <h4 className="text-lg font-black">Install Roamly</h4>
-                      {getPushCapabilityState().isIOS ? (
+                      <h4 className="text-lg font-black">Add Roamly to your Home Screen</h4>
+                      {guideVariant === "ios" ? (
                         <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
-                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the Share button <span aria-label="Share" role="img">□↑</span> in Safari.</li>
-                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap Add to Home Screen <span aria-label="Home Screen" role="img">⌂</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap Add.</li>
-                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon.</li>
+                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the Share button at the bottom of Safari.</li>
+                          <li><span className="mr-2 font-black text-ocean">2.</span>Scroll down and tap <span className="text-ink">Add to Home Screen</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Add</span> at the top.</li>
+                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
+                        </ol>
+                      ) : guideVariant === "samsung" ? (
+                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
+                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the <span className="text-ink">☰ menu</span> at the bottom of Samsung Internet.</li>
+                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap <span className="text-ink">Add page to</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Home screen</span>, then <span className="text-ink">Add</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
+                        </ol>
+                      ) : guideVariant === "firefox" ? (
+                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
+                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the <span className="text-ink">⋮ menu</span> in Firefox.</li>
+                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap <span className="text-ink">Add to Home screen</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Add</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
                         </ol>
                       ) : (
-                        <p className="mt-3 text-sm font-bold leading-6 text-slate-600">Use your browser&apos;s install option, then open Roamly from the new Home Screen icon.</p>
+                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
+                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the <span className="text-ink">⋮ menu</span> in the top-right corner of Chrome.</li>
+                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap <span className="text-ink">Add to Home screen</span> (or <span className="text-ink">Install app</span>).</li>
+                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Add</span> / <span className="text-ink">Install</span>.</li>
+                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
+                        </ol>
                       )}
                       <button type="button" onClick={() => setInstallGuideOpen(false)} className="mt-4 min-h-11 w-full rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white">Got it</button>
                     </div>
