@@ -15,7 +15,7 @@ type TripContextNavProps = {
 
 const destinations = [
   { key: "home", label: "Home", suffix: "" },
-  { key: "itinerary", label: "Plan", suffix: "#day-by-day" },
+  { key: "itinerary", label: "Itinerary", suffix: "#day-by-day" },
   { key: "briefing", label: "Briefing", suffix: "#overview" },
   { key: "explore", label: "Explore", suffix: "/explore" },
   { key: "budget", label: "Budget", suffix: "#budget" },
@@ -30,6 +30,21 @@ function isSelected(pathname: string, hash: string, tripId: string, key: (typeof
   if (key === "briefing") return (pathname === base || pathname === `${base}/`) && ["#overview", "#requirements", "#essentials", "#travel-notes"].includes(hash);
   if (key === "budget") return (pathname === base || pathname === `${base}/`) && hash === "#budget";
   return pathname === `${base}${destinations.find((item) => item.key === key)?.suffix}`;
+}
+
+const hashToTabId: Record<string, string> = {
+  "#day-by-day": "roamly-tab-day-by-day",
+  "#overview": "roamly-tab-overview",
+  "#budget": "roamly-tab-budget"
+};
+
+/** The trip page shows tab panels through radio inputs; a hash link alone cannot
+ *  reveal a hidden panel, so activate the matching tab before the browser jumps. */
+function activateTabForSuffix(suffix: string) {
+  const tabId = hashToTabId[suffix];
+  if (!tabId || typeof document === "undefined") return;
+  const input = document.getElementById(tabId) as HTMLInputElement | null;
+  if (input && !input.checked) input.click();
 }
 
 export function TripContextNav({ tripId, title, destination, dates, status, showContext = true }: TripContextNavProps) {
@@ -63,6 +78,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
             <Link
               key={destinationItem.key}
               href={href}
+              onClick={() => activateTabForSuffix(destinationItem.suffix)}
               aria-current={selected ? "page" : undefined}
               className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-3 py-2 text-center text-xs font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 sm:min-w-24 sm:px-4 sm:text-sm ${
                 selected

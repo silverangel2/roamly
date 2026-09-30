@@ -647,12 +647,28 @@ export type LiveDirectionLinks = {
   citymapper: string;
 };
 
+function dedupePlaceLabels(parts: Array<string | null | undefined>): string[] {
+  const kept: string[] = [];
+  for (const raw of parts) {
+    if (!isUsablePlaceLabel(raw)) continue;
+    const part = raw.trim().replace(/\s+/g, " ");
+    if (!part) continue;
+    const lower = part.toLowerCase();
+    let absorbed = false;
+    for (let i = 0; i < kept.length; i++) {
+      const keptLower = kept[i].toLowerCase();
+      if (keptLower.includes(lower)) { absorbed = true; break; }
+      if (lower.includes(keptLower)) { kept[i] = part; absorbed = true; break; }
+    }
+    if (!absorbed) kept.push(part);
+  }
+  return kept;
+}
+
 function directionDestinationForActivity(activity?: LiveCompanionActivity | null): { query: string; coords: string | null } {
   if (!activity) return { query: "", coords: null };
   const coords = validCoordinates(activity) ? `${activity.latitude},${activity.longitude}` : null;
-  const label = [activity.placeName, activity.address, activity.title]
-    .filter((item): item is string => isUsablePlaceLabel(item))
-    .join(" ");
+  const label = dedupePlaceLabels([activity.placeName, activity.address, activity.title]).join(" ");
   return { query: coords || label, coords };
 }
 
