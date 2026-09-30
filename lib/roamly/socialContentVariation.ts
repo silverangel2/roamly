@@ -40,8 +40,19 @@ const ROAMLY_EDITORIAL_ANGLES = [
 ] as const;
 
 const ROAMLY_HOOK_FRAMES = [
+  // Trial-conversion frames first: the generation index restarts at 0 for every
+  // refill batch, so leading frames are the ones that actually ship. Each points
+  // the curiosity gap at the plan itself so the caption CTA feels like the answer.
   ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
-    `A ${intent} can make ${destination} easier ${moment}`,
+    `Build ${intent} into your ${destination} plan ${moment}`,
+  ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
+    `The ${destination} trips that feel effortless share one thing ${moment}: ${intent}`,
+  ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
+    `${destination} ${moment} is easier when ${intent} is already in the itinerary`,
+  ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
+    `Turn ${moment} in ${destination} into ${intent} — start with the itinerary`,
+  ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
+    `Planning for ${intent} can make ${destination} easier ${moment}`,
   ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
     `What would you change about ${destination} ${moment} to create ${intent}?`,
   ({ destination, intent, moment }: { destination: string; intent: string; moment: string }) =>
