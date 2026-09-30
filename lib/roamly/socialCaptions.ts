@@ -773,11 +773,25 @@ function hashtagsFor(category: string, destination: string, index: number, brand
     TOPIC_ROTATION[index % TOPIC_ROTATION.length].replace(/[^A-Za-z0-9]/g, "")
   ];
 
-  // Facebook discovery tags. The old fyp-style tags were TikTok conventions that
-  // do nothing on Facebook; relevant travel tags keep the post discoverable.
-  const fixedReachHashtags = brand === "roamly" ? ["TravelReels", "Wanderlust", "TravelInspiration"] : [];
+  // Viral-reach discovery tags, rotated so posts don't look copy-pasted.
+  // Broad high-follow tags carry the reach; the base groups carry the niche.
+  const VIRAL_HASHTAG_ROTATION: Record<FacebookSocialBrand, string[][]> = {
+    roamly: [
+      ["Travel", "Reels", "TravelGram", "Wanderlust"],
+      ["TravelReels", "InstaTravel", "ExploreMore", "TravelAddict"],
+      ["Wanderlust", "TravelPhotography", "Reels", "Travel"],
+      ["TravelGram", "TravelInspiration", "InstaTravel", "Reels"]
+    ],
+    reviewintel: [
+      ["Reels", "Shopping", "Deals", "ShoppingHacks"],
+      ["ProductReview", "Reels", "MustHave", "ShopSmart"],
+      ["Shopping", "Reels", "Deals", "HonestReviews"]
+    ]
+  };
+  const viralReachHashtags =
+    VIRAL_HASHTAG_ROTATION[brand][index % VIRAL_HASHTAG_ROTATION[brand].length];
 
-  return uniqueHashtags([...base, ...specific, ...variationTerms, ...fixedReachHashtags]);
+  return uniqueHashtags([...base, ...specific, ...variationTerms, ...viralReachHashtags]);
 }
 
 function mediaDirectionFor(format: FacebookPostFormat, category: string, destination: string, topic: string, brand: FacebookSocialBrand) {
