@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/AppShell";
 import { TravelpayoutsDriveScript } from "@/components/roamly/TravelpayoutsDriveScript";
+import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { getServerLocale } from "@/lib/i18n-server";
 
 export const metadata: Metadata = {
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang={locale}>
       <body>
+        <ServiceWorkerRegistrar />
         <TravelpayoutsDriveScript />
         <AppShell>{children}</AppShell>
       </body>
