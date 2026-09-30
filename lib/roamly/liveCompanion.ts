@@ -639,14 +639,59 @@ export function evaluateLiveCompanionActivation(params: {
   return { active: true, status: "schedule_only" as const, reason: "Trip is active; using schedule-only mode until a verified destination location is available." };
 }
 
-export function mapsUrlForActivity(activity?: LiveCompanionActivity | null) {
-  if (!activity) return "";
-  const value = validCoordinates(activity)
-    ? `${activity.latitude},${activity.longitude}`
-    : [activity.placeName, activity.address, activity.title]
-        .filter((item): item is string => isUsablePlaceLabel(item))
-        .join(" ");
-  return value ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(value)}` : "";
+export type LiveDirectionMode = "walking" | "transit" | "driving";
+
+export type LiveDirectionLinks = {
+  google: string;
+  apple: string;
+  citymapper: string;
+};
+
+function directionDestinationForActivity(activity?: LiveCompanionActivity | null): { query: string; coords: string | null } {
+  if (!activity) return { query: "", coords: null };
+  const coords = validCoordinates(activity) ? `${activity.latitude},${activity.longitude}` : null;
+  const label = [activity.placeName, activity.address, activity.title]
+    .filter((item): item is string => isUsablePlaceLabel(item))
+    .join(" ");
+  return { query: coords || label, coords };
+}
+
+export function googleMapsUrlForActivity(activity?: LiveCompanionActivity | null, mode: LiveDirectionMode = "driving") {
+  const { query } = directionDestinationForActivity(activity);
+  if (!query) return "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}&travelmode=${mode}`;
+}
+
+export function appleMapsUrlForActivity(activity?: LiveCompanionActivity | null, mode: LiveDirectionMode = "driving") {
+  const { query } = directionDestinationForActivity(activity);
+  if (!query) return "";
+  const dirflg = mode === "walking" ? "w" : mode === "transit" ? "r" : "d";
+  return `https://maps.apple.com/?daddr=${encodeURIComponent(query)}&dirflg=${dirflg}`;
+}
+
+export function citymapperUrlForActivity(activity?: LiveCompanionActivity | null) {
+  const { query, coords } = directionDestinationForActivity(activity);
+  if (!query) return "";
+  const param = coords
+    ? `endcoord=${encodeURIComponent(coords)}`
+    : `endaddress=${encodeURIComponent(query)}`;
+  return `https://citymapper.com/directions?${param}`;
+}
+
+/** Google Maps + Apple Maps + Citymapper links for one activity and travel mode. */
+export function directionLinksForActivity(
+  activity?: LiveCompanionActivity | null,
+  mode: LiveDirectionMode = "driving"
+): LiveDirectionLinks {
+  return {
+    google: googleMapsUrlForActivity(activity, mode),
+    apple: appleMapsUrlForActivity(activity, mode),
+    citymapper: citymapperUrlForActivity(activity)
+  };
+}
+
+export function mapsUrlForActivity(activity?: LiveCompanionActivity | null, mode: LiveDirectionMode = "driving") {
+  return googleMapsUrlForActivity(activity, mode);
 }
 
 export function isUsablePlaceLabel(value: unknown): value is string {

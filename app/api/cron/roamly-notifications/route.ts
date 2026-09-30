@@ -30,8 +30,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const briefingResult =
-    await Promise.resolve(
+  // Queue-only mode (triggered by the frequent vercel cron) processes
+  // time-sensitive deliveries without re-running the daily work
+  // (pre-trip reminders, paid-activation detector).
+  const queueOnly = new URL(request.url).searchParams.get("mode") === "queue";
+
+  const briefingResult = queueOnly
+    ? { ok: true as const, scheduled: 0, skipped: true, reason: "Queue-only mode." }
+    : await Promise.resolve(
       Promise.resolve({
       ok: true,
       scheduled: 0,
@@ -46,19 +52,24 @@ export async function GET(request: NextRequest) {
           : "Companion briefing scheduling failed."
     }));
 
-  const [preTrip, paidActivation] = await Promise.all([
-    schedulePreTripReminders().catch((error) => ({
-      ok: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Pre-trip reminder scheduling failed."
-    })),
-    runPaidActivationMissingDetector().catch(async () => {
-      await recordBackgroundDetectorFailure({ detector: "paid_activation_missing", route: "/api/cron/roamly-notifications" });
-      return detectorFailureResult("paid_activation_missing");
-    })
-  ]);
+  const [preTrip, paidActivation] = queueOnly
+    ? [
+        { ok: true as const, skipped: true as const, reason: "Queue-only mode." },
+        { ok: true as const, skipped: true as const, reason: "Queue-only mode." }
+      ]
+    : await Promise.all([
+      schedulePreTripReminders().catch((error) => ({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Pre-trip reminder scheduling failed."
+      })),
+      runPaidActivationMissingDetector().catch(async () => {
+        await recordBackgroundDetectorFailure({ detector: "paid_activation_missing", route: "/api/cron/roamly-notifications" });
+        return detectorFailureResult("paid_activation_missing");
+      })
+    ]);
 
   const [scheduledResult, companionResult] =
     await Promise.allSettled([

@@ -1,56 +1,60 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/roamly-live-companion",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/roamly-notifications",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/roamly-social-autopost",
-      "schedule": "*/30 * * * *"
-    },
-    {
-      "path": "/api/cron/roamly-itinerary-generation",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/roamly-booking-monitor",
-      "schedule": "*/10 * * * *"
-    },
-    {
-      "path": "/api/cron/roamly-successful-trip-patterns",
-      "schedule": "17 4 * * *"
-    },
-    {
-      "path": "/api/cron/roamly-operations-signals",
-      "schedule": "17 3 * * *"
-    },
-    {
-      "path": "/api/cron/roamly-operations-signals?scheduleId=seo_weekly",
-      "schedule": "17 4 * * 1"
-    },
-    {
-      "path": "/api/cron/roamly-operations-signals?scheduleId=security_weekly",
-      "schedule": "17 5 * * 0"
-    },
-    {
-      "path": "/api/cron/roamly-executive-reports?reportType=weekly",
-      "schedule": "17 7 * * 1"
-    },
-    {
-      "path": "/api/cron/roamly-executive-reports?reportType=monthly",
-      "schedule": "17 8 1 * *"
-    },
-    {
-      "path": "/api/cron/roamly-executive-reports?reportType=quarterly",
-      "schedule": "17 9 1 1,4,7,10 *"
-    },
-    {
-      "path": "/api/cron/roamly-executive-reports?reportType=year_end",
-      "schedule": "17 10 1 1 *"
-    }
-  ]
+ "crons": [
+  {
+   "path": "/api/cron/roamly-live-companion",
+   "schedule": "*/5 * * * *"
+  },
+  {
+   "path": "/api/cron/roamly-notifications",
+   "schedule": "0 13 * * *"
+  },
+  {
+   "path": "/api/cron/roamly-notifications?mode=queue",
+   "schedule": "*/15 * * * *"
+  },
+  {
+   "path": "/api/cron/roamly-social-autopost",
+   "schedule": "*/30 * * * *"
+  },
+  {
+   "path": "/api/cron/roamly-itinerary-generation",
+   "schedule": "*/5 * * * *"
+  },
+  {
+   "path": "/api/cron/roamly-booking-monitor",
+   "schedule": "*/10 * * * *"
+  },
+  {
+   "path": "/api/cron/roamly-successful-trip-patterns",
+   "schedule": "17 4 * * *"
+  },
+  {
+   "path": "/api/cron/roamly-operations-signals",
+   "schedule": "17 3 * * *"
+  },
+  {
+   "path": "/api/cron/roamly-operations-signals?scheduleId=seo_weekly",
+   "schedule": "17 4 * * 1"
+  },
+  {
+   "path": "/api/cron/roamly-operations-signals?scheduleId=security_weekly",
+   "schedule": "17 5 * * 0"
+  },
+  {
+   "path": "/api/cron/roamly-executive-reports?reportType=weekly",
+   "schedule": "17 7 * * 1"
+  },
+  {
+   "path": "/api/cron/roamly-executive-reports?reportType=monthly",
+   "schedule": "17 8 1 * *"
+  },
+  {
+   "path": "/api/cron/roamly-executive-reports?reportType=quarterly",
+   "schedule": "17 9 1 1,4,7,10 *"
+  },
+  {
+   "path": "/api/cron/roamly-executive-reports?reportType=year_end",
+   "schedule": "17 10 1 1 *"
+  }
+ ]
 }
