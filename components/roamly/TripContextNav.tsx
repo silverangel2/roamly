@@ -11,6 +11,9 @@ type TripContextNavProps = {
   dates: string;
   status?: string;
   showContext?: boolean;
+  /** When false, the trip has no itinerary content — hash links to tab panels
+   *  would be dead, so they are hidden. */
+  contentReady?: boolean;
 };
 
 const destinations = [
@@ -47,7 +50,18 @@ function activateTabForSuffix(suffix: string) {
   if (input && !input.checked) input.click();
 }
 
-export function TripContextNav({ tripId, title, destination, dates, status, showContext = true }: TripContextNavProps) {
+/** "Home" should reset the view: clear any hash, reveal the default tab panel,
+ *  and glide back to the top. A plain link to the same path is a no-op when a
+ *  hash is present, which made Home feel dead. */
+function goHome(tripId: string, setHash: (hash: string) => void) {
+  if (typeof window === "undefined") return;
+  window.history.replaceState(null, "", `/trip/${tripId}`);
+  setHash("");
+  activateTabForSuffix("#day-by-day");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+export function TripContextNav({ tripId, title, destination, dates, status, showContext = true, contentReady = true }: TripContextNavProps) {
   const pathname = usePathname();
   const [hash, setHash] = useState("");
 
@@ -57,6 +71,10 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
     window.addEventListener("hashchange", updateHash);
     return () => window.removeEventListener("hashchange", updateHash);
   }, []);
+
+  const visibleDestinations = contentReady
+    ? destinations
+    : destinations.filter((item) => !item.suffix.startsWith("#"));
 
   return (
     <section className="roamly-no-print mb-5 border-b border-[#e7dfd2] bg-transparent px-0 py-3 sm:px-1">
@@ -71,16 +89,24 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
       ) : null}
       <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}min-w-0 overflow-x-auto pb-1`}>
         <div className="flex min-w-max gap-1 sm:gap-2">
-        {destinations.map((destinationItem) => {
+        {visibleDestinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
           const href = `/trip/${tripId}${destinationItem.suffix}`;
+          const isHome = destinationItem.key === "home";
           return (
             <Link
               key={destinationItem.key}
               href={href}
-              onClick={() => activateTabForSuffix(destinationItem.suffix)}
+              onClick={(event) => {
+                if (isHome) {
+                  event.preventDefault();
+                  goHome(tripId, setHash);
+                  return;
+                }
+                activateTabForSuffix(destinationItem.suffix);
+              }}
               aria-current={selected ? "page" : undefined}
-              className={`inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-3 py-2 text-center text-xs font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 sm:min-w-24 sm:px-4 sm:text-sm ${
+              className={`roamly-press inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-3 py-2 text-center text-xs font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 sm:min-w-24 sm:px-4 sm:text-sm ${
                 selected
                   ? "bg-ocean text-white shadow-sm"
                   : "text-slate-600 hover:bg-mist hover:text-ink"

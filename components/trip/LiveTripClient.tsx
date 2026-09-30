@@ -181,6 +181,11 @@ function countdownCopy(minutes: number | null) {
   if (minutes <= 0) return "Now";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
+  // Far-future countdowns read better in days ("in 51 days" beats "1232h 31m").
+  if (hours >= 48) {
+    const days = Math.round(minutes / (60 * 24));
+    return days <= 1 ? "in 1 day" : `in ${days} days`;
+  }
   const remainder = minutes % 60;
   return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
 }
@@ -1437,7 +1442,7 @@ export function LiveTripClient({
     : [];
 
   return (
-    <div className="mx-auto grid w-full max-w-5xl gap-4 pb-28 md:pb-0">
+    <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-4 pb-28 md:pb-0">
       <section className="overflow-hidden rounded-[1.25rem] border border-cloud bg-white text-ink shadow-[0_18px_50px_rgba(16,32,51,0.12)]">
         <div className="border-b border-cloud px-4 py-3">
           <div className="flex items-center justify-between gap-3">
