@@ -13,7 +13,7 @@ function assert(condition, message) {
   }
 }
 
-const automation = read("lib/roamly/socialAutomation.ts");
+const automation = read("lib/roamly/socialAutomation.ts") + "\n" + read("lib/roamly/socialCaptions.ts");
 const generator = read("lib/roamly/socialReelGenerator.ts");
 const cron = read("app/api/cron/roamly-social-autopost/route.ts");
 const controls = read("components/admin/social/FacebookAutomationControls.tsx");
