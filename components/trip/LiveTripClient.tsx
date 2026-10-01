@@ -175,19 +175,31 @@ function formatClock(value: string | null | undefined, timezone?: string | null,
   }).format(date);
 }
 
-function countdownCopy(minutes: number | null) {
+function formatShortDay(date: Date, timezone?: string | null, locale = "en") {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: timezone || undefined
+  }).format(date);
+}
+
+function timingCopy(minutes: number | null, startDate: Date | null, timezone?: string | null, locale = "en") {
   if (minutes == null) return "No start time";
   if (minutes < -5) return "Started";
   if (minutes <= 0) return "Now";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
-  // Far-future countdowns read better in days ("in 51 days" beats "1232h 31m").
-  if (hours >= 48) {
-    const days = Math.round(minutes / (60 * 24));
-    return days <= 1 ? "in 1 day" : `in ${days} days`;
+  if (hours < 48) {
+    const remainder = minutes % 60;
+    return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
   }
-  const remainder = minutes % 60;
-  return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
+  // Beyond two days a date beats a day-count: "Wed, Oct 21" is what the
+  // traveler actually wants, and it can never be misread as a travel time
+  // (the old "1232h 31m" looked like a route duration).
+  if (startDate && Number.isFinite(startDate.getTime())) return formatShortDay(startDate, timezone, locale);
+  const days = Math.round(minutes / (60 * 24));
+  return days <= 1 ? "in 1 day" : `in ${days} days`;
 }
 
 function formatMeters(value: number | null | undefined) {
@@ -1481,8 +1493,8 @@ export function LiveTripClient({
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
-                <p className="mt-1 text-sm font-black">{countdownCopy(model.countdownMinutes)}</p>
-                {model.route.status === "verified" ? <p className="mt-1 text-xs font-bold text-slate-500">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">Travel time still uncertain</p> : null}
+                <p className="mt-1 text-sm font-black">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</p>
+                {model.route.status === "verified" ? <p className="mt-1 text-xs font-bold text-slate-500">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">Travel time from your location is still uncertain</p> : null}
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-500">
                   <span className={classNames("h-1.5 w-1.5 rounded-full", gpsStatus.ok ? "bg-emerald-500" : "bg-sun")} aria-hidden="true" />
                   {gpsStatus.copy}
