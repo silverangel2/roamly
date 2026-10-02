@@ -14,6 +14,7 @@ function assert(condition, message) {
 }
 
 const automation = read("lib/roamly/socialAutomation.ts") + "\n" + read("lib/roamly/socialCaptions.ts");
+const captions = read("lib/roamly/socialCaptions.ts");
 const generator = read("lib/roamly/socialReelGenerator.ts");
 const cron = read("app/api/cron/roamly-social-autopost/route.ts");
 const controls = read("components/admin/social/FacebookAutomationControls.tsx");
@@ -83,6 +84,11 @@ assert(/getFacebookAutomationSummaries/.test(automationPage) && /FacebookAutomat
 assert(/redactedEnvValue/.test(runtimeProof) && /sensitive\|redacted\|secret\|token\|private/.test(runtimeProof), "runtime proof ignores redacted env placeholders");
 assert(/cleanEnvValue/.test(automation) && /sensitive\|redacted\|secret\|token\|private/.test(automation), "automation config ignores redacted env placeholders");
 assert(/selectCampaignPhotoAsset/.test(automation) && /!campaignPhoto/.test(automation), "buildDrafts requires a matching campaign photo before draft creation");
+assert(/export async function generateFacebookQueue/.test(captions) && /reservedMediaKeys/.test(captions), "current generateFacebookQueue path uses same-batch source-photo reservations");
+assert(/recentSelectedMediaKeys/.test(captions) && /minimumDaysBeforeReuse/.test(captions), "current source excludes configured recent scheduled and published media");
+assert(/campaignAssetIdentityKeys/.test(captions) && /contentSha256/.test(read("lib/roamly/facebookCampaignMedia.ts")), "current source uses stable physical-image identity");
+assert(/recentSelectedMediaKeys/.test(automation.slice(automation.indexOf("async function pickAutomationMediaAsset"))), "ReviewIntel fallback selection receives recent-history protection");
+assert(/generateFacebookQueue/.test(cron) && /socialAutomation/.test(cron), "production cron resolves the tested current generator through socialAutomation");
 assert(/sourceMediaAssetId/.test(automation) && /sourceImageUrl/.test(automation) && /sourceDraftId/.test(automation), "source and generated Reel provenance are persisted on the draft/media asset");
 assert(/postNowSourceMediaAssetId/.test(automation) && /boundSourceId/.test(automation), "Post now preserves the selected campaign photo while regenerating audio");
 assert(/const notBefore = undefined/.test(automation), "automatic Roamly publishing allows bounded catch-up for overdue scheduled slots");

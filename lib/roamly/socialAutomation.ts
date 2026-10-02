@@ -6,7 +6,7 @@ import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roaml
 import { probeFacebookAccessibleUrl, probeFacebookPublicVisibility } from "@/lib/roamly/publicSocialStorage";
 import { classifyFacebookPublication, type FacebookPublicationTruth } from "@/lib/roamly/facebookPublicationTruth";
 import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
-import { selectCampaignPhotoAsset } from "@/lib/roamly/facebookCampaignMedia";
+import { campaignAssetIdentityKeys } from "@/lib/roamly/facebookCampaignMedia";
 import { buildRoamlyContentVariant } from "@/lib/roamly/socialContentVariation";
 
 import {
@@ -33,6 +33,7 @@ import {
   objectValue,
   recordAdminActivity,
   refillFacebookQueue,
+  recentSelectedMediaKeys,
   uniqueHashtags,
   validTimeZone,
   withBrandMetadata,
@@ -630,7 +631,9 @@ async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSo
     return type === "image" && isApprovedAutomationAsset(asset, brand);
   });
 
-  return sortAutomationAssets(assets)[0] || null;
+  const recentKeys = await recentSelectedMediaKeys(admin, brand);
+  const available = assets.filter((asset) => ![...campaignAssetIdentityKeys(asset)].some((key) => recentKeys.has(key)));
+  return sortAutomationAssets(available.length ? available : assets)[0] || null;
 }
 
 async function findPriorPublishedVisual(admin: SupabaseClient, currentDraftId: string, platform: string, sourceMediaAssetId: string) {

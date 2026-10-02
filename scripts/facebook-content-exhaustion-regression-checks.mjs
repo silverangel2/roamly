@@ -91,7 +91,7 @@ assert.equal(
 
 assert.ok(!cycleOne.accepted.some((candidate) => candidate.variantKey.includes("reviewintel")), "Roamly variants must not mix ReviewIntel content");
 
-const automation = fs.readFileSync("lib/roamly/socialAutomation.ts", "utf8");
+const automation = fs.readFileSync("lib/roamly/socialAutomation.ts", "utf8") + "\n" + fs.readFileSync("lib/roamly/socialCaptions.ts", "utf8");
 assert.match(automation, /const contentVariant = brand === "roamly"/);
 assert.match(automation, /contentVariant\?\.key/);
 assert.match(automation, /qualityCheck\(draftBase, duplicateHashes\)/);

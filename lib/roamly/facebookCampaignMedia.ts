@@ -18,6 +18,39 @@ function metadataText(metadata: Record<string, unknown> | null | undefined, ...k
   for (const key of keys) { const value = text(metadata?.[key]); if (value) return value; }
   return "";
 }
+
+function normalizedMediaUrl(value: unknown) {
+  const raw = text(value);
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    url.search = "";
+    url.hash = "";
+    return `${url.protocol}//${url.host}${url.pathname}`.toLowerCase().replace(/\/$/, "");
+  } catch {
+    return raw.split(/[?#]/, 1)[0].toLowerCase().replace(/\/$/, "");
+  }
+}
+
+/** Stable identities let signed URLs and duplicate DB rows represent one physical image. */
+export function campaignAssetIdentityKeys(asset: CampaignPhotoCandidate) {
+  const metadata = asset.metadata || {};
+  const keys = new Set<string>();
+  const add = (prefix: string, value: unknown) => {
+    const normalized = text(value).toLowerCase();
+    if (normalized) keys.add(`${prefix}:${normalized}`);
+  };
+
+  add("id", asset.id);
+  for (const key of ["contentSha256", "contentHash", "sha256", "imageHash", "assetHash", "fingerprint"]) {
+    add("hash", metadata[key]);
+  }
+  for (const key of ["objectPath", "publicObjectPath", "storagePath", "path", "sourcePath"]) {
+    add("path", metadata[key]);
+  }
+  add("url", normalizedMediaUrl(asset.media_url));
+  return keys;
+}
 function isImage(asset: CampaignPhotoCandidate) {
   const type = text(asset.asset_type).toLowerCase();
   return type === "image" || type === "photo" || /\.(png|jpe?g|webp)(\?|$)/i.test(text(asset.media_url));
@@ -25,6 +58,15 @@ function isImage(asset: CampaignPhotoCandidate) {
 
 /** Prefer a destination/topic-bound photo, then use the approved image pool when the draft has no matching binding. */
 export function selectCampaignPhotoAsset<T extends CampaignPhotoCandidate>(assets: T[], destination: string, topic: string) {
+  return selectCampaignPhotoAssetDecision(assets, destination, topic).asset;
+}
+
+export function selectCampaignPhotoAssetDecision<T extends CampaignPhotoCandidate>(
+  assets: T[],
+  destination: string,
+  topic: string,
+  options: { excludedKeys?: ReadonlySet<string> } = {}
+) {
   const destinationKey = slug(destination);
   const topicKey = slug(topic);
   const eligible = [...assets].filter((asset) => {
@@ -37,7 +79,11 @@ export function selectCampaignPhotoAsset<T extends CampaignPhotoCandidate>(asset
     const assetTopic = slug(asset.topic || metadataText(metadata, "topic", "theme", "contentKey", "conceptKey"));
     return (assetDestination && assetDestination === destinationKey) || (assetTopic && assetTopic === topicKey);
   });
-  return (bound.length ? bound : eligible).sort((a, b) => {
+  const pool = bound.length ? bound : eligible;
+  const excludedKeys = options.excludedKeys || new Set<string>();
+  const available = pool.filter((asset) => ![...campaignAssetIdentityKeys(asset)].some((key) => excludedKeys.has(key)));
+  const candidates = available.length ? available : pool;
+  const asset = candidates.sort((a, b) => {
     const useDiff = Number(a.use_count || 0) - Number(b.use_count || 0);
     if (useDiff) return useDiff;
     const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;
@@ -45,4 +91,5 @@ export function selectCampaignPhotoAsset<T extends CampaignPhotoCandidate>(asset
     if (aUsed !== bUsed) return aUsed - bUsed;
     return Date.parse(text(b.created_at)) - Date.parse(text(a.created_at));
   })[0] || null;
+  return { asset, exhausted: Boolean(asset && !available.length) };
 }

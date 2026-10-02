@@ -17,7 +17,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
-import { selectCampaignPhotoAsset } from "@/lib/roamly/facebookCampaignMedia";
+import { campaignAssetIdentityKeys, selectCampaignPhotoAssetDecision } from "@/lib/roamly/facebookCampaignMedia";
 import { buildRoamlyContentVariant } from "@/lib/roamly/socialContentVariation";
 import type {
   FacebookAutomationSettings,
@@ -1087,6 +1087,8 @@ async function buildDrafts(
   const duplicateHashes = await existingDuplicateHashes(admin, brand);
   const config = facebookBrandConfig(brand);
   const drafts: GeneratedFacebookDraft[] = [];
+  const recentMediaKeys = brand === "roamly" ? await recentSelectedMediaKeys(admin, brand, settings.media.minimumDaysBeforeReuse) : new Set<string>();
+  const reservedMediaKeys = new Set(recentMediaKeys);
   let safety = 0;
 
   while (drafts.length < count && safety < count * 4) {
@@ -1122,12 +1124,16 @@ async function buildDrafts(
       brand,
       contentVariant?.hashtagTerms || []
     );
-    const campaignPhoto = brand === "roamly"
-      ? await pickCampaignPhotoAsset(admin, brand, destination, topic)
+    const campaignPhotoDecision = brand === "roamly"
+      ? await pickCampaignPhotoAsset(admin, brand, destination, topic, reservedMediaKeys)
       : null;
+    const campaignPhoto = campaignPhotoDecision?.asset || null;
     if (brand === "roamly" && !campaignPhoto) {
       safety += 1;
       continue;
+    }
+    if (campaignPhoto) {
+      for (const key of campaignAssetIdentityKeys(campaignPhoto)) reservedMediaKeys.add(key);
     }
     const suggestedMedia = campaignPhoto?.media_url || "";
     const selectedMediaUrl = campaignPhoto?.media_url || "";
@@ -1159,7 +1165,10 @@ async function buildDrafts(
         sourceImageAssetId: campaignPhoto?.id || null,
         sourceMediaUrl: campaignPhoto?.media_url || null,
         sourceImageUrl: campaignPhoto?.media_url || null,
-        visualSelection: campaignPhoto ? "destination_matched_approved_photo" : null,
+        visualSelection: campaignPhotoDecision?.exhausted
+          ? "recent_image_pool_exhausted_deliberate_rotation"
+          : campaignPhoto ? "destination_matched_approved_photo" : null,
+        imagePoolExhausted: Boolean(campaignPhotoDecision?.exhausted),
         contentVariant: contentVariant?.key || null,
         contentIntent: contentVariant?.intent.key || null,
         contentMoment: contentVariant?.moment.key || null,
@@ -1625,7 +1634,61 @@ function isApprovedAutomationAsset(asset: SocialMediaAssetRow, brand: FacebookSo
   );
 }
 
-async function pickCampaignPhotoAsset(admin: SupabaseClient, brand: FacebookSocialBrand, destination: string, topic: string) {
+export async function recentSelectedMediaKeys(admin: SupabaseClient, brand: FacebookSocialBrand, windowDays = 14) {
+  const keys = new Set<string>();
+  const cutoff = Date.now() - windowDays * 86_400_000;
+  const { data: queues, error: queueError } = await admin
+    .from("roamly_social_queue")
+    .select("draft_id,queue_status,published_at,scheduled_for,created_at")
+    .in("platform", brandQueuePlatforms(brand))
+    .in("queue_status", ["scheduled", "processing", "retrying", "published"])
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (queueError) {
+    console.warn("[Roamly social] recent media history lookup failed; refusing unprotected selection", queueError.message);
+    throw new Error(`Recent media history lookup failed: ${queueError.message}`);
+  }
+  if (!queues?.length) return keys;
+
+  const recentDraftIds = queues
+    .filter((row) => {
+      const timestamp = row.queue_status === "published" ? row.published_at : row.scheduled_for || row.created_at;
+      return timestamp && Date.parse(timestamp) >= cutoff;
+    })
+    .map((row) => row.draft_id)
+    .filter(Boolean);
+  if (!recentDraftIds.length) return keys;
+
+  const { data: drafts, error: draftError } = await admin
+    .from("roamly_social_drafts")
+    .select("id,selected_media_asset_id,selected_media_url,metadata")
+    .in("id", recentDraftIds);
+  if (draftError) {
+    console.warn("[Roamly social] recent media draft lookup failed; refusing unprotected selection", draftError.message);
+    throw new Error(`Recent media draft lookup failed: ${draftError.message}`);
+  }
+  if (!drafts?.length) return keys;
+
+  for (const draft of drafts as Array<Record<string, unknown>>) {
+    const metadata = objectValue(draft.metadata);
+    const sourceAssetId = clean(String(metadata.sourceMediaAssetId || metadata.sourceImageAssetId || draft.selected_media_asset_id || ""));
+    const sourceUrl = clean(String(metadata.sourceMediaUrl || metadata.sourceImageUrl || draft.selected_media_url || ""));
+    if (sourceAssetId || sourceUrl) {
+      for (const key of campaignAssetIdentityKeys({ id: sourceAssetId || "recent-source", media_url: sourceUrl, asset_type: "image", metadata })) {
+        keys.add(key);
+      }
+    }
+  }
+  return keys;
+}
+
+async function pickCampaignPhotoAsset(
+  admin: SupabaseClient,
+  brand: FacebookSocialBrand,
+  destination: string,
+  topic: string,
+  excludedKeys: ReadonlySet<string>
+) {
   const { data, error } = await admin
     .from("roamly_social_media_assets")
     .select("id,platform,status,title,media_url,asset_type,source,destination,topic,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
@@ -1641,7 +1704,7 @@ async function pickCampaignPhotoAsset(admin: SupabaseClient, brand: FacebookSoci
   const candidates = ((data || []) as SocialMediaAssetRow[]).filter((asset) =>
     isApprovedAutomationAsset(asset, brand) && assetType(asset) === "image"
   );
-  return selectCampaignPhotoAsset(candidates, destination, topic);
+  return selectCampaignPhotoAssetDecision(candidates, destination, topic, { excludedKeys });
 }
 
 // Re-exported for lib/roamly/socialAutomation.ts (transport split).
