@@ -1,5 +1,6 @@
 import { AdminAccessCard } from "@/components/admin/AdminAccessCard";
 import { MediaAssetActions } from "@/components/admin/social/MediaAssetActions";
+import { MediaLibraryUploader } from "@/components/admin/social/MediaLibraryUploader";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ROAMLY_AFFILIATE_DISCLOSURE } from "@/lib/roamly/emailTemplates";
@@ -49,6 +50,10 @@ export default async function AdminSocialLibraryPage() {
             <p className="mt-2 text-sm font-black leading-6 text-ink">{value}</p>
           </Card>
         ))}
+      </section>
+
+      <section className="mt-6">
+        <MediaLibraryUploader />
       </section>
 
       <section className="mt-6 grid gap-4">
