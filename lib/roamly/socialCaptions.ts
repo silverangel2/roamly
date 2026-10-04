@@ -1088,7 +1088,8 @@ async function buildDrafts(
   const config = facebookBrandConfig(brand);
   const drafts: GeneratedFacebookDraft[] = [];
   const recentMediaKeys = brand === "roamly" ? await recentSelectedMediaKeys(admin, brand, settings.media.minimumDaysBeforeReuse) : new Set<string>();
-  const reservedMediaKeys = new Set(recentMediaKeys);
+  const batchReservedKeys = new Set<string>();
+  let batchPickCount = 0;
   let safety = 0;
 
   while (drafts.length < count && safety < count * 4) {
@@ -1125,7 +1126,7 @@ async function buildDrafts(
       contentVariant?.hashtagTerms || []
     );
     const campaignPhotoDecision = brand === "roamly"
-      ? await pickCampaignPhotoAsset(admin, brand, destination, topic, reservedMediaKeys)
+      ? await pickCampaignPhotoAsset(admin, brand, destination, topic, recentMediaKeys, batchReservedKeys, batchPickCount)
       : null;
     const campaignPhoto = campaignPhotoDecision?.asset || null;
     if (brand === "roamly" && !campaignPhoto) {
@@ -1133,7 +1134,8 @@ async function buildDrafts(
       continue;
     }
     if (campaignPhoto) {
-      for (const key of campaignAssetIdentityKeys(campaignPhoto)) reservedMediaKeys.add(key);
+      for (const key of campaignAssetIdentityKeys(campaignPhoto)) batchReservedKeys.add(key);
+      batchPickCount += 1;
     }
     const suggestedMedia = campaignPhoto?.media_url || "";
     const selectedMediaUrl = campaignPhoto?.media_url || "";
@@ -1687,7 +1689,9 @@ async function pickCampaignPhotoAsset(
   brand: FacebookSocialBrand,
   destination: string,
   topic: string,
-  excludedKeys: ReadonlySet<string>
+  excludedKeys: ReadonlySet<string>,
+  reservedKeys: ReadonlySet<string> = new Set<string>(),
+  rotationIndex = 0
 ) {
   const { data, error } = await admin
     .from("roamly_social_media_assets")
@@ -1704,7 +1708,7 @@ async function pickCampaignPhotoAsset(
   const candidates = ((data || []) as SocialMediaAssetRow[]).filter((asset) =>
     isApprovedAutomationAsset(asset, brand) && assetType(asset) === "image"
   );
-  return selectCampaignPhotoAssetDecision(candidates, destination, topic, { excludedKeys });
+  return selectCampaignPhotoAssetDecision(candidates, destination, topic, { excludedKeys, reservedKeys, rotationIndex });
 }
 
 // Re-exported for lib/roamly/socialAutomation.ts (transport split).
