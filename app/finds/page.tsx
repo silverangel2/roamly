@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FindsQuickBook } from "@/components/roamly/FindsQuickBook";
+import { FindsTravelDeals } from "@/components/roamly/FindsTravelDeals";
 import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
 import { amazonFindCard } from "@/lib/roamly/findsMarketCore";
 import { amazonAffiliateDisclosure } from "@/lib/roamly/amazonAffiliate";
@@ -43,6 +44,7 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
       <div className="mx-auto max-w-[1440px]">
         <Stay22LetMeAllezScript />
         <FindsQuickBook />
+        <FindsTravelDeals />
         <FindsEditorialMagazine cards={cards} destination={destination} emptyMessage="No verified live listing is available for this section right now." disclosures={[amazonAffiliateDisclosure]} activePromo={activePromo} />
       </div>
     </div>
