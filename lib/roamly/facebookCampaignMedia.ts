@@ -65,7 +65,7 @@ export function selectCampaignPhotoAssetDecision<T extends CampaignPhotoCandidat
   assets: T[],
   destination: string,
   topic: string,
-  options: { excludedKeys?: ReadonlySet<string> } = {}
+  options: { excludedKeys?: ReadonlySet<string>; reservedKeys?: ReadonlySet<string>; rotationIndex?: number } = {}
 ) {
   const destinationKey = slug(destination);
   const topicKey = slug(topic);
@@ -81,15 +81,30 @@ export function selectCampaignPhotoAssetDecision<T extends CampaignPhotoCandidat
   });
   const pool = bound.length ? bound : eligible;
   const excludedKeys = options.excludedKeys || new Set<string>();
-  const available = pool.filter((asset) => ![...campaignAssetIdentityKeys(asset)].some((key) => excludedKeys.has(key)));
-  const candidates = available.length ? available : pool;
-  const asset = candidates.sort((a, b) => {
+  const reservedKeys = options.reservedKeys || new Set<string>();
+  const blockedBy = (asset: T, keys: ReadonlySet<string>) =>
+    [...campaignAssetIdentityKeys(asset)].some((key) => keys.has(key));
+  const byLeastUsed = (a: T, b: T) => {
     const useDiff = Number(a.use_count || 0) - Number(b.use_count || 0);
     if (useDiff) return useDiff;
     const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;
     const bUsed = b.last_used_at ? Date.parse(b.last_used_at) : 0;
     if (aUsed !== bUsed) return aUsed - bUsed;
     return Date.parse(text(b.created_at)) - Date.parse(text(a.created_at));
-  })[0] || null;
-  return { asset, exhausted: Boolean(asset && !available.length) };
+  };
+  // Fresh picks honor both the recency window and this batch's reservations.
+  const available = pool.filter((asset) => !blockedBy(asset, excludedKeys) && !blockedBy(asset, reservedKeys));
+  if (available.length) {
+    const asset = [...available].sort(byLeastUsed)[0] || null;
+    return { asset, exhausted: false };
+  }
+  // Recency window covers the whole pool: rotate through it round-robin instead
+  // of deterministically re-picking the same least-used asset for every draft.
+  // Batch reservations are still honored so one generation batch never repeats
+  // a photo until every photo in the pool has been used.
+  const sortedPool = [...pool].sort(byLeastUsed);
+  const rotatable = sortedPool.filter((asset) => !blockedBy(asset, reservedKeys));
+  const rotation = rotatable.length ? rotatable : sortedPool;
+  const asset = rotation[(options.rotationIndex || 0) % rotation.length] || null;
+  return { asset, exhausted: Boolean(asset) };
 }
