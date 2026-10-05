@@ -171,20 +171,53 @@ function stay22SmartLinkUrl() {
   return stay22TravelerUrl(process.env.ROAMLY_STAY22_SMART_LINK_URL);
 }
 
-function stay22Url(input: AffiliateResolverInput) {
+const STAY22_ALLEZ_SLUG = /\/allez\/(?:roam|booking|expedia|hotelscom|vrbo|agoda|kayak)(?:\/|$)/i;
+
+/** Lodging partners Stay22 can open with the same configured partner id. Not inventory. */
+export const STAY22_LODGING_PARTNERS = [
+  { id: "booking", slug: "booking", label: "Booking.com" },
+  { id: "expedia", slug: "expedia", label: "Expedia" },
+  { id: "hotelscom", slug: "hotelscom", label: "Hotels.com" },
+  { id: "vrbo", slug: "vrbo", label: "Vrbo" },
+  { id: "agoda", slug: "agoda", label: "Agoda" }
+] as const;
+
+export type HotelPartnerChoice = {
+  id: string;
+  label: string;
+  provider: "stay22";
+  href: string;
+};
+
+function stay22AllezBase() {
   const smartLink = stay22SmartLinkUrl();
   const referral = stay22TravelerUrl(process.env.ROAMLY_STAY22_REFERRAL_URL);
   const partnerId = clean(process.env.ROAMLY_STAY22_PARTNER_ID);
-  const base = smartLink || referral || (partnerId ? "https://www.stay22.com/allez/roam" : "");
+  return smartLink || referral || (partnerId ? "https://www.stay22.com/allez/roam" : "");
+}
+
+function stay22BaseCanSwapProvider(base: string) {
+  try {
+    return STAY22_ALLEZ_SLUG.test(new URL(base).pathname);
+  } catch {
+    return false;
+  }
+}
+
+function stay22Url(input: AffiliateResolverInput, providerSlug = "booking") {
+  const base = stay22AllezBase();
   if (!base) return "";
 
   const resolvedPlace = resolveCityPlace(input.destination || input.query || input.title);
   if (!resolvedPlace) return "";
 
   const url = new URL(base);
-  if (/\/allez\/(?:roam|booking|expedia|hotelscom|vrbo|agoda|kayak)(?:\/|$)/i.test(url.pathname)) {
-    url.pathname = url.pathname.replace(/\/allez\/[^/]+/i, "/allez/booking");
+  const partnerId = clean(process.env.ROAMLY_STAY22_PARTNER_ID);
+  if (STAY22_ALLEZ_SLUG.test(url.pathname)) {
+    url.pathname = url.pathname.replace(/\/allez\/[^/]+/i, `/allez/${providerSlug}`);
     url.searchParams.delete("provider");
+  } else if (providerSlug !== "booking") {
+    return "";
   }
   const hotelName = input.category === "hotel" ? clean(input.title || input.query) : "";
   const address = [clean(input.neighborhood), resolvedPlace.searchLabel].filter(Boolean).join(", ");
@@ -203,6 +236,42 @@ function stay22Url(input: AffiliateResolverInput) {
   }
 
   return isTravelerSafeStay22Url(url.toString()) ? url.toString() : "";
+}
+
+function stay22PartnerLabel(href: string) {
+  try {
+    const path = new URL(href).pathname.toLowerCase();
+    return STAY22_LODGING_PARTNERS.find((partner) => path.includes(`/allez/${partner.slug}`))?.label || "Stay22";
+  } catch {
+    return "Stay22";
+  }
+}
+
+/**
+ * Hotel partner searches the traveler can open.
+ * Returns every Stay22 lodging partner when the configured link can be retargeted.
+ * A single non-Allez Stay22 link stays one choice. Nothing is returned when hotels are not configured.
+ * These are searches, not prices or rooms.
+ */
+export function resolveConfiguredHotelPartners(input: AffiliateResolverInput): HotelPartnerChoice[] {
+  if (!affiliatesEnabled()) return [];
+  const provider = clean(process.env.ROAMLY_HOTEL_AFFILIATE_PROVIDER || "stay22").toLowerCase();
+  if (provider !== "stay22" || !stay22Configured()) return [];
+
+  const base = stay22AllezBase();
+  if (!base) return [];
+
+  if (!stay22BaseCanSwapProvider(base)) {
+    const href = stay22Url(input, "booking");
+    if (!href) return [];
+    return [{ id: "stay22", label: stay22PartnerLabel(href), provider: "stay22", href }];
+  }
+
+  return STAY22_LODGING_PARTNERS.flatMap((partner) => {
+    const href = stay22Url({ ...input, category: "hotel" }, partner.slug);
+    if (!href) return [];
+    return [{ id: partner.id, label: partner.label, provider: "stay22" as const, href }];
+  });
 }
 
 function travelpayoutsUrl(input: AffiliateResolverInput) {

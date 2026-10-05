@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
+import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
 import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
@@ -32,6 +33,7 @@ import {
 } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
+import { CustomizeYourTrip } from "@/components/roamly/CustomizeYourTrip";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure, enrichItineraryBookingSuggestions, klookActivityActionState } from "@/lib/roamly/affiliateLinks";
@@ -50,7 +52,7 @@ import { recordAppEvent } from "@/lib/roamly/events";
 import { publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
-import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
+import { isLegacyBookingUrl, isTravelerSafeStay22Url, resolveAffiliateLink, resolveConfiguredHotelPartners, type HotelPartnerChoice } from "@/lib/roamly/affiliateResolver";
 import {
   getPublicSupabaseHost,
   logGenerationDiagnostic,
@@ -93,13 +95,6 @@ import { isOperationalCurrentBooking } from "@/lib/roamly/bookingWallet";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
 import { TripTravelerRequirements } from "@/components/trip/TripTravelerRequirements";
-import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
-import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
-import CustomerBudgetChange from "@/components/roamly/CustomerBudgetChange";
-import CustomerDateChange from "@/components/roamly/CustomerDateChange";
-import CustomerDestinationChange from "@/components/roamly/CustomerDestinationChange";
-import CustomerTripIntentChange from "@/components/roamly/CustomerTripIntentChange";
-
 type TripPageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -349,8 +344,6 @@ function BudgetSummary({
 }) {
   const estimate = itinerary.estimated_budget_breakdown;
   const budgetAmount = getTripBudgetAmount(trip);
-  const intentPlanning = getTripPlanningMetadata(trip.metadata);
-  const intentTravelers = tripTravelerDetails(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary, priceDiscovery);
   const unknownLineItemCount = itinerary.daily_itinerary.reduce((count, day) => {
     return count + (day.live_timeline || []).filter((item) => String(item.cost_status || "").toUpperCase() === "UNKNOWN").length;
@@ -379,10 +372,11 @@ function BudgetSummary({
           <p className="mt-1 text-sm font-bold">Unpriced: {presentation.unpricedLabel}</p>
           {presentation.remainingLabel ? <p className="mt-2 text-sm font-black">{presentation.remainingLabel}</p> : null}
         </div>
-        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerBudgetChange tripId={trip.id} currentAmount={budgetAmount} currency={currency} /> : null}
-        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerDateChange tripId={trip.id} startDate={trip.start_date} endDate={trip.end_date} status={trip.status} /> : null}
-        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerDestinationChange tripId={trip.id} currentLabel={getTripDestinationLabel(trip)} status={trip.status} /> : null}
-        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? <CustomerTripIntentChange tripId={trip.id} status={trip.status} adults={intentTravelers.adults} childrenCount={intentTravelers.children} infants={intentTravelers.infants} travelStyle={getTravelStyle(trip)} interests={getStringList(trip.interests || intentPlanning.interests, [], 20)} accommodationPreference={trip.accommodation_preference || getString(intentPlanning.accommodationPreference || intentPlanning.accommodation_preference) || "Not sure"} transportationPreference={trip.transportation_preference || getString(intentPlanning.transportationPreference || intentPlanning.transportation_preference) || "Mixed"} pace={getString(intentPlanning.pace) || "Balanced"} walkingTolerance={getString(intentPlanning.walkingTolerance || intentPlanning.walking_tolerance) || "Medium"} specialNotes={trip.special_notes || getString(intentPlanning.specialNotes || intentPlanning.special_notes)} /> : null}
+        {!['archived', 'cancelled', 'completed'].includes(trip.status) ? (
+          <p className="roamly-no-print mt-4 text-sm font-semibold leading-6 text-slate-600">
+            <a href="#customize" className="font-black text-ocean">Customize your trip</a> to change the budget, dates, destination, or who is going.
+          </p>
+        ) : null}
       </section>
 
       {presentation.committedCount || presentation.uncertainty.length ? (
@@ -1046,12 +1040,75 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
 
 function bookingActionLabel(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], link: ReturnType<typeof resolveBookingLink>) {
   if (category === "flight") return link?.hasAffiliateUrl ? "Compare flights" : "Search flights";
-  if (category === "hotel") return "View hotel options";
+  if (category === "hotel") return "Book stay options";
   if (suggestion.market_source === "public_web") return "Check current event details";
   if (category === "attraction" || category === "tour" || category === "activity") return link?.hasAffiliateUrl ? "Book activity" : "Open official search";
   if (category === "transport" || category === "car_rental") return link?.hasAffiliateUrl ? "Book transfer" : "Open route";
   if (category === "restaurant") return "View on Google Maps";
   return suggestion.booking_label || "View option";
+}
+
+function positiveHotelAmount(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function hotelTravelerPrice(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+  const live = suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent";
+  const hasAmount = Boolean(
+    positiveHotelAmount(suggestion.estimated_total_cost_min ?? suggestion.estimated_cost_min) ||
+    positiveHotelAmount(suggestion.estimated_total_cost_max ?? suggestion.estimated_cost_max) ||
+    positiveHotelAmount(suggestion.estimated_nightly_cost_min) ||
+    positiveHotelAmount(suggestion.estimated_nightly_cost_max)
+  );
+  if (!live || suggestion.price_confidence === "unknown" || !hasAmount) return "Price not available";
+  return bookingEstimate(suggestion);
+}
+
+function hotelPartnerInput(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+  const travelers = tripTravelerDetails(trip);
+  return {
+    category: "hotel" as const,
+    title: bookingTitle(suggestion),
+    query: bookingTitle(suggestion),
+    destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip),
+    startDate: suggestion.departure_date || suggestion.date || tripDate(trip, "start"),
+    endDate: suggestion.return_date || tripDate(trip, "end"),
+    travelers,
+    adults: travelers.adults,
+    children: travelers.children,
+    rooms: tripRooms(trip),
+    neighborhood: suggestion.neighborhood || suggestion.location,
+    roomType: suggestion.room_type
+  };
+}
+
+function partnersForHotelSuggestion(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord): HotelPartnerChoice[] {
+  const specific = resolveConfiguredHotelPartners(hotelPartnerInput(suggestion, trip));
+  if (specific.length) return specific;
+  const travelers = tripTravelerDetails(trip);
+  return resolveConfiguredHotelPartners({
+    category: "hotel",
+    destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip),
+    startDate: tripDate(trip, "start"),
+    endDate: tripDate(trip, "end"),
+    adults: travelers.adults,
+    children: travelers.children,
+    rooms: tripRooms(trip),
+    neighborhood: suggestion.neighborhood || suggestion.location
+  });
+}
+
+function areaHotelPartners(trip: RoamlyTripRecord) {
+  const travelers = tripTravelerDetails(trip);
+  return resolveConfiguredHotelPartners({
+    category: "hotel",
+    destination: getTripDestinationLabel(trip),
+    startDate: tripDate(trip, "start"),
+    endDate: tripDate(trip, "end"),
+    adults: travelers.adults,
+    children: travelers.children,
+    rooms: tripRooms(trip)
+  });
 }
 
 function bookingStatusBadge(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -1132,6 +1189,8 @@ function BookingRecommendationCard({
   const statusBadge = bookingStatusBadge(category, suggestion);
   const actionLabel = bookingActionLabel(category, suggestion, link);
   const guardedHotelAction = category === "hotel" && suggestion.provider_action_origin === "provider_response" && suggestion.factual_status === "verified";
+  const hotelPartners = category === "hotel" ? partnersForHotelSuggestion(suggestion, trip) : [];
+  const visibleHotelPartners = guardedHotelAction ? hotelPartners.filter((partner) => partner.id !== "booking") : hotelPartners;
 
   return (
     <article className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
@@ -1154,7 +1213,34 @@ function BookingRecommendationCard({
           </div>
           <h3 className="mt-2 text-lg font-black leading-6 text-ink">{title}</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{suppressFlightFraming ? presentGroundTransportText(bookingDescription(suggestion)) : bookingDescription(suggestion)}</p>
-          <p className="mt-2 text-sm font-black text-ink">{bookingEstimate(suggestion)}</p>
+          <p className="mt-2 text-sm font-black text-ink">{category === "hotel" ? hotelTravelerPrice(suggestion) : bookingEstimate(suggestion)}</p>
+          {category === "hotel" ? (
+            <>
+              {guardedHotelAction ? <div className="mt-3"><GuardedHotelActionButton tripId={tripId} label="Book this hotel" /></div> : null}
+              {visibleHotelPartners.length ? (
+                <HotelPartnerChoices
+                  partners={visibleHotelPartners}
+                  tripId={tripId}
+                  title={title}
+                  recommendationId={suggestion.candidateId || null}
+                />
+              ) : !guardedHotelAction ? (
+                <div className="mt-3">
+                  <BookingRecommendationButton
+                    href={link.href}
+                    label="Book stay options"
+                    tripId={tripId}
+                    category={category}
+                    title={title}
+                    provider={link.provider}
+                    recommendationId={suggestion.candidateId || null}
+                    hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
+                    urlType={link.urlType}
+                  />
+                </div>
+              ) : null}
+            </>
+          ) : null}
           {suggestion.why_recommended || bookingMeta(suggestion).length ? (
             <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-2">
               <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Details</summary>
@@ -1168,10 +1254,12 @@ function BookingRecommendationCard({
           ) : null}
           {category === "hotel" || category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
-        <div className="flex shrink-0 flex-col gap-2 lg:items-end">
-          {guardedHotelAction ? (
-            <GuardedHotelActionButton tripId={tripId} label={actionLabel} />
-          ) : (
+        {category === "hotel" ? (
+          <p className="roamly-print-only hidden text-xs font-black text-ocean">
+            Book stay options: {visibleHotelPartners.length ? visibleHotelPartners.map((partner) => partner.label).join(", ") : actionLabel}
+          </p>
+        ) : (
+          <div className="flex shrink-0 flex-col gap-2 lg:items-end">
             <BookingRecommendationButton
               href={link.href}
               label={actionLabel}
@@ -1183,11 +1271,11 @@ function BookingRecommendationCard({
               hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
               urlType={link.urlType}
             />
-          )}
-          <p className="roamly-print-only hidden text-xs font-black text-ocean">
-            Search: {actionLabel}
-          </p>
-        </div>
+            <p className="roamly-print-only hidden text-xs font-black text-ocean">
+              Search: {actionLabel}
+            </p>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -1394,8 +1482,9 @@ function BookingSearchFallbackCard({
   tripId: string;
 }) {
   const href = safeBookingUrl(fallbackSearchHref(category, trip));
-  if (!href) return null;
-  const label = category === "flight" ? "Search flights" : category === "hotel" ? "Search hotels" : "Search activities";
+  const hotelPartners = category === "hotel" ? areaHotelPartners(trip) : [];
+  if (!href && !hotelPartners.length) return null;
+  const label = category === "flight" ? "Search flights" : category === "hotel" ? "Book stay options" : "Search activities";
   const preference = trip.transportation_preference || "";
   if (category === "flight" && isDriveMode(preference)) return null;
   const title = category === "flight"
@@ -1413,19 +1502,23 @@ function BookingSearchFallbackCard({
               ? "Estimate only. Search live prices for the trip dates, baggage, seats, schedule, and currency before booking."
               : "Search current options for the trip dates and verify price, schedule, and availability."}
           </p>
-          <p className="mt-2 text-xs font-bold text-slate-500">{category === "flight" ? "Estimate only" : "Search only"}</p>
+          <p className="mt-2 text-xs font-bold text-slate-500">{category === "flight" ? "Estimate only" : category === "hotel" ? "Price not available" : "Search only"}</p>
         </div>
-        <BookingRecommendationButton
-          href={href}
-          label={label}
-          tripId={tripId}
-          category={category}
-          title={title}
-          provider={provider}
-          recommendationId={null}
-          hasAffiliateUrl={hasAffiliateUrl}
-          urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
-        />
+        {category === "hotel" && hotelPartners.length ? (
+          <HotelPartnerChoices partners={hotelPartners} tripId={tripId} title={title} />
+        ) : (
+          <BookingRecommendationButton
+            href={href}
+            label={label}
+            tripId={tripId}
+            category={category}
+            title={title}
+            provider={provider}
+            recommendationId={null}
+            hasAffiliateUrl={hasAffiliateUrl}
+            urlType={hasAffiliateUrl ? "affiliate" : "normal_search"}
+          />
+        )}
       </div>
     </article>
   );
@@ -1643,6 +1736,58 @@ function PreTripEssentialsSection({
         {essentials.map((item, index) => (
           <PreTripEssentialCard key={`${item.title}-${index}`} item={item} tripId={tripId} />
         ))}
+      </div>
+    </section>
+  );
+}
+
+function PackageStays({
+  suggestions,
+  trip,
+  tripId
+}: {
+  suggestions: RoamlyItinerary["booking_suggestions"];
+  trip: RoamlyTripRecord;
+  tripId: string;
+}) {
+  const areaPartners = areaHotelPartners(trip);
+  if (!suggestions.length && !areaPartners.length) return null;
+
+  return (
+    <section aria-label="Your stay" className="rounded-[1.5rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-5">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Your stay</p>
+      <h2 className="mt-1 text-xl font-black tracking-tight text-ink">Stay options in this package</h2>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Partner searches for your dates. A price is shown only when a partner returns one.</p>
+      <div className="mt-4 grid gap-4">
+        {suggestions.length ? suggestions.map((suggestion, index) => {
+          const title = presentTravelerTitle({
+            title: bookingTitle(suggestion),
+            category: "hotel",
+            destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip)
+          }).title;
+          const partners = partnersForHotelSuggestion(suggestion, trip);
+          return (
+            <article key={`${title}-${index}`} className="border-t border-[#e8dfd0] pt-4 first:border-t-0 first:pt-0">
+              <h3 className="text-lg font-black leading-6 text-ink">{title}</h3>
+              {bookingDescription(suggestion) ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{bookingDescription(suggestion)}</p> : null}
+              <p className="mt-2 text-sm font-black text-ink">{hotelTravelerPrice(suggestion)}</p>
+              {partners.length ? (
+                <HotelPartnerChoices
+                  partners={partners}
+                  tripId={tripId}
+                  title={title}
+                  recommendationId={suggestion.candidateId || null}
+                />
+              ) : null}
+            </article>
+          );
+        }) : (
+          <div>
+            <h3 className="text-lg font-black text-ink">Stay to confirm</h3>
+            <p className="mt-2 text-sm font-black text-ink">Price not available</p>
+            <HotelPartnerChoices partners={areaPartners} tripId={tripId} title={`Stay in ${getTripDestinationLabel(trip)}`} />
+          </div>
+        )}
       </div>
     </section>
   );
@@ -2122,6 +2267,18 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         return buildRelevantBookingGroups({ itinerary: full, trip, flightItems, hotelItems, activityItems, transportItems, confirmedBookings: confirmedBookingSnapshot });
       })()
     : [];
+  const packageHotelItems = readinessBookingGroups.find((group) => group.title === "Hotels")?.items || [];
+  const staySearch = {
+    destination: destinationLabel,
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    adults: tripTravelerDetails(trip).adults,
+    children: tripTravelerDetails(trip).children,
+    rooms: tripRooms(trip)
+  };
+  const customizeNotes = readTripNoteText(trip);
+  const customizePlanning = getTripPlanningMetadata(trip.metadata);
+  const customizeTravelers = tripTravelerDetails(trip);
   const bookingsToArrange = readinessBookingGroups.filter((group) => Boolean(group.fallback) && group.items.length === 0).length;
   const bookingFocus = getString(unresolvedBookingSnapshot[0]?.booking_type).toLowerCase();
   const missingBookingFocus = readinessBookingGroups.find((group) => Boolean(group.fallback) && group.items.length === 0)?.fallback || null;
@@ -2357,6 +2514,30 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           focusAnchor={focusAnchor}
         />
 
+        {canShowFull && full && !generationPanelVisible ? (
+          <div className="mt-4">
+            <CustomizeYourTrip
+              tripId={id}
+              status={trip.status}
+              budgetAmount={tripBudgetAmount}
+              currency={currency}
+              startDate={trip.start_date}
+              endDate={trip.end_date}
+              destinationLabel={destinationLabel}
+              adults={customizeTravelers.adults}
+              childrenCount={customizeTravelers.children}
+              infants={customizeTravelers.infants}
+              travelStyle={getTravelStyle(trip)}
+              interests={getStringList(trip.interests || customizePlanning.interests, [], 20)}
+              accommodationPreference={trip.accommodation_preference || getString(customizePlanning.accommodationPreference || customizePlanning.accommodation_preference) || "Not sure"}
+              transportationPreference={trip.transportation_preference || getString(customizePlanning.transportationPreference || customizePlanning.transportation_preference) || "Mixed"}
+              pace={getString(customizePlanning.pace) || "Balanced"}
+              walkingTolerance={getString(customizePlanning.walkingTolerance || customizePlanning.walking_tolerance) || "Medium"}
+              specialNotes={trip.special_notes || getString(customizePlanning.specialNotes || customizePlanning.special_notes) || customizeNotes}
+            />
+          </div>
+        ) : null}
+
         {!canShowFull && !showGenerationPanel ? (
           <section id="day-by-day" className="roamly-enter mt-4 scroll-mt-32 rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-8 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-8">
             <p className="roamly-eyebrow">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
@@ -2457,6 +2638,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                       <p className="mt-1 text-base font-semibold tracking-tight text-ink">{headerBudgetText}</p>
                       <a href="#budget" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-ocean">Review the budget</a>
                     </div>
+                    <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
                   </div>
                   {noteDisplay.text ? (
                     <div className="mt-3 rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
@@ -2477,6 +2659,9 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     title="Your itinerary"
                     summary="Clean daily plan with timing, travel, and key notes."
                   />
+                  <div className="mb-5">
+                    <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
+                  </div>
                   <div>
                     {dayNumbersToRender.map((dayNumber) => (
                       <input
@@ -2514,7 +2699,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                         return (
                           <div key={dayNumber} className={`roamly-day-panel roamly-day-panel-${dayNumber}`}>
                             {day ? (
-                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} confirmedBookings={confirmedBookingSnapshot as Array<Record<string, unknown>>} suppressFlightFraming={suppressFlightFraming} />
+                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} confirmedBookings={confirmedBookingSnapshot as Array<Record<string, unknown>>} suppressFlightFraming={suppressFlightFraming} staySearch={staySearch} />
                             ) : (
                               <BuildingDayCard
                                 dayNumber={dayNumber}
