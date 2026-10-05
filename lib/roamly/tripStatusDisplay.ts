@@ -25,11 +25,14 @@ export function mapTravelerTripStatus(input: {
   companionUnlocked?: boolean;
   budgetOver?: boolean;
   building?: boolean;
+  /** Saved draft cannot generate until unlock, and generation is not running. */
+  awaitingUnlock?: boolean;
   /** Explicit lack of signals. Never render Ready in this case. */
   signalsUnknown?: boolean;
 }): TravelerTripStatus {
   if (input.signalsUnknown) return { code: "UNKNOWN", badge: "UNKNOWN", tone: "ink" };
   if (input.completed || input.phase === "completed") return { code: "COMPLETED", badge: "Completed", tone: "ink" };
+  if (input.awaitingUnlock && !input.building) return { code: "DRAFT", badge: "Needs unlock", tone: "sun" };
   if (input.building) return { code: "DRAFT", badge: "Building", tone: "sun" };
 
   const actionNeeded =

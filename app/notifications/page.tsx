@@ -16,10 +16,12 @@ import {
   type TrackingActivity
 } from "@/lib/roamly/tripActivation";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
-import { dedupeEquivalentNotifications, notificationActionState } from "@/lib/roamly/liveCompanion";
+import { dedupeEquivalentNotifications, notificationActionState, timezoneFromTripMetadata, tripWindowState } from "@/lib/roamly/liveCompanion";
 import { NotificationShellStateBridge } from "@/components/roamly/NotificationShellStateBridge";
 import { selectNotificationTrip, tripCompanionUnlocked } from "@/lib/roamly/notificationTrip";
 import type { TrackingTrip } from "@/lib/roamly/tripActivation";
+import { hasConfirmedFlightBooking, shouldSuppressFlightFraming, type TrackingPresentation } from "@/lib/roamly/itineraryPresentation";
+import { getTripDestinationLabel, getTripOriginLabel } from "@/lib/roamly/tripMetadata";
 
 export default async function NotificationsPage() {
   const current = await getCurrentUser();
@@ -165,6 +167,33 @@ export default async function NotificationsPage() {
   ]);
 
   const nearbyActivities = (nearbyRows.data || []) as TrackingActivity[];
+  const tripWindow = tripWindowState({
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    timezone: timezoneFromTripMetadata(trip.metadata)
+  });
+  const tripStarted = tripWindow === "active";
+  const bookingRows = await supabase
+    .from("roamly_bookings")
+    .select("booking_type,category,booking_status")
+    .eq("trip_id", trip.id)
+    .eq("user_id", current.user.id);
+  const presentation: TrackingPresentation = {
+    origin: getTripOriginLabel(trip),
+    destination: getTripDestinationLabel(trip) || trip.destination_city || trip.destination_name || "",
+    suppressFlightFraming: bookingRows.error
+      ? false
+      : shouldSuppressFlightFraming({
+          hasConfirmedFlight: hasConfirmedFlightBooking(
+            ((bookingRows.data || []) as Array<Record<string, unknown>>).filter((booking) => {
+              const status = String(booking.booking_status || "").trim().toLowerCase();
+              // Empty or unknown status is not proof that no flight exists.
+              if (!status || status === "unknown") return true;
+              return booking.traveler_confirmed === true || ["confirmed", "booked", "ticketed", "issued", "paid", "reserved", "modified", "completed"].includes(status);
+            })
+          )
+        })
+  };
   const lastNotification =
     (events.data || []).find((event) => event.event_type === "trip_activated" || event.event_type === "notification_shown") ||
     null;
@@ -179,7 +208,7 @@ export default async function NotificationsPage() {
   return (
     <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 pb-28 sm:px-6">
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
-      {companionOn ? <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} /> : null}
+      {companionOn ? <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} tripStarted={tripStarted} presentation={presentation} /> : null}
       <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
         {companionOn
           ? "Live Companion is unlocked on this trip. These reminders and check-ins are for this trip only."
@@ -193,7 +222,7 @@ export default async function NotificationsPage() {
       {companionOn ? (
       <section className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
         <ActiveTripPanel trip={trip} />
-        <NearbyActivityCard tripId={trip.id} activity={nearbyActivities[0] || upNext.activity} />
+        <NearbyActivityCard tripId={trip.id} activity={tripStarted ? (nearbyActivities[0] || upNext.activity) : upNext.activity} tripStarted={tripStarted} presentation={presentation} />
       </section>
       ) : (
         <Card className="mt-6">
@@ -209,10 +238,12 @@ export default async function NotificationsPage() {
         <CurrentDayTimeline
           day={currentDay.day}
           dayNumber={currentDay.dayNumber}
-          activities={nearbyActivities.length ? nearbyActivities : upNext.activity ? [upNext.activity] : []}
+          activities={tripStarted && nearbyActivities.length ? nearbyActivities : upNext.activity ? [upNext.activity] : []}
+          tripStarted={tripStarted}
+          presentation={presentation}
         />
         <div className="space-y-4">
-          <UpNextActivityCard tripId={trip.id} activity={upNext.activity} />
+          <UpNextActivityCard tripId={trip.id} activity={upNext.activity} tripStarted={tripStarted} presentation={presentation} />
           <CheckedActivitiesList activities={checked.activities} />
         </div>
       </section>

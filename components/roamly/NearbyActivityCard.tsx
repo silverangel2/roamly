@@ -4,13 +4,18 @@ import { useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
 import { clearActivityNotification } from "@/lib/roamly/pushClient";
+import { presentTrackingActivityDetail, presentTrackingActivityTitle, type TrackingPresentation } from "@/lib/roamly/itineraryPresentation";
 
 export function NearbyActivityCard({
   tripId,
-  activity
+  activity,
+  tripStarted = true,
+  presentation
 }: {
   tripId: string;
   activity: TrackingActivity | null;
+  tripStarted?: boolean;
+  presentation?: TrackingPresentation;
 }) {
   const { t } = useI18n();
   const [notice, setNotice] = useState("");
@@ -95,6 +100,28 @@ export function NearbyActivityCard({
     setBusy("");
   }
 
+  const title = activity
+    ? presentTrackingActivityTitle({
+        title: activity.title,
+        city: activity.city,
+        address: activity.address,
+        category: activity.category,
+        ...presentation
+      })
+    : "";
+  const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming);
+
+  if (!tripStarted) {
+    return (
+      <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Nearby</p>
+        <h2 className="mt-2 text-2xl font-black text-ink">Not nearby yet</h2>
+        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">This trip has not started, so a planned stop is not nearby.</p>
+        {title ? <p className="mt-3 text-sm font-black text-ink">First planned stop: {title}</p> : null}
+      </section>
+    );
+  }
+
   if (!activity) {
     return (
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
@@ -108,8 +135,8 @@ export function NearbyActivityCard({
   return (
     <section className="rounded-[1.75rem] border border-ocean/20 bg-white/95 p-5 shadow-soft">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.nearbyNow")}</p>
-      <h2 className="mt-2 text-2xl font-black text-ink">{activity.title}</h2>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{activity.description}</p>
+      <h2 className="mt-2 text-2xl font-black text-ink">{title}</h2>
+      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{detail}</p>
       {activity.distance_meters != null ? (
         <p className="mt-2 text-sm font-black text-ocean">{activity.distance_meters}m away</p>
       ) : null}
