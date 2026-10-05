@@ -76,6 +76,16 @@ select {
   display: none;
 }
 
+.roamly-partner-row {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.roamly-partner-row::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .roamly-live-dock,
 .roamly-location-prompt {
   transition: bottom 320ms cubic-bezier(0.32, 0.72, 0, 1);

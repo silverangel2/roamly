@@ -8,7 +8,7 @@ const migration = read("supabase/migrations/20260924_roamly_customer_trip_intent
 const preview = read("app/api/trips/[id]/intent-change/route.ts");
 const apply = read("app/api/trips/[id]/intent-change/[proposalId]/apply/route.ts");
 const ui = read("components/roamly/CustomerTripIntentChange.tsx");
-const page = read("app/trip/[id]/page.tsx");
+const page = read("components/roamly/CustomizeYourTrip.tsx");
 const successorInsert = migration.slice(migration.indexOf("  insert into public.roamly_trips"), migration.indexOf("  returning id into successor_id;") + 36);
 
 const checks = [

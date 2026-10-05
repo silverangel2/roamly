@@ -128,7 +128,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
     : destinations.filter((item) => !item.suffix.startsWith("#"));
 
   return (
-    <section className="roamly-no-print mb-4 border-b border-[#e7dfd2]/80 bg-transparent px-0 pb-3 pt-1 sm:px-1">
+    <section className="roamly-no-print mb-2 bg-transparent px-0 pb-1 pt-3 sm:px-1">
       {showContext ? (
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">
@@ -139,7 +139,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
         </div>
       ) : null}
       <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}roamly-trip-tabs min-w-0`}>
-        <div ref={rowRef} className="flex flex-wrap gap-1.5 sm:flex-nowrap sm:snap-x sm:snap-mandatory sm:gap-1 sm:overflow-x-auto sm:overscroll-x-contain sm:pb-1">
+        <div ref={rowRef} className="flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain pb-1">
         {visibleDestinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
           const href = `/trip/${tripId}${destinationItem.suffix}`;
@@ -164,10 +164,10 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
                 }
               }}
               aria-current={selected ? "page" : undefined}
-              className={`roamly-press inline-flex min-h-11 flex-[1_1_30%] snap-start items-center justify-center rounded-full px-3 py-2 text-center text-[0.8125rem] font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 sm:min-w-[5.6rem] sm:flex-none sm:px-3.5 sm:text-sm ${
+              className={`roamly-press inline-flex min-h-11 shrink-0 snap-start items-center justify-center rounded-full px-3.5 py-2 text-center text-sm font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 ${
                 selected
                   ? "bg-ink text-white"
-                  : "bg-white/70 text-slate-600 hover:bg-white hover:text-ink"
+                  : "text-slate-500 hover:bg-white/80 hover:text-ink"
               }`}
             >
               {destinationItem.label}
