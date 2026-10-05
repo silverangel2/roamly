@@ -329,20 +329,192 @@ export function presentTrackingActivityTitle(input: {
     destination: input.destination || input.city,
     suppressFlightFraming: input.suppressFlightFraming
   }).title;
-  return presented || "Details to confirm";
+  return polishCutLabel(presented) || "Details to confirm";
 }
 
-export function presentTrackingActivityDetail(value: string | null | undefined, suppressFlightFraming = false) {
+function collapseSpaces(value: string) {
+  return value.replace(/\s{2,}/g, " ").replace(/\s+([,.!?;:])/g, "$1").trim();
+}
+
+/** Drop a dangling preposition left when a word was removed from the end of a label. */
+function polishCutLabel(value: string | null | undefined) {
+  const text = collapseSpaces(value || "").replace(/\s+\b(?:to|from|in|at|near|and|for)\b$/i, "").trim();
+  return text;
+}
+
+function destinationCity(destination?: string | null) {
+  return (destination || "").split(",")[0]?.trim() || "";
+}
+
+/**
+ * Planned-card bodies must stay full sentences. Search dumps and unbooked
+ * airport wording are rewritten in place; words are not deleted mid-sentence.
+ */
+function rewritePlannedFlightSentence(value: string) {
+  let text = value.replace(/\b(?:hotel|hotels|stay|stays|flight|flights)\s+search\b/gi, " ");
+  text = text
+    .replace(/\brecommended\s+(?:flight|mixed(?:\s+transport)?|\w+)\s+departure\s+buffer\b/gi, "Leave time before you head out")
+    .replace(/\bflight departure buffer\b/gi, "time before you head out")
+    .replace(/\bairport\s*\/\s*station\b/gi, "arrival point")
+    .replace(/\bairport\s+station\b/gi, "arrival point")
+    .replace(/\bairport\s+transfer\b/gi, "local transfer")
+    .replace(/\bfor\s+the\s+airport\b/gi, "for your departure")
+    .replace(/\bto\s+the\s+airport\b/gi, "to your departure point")
+    .replace(/\bat\s+the\s+airport\b/gi, "on arrival")
+    .replace(/\bfrom\s+the\s+airport\b/gi, "after you arrive")
+    .replace(/\b[A-Z]{3}\s+airport\b/g, "the arrival point")
+    .replace(/\b([A-Z][A-Za-z.'’-]+(?:\s+[A-Z][A-Za-z.'’-]+){0,3})\s+airport\b/g, "$1")
+    .replace(/\bairport\b/gi, "departure point")
+    .replace(/\bcollect bags\b/gi, "settle in")
+    .replace(/\bbaggage rules\b/gi, "what you're bringing");
+  return collapseSpaces(text);
+}
+
+function plannedLabelSentence(label: string, destination?: string | null) {
+  const city = destinationCity(destination);
+  const text = polishCutLabel(label);
+  const short = text.split(/\s+/).filter(Boolean).length <= 6;
+  if (!text || /^details to confirm$/i.test(text)) return "Details for this stop still need to be confirmed.";
+  if (/^stay in\b/i.test(text) && (short || city)) {
+    const place = city || text.replace(/^stay in\s+/i, "");
+    return place ? `Your stay in ${place} still needs to be confirmed.` : "Your stay still needs to be confirmed.";
+  }
+  if (/^events in\b/i.test(text) && (short || city)) {
+    const place = city || text.replace(/^events in\s+/i, "");
+    return place ? `Events in ${place} still need to be confirmed.` : "Events for this stop still need to be confirmed.";
+  }
+  if (/^getting (?:from|to)\b/i.test(text) && short) return closeTravelerSentence(text);
+  if (/^leave time before you head out$/i.test(text)) return "Leave time before you head out.";
+  if (short && !/\b(?:search|airport|flight)\b/i.test(text)) return closeTravelerSentence(text);
+  if (city && /\bhotel|stay|lodg/i.test(text)) return `Your stay in ${city} still needs to be confirmed.`;
+  if (city && /\bevent|festival|concert|nightlife|activity/i.test(text)) return `Events in ${city} still need to be confirmed.`;
+  return "Details for this stop still need to be confirmed.";
+}
+
+export function presentTrackingActivityDetail(
+  value: string | null | undefined,
+  suppressFlightFraming = false,
+  destination?: string | null
+) {
   const raw = (value || "").trim();
   if (!raw) return "";
-  if (looksLikeProviderSearchTitle(raw) || isGenericTripLabel(raw)) {
-    return presentTravelerTitle({
+  const sentenceLike = /[.!?]\s/.test(raw) || raw.split(/\s+/).filter(Boolean).length > 14;
+  if ((looksLikeProviderSearchTitle(raw) || isGenericTripLabel(raw)) && !sentenceLike) {
+    const label = presentTravelerTitle({
       title: raw,
       category: raw,
+      destination,
       suppressFlightFraming
     }).title;
+    return plannedLabelSentence(label, destination);
   }
-  return suppressFlightFraming ? presentGroundTransportText(raw) : raw.replace(/\b(?:hotel|hotels|stay|stays)\s+search\b/gi, "").replace(/\s{2,}/g, " ").trim();
+  if (looksLikeProviderSearchTitle(raw)) {
+    const rewritten = collapseSpaces(raw
+      .replace(/\bthings to do\b/gi, "places to visit")
+      .replace(/\b(?:hotel|hotels|flight|flights|stay|stays)\s+search\b/gi, "")
+      .replace(/\b(?:events?|festivals?|concerts?|nightlife)\s+(?:events?|festivals?|concerts?|nightlife)\b/gi, "events"));
+    if (rewritten && rewritten !== raw) return presentTrackingActivityDetail(rewritten, suppressFlightFraming, destination);
+  }
+  const text = suppressFlightFraming
+    ? rewritePlannedFlightSentence(raw)
+    : raw.replace(/\b(?:hotel|hotels|stay|stays)\s+search\b/gi, " ");
+  const sentence = closeTravelerSentence(collapseSpaces(text));
+  if (/\b(?:hotel|flight)s?\s+search\b/i.test(sentence)) return plannedLabelSentence(sentence, destination);
+  return sentence;
+}
+
+function isSearchDump(value: string) {
+  if (!looksLikeProviderSearchTitle(value)) return false;
+  const eventHits = value.match(/\b(?:events?|festivals?|concerts?|nightlife)\b/gi) || [];
+  return /\bsearch\b|[?&=]|%20|\d{4}-\d{2}-\d{2}/i.test(value) || eventHits.length >= 2;
+}
+
+function isBareDestinationLabel(value: string | null | undefined, destination?: string | null) {
+  const text = (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!text) return true;
+  if (/^(?:details to confirm|flexible time|stop to confirm|getting there|your trip)$/i.test(text)) return true;
+  const dest = (destination || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!dest) return false;
+  const city = dest.split(",")[0]?.trim() || "";
+  const flat = (input: string) => input.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+  return text === dest || text === city || flat(text) === flat(dest) || flat(text) === city;
+}
+
+function unusableStopLabel(value: string) {
+  return /^(?:unresolved place|unknown place|unknown location|location unavailable|no destination selected|not available|n\/a|tbd)$/i.test(value.trim());
+}
+
+function specificStopName(value: string | null | undefined, destination?: string | null) {
+  const raw = (value || "").trim();
+  if (!raw || unusableStopLabel(raw)) return "";
+  if (!looksLikeProviderSearchTitle(raw)) return isBareDestinationLabel(raw, destination) ? "" : raw;
+  const categoryLead = /^(?:hotels?|flights?|stays?|events?|nightlife)\b/i.test(raw);
+  const natural = !categoryLead && !isSearchDump(raw) && raw.split(/\s+/).length <= 8;
+  if (natural && !isBareDestinationLabel(raw, destination)) return raw;
+  const cleaned = raw
+    .replace(/\b(?:hotel|hotels|flight|flights|stay|stays|event|events|nightlife|activity|activities)[-_\s]?search\b/gi, " ")
+    .replace(/\b(?:events?|festivals?|concerts?|nightlife|activities|things to do|search(?:ing)?)\b/gi, " ")
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
+    .replace(/\b(?:canada|united states|usa|québec|quebec|philippines)\b/gi, " ")
+    .replace(/[?&=]|%20|\s\+\s/g, " ")
+    .replace(/[,/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(?:hotels?|flights?|stays?|events?|activities)\s+(?:in|near|at|from|to)\s+/i, "")
+    .replace(/^(?:in|near|at|from|to)\s+/i, "")
+    .replace(/\s+\b(?:to|from|in|at|near|and|for)\b$/i, "")
+    .trim();
+  if (!cleaned || unusableStopLabel(cleaned) || isBareDestinationLabel(cleaned, destination) || isSearchDump(cleaned)) return "";
+  if (/^(?:in|near|at|from|to|the|and)$/i.test(cleaned)) return "";
+  return cleaned;
+}
+
+/**
+ * Live timeline title. Uses a known hotel, event, or place name when the trip
+ * has one. "Stay in …" / "Events in …" remain when that is the best confirmable
+ * label. Empty when nothing confirmable is stored.
+ */
+export function confirmableStopTitle(input: {
+  title?: string | null;
+  placeName?: string | null;
+  address?: string | null;
+  category?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  suppressFlightFraming?: boolean;
+}) {
+  const candidates = [input.title, input.placeName, input.address];
+  for (const candidate of candidates) {
+    let named = specificStopName(candidate, input.destination);
+    if (input.suppressFlightFraming && named && /\bairport\b/i.test(named) && !SPECIFIC_AIRPORT_PLACE.test(named)) {
+      named = collapseSpaces(named.replace(/\b(?:near|at|from|to|for)\s+(?:the\s+)?airport\b/gi, "").replace(/\bairport\b/gi, ""));
+    }
+    if (!named || isBareDestinationLabel(named, input.destination)) continue;
+    const presented = polishCutLabel(presentTravelerTitle({
+      title: named,
+      origin: input.origin,
+      destination: input.destination,
+      suppressFlightFraming: input.suppressFlightFraming
+    }).title);
+    if (presented && !isBareDestinationLabel(presented, input.destination) && !isSearchDump(presented) && !/\bsearch\b/i.test(presented)) {
+      return presented;
+    }
+    if (!isSearchDump(named) && !/\bsearch\b/i.test(named)) return named;
+  }
+  for (const candidate of candidates) {
+    const raw = (candidate || "").trim();
+    if (!raw || unusableStopLabel(raw)) continue;
+    const presented = polishCutLabel(presentTravelerTitle({
+      title: raw,
+      category: input.category || raw,
+      origin: input.origin,
+      destination: input.destination,
+      suppressFlightFraming: input.suppressFlightFraming
+    }).title);
+    if (!presented || isBareDestinationLabel(presented, input.destination) || isSearchDump(presented) || /\bsearch\b/i.test(presented)) continue;
+    return presented;
+  }
+  return "";
 }
 
 const LIVE_PROXIMITY_CLAIM = /near your first planned area|today[’']s activities|prepared today|happening today/i;

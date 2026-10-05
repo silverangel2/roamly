@@ -32,7 +32,7 @@ import {
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
-import { cleanTravelerTimeLabel, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, confirmableStopTitle, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 
 export type LiveSimulatorPlace = {
   id: string;
@@ -270,7 +270,23 @@ function primaryAddress(activity: LiveCompanionActivity | null, destination = ""
 
 function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string, destination = "", suppressFlightFraming = false, origin = "") {
   if (!activity) return fallback;
-  return [activity.title, activity.placeName, activity.address].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming, origin)).find(Boolean) || fallback;
+  const fromStop = confirmableStopTitle({
+    title: activity.title,
+    placeName: activity.placeName,
+    address: activity.address,
+    category: activity.category,
+    origin,
+    destination,
+    suppressFlightFraming
+  });
+  const bookedName = activity.booking?.status === "verified" ? activity.booking.title : "";
+  const fromBooking = bookedName
+    ? confirmableStopTitle({ title: bookedName, origin, destination, suppressFlightFraming })
+    : "";
+  const categoryLabel = /^(?:stay in|events in|getting (?:from|to)|leave time before)\b/i;
+  if (fromStop && !categoryLabel.test(fromStop)) return fromStop;
+  if (fromBooking && !categoryLabel.test(fromBooking)) return fromBooking;
+  return fromStop || fromBooking || fallback;
 }
 
 /** A "Trip · city" row uses the same traveler title as NEXT. */
@@ -565,6 +581,7 @@ export function LiveTripClient({
         timeLabel: activity.time_label,
         address: activity.map_query || place?.address || activity.location_name,
         placeName: activity.location_name || place?.title,
+        category: activity.category,
         latitude: getNumber(place?.latitude),
         longitude: getNumber(place?.longitude),
         radiusMeters: 140,
@@ -1986,7 +2003,7 @@ export function LiveTripClient({
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
                   {activity.timeLabel || "Flexible"} · {activity.id === currentActivity?.id ? "Now" : activity.id === nextActivity?.id ? "Next" : activity.status || "Planned"}
                 </p>
-                <h3 className="mt-1 text-lg font-black text-ink">{travelerFacingPlace(activity.title, activeDestinationLabel, suppressFlightFraming, originLabel || "") || activityDisplayTitle(activity, "Stop to confirm", activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
+                <h3 className="mt-1 text-lg font-black text-ink">{timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
                 <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">{activity.shortDescription}</p>
               </div>
               <button

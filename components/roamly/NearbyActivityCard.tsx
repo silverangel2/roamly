@@ -109,7 +109,7 @@ export function NearbyActivityCard({
         ...presentation
       })
     : "";
-  const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming);
+  const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming, presentation?.destination);
 
   if (!tripStarted) {
     return (

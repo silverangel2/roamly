@@ -27,7 +27,7 @@ export function UpNextActivityCard({
         ...presentation
       })
     : "";
-  const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming);
+  const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming, presentation?.destination);
   return (
     <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-sun">{tripStarted ? t("ui.status.upNextNearby") : "Planned next"}</p>
