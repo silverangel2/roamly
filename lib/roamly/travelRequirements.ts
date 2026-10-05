@@ -68,6 +68,7 @@ export const CURATED_OFFICIAL_SOURCES: Readonly<Record<string, OfficialSource>> 
 
 export type TravelRequirementInput = {
   destinationCountry?: string | null;
+  originCountry?: string | null;
   passportIssuingCountry?: string | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -84,7 +85,12 @@ function cleanCountry(value?: string | null) {
 
 export function deriveTravelRequirements(input: TravelRequirementInput): TravelRequirement[] {
   const destination = cleanCountry(input.destinationCountry);
+  const origin = cleanCountry(input.originCountry);
   const passport = cleanCountry(input.passportIssuingCountry);
+  // Domestic travel (origin and destination in the same country) has no
+  // international entry requirement: mark it not applicable instead of asking
+  // for passport-country review.
+  const domestic = Boolean(origin && destination && origin === destination);
   const source = destination ? CURATED_OFFICIAL_SOURCES[destination] : null;
   const freshness = input.evidenceFreshness || "UNKNOWN";
   const travelDateContext = input.startDate && input.endDate ? `${input.startDate} to ${input.endDate}` : null;
@@ -100,7 +106,22 @@ export function deriveTravelRequirements(input: TravelRequirementInput): TravelR
       ? "Review the official entry guidance for your passport and trip details."
       : "Roamly does not have a curated official source for this destination yet.";
 
-  const requirements: TravelRequirement[] = [{
+  const requirements: TravelRequirement[] = [domestic ? {
+    id: `entry-${destination || "unknown"}`,
+    category: "VISA_OR_AUTHORIZATION",
+    title: "Travel authorization and entry requirements",
+    status: "NOT_APPLICABLE" as RequirementStatus,
+    summary: "This is domestic travel within the same country, so no passport or visa entry requirement applies. Carry a photo ID for check-in.",
+    authority: null,
+    sourceUrl: null,
+    actionUrl: null,
+    checkedAt: null,
+    travelDateContext,
+    completeness: "COMPLETE" as const,
+    freshness,
+    accountHolderOnly: true,
+    acknowledgmentDoesNotVerify: true
+  } : {
     id: `entry-${destination || "unknown"}`,
     category: "VISA_OR_AUTHORIZATION",
     title: passport ? "Travel authorization and entry requirements" : "Passport country needed",

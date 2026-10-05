@@ -39,6 +39,7 @@ export const bedPreferenceOptions = ["No preference", "One bed", "Two beds", "Fa
 export const accommodationOptions = ["Budget", "Mid-range", "Luxury", "Not sure"] as const;
 
 export const transportationOptions = [
+  "Drive",
   "Walking",
   "Public transit",
   "Rental car",

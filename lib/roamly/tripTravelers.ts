@@ -41,6 +41,7 @@ type TripShape = {
   id: string;
   travelers_count?: number | null;
   destination_country?: string | null;
+  origin_country?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   metadata?: unknown;
@@ -239,6 +240,7 @@ export function buildTripTravelerRequirements(params: {
   const endDate = params.trip.end_date || (typeof planning.endDate === "string" ? planning.endDate : null);
   const requirementsFor = (slot: TripTravelerSlot, country: string | null) => deriveTravelRequirements({
     destinationCountry: destination,
+    originCountry: params.trip.origin_country || (typeof planning.originCountry === "string" ? planning.originCountry : null),
     passportIssuingCountry: country,
     startDate: typeof startDate === "string" ? startDate : null,
     endDate: typeof endDate === "string" ? endDate : null,
