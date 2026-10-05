@@ -60,12 +60,14 @@ export function GenerateLockedItineraryButton({
       if (response.status === 402 && data?.previewUrl) {
         setConfirming(false);
         router.replace(data.previewUrl);
+        router.refresh();
         return;
       }
 
       if (response.status === 409 && data?.error === "ITINERARY_GENERATING") {
         setConfirming(false);
         router.push(`/trip/${tripId}?generating=1`);
+        router.refresh();
         return;
       }
 
@@ -81,6 +83,7 @@ export function GenerateLockedItineraryButton({
       setConfirming(false);
 
       router.push(`/trip/${tripId}?generating=1`);
+      router.refresh();
       return;
     } catch (err) {
       console.warn("[Roamly trip] itinerary generation warning", err);

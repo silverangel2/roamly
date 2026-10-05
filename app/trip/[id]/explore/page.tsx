@@ -38,6 +38,7 @@ export default async function TripExplorePage({ params }: { params: Promise<{ id
       </div>
       <ExploreDiscovery
         tripId={id}
+        destination={destination}
         candidates={buildExploreCandidates(localized)}
       />
     </>

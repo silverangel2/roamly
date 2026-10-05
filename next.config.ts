@@ -79,6 +79,11 @@ nextConfig.redirects = async () => [
     source: "/trips/:path*",
     destination: "/dashboard",
     permanent: false
+  },
+  {
+    source: "/alerts",
+    destination: "/notifications",
+    permanent: false
   }
 ];
 

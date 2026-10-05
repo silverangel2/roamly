@@ -43,9 +43,9 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
     <div className="min-h-[75vh] bg-[#fbfaf6] px-4 pb-12 pt-5 text-[#203c43] sm:px-8 sm:pb-16 sm:pt-8">
       <div className="mx-auto max-w-[1440px]">
         <Stay22LetMeAllezScript />
+        <FindsEditorialMagazine cards={cards} destination={destination} emptyMessage="No verified live listing is available for this section right now." disclosures={[amazonAffiliateDisclosure]} activePromo={activePromo} />
         <FindsQuickBook />
         <FindsTravelDeals />
-        <FindsEditorialMagazine cards={cards} destination={destination} emptyMessage="No verified live listing is available for this section right now." disclosures={[amazonAffiliateDisclosure]} activePromo={activePromo} />
       </div>
     </div>
   );

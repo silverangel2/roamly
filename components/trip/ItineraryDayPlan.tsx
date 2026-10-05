@@ -5,6 +5,7 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { formatMoney, type RoamlyItinerary } from "@/lib/itinerary";
+import { isDriveMode, looksLikeProviderSearchTitle, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -110,23 +111,39 @@ function cleanTimelineTitle(record: Record<string, unknown>) {
   const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
   const mapQuery = timelineText(record, "map_query", "mapQuery");
   const category = timelineText(record, "category", "item_type", "type");
+  const mode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
+  const presented = presentTravelerTitle({
+    title: rawTitle,
+    location,
+    mode,
+    category,
+    origin: timelineText(record, "origin"),
+    destination: timelineText(record, "destination")
+  });
 
-  if (rawTitle && !isGenericStopText(rawTitle)) return rawTitle;
-  if (location && !isGenericStopText(location)) {
+  if (isDriveMode(mode) || looksLikeProviderSearchTitle(rawTitle) || looksLikeProviderSearchTitle(mapQuery)) {
+    return presented.title;
+  }
+
+  if (rawTitle && !isGenericStopText(rawTitle) && !looksLikeProviderSearchTitle(rawTitle)) return rawTitle;
+  if (location && !isGenericStopText(location) && !looksLikeProviderSearchTitle(location)) {
     if (/meal|lunch|dinner|breakfast|food/i.test(`${rawTitle} ${category}`)) return `${rawTitle || "Meal"} at ${location}`;
     return location;
   }
-  if (mapQuery && !isGenericStopText(mapQuery)) return mapQuery;
-  return "";
+  if (mapQuery && !isGenericStopText(mapQuery) && !looksLikeProviderSearchTitle(mapQuery)) return mapQuery;
+  return presented.title;
 }
 
 function transferSummary(record: Record<string, unknown>) {
   const origin = timelineText(record, "origin");
   const destination = timelineText(record, "destination", "location_name", "location");
-  const mode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
+  const rawMode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
+  const mode = isDriveMode(rawMode) ? "Drive" : rawMode;
   const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
-  const title = cleanTimelineTitle(record) || timelineText(record, "title");
-  const route = origin && destination ? `${origin} to ${destination}` : destination || title;
+  const title = cleanTimelineTitle(record);
+  const safeOrigin = origin && !looksLikeProviderSearchTitle(origin) ? origin : "";
+  const safeDestination = destination && !looksLikeProviderSearchTitle(destination) ? destination : "";
+  const route = safeOrigin && safeDestination ? `${safeOrigin} to ${safeDestination}` : safeDestination || safeOrigin || title;
   return [mode || "Transfer", route, minutes ? `${minutes} min` : ""].filter(Boolean).join(" · ");
 }
 
@@ -390,11 +407,15 @@ export function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"
         : role === "supporting" || role === "alternative" || type === "rest"
           ? "flexible"
           : "supporting";
+    const rawTitle = timelineText(record, "title", "name");
+    const searchPlaceholder = looksLikeProviderSearchTitle(rawTitle) || looksLikeProviderSearchTitle(timelineText(record, "map_query", "mapQuery"));
     const statusText = routingStatus === "UNCERTAIN"
       ? "Route details to confirm"
       : costStatus === "UNKNOWN"
         ? "Price not available yet"
-        : "";
+        : searchPlaceholder
+          ? "Details to confirm"
+          : "";
     const why = timelineText(record, "why_recommended", "whyRecommended", "selection_reason", "selectionReason", "reason");
     const retimedBy = timelineText(record, "retimed_by_event");
     const retimedMinutes = timelineNumber(record, "retimed_minutes");
@@ -521,7 +542,7 @@ export function DayTimelineCard({
     ...day.map_queries
   ]
     .map((item) => getString(item))
-    .filter((item) => item && !isGenericStopText(item))
+    .filter((item) => item && !isGenericStopText(item) && !looksLikeProviderSearchTitle(item))
     .filter((item, index, list) => list.indexOf(item) === index)
     .slice(0, 5);
   const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];

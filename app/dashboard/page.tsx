@@ -10,7 +10,7 @@ import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/serve
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n-server";
 import { selectActiveTrip } from "@/lib/roamly/liveCompanion";
-import { dashboardTripPresentation } from "@/lib/roamly/dashboardTripPresentation";
+import { compareDashboardTrips, dashboardTripPresentation, dashboardTripSortRank } from "@/lib/roamly/dashboardTripPresentation";
 
 type DashboardTrip = {
   id: string;
@@ -108,11 +108,18 @@ export default async function DashboardPage() {
   ]);
 
   const tripQueryError = tripResult.error;
-  const typedTrips = (tripResult.data || []) as DashboardTrip[];
+  const typedTrips = ([...(tripResult.data || [])] as DashboardTrip[]).sort((a, b) => compareDashboardTrips(a, b));
   const locked = typedTrips.filter((trip) => isTripLocked(trip));
   const drafts = typedTrips.filter((trip) => !isTripLocked(trip));
   const activeNow = selectActiveTrip(typedTrips);
-  const primaryTrip = activeNow || typedTrips[0];
+  const primaryTrip = typedTrips[0] || null;
+  const upcomingTrips = typedTrips.filter((trip) => dashboardTripSortRank(trip) < 300);
+  const planningTrips = typedTrips.filter((trip) => {
+    const rank = dashboardTripSortRank(trip);
+    return rank >= 300 && rank < 400;
+  });
+  const pastTrips = typedTrips.filter((trip) => dashboardTripSortRank(trip) >= 400);
+  const primaryRank = primaryTrip ? dashboardTripSortRank(primaryTrip) : 300;
 
   if (tripQueryError) {
     return (
@@ -145,14 +152,14 @@ export default async function DashboardPage() {
 
       {primaryTrip ? (
         <section className="mt-7 rounded-[1.5rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_60%,#fff7ed_100%)] p-5 shadow-soft sm:p-7">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{activeNow ? "Current trip" : "Most recent trip"}</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{activeNow && activeNow.id === primaryTrip?.id ? "Current trip" : primaryRank < 300 ? "Upcoming trip" : primaryRank >= 400 ? "Past trip" : "Planning"}</p>
           <h2 className="mt-2 text-3xl font-black tracking-tight text-ink">{primaryTrip.title || getTripDestinationLabel(primaryTrip) || "Your trip"}</h2>
           <p className="mt-2 text-sm font-bold text-slate-600">
             {formatDate(primaryTrip.start_date, locale)} · {getTripDaysCount(primaryTrip) || "Flexible"} days
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button href={activeNow ? `/trip/${activeNow.id}/live` : `/trip/${primaryTrip.id}`}>
-              {activeNow ? "Open Live" : isTripLocked(primaryTrip) ? "Open plan" : "Continue trip"}
+            <Button href={activeNow && activeNow.id === primaryTrip.id ? `/trip/${activeNow.id}/live` : `/trip/${primaryTrip.id}`}>
+              {activeNow && activeNow.id === primaryTrip.id ? "Open Live" : isTripLocked(primaryTrip) ? "Open plan" : "Continue trip"}
             </Button>
             <Button href="/plan" tone="ghost">Plan another trip</Button>
           </div>
@@ -161,13 +168,14 @@ export default async function DashboardPage() {
 
       <section className="mt-7 grid gap-3 border-y border-cloud py-4 md:grid-cols-3 md:divide-x md:divide-cloud">
         {[
-          ["Free itinerary", free.used ? "Used" : "Available"],
-          ["Locked itineraries", String(locked.length)],
-          ["Draft trips", String(drafts.length)]
-        ].map(([label, value]) => (
+          ["Free itinerary", free.used ? "Used" : "Available", "One full itinerary per account."],
+          ["Locked itineraries", String(locked.length), "Saved itineraries you unlocked."],
+          ["Draft trips", String(drafts.length), "Plans that are not unlocked yet. They stay below a trip you can travel."]
+        ].map(([label, value, hint]) => (
           <div key={label} className="px-0 md:px-4 md:first:pl-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{label}</p>
             <p className="mt-2 text-2xl font-black text-ink">{value}</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{hint}</p>
           </div>
         ))}
       </section>
@@ -178,10 +186,37 @@ export default async function DashboardPage() {
           <Button href="/plan" tone="ghost">New trip</Button>
         </div>
         {typedTrips.length ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {typedTrips.map((trip) => (
-              <TripCard key={trip.id} trip={trip} locale={locale} />
-            ))}
+          <div className="grid gap-8">
+            {upcomingTrips.length ? (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-[0.16em] text-ocean">Upcoming</h3>
+                <div className="mt-3 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {typedTrips.map((trip) => (
+                    dashboardTripSortRank(trip) < 300 ? <TripCard key={trip.id} trip={trip} locale={locale} /> : null
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {planningTrips.length ? (
+              <details open={upcomingTrips.length === 0} className="border-y border-cloud py-3">
+                <summary className="cursor-pointer text-sm font-black uppercase tracking-[0.16em] text-slate-500">Planning · {planningTrips.length}</summary>
+                <div className="mt-3 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {planningTrips.map((trip) => (
+                    <TripCard key={trip.id} trip={trip} locale={locale} />
+                  ))}
+                </div>
+              </details>
+            ) : null}
+            {pastTrips.length ? (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-[0.16em] text-slate-400">Past</h3>
+                <div className="mt-3 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {pastTrips.map((trip) => (
+                    <TripCard key={trip.id} trip={trip} locale={locale} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : (
           <Card>

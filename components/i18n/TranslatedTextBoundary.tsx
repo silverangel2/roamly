@@ -67,7 +67,16 @@ export function TranslatedTextBoundary({ children }: { children: React.ReactNode
       for (const mutation of mutations) {
         mutation.addedNodes.forEach((node) => translateTree(node));
         if (mutation.type === "characterData" && mutation.target.nodeType === Node.TEXT_NODE) {
-          translateNode(mutation.target as Text);
+          const node = mutation.target as Text;
+          const current = node.nodeValue || "";
+          const previous = originals.current.get(node);
+          const previousTranslation = previous ? preserveWhitespace(previous, translateText(previous.trim())) : null;
+          // React replaced this text node. Keep the new source instead of
+          // writing the first translation back over the update.
+          if (previous != null && current !== previous && current !== previousTranslation) {
+            originals.current.set(node, current);
+          }
+          translateNode(node);
         }
       }
     });

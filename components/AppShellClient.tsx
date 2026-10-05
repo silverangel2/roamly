@@ -10,6 +10,7 @@ import { TranslatedTextBoundary } from "@/components/i18n/TranslatedTextBoundary
 import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { countUnreadNotifications, shouldLoadShellState } from "@/lib/roamly/appShellState";
+import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
 
 export type AppShellAuthState = {
   authenticated: boolean;
@@ -50,8 +51,9 @@ function AppShellContent({
 
       const {
         data: { subscription }
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+      } = supabase.auth.onAuthStateChange((event, session) => {
         setAuthenticated(Boolean(session?.user));
+        if (event === "SIGNED_OUT") clearPlannerDraftOnLogout(window.localStorage, window.sessionStorage);
       });
 
       return () => {
@@ -203,7 +205,12 @@ function AppShellContent({
                   </Link>
                 </>
               ) : (
-                <form action="/auth/logout" method="post" className="hidden sm:block">
+                <form
+                  action="/auth/logout"
+                  method="post"
+                  className="hidden sm:block"
+                  onSubmit={() => clearPlannerDraftOnLogout(window.localStorage, window.sessionStorage)}
+                >
                   <button
                     type="submit"
                     className="rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-coral"
@@ -212,14 +219,16 @@ function AppShellContent({
                   </button>
                 </form>
               )}
-              <Link href={planTripHref} className="hidden min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-bold text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] transition-colors hover:bg-[#167f8d] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 sm:inline-flex">
-                {planTripLabel}
-              </Link>
+              {!authenticated ? (
+                <Link href={planTripHref} className="hidden min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-bold text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] transition-colors hover:bg-[#167f8d] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 sm:inline-flex">
+                  {planTripLabel}
+                </Link>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <main className="min-w-0 pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+        <main className="min-w-0 pb-[calc(8.75rem+env(safe-area-inset-bottom))] lg:pb-0">
           {children}
         </main>
 
