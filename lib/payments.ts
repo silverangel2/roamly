@@ -64,7 +64,19 @@ export async function confirmCheckoutSessionForTrip(params: {
     return { ok: false, error: "Stripe has not marked this checkout as paid yet." };
   }
 
-  return { ok: true, awaitingWebhook: true };
+  // Apply the purchase immediately on the return path so the trip page
+  // reflects payment without waiting for the webhook round trip. Idempotent:
+  // the webhook converges on the same ledger rows if it arrives first or later.
+  const applied = await applyPaidCheckoutSession(session);
+  if (!applied.ok) {
+    console.error("[Roamly trip] Checkout return-path apply failed; waiting for webhook", {
+      tripId: params.tripId,
+      userId: params.userId,
+      error: applied.error
+    });
+  }
+
+  return { ok: true, awaitingWebhook: !applied.ok };
 }
 
 export async function applyPaidCheckoutSession(session: Parameters<typeof applyPaidItineraryPurchase>[1]) {

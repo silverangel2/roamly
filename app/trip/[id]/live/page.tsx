@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
-import { getTripDayFromDate } from "@/lib/itinerary";
+import { getTripDayFromDate, isCompanionEligibleActivity } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
@@ -188,8 +188,13 @@ export default async function LiveTripPage({
   );
   const activitiesByDay = groupActivitiesByDay(localizedActivitiesWithServerSkips);
   const dayActivities = activitiesByDay[currentDay] || localizedActivitiesWithServerSkips.slice(0, 4);
+  // The Companion surfaces real itinerary items only: a search placeholder
+  // must never appear as NEXT; the next real item is shown instead.
   const nextActivity =
-    dayActivities.find((activity) => !["completed", "skipped", "missed"].includes(activity.status)) ||
+    dayActivities.find(
+      (activity) => !["completed", "skipped", "missed"].includes(activity.status) && isCompanionEligibleActivity(activity)
+    ) ||
+    dayActivities.find((activity) => isCompanionEligibleActivity(activity)) ||
     dayActivities[0] ||
     null;
   const nearbyActivity = dayActivities.find((activity) => activity.status === "nearby") || null;

@@ -7,6 +7,8 @@ import {
   reconcileCompletedGenerationJobs
 } from "@/lib/roamly/generationQueue";
 import { sendStagedGenerationEmail } from "@/lib/roamly/itineraryGenerationEmail";
+import { validateItineraryForProduction } from "@/lib/itinerary";
+import { payloadFromTrip } from "@/lib/roamly/marketPriceRefresh";
 import {
   getStagedGenerationState,
   publicStagedGenerationProgress,
@@ -610,12 +612,39 @@ export async function finalizeCompletedStagedGeneration(params: {
     return { ok: false as const, error: queueFinalization.error || "GENERATION_QUEUE_FINALIZATION_FAILED" };
   }
 
+  // The completion email must never go out for an itinerary that fails the
+  // production readiness gate — including itineraries recovered from stored
+  // rows that predate (or bypassed) validation. A stored row passing the
+  // weak isFinalStoredItinerary shape check is not proof of readiness.
+  let completionKind: "completion" | "failure" = "completion";
+  if (stored.exists && stored.fullJson) {
+    try {
+      const payload = payloadFromTrip(trip as unknown as Parameters<typeof payloadFromTrip>[0]);
+      const readiness = validateItineraryForProduction(
+        stored.fullJson as unknown as Parameters<typeof validateItineraryForProduction>[0],
+        payload
+      );
+      if (!readiness.ok) {
+        logGenerationDiagnostic("staged_generation_stored_itinerary_not_ready", {
+          tripId: trip.id,
+          source: params.source,
+          errorCount: readiness.errors.length,
+          errors: readiness.errors.slice(0, 5)
+        });
+        completionKind = "failure";
+      }
+    } catch {
+      // If the stored itinerary cannot even be validated, it is not ready.
+      completionKind = "failure";
+    }
+  }
+
   const email =
     params.sendEmail === false
       ? null
       : await sendStagedGenerationEmail({
           tripId: trip.id,
-          kind: "completion"
+          kind: completionKind
         });
   const reconciliation = await reconcileQueueCompletionIfRequired({
     supabase,

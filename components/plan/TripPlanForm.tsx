@@ -1087,7 +1087,10 @@ export function TripPlanForm({
         const record = getRecord(parsed);
         if (record) {
           restorePlanDraft(record);
-          setRestoreNotice(shouldShowResumeNotice);
+          // A stored planner draft is always surfaced: the traveler must see
+          // the existing draft and get the obvious "Start over" option instead
+          // of silently inheriting stale values (e.g. an old Toronto draft).
+          setRestoreNotice(true);
           restoredStoredDraft = true;
         }
       } catch {
@@ -1457,6 +1460,7 @@ export function TripPlanForm({
 
   const summaryRows = [
     ["Route", routePreview || "Route pending"],
+    ["Transport", payload.transportationPreference || "Transport pending"],
     ["Dates", payload.daysCount ? `${payload.daysCount} days` : `${payload.startDate || "Start"} to ${payload.endDate || "End"}`],
     ["Travelers", `${adultCount} adults, ${childCount} children${infantCount ? `, ${infantCount} infants` : ""}`],
     ["Rooms", `${roomCount} room${roomCount === 1 ? "" : "s"}${bedPreference !== "No preference" ? `, ${bedPreference}` : ""}`],

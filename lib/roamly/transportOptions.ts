@@ -80,6 +80,7 @@ type TransportBuildInput = Partial<
     | "travelers"
     | "budgetAmount"
     | "budgetCurrency"
+    | "transportationPreference"
   >
 > & {
   destination: string;
@@ -893,12 +894,35 @@ function fitForOption(option: TransportOption, budgetAmount: number | null, fixe
   return "okay" as TransportBudgetFit;
 }
 
+/**
+ * Maps the traveler's explicit transportation preference to a transport mode.
+ * Returns null when the preference is empty or "Mixed" (no hard choice).
+ */
+export function transportModeFromPreference(preference: unknown): "flight" | "train" | "bus" | "drive" | null {
+  const text = String(preference || "").toLowerCase();
+  if (!text || text.includes("mix")) return null;
+  if (/\bflight|\bfly\b|\bflying\b|\bplane\b/.test(text)) return "flight";
+  if (/\btrain|\brail\b/.test(text)) return "train";
+  if (/\bbus|\bcoach\b/.test(text)) return "bus";
+  if (/\bdrive|\bdriving\b|\bcar\b|\broad\b|rental/.test(text)) return "drive";
+  return null;
+}
+
 export function pickRecommendedTransportOption(
   options: TransportOption[],
-  input: { budgetAmount?: number | null; fixedTripCostCents?: number } = {}
+  input: { budgetAmount?: number | null; fixedTripCostCents?: number; transportationPreference?: string | null } = {}
 ) {
   const budgetAmount = input.budgetAmount ?? null;
   const fixedTripCostCents = Math.max(0, Math.round(input.fixedTripCostCents || 0));
+  // An explicit traveler transport choice is a hard requirement: it outranks
+  // the cost/duration scoring below. Without this, a cheaper flight can be
+  // recommended (and then treated as the trip's transport) even when the
+  // traveler chose to drive.
+  const explicitMode = transportModeFromPreference(input.transportationPreference);
+  if (explicitMode) {
+    const explicit = options.find((option) => option.mode === explicitMode && option.realistic);
+    if (explicit) return explicit;
+  }
   const practicalOptions = options.filter((option) => {
     if (!option.realistic) return false;
     if (option.availability !== "verified" && option.availability !== "search_ready") return false;
@@ -952,7 +976,8 @@ export function compareTransportOptions(input: TransportBuildInput, config: Buil
 
   const recommended = pickRecommendedTransportOption(options, {
     budgetAmount: input.budgetAmount,
-    fixedTripCostCents: config.fixedTripCostCents
+    fixedTripCostCents: config.fixedTripCostCents,
+    transportationPreference: input.transportationPreference
   });
   const updatedOptions = options.map((option) => {
     const fit = fitForOption(option, input.budgetAmount ?? null, config.fixedTripCostCents || 0);

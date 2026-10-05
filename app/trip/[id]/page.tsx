@@ -326,7 +326,7 @@ function BudgetSummary({
   const budgetAmount = getTripBudgetAmount(trip);
   const intentPlanning = getTripPlanningMetadata(trip.metadata);
   const intentTravelers = tripTravelerDetails(trip);
-  const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary);
+  const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary, priceDiscovery);
   const presentation = buildBudgetPresentation({ budgetAmount, currency, totalEstimateAmount, breakdown: estimate, priceDiscovery, confirmedBookingCount });
   const statusTone = presentation.status === "OVER_BUDGET" ? "border-coral/25 bg-coral/10 text-coral" : presentation.status === "BUDGET_UNCERTAIN" ? "border-sun/30 bg-sun/10 text-amber-900" : "border-ocean/20 bg-ocean/10 text-ocean";
 
@@ -1877,7 +1877,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
         error: checkoutSyncError
       });
     } else {
-      checkoutAwaitingWebhook = true;
+      // Only waits on the webhook when the immediate return-path apply failed.
+      checkoutAwaitingWebhook = confirmation.awaitingWebhook === true;
     }
   }
 
@@ -1999,7 +2000,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const tripTitle = full?.trip_title || preview?.trip_title || trip.title || destinationLabel;
   const dayCount = getTripDaysCount(trip) || full?.daily_itinerary.length || preview?.day_outline.length || trip.days_count || 0;
   const tripBudgetAmount = getTripBudgetAmount(trip);
-  const itineraryTotalEstimate = full ? getItineraryTotalEstimateAmount(full) : null;
+  const itineraryTotalEstimate = full ? getItineraryTotalEstimateAmount(full, persistedPriceDiscovery) : null;
   const headerBudgetBalance = full ? describeBudgetBalanceFromAmounts(tripBudgetAmount, itineraryTotalEstimate, currency) : null;
   const budgetDisplay = tripBudgetAmount
     ? `${formatBudgetMoney(tripBudgetAmount, currency)}${headerBudgetBalance ? ` · ${headerBudgetBalance.text}` : ""}`

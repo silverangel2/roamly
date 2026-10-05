@@ -67,4 +67,19 @@ const nextConfig: NextConfig = {
   }
 };
 
+// The app's Trips experience lives at /dashboard; /trips is a route alias so
+// bookmarks and links to /trips do not 404.
+nextConfig.redirects = async () => [
+  {
+    source: "/trips",
+    destination: "/dashboard",
+    permanent: false
+  },
+  {
+    source: "/trips/:path*",
+    destination: "/dashboard",
+    permanent: false
+  }
+];
+
 export default nextConfig;

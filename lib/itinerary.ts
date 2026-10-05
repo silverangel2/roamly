@@ -437,18 +437,23 @@ function hasDepartureTravel(day: RoamlyDayPlan) {
 }
 
 function transportMode(payload: TripPlannerPayload) {
+  return effectiveTransportMode(payload);
+}
+
+export function effectiveTransportMode(payload: TripPlannerPayload) {
+  const preference = cleanString(payload.transportationPreference, "").toLowerCase();
+  if (/\bflight|fly|plane\b/.test(preference)) return "flight";
+  if (/\btrain|rail\b/.test(preference)) return "train";
+  if (/\bbus|coach\b/.test(preference)) return "bus";
+  if (/\bcar|drive|road|rental car\b/.test(preference)) return "drive";
+  if (/\bferry\b/.test(preference)) return "ferry";
+
   const option = discoveryRecommendedTransportOption(payload, discoveryTransportOptions(payload));
   if (option?.mode === "flight") return "flight";
   if (option?.mode === "train") return "train";
   if (option?.mode === "bus") return "bus";
   if (option?.mode === "drive") return "drive";
   if (option?.mode === "mixed") return "mixed transport";
-  const preference = cleanString(payload.transportationPreference, "mixed transport").toLowerCase();
-  if (/\bflight|fly|plane\b/.test(preference)) return "flight";
-  if (/\btrain|rail\b/.test(preference)) return "train";
-  if (/\bbus|coach\b/.test(preference)) return "bus";
-  if (/\bcar|drive|road\b/.test(preference)) return "drive";
-  if (/\bferry\b/.test(preference)) return "ferry";
   return "mixed transport";
 }
 
@@ -464,6 +469,7 @@ function travelBookingLabel(mode: string) {
 function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
   const origin = cleanString(payload.origin || payload.originCity, "Departure city");
   const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
+  const city = { label: destination };
   const mode = transportMode(payload);
   const crossBorder = detectCrossBorderTrip({
     origin,
@@ -477,7 +483,7 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
     {
       time_label: "",
       title: `Leave ${origin}`,
-      description: mode === "drive" ? "Start the road trip with fuel, documents, parking, and route buffers checked." : "Leave home with enough time for terminal/station arrival, bags, documents, and security.",
+      description: mode === "drive" ? `Driving route: ${origin} to ${city.label}. Matches the drive transport choice instead of suggesting an airport transfer. Start with fuel, documents, parking, and route buffers checked.` : "Leave home with enough time for terminal/station arrival, bags, documents, and security.",
       location_name: origin,
       estimated_cost: null,
       category: "Travel",
@@ -494,7 +500,7 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
     {
       time_label: "",
       title: `${mode === "drive" ? "Drive" : "Travel"} to ${destination}`,
-      description: `Main ${mode} segment. Verify live timing, baggage rules, transfer points, and current schedule before departure.`,
+      description: mode === "drive" ? `Driving route: ${origin} to ${city.label}. Matches the drive transport choice instead of suggesting an airport transfer.` : `Main ${mode} segment. Verify live timing, baggage rules, transfer points, and current schedule before departure.`,
       location_name: `${origin} to ${destination}`,
       estimated_cost: null,
       category: "Travel",
@@ -1070,8 +1076,101 @@ function timelineChronologyErrors(day: RoamlyDayPlan) {
   return errors;
 }
 
+function normalizedSubstantiveTitle(item: RoamlyActivitySeed) {
+  return cleanString(item.title, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function isPlaceholderOrOperationalText(value: unknown) {
+  const text = cleanString(String(value ?? ""), "").toLowerCase();
+  return !text ||
+    /\bsearch(?:ing)?\b|\btbd\b|to be determined|placeholder|unresolved|not provided|coming soon/.test(text) ||
+    /^hotel$|^accommodation(?: tbd)?$/.test(text) ||
+    /\b(?:a )?local restaurant\b|\brestaurant near\b/.test(text) ||
+    /\b(?:flight|hotel|transport|tour|activity)\s+search\b/.test(text) ||
+    /https?:\/\/|www\.|\.com\//.test(text);
+}
+
+function hotelIsGrounded(item: RoamlyActivitySeed) {
+  const factualStatus = String(item.factualStatus || "").toLowerCase();
+  return Boolean(cleanString(item.candidateId, "")) || ["verified", "search_ready", "estimated"].includes(factualStatus);
+}
+
+export function isCompanionEligibleActivity(item: {
+  title?: unknown;
+  description?: unknown;
+  item_type?: unknown;
+  category?: unknown;
+} | null | undefined) {
+  if (!item || isPlaceholderOrOperationalText(item.title)) return false;
+  const type = timelineType(item as RoamlyActivitySeed);
+  if (["travel", "transfer", "hotel", "meal", "rest", "reminder", "booking"].includes(type)) return false;
+  const text = `${item.title || ""} ${item.description || ""}`.toLowerCase();
+  if (/\b(?:check[- ]?in|check[- ]?out|luggage|bags?|baggage|departure|arrival|transfer|flight|drive|search|restaurant|lunch|dinner|breakfast|cafe|meal)\b/.test(text)) return false;
+  return true;
+}
+
+export function travelerReadinessErrors(itinerary: RoamlyItinerary, payload: TripPlannerPayload) {
+  const errors: string[] = [];
+  const days = itinerary.daily_itinerary || [];
+  const hardMode = effectiveTransportMode(payload);
+  const seenByType = new Map<string, number>();
+  const multiDay = days.length > 1 || clampTripDays(payload.daysCount) > 1;
+  let namedGroundedHotel = false;
+
+  for (const day of days) {
+    for (const item of day.live_timeline || []) {
+      const type = timelineType(item);
+      const title = cleanString(item.title, "");
+      const text = `${title} ${item.description || ""}`.toLowerCase();
+
+      if (isPlaceholderOrOperationalText(title)) {
+        errors.push(/https?:\/\/|www\.|\.com\//i.test(title)
+          ? `Day ${day.day_number} item ${title}: raw link is not traveler-facing itinerary content.`
+          : /\bsearch\b/i.test(title)
+          ? `Day ${day.day_number} item ${title || "(untitled)"}: search is not a plan.`
+          : `Day ${day.day_number} item ${title || "(untitled)"} is a generic placeholder or search content.`);
+      }
+
+      if (type === "hotel") {
+        if (!title || isPlaceholderOrOperationalText(title) || !hotelIsGrounded(item)) {
+          errors.push(`Day ${day.day_number} hotel ${title || "(untitled)"} has no grounding/provenance.`);
+        } else {
+          namedGroundedHotel = true;
+        }
+      }
+
+      if ((type === "travel" || type === "transfer") && hardMode === "drive" &&
+        (item.travel_mode === "flight" || /\bflight|airport\b/.test(text))) {
+        errors.push(`Day ${day.day_number} has flight content on a drive trip.`);
+      }
+      if ((type === "travel" || type === "transfer") && hardMode === "flight" &&
+        (item.travel_mode === "drive" || /\bdrive|road trip\b/.test(text))) {
+        errors.push(`Day ${day.day_number} has drive content on a flight trip.`);
+      }
+
+      if (type === "activity" || type === "meal") {
+        const key = `${type}:${normalizedSubstantiveTitle(item)}`;
+        if (key.endsWith(":")) continue;
+        const previousDay = seenByType.get(key);
+        if (previousDay != null && previousDay !== day.day_number) {
+          errors.push(`${type} ${title} must not repeat across days.`);
+        } else {
+          seenByType.set(key, day.day_number);
+        }
+      }
+    }
+  }
+
+  if (multiDay && !namedGroundedHotel) errors.push("Multi-day itinerary names no hotel with grounding/provenance.");
+  return errors;
+}
+
 export function validateItineraryForProduction(itinerary: RoamlyItinerary, payload: TripPlannerPayload) {
   const errors: string[] = [];
+  errors.push(...travelerReadinessErrors(itinerary, payload));
   const firstDay = itinerary.daily_itinerary[0];
   const finalDay = itinerary.daily_itinerary[itinerary.daily_itinerary.length - 1];
   itinerary.daily_itinerary.forEach((day) => {
@@ -1844,12 +1943,19 @@ function budgetBreakdownNumbers(payload: TripPlannerPayload, budget?: Record<str
   };
 }
 
-export function getItineraryTotalEstimateAmount(itinerary: Pick<RoamlyItinerary, "estimated_budget_breakdown" | "daily_itinerary">) {
+export function getItineraryTotalEstimateAmount(
+  itinerary: Pick<RoamlyItinerary, "estimated_budget_breakdown" | "daily_itinerary">,
+  priceDiscovery?: Record<string, unknown> | null
+) {
+  const groundedCents = priceDiscovery?.totalEstimateCents;
+  if (typeof groundedCents === "number" && Number.isFinite(groundedCents) && groundedCents >= 0) {
+    return groundedCents / 100;
+  }
   const explicit = itinerary.estimated_budget_breakdown.total_estimate_amount;
   if (typeof explicit === "number" && Number.isFinite(explicit)) return explicit;
   if (!itinerary.daily_itinerary.length || itinerary.daily_itinerary.some((day) => typeof day.estimated_cost !== "number")) return null;
   const daily = itinerary.daily_itinerary.reduce((sum, day) => sum + (day.estimated_cost || 0), 0);
-  return daily || null;
+  return daily > 0 ? daily : null;
 }
 
 export function sanitizeStoredItinerary(raw: unknown): RoamlyItinerary | null {
@@ -2047,7 +2153,7 @@ export function buildStarterItinerary(payload: TripPlannerPayload): RoamlyItiner
       };
     }),
     packing_checklist: [
-      ...(crossBorder ? documentReminders : ["Passport/ID"]),
+      ...(crossBorder ? documentReminders : ["Photo ID (driver's licence or equivalent)"]),
       "Phone charger",
       "Comfortable shoes",
       "Weather layer",
