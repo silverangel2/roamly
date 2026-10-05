@@ -131,8 +131,9 @@ self.addEventListener("notificationclick", (event) => {
  *
  * Strategies:
  * - Trip documents (/trip/[id], /trip/[id]/live, /trip/[id]/bookings):
- *   stale-while-revalidate. Trip pages are server-rendered HTML, so
- *   caching the document is what makes a trip readable in airplane mode.
+ *   network-first. Fresh SSR is shown whenever the phone is online so a
+ *   cleaned itinerary cannot flash an older cached copy. The last good
+ *   document is kept only for airplane mode.
  * - /_next/static/*, /fonts/*, icons, manifest: cache-first (immutable).
  * - GET /api/trips/[id]/companion/preferences: stale-while-revalidate.
  * - POST /api/roamly/activities/{check-in,skip,complete}: never cached.
@@ -147,7 +148,7 @@ self.addEventListener("notificationclick", (event) => {
  * so one device account can never read another's cached trips.
  * ============================================================ */
 
-const ROAMLY_OFFLINE_VERSION = "roamly-offline-v1";
+const ROAMLY_OFFLINE_VERSION = "roamly-offline-v2";
 const ROAMLY_STATIC_CACHE = `${ROAMLY_OFFLINE_VERSION}-static`;
 const ROAMLY_DOCS_CACHE_PREFIX = `${ROAMLY_OFFLINE_VERSION}-docs-`;
 const ROAMLY_PREFS_CACHE_PREFIX = `${ROAMLY_OFFLINE_VERSION}-prefs-`;
@@ -335,11 +336,27 @@ async function staleWhileRevalidate(event, request, cacheName) {
   throw new Error("roamly-offline");
 }
 
+async function networkFirst(event, request, cacheName) {
+  let cache = null;
+  try {
+    cache = await caches.open(cacheName);
+  } catch {}
+  try {
+    const response = await fetch(request);
+    if (cache && isCacheableResponse(response, request.url)) {
+      event.waitUntil(cache.put(request, response.clone()).catch(() => {}));
+    }
+    return response;
+  } catch {
+    const cached = cache ? await cache.match(request).catch(() => null) : null;
+    if (cached) return cached;
+    return null;
+  }
+}
+
 async function tripDocument(event) {
   const { request } = event;
-  const response = await staleWhileRevalidate(event, request, docsCacheName()).catch(
-    () => null
-  );
+  const response = await networkFirst(event, request, docsCacheName());
   if (response) return response;
   return offlineFallbackResponse();
 }
@@ -472,7 +489,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Trip documents: stale-while-revalidate with offline fallback page.
+  // Trip documents: network-first, with the last saved copy only when offline.
   if (request.mode === "navigate" && TRIP_DOC_RE.test(url.pathname)) {
     event.respondWith(tripDocument(event));
   }

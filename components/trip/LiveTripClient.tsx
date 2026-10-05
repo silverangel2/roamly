@@ -32,7 +32,7 @@ import {
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
-import { cleanTravelerTimeLabel, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentGroundTransportText, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 
 export type LiveSimulatorPlace = {
   id: string;
@@ -244,11 +244,15 @@ function travelerFacingPlace(value: string | null | undefined, destination = "",
   if (!value || !isUsablePlaceLabel(value)) return "";
   const repaired = repairGarbledGettingTo(value, origin, destination);
   if (repaired) return repaired;
-  if (looksLikeProviderSearchTitle(value) || (suppressFlightFraming && /\bflight|airport|departure buffer\b/i.test(value))) {
-    return presentTravelerTitle({ title: value, destination, origin, suppressFlightFraming, category: value }).title;
-  }
-  if (isHollowTravelerPlace(value, destination)) return "";
-  return suppressFlightFraming ? presentGroundTransportText(value) : value;
+  const presented = presentTravelerTitle({
+    title: value,
+    destination,
+    origin,
+    suppressFlightFraming,
+    category: value
+  }).title;
+  if (!presented || isHollowTravelerPlace(presented, destination)) return "";
+  return presented;
 }
 
 function primaryAddress(activity: LiveCompanionActivity | null, destination = "", suppressFlightFraming = false, origin = "") {
@@ -267,6 +271,21 @@ function primaryAddress(activity: LiveCompanionActivity | null, destination = ""
 function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string, destination = "", suppressFlightFraming = false, origin = "") {
   if (!activity) return fallback;
   return [activity.title, activity.placeName, activity.address].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming, origin)).find(Boolean) || fallback;
+}
+
+/** A "Trip · city" row uses the same traveler title as NEXT. */
+function timelineRowTitle(
+  activity: LiveCompanionActivity,
+  nextTitle: string,
+  destination = "",
+  suppressFlightFraming = false,
+  origin = ""
+) {
+  const title = activityDisplayTitle(activity, "Stop to confirm", destination, suppressFlightFraming, origin);
+  // Only borrow NEXT when this row is still the generic "Trip · city" label.
+  // A real stop that merely started as "Trip · …" keeps its own traveler title.
+  if (/^trip\s*[·•|-]\s+/i.test(title) && nextTitle && !/^trip\s*[·•|-]\s+/i.test(nextTitle)) return nextTitle;
+  return title;
 }
 
 function activityDisplayDescription(activity: LiveCompanionActivity | null, fallback: string) {
@@ -1643,7 +1662,7 @@ export function LiveTripClient({
                     <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate font-bold text-slate-600">
                         <span className="mr-2 font-black text-slate-400">{activity.timeLabel || "Flexible"}</span>
-                        {activityDisplayTitle(activity, "Stop to confirm", activeDestinationLabel, suppressFlightFraming, originLabel || "")}
+                        {timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}
                       </span>
                       <span className={classNames("shrink-0 text-xs font-black uppercase tracking-[0.08em]", terminal ? "text-ocean" : "text-slate-400")}>
                         {progress}

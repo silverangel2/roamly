@@ -54,6 +54,41 @@ export type TripReadinessInput = {
   now?: Date;
 };
 
+/** Statuses where a worker is actually building the itinerary. Queued is not running. */
+const RUNNING_GENERATION_STATUSES = new Set([
+  "validating_input",
+  "generating_outline",
+  "generating_day",
+  "validating_day",
+  "enriching_transport",
+  "enriching_affiliates"
+]);
+
+export function generationIsRunning(status: string | null | undefined) {
+  return RUNNING_GENERATION_STATUSES.has(String(status || "").toLowerCase());
+}
+
+export const SAVED_DRAFT_UNLOCK_COPY = "This draft is saved. Roamly is not preparing it yet.";
+export const SAVED_DRAFT_UNLOCK_ACTION = "Unlock this trip";
+
+/**
+ * One saved/needs-unlock command. Preparing copy is not allowed when unlock
+ * is required and generation is not running.
+ */
+export function travelerDraftCommand(input: {
+  unlockRequired: boolean;
+  hasItinerary: boolean;
+  generationRunning: boolean;
+}) {
+  if (input.unlockRequired && !input.generationRunning && !input.hasItinerary) {
+    return {
+      title: SAVED_DRAFT_UNLOCK_COPY,
+      action: SAVED_DRAFT_UNLOCK_ACTION
+    };
+  }
+  return null;
+}
+
 function dateOnly(value: string | null | undefined) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   return Date.parse(`${value}T00:00:00Z`);
@@ -156,11 +191,11 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
   }
 
   if (!input.hasItinerary && input.generationAwaitingUnlock) {
-    urgentItems.push("This draft is saved. Roamly is not preparing it yet.");
+    urgentItems.push(SAVED_DRAFT_UNLOCK_COPY);
     return {
       state: "ACTION_NEEDED",
       phase,
-      primaryAction: action("generation", input.tripId, "Unlock this trip", "trip", null, ""),
+      primaryAction: action("generation", input.tripId, SAVED_DRAFT_UNLOCK_ACTION, "trip", null, ""),
       urgentItems,
       upcomingActions,
       confirmations,

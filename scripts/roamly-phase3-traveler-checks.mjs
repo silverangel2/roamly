@@ -151,6 +151,47 @@ const nextTitle = titles.presentTravelerTitle({
 });
 assert.equal(timelineTitle.title, nextTitle.title);
 assert.equal(/^Trip · Montreal, Canada$/.test(timelineTitle.title), false);
+const tripLabel = titles.presentTravelerTitle({
+  title: "Trip · Montreal, Canada",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal, Canada"
+});
+const tripLabelNext = titles.presentTravelerTitle({
+  title: "Montreal airport",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal, Canada"
+});
+assert.equal(tripLabel.title, "Getting from Saint John to Montreal");
+assert.equal(tripLabel.title, tripLabelNext.title);
+assert.equal(/^Trip ·/.test(tripLabel.title), false);
+const namedTripStop = titles.presentTravelerTitle({
+  title: "Trip · Notre-Dame Basilica",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal, Canada"
+});
+assert.match(namedTripStop.title, /Notre-Dame/);
+assert.notEqual(namedTripStop.title, "Getting from Saint John to Montreal");
+const flightSearch = titles.presentTrackingActivityTitle({
+  title: "Saint John, Canada to Montreal, Canada flight search",
+  origin: "Saint John",
+  destination: "Montreal, Canada",
+  suppressFlightFraming: true
+});
+assert.equal(flightSearch, "Getting from Saint John to Montreal");
+assert.equal(/flight search/i.test(flightSearch), false);
+const beforeStart = titles.notificationProximityCopy(
+  "You are near your first planned area. Roamly has prepared today’s activities from your locked itinerary.",
+  false
+);
+assert.equal(/near your first planned area/i.test(beforeStart), false);
+assert.equal(/prepared today/i.test(beforeStart), false);
+assert.match(beforeStart, /has not started/);
+assert.match(beforeStart, /not today’s activities/);
+const duringTrip = titles.notificationProximityCopy("", true);
+assert.match(duringTrip, /near your first planned area/);
 const bookedFlightPlace = titles.presentTravelerTitle({ title: "Montreal airport", suppressFlightFraming: false });
 assert.match(bookedFlightPlace.title, /Montreal airport/);
 const lounge = titles.presentTravelerTitle({
@@ -237,8 +278,58 @@ const preparing = readiness.deriveTripReadiness({
   now: new Date("2026-10-05T15:00:00.000Z")
 });
 assert.match(preparing.urgentItems.join(" "), /still being prepared/);
+assert.equal(readiness.generationIsRunning("queued"), false);
+assert.equal(readiness.generationIsRunning(""), false);
+assert.equal(readiness.generationIsRunning("generating_day"), true);
+assert.equal(readiness.generationIsRunning("validating_input"), true);
+const unlockCommand = readiness.travelerDraftCommand({
+  unlockRequired: true,
+  hasItinerary: false,
+  generationRunning: false
+});
+assert.match(unlockCommand.title, /not preparing/);
+assert.equal(/still being prepared/i.test(unlockCommand.title), false);
+assert.equal(unlockCommand.action, "Unlock this trip");
+assert.equal(readiness.travelerDraftCommand({
+  unlockRequired: true,
+  hasItinerary: false,
+  generationRunning: true
+}), null);
+assert.equal(readiness.travelerDraftCommand({
+  unlockRequired: false,
+  hasItinerary: false,
+  generationRunning: false
+}), null);
+const needsUnlock = status.mapTravelerTripStatus({
+  hasItinerary: false,
+  readinessState: "ACTION_NEEDED",
+  awaitingUnlock: true,
+  building: false
+});
+assert.equal(needsUnlock.badge, "Needs unlock");
+const stillBuilding = status.mapTravelerTripStatus({
+  hasItinerary: false,
+  awaitingUnlock: false,
+  building: true
+});
+assert.equal(stillBuilding.badge, "Building");
 assert.match(fs.readFileSync(path.join(root, "components/roamly/UpNextActivityCard.tsx"), "utf8"), /^"use client"/);
-assert.match(fs.readFileSync(path.join(root, "app/trip/[id]/page.tsx"), "utf8"), /generationAwaitingUnlock/);
+const tripPage = fs.readFileSync(path.join(root, "app/trip/[id]/page.tsx"), "utf8");
+assert.match(tripPage, /generationAwaitingUnlock/);
+assert.match(tripPage, /travelerDraftCommand/);
+assert.match(tripPage, /generationInProgress=\{showPaymentWall \? false : generationInProgress\}/);
+assert.match(tripPage, /id="unlock"/);
+const sw = fs.readFileSync(path.join(root, "public/sw.js"), "utf8");
+assert.match(sw, /roamly-offline-v2/);
+assert.match(sw, /async function networkFirst/);
+assert.match(sw, /const response = await networkFirst\(event, request, docsCacheName\(\)\)/);
+assert.doesNotMatch(sw, /staleWhileRevalidate\(event, request, docsCacheName\(\)\)/);
+const notificationsPage = fs.readFileSync(path.join(root, "app/notifications/page.tsx"), "utf8");
+assert.match(notificationsPage, /tripStarted/);
+assert.match(notificationsPage, /bookingRows\.error/);
+assert.match(fs.readFileSync(path.join(root, "components/roamly/NearbyActivityCard.tsx"), "utf8"), /Not nearby yet/);
+assert.match(fs.readFileSync(path.join(root, "components/roamly/CurrentDayTimeline.tsx"), "utf8"), /These are not today’s activities/);
+assert.match(fs.readFileSync(path.join(root, "components/trip/LiveTripClient.tsx"), "utf8"), /function timelineRowTitle/);
 const zones = loadTsModule("lib/roamly/liveCompanion.ts");
 assert.equal(zones.timezoneFromTripMetadata({ timezone: "Not/AZone" }), "UTC");
 assert.equal(zones.timezoneFromTripMetadata({ planning: { timezone: "America/Toronto" } }), "America/Toronto");

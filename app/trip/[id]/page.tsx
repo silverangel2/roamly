@@ -82,7 +82,7 @@ import { confirmedNeedSatisfied, reconcileAffiliateAction } from "@/lib/roamly/a
 import { resolveSelectedHotelProductDecision } from "@/lib/roamly/selectedHotelProductDecision";
 import { buildHotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
 import { getPendingHotelProductChoice } from "@/lib/roamly/hotelProductChoiceStorage";
-import { deriveTripReadiness, parseTripActionFocus } from "@/lib/roamly/tripReadiness";
+import { deriveTripReadiness, generationIsRunning, parseTripActionFocus, travelerDraftCommand } from "@/lib/roamly/tripReadiness";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
@@ -1979,6 +1979,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     generationProgress &&
       !["complete", "failed", "partially_failed"].includes(generationStatus)
   );
+  const generationRunning = generationIsRunning(generationStatus);
   const trackingUnlocked = tripHasTrackingUnlock(trip);
   const paidForItinerary = isItineraryPaid(trip);
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
@@ -2140,9 +2141,15 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     paymentNeedsAttention: checkoutNeedsAttention,
     completedTrip,
     hasPostTripFeedback,
-    generationAwaitingUnlock: generationRequiresPayment && !generationBusy
+    generationAwaitingUnlock: generationRequiresPayment && !generationRunning
   });
-  const attentionText = readiness.urgentItems[0] || "";
+  const unlockRequired = generationRequiresPayment && !generationRunning && !checkoutNeedsAttention;
+  const draftCommand = travelerDraftCommand({
+    unlockRequired,
+    hasItinerary: canShowFull,
+    generationRunning
+  });
+  const attentionText = draftCommand?.title || readiness.urgentItems[0] || "";
   const actionFocus = parseTripActionFocus(one(search.focus));
   const focusAnchor = actionFocus === "budget"
     ? "budget"
@@ -2185,7 +2192,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     hasItinerary: canShowFull,
     companionUnlocked: trackingUnlocked,
     budgetOver: budgetPresentation?.status === "OVER_BUDGET",
-    building: generationBusy,
+    building: generationRunning || (generationBusy && !generationRequiresPayment),
+    awaitingUnlock: Boolean(draftCommand),
     signalsUnknown: canShowFull && !budgetPresentation && readiness.state == null
   });
   const defaultPanelTab = actionFocus === "requirements" && hasRequirements
@@ -2195,8 +2203,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       : typeof actionFocus === "string" && actionFocus.startsWith("day-")
         ? "roamly-tab-day-by-day"
         : null;
-  const showGenerationPanel = generationPanelVisible && (generationBusy || !generationRequiresPayment);
-  const showPaymentWall = generationRequiresPayment && !generationBusy;
+  const showGenerationPanel = generationPanelVisible && (generationRunning || (!generationRequiresPayment && generationBusy));
+  const showPaymentWall = Boolean(draftCommand);
   const headerBudgetText = budgetPresentation?.status === "BUDGET_UNCERTAIN"
     ? `${budgetPresentation.targetLabel === "Budget target not set" ? "Budget not set" : `Your budget ${budgetPresentation.targetLabel}`}. Some item prices are not available, and those are not $0.`
     : budgetPresentation?.status === "OVER_BUDGET"
@@ -2254,7 +2262,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">What matters now</p>
               <p className="mt-1 text-lg font-black">{commandNextTitle}</p>
               {commandNextMeta ? <p className="mt-1 text-sm font-bold text-slate-600">{commandNextMeta}</p> : null}
-              <a href={readiness.primaryAction.href} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">{readiness.primaryAction.label}</a>
+              <a href={draftCommand ? "#unlock" : readiness.primaryAction.href} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">{draftCommand?.action || readiness.primaryAction.label}</a>
             </div>
           ) : null}
 
@@ -2281,7 +2289,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               ) : null}
               {showPaymentWall ? (
                 <NoticeBanner>
-                  This draft is saved. Roamly is not preparing it yet. Your free itinerary is already used, so generating this trip needs unlock. You see the price before you pay.
+                  <span id="unlock">This draft is saved. Roamly is not preparing it yet. Your free itinerary is already used, so generating this trip needs unlock. You see the price before you pay.</span>
                 </NoticeBanner>
               ) : null}
               {showGenerationPanel && generationProgress ? (
@@ -2304,7 +2312,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 <PrimaryTripAction
                   tripId={id}
                   itineraryLocked={itineraryLocked}
-                  generationInProgress={generationInProgress}
+                  generationInProgress={showPaymentWall ? false : generationInProgress}
                   trackingUnlocked={trackingUnlocked}
                   paidForItinerary={paidForItinerary}
                   freeAvailable={freeAvailable}
@@ -2507,7 +2515,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     <div className="border-l-2 border-ocean bg-ocean/5 px-4 py-4 sm:px-5">
                       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Trip status</p>
                       <p className="mt-2 text-lg font-black leading-6 text-ink">
-                        {readiness.urgentItems[0] || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
+                        {attentionText || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
                       </p>
                     </div>
                     <div className="grid gap-3 border-y border-[#e8dfd0] py-3 text-sm">

@@ -66,6 +66,20 @@ function placeHead(value: string | null | undefined) {
   return text.split(" ").slice(0, 4).join(" ").trim();
 }
 
+/** Stored placeholders such as "Trip · Montreal, Canada" are not a traveler title. */
+const TRIP_LABEL_PREFIX = /^(?:trip)\s*[·•|-]\s+/i;
+
+export function isGenericTripLabel(value: string | null | undefined) {
+  return TRIP_LABEL_PREFIX.test((value || "").trim());
+}
+
+export function travelerRouteTitle(origin?: string | null, destination?: string | null) {
+  const from = placeHead(origin);
+  const to = placeHead(destination);
+  if (from && to && from.toLowerCase() !== to.toLowerCase()) return `Getting from ${from} to ${to}`;
+  return "";
+}
+
 /** Keep "Saint John to Montreal" intact. Stripping "to" used to glue the cities together. */
 function splitRoute(value: string) {
   const text = (value || "")
@@ -109,6 +123,7 @@ export function presentGroundTransportText(value: string | null | undefined) {
   const text = (value || "").trim();
   if (!text) return "";
   const buffered = text
+    .replace(/\b(?:hotel|hotels|flight|flights|stay|stays)\s+search\b/gi, " ")
     .replace(/\brecommended\s+flight\s+departure\s+buffer\b/gi, "Leave time before you head out")
     .replace(/\brecommended\s+mixed(?:\s+transport)?\s+departure\s+buffer\b/gi, "Leave time before you head out")
     .replace(/\brecommended\s+\w+\s+departure\s+buffer\b/gi, "Leave time before you head out")
@@ -143,7 +158,19 @@ export function presentTravelerTitle(input: {
   destination?: string | null;
   suppressFlightFraming?: boolean;
 }): { title: string; needsConfirmation: boolean; modeLabel: "Drive" | "Mixed" | null } {
-  const rawTitle = (input.title || "").trim();
+  let rawTitle = (input.title || "").trim();
+  if (isGenericTripLabel(rawTitle)) {
+    const stripped = rawTitle.replace(TRIP_LABEL_PREFIX, "").trim();
+    const route = travelerRouteTitle(input.origin, input.destination || stripped);
+    if (route && (!stripped || isHollowTravelerPlace(stripped, input.destination || stripped))) {
+      return {
+        title: route,
+        needsConfirmation: true,
+        modeLabel: isMixedMode(input.mode) ? "Mixed" : null
+      };
+    }
+    rawTitle = stripped || rawTitle;
+  }
   const title = input.suppressFlightFraming ? presentGroundTransportText(rawTitle) : rawTitle;
   const location = (input.location || "").trim();
   const origin = (input.origin || "").trim();
@@ -259,14 +286,77 @@ export function repairGarbledGettingTo(value: string | null | undefined, origin?
 export function presentTravelerArea(value: string | null | undefined, suppressFlightFraming = false, category = "") {
   const raw = (value || "").trim();
   if (!raw) return "";
-  if (looksLikeProviderSearchTitle(raw) && raw.length <= 90) {
+  const sentence = /[.!?]\s/.test(raw);
+  if (looksLikeProviderSearchTitle(raw) && (raw.length <= 140 || !sentence)) {
     return presentTravelerTitle({
       title: raw,
       category: category || raw,
       suppressFlightFraming
     }).title;
   }
-  return suppressFlightFraming ? presentGroundTransportText(raw) : raw;
+  if (isGenericTripLabel(raw)) {
+    return presentTravelerTitle({
+      title: raw,
+      category: category || raw,
+      suppressFlightFraming
+    }).title;
+  }
+  const grounded = suppressFlightFraming ? presentGroundTransportText(raw) : raw;
+  return grounded.replace(/\b(?:hotel|hotels|stay|stays)\s+search\b/gi, "").replace(/\s{2,}/g, " ").trim();
+}
+
+export type TrackingPresentation = {
+  origin?: string | null;
+  destination?: string | null;
+  suppressFlightFraming?: boolean;
+};
+
+/** Notification and Live rows share the itinerary title cleaner. */
+export function presentTrackingActivityTitle(input: {
+  title?: string | null;
+  city?: string | null;
+  address?: string | null;
+  category?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  suppressFlightFraming?: boolean;
+}) {
+  const presented = presentTravelerTitle({
+    title: input.title,
+    location: input.address || input.city,
+    category: input.category || input.title,
+    origin: input.origin,
+    destination: input.destination || input.city,
+    suppressFlightFraming: input.suppressFlightFraming
+  }).title;
+  return presented || "Details to confirm";
+}
+
+export function presentTrackingActivityDetail(value: string | null | undefined, suppressFlightFraming = false) {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  if (looksLikeProviderSearchTitle(raw) || isGenericTripLabel(raw)) {
+    return presentTravelerTitle({
+      title: raw,
+      category: raw,
+      suppressFlightFraming
+    }).title;
+  }
+  return suppressFlightFraming ? presentGroundTransportText(raw) : raw.replace(/\b(?:hotel|hotels|stay|stays)\s+search\b/gi, "").replace(/\s{2,}/g, " ").trim();
+}
+
+const LIVE_PROXIMITY_CLAIM = /near your first planned area|today[’']s activities|prepared today|happening today/i;
+
+/** Before the trip starts, do not claim the traveler is near a stop or inside today's plan. */
+export function notificationProximityCopy(body: string | null | undefined, tripStarted: boolean) {
+  const text = (body || "").trim();
+  if (tripStarted) {
+    return text || "You are near your first planned area. Roamly has prepared today’s activities from your locked itinerary.";
+  }
+  if (!text || LIVE_PROXIMITY_CLAIM.test(text)) {
+    return "This trip has not started. A planned stop is not nearby, and these are not today’s activities.";
+  }
+  return text;
 }
 
 export function isHollowTravelerPlace(value: string | null | undefined, destination?: string | null) {
