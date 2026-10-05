@@ -20,6 +20,7 @@ type TripContextNavProps = {
 
 const destinations = [
   { key: "home", label: "Home", suffix: "" },
+  { key: "customize", label: "Customize", suffix: "#customize" },
   { key: "itinerary", label: "Itinerary", suffix: "#day-by-day" },
   { key: "briefing", label: "Briefing", suffix: "#overview" },
   { key: "explore", label: "Explore", suffix: "/explore" },
@@ -31,6 +32,7 @@ const destinations = [
 function isSelected(pathname: string, hash: string, tripId: string, key: (typeof destinations)[number]["key"]) {
   const base = `/trip/${tripId}`;
   if (key === "home") return (pathname === base || pathname === `${base}/`) && ["", "#"].includes(hash);
+  if (key === "customize") return (pathname === base || pathname === `${base}/`) && hash === "#customize";
   if (key === "itinerary") return (pathname === base || pathname === `${base}/`) && hash === "#day-by-day";
   if (key === "briefing") return (pathname === base || pathname === `${base}/`) && ["#overview", "#requirements", "#essentials", "#travel-notes"].includes(hash);
   if (key === "budget") return (pathname === base || pathname === `${base}/`) && hash === "#budget";
@@ -50,6 +52,10 @@ const hashToTabId: Record<string, string> = {
 /** The trip page shows tab panels through radio inputs; a hash link alone cannot
  *  reveal a hidden panel, so activate the matching tab before the browser jumps. */
 function activateTabForSuffix(suffix: string) {
+  if (suffix === "#customize") {
+    clearTripPanels();
+    return;
+  }
   const tabId = hashToTabId[suffix];
   if (!tabId || typeof document === "undefined") return;
   const input = document.getElementById(tabId) as HTMLInputElement | null;

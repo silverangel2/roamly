@@ -13,6 +13,8 @@ type BookingRecommendationButtonProps = {
   recommendationId?: string | null;
   hasAffiliateUrl: boolean;
   urlType: BookingUrlType;
+  /** Keep the control full width at every breakpoint. */
+  fill?: boolean;
 };
 
 function getVisitorKey() {
@@ -52,7 +54,8 @@ export function BookingRecommendationButton({
   provider,
   recommendationId,
   hasAffiliateUrl,
-  urlType
+  urlType,
+  fill = false
 }: BookingRecommendationButtonProps) {
   if (!href) return null;
 
@@ -81,7 +84,7 @@ export function BookingRecommendationButton({
           url_type: urlType
         })
       }
-      className="roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-ocean/20 bg-ocean px-5 py-2.5 text-sm font-black text-white transition hover:bg-ocean/90 sm:w-auto"
+      className={`roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-ocean/20 bg-ocean px-5 py-2.5 text-sm font-black text-white transition hover:bg-ocean/90 ${fill ? "" : "sm:w-auto"}`}
     >
       {label}
     </a>

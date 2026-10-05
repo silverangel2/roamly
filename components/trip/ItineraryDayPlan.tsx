@@ -1,6 +1,8 @@
 import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
+import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
+import { resolveConfiguredHotelPartners, type HotelPartnerChoice } from "@/lib/roamly/affiliateResolver";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
@@ -192,6 +194,38 @@ export function NavigationChipList({ query }: { query: string }) {
       ))}
     </div>
   );
+}
+
+export type StaySearchContext = {
+  destination: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  adults?: number | null;
+  children?: number | null;
+  rooms?: number | null;
+};
+
+function isStayTimelineItem(item: DisplayTimelineItem) {
+  const type = `${item.itemType} ${item.category}`.toLowerCase();
+  if (/\b(hotel|lodging|accommodation|hostel|stay)\b/.test(type)) return true;
+  const title = item.title.toLowerCase();
+  if (/\b(hotel|hostel|check-?in|lodging)\b/.test(title)) return true;
+  return /^stay\b/.test(title);
+}
+
+function stayPartnersForItem(item: DisplayTimelineItem, staySearch?: StaySearchContext | null): HotelPartnerChoice[] {
+  if (!staySearch?.destination || item.authority === "confirmed" || !isStayTimelineItem(item)) return [];
+  return resolveConfiguredHotelPartners({
+    category: "hotel",
+    title: item.title,
+    destination: staySearch.destination,
+    neighborhood: item.location || null,
+    startDate: staySearch.startDate,
+    endDate: staySearch.endDate,
+    adults: staySearch.adults,
+    children: staySearch.children,
+    rooms: staySearch.rooms
+  });
 }
 
 export type DisplayTimelineItem = {
@@ -471,7 +505,8 @@ export function buildDisplayTimelineItems(
   return { items: output, consolidatedCount };
 }
 
-export function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelineItem; tripId: string; dayId?: string }) {
+export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: DisplayTimelineItem; tripId: string; dayId?: string; staySearch?: StaySearchContext | null }) {
+  const stayPartners = stayPartnersForItem(item, staySearch);
   const meta = [item.location].filter(Boolean);
   const secondary = [
     item.durationLabel ? `Duration: ${item.durationLabel}` : "",
@@ -513,6 +548,14 @@ export function TimelineItemCard({ item, tripId, dayId }: { item: DisplayTimelin
           {item.timeFromBooking ? <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p> : null}
           {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
           {item.statusText ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{item.statusText}</p> : null}
+          {stayPartners.length ? (
+            <HotelPartnerChoices
+              partners={stayPartners}
+              tripId={tripId}
+              title={item.title}
+              priceNote={item.statusText === "Price not available" ? null : "Price not available"}
+            />
+          ) : null}
           {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
           {item.authority === "flexible" && item.itemType === "activity" && dayId && item.itemId ? (
             <>
@@ -543,7 +586,8 @@ export function DayTimelineCard({
   currency,
   locale,
   confirmedBookings,
-  suppressFlightFraming = false
+  suppressFlightFraming = false,
+  staySearch = null
 }: {
   tripId: string;
   day: RoamlyItinerary["daily_itinerary"][number];
@@ -551,6 +595,7 @@ export function DayTimelineCard({
   locale: string;
   confirmedBookings: readonly Record<string, unknown>[];
   suppressFlightFraming?: boolean;
+  staySearch?: StaySearchContext | null;
 }) {
   const { items: timelineItems, consolidatedCount } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming });
   const places = [
@@ -627,7 +672,7 @@ export function DayTimelineCard({
         <div className="grid gap-2">
           {timelineItems.length ? (
             timelineItems.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} />
+              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} staySearch={staySearch} />
             ))
           ) : (
             <div className="rounded-2xl bg-mist px-4 py-5 text-sm font-semibold leading-6 text-slate-600">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
