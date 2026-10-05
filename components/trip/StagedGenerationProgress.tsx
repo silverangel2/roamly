@@ -369,6 +369,9 @@ export function StagedGenerationProgress({
   const terminalRefreshQueued = useRef(false);
   const [lastProgressMovementAt, setLastProgressMovementAt] = useState<number>(Date.now());
   const [staleProgress, setStaleProgress] = useState(false);
+  // Bumped when a poll throws, so the polling loop re-arms even when no
+  // progress changed (a thrown fetch would otherwise freeze the timer).
+  const [pollRetryNonce, setPollRetryNonce] = useState(0);
   const stopped = isTerminalStatus(progress.status);
 
   useEffect(() => {
@@ -471,10 +474,20 @@ export function StagedGenerationProgress({
     inFlight.current = true;
     setMessage("");
     try {
-      const response = await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/status`, {
-        headers: authHeaders(),
-        cache: "no-store"
-      });
+      let response: Response;
+      try {
+        response = await fetchWithSupabaseAuth(`/api/trips/${tripId}/generation/status`, {
+          headers: authHeaders(),
+          cache: "no-store"
+        });
+      } catch (pollError) {
+        // A transient network failure must not silently abandon an active
+        // generation job: note it and force the polling loop to re-arm.
+        console.error("[Roamly] generation status poll failed; retrying", pollError);
+        setMessage("Connection hiccup — still building your itinerary. Retrying shortly.");
+        setPollRetryNonce((nonce) => nonce + 1);
+        return;
+      }
       const data = (await response.json().catch(() => null)) as ProgressApiData;
 
       if (data?.tripId && data.tripId !== tripId) {
@@ -634,7 +647,7 @@ export function StagedGenerationProgress({
     }, progress.completedDayCount > 0 ? 5000 : 1800);
 
     return () => window.clearTimeout(timer);
-  }, [pollProgress, progress.completedDayCount, progress.currentStage, progress.status, stopped]);
+  }, [pollProgress, progress.completedDayCount, progress.currentStage, progress.status, pollRetryNonce, stopped]);
 
   const isTakingLonger =
     !isTerminalStatus(progress.status) &&
