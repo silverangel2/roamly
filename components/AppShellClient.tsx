@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { I18nProvider, useI18n } from "@/components/i18n/I18nProvider";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { TranslatedTextBoundary } from "@/components/i18n/TranslatedTextBoundary";
@@ -11,6 +11,7 @@ import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { countUnreadNotifications, shouldLoadShellState } from "@/lib/roamly/appShellState";
 import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
+import { nextBottomNavHidden } from "@/lib/roamly/bottomNavScroll";
 import { primaryNavActiveHref } from "@/lib/roamly/shellNav";
 
 export type AppShellAuthState = {
@@ -34,6 +35,10 @@ function AppShellContent({
   const [authenticated, setAuthenticated] = useState(initialAuth.authenticated);
   const [activeTripId, setActiveTripId] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
+  const [bottomNavHidden, setBottomNavHidden] = useState(false);
+  const bottomNavRef = useRef<HTMLElement>(null);
+  const bottomNavHiddenRef = useRef(false);
+  const bottomNavAnchorRef = useRef(0);
 
   useEffect(() => {
     setAuthenticated(initialAuth.authenticated);
@@ -114,6 +119,40 @@ function AppShellContent({
     };
   }, [authenticated, pathname]);
 
+  useEffect(() => {
+    bottomNavAnchorRef.current = window.scrollY;
+    bottomNavHiddenRef.current = false;
+    setBottomNavHidden(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const nav = bottomNavRef.current;
+        const focused = Boolean(nav && document.activeElement instanceof Node && nav.contains(document.activeElement));
+        const next = nextBottomNavHidden({
+          anchorY: bottomNavAnchorRef.current,
+          currentY: window.scrollY,
+          hidden: bottomNavHiddenRef.current,
+          focused
+        });
+        bottomNavAnchorRef.current = next.anchorY;
+        if (next.hidden === bottomNavHiddenRef.current) return;
+        bottomNavHiddenRef.current = next.hidden;
+        setBottomNavHidden(next.hidden);
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
   const desktopRoutes = useMemo(
     () =>
         authenticated
@@ -159,7 +198,7 @@ function AppShellContent({
 
   return (
     <TranslatedTextBoundary>
-      <div className={`roamly-app-shell min-h-dvh min-w-0 bg-[#fbf8ef] text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
+      <div data-bottom-nav={bottomNavHidden ? "hidden" : "visible"} className={`roamly-app-shell min-h-dvh min-w-0 bg-[#fbf8ef] text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
         <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_8px_30px_rgba(16,32,51,0.04)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
@@ -234,10 +273,13 @@ function AppShellContent({
         <RoamlyLocationTracker />
 
         <nav
+          ref={bottomNavRef}
           aria-label="Mobile navigation"
-          className={`fixed inset-x-3 bottom-[max(0.55rem,env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-0.5 overflow-hidden rounded-[1.4rem] border border-black/5 bg-white/88 p-1 shadow-[0_8px_28px_rgba(16,32,51,0.1)] backdrop-blur-xl lg:hidden ${
-            authenticated ? "grid-cols-5" : "grid-cols-5"
-          }`}
+          aria-hidden={bottomNavHidden || undefined}
+          inert={bottomNavHidden ? true : undefined}
+          className={`roamly-bottom-nav fixed inset-x-3 bottom-[max(0.55rem,env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-0.5 overflow-hidden rounded-[1.4rem] border border-black/5 bg-white/88 p-1 shadow-[0_8px_28px_rgba(16,32,51,0.1)] backdrop-blur-xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:hidden ${
+            bottomNavHidden ? "pointer-events-none translate-y-[calc(100%+max(1rem,env(safe-area-inset-bottom)))]" : "translate-y-0"
+          } ${authenticated ? "grid-cols-5" : "grid-cols-5"}`}
         >
           {mobileRoutes.map((route) => (
             <Link

@@ -262,7 +262,7 @@ export function RoamlyLocationTracker() {
   if (!shouldShowPermission) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-sm md:bottom-5 md:left-auto md:right-5 md:mx-0">
+    <div className="roamly-location-prompt fixed inset-x-3 bottom-24 z-50 mx-auto max-w-sm md:bottom-5 md:left-auto md:right-5 md:mx-0">
       <button
         type="button"
         onClick={() => dismissPrompt()}

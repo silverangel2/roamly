@@ -2076,7 +2076,7 @@ export function LiveTripClient({
       {activeStep ? <div className="h-36 md:hidden" aria-hidden="true" /> : null}
 
       {activeStep ? (
-        <section className="fixed inset-x-3 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-30 rounded-[1.2rem] border border-black/5 bg-white/92 p-1.5 shadow-[0_8px_28px_rgba(16,32,51,0.12)] backdrop-blur-xl md:hidden">
+        <section className="roamly-live-dock fixed inset-x-3 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-30 rounded-[1.2rem] border border-black/5 bg-white/92 p-1.5 shadow-[0_8px_28px_rgba(16,32,51,0.12)] backdrop-blur-xl md:hidden">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <button
               type="button"

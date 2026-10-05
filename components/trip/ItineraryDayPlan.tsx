@@ -187,7 +187,7 @@ export function NavigationChipList({ query }: { query: string }) {
           href={link.href}
           target="_blank"
           rel="noreferrer"
-          className="rounded-full border border-ocean/20 bg-ocean/5 px-3 py-1.5 text-[0.72rem] font-black text-ocean transition hover:border-ocean/40 hover:bg-ocean/10"
+          className="inline-flex min-h-9 items-center text-[0.8125rem] font-medium text-slate-500 underline decoration-slate-300 underline-offset-4 transition hover:text-ink"
         >
           {labels[link.provider] || link.label}
         </a>
@@ -539,11 +539,10 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className={`text-lg font-black leading-6 ${isQuiet ? "text-slate-700" : "text-ink"} sm:text-xl`}>{item.title}</h4>
-            {isConfirmed ? <span className="rounded-full bg-ocean px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white">Confirmed booking</span> : null}
-            {item.authority === "must_do" ? <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-coral">Must-do</span> : null}
-            {item.authority === "supporting" ? <span className="rounded-full bg-lagoon/15 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#0b6e64]">Suggested</span> : null}
-            {item.statusText ? <span className="rounded-full bg-sun/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-800">Needs confirmation</span> : null}
+            <h4 className={`text-lg font-semibold leading-6 tracking-tight ${isQuiet ? "text-slate-700" : "text-ink"} sm:text-xl`}>{item.title}</h4>
+            {isConfirmed ? <span className="rounded-full bg-ocean px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">Confirmed booking</span> : null}
+            {item.authority === "must_do" ? <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-coral">Must-do</span> : null}
+            {item.authority === "supporting" ? <span className="rounded-full bg-lagoon/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#0b6e64]">Suggested</span> : null}
           </div>
           {item.timeFromBooking ? <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{item.category.replaceAll("_", " ")}</p> : null}
           {meta.length ? <p className="mt-1 text-sm font-bold leading-5 text-slate-500">{meta.join(" · ")}</p> : null}

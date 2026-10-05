@@ -76,6 +76,29 @@ select {
   display: none;
 }
 
+.roamly-live-dock,
+.roamly-location-prompt {
+  transition: bottom 320ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.roamly-app-shell[data-bottom-nav="hidden"] .roamly-live-dock {
+  bottom: max(0.55rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 767px) {
+  .roamly-app-shell[data-bottom-nav="hidden"] .roamly-location-prompt {
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roamly-bottom-nav,
+  .roamly-live-dock,
+  .roamly-location-prompt {
+    transition: none;
+  }
+}
+
 .roamly-page-shell {
   background: var(--roamly-page);
 }
