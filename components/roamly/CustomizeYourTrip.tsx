@@ -28,23 +28,22 @@ export function CustomizeYourTrip(props: CustomizeYourTripProps) {
   const notes = props.specialNotes.trim();
 
   return (
-    <section id="customize" className="roamly-no-print scroll-mt-28 rounded-[1.5rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-5 sm:py-5">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Your trip</p>
-      <h2 className="mt-1 text-xl font-black tracking-tight text-ink sm:text-2xl">Customize your trip</h2>
-      <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+    <section id="customize" className="roamly-no-print scroll-mt-28 rounded-[1.35rem] bg-white px-4 py-4 shadow-[0_10px_30px_rgba(16,32,51,0.045)] sm:px-5 sm:py-5">
+      <h2 className="text-[1.35rem] font-semibold tracking-[-0.03em] text-ink">Customize your trip</h2>
+      <p className="mt-1 max-w-lg text-sm leading-6 text-slate-500">
         Tell us what to change — we’ll rebuild the parts that need it.
       </p>
       {notes ? (
-        <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">
-          <span className="font-black text-ink">Your notes. </span>
+        <p className="mt-3 max-w-lg text-sm leading-6 text-slate-600">
+          <span className="font-medium text-ink">Your notes. </span>
           {notes}
         </p>
       ) : (
-        <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+        <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500">
           No personal notes yet. Add them with travelers and preferences.
         </p>
       )}
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-4 grid max-w-lg gap-2">
         <CustomerBudgetChange tripId={props.tripId} currentAmount={props.budgetAmount} currency={props.currency} />
         <CustomerDateChange tripId={props.tripId} startDate={props.startDate} endDate={props.endDate} status={props.status} />
         <CustomerDestinationChange tripId={props.tripId} currentLabel={props.destinationLabel} status={props.status} />
@@ -63,7 +62,7 @@ export function CustomizeYourTrip(props: CustomizeYourTripProps) {
           specialNotes={props.specialNotes}
         />
       </div>
-      <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+      <p className="mt-3 max-w-lg text-[0.8125rem] leading-5 text-slate-400">
         On the itinerary, a flexible stop can be swapped or removed.
       </p>
     </section>

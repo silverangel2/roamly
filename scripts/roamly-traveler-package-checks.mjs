@@ -150,5 +150,49 @@ assert.match(page, /staySearch=\{staySearch\}/);
 assert.doesNotMatch(page, /CustomerBudgetChange/);
 assert.match(page, /function hotelTravelerPrice/);
 assert.match(page, /value > 0/);
+assert.match(choices, /partners\.map/);
+assert.match(choices, /partner\.label/);
+assert.match(choices, /emphasis=\{primary \? "primary" : "secondary"\}/);
+assert.doesNotMatch(choices, /hidden|display:\s*none|partners\.slice\(0,\s*1\)/);
+assert.match(nav, /label: "Customize"/);
+assert.match(nav, /label: "Live"/);
+assert.match(page, /headerBudgetText/);
+assert.match(page, /Review the budget/);
+
+const shell = fs.readFileSync(path.join(root, "components/AppShellClient.tsx"), "utf8");
+const scroll = loadTsModule("lib/roamly/bottomNavScroll.ts");
+assert.match(shell, /nextBottomNavHidden/);
+assert.match(shell, /data-bottom-nav=/);
+assert.match(shell, /aria-hidden=\{bottomNavHidden/);
+assert.match(shell, /inert=\{bottomNavHidden/);
+assert.match(shell, /lg:hidden/);
+assert.match(shell, /aria-label="Mobile navigation"/);
+assert.match(shell, /motion-reduce:transition-none/);
+
+function scrollStep(state, currentY, focused = false) {
+  const next = scroll.nextBottomNavHidden({
+    anchorY: state.anchorY,
+    currentY,
+    hidden: state.hidden,
+    focused
+  });
+  return next;
+}
+
+let navScroll = { hidden: false, anchorY: 0 };
+navScroll = scrollStep(navScroll, 8);
+assert.equal(navScroll.hidden, false, "near the top the bottom nav stays visible");
+navScroll = scrollStep(navScroll, 80);
+assert.equal(navScroll.hidden, true, "scrolling down hides the bottom nav");
+navScroll = scrollStep(navScroll, 86);
+assert.equal(navScroll.hidden, true, "a small downward jitter does not show the nav again");
+navScroll = scrollStep(navScroll, 40);
+assert.equal(navScroll.hidden, false, "scrolling up shows the bottom nav");
+navScroll = scrollStep(navScroll, 120);
+assert.equal(navScroll.hidden, true, "scrolling down hides it again");
+navScroll = scrollStep(navScroll, 200, true);
+assert.equal(navScroll.hidden, false, "keyboard focus inside the nav keeps it available");
+navScroll = scrollStep({ hidden: true, anchorY: 400 }, 0);
+assert.equal(navScroll.hidden, false, "returning to the top shows the bottom nav");
 
 console.log("Roamly traveler package checks passed.");

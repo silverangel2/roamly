@@ -1193,7 +1193,7 @@ function BookingRecommendationCard({
   const visibleHotelPartners = guardedHotelAction ? hotelPartners.filter((partner) => partner.id !== "booking") : hotelPartners;
 
   return (
-    <article className="rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+    <article className="rounded-[1.25rem] border border-[#efe7da] bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
       {category === "hotel" && suggestion.photo_urls?.[0] ? (
         <div className="relative mb-4 h-52 overflow-hidden rounded-xl bg-[#f3f5f1] sm:h-64">
           <Image src={suggestion.photo_urls[0]} alt={`${title} property photo`} fill unoptimized sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
@@ -1241,18 +1241,19 @@ function BookingRecommendationCard({
               ) : null}
             </>
           ) : null}
-          {suggestion.why_recommended || bookingMeta(suggestion).length ? (
+          {suggestion.why_recommended || bookingMeta(suggestion).length || category === "hotel" ? (
             <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-2">
-              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Details</summary>
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Details</summary>
               {suggestion.why_recommended ? (
-                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{suggestion.why_recommended}</p>
+                <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{suggestion.why_recommended}</p>
               ) : null}
               {bookingMeta(suggestion).length ? (
-                <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{bookingMeta(suggestion).join(" · ")}</p>
+                <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{bookingMeta(suggestion).join(" · ")}</p>
               ) : null}
+              {category === "hotel" ? <NavigationChipList query={mapQuery} /> : null}
             </details>
           ) : null}
-          {category === "hotel" || category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
+          {category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
         {category === "hotel" ? (
           <p className="roamly-print-only hidden text-xs font-black text-ocean">
@@ -1497,10 +1498,12 @@ function BookingSearchFallbackCard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-black leading-6 text-ink">{title}</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+          <p className="mt-1 text-sm leading-6 text-slate-600">
             {category === "flight"
               ? "Estimate only. Search live prices for the trip dates, baggage, seats, schedule, and currency before booking."
-              : "Search current options for the trip dates and verify price, schedule, and availability."}
+              : category === "hotel"
+                ? "No stay is confirmed yet. These open a partner search for your dates."
+                : "Search current options for the trip dates and verify price, schedule, and availability."}
           </p>
           <p className="mt-2 text-xs font-bold text-slate-500">{category === "flight" ? "Estimate only" : category === "hotel" ? "Price not available" : "Search only"}</p>
         </div>
@@ -1754,11 +1757,10 @@ function PackageStays({
   if (!suggestions.length && !areaPartners.length) return null;
 
   return (
-    <section aria-label="Your stay" className="rounded-[1.5rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-5">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Your stay</p>
-      <h2 className="mt-1 text-xl font-black tracking-tight text-ink">Stay options in this package</h2>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Partner searches for your dates. A price is shown only when a partner returns one.</p>
-      <div className="mt-4 grid gap-4">
+    <section aria-label="Your stay" className="rounded-[1.35rem] bg-white px-4 py-4 shadow-[0_10px_30px_rgba(16,32,51,0.045)] sm:px-5 sm:py-5">
+      <h2 className="text-[1.35rem] font-semibold tracking-[-0.03em] text-ink">Stay options in this package</h2>
+      <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">Partner searches for your dates. A price is shown only when a partner returns one.</p>
+      <div className="mt-4 divide-y divide-[#efe7da]">
         {suggestions.length ? suggestions.map((suggestion, index) => {
           const title = presentTravelerTitle({
             title: bookingTitle(suggestion),
@@ -1767,10 +1769,12 @@ function PackageStays({
           }).title;
           const partners = partnersForHotelSuggestion(suggestion, trip);
           return (
-            <article key={`${title}-${index}`} className="border-t border-[#e8dfd0] pt-4 first:border-t-0 first:pt-0">
-              <h3 className="text-lg font-black leading-6 text-ink">{title}</h3>
-              {bookingDescription(suggestion) ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{bookingDescription(suggestion)}</p> : null}
-              <p className="mt-2 text-sm font-black text-ink">{hotelTravelerPrice(suggestion)}</p>
+            <article key={`${title}-${index}`} className="py-4 first:pt-1">
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-base font-semibold tracking-tight text-ink">{title}</h3>
+                <p className="shrink-0 text-right text-sm font-medium text-slate-600">{hotelTravelerPrice(suggestion)}</p>
+              </div>
+              {bookingDescription(suggestion) ? <p className="mt-1 text-sm leading-5 text-slate-500">{bookingDescription(suggestion)}</p> : null}
               {partners.length ? (
                 <HotelPartnerChoices
                   partners={partners}
@@ -1782,9 +1786,11 @@ function PackageStays({
             </article>
           );
         }) : (
-          <div>
-            <h3 className="text-lg font-black text-ink">Stay to confirm</h3>
-            <p className="mt-2 text-sm font-black text-ink">Price not available</p>
+          <div className="pt-1">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-semibold tracking-tight text-ink">Stay to confirm</h3>
+              <p className="shrink-0 text-sm font-medium text-slate-600">Price not available</p>
+            </div>
             <HotelPartnerChoices partners={areaPartners} tripId={tripId} title={`Stay in ${getTripDestinationLabel(trip)}`} />
           </div>
         )}
@@ -2632,11 +2638,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                       <h2 className="text-[1.65rem] font-semibold tracking-[-0.03em] text-ink">{destinationLabel}</h2>
                       <p className="mt-1 text-[0.95rem] leading-6 text-slate-600">{formatDateRange(trip, locale)} · {formatDayCount(dayCount)} · {travelerLabel}</p>
                       <p className="mt-1 text-[0.95rem] leading-6 text-slate-600">{suppressFlightFraming ? (isDriveMode(transportPreference) ? "Drive. No flight is booked." : "Mixed travel. No flight is booked.") : transportPreference ? transportPreference : "How you’ll get there is still to confirm."}</p>
-                    </div>
-                    <div className="rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
-                      <p className="text-[0.75rem] font-medium text-slate-500">Budget</p>
-                      <p className="mt-1 text-base font-semibold tracking-tight text-ink">{headerBudgetText}</p>
-                      <a href="#budget" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-ocean">Review the budget</a>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{headerBudgetText}</p>
+                      <a href="#budget" className="inline-flex min-h-11 items-center text-sm font-medium text-ocean">Review the budget</a>
                     </div>
                     <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
                   </div>
