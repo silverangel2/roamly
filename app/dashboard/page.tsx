@@ -143,18 +143,18 @@ export default async function DashboardPage() {
       <section className="grid gap-5 lg:grid-cols-[1fr_0.85fr] lg:items-end">
         <div>
           <Badge>Trips</Badge>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Your trips.</h1>
-          <p className="mt-3 max-w-2xl text-base font-semibold leading-7 text-slate-600">
+          <h1 className="mt-3 text-[2rem] font-semibold tracking-[-0.03em] text-ink sm:text-5xl">Your trips.</h1>
+          <p className="mt-2 max-w-2xl text-base font-medium leading-7 text-slate-600">
             Start with the trip that needs your attention, then open the rest when you need them.
           </p>
         </div>
       </section>
 
       {primaryTrip ? (
-        <section className="mt-7 rounded-[1.5rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_60%,#fff7ed_100%)] p-5 shadow-soft sm:p-7">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{activeNow && activeNow.id === primaryTrip?.id ? "Current trip" : primaryRank < 300 ? "Upcoming trip" : primaryRank >= 400 ? "Past trip" : "Planning"}</p>
-          <h2 className="mt-2 text-3xl font-black tracking-tight text-ink">{primaryTrip.title || getTripDestinationLabel(primaryTrip) || "Your trip"}</h2>
-          <p className="mt-2 text-sm font-bold text-slate-600">
+        <section className="mt-6 rounded-[1.35rem] bg-white p-5 shadow-[0_10px_30px_rgba(16,32,51,0.05)] sm:p-7">
+          <p className="text-[0.75rem] font-medium text-slate-500">{activeNow && activeNow.id === primaryTrip?.id ? "Current trip" : primaryRank < 300 ? "Upcoming trip" : primaryRank >= 400 ? "Past trip" : "Planning"}</p>
+          <h2 className="mt-1 text-[1.65rem] font-semibold tracking-[-0.03em] text-ink">{primaryTrip.title || getTripDestinationLabel(primaryTrip) || "Your trip"}</h2>
+          <p className="mt-1 text-sm text-slate-600">
             {formatDate(primaryTrip.start_date, locale)} · {getTripDaysCount(primaryTrip) || "Flexible"} days
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -169,7 +169,7 @@ export default async function DashboardPage() {
       <section className="mt-7 grid gap-3 border-y border-cloud py-4 md:grid-cols-3 md:divide-x md:divide-cloud">
         {[
           ["Free itinerary", free.used ? "Used" : "Available", "One full itinerary per account."],
-          ["Locked itineraries", String(locked.length), "Saved itineraries you unlocked."],
+          ["Saved itineraries", String(locked.length), "Trips with an itinerary you can open."],
           ["Draft trips", String(drafts.length), "Plans that are not unlocked yet. They stay below a trip you can travel."]
         ].map(([label, value, hint]) => (
           <div key={label} className="px-0 md:px-4 md:first:pl-0">

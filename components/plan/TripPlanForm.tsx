@@ -42,6 +42,7 @@ import {
   writeOwnedPlanDraft
 } from "@/lib/roamly/planDraftStorage";
 import { PLANNER_BACKEND_CAPABILITY_GAPS } from "@/lib/roamly/plannerCapabilityGaps";
+import { travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -1467,8 +1468,10 @@ function TripPlanFormSession({
     ["Rooms", `${roomCount} room${roomCount === 1 ? "" : "s"}${bedPreference !== "No preference" ? `, ${bedPreference}` : ""}`],
     ["Budget", payload.budgetAmount ? `${payload.budgetCurrency} ${payload.budgetAmount}` : "Budget pending"],
     ["Style", `${payload.travelStyle} style, ${payload.pace} pace, ${payload.walkingTolerance} walking`],
-    ["Interests", payload.interests.join(", ") || "No interests selected"]
+    ["Interests", payload.interests.join(", ") || "No interests selected"],
+    ["Notes", specialNotes.trim() || "None"]
   ];
+  const notePreview = travelerNoteDisplay(specialNotes);
   const priceBudgetBalance = priceDiscovery
     ? describeBudgetBalanceCents(priceDiscovery.remainingBudgetCents, priceDiscovery.budgetCurrency)
     : null;
@@ -1877,6 +1880,12 @@ function TripPlanFormSession({
                   </p>
                 ))}
               </div>
+              {notePreview.constraints.length ? (
+                <div className="mt-4 grid gap-2 text-sm font-semibold leading-6 text-slate-700">
+                  {notePreview.constraints.map((line) => <p key={line}>{line}</p>)}
+                  {notePreview.gaps.length ? <p className="text-xs font-bold leading-5 text-slate-500">{notePreview.gaps.join(" ")}</p> : null}
+                </div>
+              ) : null}
             </div>
             <details className="group border-y border-sun/30 bg-sun/10 px-4 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-amber-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-500/20">

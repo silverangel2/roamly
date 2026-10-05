@@ -10,6 +10,7 @@ import {
   type GuestItineraryDayView,
   type GuestItineraryStatus
 } from "@/lib/roamly/guestItineraryView";
+import { punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
 
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
 
@@ -140,7 +141,7 @@ export function GuestFreeItinerary() {
                 <ul className="mt-3 grid gap-2">
                   {day.timeline.map((item) => (
                     <li key={`${day.dayNumber}-${item.time}-${item.title}`} className="text-sm font-semibold leading-6 text-slate-700">
-                      {item.time ? <span className="font-black text-ink">{item.time}. </span> : null}
+                      {item.time ? <span className="font-black text-ink">{punctuateTravelerTime(item.time)}</span> : null}
                       {item.bookingUrl ? (
                         <a
                           href={item.bookingUrl}

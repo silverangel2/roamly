@@ -13,6 +13,7 @@ import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
 import { timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { hasConfirmedFlightBooking } from "@/lib/roamly/itineraryPresentation";
 import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
@@ -216,6 +217,7 @@ export default async function LiveTripPage({
   const remainingBudgetCents = totalBudgetCents == null || committedBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
   const tripCountdown = daysUntil(bundle.data.trip.start_date);
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
+  const confirmedFlight = hasConfirmedFlightBooking(bookingRows);
   const locationRow = getRecord(locationSettingsResult.data);
   const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
   const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
@@ -312,6 +314,8 @@ export default async function LiveTripPage({
           simulatorPlaces={simulatorPlaces}
           tripStartDate={bundle.data.trip.start_date}
           tripEndDate={bundle.data.trip.end_date}
+          transportationPreference={bundle.data.trip.transportation_preference}
+          hasConfirmedFlight={confirmedFlight}
           timezone={tripTimezone}
           companionEnabled={preferences.liveCompanionEnabled}
           companionPausedUntil={preferences.liveCompanionPausedUntil}
@@ -337,9 +341,9 @@ export default async function LiveTripPage({
         />
         <section className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-lagoon">{tripCompleted ? "Trip complete" : tripUpcoming ? "Coming up" : tripDatesMissing ? "Add trip dates" : "Active assistance"}</p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-ink sm:text-5xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
-            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
+            <p className="text-[0.75rem] font-medium text-slate-500">{tripCompleted ? "Trip complete" : tripUpcoming ? "Coming up" : tripDatesMissing ? "Add trip dates" : "Active assistance"}</p>
+            <h1 className="mt-1 text-[1.85rem] font-semibold tracking-[-0.03em] text-ink sm:text-4xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
@@ -359,6 +363,8 @@ export default async function LiveTripPage({
             simulatorPlaces={simulatorPlaces}
             tripStartDate={bundle.data.trip.start_date}
             tripEndDate={bundle.data.trip.end_date}
+            transportationPreference={bundle.data.trip.transportation_preference}
+          hasConfirmedFlight={confirmedFlight}
             timezone={tripTimezone}
             companionEnabled={preferences.liveCompanionEnabled}
             companionPausedUntil={preferences.liveCompanionPausedUntil}
@@ -536,6 +542,8 @@ export default async function LiveTripPage({
           simulatorPlaces={simulatorPlaces}
           tripStartDate={bundle.data.trip.start_date}
           tripEndDate={bundle.data.trip.end_date}
+          transportationPreference={bundle.data.trip.transportation_preference}
+          hasConfirmedFlight={confirmedFlight}
           timezone={tripTimezone}
           companionEnabled={preferences.liveCompanionEnabled}
           companionPausedUntil={preferences.liveCompanionPausedUntil}

@@ -11,16 +11,15 @@ import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { countUnreadNotifications, shouldLoadShellState } from "@/lib/roamly/appShellState";
 import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
+import { primaryNavActiveHref } from "@/lib/roamly/shellNav";
 
 export type AppShellAuthState = {
   authenticated: boolean;
   email?: string | null;
 };
 
-function isActive(pathname: string, href: string) {
-  if (href === "/dashboard" && pathname.startsWith("/trip/")) return true;
-  if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
+function isActive(pathname: string, href: string, hrefs: readonly string[]) {
+  return primaryNavActiveHref(pathname, hrefs) === href;
 }
 
 function AppShellContent({
@@ -161,7 +160,7 @@ function AppShellContent({
   return (
     <TranslatedTextBoundary>
       <div className={`roamly-app-shell min-h-dvh min-w-0 bg-[#fbf8ef] text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
-        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-2xl">
+        <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_8px_30px_rgba(16,32,51,0.04)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
               <Image
@@ -174,17 +173,17 @@ function AppShellContent({
               />
             </Link>
 
-            <nav aria-label="Primary navigation" className="hidden items-center gap-2 lg:flex">
+            <nav aria-label="Primary navigation" className="hidden items-center gap-1 lg:flex">
               {desktopRoutes.map((route) => (
                 <Link
                   key={route.href}
                   href={route.href}
-                  className={`rounded-full px-4 py-2 text-sm font-black transition ${
-                    isActive(pathname, route.href)
-                      ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.26)]"
-                      : "text-slate-600 hover:bg-cyan-50 hover:text-cyan-700"
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    isActive(pathname, route.href, desktopRoutes.map((item) => item.href))
+                      ? "bg-ink text-white"
+                      : "text-slate-600 hover:bg-mist hover:text-ink"
                   }`}
-                  aria-current={isActive(pathname, route.href) ? "page" : undefined}
+                  aria-current={isActive(pathname, route.href, desktopRoutes.map((item) => item.href)) ? "page" : undefined}
                 >
                   {route.label}
                 </Link>
@@ -236,7 +235,7 @@ function AppShellContent({
 
         <nav
           aria-label="Mobile navigation"
-          className={`fixed inset-x-2 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-1 overflow-hidden rounded-2xl border border-white/70 bg-white/95 p-2 shadow-soft backdrop-blur-xl lg:hidden ${
+          className={`fixed inset-x-3 bottom-[max(0.55rem,env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-0.5 overflow-hidden rounded-[1.4rem] border border-black/5 bg-white/88 p-1 shadow-[0_8px_28px_rgba(16,32,51,0.1)] backdrop-blur-xl lg:hidden ${
             authenticated ? "grid-cols-5" : "grid-cols-5"
           }`}
         >
@@ -244,11 +243,11 @@ function AppShellContent({
             <Link
               key={route.href}
               href={route.href}
-              aria-current={isActive(pathname, route.href) ? "page" : undefined}
-              className={`relative min-h-11 min-w-0 rounded-xl px-1 py-2.5 text-center text-[0.68rem] font-bold leading-tight transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 ${
-                isActive(pathname, route.href)
-                  ? "bg-ocean text-white shadow-sm"
-                  : "text-slate-500 hover:bg-cyan-50 hover:text-cyan-700"
+              aria-current={isActive(pathname, route.href, mobileRoutes.map((item) => item.href)) ? "page" : undefined}
+              className={`relative min-h-11 min-w-0 rounded-[1rem] px-1 py-2 text-center text-[0.68rem] font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 ${
+                isActive(pathname, route.href, mobileRoutes.map((item) => item.href))
+                  ? "bg-ink text-white"
+                  : "text-slate-500"
               }`}
             >
               {route.label}

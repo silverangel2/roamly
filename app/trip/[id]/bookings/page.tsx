@@ -125,7 +125,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
   const companionOperational = !isCustomerTripTerminalState(tripLifecycle) && tripHasTrackingUnlock(trip);
 
   return (
-    <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
+    <div className="min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] pb-8 text-ink">
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-8">
         <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" />
       </div>
