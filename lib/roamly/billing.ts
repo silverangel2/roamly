@@ -336,6 +336,43 @@ function isStaleGeneratingTrip(trip: Pick<RoamlyBillingTrip, "updated_at">) {
   return Number.isFinite(updatedAt) && Date.now() - updatedAt > GENERATING_STALE_AFTER_MS;
 }
 
+// Statuses that mean a queue job is still alive and may be doing work.
+const ACTIVE_GENERATION_JOB_STATUSES = ["queued", "running", "waiting"] as const;
+
+/**
+ * Returns the trip's latest generation job when it is still active.
+ * The durable queue job is the authoritative activity signal: a trip row whose
+ * updated_at looks stale must not be treated as idle while its job is still
+ * queued/running/waiting, because starting a new generation would reset the
+ * staged state (completed days, generated content) of the live job.
+ */
+async function latestActiveGenerationJob(
+  supabase: SupabaseClient,
+  tripId: string,
+  userId: string
+): Promise<{ id: string; status: string } | null> {
+  try {
+    const { data, error } = await supabase
+      .from("roamly_trip_generation_jobs")
+      .select("id,status")
+      .eq("trip_id", tripId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const status = String((data as { status?: unknown }).status || "");
+    return (ACTIVE_GENERATION_JOB_STATUSES as readonly string[]).includes(status)
+      ? { id: String((data as { id?: unknown }).id || ""), status }
+      : null;
+  } catch {
+    // A lookup failure must not silently unlock duplicate generation: treat
+    // an unreadable job as absent but let the caller fall back to the
+    // trip-row check, which keeps the 409 block for non-stale rows.
+    return null;
+  }
+}
+
 export function tripHasTrackingUnlock(trip: Pick<RoamlyBillingTrip, "tracking_unlocked">) {
   return Boolean(trip.tracking_unlocked || (trip as { live_companion_unlocked?: boolean | null }).live_companion_unlocked);
 }
@@ -632,14 +669,19 @@ export async function canGenerateFinalItinerary(
       trip
     };
   }
-  if (isTripGenerating(trip) && !isStaleGeneratingTrip(trip)) {
-    return {
-      ok: false as const,
-      status: 409,
-      error: "ITINERARY_GENERATING",
-      message: "This itinerary is already being generated.",
-      trip
-    };
+  if (isTripGenerating(trip)) {
+    // The trip row's updated_at is not the activity signal: an active durable
+    // queue job means generation is live even when the row looks stale.
+    const activeJob = await latestActiveGenerationJob(supabase, tripId, userId);
+    if (activeJob || !isStaleGeneratingTrip(trip)) {
+      return {
+        ok: false as const,
+        status: 409,
+        error: "ITINERARY_GENERATING",
+        message: "This itinerary is already being generated.",
+        trip
+      };
+    }
   }
 
   if (trip.itinerary_payment_status === "paid" || trip.itinerary_payment_status === "bundled" || trip.itinerary_unlock_source === "paid" || trip.itinerary_unlock_source === "bundle") {
