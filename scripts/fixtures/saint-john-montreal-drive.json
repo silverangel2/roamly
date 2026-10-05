@@ -1,0 +1,146 @@
+{
+  "description": "Deterministic October 4 journey fixture: Saint John NB -> Montreal QC, Oct 30-Nov 2 (4 days), DRIVE, CA$800 budget, Complete Trip Pack. All content is controlled grounded data \u2014 no live provider calls. Uses the real RoamlyDayPlan/live_timeline shape.",
+  "fixture": "saint-john-to-montreal-drive",
+  "groundedPriceDiscovery": {
+    "currency": "CAD",
+    "lineItems": [
+      {
+        "amountCents": 18000,
+        "label": "Fuel Saint John to Montreal round trip"
+      },
+      {
+        "amountCents": 42000,
+        "label": "3 nights hotel Montreal"
+      },
+      {
+        "amountCents": 12000,
+        "label": "Meals 4 days"
+      },
+      {
+        "amountCents": 2500,
+        "label": "Parking and tolls"
+      }
+    ],
+    "totalEstimateCents": 74500
+  },
+  "itinerary": {
+    "booking_suggestions": [],
+    "daily_itinerary": [
+      {
+        "city": "Montreal",
+        "date": "2026-10-30",
+        "day_number": 1,
+        "estimated_cost": null,
+        "live_timeline": [
+          {
+            "description": "Drive the Trans-Canada Highway from Saint John to Montreal",
+            "title": "Drive from Saint John to Montreal",
+            "travel_mode": "drive",
+            "item_type": "travel"
+          },
+          {
+            "description": "Settle into your room for 3 nights",
+            "title": "Check in at Hotel Bonaventure Montreal",
+            "candidateId": "hotel-candidate-001",
+            "factualStatus": "estimated",
+            "cost_status": "UNKNOWN",
+            "source": "Booking.com Demand API",
+            "item_type": "hotel"
+          },
+          {
+            "description": "Easy first evening on foot",
+            "title": "Evening walk through Old Montreal",
+            "item_type": "activity"
+          }
+        ],
+        "title": "Arrival day"
+      },
+      {
+        "city": "Montreal",
+        "date": "2026-10-31",
+        "day_number": 2,
+        "estimated_cost": null,
+        "live_timeline": [
+          {
+            "description": "Gothic Revival basilica in Old Montreal",
+            "title": "Notre-Dame Basilica visit",
+            "item_type": "activity"
+          },
+          {
+            "description": "Famous smoked meat lunch",
+            "title": "Lunch at Schwartz's Deli",
+            "item_type": "meal"
+          },
+          {
+            "description": "City views at golden hour",
+            "title": "Mount Royal lookout at sunset",
+            "item_type": "activity"
+          }
+        ],
+        "title": "Old Montreal and Mount Royal"
+      },
+      {
+        "city": "Montreal",
+        "date": "2026-11-01",
+        "day_number": 3,
+        "estimated_cost": null,
+        "live_timeline": [
+          {
+            "description": "Canadian and international art",
+            "title": "Montreal Museum of Fine Arts",
+            "item_type": "activity"
+          },
+          {
+            "description": "Tastings through the market halls",
+            "title": "Jean-Talon Market tasting tour",
+            "item_type": "meal"
+          },
+          {
+            "description": "Rest after three full days",
+            "title": "Relax at hotel spa",
+            "item_type": "activity"
+          }
+        ],
+        "title": "Arts and markets"
+      },
+      {
+        "city": "Montreal",
+        "date": "2026-11-02",
+        "day_number": 4,
+        "estimated_cost": null,
+        "live_timeline": [
+          {
+            "description": "Brunch before checkout",
+            "title": "Check out and brunch in Mile End",
+            "item_type": "meal"
+          },
+          {
+            "description": "Return via Trans-Canada Highway",
+            "title": "Drive back to Saint John",
+            "travel_mode": "drive",
+            "item_type": "travel"
+          }
+        ],
+        "title": "Departure day"
+      }
+    ],
+    "estimated_budget_breakdown": {
+      "currency": "CAD",
+      "total_estimate_amount": null
+    }
+  },
+  "payload": {
+    "budgetAmount": 800,
+    "budgetCurrency": "CAD",
+    "daysCount": 4,
+    "destination": "Montreal",
+    "destinationCountry": "CA",
+    "endDate": "2026-11-02",
+    "origin": "Saint John",
+    "originCountry": "CA",
+    "purchaseType": "complete_trip_pack",
+    "startDate": "2026-10-30",
+    "transportationPreference": "Drive",
+    "travelersCount": 1
+  }
+}
