@@ -4,12 +4,17 @@ import type { BudgetBreakdown } from "@/lib/itinerary";
 export type BudgetPresentationStatus = "WITHIN_BUDGET" | "LIKELY_WITHIN_BUDGET" | "OVER_BUDGET" | "BUDGET_UNCERTAIN";
 export type BudgetCostStatus = "committed" | "expected" | "unknown";
 
+export type BudgetEstimateKind = "priced" | "estimated_with_gaps" | "not_calculated";
+
 export type BudgetPresentation = {
   status: BudgetPresentationStatus;
   statusLabel: string;
   statusDetail: string;
   targetLabel: string;
   totalLabel: string;
+  pricedLabel: string;
+  unpricedLabel: string;
+  estimateKind: BudgetEstimateKind;
   remainingLabel: string | null;
   costDrivers: Array<{ label: string; value: string; status: BudgetCostStatus }>;
   uncertainty: string[];
@@ -18,6 +23,22 @@ export type BudgetPresentation = {
 
 function numberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function pricedCategorySum(breakdown: BudgetBreakdown) {
+  const amounts = [
+    breakdown.selected_transport_estimate_amount,
+    breakdown.selected_hotel_estimate_amount,
+    breakdown.tickets_tours_estimate_amount,
+    breakdown.local_transport_estimate_amount,
+    breakdown.food_estimate_amount,
+    breakdown.buffer_estimate_amount,
+    breakdown.committed_bookings_amount
+  ]
+    .map(numberValue)
+    .filter((amount): amount is number => amount != null && amount > 0);
+  if (!amounts.length) return null;
+  return amounts.reduce((sum, amount) => sum + amount, 0);
 }
 
 function unknownCopy(value: unknown, count: number) {
@@ -58,15 +79,24 @@ export function buildBudgetPresentation(input: {
         ? "LIKELY_WITHIN_BUDGET"
         : "WITHIN_BUDGET";
   const statusLabel = status === "WITHIN_BUDGET" ? "Within budget" : status === "LIKELY_WITHIN_BUDGET" ? "Likely within budget" : status === "OVER_BUDGET" ? "Over budget" : "Budget still uncertain";
+  const gapSentence = uncertainty.length
+    ? " This uses priced and estimated amounts only. Unpriced items stay not available and are not treated as zero."
+    : "";
   const statusDetail = status === "WITHIN_BUDGET"
     ? "The current estimate fits your budget, based on the prices Roamly has."
     : status === "LIKELY_WITHIN_BUDGET"
       ? "The current estimate is close to your budget, so leave room for prices to move."
       : status === "OVER_BUDGET"
-        ? "The current estimate is above your budget. Confirmed commitments stay protected; only flexible choices can be reconsidered."
+        ? `The current estimate is above your budget. Confirmed commitments stay protected; only flexible choices can be reconsidered.${gapSentence}`
         : input.budgetAmount == null
           ? "Add a budget target to understand affordability."
           : "Roamly is still missing material prices, so a remaining amount would be misleading.";
+  const pricedAmount = pricedCategorySum(input.breakdown);
+  const estimateKind: BudgetEstimateKind = input.totalEstimateAmount == null
+    ? "not_calculated"
+    : status === "BUDGET_UNCERTAIN" || uncertainty.length
+      ? "estimated_with_gaps"
+      : "priced";
   const remaining = input.budgetAmount != null && input.totalEstimateAmount != null && status !== "BUDGET_UNCERTAIN"
     ? input.budgetAmount - input.totalEstimateAmount
     : null;
@@ -96,6 +126,9 @@ export function buildBudgetPresentation(input: {
     statusDetail,
     targetLabel: input.budgetAmount == null ? "Budget target not set" : formatBudgetMoney(input.budgetAmount, input.currency),
     totalLabel: input.totalEstimateAmount == null ? "Not calculated" : formatBudgetMoney(input.totalEstimateAmount, input.currency),
+    pricedLabel: pricedAmount == null ? "Not available" : formatBudgetMoney(pricedAmount, input.currency),
+    unpricedLabel: uncertainty.length ? uncertainty.join(" ") : estimateKind === "estimated_with_gaps" ? "Some prices are not available" : "None reported",
+    estimateKind,
     remainingLabel,
     costDrivers: costDrivers.slice(0, 6),
     uncertainty,

@@ -10,12 +10,14 @@ const categories = [
 
 type ContactFormProps = {
   supportEmail: string;
+  initialName?: string;
+  initialEmail?: string;
 };
 
-export function ContactForm({ supportEmail }: ContactFormProps) {
+export function ContactForm({ supportEmail, initialName = "", initialEmail = "" }: ContactFormProps) {
   const { locale, t } = useI18n();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState(initialName);
+  const [email, setEmail] = useState(initialEmail);
   const [category, setCategory] = useState("support");
   const [tripId, setTripId] = useState("");
   const [subject, setSubject] = useState("");

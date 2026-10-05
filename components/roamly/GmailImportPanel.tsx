@@ -28,6 +28,18 @@ type PendingImport = {
   matchReasons: string[];
 };
 
+const STALE_SYNC_MS = 45 * 60 * 1000;
+
+function syncHonesty(value: string | null, locale: RoamlyLocale) {
+  const formatted = formatSync(value, locale);
+  if (!value) return `Last sync: not yet. Use Sync now. Roamly is not claiming a fresh inbox.`;
+  const parsed = new Date(value).getTime();
+  if (!Number.isFinite(parsed) || Date.now() - parsed > STALE_SYNC_MS) {
+    return `Last sync ${formatted}. That check is stale. Use Sync now. Roamly is not claiming a 30-minute refresh.`;
+  }
+  return `Last sync ${formatted}.`;
+}
+
 function formatSync(value: string | null, locale: RoamlyLocale) {
   if (!value) return "Not synced yet";
   const date = new Date(value);
@@ -227,7 +239,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
               <div className="min-w-0">
                 <p className="text-sm font-black text-ink">{connection?.email_address || "Gmail"} connected</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  Last sync {formatSync(connection?.last_synced_at || null, locale)} · automatic checks run every 30 minutes
+                  {syncHonesty(connection?.last_synced_at || null, locale)}
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">

@@ -34,6 +34,14 @@ import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly
 import { GUEST_ITINERARY_PATH } from "@/lib/roamly/guestItineraryView";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
+import {
+  PLAN_DRAFT_KEY,
+  browserPlanDraftStorages,
+  clearOwnedPlanDraft,
+  readRestorablePlanDraft,
+  writeOwnedPlanDraft
+} from "@/lib/roamly/planDraftStorage";
+import { PLANNER_BACKEND_CAPABILITY_GAPS } from "@/lib/roamly/plannerCapabilityGaps";
 
 const steps = [
   { title: "Route", detail: "Origin and stops" },
@@ -126,7 +134,6 @@ const unselectedOptionClass =
   "border-cloud bg-[#fffdf8] text-slate-700 hover:border-ocean/50 hover:text-ocean";
 const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
-const PLAN_DRAFT_KEY = "roamly.plan.draft.v1";
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
 
 function selectedOptionClass(label: string) {
@@ -184,6 +191,7 @@ async function openTripAfterSessionSync(
   await syncSupabaseServerSession({ refresh: true });
 
   router.replace(tripPath);
+  router.refresh();
 }
 
 function defaultStops(): StopItem[] {
@@ -524,11 +532,22 @@ function StepError({ error }: { error: string }) {
   );
 }
 
-export function TripPlanForm({
+export function TripPlanForm(props: {
+  freeItineraryUsed?: boolean;
+  testerAccess?: boolean;
+  apiAuthToken?: string;
+}) {
+  const [sessionKey, setSessionKey] = useState(0);
+  return <TripPlanFormSession key={sessionKey} {...props} onStartNew={() => setSessionKey((value) => value + 1)} />;
+}
+
+function TripPlanFormSession({
   freeItineraryUsed = false,
   testerAccess = false,
-  apiAuthToken = ""
+  apiAuthToken = "",
+  onStartNew
 }: {
+  onStartNew: () => void;
   freeItineraryUsed?: boolean;
   testerAccess?: boolean;
   apiAuthToken?: string;
@@ -586,6 +605,7 @@ export function TripPlanForm({
   const [budgetConstraint, setBudgetConstraint] = useState("");
   const [restoreNotice, setRestoreNotice] = useState(false);
   const [draftHydratedState, setDraftHydratedState] = useState(false);
+  const [browserAuthReady, setBrowserAuthReady] = useState(false);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [authStatus, setAuthStatus] = useState<BrowserAuthStatus>(apiAuthToken ? "authenticated" : "loading");
   const trackedSelections = useRef(new Set<string>());
@@ -622,14 +642,10 @@ export function TripPlanForm({
   }, []);
 
   useEffect(() => {
-    if (apiAuthToken) {
-      setAuthStatus("authenticated");
-      return undefined;
-    }
-
     const unsubscribe = subscribeBrowserAuthState((snapshot) => {
-      setAuthStatus(snapshot.status);
+      setAuthStatus(apiAuthToken ? "authenticated" : snapshot.status);
       setSessionUser(snapshot.user);
+      if (snapshot.status !== "loading") setBrowserAuthReady(true);
     });
     void resolveBrowserAuthState();
     return unsubscribe;
@@ -931,22 +947,29 @@ export function TripPlanForm({
   );
 
   const saveCurrentPlanDraft = useCallback(() => {
-    if (typeof window === "undefined") return;
+    const stores = browserPlanDraftStorages();
+    if (!stores) return;
     try {
-      window.localStorage.setItem(PLAN_DRAFT_KEY, JSON.stringify(planDraft));
+      const ownerUserId = sessionUser?.id || null;
+      writeOwnedPlanDraft({
+        userId: ownerUserId,
+        raw: JSON.stringify({ ...planDraft, ownerUserId }),
+        ...stores
+      });
     } catch {
       // Draft persistence should never block planning or auth navigation.
     }
-  }, [planDraft]);
+  }, [planDraft, sessionUser]);
 
   const clearCurrentPlanDraft = useCallback(() => {
-    if (typeof window === "undefined") return;
+    const stores = browserPlanDraftStorages();
+    if (!stores) return;
     try {
-      window.localStorage.removeItem(PLAN_DRAFT_KEY);
+      clearOwnedPlanDraft({ userId: sessionUser?.id || null, ...stores });
     } catch {
       // Clearing local draft state should never block navigation.
     }
-  }, []);
+  }, [sessionUser]);
 
   const consumeResumeParams = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -1035,55 +1058,23 @@ export function TripPlanForm({
     skipNextDraftSave.current = true;
     trackedSelections.current.clear();
     generationInFlight.current = false;
-    setRestoreNotice(false);
-    setStep(0);
-    setOriginPlace(null);
-    setDestinationPlace(null);
-    setTripType("single_destination");
-    setStops(defaultStops());
-    setReturnToOrigin(true);
-    setFlexibleCityOrder(false);
-    setFlexibleDates(false);
-    setStartDate("");
-    setEndDate("");
-    setDaysCount("");
-    setAdults("1");
-    setChildren("0");
-    setInfants("0");
-    setRooms("1");
-    setBedPreference("No preference");
-    setBudgetAmount("");
-    setBudgetCurrency("CAD");
-    setBudgetIncludesFlights(true);
-    setBudgetIncludesHotel(true);
-    setBudgetIncludesActivities(true);
-    setTravelStyle("Balanced");
-    setInterests(["Food", "Culture"]);
-    setPace("Balanced");
-    setWalkingTolerance("Medium");
-    setAccommodationPreference("Mid-range");
-    setTransportationPreference("Mixed");
-    setAccessibilityNeeds("");
-    setDietaryPreference("");
-    setSpecialNotes("");
-    setError("");
-    setNotice("");
-    setLoading(false);
-    setPriceChecking(false);
-    setPriceDiscovery(null);
-    setPriceDiscoveryId(null);
-    setBudgetConstraint("");
+    onStartNew();
   }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!browserAuthReady) return;
 
     skipNextDraftSave.current = true;
+    const stores = browserPlanDraftStorages();
+    const userId = sessionUser?.id || null;
     const raw = window.localStorage.getItem(PLAN_DRAFT_KEY);
+    const owned = stores ? readRestorablePlanDraft({ userId, ...stores }) : null;
     let restoredStoredDraft = false;
-    if (raw) {
+    const draftRaw = owned?.raw || null;
+    if (draftRaw) {
       try {
-        const parsed = JSON.parse(raw) as unknown;
+        const parsed = JSON.parse(draftRaw) as unknown;
         const record = getRecord(parsed);
         if (record) {
           restorePlanDraft(record);
@@ -1092,10 +1083,20 @@ export function TripPlanForm({
           // of silently inheriting stale values (e.g. an old Toronto draft).
           setRestoreNotice(true);
           restoredStoredDraft = true;
+          if (owned?.source === "legacy" && userId && stores) {
+            writeOwnedPlanDraft({
+              userId,
+              raw: JSON.stringify({ ...record, ownerUserId: userId }),
+              ...stores
+            });
+          }
         }
       } catch {
         window.localStorage.removeItem(PLAN_DRAFT_KEY);
       }
+    }
+    if (raw && !(owned?.source === "legacy" && userId)) {
+      window.localStorage.removeItem(PLAN_DRAFT_KEY);
     }
 
     if (bookingFallbackSource) {
@@ -1120,7 +1121,7 @@ export function TripPlanForm({
 
     draftHydrated.current = true;
     setDraftHydratedState(true);
-  }, [bookingFallbackSource, fallbackCategory, fallbackDestination, fallbackEndDate, fallbackOrigin, fallbackStartDate, queryDestination, restorePlanDraft, shouldShowResumeNotice]);
+  }, [bookingFallbackSource, fallbackCategory, fallbackDestination, fallbackEndDate, fallbackOrigin, fallbackStartDate, queryDestination, restorePlanDraft, browserAuthReady, sessionUser, shouldShowResumeNotice]);
 
   useEffect(() => {
     if (!draftHydrated.current) return;
@@ -1550,21 +1551,30 @@ export function TripPlanForm({
         ].map(([label, value]) => (
           <div key={label} className="min-w-0 rounded-xl bg-[#fbf8ef] px-3 py-2">
             <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-500">{translateText(label)}</p>
-            <p className="mt-1 truncate text-xs font-bold text-ink" title={value}>{value}</p>
+            <p className="mt-1 whitespace-normal break-words text-xs font-bold text-ink">{value}</p>
           </div>
         ))}
       </div>
 
       {restoreNotice ? (
         <div className="mt-5 flex flex-col gap-3 rounded-[1.25rem] border border-ocean/20 bg-ocean/10 p-4 text-ocean sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-black">Your trip plan was restored. Continue where you left off.</p>
-          <button
-            type="button"
-            onClick={resetPlanner}
-            className="w-fit rounded-2xl bg-white px-4 py-2 text-xs font-black text-ocean shadow-soft transition hover:text-ink"
-          >
-            Start over
-          </button>
+          <p className="text-sm font-black">Your trip plan was restored. Continue where you left off, or start a new one.</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRestoreNotice(false)}
+              className="w-fit rounded-2xl border border-ocean/20 bg-white px-4 py-2 text-xs font-black text-ocean shadow-soft"
+            >
+              Continue
+            </button>
+            <button
+              type="button"
+              onClick={resetPlanner}
+              className="w-fit rounded-2xl bg-ocean px-4 py-2 text-xs font-black text-white shadow-soft"
+            >
+              Start new
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -1780,20 +1790,6 @@ export function TripPlanForm({
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <FieldLabel>{translateText("Pace")}</FieldLabel>
-                <SelectField value={pace} onChange={(value) => setPace(value as typeof pace)} options={planningPaces} />
-              </label>
-              <label className="block">
-                <FieldLabel>{translateText("Walking tolerance")}</FieldLabel>
-                <SelectField
-                  value={walkingTolerance}
-                  onChange={(value) => setWalkingTolerance(value as typeof walkingTolerance)}
-                  options={walkingToleranceOptions}
-                />
-              </label>
-            </div>
             <div>
               <FieldLabel>{translateText("Interests")}</FieldLabel>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -1802,24 +1798,49 @@ export function TripPlanForm({
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <FieldLabel>{translateText("Accommodation")}</FieldLabel>
-                <SelectField
-                  value={accommodationPreference}
-                  onChange={(value) => setAccommodationPreference(value as typeof accommodationPreference)}
-                  options={accommodationOptions}
-                />
-              </label>
-              <label className="block">
-                <FieldLabel>{translateText("Transportation")}</FieldLabel>
-                <SelectField
-                  value={transportationPreference}
-                  onChange={(value) => setTransportationPreference(value as typeof transportationPreference)}
-                  options={transportationOptions}
-                />
-              </label>
-            </div>
+            <details className="group border-y border-cloud/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+                {translateText("More preferences")}
+                <span className="float-right text-slate-600 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
+              </summary>
+              <div className="mt-3 grid gap-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <FieldLabel>{translateText("Pace")}</FieldLabel>
+                    <SelectField value={pace} onChange={(value) => setPace(value as typeof pace)} options={planningPaces} />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>{translateText("Walking tolerance")}</FieldLabel>
+                    <SelectField
+                      value={walkingTolerance}
+                      onChange={(value) => setWalkingTolerance(value as typeof walkingTolerance)}
+                      options={walkingToleranceOptions}
+                    />
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block">
+                    <FieldLabel>{translateText("Accommodation")}</FieldLabel>
+                    <SelectField
+                      value={accommodationPreference}
+                      onChange={(value) => setAccommodationPreference(value as typeof accommodationPreference)}
+                      options={accommodationOptions}
+                    />
+                  </label>
+                  <label className="block">
+                    <FieldLabel>{translateText("Transportation")}</FieldLabel>
+                    <SelectField
+                      value={transportationPreference}
+                      onChange={(value) => setTransportationPreference(value as typeof transportationPreference)}
+                      options={transportationOptions}
+                    />
+                  </label>
+                </div>
+                <p className="text-xs font-bold leading-5 text-slate-500">
+                  {translateText("Roamly cannot apply these yet")}: {PLANNER_BACKEND_CAPABILITY_GAPS.join(" · ")}.
+                </p>
+              </div>
+            </details>
             <details className="group border-y border-cloud/80 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
                 {translateText("Specific needs or notes")}
@@ -1843,7 +1864,12 @@ export function TripPlanForm({
           <div className="grid gap-4">
               <div className="border-y border-ocean/20 bg-ocean/5 py-4 text-ink sm:py-5">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">{translateText("Trip brief")}</p>
-              <h3 className="mt-2 text-xl font-black text-ink">{normalizedDestination || translateText("Destination pending")}</h3>
+              <h3 className="mt-2 whitespace-normal break-words text-xl font-black text-ink">{normalizedDestination || translateText("Destination pending")}</h3>
+              <p className="mt-3 text-sm font-bold leading-6 text-slate-700">
+                {freeItineraryUsed
+                  ? translateText("Free itinerary: used on this account. The next step is Unlock itinerary — $4.99 CAD. Live Companion is a separate add-on after unlock.")
+                  : translateText("Free itinerary: available, one per account. Generate first. Unlock packs and Live Companion are optional after that, and you see the price before paying.")}
+              </p>
               <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600">
                 {summaryRows.map(([label, value]) => (
                   <p key={label}>

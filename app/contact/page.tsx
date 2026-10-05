@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlySupportEmail } from "@/lib/roamly/email";
+import { getCurrentUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Contact Roamly — Trip & Account Support",
@@ -16,8 +17,15 @@ export const metadata: Metadata = {
   }
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
   const supportEmail = getRoamlySupportEmail();
+  const current = await getCurrentUser();
+  const accountEmail = current.user?.email || "";
+  const accountName = typeof current.user?.user_metadata?.full_name === "string"
+    ? current.user.user_metadata.full_name
+    : typeof current.user?.user_metadata?.name === "string"
+      ? current.user.user_metadata.name
+      : "";
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
@@ -35,7 +43,7 @@ export default function ContactPage() {
           <p className="mt-5 break-words text-sm font-black text-slate-600">{supportEmail}</p>
         </Card>
 
-        <ContactForm supportEmail={supportEmail} />
+        <ContactForm supportEmail={supportEmail} initialName={accountName} initialEmail={accountEmail} />
       </div>
     </div>
   );

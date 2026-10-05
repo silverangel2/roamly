@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
 
 type AccountProfileFormProps = {
   initialName: string;
@@ -41,7 +42,12 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
 
   return (
     <>
-      <form id="account-logout-form" action="/auth/logout" method="post" />
+      <form
+        id="account-logout-form"
+        action="/auth/logout"
+        method="post"
+        onSubmit={() => clearPlannerDraftOnLogout(window.localStorage, window.sessionStorage)}
+      />
       <form onSubmit={saveProfile} className="space-y-4">
         <label className="block">
           <span className="text-sm font-black text-ink">Full name</span>

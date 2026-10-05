@@ -3,9 +3,11 @@ import type { ExploreCandidate } from "@/lib/roamly/exploreViewModel";
 
 export function ExploreDiscovery({
   tripId,
+  destination = "this destination",
   candidates
 }: {
   tripId: string;
+  destination?: string;
   candidates: ExploreCandidate[];
 }) {
   return (
@@ -65,11 +67,16 @@ export function ExploreDiscovery({
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Explore is intentionally quiet</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">Not enough grounded discoveries yet</h2>
             <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
-              Roamly does not have enough trip-specific activity or event evidence to recommend something responsibly for these dates.
+              Roamly does not have enough trip-specific activity or event evidence to recommend something responsibly for these dates. Nothing is invented here. Check back when discoveries are ready, or open Finds for inspiration.
             </p>
-            <Link href={`/trip/${tripId}#day-by-day`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
-              Return to your plan
-            </Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href={`/finds?destination=${encodeURIComponent(destination)}`} className="inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
+                Open Finds for {destination}
+              </Link>
+              <Link href={`/trip/${tripId}#day-by-day`} className="inline-flex min-h-11 items-center rounded-xl border border-cloud bg-white px-4 py-2 text-sm font-black text-ink">
+                Return to your plan
+              </Link>
+            </div>
           </section>
         )}
       </div>

@@ -32,6 +32,7 @@ import {
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
+import { looksLikeProviderSearchTitle } from "@/lib/roamly/itineraryPresentation";
 
 export type LiveSimulatorPlace = {
   id: string;
@@ -235,19 +236,24 @@ function routeCopy(route: LiveRouteStatus) {
   return "";
 }
 
+function travelerFacingPlace(value: string | null | undefined) {
+  if (!value || !isUsablePlaceLabel(value) || looksLikeProviderSearchTitle(value)) return "";
+  return value;
+}
+
 function primaryAddress(activity: LiveCompanionActivity | null) {
-  if (!activity) return "Place details unavailable";
-  return [activity.address, activity.placeName, activity.title].find(isUsablePlaceLabel) || "Place details unavailable";
+  if (!activity) return "Details to confirm";
+  return [activity.address, activity.placeName, activity.title].map(travelerFacingPlace).find(Boolean) || "Details to confirm";
 }
 
 function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string) {
   if (!activity) return fallback;
-  return [activity.title, activity.placeName, activity.address].find(isUsablePlaceLabel) || "Stop details need a check";
+  return [activity.title, activity.placeName, activity.address].map(travelerFacingPlace).find(Boolean) || "Details to confirm";
 }
 
 function activityDisplayDescription(activity: LiveCompanionActivity | null, fallback: string) {
   if (!activity?.shortDescription) return fallback;
-  return isUsablePlaceLabel(activity.shortDescription)
+  return isUsablePlaceLabel(activity.shortDescription) && !looksLikeProviderSearchTitle(activity.shortDescription)
     ? activity.shortDescription
     : "We could not verify the place details for this stop yet.";
 }
@@ -614,12 +620,14 @@ export function LiveTripClient({
     timezone,
     now: nowTick
   });
-  const tripCompleted = tripWindowState({
+  const tripPhaseNow = tripWindowState({
     startDate: activeTripStartDate,
     endDate: activeTripEndDate,
     timezone,
     now: nowTick
-  }) === "completed_trip";
+  });
+  const tripCompleted = tripPhaseNow === "completed_trip";
+  const preTrip = tripPhaseNow === "future_trip";
 
   useEffect(() => {
     let alive = true;
@@ -1475,7 +1483,7 @@ export function LiveTripClient({
           </div>
         </div>
 
-        {permission !== "granted" && watching ? (
+        {permission !== "granted" ? (
           <div className="border-b border-cloud bg-amber-50 px-4 py-3" role="alert">
             <p className="text-sm font-black text-amber-900">
               {permission === "denied"
@@ -1501,18 +1509,22 @@ export function LiveTripClient({
 
         <div className="grid gap-4 p-4 md:grid-cols-[1.15fr_0.85fr] md:p-6">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{t("ui.status.now", "Now")}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{preTrip ? "Get ready" : tripCompleted ? "Completed" : t("ui.status.now", "Now")}</p>
             <h1 className="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
-              {activityDisplayTitle(currentActivity, t("ui.status.ready"))}
+              {preTrip ? timingCopy(model.countdownMinutes, nextStart, timezone, locale) : tripCompleted ? "This trip is complete" : activityDisplayTitle(currentActivity, "Your next stop is not confirmed yet")}
             </h1>
-            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-slate-600">
-              {activityDisplayDescription(currentActivity, model.activationReason)}
+            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+              {preTrip
+                ? "This trip has not started. Review the plan, confirm anything still suggested, and enable location before you travel."
+                : tripCompleted
+                  ? "Live Companion does not start again after the trip ends. The saved plan stays here to review."
+                  : activityDisplayDescription(currentActivity, model.activationReason)}
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
-                <p className="mt-1 truncate text-sm font-black">{activityDisplayTitle(nextActivity, "Flexible time")}</p>
+                <p className="mt-1 truncate text-sm font-black">{activityDisplayTitle(nextActivity, preTrip ? "Details to confirm" : "Flexible time")}</p>
                 {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
@@ -1600,7 +1612,7 @@ export function LiveTripClient({
                     <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate font-bold text-slate-600">
                         <span className="mr-2 font-black text-slate-400">{activity.timeLabel || "Flexible"}</span>
-                        {activity.title}
+                        {travelerFacingPlace(activity.title) || "Details to confirm"}
                       </span>
                       <span className={classNames("shrink-0 text-xs font-black uppercase tracking-[0.08em]", terminal ? "text-ocean" : "text-slate-400")}>
                         {progress}
@@ -1683,7 +1695,7 @@ export function LiveTripClient({
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next step</p>
                 <p className="text-xs font-black text-slate-500">{nextActivity ? `${nextTimingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(nextStart?.toISOString() || null, timezone, locale)}` : "Flexible time"}</p>
               </div>
-              <p className="mt-3 text-lg font-black text-ink">{activityDisplayTitle(nextActivity, "Keep this window open")}</p>
+              <p className="mt-3 text-lg font-black text-ink">{activityDisplayTitle(nextActivity, preTrip || tripCompleted ? "Details to confirm" : "Keep this window open")}</p>
               <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{nextActivity ? primaryAddress(nextActivity) : "Use it for rest, food, or your own plans."}</p>
             </section>
 
@@ -1798,6 +1810,8 @@ export function LiveTripClient({
                   <h3 className="text-xl font-black text-ocean">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
                   <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Roamly will help you stay on track during your trip.</p>
                 </div>
+              ) : tripCompleted ? (
+                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">This trip is complete. Live Companion stays off.</p>
               ) : !watching ? (
                 <>
                   <div className="mt-3 grid gap-2 text-sm font-black text-slate-700">

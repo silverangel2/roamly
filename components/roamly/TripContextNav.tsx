@@ -38,7 +38,11 @@ function isSelected(pathname: string, hash: string, tripId: string, key: (typeof
 const hashToTabId: Record<string, string> = {
   "#day-by-day": "roamly-tab-day-by-day",
   "#overview": "roamly-tab-overview",
-  "#budget": "roamly-tab-budget"
+  "#budget": "roamly-tab-budget",
+  "#requirements": "roamly-tab-requirements",
+  "#essentials": "roamly-tab-essentials",
+  "#travel-notes": "roamly-tab-travel-notes",
+  "#bookings": "roamly-tab-bookings"
 };
 
 /** The trip page shows tab panels through radio inputs; a hash link alone cannot
@@ -53,11 +57,18 @@ function activateTabForSuffix(suffix: string) {
 /** "Home" should reset the view: clear any hash, reveal the default tab panel,
  *  and glide back to the top. A plain link to the same path is a no-op when a
  *  hash is present, which made Home feel dead. */
+function clearTripPanels() {
+  if (typeof document === "undefined") return;
+  document.querySelectorAll<HTMLInputElement>('input[name="roamly-completed-tab"]').forEach((input) => {
+    input.checked = false;
+  });
+}
+
 function goHome(tripId: string, setHash: (hash: string) => void) {
   if (typeof window === "undefined") return;
   window.history.replaceState(null, "", `/trip/${tripId}`);
   setHash("");
-  activateTabForSuffix("#day-by-day");
+  clearTripPanels();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -66,7 +77,12 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
   const [hash, setHash] = useState("");
 
   useEffect(() => {
-    const updateHash = () => setHash(window.location.hash);
+    const updateHash = () => {
+      const nextHash = window.location.hash;
+      setHash(nextHash);
+      if (!nextHash || nextHash === "#") clearTripPanels();
+      else activateTabForSuffix(nextHash);
+    };
     updateHash();
     window.addEventListener("hashchange", updateHash);
     return () => window.removeEventListener("hashchange", updateHash);

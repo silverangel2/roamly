@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
+import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
 const plans = [
   {
@@ -54,7 +56,13 @@ export const metadata: Metadata = {
   }
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const current = await getCurrentUser();
+  const signedIn = Boolean(current.user);
+  const supabase = signedIn ? await createSupabaseServerClient() : null;
+  const free = supabase && current.user ? await hasUsedFreeItinerary(supabase, current.user.id) : null;
+  const freeUsed = Boolean(free?.used);
+
   return (
     <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <section className="overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#effaff_52%,#fff0dc)] p-6 text-ink shadow-soft sm:p-10">
@@ -63,13 +71,24 @@ export default function PricingPage() {
           A better trip plan, with clear one-time prices.
         </h1>
         <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-700">
-          Plan your first trip free. Add a full itinerary or live support when you need it. No subscriptions.
+          One free itinerary per account. Unlock another trip or add Live Companion only when you choose to, and you see the one-time total before paying.
         </p>
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-          <Button href="/plan">Start planning</Button>
-          <Button href="/signup?next=/plan" tone="secondary" className="border border-ocean/20 bg-white/84 text-ink hover:border-ocean/40 hover:bg-white">
-            Create your free account
-          </Button>
+          {signedIn ? (
+            <>
+              <Button href="/plan">{freeUsed ? "Unlock itinerary" : "Plan a trip"}</Button>
+              <Button href="/dashboard" tone="secondary" className="border border-ocean/20 bg-white/84 text-ink hover:border-ocean/40 hover:bg-white">
+                Go to Trips
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button href="/plan">Start planning</Button>
+              <Button href="/signup?next=/plan" tone="secondary" className="border border-ocean/20 bg-white/84 text-ink hover:border-ocean/40 hover:bg-white">
+                Create your free account
+              </Button>
+            </>
+          )}
         </div>
       </section>
 
