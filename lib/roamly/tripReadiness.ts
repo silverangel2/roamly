@@ -49,6 +49,8 @@ export type TripReadinessInput = {
   preparationRequirementsNeedingReview?: number;
   completedTrip?: boolean;
   hasPostTripFeedback?: boolean | null;
+  /** Draft cannot generate until unlock, and generation is not running. */
+  generationAwaitingUnlock?: boolean;
   now?: Date;
 };
 
@@ -146,6 +148,19 @@ export function deriveTripReadiness(input: TripReadinessInput): TripReadiness {
       state: "ACTION_NEEDED",
       phase,
       primaryAction: action("generation", input.tripId, "Review generation", "trip", null, ""),
+      urgentItems,
+      upcomingActions,
+      confirmations,
+      uncertainties: uncertaintyItems
+    };
+  }
+
+  if (!input.hasItinerary && input.generationAwaitingUnlock) {
+    urgentItems.push("This draft is saved. Roamly is not preparing it yet.");
+    return {
+      state: "ACTION_NEEDED",
+      phase,
+      primaryAction: action("generation", input.tripId, "Unlock this trip", "trip", null, ""),
       urgentItems,
       upcomingActions,
       confirmations,

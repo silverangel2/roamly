@@ -253,7 +253,15 @@ function travelerFacingPlace(value: string | null | undefined, destination = "",
 
 function primaryAddress(activity: LiveCompanionActivity | null, destination = "", suppressFlightFraming = false, origin = "") {
   if (!activity) return "Details to confirm";
-  return [activity.address, activity.placeName, activity.title].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming, origin)).find(Boolean) || "Details to confirm";
+  const title = activityDisplayTitle(activity, "", destination, suppressFlightFraming, origin);
+  const rawAddress = activity.address || activity.placeName || "";
+  const namedAirportPlace = /\b(?:lounge|hotel|inn|parking|rental)\b/i.test(rawAddress);
+  const placeholder = !rawAddress
+    || looksLikeProviderSearchTitle(rawAddress)
+    || isHollowTravelerPlace(rawAddress, destination)
+    || (suppressFlightFraming && /\bairport\b/i.test(rawAddress) && !namedAirportPlace);
+  if (placeholder) return title || "Details to confirm";
+  return travelerFacingPlace(rawAddress, destination, suppressFlightFraming, origin) || title || "Details to confirm";
 }
 
 function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string, destination = "", suppressFlightFraming = false, origin = "") {
@@ -1635,7 +1643,7 @@ export function LiveTripClient({
                     <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate font-bold text-slate-600">
                         <span className="mr-2 font-black text-slate-400">{activity.timeLabel || "Flexible"}</span>
-                        {travelerFacingPlace(activity.title, activeDestinationLabel, suppressFlightFraming) || activityDisplayTitle(activity, "Stop to confirm", activeDestinationLabel, suppressFlightFraming)}
+                        {activityDisplayTitle(activity, "Stop to confirm", activeDestinationLabel, suppressFlightFraming, originLabel || "")}
                       </span>
                       <span className={classNames("shrink-0 text-xs font-black uppercase tracking-[0.08em]", terminal ? "text-ocean" : "text-slate-400")}>
                         {progress}

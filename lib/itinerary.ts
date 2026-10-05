@@ -2697,8 +2697,14 @@ export function getTripDayFromDate(
   if (!startDate) return 1;
   const start = new Date(`${startDate.slice(0, 10)}T00:00:00Z`);
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(now.getTime())) return 1;
+  let zone = (timezone || "UTC").trim() || "UTC";
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format();
+  } catch {
+    zone = "UTC";
+  }
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
+    timeZone: zone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit"

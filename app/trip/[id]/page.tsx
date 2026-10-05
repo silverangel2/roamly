@@ -39,7 +39,7 @@ import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/ro
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { buildBudgetPresentation } from "@/lib/roamly/budgetPresentation";
-import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerArea, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 import { rankChoicesForNotes, readTripNoteText, travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
 import { mapTravelerTripStatus } from "@/lib/roamly/tripStatusDisplay";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
@@ -1006,7 +1006,7 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
     `Source: ${/stay22/i.test(source) ? "Hotel search" : source}`,
     `Verification: ${priceSourceLabel(suggestion)}`,
     suggestion.market_source,
-    suggestion.location || suggestion.neighborhood || suggestion.city,
+    presentTravelerArea(suggestion.location || suggestion.neighborhood || suggestion.city, false, String(bookingCategory(suggestion))),
     suggestion.date || suggestion.departure_date,
     suggestion.time_window,
     suggestion.duration,
@@ -1668,20 +1668,21 @@ function PrintInfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CompactPrintDay({ day, currency, confirmedBookings }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string; confirmedBookings: readonly Record<string, unknown>[] }) {
-  const items = buildDisplayTimelineItems(day, confirmedBookings).items.slice(0, 6);
+function CompactPrintDay({ day, currency, confirmedBookings, suppressFlightFraming = false }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string; confirmedBookings: readonly Record<string, unknown>[]; suppressFlightFraming?: boolean }) {
+  const items = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming }).items.slice(0, 6);
+  const dayCity = presentTravelerArea(day.city, suppressFlightFraming);
 
   return (
     <section className="roamly-pdf-day">
       <div className="roamly-pdf-day-heading">
         <p>
           Day {day.day_number}
-          {day.city ? ` · ${day.city}` : ""}
+          {dayCity ? ` · ${dayCity}` : ""}
           {day.date ? ` · ${formatTripDate(day.date)}` : ""}
         </p>
         <span>Est. {formatMoney(day.estimated_cost, currency)}</span>
       </div>
-      <h3>{day.title}</h3>
+      <h3>{presentTravelerTitle({ title: day.title, destination: dayCity || day.city, suppressFlightFraming }).title || day.title}</h3>
       {items.length ? (
         <div className="roamly-pdf-timeline">
           {items.map((item, index) => (
@@ -1718,7 +1719,8 @@ function CompactPrintItinerary({
   budgetDisplay,
   travelStyle,
   dayCount,
-  locale
+  locale,
+  suppressFlightFraming = false
 }: {
   trip: RoamlyTripRecord;
   itinerary: RoamlyItinerary;
@@ -1730,6 +1732,7 @@ function CompactPrintItinerary({
   travelStyle: string;
   dayCount: number;
   locale: string;
+  suppressFlightFraming?: boolean;
 }) {
   const confirmedBookings = bookings.filter((booking) => isConfirmedBookingSnapshot(booking));
   const recommendedTransport = recommendedTransportFromItinerary(itinerary);
@@ -1775,7 +1778,7 @@ function CompactPrintItinerary({
                 {hotelItems.map((item) => (
                   <li key={`print-hotel-${bookingTitle(item)}`}>
                     <strong>{bookingTitle(item)}</strong>
-                    <span>{[item.neighborhood || item.location, item.room_type, item.why_recommended].filter(Boolean).join(" · ")}</span>
+                    <span>{[presentTravelerArea(item.neighborhood || item.location, suppressFlightFraming, "hotel"), item.room_type, item.why_recommended].filter(Boolean).join(" · ")}</span>
                   </li>
                 ))}
               </ul>
@@ -1806,7 +1809,7 @@ function CompactPrintItinerary({
 
       <section className="roamly-pdf-days">
         {itinerary.daily_itinerary.map((day) => (
-          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} confirmedBookings={confirmedBookings} />
+          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} confirmedBookings={confirmedBookings} suppressFlightFraming={suppressFlightFraming} />
         ))}
       </section>
 
@@ -2136,7 +2139,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     preparationRequirementsNeedingReview: countMaterialTravelRequirements(travelRequirements),
     paymentNeedsAttention: checkoutNeedsAttention,
     completedTrip,
-    hasPostTripFeedback
+    hasPostTripFeedback,
+    generationAwaitingUnlock: generationRequiresPayment && !generationBusy
   });
   const attentionText = readiness.urgentItems[0] || "";
   const actionFocus = parseTripActionFocus(one(search.focus));
@@ -2469,7 +2473,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                               {canonicalDayByNumber.get(dayNumber)?.date ? formatTripDate(canonicalDayByNumber.get(dayNumber)?.date, locale).replace(/, \d{4}$/, "") : generationDayProgress.find((item) => item.dayNumber === dayNumber)?.date ? formatTripDate(generationDayProgress.find((item) => item.dayNumber === dayNumber)?.date, locale).replace(/, \d{4}$/, "") : "Planning"}
                             </span>
                             <span className="truncate text-[10px] font-bold text-slate-400">
-                              {canonicalDayByNumber.get(dayNumber)?.city || (!canonicalDayByNumber.has(dayNumber) ? generationFailed ? "Needs attention" : "Building" : "")}
+                              {presentTravelerArea(canonicalDayByNumber.get(dayNumber)?.city, suppressFlightFraming) || (!canonicalDayByNumber.has(dayNumber) ? generationFailed ? "Needs attention" : "Building" : "")}
                             </span>
                           </label>
                         ))}
@@ -2607,6 +2611,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             travelStyle={travelStyle}
             dayCount={dayCount}
             locale={locale}
+            suppressFlightFraming={suppressFlightFraming}
           />
         ) : null}
       </div>

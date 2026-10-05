@@ -1,3 +1,5 @@
+"use client";
+
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
 import { NavigationButtons } from "@/components/roamly/NavigationButtons";
 import { useI18n } from "@/components/i18n/I18nProvider";
