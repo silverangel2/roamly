@@ -28,6 +28,7 @@ import {
   safeConsumerTravelUrl,
   validateTravelResultForDisplay
 } from "@/lib/roamly/travelResultValidation";
+import { noteHotelPreference } from "@/lib/roamly/travelerNotes";
 import type { TravelerDetails, TripPlannerPayload } from "@/lib/trip-planner";
 import { createBookingDemandProvider, hotelCandidateIsFresh, hotelInventoryConfigured, hotelInventoryInputFromPayload, revalidateBookingHotelCandidate, type HotelInventoryResult, type HotelInventoryState, type HotelCandidate } from "@/lib/roamly/hotelInventory";
 import { evaluatePublicEventForTrip, normalizePublicEventEvidence, publicEventToMarketResult } from "@/lib/roamly/publicEventDiscovery";
@@ -1524,7 +1525,7 @@ function notePriorityMarketRequests(payload: TripPlannerPayload, destinationLabe
     requests.push({
       ...base,
       category: "attraction",
-      title: `${destinationLabel} official event schedule`
+      title: `Official events in ${(destination.city || destinationLabel).split(",")[0]}`
     });
   }
 
@@ -1593,7 +1594,8 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
       minimum_quality: payload.constraints?.hotel?.minimumQuality?.value ?? null,
       accessibility_requirements: payload.constraints?.hotel?.accessibilityRequirements?.value || [],
       maximum_nightly_price: payload.constraints?.hotel?.maximumNightlyPrice?.value ?? null,
-      child_ages: (payload.travelers as TravelerDetails & { childAges?: number[] })?.childAges || []
+      child_ages: (payload.travelers as TravelerDetails & { childAges?: number[] })?.childAges || [],
+      hotel_preferences: noteHotelPreference(payload.specialNotes) || null
     });
 
     if (payload.budgetIncludesActivities !== false) {
@@ -1606,9 +1608,9 @@ export function buildTripMarketSearchRequests(payload: TripPlannerPayload): Trav
         start_date: payload.startDate,
         end_date: payload.endDate,
         travelers,
-        title: `${destinationLabel} events festivals concerts nightlife ${payload.startDate} to ${payload.endDate}`,
+        title: `Events in ${(destination.city || destinationLabel).split(",")[0]}`,
         currency,
-        interests: payload.interests
+        interests: [...(payload.interests || []), "events", "festivals", "concerts", "nightlife"]
       });
       requests.push({
         category: "attraction",

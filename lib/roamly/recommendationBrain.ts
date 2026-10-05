@@ -398,7 +398,7 @@ function notePriorityActivityCandidates(destination: string, noteText: string): 
 
   if (/\bfestival|conference|wedding|concert|sporting event|sports event|game|birthday\b/i.test(noteText)) {
     add({
-      name: `${destination} event schedule search`,
+      name: `Official events in ${destination}`,
       location: "Official event venue or organizer",
       duration: "depends on event",
       reason: "Planning notes mention a dated event, so official schedule and venue details should be checked first",

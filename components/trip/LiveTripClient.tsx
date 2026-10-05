@@ -32,7 +32,7 @@ import {
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
-import { cleanTravelerTimeLabel, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentGroundTransportText, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentGroundTransportText, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 
 export type LiveSimulatorPlace = {
   id: string;
@@ -122,6 +122,7 @@ type LiveTripClientProps = {
   checklist: ChecklistRecord[];
   canSimulateLocation?: boolean;
   destinationLabel?: string;
+  originLabel?: string | null;
   simulatorPlaces?: LiveSimulatorPlace[];
   tripStartDate?: string | null;
   tripEndDate?: string | null;
@@ -239,23 +240,25 @@ function routeCopy(route: LiveRouteStatus) {
   return "";
 }
 
-function travelerFacingPlace(value: string | null | undefined, destination = "", suppressFlightFraming = false) {
+function travelerFacingPlace(value: string | null | undefined, destination = "", suppressFlightFraming = false, origin = "") {
   if (!value || !isUsablePlaceLabel(value)) return "";
+  const repaired = repairGarbledGettingTo(value, origin, destination);
+  if (repaired) return repaired;
   if (looksLikeProviderSearchTitle(value) || (suppressFlightFraming && /\bflight|airport|departure buffer\b/i.test(value))) {
-    return presentTravelerTitle({ title: value, destination, suppressFlightFraming, category: value }).title;
+    return presentTravelerTitle({ title: value, destination, origin, suppressFlightFraming, category: value }).title;
   }
   if (isHollowTravelerPlace(value, destination)) return "";
   return suppressFlightFraming ? presentGroundTransportText(value) : value;
 }
 
-function primaryAddress(activity: LiveCompanionActivity | null, destination = "", suppressFlightFraming = false) {
+function primaryAddress(activity: LiveCompanionActivity | null, destination = "", suppressFlightFraming = false, origin = "") {
   if (!activity) return "Details to confirm";
-  return [activity.address, activity.placeName, activity.title].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming)).find(Boolean) || "Details to confirm";
+  return [activity.address, activity.placeName, activity.title].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming, origin)).find(Boolean) || "Details to confirm";
 }
 
-function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string, destination = "", suppressFlightFraming = false) {
+function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string, destination = "", suppressFlightFraming = false, origin = "") {
   if (!activity) return fallback;
-  return [activity.title, activity.placeName, activity.address].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming)).find(Boolean) || fallback;
+  return [activity.title, activity.placeName, activity.address].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming, origin)).find(Boolean) || fallback;
 }
 
 function activityDisplayDescription(activity: LiveCompanionActivity | null, fallback: string) {
@@ -424,6 +427,7 @@ export function LiveTripClient({
   checklist,
   canSimulateLocation = false,
   destinationLabel = "",
+  originLabel = "",
   simulatorPlaces = [],
   tripStartDate = null,
   tripEndDate = null,
@@ -1472,16 +1476,16 @@ export function LiveTripClient({
 
   const suppressFlightFraming = shouldSuppressFlightFraming({ transportationPreference, hasConfirmedFlight });
   const locationOff = permission !== "granted";
-  const nextTitleRaw = activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming);
+  const nextTitleRaw = activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming, originLabel || "");
   const nextIsHollow = preTrip && !nextTitleRaw;
   const preTripNext = preTripPrepTitle(activeDestinationLabel, tripStartDate || "");
-  const displayedNextTitle = nextIsHollow ? preTripNext : activityDisplayTitle(nextActivity, preTrip ? preTripNext : "Flexible time", activeDestinationLabel, suppressFlightFraming);
-  const displayedAddress = nextIsHollow || (preTrip && isHollowTravelerPlace(primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming), activeDestinationLabel))
+  const displayedNextTitle = nextIsHollow ? preTripNext : activityDisplayTitle(nextActivity, preTrip ? preTripNext : "Flexible time", activeDestinationLabel, suppressFlightFraming, originLabel || "");
+  const displayedAddress = nextIsHollow || (preTrip && isHollowTravelerPlace(primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming, originLabel || ""), activeDestinationLabel))
     ? preTripAddressCopy(locationOff)
-    : primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming);
+    : primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming, originLabel || "");
 
   return (
-    <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-5 pb-4 md:pb-0">
+    <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-5 pb-28 md:pb-0">
       <section className="overflow-hidden rounded-[1.25rem] border border-cloud bg-white text-ink shadow-[0_18px_50px_rgba(16,32,51,0.12)]">
         <div className="border-b border-cloud px-4 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -1530,7 +1534,7 @@ export function LiveTripClient({
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{preTrip ? "Get ready" : tripCompleted ? "Completed" : t("ui.status.now", "Now")}</p>
             <h1 className="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
-              {preTrip ? timingCopy(model.countdownMinutes, nextStart, timezone, locale) : tripCompleted ? "This trip is complete" : activityDisplayTitle(currentActivity, "Your next stop is not confirmed yet")}
+              {preTrip ? timingCopy(model.countdownMinutes, nextStart, timezone, locale) : tripCompleted ? "This trip is complete" : activityDisplayTitle(currentActivity, "Your next stop is not confirmed yet", activeDestinationLabel, suppressFlightFraming, originLabel || "")}
             </h1>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
               {preTrip
@@ -1918,7 +1922,7 @@ export function LiveTripClient({
               Resume
             </button>
           </div>
-          <details className="mt-3 scroll-mb-36 rounded-2xl bg-mist px-3 py-3">
+          <details className="mt-3 scroll-mb-[calc(14rem+env(safe-area-inset-bottom))] rounded-2xl bg-mist px-3 py-3">
             <summary className="cursor-pointer text-sm font-black text-ink">Essentials</summary>
             <div className="mt-3 grid gap-2">
               {checklist.slice(0, 5).map((item) => (
@@ -1955,7 +1959,7 @@ export function LiveTripClient({
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
                   {activity.timeLabel || "Flexible"} · {activity.id === currentActivity?.id ? "Now" : activity.id === nextActivity?.id ? "Next" : activity.status || "Planned"}
                 </p>
-                <h3 className="mt-1 text-lg font-black text-ink">{activity.title}</h3>
+                <h3 className="mt-1 text-lg font-black text-ink">{travelerFacingPlace(activity.title, activeDestinationLabel, suppressFlightFraming, originLabel || "") || activityDisplayTitle(activity, "Stop to confirm", activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
                 <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">{activity.shortDescription}</p>
               </div>
               <button
@@ -2025,7 +2029,7 @@ export function LiveTripClient({
         </details>
       ) : null}
 
-      {activeStep ? <div className="h-24 md:hidden" aria-hidden="true" /> : null}
+      {activeStep ? <div className="h-36 md:hidden" aria-hidden="true" /> : null}
 
       {activeStep ? (
         <section className="fixed inset-x-3 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-30 rounded-[1.2rem] border border-black/5 bg-white/92 p-1.5 shadow-[0_8px_28px_rgba(16,32,51,0.12)] backdrop-blur-xl md:hidden">

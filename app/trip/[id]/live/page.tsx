@@ -18,7 +18,8 @@ import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
   getTripDaysCount,
-  getTripDestinationLabel
+  getTripDestinationLabel,
+  getTripOriginLabel
 } from "@/lib/roamly/tripMetadata";
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { evaluateConfirmedBookingCost } from "@/lib/roamly/bookings";
@@ -311,6 +312,7 @@ export default async function LiveTripPage({
           checklist={bundle.data.checklist}
           canSimulateLocation={false}
           destinationLabel={destinationLabel}
+          originLabel={getTripOriginLabel(bundle.data.trip)}
           simulatorPlaces={simulatorPlaces}
           tripStartDate={bundle.data.trip.start_date}
           tripEndDate={bundle.data.trip.end_date}
@@ -360,6 +362,7 @@ export default async function LiveTripPage({
             checklist={bundle.data.checklist}
             canSimulateLocation={false}
             destinationLabel={destinationLabel}
+          originLabel={getTripOriginLabel(bundle.data.trip)}
             simulatorPlaces={simulatorPlaces}
             tripStartDate={bundle.data.trip.start_date}
             tripEndDate={bundle.data.trip.end_date}
@@ -539,6 +542,7 @@ export default async function LiveTripPage({
           checklist={bundle.data.checklist}
           canSimulateLocation={false}
           destinationLabel={destinationLabel}
+          originLabel={getTripOriginLabel(bundle.data.trip)}
           simulatorPlaces={simulatorPlaces}
           tripStartDate={bundle.data.trip.start_date}
           tripEndDate={bundle.data.trip.end_date}

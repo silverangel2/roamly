@@ -43,7 +43,7 @@ export default async function NotificationsPage() {
 
   const [tripRows, notifications, companionDeliveries, unreadNotifications] =
     await Promise.all([
-      supabase.from("roamly_trips").select("*").eq("user_id", current.user.id).limit(40),
+      supabase.from("roamly_trips").select("*").eq("user_id", current.user.id).order("start_date", { ascending: false }).limit(40),
       supabase
         .from("roamly_notifications")
         .select("id,trip_id,title,body,type,status,action_url,created_at,scheduled_for")
@@ -94,6 +94,8 @@ export default async function NotificationsPage() {
     };
   });
 
+  const trip = selectNotificationTrip((tripRows.data || []) as TrackingTrip[]);
+  const companionOn = tripCompanionUnlocked(trip);
   const notificationTripIds = [...new Set(rawNotificationItems.map((item) => item.trip_id).filter((id): id is string => Boolean(id)))];
   const tripRowsResult = notificationTripIds.length
     ? await supabase
@@ -102,17 +104,17 @@ export default async function NotificationsPage() {
         .eq("user_id", current.user.id)
         .in("id", notificationTripIds)
     : { data: [], error: null };
-  const tripById = new Map((tripRowsResult.data || []).map((trip) => [trip.id, trip]));
+  const tripById = new Map((tripRowsResult.data || []).map((row) => [row.id, row]));
   const notificationItems = dedupeEquivalentNotifications(rawNotificationItems).filter((notification) => trip ? notification.trip_id === trip.id : false).map((notification) => {
-    const trip = notification.trip_id ? tripById.get(notification.trip_id) : null;
+    const relatedTrip = notification.trip_id ? tripById.get(notification.trip_id) : null;
     const actionState = notificationActionState({
       actionUrl: notification.action_url,
-      trip: trip ? {
-        status: trip.status,
-        itineraryStatus: trip.itinerary_status,
-        startDate: trip.start_date,
-        endDate: trip.end_date,
-        metadata: trip.metadata
+      trip: relatedTrip ? {
+        status: relatedTrip.status,
+        itineraryStatus: relatedTrip.itinerary_status,
+        startDate: relatedTrip.start_date,
+        endDate: relatedTrip.end_date,
+        metadata: relatedTrip.metadata
       } : null
     });
     return {
@@ -121,9 +123,6 @@ export default async function NotificationsPage() {
       action_state: actionState
     };
   });
-
-  const trip = selectNotificationTrip((tripRows.data || []) as TrackingTrip[]);
-  const companionOn = tripCompanionUnlocked(trip);
 
   if (!trip) {
     return (
@@ -178,24 +177,34 @@ export default async function NotificationsPage() {
     : null;
 
   return (
-    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 pb-28 sm:px-6">
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
-      <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} />
+      {companionOn ? <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} /> : null}
       <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
         {companionOn
           ? "Live Companion is unlocked on this trip. These reminders and check-ins are for this trip only."
-          : "Live Companion is not unlocked on this trip. Nothing here is from another trip."}
+          : "Live Companion is not unlocked on this trip. These reminders belong to this trip only."}
       </p>
 
       <section className="mt-6">
         <NotificationTimelineCard initialItems={notificationItems} />
       </section>
 
+      {companionOn ? (
       <section className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
         <ActiveTripPanel trip={trip} />
         <NearbyActivityCard tripId={trip.id} activity={nearbyActivities[0] || upNext.activity} />
       </section>
+      ) : (
+        <Card className="mt-6">
+          <h1 className="text-2xl font-black text-ink">Reminders stay with this trip.</h1>
+          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+            Check-ins and Live Companion tools appear here after Live Companion is unlocked for this trip. Nothing on this page comes from another trip.
+          </p>
+        </Card>
+      )}
 
+      {companionOn ? (
       <section className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
         <CurrentDayTimeline
           day={currentDay.day}
@@ -207,10 +216,11 @@ export default async function NotificationsPage() {
           <CheckedActivitiesList activities={checked.activities} />
         </div>
       </section>
+      ) : null}
 
       <section className="mt-5">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Live companion events</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{companionOn ? "Live Companion updates" : "Trip updates"}</p>
           <div className="mt-4 grid gap-3">
             {(events.data || []).length ? (
               (events.data || []).map((event) => (

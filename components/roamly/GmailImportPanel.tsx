@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
+import { closeTravelerSentence } from "@/lib/roamly/itineraryPresentation";
 
 type EmailConnectionState = {
   provider: string;
@@ -34,10 +35,11 @@ function syncHonesty(value: string | null, locale: RoamlyLocale) {
   const formatted = formatSync(value, locale);
   if (!value) return `Last sync: not yet. Use Sync now. Roamly is not claiming a fresh inbox.`;
   const parsed = new Date(value).getTime();
+  const synced = closeTravelerSentence(`Last sync ${formatted}`);
   if (!Number.isFinite(parsed) || Date.now() - parsed > STALE_SYNC_MS) {
-    return `Last sync ${formatted}. That check is stale. Use Sync now. Roamly is not claiming a 30-minute refresh.`;
+    return `${synced} That check is stale. Use Sync now. Roamly is not claiming a 30-minute refresh.`;
   }
-  return `Last sync ${formatted}.`;
+  return synced;
 }
 
 function formatSync(value: string | null, locale: RoamlyLocale) {

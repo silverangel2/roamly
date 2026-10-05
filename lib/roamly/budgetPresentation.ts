@@ -70,9 +70,11 @@ export function buildBudgetPresentation(input: {
   breakdown: BudgetBreakdown;
   priceDiscovery?: Record<string, unknown> | null;
   confirmedBookingCount?: number;
+  /** Timeline rows whose price is unknown. Missing prices are not zero. */
+  unknownLineItemCount?: number;
 }): BudgetPresentation {
   const discovery = input.priceDiscovery || {};
-  const unknownCount = numberValue(discovery.unknownMarketPriceCount) || 0;
+  const unknownCount = (numberValue(discovery.unknownMarketPriceCount) || 0) + (input.unknownLineItemCount || 0);
   const committedBookingStatus = typeof discovery.committed_booking_status === "string" ? discovery.committed_booking_status : null;
   const uncertainty = unknownCopy(discovery.unknownMarketPriceCategories, unknownCount);
   const pricedAmount = pricedCategorySum(input.breakdown);
@@ -93,8 +95,8 @@ export function buildBudgetPresentation(input: {
   const gapSentence = materialUnpriced
     ? " Unpriced items stay not available and are not treated as zero."
     : "";
-  const onFile = input.totalEstimateAmount != null && materialUnpriced && pricedAmount == null
-    ? ` An estimate of ${formatBudgetMoney(input.totalEstimateAmount, input.currency)} is on file, but it is not an itemized priced total.`
+  const onFile = input.totalEstimateAmount != null && materialUnpriced
+    ? ` ${formatBudgetMoney(input.totalEstimateAmount, input.currency)} is an incomplete estimate on file. It is not a confirmed total, and a missing item price is not $0.`
     : "";
   const statusDetail = status === "WITHIN_BUDGET"
     ? "The current estimate fits your budget, based on the prices Roamly has."
@@ -146,7 +148,7 @@ export function buildBudgetPresentation(input: {
     statusDetail,
     targetLabel: input.budgetAmount == null ? "Budget target not set" : formatBudgetMoney(input.budgetAmount, input.currency),
     totalCaption: estimateKind === "priced" ? "Priced total" : estimateKind === "not_calculated" ? "Estimated total" : "Estimate on file",
-    totalLabel: input.totalEstimateAmount == null ? "Not calculated" : materialUnpriced && pricedAmount == null ? "Not itemized" : formatBudgetMoney(input.totalEstimateAmount, input.currency),
+    totalLabel: input.totalEstimateAmount == null ? "Not calculated" : materialUnpriced ? "Not a confirmed total" : formatBudgetMoney(input.totalEstimateAmount, input.currency),
     pricedCaption: materialUnpriced && pricedAmount != null ? "Priced so far" : "Priced",
     pricedLabel: pricedAmount == null ? "Not available" : formatBudgetMoney(pricedAmount, input.currency),
     unpricedLabel: uncertainty.length ? uncertainty.join(" ") : estimateKind === "estimated_with_gaps" ? "Some prices are not available" : "None reported",

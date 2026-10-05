@@ -39,8 +39,8 @@ import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/ro
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { buildBudgetPresentation } from "@/lib/roamly/budgetPresentation";
-import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
-import { travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
+import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { rankChoicesForNotes, readTripNoteText, travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
 import { mapTravelerTripStatus } from "@/lib/roamly/tripStatusDisplay";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -331,7 +331,10 @@ function BudgetSummary({
   const intentPlanning = getTripPlanningMetadata(trip.metadata);
   const intentTravelers = tripTravelerDetails(trip);
   const totalEstimateAmount = getItineraryTotalEstimateAmount(itinerary, priceDiscovery);
-  const presentation = buildBudgetPresentation({ budgetAmount, currency, totalEstimateAmount, breakdown: estimate, priceDiscovery, confirmedBookingCount });
+  const unknownLineItemCount = itinerary.daily_itinerary.reduce((count, day) => {
+    return count + (day.live_timeline || []).filter((item) => String(item.cost_status || "").toUpperCase() === "UNKNOWN").length;
+  }, 0);
+  const presentation = buildBudgetPresentation({ budgetAmount, currency, totalEstimateAmount, breakdown: estimate, priceDiscovery, confirmedBookingCount, unknownLineItemCount });
   const statusTone = presentation.status === "OVER_BUDGET" ? "border-coral/25 bg-coral/10 text-coral" : presentation.status === "BUDGET_UNCERTAIN" ? "border-sun/30 bg-sun/10 text-amber-900" : "border-ocean/20 bg-ocean/10 text-ocean";
 
   return (
@@ -1084,14 +1087,22 @@ function validBookingSuggestionForTrip(
 function BookingRecommendationCard({
   suggestion,
   trip,
-  tripId
+  tripId,
+  suppressFlightFraming = false
 }: {
   suggestion: RoamlyItinerary["booking_suggestions"][number];
   trip: RoamlyTripRecord;
   tripId: string;
+  suppressFlightFraming?: boolean;
 }) {
   const category = bookingCategory(suggestion);
-  const title = bookingTitle(suggestion);
+  const title = presentTravelerTitle({
+    title: bookingTitle(suggestion),
+    category: String(category),
+    origin: suggestion.origin || getTripOriginLabel(trip),
+    destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip),
+    suppressFlightFraming
+  }).title;
   const link = resolveBookingLink(suggestion, trip);
   if (!link?.href) return null;
   const mapQuery = category === "hotel"
@@ -1121,7 +1132,7 @@ function BookingRecommendationCard({
               ))}
           </div>
           <h3 className="mt-2 text-lg font-black leading-6 text-ink">{title}</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{bookingDescription(suggestion)}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{suppressFlightFraming ? presentGroundTransportText(bookingDescription(suggestion)) : bookingDescription(suggestion)}</p>
           <p className="mt-2 text-sm font-black text-ink">{bookingEstimate(suggestion)}</p>
           {suggestion.why_recommended || bookingMeta(suggestion).length ? (
             <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-2">
@@ -1283,6 +1294,8 @@ function buildRelevantBookingGroups(params: {
   transportItems: RoamlyItinerary["booking_suggestions"];
   confirmedBookings: Array<Record<string, unknown>>;
 }) {
+  const notes = readTripNoteText(params.trip);
+  const rank = <T extends { title?: string | null; booking_label?: string | null }>(items: readonly T[]) => rankChoicesForNotes(items, notes, (item) => `${item.title || ""} ${item.booking_label || ""}`);
   const mode = bookingGroupMode(params.itinerary);
   const needsTransport = routeNeedsTransport(params.trip);
   const showFlightFallback =
@@ -1293,13 +1306,13 @@ function buildRelevantBookingGroups(params: {
   const hasRecommendedTransport = Boolean(recommendedTransportFromItinerary(params.itinerary));
   return [
     (showFlightItems || (showFlightFallback && !confirmedNeedSatisfied("flight", params.confirmedBookings, params.trip.id)))
-      ? { title: "Flights", fallback: "flight" as const, items: params.flightItems }
+      ? { title: "Flights", fallback: "flight" as const, items: rank(params.flightItems) }
       : null,
     (params.hotelItems.length > 0 || (params.trip.budget_includes_hotel !== false && !confirmedNeedSatisfied("hotel", params.confirmedBookings, params.trip.id)))
-      ? { title: "Hotels", fallback: "hotel" as const, items: params.hotelItems }
+      ? { title: "Hotels", fallback: "hotel" as const, items: rank(params.hotelItems) }
       : null,
     (params.activityItems.length > 0 || tripIncludesActivities(params.trip))
-      ? { title: "Important activities", fallback: "activity" as const, items: params.activityItems }
+      ? { title: "Important activities", fallback: "activity" as const, items: rank(params.activityItems) }
       : null,
     params.transportItems.length > 0 && !hasRecommendedTransport
       ? { title: "Transport", fallback: null, items: params.transportItems }
@@ -1397,7 +1410,7 @@ function BookingSearchFallbackCard({
   );
 }
 
-function RecommendedTransportCard({ itinerary, tripId, confirmedBookings }: { itinerary: RoamlyItinerary; tripId: string; confirmedBookings: Array<Record<string, unknown>> }) {
+function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppressFlightFraming = false }: { itinerary: RoamlyItinerary; tripId: string; confirmedBookings: Array<Record<string, unknown>>; suppressFlightFraming?: boolean }) {
   const recommended = recommendedTransportFromItinerary(itinerary);
   if (!recommended || !recommended.realistic || recommended.availability === "not_available") return null;
   if ((recommended.mode === "flight" || recommended.mode === "mixed") && reconcileAffiliateAction({
@@ -1436,11 +1449,11 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings }: { it
               origin: recommended.origin,
               destination: recommended.destination,
               category: "transport",
-              suppressFlightFraming: recommended.mode === "drive" || recommended.mode === "mixed"
+              suppressFlightFraming: suppressFlightFraming || recommended.mode === "drive" || recommended.mode === "mixed"
             }).title}</h4>
             <p className="mt-1 text-sm font-black text-ink">{transportEstimate(recommended)}</p>
             {recommended.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{recommended.duration_label}</p> : null}
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{recommended.why_recommended}</p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{suppressFlightFraming ? presentGroundTransportText(recommended.why_recommended) : recommended.why_recommended}</p>
             {recommended.warning ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{recommended.warning}</p> : null}
           </div>
           {href ? (
@@ -1466,7 +1479,7 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings }: { it
   );
 }
 
-function BookingPlan({ itinerary, trip, tripId, confirmedBookings }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string; confirmedBookings: Array<Record<string, unknown>> }) {
+function BookingPlan({ itinerary, trip, tripId, confirmedBookings, suppressFlightFraming = false }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string; confirmedBookings: Array<Record<string, unknown>>; suppressFlightFraming?: boolean }) {
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
   // The fourth argument remains the one-card flight cap: curatedBookingSuggestions(suggestions, trip, ["flight"], 1)
   const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1, confirmedBookings);
@@ -1480,7 +1493,7 @@ function BookingPlan({ itinerary, trip, tripId, confirmedBookings }: { itinerary
       <p className="roamly-no-print rounded-[1rem] border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
         Recommended transport, stays, flights, and important activities. Live prices appear only when a connected provider returned them. {affiliateDisclosure}
       </p>
-      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} confirmedBookings={confirmedBookings} />}
+      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} confirmedBookings={confirmedBookings} suppressFlightFraming={suppressFlightFraming} />}
       {groups.map((group) => {
         return (
           <section key={group.title} className="roamly-print-section">
@@ -1493,6 +1506,7 @@ function BookingPlan({ itinerary, trip, tripId, confirmedBookings }: { itinerary
                     suggestion={suggestion}
                     trip={trip}
                     tripId={tripId}
+                    suppressFlightFraming={suppressFlightFraming}
                   />
                 ))}
               </div>
@@ -1958,6 +1972,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       generationStatus !== "complete" &&
       (!canShowFull || generationFailed)
   );
+  const generationBusy = Boolean(
+    generationProgress &&
+      !["complete", "failed", "partially_failed"].includes(generationStatus)
+  );
   const trackingUnlocked = tripHasTrackingUnlock(trip);
   const paidForItinerary = isItineraryPaid(trip);
   const checkoutNeedsAttention = Boolean(checkoutSyncError && !paidForItinerary && !trackingUnlocked);
@@ -2029,7 +2047,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const travelerDetails = tripTravelerDetails(trip);
   const travelerCount = travelerDetails.adults + travelerDetails.children + travelerDetails.infants;
   const travelerLabel = `${travelerCount} ${travelerCount === 1 ? "traveler" : "travelers"}`;
-  const noteDisplay = travelerNoteDisplay(trip.special_notes || getString(getTripPlanningMetadata(trip.metadata).specialNotes || getTripPlanningMetadata(trip.metadata).special_notes));
+  const noteDisplay = travelerNoteDisplay(readTripNoteText(trip));
   const emailConfigured = isEmailConfigured().configured;
   const maskedEmail = maskEmailAddress(current.user.email);
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
@@ -2055,6 +2073,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
   const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming }).items : [];
   const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
+  const unknownLineItemCount = full?.daily_itinerary.reduce((count, day) => {
+    return count + (day.live_timeline || []).filter((item) => String(item.cost_status || "").toUpperCase() === "UNKNOWN").length;
+  }, 0) || 0;
   const budgetPresentation = full
     ? buildBudgetPresentation({
         budgetAmount: tripBudgetAmount,
@@ -2062,7 +2083,8 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
         totalEstimateAmount: itineraryTotalEstimate,
         breakdown: full.estimated_budget_breakdown,
         priceDiscovery: persistedPriceDiscovery,
-        confirmedBookingCount: confirmedBookingSnapshot.length
+        confirmedBookingCount: confirmedBookingSnapshot.length,
+        unknownLineItemCount
       })
     : null;
   const readinessBookingGroups = full
@@ -2159,7 +2181,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     hasItinerary: canShowFull,
     companionUnlocked: trackingUnlocked,
     budgetOver: budgetPresentation?.status === "OVER_BUDGET",
-    building: generationPanelVisible,
+    building: generationBusy,
     signalsUnknown: canShowFull && !budgetPresentation && readiness.state == null
   });
   const defaultPanelTab = actionFocus === "requirements" && hasRequirements
@@ -2169,8 +2191,10 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
       : typeof actionFocus === "string" && actionFocus.startsWith("day-")
         ? "roamly-tab-day-by-day"
         : null;
+  const showGenerationPanel = generationPanelVisible && (generationBusy || !generationRequiresPayment);
+  const showPaymentWall = generationRequiresPayment && !generationBusy;
   const headerBudgetText = budgetPresentation?.status === "BUDGET_UNCERTAIN"
-    ? "Some prices are not available"
+    ? `${budgetPresentation.targetLabel === "Budget target not set" ? "Budget not set" : `Your budget ${budgetPresentation.targetLabel}`}. Some item prices are not available, and those are not $0.`
     : budgetPresentation?.status === "OVER_BUDGET"
       ? `${budgetPresentation.remainingLabel || "Over budget"} · priced and estimated amounts`
       : headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain");
@@ -2251,10 +2275,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               {checkoutStartFailed ? (
                 <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
               ) : null}
-              {generationRequiresPayment ? (
-                <NoticeBanner tone="coral">Your account’s free itinerary has already been used. Payment is required to generate another itinerary.</NoticeBanner>
+              {showPaymentWall ? (
+                <NoticeBanner>
+                  This draft is saved. Roamly is not preparing it yet. Your free itinerary is already used, so generating this trip needs unlock. You see the price before you pay.
+                </NoticeBanner>
               ) : null}
-              {generationPanelVisible && generationProgress ? (
+              {showGenerationPanel && generationProgress ? (
                 <StagedGenerationProgress
                   tripId={id}
                   initialProgress={generationProgress}
@@ -2268,7 +2294,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 />
               ) : null}
 
-          {!generationPanelVisible ? (
+          {!showGenerationPanel ? (
             <div className="roamly-no-print mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start">
               {!canShowFull ? (
                 <PrimaryTripAction
@@ -2303,16 +2329,18 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           focusAnchor={focusAnchor}
         />
 
-        {!canShowFull && !generationPanelVisible ? (
+        {!canShowFull && !showGenerationPanel ? (
           <section id="day-by-day" className="roamly-enter mt-4 scroll-mt-32 rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-8 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-8">
-            <p className="roamly-eyebrow">{completedTrip ? "Trip completed" : "Itinerary"}</p>
+            <p className="roamly-eyebrow">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">
-              {completedTrip ? "This trip has no saved day-by-day plan" : "Your itinerary isn't ready yet"}
+              {completedTrip ? "This trip has no saved day-by-day plan" : showPaymentWall ? "This draft is waiting for unlock" : "Your itinerary isn't ready yet"}
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
               {completedTrip
                 ? "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here."
-                : "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here."}
+                : showPaymentWall
+                  ? "Roamly is not preparing this itinerary. Unlock it when you want it generated. Nothing is charged until you confirm the price."
+                  : "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here."}
             </p>
           </section>
         ) : null}
@@ -2370,7 +2398,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === defaultPanelTab} />
               ))}
 
-              <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print sticky top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
+              <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print top-[4.25rem] z-20 -mx-4 overflow-x-auto border-y border-[#e8dfd0] bg-[#fffdf8]/95 px-4 py-2 backdrop-blur sm:sticky sm:top-[5.15rem] sm:mx-0 sm:rounded-full sm:border sm:px-3 sm:py-3">
                 <div className="flex min-w-max gap-2">
                   {briefingTabs.map(([tabId, label]) => (
                     <label
@@ -2404,6 +2432,9 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                       <ul className="mt-2 grid gap-1.5">
                         {noteDisplay.constraints.map((line) => <li key={line} className="text-sm leading-6 text-slate-700">{line}</li>)}
                       </ul>
+                      {noteDisplay.hotel ? <p className="mt-3 text-sm leading-6 text-slate-700">{noteDisplay.hotel}</p> : null}
+                      {noteDisplay.flight ? <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.flight}</p> : null}
+                      {noteDisplay.activity ? <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.activity}</p> : null}
                       {noteDisplay.gaps.length ? <p className="mt-3 text-xs leading-5 text-slate-500">{noteDisplay.gaps.join(" ")}</p> : null}
                     </div>
                   ) : null}
@@ -2497,6 +2528,14 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
 
                 <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary={readiness.primaryAction.id === "bookings" ? readiness.urgentItems[0] || "Review the bookings that still need you." : "Only the recommended transport, stay, flights, and important activities."} />
+                  {noteDisplay.text ? (
+                    <div className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
+                      <p className="text-[0.75rem] font-medium text-slate-500">Your notes shape these choices</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-700">{noteDisplay.hotel}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.flight}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.activity}</p>
+                    </div>
+                  ) : null}
                   {focusedBookingLabel ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">Start with your {focusedBookingLabel} details below.</p> : null}
                   <div className="mb-4">
                     <MarketPriceRefreshButton tripId={id} />
@@ -2505,7 +2544,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                     {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
                   </div>
                   <HotelProductOptions presentation={hotelProductPresentation} tripId={id} pendingChoice={pendingHotelProductChoice} />
-                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={currentImportedBookings as Array<Record<string, unknown>>} />
+                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={currentImportedBookings as Array<Record<string, unknown>>} suppressFlightFraming={suppressFlightFraming} />
                   <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
                     <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
                     <div className="mt-4 grid gap-4">
@@ -2521,7 +2560,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 </section> : null}
 
                 {hasEssentials ? (
-                  <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32">
+                  <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32 scroll-mb-[calc(10rem+env(safe-area-inset-bottom))] pb-24 lg:pb-0">
                     <PreTripEssentialsSection essentials={full.pre_trip_essentials} tripId={id} />
                   </section>
                 ) : null}
