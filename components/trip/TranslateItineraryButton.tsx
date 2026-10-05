@@ -12,7 +12,7 @@ type TranslateItineraryButtonProps = {
 };
 
 const buttonClass =
-  "inline-flex items-center justify-center rounded-full border border-ocean/20 bg-white px-4 py-3 text-sm font-black text-ocean shadow-[0_10px_24px_rgba(16,32,51,0.06)] transition hover:border-ocean/40 hover:bg-ocean/5 disabled:pointer-events-none disabled:opacity-60";
+  "inline-flex min-h-11 items-center text-sm font-medium text-slate-500 transition hover:text-ink disabled:pointer-events-none disabled:opacity-60";
 
 export function TranslateItineraryButton({ tripId, displayedLanguage }: TranslateItineraryButtonProps) {
   const router = useRouter();

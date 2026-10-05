@@ -15,34 +15,31 @@ export function HotelPartnerChoices({ partners, tripId, title, recommendationId 
   const single = partners.length === 1;
 
   return (
-    <div className="mt-3 max-w-lg">
+    <div className="mt-3 min-w-0 max-w-lg">
       {priceNote ? <p className="text-sm font-medium text-ink">{priceNote}</p> : null}
       <p className={`${priceNote ? "mt-0.5 " : ""}text-[0.8125rem] leading-5 text-slate-500`}>
         {single
           ? `Book stay options on ${partners[0].label}. Opens their search for these dates.`
-          : "Book stay options — same dates and area. Choose a partner."}
+          : "Same dates and area. Choose a partner."}
       </p>
-      <div className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+      <div className="roamly-partner-row mt-2 flex gap-1 overflow-x-auto pb-0.5">
         {partners.map((partner, index) => {
           const primary = index === 0;
-          const secondaryCount = partners.length - 1;
-          const lastSecondaryAlone = !primary && index === partners.length - 1 && secondaryCount % 2 === 1;
           return (
-            <div key={partner.id} className={primary || single || lastSecondaryAlone ? "sm:col-span-2" : undefined}>
-              <BookingRecommendationButton
-                href={partner.href}
-                label={single ? "Book stay options" : partner.label}
-                tripId={tripId}
-                category="hotel"
-                title={title}
-                provider={`${partner.label} via Stay22`}
-                recommendationId={recommendationId}
-                hasAffiliateUrl
-                urlType="affiliate"
-                fill
-                emphasis={primary ? "primary" : "secondary"}
-              />
-            </div>
+            <BookingRecommendationButton
+              key={partner.id}
+              href={partner.href}
+              label={single ? "Book stay options" : partner.label}
+              tripId={tripId}
+              category="hotel"
+              title={title}
+              provider={`${partner.label} via Stay22`}
+              recommendationId={recommendationId}
+              hasAffiliateUrl
+              urlType="affiliate"
+              compact
+              emphasis={primary ? "primary" : "secondary"}
+            />
           );
         })}
       </div>

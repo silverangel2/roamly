@@ -15,6 +15,8 @@ type BookingRecommendationButtonProps = {
   urlType: BookingUrlType;
   /** Keep the control full width at every breakpoint. */
   fill?: boolean;
+  /** A short pill for a horizontal partner row. */
+  compact?: boolean;
   /** Primary is the one filled action. Secondary stays visible, just quieter. */
   emphasis?: "primary" | "secondary";
 };
@@ -58,6 +60,7 @@ export function BookingRecommendationButton({
   hasAffiliateUrl,
   urlType,
   fill = false,
+  compact = false,
   emphasis = "primary"
 }: BookingRecommendationButtonProps) {
   if (!href) return null;
@@ -68,8 +71,11 @@ export function BookingRecommendationButton({
   if (!trackedHref) return null;
 
   const tone = emphasis === "secondary"
-    ? "border border-[#e6dece] bg-white text-ink hover:bg-[#fbf8ef]"
-    : "border border-transparent bg-ocean text-white hover:bg-[#17899a]";
+    ? "bg-[#f3efe6] text-ink hover:bg-[#e9e2d4]"
+    : "bg-ocean text-white hover:bg-[#17899a]";
+  const shape = compact
+    ? "min-h-11 w-auto shrink-0 rounded-full px-3 text-[0.8125rem]"
+    : `min-h-11 w-full rounded-full px-5 py-2.5 text-sm ${fill ? "" : "sm:w-auto"}`;
 
   return (
     <a
@@ -91,7 +97,7 @@ export function BookingRecommendationButton({
           url_type: urlType
         })
       }
-      className={`roamly-press roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-semibold tracking-tight transition ${tone} ${fill ? "" : "sm:w-auto"}`}
+      className={`roamly-press roamly-no-print inline-flex items-center justify-center font-semibold tracking-tight transition ${tone} ${shape}`}
     >
       {label}
     </a>
