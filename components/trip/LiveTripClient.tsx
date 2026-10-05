@@ -1475,6 +1475,30 @@ export function LiveTripClient({
           </div>
         </div>
 
+        {permission !== "granted" && watching ? (
+          <div className="border-b border-cloud bg-amber-50 px-4 py-3" role="alert">
+            <p className="text-sm font-black text-amber-900">
+              {permission === "denied"
+                ? "Location is off — Live Companion can't track where you are."
+                : "Waiting for your location — Live Companion can't track where you are yet."}
+            </p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
+              {permission === "denied"
+                ? "Allow location for Roamly in your phone settings, then return here."
+                : "Tap below so Roamly can use your location while the trip is active."}
+            </p>
+            {permission !== "denied" ? (
+              <button
+                type="button"
+                onClick={() => void startForegroundLocation()}
+                className="mt-2 min-h-11 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+              >
+                Turn on location
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="grid gap-4 p-4 md:grid-cols-[1.15fr_0.85fr] md:p-6">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{t("ui.status.now", "Now")}</p>
