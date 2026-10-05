@@ -205,6 +205,42 @@ const bookedAirport = titles.presentGroundTransportText("Billy Bishop Airport lo
 assert.match(bookedAirport, /lounge/i);
 assert.equal(titles.shouldSuppressFlightFraming({ transportationPreference: "flight", hasConfirmedFlight: false }), true);
 assert.equal(titles.shouldSuppressFlightFraming({ transportationPreference: "flight", hasConfirmedFlight: true }), false);
+const plannedSearch = titles.presentTrackingActivityDetail("Montreal, Canada hotel search", true, "Montreal, Canada");
+assert.match(plannedSearch, /Your stay in Montreal still needs to be confirmed/);
+assert.equal(/hotel search/i.test(plannedSearch), false);
+assert.equal(/[.!?]$/.test(plannedSearch), true);
+const plannedAirport = titles.presentTrackingActivityDetail("The hotel shuttle leaves from the airport every hour.", true, "Manila");
+assert.equal(/\bairport\b/i.test(plannedAirport), false);
+assert.equal(/leaves from the every/i.test(plannedAirport), false);
+assert.match(plannedAirport, /every hour/);
+assert.equal(/[.!?]$/.test(plannedAirport), true);
+const plannedLeave = titles.presentTrackingActivityDetail("Leave for the airport after breakfast.", true, "Manila");
+assert.match(plannedLeave, /^Leave for your departure after breakfast\.$/);
+const namedStop = titles.confirmableStopTitle({
+  title: "The Peninsula Manila hotel search",
+  destination: "Manila, Philippines",
+  suppressFlightFraming: true
+});
+assert.match(namedStop, /Peninsula Manila/);
+assert.equal(/hotel search/i.test(namedStop), false);
+const stayLabel = titles.confirmableStopTitle({
+  title: "Hotels in Manila",
+  destination: "Manila",
+  suppressFlightFraming: true
+});
+assert.equal(stayLabel, "Stay in Manila");
+const unnamedStop = titles.confirmableStopTitle({
+  title: "Manila",
+  destination: "Manila, Philippines",
+  suppressFlightFraming: true
+});
+assert.equal(unnamedStop, "");
+const eventPlace = titles.confirmableStopTitle({
+  title: "Jazz night at The Peninsula",
+  destination: "Manila",
+  suppressFlightFraming: true
+});
+assert.match(eventPlace, /Jazz night at The Peninsula/);
 
 const budget = loadTsModule("lib/roamly/budgetPresentation.ts");
 const gaps = budget.buildBudgetPresentation({
@@ -319,6 +355,9 @@ assert.match(tripPage, /generationAwaitingUnlock/);
 assert.match(tripPage, /travelerDraftCommand/);
 assert.match(tripPage, /generationInProgress=\{showPaymentWall \? false : generationInProgress\}/);
 assert.match(tripPage, /id="unlock"/);
+assert.match(tripPage, /Suspense fallback=\{<TripHomeLoading/);
+assert.equal(fs.existsSync(path.join(root, "app/trip/[id]/loading.tsx")), false, "Live must not inherit the trip-home skeleton");
+assert.equal((tripPage.match(/This draft is saved\. Roamly is not preparing it yet/g) || []).length, 1);
 const sw = fs.readFileSync(path.join(root, "public/sw.js"), "utf8");
 assert.match(sw, /roamly-offline-v2/);
 assert.match(sw, /async function networkFirst/);

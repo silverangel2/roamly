@@ -55,6 +55,7 @@ export type LiveCompanionActivity = {
   longitude?: number | null;
   radiusMeters?: number | null;
   status?: string | null;
+  category?: string | null;
   booking?: LiveBookingDetails | null;
 };
 

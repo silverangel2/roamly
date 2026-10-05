@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
@@ -103,6 +104,26 @@ type TripPageProps = {
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+/** Skeleton stays on the trip home page only. Live must not inherit it, or returning there flashes an empty shell while the saved trip is about to render. */
+function TripHomeLoading() {
+  return (
+    <div
+      className="mx-auto w-full max-w-6xl animate-pulse px-4 py-8 sm:px-6"
+      role="status"
+      aria-label="Loading trip"
+    >
+      <div className="h-9 w-2/3 rounded-2xl bg-slate-200" />
+      <div className="mt-3 h-5 w-1/3 rounded-xl bg-slate-200" />
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="h-64 rounded-[1.5rem] bg-slate-200" />
+        <div className="h-64 rounded-[1.5rem] bg-slate-200" />
+      </div>
+      <div className="mt-4 h-40 rounded-[1.5rem] bg-slate-200" />
+      <span className="sr-only">Loading your trip…</span>
+    </div>
+  );
+}
 
 type BadgeTone = "ocean" | "sun" | "coral" | "ink";
 
@@ -1880,7 +1901,7 @@ function isItineraryPaid(trip: {
   );
 }
 
-export default async function TripPage({ params, searchParams }: TripPageProps) {
+async function TripPage({ params, searchParams }: TripPageProps) {
   const { id } = await params;
   const search = searchParams ? await searchParams : {};
   const locale = await getServerLocale();
@@ -2257,12 +2278,12 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
             </Badge>
           </div>
 
-          {commandNextTitle ? (
+          {!draftCommand && commandNextTitle ? (
             <div className="roamly-now-next mt-5 border-l-2 border-ocean bg-[#e8f5f0] px-4 py-4 text-ink sm:px-5">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">What matters now</p>
               <p className="mt-1 text-lg font-black">{commandNextTitle}</p>
               {commandNextMeta ? <p className="mt-1 text-sm font-bold text-slate-600">{commandNextMeta}</p> : null}
-              <a href={draftCommand ? "#unlock" : readiness.primaryAction.href} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">{draftCommand?.action || readiness.primaryAction.label}</a>
+              <a href={readiness.primaryAction.href} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">{readiness.primaryAction.label}</a>
             </div>
           ) : null}
 
@@ -2286,11 +2307,6 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               ) : null}
               {checkoutStartFailed ? (
                 <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
-              ) : null}
-              {showPaymentWall ? (
-                <NoticeBanner>
-                  <span id="unlock">This draft is saved. Roamly is not preparing it yet. Your free itinerary is already used, so generating this trip needs unlock. You see the price before you pay.</span>
-                </NoticeBanner>
               ) : null}
               {showGenerationPanel && generationProgress ? (
                 <StagedGenerationProgress
@@ -2345,15 +2361,19 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           <section id="day-by-day" className="roamly-enter mt-4 scroll-mt-32 rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-8 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-8">
             <p className="roamly-eyebrow">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">
-              {completedTrip ? "This trip has no saved day-by-day plan" : showPaymentWall ? "This draft is waiting for unlock" : "Your itinerary isn't ready yet"}
+              {completedTrip ? "This trip has no saved day-by-day plan" : showPaymentWall ? "Unlock this trip" : "Your itinerary isn't ready yet"}
             </h2>
-            <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
-              {completedTrip
-                ? "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here."
-                : showPaymentWall
-                  ? "Roamly is not preparing this itinerary. Unlock it when you want it generated. Nothing is charged until you confirm the price."
+            {showPaymentWall ? (
+              <p id="unlock" className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+                This draft is saved. Roamly is not preparing it yet. You see the price before you pay.
+              </p>
+            ) : (
+              <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+                {completedTrip
+                  ? "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here."
                   : "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here."}
-            </p>
+              </p>
+            )}
           </section>
         ) : null}
 
@@ -2624,5 +2644,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
         ) : null}
       </div>
     </div>
+  );
+}
+
+export default function TripHomePage(props: TripPageProps) {
+  return (
+    <Suspense fallback={<TripHomeLoading />}>
+      <TripPage {...props} />
+    </Suspense>
   );
 }
