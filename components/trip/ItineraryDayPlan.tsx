@@ -5,7 +5,7 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { formatMoney, type RoamlyItinerary } from "@/lib/itinerary";
-import { cleanTravelerTimeLabel, isDriveMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, isDriveMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerArea, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -143,8 +143,8 @@ function transferSummary(record: Record<string, unknown>, suppressFlightFraming 
   const mode = isDriveMode(rawMode) || suppressFlightFraming ? "Drive" : rawMode;
   const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
   const title = cleanTimelineTitle(record, suppressFlightFraming);
-  const safeOrigin = origin && !looksLikeProviderSearchTitle(origin) ? origin : "";
-  const safeDestination = destination && !looksLikeProviderSearchTitle(destination) ? destination : "";
+  const safeOrigin = presentTravelerArea(origin, suppressFlightFraming);
+  const safeDestination = presentTravelerArea(destination, suppressFlightFraming);
   const route = safeOrigin && safeDestination ? `${safeOrigin} to ${safeDestination}` : safeDestination || safeOrigin || title;
   return [mode || "Transfer", route, minutes ? `${minutes} min` : ""].filter(Boolean).join(" · ");
 }
@@ -388,9 +388,12 @@ export function buildDisplayTimelineItems(
     const title = cleanTimelineTitle(record, suppressFlightFraming);
     const type = timelineText(record, "item_type", "type");
     const category = timelineText(record, "category") || type || "Stop";
-    const location = suppressFlightFraming
-      ? presentGroundTransportText(timelineText(record, "location_name", "location", "place_name", "venue", "area"))
-      : timelineText(record, "location_name", "location", "place_name", "venue", "area");
+    const locationLabel = presentTravelerArea(
+      timelineText(record, "location_name", "location", "place_name", "venue", "area"),
+      suppressFlightFraming,
+      category
+    );
+    const location = locationLabel && locationLabel !== title ? locationLabel : "";
     const description = suppressFlightFraming
       ? presentGroundTransportText(timelineText(record, "description", "summary", "details", "notes"))
       : timelineText(record, "description", "summary", "details", "notes");
@@ -402,9 +405,7 @@ export function buildDisplayTimelineItems(
     const sortMinutes = parseClockMinutes(start || timeLabel);
     const duration = timelineNumber(record, "durationMinutes", "duration_minutes");
     const travelMinutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes");
-    const mapQuery = suppressFlightFraming
-      ? presentGroundTransportText(timelineText(record, "map_query", "mapQuery") || location || title)
-      : timelineText(record, "map_query", "mapQuery") || location || title;
+    const mapQuery = presentTravelerArea(timelineText(record, "map_query", "mapQuery"), suppressFlightFraming, category) || location || title;
     const isLunch = /\blunch\b/i.test(`${title} ${description} ${category}`);
     const warning =
       isLunch && sortMinutes != null && sortMinutes > 14 * 60
@@ -563,13 +564,14 @@ export function DayTimelineCard({
   const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];
   const rawDaySummary = day.primary_plan || day.morning || day.afternoon || day.evening;
   const daySummary = compact(
-    suppressFlightFraming ? presentGroundTransportText(rawDaySummary) : rawDaySummary,
+    presentTravelerArea(rawDaySummary, suppressFlightFraming),
     timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
     160
   );
+  const dayCity = presentTravelerArea(day.city, suppressFlightFraming);
   const dayTitle = presentTravelerTitle({
     title: day.title,
-    destination: day.city,
+    destination: dayCity || day.city,
     suppressFlightFraming
   }).title || "Your day";
   const dayHasUnknownPrice = timelineItems.some((item) => item.statusText === "Price not available");
@@ -595,7 +597,7 @@ export function DayTimelineCard({
             {day.date ? <span>{weekday ? `${weekday}, ` : ""}{formatTripDate(day.date, locale)}</span> : null}
           </p>
           <h3 className="mt-2 text-2xl font-black leading-8 tracking-tight text-ink sm:text-[1.7rem]">{dayTitle}</h3>
-          {day.city ? <p className="mt-1 text-sm font-bold text-slate-500">{day.city}</p> : null}
+          {dayCity ? <p className="mt-1 text-sm font-bold text-slate-500">{dayCity}</p> : null}
         </div>
         {dayHasUnknownPrice ? (
           <span className="w-fit shrink-0 rounded-full bg-sun/20 px-3 py-1.5 text-xs font-black text-amber-900">Item price not available</span>

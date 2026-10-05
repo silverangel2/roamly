@@ -206,7 +206,7 @@ export function timezoneFromTripMetadata(metadata: unknown, fallback = "UTC") {
     root?.destination_timezone
   ];
   const timezone = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
-  return timezone || fallback;
+  return timezone && safeTimeZone(timezone) === timezone ? timezone : fallback;
 }
 
 function toDate(value: string | Date | null | undefined) {
@@ -215,9 +215,19 @@ function toDate(value: string | Date | null | undefined) {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
+function safeTimeZone(timezone: string) {
+  const value = timezone.trim() || "UTC";
+  try {
+    Intl.DateTimeFormat("en-CA", { timeZone: value }).format();
+    return value;
+  } catch {
+    return "UTC";
+  }
+}
+
 function datePartsInZone(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
+    timeZone: safeTimeZone(timezone),
     year: "numeric",
     month: "2-digit",
     day: "2-digit",

@@ -120,9 +120,46 @@ const airport = titles.presentTravelerTitle({
   title: "Montreal airport",
   suppressFlightFraming: true,
   origin: "Saint John",
+  destination: "Montreal, Canada"
+});
+assert.equal(airport.title, "Getting from Saint John to Montreal");
+assert.equal(/airport/i.test(airport.title), false);
+const dayAirport = titles.presentTravelerTitle({
+  title: "Montreal airport and city center",
+  suppressFlightFraming: true,
+  destination: "Montreal airport and city center"
+});
+assert.equal(/airport/i.test(dayAirport.title), false);
+assert.match(dayAirport.title, /Montreal/);
+assert.equal(/airport/i.test(titles.presentGroundTransportText("Montreal airport and city center")), false);
+assert.match(titles.presentGroundTransportText("Montreal airport and city center"), /city center/i);
+assert.equal(/airport/i.test(titles.presentTravelerArea("Montreal airport", true)), false);
+const hotelPlace = titles.presentTravelerArea("Montreal, Canada hotel search", true, "hotel");
+assert.equal(hotelPlace, "Stay in Montreal");
+assert.equal(/hotel search/i.test(hotelPlace), false);
+const timelineTitle = titles.presentTravelerTitle({
+  title: "Montreal airport",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal, Canada"
+});
+const nextTitle = titles.presentTravelerTitle({
+  title: "Montreal airport",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal, Canada"
+});
+assert.equal(timelineTitle.title, nextTitle.title);
+assert.equal(/^Trip · Montreal, Canada$/.test(timelineTitle.title), false);
+const bookedFlightPlace = titles.presentTravelerTitle({ title: "Montreal airport", suppressFlightFraming: false });
+assert.match(bookedFlightPlace.title, /Montreal airport/);
+const lounge = titles.presentTravelerTitle({
+  title: "Billy Bishop Airport lounge",
+  suppressFlightFraming: true,
+  origin: "Saint John",
   destination: "Montreal"
 });
-assert.equal(/airport/i.test(airport.title), false);
+assert.match(lounge.title, /lounge/i);
 const bookedAirport = titles.presentGroundTransportText("Billy Bishop Airport lounge");
 assert.match(bookedAirport, /lounge/i);
 assert.equal(titles.shouldSuppressFlightFraming({ transportationPreference: "flight", hasConfirmedFlight: false }), true);
@@ -179,6 +216,32 @@ const current = notificationTrips.selectNotificationTrip([
 ], new Date("2026-10-05T15:00:00.000Z"));
 assert.equal(current.id, "mtl");
 assert.equal(notificationTrips.tripCompanionUnlocked(current), true);
+const readiness = loadTsModule("lib/roamly/tripReadiness.ts");
+const savedDraft = readiness.deriveTripReadiness({
+  tripId: "manila",
+  startDate: "2026-11-01",
+  endDate: "2026-12-08",
+  hasItinerary: false,
+  generationAwaitingUnlock: true,
+  now: new Date("2026-10-05T15:00:00.000Z")
+});
+assert.equal(/still being prepared/i.test(savedDraft.urgentItems.join(" ")), false);
+assert.match(savedDraft.urgentItems.join(" "), /not preparing/);
+assert.match(savedDraft.urgentItems.join(" "), /saved/);
+const preparing = readiness.deriveTripReadiness({
+  tripId: "manila",
+  startDate: "2026-11-01",
+  endDate: "2026-12-08",
+  hasItinerary: false,
+  generationAwaitingUnlock: false,
+  now: new Date("2026-10-05T15:00:00.000Z")
+});
+assert.match(preparing.urgentItems.join(" "), /still being prepared/);
+assert.match(fs.readFileSync(path.join(root, "components/roamly/UpNextActivityCard.tsx"), "utf8"), /^"use client"/);
+assert.match(fs.readFileSync(path.join(root, "app/trip/[id]/page.tsx"), "utf8"), /generationAwaitingUnlock/);
+const zones = loadTsModule("lib/roamly/liveCompanion.ts");
+assert.equal(zones.timezoneFromTripMetadata({ timezone: "Not/AZone" }), "UTC");
+assert.equal(zones.timezoneFromTripMetadata({ planning: { timezone: "America/Toronto" } }), "America/Toronto");
 
 const ranking = loadTsModule("lib/roamly/dashboardTripPresentation.ts");
 const montreal = { id: "mtl", status: "upcoming", itinerary_locked: true, start_date: "2026-10-20", end_date: "2026-10-24", tracking_unlocked: true, created_at: "2026-09-01T00:00:00.000Z" };

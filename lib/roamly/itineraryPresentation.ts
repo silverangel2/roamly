@@ -122,6 +122,7 @@ export function presentGroundTransportText(value: string | null | undefined) {
     .replace(/\bairport\s+transfer\b/gi, "local transfer")
     .replace(/\b(?:to|for)\s+the\s+airport\b/gi, "to your departure point")
     .replace(/\bat\s+the\s+airport\b/gi, "on arrival")
+    .replace(/\b([A-Za-z][A-Za-z.'-]{1,40}(?:\s+[A-Za-z][A-Za-z.'-]{1,40}){0,3})\s+airport\s+and\s+(city\s+cent(?:er|re)|downtown)\b/gi, "$1 $2")
     .replace(/\b[A-Z]{3}\s+airport\b/g, "arrival point")
     .replace(/\b([A-Za-z][A-Za-z.'-]{1,40}(?:\s+[A-Za-z][A-Za-z.'-]{1,40}){0,3})\s+airport\b/g, "$1")
     .replace(/\bairport\b/gi, "")
@@ -185,7 +186,24 @@ export function presentTravelerTitle(input: {
   }
 
   if (ground && input.suppressFlightFraming) {
-    if (title && !searchTitle && !/\bflights?\b/i.test(title) && !/\bairport\b/i.test(rawTitle)) {
+    const namedAirportPlace = !searchTitle && SPECIFIC_AIRPORT_PLACE.test(rawTitle) && !/\bairport\s*(?:\/\s*station|station|transfer)\b/i.test(rawTitle);
+    if (namedAirportPlace) {
+      return { title: title || rawTitle, needsConfirmation: false, modeLabel: null };
+    }
+    if (/\bdeparture buffer\b/i.test(rawTitle) || /\bleave time before\b/i.test(title)) {
+      return {
+        title: "Leave time before you head out",
+        needsConfirmation: true,
+        modeLabel: isDriveMode(input.mode) ? "Drive" : "Mixed"
+      };
+    }
+    const from = placeHead(origin && !looksLikeProviderSearchTitle(origin) ? origin : "");
+    const to = placeHead(destination && !looksLikeProviderSearchTitle(destination) ? presentGroundTransportText(destination) : "") || placeHead(humanLocation);
+    const genericTravelPlaceholder = (/\bairport\b/i.test(rawTitle) && !SPECIFIC_AIRPORT_PLACE.test(rawTitle)) || (/\bflights?\b/i.test(rawTitle) && !/\bthen fly\b/i.test(rawTitle));
+    if (genericTravelPlaceholder && from && to && from.toLowerCase() !== to.toLowerCase()) {
+      return { title: `Getting from ${from} to ${to}`, needsConfirmation: true, modeLabel: mixed ? "Mixed" : null };
+    }
+    if (title && !searchTitle && !/\bflights?\b/i.test(title) && !/\bairport\b/i.test(title)) {
       if (isDriveMode(input.mode) || /\bdrive\b/i.test(title)) {
         return {
           title: /\bdrive\b/i.test(title) ? title : `Drive · ${title}`,
@@ -195,20 +213,13 @@ export function presentTravelerTitle(input: {
       }
       return { title, needsConfirmation: false, modeLabel: mixed ? "Mixed" : "Drive" };
     }
-    const from = origin && !looksLikeProviderSearchTitle(origin) ? origin : "";
-    const to = destination && !looksLikeProviderSearchTitle(destination) ? destination : humanLocation;
-    const route = from && to ? `${from} to ${to}` : to || from;
-    if (/\bdeparture buffer\b/i.test(rawTitle) || /\bleave time before\b/i.test(title)) {
-      return {
-        title: "Leave time before you head out",
-        needsConfirmation: true,
-        modeLabel: isDriveMode(input.mode) ? "Drive" : "Mixed"
-      };
+    if (from && to && from.toLowerCase() !== to.toLowerCase()) {
+      return { title: `Getting from ${from} to ${to}`, needsConfirmation: true, modeLabel: mixed ? "Mixed" : null };
     }
     return {
-      title: route ? `${isDriveMode(input.mode) ? "Drive" : "Trip"} · ${route}` : isDriveMode(input.mode) ? "Drive" : "Getting there",
+      title: to || from || "Getting there",
       needsConfirmation: true,
-      modeLabel: isDriveMode(input.mode) ? "Drive" : "Mixed"
+      modeLabel: mixed ? "Mixed" : null
     };
   }
 
@@ -242,6 +253,20 @@ export function repairGarbledGettingTo(value: string | null | undefined, origin?
   }
   const route = splitRoute(text);
   return route ? `Getting from ${route.from} to ${route.to}` : "";
+}
+
+/** Short place labels: search queries become traveler language; unbooked airports lose the airport claim. */
+export function presentTravelerArea(value: string | null | undefined, suppressFlightFraming = false, category = "") {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  if (looksLikeProviderSearchTitle(raw) && raw.length <= 90) {
+    return presentTravelerTitle({
+      title: raw,
+      category: category || raw,
+      suppressFlightFraming
+    }).title;
+  }
+  return suppressFlightFraming ? presentGroundTransportText(raw) : raw;
 }
 
 export function isHollowTravelerPlace(value: string | null | undefined, destination?: string | null) {
