@@ -11,7 +11,9 @@ export type BudgetPresentation = {
   statusLabel: string;
   statusDetail: string;
   targetLabel: string;
+  totalCaption: string;
   totalLabel: string;
+  pricedCaption: string;
   pricedLabel: string;
   unpricedLabel: string;
   estimateKind: BudgetEstimateKind;
@@ -25,6 +27,11 @@ function numberValue(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function positiveAmount(value: unknown) {
+  const amount = numberValue(value);
+  return amount != null && amount > 0 ? amount : null;
+}
+
 function pricedCategorySum(breakdown: BudgetBreakdown) {
   const amounts = [
     breakdown.selected_transport_estimate_amount,
@@ -35,8 +42,8 @@ function pricedCategorySum(breakdown: BudgetBreakdown) {
     breakdown.buffer_estimate_amount,
     breakdown.committed_bookings_amount
   ]
-    .map(numberValue)
-    .filter((amount): amount is number => amount != null && amount > 0);
+    .map(positiveAmount)
+    .filter((amount): amount is number => amount != null);
   if (!amounts.length) return null;
   return amounts.reduce((sum, amount) => sum + amount, 0);
 }
@@ -68,10 +75,14 @@ export function buildBudgetPresentation(input: {
   const unknownCount = numberValue(discovery.unknownMarketPriceCount) || 0;
   const committedBookingStatus = typeof discovery.committed_booking_status === "string" ? discovery.committed_booking_status : null;
   const uncertainty = unknownCopy(discovery.unknownMarketPriceCategories, unknownCount);
-  const uncertain = input.totalEstimateAmount == null || unknownCount > 0 || Boolean(committedBookingStatus && committedBookingStatus !== "known_compatible") || input.breakdown.budget_status === "unknown";
+  const pricedAmount = pricedCategorySum(input.breakdown);
+  const materialUnpriced = uncertainty.length > 0 || unknownCount > 0;
+  const pricedAloneOver = input.budgetAmount != null && pricedAmount != null && pricedAmount > input.budgetAmount;
+  const completeAndOver = !materialUnpriced && input.budgetAmount != null && input.totalEstimateAmount != null && input.totalEstimateAmount > input.budgetAmount;
+  const uncertain = input.totalEstimateAmount == null || materialUnpriced || Boolean(committedBookingStatus && committedBookingStatus !== "known_compatible") || input.breakdown.budget_status === "unknown";
   const status: BudgetPresentationStatus = committedBookingStatus && committedBookingStatus !== "known_compatible"
     ? "BUDGET_UNCERTAIN"
-    : input.breakdown.budget_status === "over_budget"
+    : pricedAloneOver || (input.breakdown.budget_status === "over_budget" && completeAndOver)
     ? "OVER_BUDGET"
     : input.budgetAmount == null || uncertain
       ? "BUDGET_UNCERTAIN"
@@ -79,35 +90,44 @@ export function buildBudgetPresentation(input: {
         ? "LIKELY_WITHIN_BUDGET"
         : "WITHIN_BUDGET";
   const statusLabel = status === "WITHIN_BUDGET" ? "Within budget" : status === "LIKELY_WITHIN_BUDGET" ? "Likely within budget" : status === "OVER_BUDGET" ? "Over budget" : "Budget still uncertain";
-  const gapSentence = uncertainty.length
-    ? " This uses priced and estimated amounts only. Unpriced items stay not available and are not treated as zero."
+  const gapSentence = materialUnpriced
+    ? " Unpriced items stay not available and are not treated as zero."
+    : "";
+  const onFile = input.totalEstimateAmount != null && materialUnpriced && pricedAmount == null
+    ? ` An estimate of ${formatBudgetMoney(input.totalEstimateAmount, input.currency)} is on file, but it is not an itemized priced total.`
     : "";
   const statusDetail = status === "WITHIN_BUDGET"
     ? "The current estimate fits your budget, based on the prices Roamly has."
     : status === "LIKELY_WITHIN_BUDGET"
       ? "The current estimate is close to your budget, so leave room for prices to move."
       : status === "OVER_BUDGET"
-        ? `The current estimate is above your budget. Confirmed commitments stay protected; only flexible choices can be reconsidered.${gapSentence}`
+        ? pricedAloneOver && materialUnpriced
+          ? `Priced so far is already above your budget.${gapSentence}`
+          : `The current estimate is above your budget. Confirmed commitments stay protected; only flexible choices can be reconsidered.${gapSentence}`
         : input.budgetAmount == null
           ? "Add a budget target to understand affordability."
-          : "Roamly is still missing material prices, so a remaining amount would be misleading.";
-  const pricedAmount = pricedCategorySum(input.breakdown);
-  const estimateKind: BudgetEstimateKind = input.totalEstimateAmount == null
+          : `Roamly is still missing material prices, so a remaining amount would be misleading.${onFile}${gapSentence}`;
+  const estimateKind: BudgetEstimateKind = input.totalEstimateAmount == null && pricedAmount == null
     ? "not_calculated"
-    : status === "BUDGET_UNCERTAIN" || uncertainty.length
+    : status === "BUDGET_UNCERTAIN" || materialUnpriced
       ? "estimated_with_gaps"
       : "priced";
-  const remaining = input.budgetAmount != null && input.totalEstimateAmount != null && status !== "BUDGET_UNCERTAIN"
+  const remaining = input.budgetAmount != null && !materialUnpriced && input.totalEstimateAmount != null && status !== "BUDGET_UNCERTAIN"
     ? input.budgetAmount - input.totalEstimateAmount
-    : null;
+    : input.budgetAmount != null && pricedAloneOver && pricedAmount != null
+      ? input.budgetAmount - pricedAmount
+      : null;
   const remainingLabel = remaining == null ? null : remaining < 0 ? `Over budget by ${formatBudgetMoney(Math.abs(remaining), input.currency)}` : `Remaining: ${formatBudgetMoney(remaining, input.currency)}`;
   const confidence = input.breakdown.budget_category_confidence || [];
   const foodAmount = numberValue(input.breakdown.food_estimate_amount);
   const bufferAmount = numberValue(input.breakdown.buffer_estimate_amount);
   const otherAmount = foodAmount != null && bufferAmount != null ? foodAmount + bufferAmount : null;
   const driver = (label: string, amount: number | null | undefined, category: string, unknownPattern: RegExp) => {
-    if (typeof amount === "number" && Number.isFinite(amount)) return { label, value: formatBudgetMoney(amount, input.currency), status: "expected" as const };
-    if (uncertainty.some((item) => unknownPattern.test(item))) return { label, value: "Not priced yet", status: "unknown" as const };
+    const priced = positiveAmount(amount);
+    if (priced != null) return { label, value: formatBudgetMoney(priced, input.currency), status: "expected" as const };
+    if (uncertainty.some((item) => unknownPattern.test(item)) || amount == null || amount === 0) {
+      if (uncertainty.some((item) => unknownPattern.test(item)) || amount === 0) return { label, value: "Not priced yet", status: "unknown" as const };
+    }
     if (confidence.some((item) => item.category === category && item.label === "User uploaded confirmation")) return { label, value: "Handled", status: "committed" as const };
     return null;
   };
@@ -125,7 +145,9 @@ export function buildBudgetPresentation(input: {
     statusLabel,
     statusDetail,
     targetLabel: input.budgetAmount == null ? "Budget target not set" : formatBudgetMoney(input.budgetAmount, input.currency),
-    totalLabel: input.totalEstimateAmount == null ? "Not calculated" : formatBudgetMoney(input.totalEstimateAmount, input.currency),
+    totalCaption: estimateKind === "priced" ? "Priced total" : estimateKind === "not_calculated" ? "Estimated total" : "Estimate on file",
+    totalLabel: input.totalEstimateAmount == null ? "Not calculated" : materialUnpriced && pricedAmount == null ? "Not itemized" : formatBudgetMoney(input.totalEstimateAmount, input.currency),
+    pricedCaption: materialUnpriced && pricedAmount != null ? "Priced so far" : "Priced",
     pricedLabel: pricedAmount == null ? "Not available" : formatBudgetMoney(pricedAmount, input.currency),
     unpricedLabel: uncertainty.length ? uncertainty.join(" ") : estimateKind === "estimated_with_gaps" ? "Some prices are not available" : "None reported",
     estimateKind,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type TripContextNavProps = {
   tripId: string;
@@ -14,6 +14,8 @@ type TripContextNavProps = {
   /** When false, the trip has no itinerary content — hash links to tab panels
    *  would be dead, so they are hidden. */
   contentReady?: boolean;
+  /** Server-known section, such as ?focus=budget, so the tab and scroll stay in sync. */
+  focusAnchor?: string | null;
 };
 
 const destinations = [
@@ -64,6 +66,16 @@ function clearTripPanels() {
   });
 }
 
+function scrollToHash(hash: string) {
+  const id = hash.replace(/^#/, "");
+  if (!id || typeof document === "undefined") return;
+  const node = document.getElementById(id);
+  if (!node) return;
+  window.requestAnimationFrame(() => {
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
 function goHome(tripId: string, setHash: (hash: string) => void) {
   if (typeof window === "undefined") return;
   window.history.replaceState(null, "", `/trip/${tripId}`);
@@ -72,28 +84,45 @@ function goHome(tripId: string, setHash: (hash: string) => void) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-export function TripContextNav({ tripId, title, destination, dates, status, showContext = true, contentReady = true }: TripContextNavProps) {
+export function TripContextNav({ tripId, title, destination, dates, status, showContext = true, contentReady = true, focusAnchor = null }: TripContextNavProps) {
   const pathname = usePathname();
   const [hash, setHash] = useState("");
+  const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const updateHash = () => {
-      const nextHash = window.location.hash;
+      const fromWindow = window.location.hash;
+      const nextHash = fromWindow && fromWindow !== "#" ? fromWindow : focusAnchor ? `#${focusAnchor}` : "";
       setHash(nextHash);
-      if (!nextHash || nextHash === "#") clearTripPanels();
-      else activateTabForSuffix(nextHash);
+      if (!nextHash) clearTripPanels();
+      else {
+        activateTabForSuffix(nextHash);
+        scrollToHash(nextHash);
+      }
     };
     updateHash();
     window.addEventListener("hashchange", updateHash);
-    return () => window.removeEventListener("hashchange", updateHash);
-  }, []);
+    window.addEventListener("popstate", updateHash);
+    return () => {
+      window.removeEventListener("hashchange", updateHash);
+      window.removeEventListener("popstate", updateHash);
+    };
+  }, [pathname, focusAnchor]);
+
+  useEffect(() => {
+    const row = rowRef.current;
+    const selected = row?.querySelector<HTMLElement>("[aria-current='page']");
+    if (!row || !selected) return;
+    const left = selected.offsetLeft - 12;
+    if (row.scrollWidth > row.clientWidth) row.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [hash, pathname]);
 
   const visibleDestinations = contentReady
     ? destinations
     : destinations.filter((item) => !item.suffix.startsWith("#"));
 
   return (
-    <section className="roamly-no-print mb-5 border-b border-[#e7dfd2] bg-transparent px-0 py-3 sm:px-1">
+    <section className="roamly-no-print mb-4 border-b border-[#e7dfd2]/80 bg-transparent px-0 pb-3 pt-1 sm:px-1">
       {showContext ? (
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">
@@ -103,8 +132,8 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
           {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-bold text-slate-600 sm:inline-flex">{status}</span> : null}
         </div>
       ) : null}
-      <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}min-w-0 overflow-x-auto pb-1`}>
-        <div className="flex min-w-max gap-1 sm:gap-2">
+      <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}roamly-trip-tabs min-w-0`}>
+        <div ref={rowRef} className="flex flex-wrap gap-1.5 sm:flex-nowrap sm:snap-x sm:snap-mandatory sm:gap-1 sm:overflow-x-auto sm:overscroll-x-contain sm:pb-1">
         {visibleDestinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
           const href = `/trip/${tripId}${destinationItem.suffix}`;
@@ -119,13 +148,20 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
                   goHome(tripId, setHash);
                   return;
                 }
-                activateTabForSuffix(destinationItem.suffix);
+                if (destinationItem.suffix.startsWith("#")) {
+                  event.preventDefault();
+                  const nextHash = destinationItem.suffix;
+                  window.history.pushState(null, "", `/trip/${tripId}${nextHash}`);
+                  setHash(nextHash);
+                  activateTabForSuffix(nextHash);
+                  scrollToHash(nextHash);
+                }
               }}
               aria-current={selected ? "page" : undefined}
-              className={`roamly-press inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-3 py-2 text-center text-xs font-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 sm:min-w-24 sm:px-4 sm:text-sm ${
+              className={`roamly-press inline-flex min-h-11 flex-[1_1_30%] snap-start items-center justify-center rounded-full px-3 py-2 text-center text-[0.8125rem] font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 sm:min-w-[5.6rem] sm:flex-none sm:px-3.5 sm:text-sm ${
                 selected
-                  ? "bg-ocean text-white shadow-sm"
-                  : "text-slate-600 hover:bg-mist hover:text-ink"
+                  ? "bg-ink text-white"
+                  : "bg-white/70 text-slate-600 hover:bg-white hover:text-ink"
               }`}
             >
               {destinationItem.label}

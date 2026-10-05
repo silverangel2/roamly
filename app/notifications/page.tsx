@@ -9,7 +9,6 @@ import { UpNextActivityCard } from "@/components/roamly/UpNextActivityCard";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import {
-  getActiveOrUpcomingTrip,
   getCheckedActivities,
   getCurrentDayRecord,
   getUpNextActivity,
@@ -19,6 +18,8 @@ import {
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { dedupeEquivalentNotifications, notificationActionState } from "@/lib/roamly/liveCompanion";
 import { NotificationShellStateBridge } from "@/components/roamly/NotificationShellStateBridge";
+import { selectNotificationTrip, tripCompanionUnlocked } from "@/lib/roamly/notificationTrip";
+import type { TrackingTrip } from "@/lib/roamly/tripActivation";
 
 export default async function NotificationsPage() {
   const current = await getCurrentUser();
@@ -40,9 +41,9 @@ export default async function NotificationsPage() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) redirect("/dashboard");
 
-  const [tripResult, notifications, companionDeliveries, unreadNotifications] =
+  const [tripRows, notifications, companionDeliveries, unreadNotifications] =
     await Promise.all([
-      getActiveOrUpcomingTrip(supabase, current.user.id),
+      supabase.from("roamly_trips").select("*").eq("user_id", current.user.id).limit(40),
       supabase
         .from("roamly_notifications")
         .select("id,trip_id,title,body,type,status,action_url,created_at,scheduled_for")
@@ -102,7 +103,7 @@ export default async function NotificationsPage() {
         .in("id", notificationTripIds)
     : { data: [], error: null };
   const tripById = new Map((tripRowsResult.data || []).map((trip) => [trip.id, trip]));
-  const notificationItems = dedupeEquivalentNotifications(rawNotificationItems).map((notification) => {
+  const notificationItems = dedupeEquivalentNotifications(rawNotificationItems).filter((notification) => trip ? notification.trip_id === trip.id : false).map((notification) => {
     const trip = notification.trip_id ? tripById.get(notification.trip_id) : null;
     const actionState = notificationActionState({
       actionUrl: notification.action_url,
@@ -121,7 +122,8 @@ export default async function NotificationsPage() {
     };
   });
 
-  const trip = tripResult.trip;
+  const trip = selectNotificationTrip((tripRows.data || []) as TrackingTrip[]);
+  const companionOn = tripCompanionUnlocked(trip);
 
   if (!trip) {
     return (
@@ -131,9 +133,9 @@ export default async function NotificationsPage() {
           <NotificationTimelineCard initialItems={notificationItems} />
         </section>
         <Card>
-          <h1 className="text-3xl font-black text-ink">No active trip notifications yet.</h1>
+          <h1 className="text-3xl font-black text-ink">No current trip to show.</h1>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Unlock Live Trip Companion to show trip reminders, booking timeline updates, and airline-style live updates here.
+            Reminders and check-ins stay with the trip they belong to. Open a trip to see its own updates.
           </p>
           <div className="mt-5">
             <Button href="/dashboard">Open dashboard</Button>
@@ -179,6 +181,11 @@ export default async function NotificationsPage() {
     <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
       <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} />
+      <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+        {companionOn
+          ? "Live Companion is unlocked on this trip. These reminders and check-ins are for this trip only."
+          : "Live Companion is not unlocked on this trip. Nothing here is from another trip."}
+      </p>
 
       <section className="mt-6">
         <NotificationTimelineCard initialItems={notificationItems} />

@@ -83,11 +83,29 @@ assert.notEqual(unknown.code, "READY_TO_TRAVEL");
 
 const titles = loadTsModule("lib/roamly/itineraryPresentation.ts");
 assert.equal(titles.looksLikeProviderSearchTitle("flight-search Montreal nightlife"), true);
+assert.equal(titles.looksLikeProviderSearchTitle("Montreal, Canada hotel search"), true);
+assert.equal(titles.looksLikeProviderSearchTitle("Montreal, Canada events festivals concerts nightlife 2026-10-30 to 2026-11-02"), true);
 assert.equal(titles.presentTravelerTitle({ title: "flight-search Montreal", mode: "drive", origin: "Quebec", destination: "Montreal" }).title.startsWith("Drive"), true);
 assert.equal(titles.presentTravelerTitle({ title: "Notre-Dame Basilica", mode: "walk" }).title, "Notre-Dame Basilica");
 const hotel = titles.presentTravelerTitle({ title: "Hotels in Montreal Old Port", category: "hotel" });
 assert.equal(hotel.needsConfirmation, true);
 assert.equal(/search/i.test(hotel.title), false);
+const stay = titles.presentTravelerTitle({ title: "Montreal, Canada hotel search", category: "hotel" });
+assert.equal(/search/i.test(stay.title), false);
+assert.match(stay.title, /Stay/);
+const events = titles.presentTravelerTitle({ title: "Montreal, Canada events festivals concerts nightlife 2026-10-30 to 2026-11-02", category: "activity" });
+assert.equal(/festivals concerts nightlife/i.test(events.title), false);
+assert.match(events.title, /Events/);
+const buffer = titles.presentTravelerTitle({
+  title: "Recommended flight departure buffer",
+  mode: "flight",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal"
+});
+assert.equal(/flight|airport/i.test(buffer.title), false);
+assert.equal(titles.cleanTravelerTimeLabel("10:54 p.m.."), "10:54 p.m.");
+assert.equal(titles.punctuateTravelerTime("10:54 p.m.").includes("p.m.."), false);
 
 const budget = loadTsModule("lib/roamly/budgetPresentation.ts");
 const gaps = budget.buildBudgetPresentation({
@@ -107,10 +125,30 @@ const gaps = budget.buildBudgetPresentation({
   },
   priceDiscovery: { unknownMarketPriceCount: 2, unknownMarketPriceCategories: ["hotel", "activity"] }
 });
-assert.equal(gaps.status, "OVER_BUDGET");
+assert.equal(gaps.status, "BUDGET_UNCERTAIN");
 assert.match(gaps.statusDetail, /not treated as zero/);
 assert.equal(gaps.pricedLabel === "CAD 0", false);
+assert.notEqual(gaps.pricedLabel, "CAD 1,677");
 assert.match(gaps.unpricedLabel, /Hotel price|activity/i);
+
+const nav = loadTsModule("lib/roamly/shellNav.ts");
+const navHrefs = ["/dashboard", "/plan", "/finds", "/notifications", "/account"];
+assert.equal(nav.primaryNavActiveHref("/trip/abc/bookings", navHrefs), "/dashboard");
+assert.notEqual(nav.primaryNavActiveHref("/trip/abc/bookings", navHrefs), "/notifications");
+assert.equal(nav.primaryNavActiveHref("/notifications", navHrefs), "/notifications");
+
+const notes = loadTsModule("lib/roamly/travelerNotes.ts");
+const festival = notes.travelerNoteDisplay("festival if any");
+assert.match(festival.constraints.join(" "), /festival/i);
+assert.ok(festival.gaps.length > 0);
+
+const notificationTrips = loadTsModule("lib/roamly/notificationTrip.ts");
+const current = notificationTrips.selectNotificationTrip([
+  { id: "old", status: "completed", start_date: "2026-01-01", end_date: "2026-01-04", tracking_unlocked: true },
+  { id: "mtl", status: "planned", start_date: "2026-10-30", end_date: "2026-11-02", tracking_unlocked: true, live_companion_unlocked: true }
+], new Date("2026-10-05T15:00:00.000Z"));
+assert.equal(current.id, "mtl");
+assert.equal(notificationTrips.tripCompanionUnlocked(current), true);
 
 const ranking = loadTsModule("lib/roamly/dashboardTripPresentation.ts");
 const montreal = { id: "mtl", status: "upcoming", itinerary_locked: true, start_date: "2026-10-20", end_date: "2026-10-24", tracking_unlocked: true, created_at: "2026-09-01T00:00:00.000Z" };

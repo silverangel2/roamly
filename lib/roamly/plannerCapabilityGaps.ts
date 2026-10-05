@@ -8,5 +8,7 @@ export const PLANNER_BACKEND_CAPABILITY_GAPS = [
   "Structured cuisine filters beyond the dietary note",
   "A required neighborhood or specific property",
   "Child ages beyond adult, child, and infant counts",
-  "Visa or passport status as a generation input"
+  "Visa or passport status as a generation input",
+  "Free-text notes as a hard filter on hotel, flight, or activity inventory",
+  "Confirming a festival is happening when a note says “if any”"
 ] as const;

@@ -5,7 +5,7 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { formatMoney, type RoamlyItinerary } from "@/lib/itinerary";
-import { isDriveMode, looksLikeProviderSearchTitle, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, isDriveMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -77,12 +77,12 @@ function parseClockMinutes(value: string) {
 
 function formatClock(value: string) {
   const minutes = parseClockMinutes(value);
-  if (minutes == null) return value;
+  if (minutes == null) return cleanTravelerTimeLabel(value);
   const hour24 = Math.floor(minutes / 60);
   const minute = minutes % 60;
-  const period = hour24 >= 12 ? "PM" : "AM";
+  const period = hour24 >= 12 ? "p.m." : "a.m.";
   const hour12 = hour24 % 12 || 12;
-  return `${hour12}:${String(minute).padStart(2, "0")} ${period}`;
+  return cleanTravelerTimeLabel(`${hour12}:${String(minute).padStart(2, "0")} ${period}`);
 }
 
 function isTransferLike(record: Record<string, unknown>) {
@@ -106,7 +106,7 @@ function isMajorTravel(record: Record<string, unknown>) {
   return Boolean(minutes != null && minutes >= 60);
 }
 
-function cleanTimelineTitle(record: Record<string, unknown>) {
+function cleanTimelineTitle(record: Record<string, unknown>, suppressFlightFraming = false) {
   const rawTitle = timelineText(record, "title", "name");
   const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
   const mapQuery = timelineText(record, "map_query", "mapQuery");
@@ -118,7 +118,8 @@ function cleanTimelineTitle(record: Record<string, unknown>) {
     mode,
     category,
     origin: timelineText(record, "origin"),
-    destination: timelineText(record, "destination")
+    destination: timelineText(record, "destination"),
+    suppressFlightFraming
   });
 
   if (isDriveMode(mode) || looksLikeProviderSearchTitle(rawTitle) || looksLikeProviderSearchTitle(mapQuery)) {
@@ -134,13 +135,13 @@ function cleanTimelineTitle(record: Record<string, unknown>) {
   return presented.title;
 }
 
-function transferSummary(record: Record<string, unknown>) {
+function transferSummary(record: Record<string, unknown>, suppressFlightFraming = false) {
   const origin = timelineText(record, "origin");
   const destination = timelineText(record, "destination", "location_name", "location");
   const rawMode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
-  const mode = isDriveMode(rawMode) ? "Drive" : rawMode;
+  const mode = isDriveMode(rawMode) || suppressFlightFraming ? "Drive" : rawMode;
   const minutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes");
-  const title = cleanTimelineTitle(record);
+  const title = cleanTimelineTitle(record, suppressFlightFraming);
   const safeOrigin = origin && !looksLikeProviderSearchTitle(origin) ? origin : "";
   const safeDestination = destination && !looksLikeProviderSearchTitle(destination) ? destination : "";
   const route = safeOrigin && safeDestination ? `${safeOrigin} to ${safeDestination}` : safeDestination || safeOrigin || title;
@@ -363,7 +364,12 @@ function applyConfirmedBookings(
   return consolidated;
 }
 
-export function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"][number], confirmedBookings: readonly Record<string, unknown>[] = []) {
+export function buildDisplayTimelineItems(
+  day: RoamlyItinerary["daily_itinerary"][number],
+  confirmedBookings: readonly Record<string, unknown>[] = [],
+  options: { suppressFlightFraming?: boolean } = {}
+) {
+  const suppressFlightFraming = options.suppressFlightFraming === true;
   const output: DisplayTimelineItem[] = [];
   const seen = new Set<string>();
   const pendingTransfers: string[] = [];
@@ -373,25 +379,31 @@ export function buildDisplayTimelineItems(day: RoamlyItinerary["daily_itinerary"
     const transferLike = isTransferLike(record);
 
     if (transferLike && !isMajorTravel(record)) {
-      const summary = transferSummary(record);
+      const summary = transferSummary(record, suppressFlightFraming);
       if (summary) pendingTransfers.push(summary);
       continue;
     }
 
-    const title = cleanTimelineTitle(record);
+    const title = cleanTimelineTitle(record, suppressFlightFraming);
     const type = timelineText(record, "item_type", "type");
     const category = timelineText(record, "category") || type || "Stop";
-    const location = timelineText(record, "location_name", "location", "place_name", "venue", "area");
-    const description = timelineText(record, "description", "summary", "details", "notes");
+    const location = suppressFlightFraming
+      ? presentGroundTransportText(timelineText(record, "location_name", "location", "place_name", "venue", "area"))
+      : timelineText(record, "location_name", "location", "place_name", "venue", "area");
+    const description = suppressFlightFraming
+      ? presentGroundTransportText(timelineText(record, "description", "summary", "details", "notes"))
+      : timelineText(record, "description", "summary", "details", "notes");
     const start = timelineText(record, "startTime", "start_time");
     const end = timelineText(record, "endTime", "end_time");
-    const timeLabel = timelineText(record, "time_label", "time") || (start ? formatClock(start) : "");
+    const timeLabel = cleanTravelerTimeLabel(timelineText(record, "time_label", "time") || (start ? formatClock(start) : ""));
     const timingStatus = timelineText(record, "timing_status").toUpperCase();
-    const time = start && end ? `${timingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(start)}-${formatClock(end)}` : timeLabel;
+    const time = start && end ? `${timingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(start)}–${formatClock(end)}` : timeLabel;
     const sortMinutes = parseClockMinutes(start || timeLabel);
     const duration = timelineNumber(record, "durationMinutes", "duration_minutes");
     const travelMinutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes");
-    const mapQuery = timelineText(record, "map_query", "mapQuery") || location || title;
+    const mapQuery = suppressFlightFraming
+      ? presentGroundTransportText(timelineText(record, "map_query", "mapQuery") || location || title)
+      : timelineText(record, "map_query", "mapQuery") || location || title;
     const isLunch = /\blunch\b/i.test(`${title} ${description} ${category}`);
     const warning =
       isLunch && sortMinutes != null && sortMinutes > 14 * 60
@@ -528,15 +540,17 @@ export function DayTimelineCard({
   day,
   currency,
   locale,
-  confirmedBookings
+  confirmedBookings,
+  suppressFlightFraming = false
 }: {
   tripId: string;
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
   locale: string;
   confirmedBookings: readonly Record<string, unknown>[];
+  suppressFlightFraming?: boolean;
 }) {
-  const { items: timelineItems, consolidatedCount } = buildDisplayTimelineItems(day, confirmedBookings);
+  const { items: timelineItems, consolidatedCount } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming });
   const places = [
     ...timelineItems.map((item) => item.mapQuery),
     ...day.map_queries

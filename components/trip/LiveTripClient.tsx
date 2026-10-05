@@ -32,7 +32,7 @@ import {
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
-import { looksLikeProviderSearchTitle } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentGroundTransportText, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 
 export type LiveSimulatorPlace = {
   id: string;
@@ -125,6 +125,8 @@ type LiveTripClientProps = {
   simulatorPlaces?: LiveSimulatorPlace[];
   tripStartDate?: string | null;
   tripEndDate?: string | null;
+  transportationPreference?: string | null;
+  hasConfirmedFlight?: boolean;
   timezone?: string | null;
   companionEnabled?: boolean;
   companionPausedUntil?: string | null;
@@ -169,11 +171,12 @@ function formatClock(value: string | null | undefined, timezone?: string | null,
   if (!value) return "Not set";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value || "Not set";
-  return new Intl.DateTimeFormat(locale, {
+  const formatted = new Intl.DateTimeFormat(locale === "en" ? "en-CA" : locale, {
     hour: "numeric",
     minute: "2-digit",
     timeZone: timezone || undefined
   }).format(date);
+  return cleanTravelerTimeLabel(formatted);
 }
 
 function formatShortDay(date: Date, timezone?: string | null, locale = "en") {
@@ -236,19 +239,23 @@ function routeCopy(route: LiveRouteStatus) {
   return "";
 }
 
-function travelerFacingPlace(value: string | null | undefined) {
-  if (!value || !isUsablePlaceLabel(value) || looksLikeProviderSearchTitle(value)) return "";
-  return value;
+function travelerFacingPlace(value: string | null | undefined, destination = "", suppressFlightFraming = false) {
+  if (!value || !isUsablePlaceLabel(value)) return "";
+  if (looksLikeProviderSearchTitle(value) || (suppressFlightFraming && /\bflight|airport|departure buffer\b/i.test(value))) {
+    return presentTravelerTitle({ title: value, destination, suppressFlightFraming, category: value }).title;
+  }
+  if (isHollowTravelerPlace(value, destination)) return "";
+  return suppressFlightFraming ? presentGroundTransportText(value) : value;
 }
 
-function primaryAddress(activity: LiveCompanionActivity | null) {
+function primaryAddress(activity: LiveCompanionActivity | null, destination = "", suppressFlightFraming = false) {
   if (!activity) return "Details to confirm";
-  return [activity.address, activity.placeName, activity.title].map(travelerFacingPlace).find(Boolean) || "Details to confirm";
+  return [activity.address, activity.placeName, activity.title].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming)).find(Boolean) || "Details to confirm";
 }
 
-function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string) {
+function activityDisplayTitle(activity: LiveCompanionActivity | null, fallback: string, destination = "", suppressFlightFraming = false) {
   if (!activity) return fallback;
-  return [activity.title, activity.placeName, activity.address].map(travelerFacingPlace).find(Boolean) || "Details to confirm";
+  return [activity.title, activity.placeName, activity.address].map((value) => travelerFacingPlace(value, destination, suppressFlightFraming)).find(Boolean) || fallback;
 }
 
 function activityDisplayDescription(activity: LiveCompanionActivity | null, fallback: string) {
@@ -420,6 +427,8 @@ export function LiveTripClient({
   simulatorPlaces = [],
   tripStartDate = null,
   tripEndDate = null,
+  transportationPreference = null,
+  hasConfirmedFlight = false,
   timezone = null,
   companionEnabled = true,
   companionPausedUntil = null,
@@ -1461,8 +1470,18 @@ export function LiveTripClient({
       ]
     : [];
 
+  const suppressFlightFraming = shouldSuppressFlightFraming({ transportationPreference, hasConfirmedFlight });
+  const locationOff = permission !== "granted";
+  const nextTitleRaw = activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming);
+  const nextIsHollow = preTrip && !nextTitleRaw;
+  const preTripNext = preTripPrepTitle(activeDestinationLabel, tripStartDate || "");
+  const displayedNextTitle = nextIsHollow ? preTripNext : activityDisplayTitle(nextActivity, preTrip ? preTripNext : "Flexible time", activeDestinationLabel, suppressFlightFraming);
+  const displayedAddress = nextIsHollow || (preTrip && isHollowTravelerPlace(primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming), activeDestinationLabel))
+    ? preTripAddressCopy(locationOff)
+    : primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming);
+
   return (
-    <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-4 pb-28 md:pb-0">
+    <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-5 pb-4 md:pb-0">
       <section className="overflow-hidden rounded-[1.25rem] border border-cloud bg-white text-ink shadow-[0_18px_50px_rgba(16,32,51,0.12)]">
         <div className="border-b border-cloud px-4 py-3">
           <div className="flex items-center justify-between gap-3">
@@ -1524,7 +1543,7 @@ export function LiveTripClient({
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
-                <p className="mt-1 truncate text-sm font-black">{activityDisplayTitle(nextActivity, preTrip ? "Details to confirm" : "Flexible time")}</p>
+                <p className="mt-1 text-sm font-semibold leading-5">{displayedNextTitle}</p>
                 {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
@@ -1540,7 +1559,7 @@ export function LiveTripClient({
 
             <div className="mt-5 rounded-2xl border border-cloud bg-mist px-4 py-3">
               <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.booking.address")}</p>
-              <p className="mt-1 text-sm font-black leading-5">{primaryAddress(nextActivity || currentActivity)}</p>
+              <p className="mt-1 text-sm font-semibold leading-5">{displayedAddress}</p>
               {nextActivity?.openingHours ? (
                 <p className="mt-2 text-xs font-bold text-slate-500">{t("ui.status.hours")}: {nextActivity.openingHours}</p>
               ) : null}
@@ -1612,7 +1631,7 @@ export function LiveTripClient({
                     <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
                       <span className="min-w-0 truncate font-bold text-slate-600">
                         <span className="mr-2 font-black text-slate-400">{activity.timeLabel || "Flexible"}</span>
-                        {travelerFacingPlace(activity.title) || "Details to confirm"}
+                        {travelerFacingPlace(activity.title, activeDestinationLabel, suppressFlightFraming) || activityDisplayTitle(activity, "Stop to confirm", activeDestinationLabel, suppressFlightFraming)}
                       </span>
                       <span className={classNames("shrink-0 text-xs font-black uppercase tracking-[0.08em]", terminal ? "text-ocean" : "text-slate-400")}>
                         {progress}
@@ -1695,8 +1714,8 @@ export function LiveTripClient({
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next step</p>
                 <p className="text-xs font-black text-slate-500">{nextActivity ? `${nextTimingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(nextStart?.toISOString() || null, timezone, locale)}` : "Flexible time"}</p>
               </div>
-              <p className="mt-3 text-lg font-black text-ink">{activityDisplayTitle(nextActivity, preTrip || tripCompleted ? "Details to confirm" : "Keep this window open")}</p>
-              <p className="mt-1 text-sm font-bold leading-6 text-slate-600">{nextActivity ? primaryAddress(nextActivity) : "Use it for rest, food, or your own plans."}</p>
+              <p className="mt-3 text-lg font-semibold tracking-tight text-ink">{displayedNextTitle}</p>
+              <p className="mt-1 text-sm font-medium leading-6 text-slate-600">{nextIsHollow ? "Review the plan, confirm the drive or stay, and turn location on only when you want Live to follow you." : nextActivity ? displayedAddress : "Use it for rest, food, or your own plans."}</p>
             </section>
 
             <section className="rounded-2xl border border-cloud bg-mist p-4">
@@ -1880,7 +1899,7 @@ export function LiveTripClient({
         </section>
       ) : null}
 
-      {!tripCompleted ? <section className="grid gap-3 md:grid-cols-[1fr_0.75fr]">
+      {!tripCompleted ? <section className="grid gap-3 pb-2 md:grid-cols-[1fr_0.75fr]">
         <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Controls</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1899,7 +1918,7 @@ export function LiveTripClient({
               Resume
             </button>
           </div>
-          <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
+          <details className="mt-3 scroll-mb-36 rounded-2xl bg-mist px-3 py-3">
             <summary className="cursor-pointer text-sm font-black text-ink">Essentials</summary>
             <div className="mt-3 grid gap-2">
               {checklist.slice(0, 5).map((item) => (
@@ -2006,8 +2025,10 @@ export function LiveTripClient({
         </details>
       ) : null}
 
+      {activeStep ? <div className="h-24 md:hidden" aria-hidden="true" /> : null}
+
       {activeStep ? (
-        <section className="fixed inset-x-3 bottom-[calc(6.2rem+env(safe-area-inset-bottom))] z-30 rounded-[1.15rem] border border-cloud bg-white/96 p-2 shadow-soft backdrop-blur md:hidden">
+        <section className="fixed inset-x-3 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-30 rounded-[1.2rem] border border-black/5 bg-white/92 p-1.5 shadow-[0_8px_28px_rgba(16,32,51,0.12)] backdrop-blur-xl md:hidden">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <button
               type="button"

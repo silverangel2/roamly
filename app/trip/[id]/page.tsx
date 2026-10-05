@@ -39,7 +39,8 @@ import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/ro
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { buildBudgetPresentation } from "@/lib/roamly/budgetPresentation";
-import { looksLikeProviderSearchTitle } from "@/lib/roamly/itineraryPresentation";
+import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
 import { mapTravelerTripStatus } from "@/lib/roamly/tripStatusDisplay";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -199,7 +200,7 @@ function getTravelStyle(trip: RoamlyTripRecord) {
 
 function SetupCard({ title, summary }: { title: string; summary: string }) {
   return (
-    <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+    <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
       <Card>
         <Badge tone="sun">Setup</Badge>
         <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">{title}</h1>
@@ -208,7 +209,7 @@ function SetupCard({ title, summary }: { title: string; summary: string }) {
           <Button href="/plan">Plan trip</Button>
         </div>
       </Card>
-    </main>
+    </div>
   );
 }
 
@@ -343,14 +344,14 @@ function BudgetSummary({
             <p className="mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{presentation.targetLabel}</p>
           </div>
           <div className="sm:text-right">
-            <p className="text-xs font-bold text-slate-500">{presentation.estimateKind === "priced" ? "Priced total" : presentation.estimateKind === "not_calculated" ? "Estimated total" : "Estimated total (gaps remain)"}</p>
+            <p className="text-xs font-bold text-slate-500">{presentation.totalCaption}</p>
             <p className="mt-1 text-2xl font-black tracking-tight text-ink">{presentation.totalLabel}</p>
           </div>
         </div>
         <div className={`mt-4 border-l-2 px-4 py-3 ${statusTone}`}>
           <p className="text-base font-black">{presentation.statusLabel}</p>
           <p className="mt-1 text-sm font-semibold leading-6">{presentation.statusDetail}</p>
-          <p className="mt-2 text-sm font-black">Priced: {presentation.pricedLabel}</p>
+          <p className="mt-2 text-sm font-black">{presentation.pricedCaption}: {presentation.pricedLabel}</p>
           <p className="mt-1 text-sm font-bold">Unpriced: {presentation.unpricedLabel}</p>
           {presentation.remainingLabel ? <p className="mt-2 text-sm font-black">{presentation.remainingLabel}</p> : null}
         </div>
@@ -445,9 +446,7 @@ function bookingTitle(suggestion: RoamlyItinerary["booking_suggestions"][number]
   const category = bookingCategory(suggestion);
   const title = suggestion.title || suggestion.booking_label || "Suggested option";
   if (looksLikeProviderSearchTitle(title)) {
-    if (String(category) === "hotel") return "Stay to confirm";
-    if (String(category) === "flight" || String(category) === "transport") return "Transport to confirm";
-    return "Details to confirm";
+    return presentTravelerTitle({ title, category: String(category) }).title;
   }
   if (["activity", "attraction", "tour"].includes(String(category))) {
     return title
@@ -1363,7 +1362,11 @@ function BookingSearchFallbackCard({
   const href = safeBookingUrl(fallbackSearchHref(category, trip));
   if (!href) return null;
   const label = category === "flight" ? "Search flights" : category === "hotel" ? "Search hotels" : "Search activities";
-  const title = category === "flight" ? "Search Flights" : category === "hotel" ? "Hotel search" : "Activity search";
+  const preference = trip.transportation_preference || "";
+  if (category === "flight" && isDriveMode(preference)) return null;
+  const title = category === "flight"
+    ? isMixedMode(preference) ? "Ways to get there" : "Flights to compare"
+    : category === "hotel" ? "Stay to confirm" : "Events to confirm";
   const hasAffiliateUrl = isAffiliateBookingHref(href);
   const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : "Google search");
   return (
@@ -1427,7 +1430,14 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings }: { it
                 </span>
               ))}
             </div>
-            <h4 className="mt-2 text-lg font-black leading-6 text-ink">{recommended.mode === "drive" && (looksLikeProviderSearchTitle(recommended.title) || (/\bflight/i.test(recommended.title) && !/then fly|airport/i.test(recommended.title))) ? `Drive · ${recommended.origin || "Origin"} to ${recommended.destination || "destination"}` : looksLikeProviderSearchTitle(recommended.title) ? transportModeLabel(recommended.mode) : recommended.title}</h4>
+            <h4 className="mt-2 text-lg font-black leading-6 text-ink">{presentTravelerTitle({
+              title: recommended.title,
+              mode: recommended.mode,
+              origin: recommended.origin,
+              destination: recommended.destination,
+              category: "transport",
+              suppressFlightFraming: recommended.mode === "drive" || recommended.mode === "mixed"
+            }).title}</h4>
             <p className="mt-1 text-sm font-black text-ink">{transportEstimate(recommended)}</p>
             {recommended.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{recommended.duration_label}</p> : null}
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{recommended.why_recommended}</p>
@@ -2019,10 +2029,16 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   const travelerDetails = tripTravelerDetails(trip);
   const travelerCount = travelerDetails.adults + travelerDetails.children + travelerDetails.infants;
   const travelerLabel = `${travelerCount} ${travelerCount === 1 ? "traveler" : "travelers"}`;
+  const noteDisplay = travelerNoteDisplay(trip.special_notes || getString(getTripPlanningMetadata(trip.metadata).specialNotes || getTripPlanningMetadata(trip.metadata).special_notes));
   const emailConfigured = isEmailConfigured().configured;
   const maskedEmail = maskEmailAddress(current.user.email);
   const backgroundWorkerConfigured = Boolean(process.env.ROAMLY_GENERATION_CRON_SECRET || process.env.CRON_SECRET);
   const confirmedBookingSnapshot = importedBookings.filter((booking) => isConfirmedBookingSnapshot(booking as Record<string, unknown>));
+  const transportPreference = trip.transportation_preference || getString(getTripPlanningMetadata(trip.metadata).transportationPreference || getTripPlanningMetadata(trip.metadata).transportation_preference);
+  const suppressFlightFraming = shouldSuppressFlightFraming({
+    transportationPreference: transportPreference,
+    hasConfirmedFlight: hasConfirmedFlightBooking(confirmedBookingSnapshot as Array<Record<string, unknown>>)
+  });
   const unresolvedBookingSnapshot = importedBookings.filter((booking) => !isConfirmedBookingSnapshot(booking as Record<string, unknown>));
   const tripLifecycle = customerTripLifecycleState({
     status: trip.status,
@@ -2037,7 +2053,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
     : { data: [] as Array<{ id: string }>, error: null };
   const hasPostTripFeedback = postTripFeedbackResult.error ? null : Boolean(postTripFeedbackResult.data?.length);
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
-  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>).items : [];
+  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming }).items : [];
   const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
   const budgetPresentation = full
     ? buildBudgetPresentation({
@@ -2102,6 +2118,13 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   });
   const attentionText = readiness.urgentItems[0] || "";
   const actionFocus = parseTripActionFocus(one(search.focus));
+  const focusAnchor = actionFocus === "budget"
+    ? "budget"
+    : actionFocus === "requirements"
+      ? "requirements"
+      : typeof actionFocus === "string" && actionFocus.startsWith("day-")
+        ? "day-by-day"
+        : null;
   const focusedBooking = actionFocus === "flight" || actionFocus === "hotel" || actionFocus === "activity" ? actionFocus : null;
   const focusedBookingLabel = focusedBooking === "flight" ? "flight" : focusedBooking === "hotel" ? "stay" : focusedBooking === "activity" ? "activity" : null;
   const focusedBudget = actionFocus === "budget";
@@ -2175,7 +2198,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
   });
 
   return (
-    <main className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-24 pt-5 text-ink sm:px-6 sm:py-8">
+    <div className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-28 pt-5 text-ink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <GenerationNavigationRefresh active={one(search.generating) === "1" && !generationPanelVisible && !canShowFull} />
       <div className="roamly-print-paper mx-auto max-w-6xl">
@@ -2277,6 +2300,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           status={travelerStatus.badge}
           showContext={false}
           contentReady={canShowFull && !!full && !generationPanelVisible}
+          focusAnchor={focusAnchor}
         />
 
         {!canShowFull && !generationPanelVisible ? (
@@ -2300,13 +2324,21 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                 .roamly-tab-nav{display:none}
                 .roamly-tab-input{position:absolute;opacity:0;pointer-events:none}
                 .roamly-tab-panel{display:none}
-                @keyframes roamly-panel-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-                .roamly-tab-panel,.roamly-day-panel{animation:roamly-panel-in .45s cubic-bezier(0.32,0.72,0,1)}
+                @keyframes roamly-panel-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+                .roamly-tab-panel,.roamly-day-panel{animation:roamly-panel-in .32s cubic-bezier(0.32,0.72,0,1)}
                 .roamly-tab-nav label{transition:transform .18s cubic-bezier(0.32,0.72,0,1),background-color .25s ease,border-color .25s ease,color .25s ease}
                 .roamly-tab-nav label:active{transform:scale(0.95)}
                 .roamly-day-nav label{transition:transform .18s cubic-bezier(0.32,0.72,0,1),background-color .25s ease,border-color .25s ease}
                 .roamly-day-nav label:active{transform:scale(0.95)}
                 @media (prefers-reduced-motion:reduce){.roamly-tab-panel,.roamly-day-panel{animation:none}.roamly-tab-nav label,.roamly-day-nav label{transition:none}}
+                .roamly-home-panel{display:block}
+                #roamly-tab-day-by-day:checked ~ .roamly-tab-panels .roamly-home-panel,
+                #roamly-tab-overview:checked ~ .roamly-tab-panels .roamly-home-panel,
+                #roamly-tab-budget:checked ~ .roamly-tab-panels .roamly-home-panel,
+                #roamly-tab-bookings:checked ~ .roamly-tab-panels .roamly-home-panel,
+                #roamly-tab-requirements:checked ~ .roamly-tab-panels .roamly-home-panel,
+                #roamly-tab-essentials:checked ~ .roamly-tab-panels .roamly-home-panel,
+                #roamly-tab-travel-notes:checked ~ .roamly-tab-panels .roamly-home-panel{display:none}
                 #roamly-tab-day-by-day:checked ~ .roamly-tab-panels .roamly-panel-day-by-day,
                 #roamly-tab-overview:checked ~ .roamly-tab-panels .roamly-panel-overview,
                 #roamly-tab-budget:checked ~ .roamly-tab-panels .roamly-panel-budget,
@@ -2353,6 +2385,29 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
               </nav>
 
               <div className="roamly-tab-panels">
+                <section className="roamly-home-panel mt-2 scroll-mt-28" aria-label="Trip home">
+                  <div className="grid gap-3">
+                    <div className="px-0.5">
+                      <h2 className="text-[1.65rem] font-semibold tracking-[-0.03em] text-ink">{destinationLabel}</h2>
+                      <p className="mt-1 text-[0.95rem] leading-6 text-slate-600">{formatDateRange(trip, locale)} · {formatDayCount(dayCount)} · {travelerLabel}</p>
+                      <p className="mt-1 text-[0.95rem] leading-6 text-slate-600">{suppressFlightFraming ? (isDriveMode(transportPreference) ? "Drive. No flight is booked." : "Mixed travel. No flight is booked.") : transportPreference ? transportPreference : "How you’ll get there is still to confirm."}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
+                      <p className="text-[0.75rem] font-medium text-slate-500">Budget</p>
+                      <p className="mt-1 text-base font-semibold tracking-tight text-ink">{headerBudgetText}</p>
+                      <a href="#budget" className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-ocean">Review the budget</a>
+                    </div>
+                  </div>
+                  {noteDisplay.text ? (
+                    <div className="mt-3 rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
+                      <p className="text-[0.75rem] font-medium text-slate-500">Your notes</p>
+                      <ul className="mt-2 grid gap-1.5">
+                        {noteDisplay.constraints.map((line) => <li key={line} className="text-sm leading-6 text-slate-700">{line}</li>)}
+                      </ul>
+                      {noteDisplay.gaps.length ? <p className="mt-3 text-xs leading-5 text-slate-500">{noteDisplay.gaps.join(" ")}</p> : null}
+                    </div>
+                  ) : null}
+                </section>
                 <section id="day-by-day" className="roamly-tab-panel roamly-panel-day-by-day mt-8 scroll-mt-32">
                   <SectionHeading
                     eyebrow="Day-by-day"
@@ -2396,7 +2451,7 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
                         return (
                           <div key={dayNumber} className={`roamly-day-panel roamly-day-panel-${dayNumber}`}>
                             {day ? (
-                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} confirmedBookings={confirmedBookingSnapshot as Array<Record<string, unknown>>} />
+                              <DayTimelineCard tripId={id} day={day} currency={currency} locale={locale} confirmedBookings={confirmedBookingSnapshot as Array<Record<string, unknown>>} suppressFlightFraming={suppressFlightFraming} />
                             ) : (
                               <BuildingDayCard
                                 dayNumber={dayNumber}
@@ -2516,6 +2571,6 @@ export default async function TripPage({ params, searchParams }: TripPageProps) 
           />
         ) : null}
       </div>
-    </main>
+    </div>
   );
 }
