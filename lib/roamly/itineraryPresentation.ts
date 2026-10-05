@@ -26,15 +26,16 @@ export function isMixedMode(mode: string | null | undefined) {
   return /\bmixed\b/i.test((mode || "").trim());
 }
 
-/** Drive or mixed trips should not be framed as flights unless a flight is actually confirmed. */
+/**
+ * No confirmed flight means generator airport and flight placeholders are not facts.
+ * A booked flight keeps airport language. Drive, mixed, flight-preference, and unset
+ * modes all follow that rule.
+ */
 export function shouldSuppressFlightFraming(input: {
   transportationPreference?: string | null;
   hasConfirmedFlight?: boolean;
 }) {
-  if (input.hasConfirmedFlight) return false;
-  const pref = (input.transportationPreference || "").trim().toLowerCase();
-  if (!pref) return false;
-  return isDriveMode(pref) || isMixedMode(pref);
+  return input.hasConfirmedFlight !== true;
 }
 
 export function hasConfirmedFlightBooking(bookings: readonly Record<string, unknown>[]) {
@@ -44,45 +45,91 @@ export function hasConfirmedFlightBooking(bookings: readonly Record<string, unkn
   });
 }
 
-function placeCity(value: string) {
+function tidyPlace(value: string) {
   return value
     .replace(/\b(?:hotel|hotels|flight|flights|stay|stays)\s+search\b/gi, " ")
-    .replace(/\b(?:events?|festivals?|concerts?|nightlife|activities|things to do)\b/gi, " ")
+    .replace(/^(?:hotels?|flights?|stays?|events?|activities)\s+(?:in|near|at|from)\s+/i, "")
+    .replace(/\b(?:events?|festivals?|concerts?|nightlife|activities|things to do|search(?:ing)?)\b/gi, " ")
     .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
-    .replace(/\bto\b/gi, " ")
     .replace(/\b(?:canada|united states|usa|québec|quebec)\b/gi, " ")
     .replace(/[,/]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function travelerCategoryTitle(title: string, category: string) {
+function placeCity(value: string) {
+  return tidyPlace(value);
+}
+
+function placeHead(value: string | null | undefined) {
+  const text = tidyPlace(value || "");
+  return text.split(" ").slice(0, 4).join(" ").trim();
+}
+
+/** Keep "Saint John to Montreal" intact. Stripping "to" used to glue the cities together. */
+function splitRoute(value: string) {
+  const text = (value || "")
+    .replace(/\b(?:hotel|hotels|flight|flights|stay|stays|event|events|nightlife|activity|activities)[-_\s]?search\b/gi, " ")
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, " ")
+    .replace(/\b(?:canada|united states|usa|québec|quebec)\b/gi, " ")
+    .replace(/[,/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const match = text.match(/^(?:(?:flights?|trains?|buses|drive|driving|getting|travel)\s+)?(?:from\s+)?(.+?)\s+\bto\b\s+(.+)$/i);
+  if (!match) return null;
+  const from = tidyPlace(match[1]);
+  const to = tidyPlace(match[2]);
+  if (!from || !to || from.length < 2 || to.length < 2) return null;
+  if (from.toLowerCase() === to.toLowerCase()) return null;
+  return { from, to };
+}
+
+function travelerCategoryTitle(title: string, category: string, origin?: string | null, destination?: string | null) {
   const blob = `${category} ${title}`.toLowerCase();
-  const city = placeCity(title);
+  const route = splitRoute(title);
+  const city = placeHead(destination) || placeCity(title);
   if (/hotel|stay|lodg/.test(blob)) return city ? `Stay in ${city}` : "Stay to confirm";
   if (EVENT_QUERY.test(title) || /event|festival|concert|nightlife|activity|attraction/.test(blob)) {
     return city ? `Events in ${city}` : "Events to confirm";
   }
-  if (/flight|transport|train|bus|drive/.test(blob)) return city ? `Getting to ${city}` : "Transport to confirm";
+  if (/flight|transport|train|bus|drive|getting/.test(blob)) {
+    if (route) return `Getting from ${route.from} to ${route.to}`;
+    const from = placeHead(origin);
+    const to = placeHead(destination) || city;
+    if (from && to && from.toLowerCase() !== to.toLowerCase()) return `Getting from ${from} to ${to}`;
+    return to ? `Getting to ${to}` : "Transport to confirm";
+  }
   return city ? city : "Details to confirm";
 }
 
-/** Rewrite generator placeholders that talk about airports or flights on a ground trip. */
+const SPECIFIC_AIRPORT_PLACE = /\b(?:lounge|viewing|observation|museum|chapel|hotel|inn|parking|rental)\b/i;
+
+/** Rewrite generic airport/flight placeholders. Leave a named airport place alone. */
 export function presentGroundTransportText(value: string | null | undefined) {
   const text = (value || "").trim();
   if (!text) return "";
-  return text
+  const buffered = text
     .replace(/\brecommended\s+flight\s+departure\s+buffer\b/gi, "Leave time before you head out")
     .replace(/\brecommended\s+mixed(?:\s+transport)?\s+departure\s+buffer\b/gi, "Leave time before you head out")
     .replace(/\brecommended\s+\w+\s+departure\s+buffer\b/gi, "Leave time before you head out")
-    .replace(/\bflight departure buffer\b/gi, "departure buffer")
-    .replace(/\bairport(?:\s*\/\s*station)?(?:\s+station)?(?:\s+to)?\b/gi, " ")
-    .replace(/\bterminal\b/gi, "stop")
-    .replace(/\bsecurity\b/gi, "documents")
+    .replace(/\bflight departure buffer\b/gi, "departure buffer");
+  if (SPECIFIC_AIRPORT_PLACE.test(buffered) && !/\bairport\s*(?:\/\s*station|station|transfer)\b/i.test(buffered)) {
+    return buffered.replace(/\s{2,}/g, " ").replace(/\s+([,.])/g, "$1").trim();
+  }
+  return buffered
+    .replace(/\bairport\s*\/\s*station\b/gi, "arrival point")
+    .replace(/\bairport\s+station\b/gi, "arrival point")
+    .replace(/\bairport\s+transfer\b/gi, "local transfer")
+    .replace(/\b(?:to|for)\s+the\s+airport\b/gi, "to your departure point")
+    .replace(/\bat\s+the\s+airport\b/gi, "on arrival")
+    .replace(/\b[A-Z]{3}\s+airport\b/g, "arrival point")
+    .replace(/\b([A-Za-z][A-Za-z.'-]{1,40}(?:\s+[A-Za-z][A-Za-z.'-]{1,40}){0,3})\s+airport\b/g, "$1")
+    .replace(/\bairport\b/gi, "")
     .replace(/\bcollect bags\b/gi, "settle in")
     .replace(/\bbaggage rules\b/gi, "what you're bringing")
     .replace(/\s{2,}/g, " ")
     .replace(/\s+([,.])/g, "$1")
+    .replace(/\s+arrivals\b/gi, "")
     .trim();
 }
 
@@ -106,6 +153,10 @@ export function presentTravelerTitle(input: {
   const ground = input.suppressFlightFraming || isDriveMode(input.mode);
   const mixed = isMixedMode(input.mode);
   const flightPlaceholder = /\bflight|airport|departure buffer\b/i.test(rawTitle);
+  const repairedRoute = repairGarbledGettingTo(rawTitle, origin, destination);
+  if (repairedRoute && !isDriveMode(input.mode)) {
+    return { title: repairedRoute, needsConfirmation: true, modeLabel: mixed ? "Mixed" : null };
+  }
 
   if (isDriveMode(input.mode)) {
     if (title && !searchTitle && !/\bflights?\b/i.test(title)) {
@@ -127,7 +178,7 @@ export function presentTravelerTitle(input: {
 
   if (searchTitle && !(input.suppressFlightFraming && flightPlaceholder)) {
     return {
-      title: travelerCategoryTitle(rawTitle, input.category || ""),
+      title: travelerCategoryTitle(rawTitle, input.category || "", input.origin, input.destination),
       needsConfirmation: true,
       modeLabel: null
     };
@@ -161,16 +212,36 @@ export function presentTravelerTitle(input: {
     };
   }
 
-  if (!searchTitle && title) return { title, needsConfirmation: false, modeLabel: null };
+  if (!searchTitle && title) {
+    return { title: repairedRoute || title, needsConfirmation: Boolean(repairedRoute), modeLabel: null };
+  }
   if (searchTitle) {
     return {
-      title: travelerCategoryTitle(rawTitle, input.category || ""),
+      title: travelerCategoryTitle(rawTitle, input.category || "", input.origin, input.destination),
       needsConfirmation: true,
       modeLabel: null
     };
   }
 
+  const repaired = repairGarbledGettingTo(title, input.origin, input.destination);
+  if (repaired) return { title: repaired, needsConfirmation: true, modeLabel: null };
+
   return { title: humanLocation, needsConfirmation: Boolean(searchLocation), modeLabel: null };
+}
+
+/** "Getting to Saint John Montreal" dropped the word "to" between the two places. */
+export function repairGarbledGettingTo(value: string | null | undefined, origin?: string | null, destination?: string | null) {
+  const text = (value || "").trim();
+  const match = text.match(/^getting to\s+(.+)$/i);
+  if (!match || /\bto\b/i.test(match[1])) return "";
+  const from = placeHead(origin);
+  const to = placeHead(destination);
+  const blob = match[1].toLowerCase();
+  if (from && to && blob.includes(from.toLowerCase()) && blob.includes(to.toLowerCase())) {
+    return `Getting from ${from} to ${to}`;
+  }
+  const route = splitRoute(text);
+  return route ? `Getting from ${route.from} to ${route.to}` : "";
 }
 
 export function isHollowTravelerPlace(value: string | null | undefined, destination?: string | null) {
@@ -222,4 +293,11 @@ export function punctuateTravelerTime(value: string | null | undefined) {
   const label = cleanTravelerTimeLabel(value);
   if (!label) return "";
   return /[.!?]$/.test(label) ? `${label} ` : `${label}. `;
+}
+
+/** End a sentence without turning "10:54 p.m." into "10:54 p.m.." */
+export function closeTravelerSentence(value: string | null | undefined) {
+  const text = (value || "").trim().replace(/\b([ap])\.m\.\.+/gi, "$1.m.");
+  if (!text) return "";
+  return /[.!?]$/.test(text) ? text : `${text}.`;
 }

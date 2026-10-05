@@ -122,7 +122,8 @@ function cleanTimelineTitle(record: Record<string, unknown>, suppressFlightFrami
     suppressFlightFraming
   });
 
-  if (isDriveMode(mode) || looksLikeProviderSearchTitle(rawTitle) || looksLikeProviderSearchTitle(mapQuery)) {
+  const genericAirport = suppressFlightFraming && /\bairport|flight departure|departure buffer\b/i.test(`${rawTitle} ${mapQuery}`);
+  if (presented.needsConfirmation || isDriveMode(mode) || looksLikeProviderSearchTitle(rawTitle) || looksLikeProviderSearchTitle(mapQuery) || genericAirport) {
     return presented.title;
   }
 
@@ -424,7 +425,7 @@ export function buildDisplayTimelineItems(
     const statusText = routingStatus === "UNCERTAIN"
       ? "Route details to confirm"
       : costStatus === "UNKNOWN"
-        ? "Price not available yet"
+        ? "Price not available"
         : searchPlaceholder
           ? "Details to confirm"
           : "";
@@ -560,11 +561,18 @@ export function DayTimelineCard({
     .filter((item, index, list) => list.indexOf(item) === index)
     .slice(0, 5);
   const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];
+  const rawDaySummary = day.primary_plan || day.morning || day.afternoon || day.evening;
   const daySummary = compact(
-    day.primary_plan || day.morning || day.afternoon || day.evening,
+    suppressFlightFraming ? presentGroundTransportText(rawDaySummary) : rawDaySummary,
     timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
     160
   );
+  const dayTitle = presentTravelerTitle({
+    title: day.title,
+    destination: day.city,
+    suppressFlightFraming
+  }).title || "Your day";
+  const dayHasUnknownPrice = timelineItems.some((item) => item.statusText === "Price not available");
   const hasUncertainty = Boolean(day.plan_status === "uncertain" || day.uncertainty?.length || timelineItems.some((item) => item.statusText));
   const weekday = formatTripWeekday(day.date, locale);
   const repairCandidate = day.conflict_id ? (() => {
@@ -586,10 +594,12 @@ export function DayTimelineCard({
             <span className="rounded-full bg-ocean px-2.5 py-1 text-[10px] tracking-[0.14em] text-white">Day {day.day_number}</span>
             {day.date ? <span>{weekday ? `${weekday}, ` : ""}{formatTripDate(day.date, locale)}</span> : null}
           </p>
-          <h3 className="mt-2 text-2xl font-black leading-8 tracking-tight text-ink sm:text-[1.7rem]">{day.title || "Your day"}</h3>
+          <h3 className="mt-2 text-2xl font-black leading-8 tracking-tight text-ink sm:text-[1.7rem]">{dayTitle}</h3>
           {day.city ? <p className="mt-1 text-sm font-bold text-slate-500">{day.city}</p> : null}
         </div>
-        {typeof day.estimated_cost === "number" ? (
+        {dayHasUnknownPrice ? (
+          <span className="w-fit shrink-0 rounded-full bg-sun/20 px-3 py-1.5 text-xs font-black text-amber-900">Item price not available</span>
+        ) : typeof day.estimated_cost === "number" && day.estimated_cost > 0 ? (
           <span className="w-fit shrink-0 rounded-full bg-mist px-3 py-1.5 text-xs font-black text-slate-600">Day estimate · {formatMoney(day.estimated_cost, currency)}</span>
         ) : null}
       </div>

@@ -1883,6 +1883,9 @@ function TripPlanFormSession({
               {notePreview.constraints.length ? (
                 <div className="mt-4 grid gap-2 text-sm font-semibold leading-6 text-slate-700">
                   {notePreview.constraints.map((line) => <p key={line}>{line}</p>)}
+                  {notePreview.hotel ? <p className="text-sm leading-6 text-slate-700">{notePreview.hotel}</p> : null}
+                  {notePreview.flight ? <p className="text-sm leading-6 text-slate-700">{notePreview.flight}</p> : null}
+                  {notePreview.activity ? <p className="text-sm leading-6 text-slate-700">{notePreview.activity}</p> : null}
                   {notePreview.gaps.length ? <p className="text-xs font-bold leading-5 text-slate-500">{notePreview.gaps.join(" ")}</p> : null}
                 </div>
               ) : null}

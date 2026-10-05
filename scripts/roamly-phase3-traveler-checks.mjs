@@ -106,6 +106,27 @@ const buffer = titles.presentTravelerTitle({
 assert.equal(/flight|airport/i.test(buffer.title), false);
 assert.equal(titles.cleanTravelerTimeLabel("10:54 p.m.."), "10:54 p.m.");
 assert.equal(titles.punctuateTravelerTime("10:54 p.m.").includes("p.m.."), false);
+assert.equal(titles.closeTravelerSentence("Last sync Oct 5, 10:54 p.m.").includes("p.m.."), false);
+assert.equal(titles.closeTravelerSentence("Last sync Oct 5, 10:54 p.m."), "Last sync Oct 5, 10:54 p.m.");
+const route = titles.presentTravelerTitle({
+  title: "Saint John to Montreal flight search",
+  category: "flight",
+  origin: "Saint John",
+  destination: "Montreal"
+});
+assert.equal(route.title, "Getting from Saint John to Montreal");
+assert.equal(titles.repairGarbledGettingTo("Getting to Saint John Montreal", "Saint John", "Montreal"), "Getting from Saint John to Montreal");
+const airport = titles.presentTravelerTitle({
+  title: "Montreal airport",
+  suppressFlightFraming: true,
+  origin: "Saint John",
+  destination: "Montreal"
+});
+assert.equal(/airport/i.test(airport.title), false);
+const bookedAirport = titles.presentGroundTransportText("Billy Bishop Airport lounge");
+assert.match(bookedAirport, /lounge/i);
+assert.equal(titles.shouldSuppressFlightFraming({ transportationPreference: "flight", hasConfirmedFlight: false }), true);
+assert.equal(titles.shouldSuppressFlightFraming({ transportationPreference: "flight", hasConfirmedFlight: true }), false);
 
 const budget = loadTsModule("lib/roamly/budgetPresentation.ts");
 const gaps = budget.buildBudgetPresentation({
@@ -141,6 +162,15 @@ const notes = loadTsModule("lib/roamly/travelerNotes.ts");
 const festival = notes.travelerNoteDisplay("festival if any");
 assert.match(festival.constraints.join(" "), /festival/i);
 assert.ok(festival.gaps.length > 0);
+assert.match(festival.activity, /official event/i);
+assert.match(festival.hotel, /stays/i);
+assert.equal(notes.noteHotelPreference("festival if any").includes("event"), true);
+const ranked = notes.rankChoicesForNotes(
+  [{ title: "Old Montreal walk" }, { title: "Official events in Montreal" }],
+  "festival if any",
+  (item) => item.title
+);
+assert.match(ranked[0].title, /events/i);
 
 const notificationTrips = loadTsModule("lib/roamly/notificationTrip.ts");
 const current = notificationTrips.selectNotificationTrip([

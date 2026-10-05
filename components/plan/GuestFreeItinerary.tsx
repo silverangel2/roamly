@@ -10,7 +10,7 @@ import {
   type GuestItineraryDayView,
   type GuestItineraryStatus
 } from "@/lib/roamly/guestItineraryView";
-import { punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
+import { presentTravelerTitle, punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
 
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
 
@@ -35,7 +35,7 @@ function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
         <li key={`${card.title}-${card.url}`} className="rounded-xl bg-white p-3 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-black leading-5 text-ink">{card.title}</p>
+              <p className="text-sm font-black leading-5 text-ink">{presentTravelerTitle({ title: card.title, category: card.title }).title}</p>
               {card.detail ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{card.detail}</p> : null}
               <p className="mt-1 text-xs font-bold text-slate-500">
                 {card.priceLabel ? <span className="text-ocean">{card.priceLabel}</span> : null}
@@ -132,7 +132,7 @@ export function GuestFreeItinerary() {
                 {translateText("Day")} {day.dayNumber}
                 {day.date ? ` · ${day.date}` : ""}
               </p>
-              {day.title ? <h3 className="mt-1 text-lg font-black text-ink">{day.title}</h3> : null}
+              {day.title ? <h3 className="mt-1 text-lg font-black text-ink">{presentTravelerTitle({ title: day.title, category: "activity" }).title}</h3> : null}
               {day.morning ? <p className="mt-3 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Morning")}. </span>{day.morning}</p> : null}
               {day.afternoon ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Afternoon")}. </span>{day.afternoon}</p> : null}
               {day.evening ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Evening")}. </span>{day.evening}</p> : null}
@@ -149,11 +149,11 @@ export function GuestFreeItinerary() {
                           rel="noopener noreferrer sponsored"
                           className="font-black text-ocean underline decoration-ocean/30 underline-offset-4"
                         >
-                          {item.title}
+                          {presentTravelerTitle({ title: item.title, category: item.title }).title}
                           {item.bookingLabel ? ` · ${item.bookingLabel}` : ""}
                         </a>
                       ) : (
-                        item.title
+                        presentTravelerTitle({ title: item.title, category: item.title }).title
                       )}
                     </li>
                   ))}
