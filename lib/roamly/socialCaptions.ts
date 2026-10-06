@@ -1763,10 +1763,22 @@ async function pickCampaignPhotoAsset(
   return selectCampaignPhotoAssetDecision(candidates, destination, topic, { excludedKeys, reservedKeys, rotationIndex, previousKeys });
 }
 
-function samePhotoIdentity(left: { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null } | null, right: { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null } | null) {
+type LoosePhotoIdentity = { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null };
+
+/** Coerce optional ids so identity lookup typechecks. Empty values are ignored by campaignAssetIdentityKeys. */
+function photoIdentityKeys(asset: LoosePhotoIdentity) {
+  return campaignAssetIdentityKeys({
+    id: asset.id || "",
+    media_url: asset.media_url || "",
+    asset_type: "image",
+    metadata: asset.metadata || null
+  });
+}
+
+function samePhotoIdentity(left: LoosePhotoIdentity | null, right: LoosePhotoIdentity | null) {
   if (!left || !right) return false;
-  const leftKeys = campaignAssetIdentityKeys({ ...left, asset_type: "image" });
-  const rightKeys = new Set(campaignAssetIdentityKeys({ ...right, asset_type: "image" }));
+  const leftKeys = photoIdentityKeys(left);
+  const rightKeys = new Set(photoIdentityKeys(right));
   return [...leftKeys].some((key) => rightKeys.has(key));
 }
 
@@ -1779,7 +1791,7 @@ export async function selectPublishSourcePhoto(
   admin: SupabaseClient,
   brand: FacebookSocialBrand,
   draft: { id: string; metadata?: Record<string, unknown> | null },
-  current: { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null } | null
+  current: LoosePhotoIdentity | null
 ) {
   try {
     const { settings } = await loadFacebookAutomationSettings(admin, brand);
@@ -1788,7 +1800,7 @@ export async function selectPublishSourcePhoto(
     const destination = clean(String(metadata.destination || ""));
     const topic = clean(String(metadata.sourceTopic || ""));
     const currentPhoto = current?.id || current?.media_url ? current : null;
-    const currentKeys = currentPhoto ? campaignAssetIdentityKeys({ ...currentPhoto, asset_type: "image" }) : null;
+    const currentKeys = currentPhoto ? photoIdentityKeys(currentPhoto) : null;
     const repeated = Boolean(currentKeys && [...currentKeys].some((key) => history.keys.has(key)));
     if (currentPhoto && !repeated) return null;
     const { error, candidates } = await loadAutomationPhotoCandidates(admin, brand);
