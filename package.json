@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test:facebook-autopost": "node scripts/facebook-autopost-regression-checks.mjs",
     "test:plan-hydration": "node scripts/roamly-plan-hydration-checks.mjs",
+    "test:plan-trip-ux": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-plan-trip-ux-checks.mjs",
     "test:phase3-traveler": "node scripts/roamly-phase3-traveler-checks.mjs",
     "test:traveler-package": "node scripts/roamly-traveler-package-checks.mjs",
     "test:october4-journey": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-october4-journey-checks.mjs",

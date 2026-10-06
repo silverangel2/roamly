@@ -35,10 +35,12 @@ function AppShellContent({
   const [authenticated, setAuthenticated] = useState(initialAuth.authenticated);
   const [activeTripId, setActiveTripId] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
-  const [bottomNavHidden, setBottomNavHidden] = useState(false);
+  const [bottomNavHidden, setBottomNavHidden] = useState(pathname === "/");
   const bottomNavRef = useRef<HTMLElement>(null);
-  const bottomNavHiddenRef = useRef(false);
+  const bottomNavHiddenRef = useRef(pathname === "/");
   const bottomNavAnchorRef = useRef(0);
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   useEffect(() => {
     setAuthenticated(initialAuth.authenticated);
@@ -120,9 +122,10 @@ function AppShellContent({
   }, [authenticated, pathname]);
 
   useEffect(() => {
+    const hideForHero = pathname === "/" && window.scrollY < window.innerHeight * 0.45;
     bottomNavAnchorRef.current = window.scrollY;
-    bottomNavHiddenRef.current = false;
-    setBottomNavHidden(false);
+    bottomNavHiddenRef.current = hideForHero;
+    setBottomNavHidden(hideForHero);
   }, [pathname]);
 
   useEffect(() => {
@@ -131,6 +134,14 @@ function AppShellContent({
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
+        if (pathnameRef.current === "/" && window.scrollY < window.innerHeight * 0.45) {
+          bottomNavAnchorRef.current = window.scrollY;
+          if (!bottomNavHiddenRef.current) {
+            bottomNavHiddenRef.current = true;
+            setBottomNavHidden(true);
+          }
+          return;
+        }
         const nav = bottomNavRef.current;
         const focused = Boolean(nav && document.activeElement instanceof Node && nav.contains(document.activeElement));
         const next = nextBottomNavHidden({

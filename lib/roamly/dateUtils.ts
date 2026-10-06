@@ -45,6 +45,13 @@ export function calculateTripDateRange(startDate?: string | null, endDate?: stri
   };
 }
 
+/** Move a real calendar date by whole days. Returns null when the input is not a real date. */
+export function shiftIsoDate(isoDate: string, dayDelta: number): string | null {
+  const timestamp = parseDateOnly(isoDate);
+  if (timestamp === null || !Number.isFinite(dayDelta)) return null;
+  return new Date(timestamp + Math.trunc(dayDelta) * 86_400_000).toISOString().slice(0, 10);
+}
+
 export function calculateInclusiveTripDays(startDate?: string | null, endDate?: string | null, fallback = 3) {
   const fallbackDays = normalizeFallback(fallback);
   const range = calculateTripDateRange(startDate, endDate);
