@@ -130,7 +130,7 @@ export function PlaceSelector({
       </label>
 
       {open ? (
-        <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-[1.25rem] border border-cloud bg-white shadow-soft">
+        <div className="mt-2 overflow-hidden rounded-[1.25rem] border border-cloud bg-white shadow-soft">
           <div className="max-h-80 overflow-auto p-2">
             {loading ? (
               <div className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
