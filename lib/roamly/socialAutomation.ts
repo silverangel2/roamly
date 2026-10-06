@@ -6,7 +6,7 @@ import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roaml
 import { probeFacebookAccessibleUrl, probeFacebookPublicVisibility } from "@/lib/roamly/publicSocialStorage";
 import { classifyFacebookPublication, type FacebookPublicationTruth } from "@/lib/roamly/facebookPublicationTruth";
 import { generateFreshSocialReelVideo, generateStaticSocialPosterReelVideo, replaceRoamlyReelAudio, type SocialReelBrand } from "@/lib/roamly/socialReelGenerator";
-import { campaignAssetIdentityKeys } from "@/lib/roamly/facebookCampaignMedia";
+import { selectCampaignPhotoAssetDecision } from "@/lib/roamly/facebookCampaignMedia";
 import { buildRoamlyContentVariant } from "@/lib/roamly/socialContentVariation";
 
 import {
@@ -33,7 +33,8 @@ import {
   objectValue,
   recordAdminActivity,
   refillFacebookQueue,
-  recentSelectedMediaKeys,
+  recentSelectedMediaHistory,
+  selectPublishSourcePhoto,
   uniqueHashtags,
   validTimeZone,
   withBrandMetadata,
@@ -593,27 +594,17 @@ export function isLegacyRoamlyGeneratedVideoAsset(asset: Pick<SocialMediaAssetRo
   ].some((value) => /roamly-premium-reels-2026-08\/day-\d{2}-/i.test(value));
 }
 
-function sortAutomationAssets(assets: SocialMediaAssetRow[]) {
-  return [...assets].sort((a, b) => {
-    const useDiff = Number(a.use_count || 0) - Number(b.use_count || 0);
-    if (useDiff) return useDiff;
-    const aUsed = a.last_used_at ? Date.parse(a.last_used_at) : 0;
-    const bUsed = b.last_used_at ? Date.parse(b.last_used_at) : 0;
-    if (aUsed !== bUsed) return aUsed - bUsed;
-    return Date.parse(String(b.created_at || "")) - Date.parse(String(a.created_at || ""));
-  });
-}
-
 async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSocialBrand) {
   const { data, error } = await admin
     .from("roamly_social_media_assets")
     .select("id,platform,status,title,media_url,asset_type,source,destination,topic,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
     .eq("approved_for_automation", true)
     .eq("excluded_from_automation", false)
+    .in("asset_type", ["image", "photo"])
     .order("use_count", { ascending: true })
     .order("last_used_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
 
   if (error) {
     console.warn("[Roamly social] media library selection failed", error.message);
@@ -631,9 +622,11 @@ async function pickAutomationMediaAsset(admin: SupabaseClient, brand: FacebookSo
     return type === "image" && isApprovedAutomationAsset(asset, brand);
   });
 
-  const recentKeys = await recentSelectedMediaKeys(admin, brand);
-  const available = assets.filter((asset) => ![...campaignAssetIdentityKeys(asset)].some((key) => recentKeys.has(key)));
-  return sortAutomationAssets(available.length ? available : assets)[0] || null;
+  const recentHistory = await recentSelectedMediaHistory(admin, brand);
+  return selectCampaignPhotoAssetDecision(assets, "", "", {
+    excludedKeys: recentHistory.keys,
+    previousKeys: recentHistory.latestKeys
+  }).asset;
 }
 
 async function findPriorPublishedVisual(admin: SupabaseClient, currentDraftId: string, platform: string, sourceMediaAssetId: string) {
@@ -851,6 +844,27 @@ async function ensureReelVideo(
     sourceAsset = boundPhotoAsset;
     sourceUrl = boundPhotoUrl;
     sourceType = "image";
+  }
+
+  // Rotate a repeated still before Reel generation. The video_reels upload
+  // below is unchanged; only the source photo moves to the next library image.
+  if (config.brand === "roamly" && sourceType !== "video" && (sourceType === "image" || !sourceUrl)) {
+    const replacement = await selectPublishSourcePhoto(admin, config.brand, draft, sourceType === "image" ? {
+      id: sourceAsset?.id || null,
+      media_url: sourceUrl,
+      metadata: objectValue(sourceAsset?.metadata)
+    } : null);
+    if (replacement) {
+      console.log("[ROAMLY_AUTOPOST_PHOTO_ROTATED]", {
+        queueId,
+        draftId: draft.id,
+        fromAssetId: sourceAsset?.id || null,
+        toAssetId: replacement.id
+      });
+      sourceAsset = replacement;
+      sourceUrl = assetUrl(replacement);
+      sourceType = "image";
+    }
   }
 
   // Damaged Aug 19-era drafts may have no media at all. Reuse the last

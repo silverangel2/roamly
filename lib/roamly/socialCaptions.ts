@@ -17,7 +17,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAmazonSearchUrl, getAmazonAffiliateConfig } from "@/lib/roamly/amazonAffiliate";
 import { ROAMLY_AFFILIATE_DISCLOSURE, ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 import { getRoamlySocialEnvStatus, isSocialTableMissingError } from "@/lib/roamly/social";
-import { campaignAssetIdentityKeys, selectCampaignPhotoAssetDecision } from "@/lib/roamly/facebookCampaignMedia";
+import {
+  campaignAssetIdentityKeys,
+  selectAutopostPhotoForPost,
+  selectCampaignPhotoAssetDecision,
+  sourcePhotoCandidateFromDraft
+} from "@/lib/roamly/facebookCampaignMedia";
 import { buildRoamlyContentVariant } from "@/lib/roamly/socialContentVariation";
 import type {
   FacebookAutomationSettings,
@@ -1087,8 +1092,12 @@ async function buildDrafts(
   const duplicateHashes = await existingDuplicateHashes(admin, brand);
   const config = facebookBrandConfig(brand);
   const drafts: GeneratedFacebookDraft[] = [];
-  const recentMediaKeys = brand === "roamly" ? await recentSelectedMediaKeys(admin, brand, settings.media.minimumDaysBeforeReuse) : new Set<string>();
+  const mediaHistory = brand === "roamly"
+    ? await recentSelectedMediaHistory(admin, brand, settings.media.minimumDaysBeforeReuse)
+    : { keys: new Set<string>(), latestKeys: new Set<string>() };
+  const recentMediaKeys = mediaHistory.keys;
   const batchReservedKeys = new Set<string>();
+  let previousMediaKeys = mediaHistory.latestKeys;
   let batchPickCount = 0;
   let safety = 0;
 
@@ -1126,7 +1135,7 @@ async function buildDrafts(
       contentVariant?.hashtagTerms || []
     );
     const campaignPhotoDecision = brand === "roamly"
-      ? await pickCampaignPhotoAsset(admin, brand, destination, topic, recentMediaKeys, batchReservedKeys, batchPickCount)
+      ? await pickCampaignPhotoAsset(admin, brand, destination, topic, recentMediaKeys, batchReservedKeys, batchPickCount, previousMediaKeys)
       : null;
     const campaignPhoto = campaignPhotoDecision?.asset || null;
     if (brand === "roamly" && !campaignPhoto) {
@@ -1134,7 +1143,9 @@ async function buildDrafts(
       continue;
     }
     if (campaignPhoto) {
-      for (const key of campaignAssetIdentityKeys(campaignPhoto)) batchReservedKeys.add(key);
+      const chosenKeys = campaignAssetIdentityKeys(campaignPhoto);
+      for (const key of chosenKeys) batchReservedKeys.add(key);
+      previousMediaKeys = chosenKeys;
       batchPickCount += 1;
     }
     const suggestedMedia = campaignPhoto?.media_url || "";
@@ -1163,6 +1174,7 @@ async function buildDrafts(
       scheduledFor: scheduledTimes[drafts.length] || new Date(Date.now() + (drafts.length + 1) * 86_400_000).toISOString(),
       metadata: withBrandMetadata(brand, {
         destination,
+        sourceTopic: topic,
         sourceMediaAssetId: campaignPhoto?.id || null,
         sourceImageAssetId: campaignPhoto?.id || null,
         sourceMediaUrl: campaignPhoto?.media_url || null,
@@ -1636,8 +1648,20 @@ function isApprovedAutomationAsset(asset: SocialMediaAssetRow, brand: FacebookSo
   );
 }
 
-export async function recentSelectedMediaKeys(admin: SupabaseClient, brand: FacebookSocialBrand, windowDays = 14) {
+function historyTimestamp(row: { queue_status?: string | null; published_at?: string | null; scheduled_for?: string | null; created_at?: string | null }) {
+  const timestamp = row.queue_status === "published" ? row.published_at : row.scheduled_for || row.created_at;
+  const parsed = timestamp ? Date.parse(timestamp) : NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export async function recentSelectedMediaHistory(
+  admin: SupabaseClient,
+  brand: FacebookSocialBrand,
+  windowDays = 14,
+  options: { exceptDraftId?: string | null } = {}
+) {
   const keys = new Set<string>();
+  const latestKeys = new Set<string>();
   const cutoff = Date.now() - windowDays * 86_400_000;
   const { data: queues, error: queueError } = await admin
     .from("roamly_social_queue")
@@ -1650,16 +1674,24 @@ export async function recentSelectedMediaKeys(admin: SupabaseClient, brand: Face
     console.warn("[Roamly social] recent media history lookup failed; refusing unprotected selection", queueError.message);
     throw new Error(`Recent media history lookup failed: ${queueError.message}`);
   }
-  if (!queues?.length) return keys;
+  if (!queues?.length) return { keys, latestKeys };
 
-  const recentDraftIds = queues
-    .filter((row) => {
-      const timestamp = row.queue_status === "published" ? row.published_at : row.scheduled_for || row.created_at;
-      return timestamp && Date.parse(timestamp) >= cutoff;
-    })
-    .map((row) => row.draft_id)
-    .filter(Boolean);
-  if (!recentDraftIds.length) return keys;
+  const recentRows = queues.filter((row) => historyTimestamp(row) >= cutoff && row.draft_id && row.draft_id !== options.exceptDraftId);
+  const publishedRank = (row: { queue_status?: string | null; published_at?: string | null; created_at?: string | null }) => {
+    if (row.queue_status === "published" && row.published_at) {
+      const publishedAt = Date.parse(row.published_at);
+      if (Number.isFinite(publishedAt)) return publishedAt;
+    }
+    const createdAt = Date.parse(row.created_at || "");
+    return Number.isFinite(createdAt) ? createdAt : 0;
+  };
+  const recentDraftIds = [...new Set(
+    [...recentRows]
+      .sort((a, b) => publishedRank(b) - publishedRank(a))
+      .map((row) => row.draft_id)
+      .filter((id): id is string => Boolean(id))
+  )];
+  if (!recentDraftIds.length) return { keys, latestKeys };
 
   const { data: drafts, error: draftError } = await admin
     .from("roamly_social_drafts")
@@ -1669,19 +1701,48 @@ export async function recentSelectedMediaKeys(admin: SupabaseClient, brand: Face
     console.warn("[Roamly social] recent media draft lookup failed; refusing unprotected selection", draftError.message);
     throw new Error(`Recent media draft lookup failed: ${draftError.message}`);
   }
-  if (!drafts?.length) return keys;
-
-  for (const draft of drafts as Array<Record<string, unknown>>) {
-    const metadata = objectValue(draft.metadata);
-    const sourceAssetId = clean(String(metadata.sourceMediaAssetId || metadata.sourceImageAssetId || draft.selected_media_asset_id || ""));
-    const sourceUrl = clean(String(metadata.sourceMediaUrl || metadata.sourceImageUrl || draft.selected_media_url || ""));
-    if (sourceAssetId || sourceUrl) {
-      for (const key of campaignAssetIdentityKeys({ id: sourceAssetId || "recent-source", media_url: sourceUrl, asset_type: "image", metadata })) {
-        keys.add(key);
-      }
+  const draftsById = new Map((drafts || []).map((draft) => [String(draft.id), draft]));
+  let capturedLatest = false;
+  for (const draftId of recentDraftIds) {
+    const draft = draftsById.get(draftId);
+    if (!draft) continue;
+    const sourcePhoto = sourcePhotoCandidateFromDraft(draft);
+    if (!sourcePhoto) continue;
+    const identity = campaignAssetIdentityKeys(sourcePhoto);
+    for (const key of identity) keys.add(key);
+    if (!capturedLatest) {
+      for (const key of identity) latestKeys.add(key);
+      capturedLatest = true;
     }
   }
-  return keys;
+  return { keys, latestKeys };
+}
+
+export async function recentSelectedMediaKeys(admin: SupabaseClient, brand: FacebookSocialBrand, windowDays = 14) {
+  const history = await recentSelectedMediaHistory(admin, brand, windowDays);
+  return history.keys;
+}
+
+const AUTOMATION_PHOTO_ASSET_COLUMNS = "id,platform,status,title,media_url,asset_type,source,destination,topic,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at";
+
+async function loadAutomationPhotoCandidates(admin: SupabaseClient, brand: FacebookSocialBrand) {
+  const { data, error } = await admin
+    .from("roamly_social_media_assets")
+    .select(AUTOMATION_PHOTO_ASSET_COLUMNS)
+    .eq("approved_for_automation", true)
+    .eq("excluded_from_automation", false)
+    // Generated Reel MP4s share this table. Leaving them in the limited
+    // use_count window hid the still-photo pool and pinned every post to
+    // whichever single image still fit.
+    .in("asset_type", ["image", "photo"])
+    .order("use_count", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) return { error, candidates: [] as SocialMediaAssetRow[] };
+  const candidates = ((data || []) as SocialMediaAssetRow[]).filter((asset) =>
+    isApprovedAutomationAsset(asset, brand) && assetType(asset) === "image"
+  );
+  return { error: null, candidates };
 }
 
 async function pickCampaignPhotoAsset(
@@ -1691,24 +1752,62 @@ async function pickCampaignPhotoAsset(
   topic: string,
   excludedKeys: ReadonlySet<string>,
   reservedKeys: ReadonlySet<string> = new Set<string>(),
-  rotationIndex = 0
+  rotationIndex = 0,
+  previousKeys?: ReadonlySet<string>
 ) {
-  const { data, error } = await admin
-    .from("roamly_social_media_assets")
-    .select("id,platform,status,title,media_url,asset_type,source,destination,topic,approved_for_automation,excluded_from_automation,archived_at,use_count,last_used_at,width,height,duration_seconds,is_vertical,metadata,created_at")
-    .eq("approved_for_automation", true)
-    .eq("excluded_from_automation", false)
-    .order("use_count", { ascending: true })
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const { error, candidates } = await loadAutomationPhotoCandidates(admin, brand);
   if (error) {
     console.warn("[Roamly social] campaign photo selection failed", error.message);
     return null;
   }
-  const candidates = ((data || []) as SocialMediaAssetRow[]).filter((asset) =>
-    isApprovedAutomationAsset(asset, brand) && assetType(asset) === "image"
-  );
-  return selectCampaignPhotoAssetDecision(candidates, destination, topic, { excludedKeys, reservedKeys, rotationIndex });
+  return selectCampaignPhotoAssetDecision(candidates, destination, topic, { excludedKeys, reservedKeys, rotationIndex, previousKeys });
+}
+
+function samePhotoIdentity(left: { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null } | null, right: { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null } | null) {
+  if (!left || !right) return false;
+  const leftKeys = campaignAssetIdentityKeys({ ...left, asset_type: "image" });
+  const rightKeys = new Set(campaignAssetIdentityKeys({ ...right, asset_type: "image" }));
+  return [...leftKeys].some((key) => rightKeys.has(key));
+}
+
+/**
+ * At publish time, keep the draft's library photo unless another recent post
+ * already used it. The Reel renderer is unchanged; only the still source moves.
+ * Returns null to keep the current photo, including the single-photo fallback.
+ */
+export async function selectPublishSourcePhoto(
+  admin: SupabaseClient,
+  brand: FacebookSocialBrand,
+  draft: { id: string; metadata?: Record<string, unknown> | null },
+  current: { id?: string | null; media_url?: string | null; metadata?: Record<string, unknown> | null } | null
+) {
+  try {
+    const { settings } = await loadFacebookAutomationSettings(admin, brand);
+    const history = await recentSelectedMediaHistory(admin, brand, settings.media.minimumDaysBeforeReuse, { exceptDraftId: draft.id });
+    const metadata = objectValue(draft.metadata);
+    const destination = clean(String(metadata.destination || ""));
+    const topic = clean(String(metadata.sourceTopic || ""));
+    const currentPhoto = current?.id || current?.media_url ? current : null;
+    const currentKeys = currentPhoto ? campaignAssetIdentityKeys({ ...currentPhoto, asset_type: "image" }) : null;
+    const repeated = Boolean(currentKeys && [...currentKeys].some((key) => history.keys.has(key)));
+    if (currentPhoto && !repeated) return null;
+    const { error, candidates } = await loadAutomationPhotoCandidates(admin, brand);
+    if (error || !candidates.length) return null;
+    const bound = currentPhoto
+      ? candidates.find((candidate) => samePhotoIdentity(currentPhoto, candidate)) || null
+      : null;
+    const decision = selectAutopostPhotoForPost(candidates, destination, topic, {
+      bound,
+      excludedKeys: history.keys,
+      previousKeys: history.latestKeys.size ? history.latestKeys : currentKeys || undefined
+    });
+    const next = decision.asset;
+    if (!next || (currentPhoto && samePhotoIdentity(currentPhoto, next))) return null;
+    return next;
+  } catch (error) {
+    console.warn("[Roamly social] photo rotation skipped", error instanceof Error ? error.message : "history unavailable");
+    return null;
+  }
 }
 
 // Re-exported for lib/roamly/socialAutomation.ts (transport split).
