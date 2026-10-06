@@ -136,7 +136,7 @@ export function DynamicDestinationHero() {
                 <p className="text-sm text-white/85">{active.country}</p>
               </div>
               <div className="mt-3 flex items-center gap-3">
-                <div className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto" role="tablist" aria-label="Destinations">
+                <div className="roamly-hero-dots flex min-w-0 flex-1 gap-1.5 overflow-x-auto" role="tablist" aria-label="Destinations">
                   {destinations.map((destination, index) => (
                     <button
                       key={destination.name}

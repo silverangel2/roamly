@@ -20,6 +20,16 @@ export function positiveDayCount(value: string | number | null | undefined): num
   return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : null;
 }
 
+/** A typed day count below 1, including 0. Blank is allowed when the dates already stand alone. */
+export function invalidTypedDayCount(value: string | number | null | undefined): boolean {
+  if (typeof value === "number") return Number.isFinite(value) && value < 1;
+  if (typeof value !== "string") return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed < 1;
+}
+
 /** Inclusive days, with nights called out so a 5-day span is not read as 5 nights. */
 export function tripLengthCopy(days: number): string {
   const whole = Math.round(days);
@@ -59,6 +69,9 @@ export function syncPlanDates(startDate: string, endDate: string, daysRaw: strin
 
 export function planDateFieldErrors(startDate: string, endDate: string, daysRaw: string) {
   const empty = { start: "", end: "", days: "" };
+  if (invalidTypedDayCount(daysRaw)) {
+    return { ...empty, days: "Use at least 1 day." };
+  }
   const range = calculateTripDateRange(startDate, endDate);
   if (range.ok) return empty;
   if (range.errorCode === "END_BEFORE_START") {
