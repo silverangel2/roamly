@@ -31,6 +31,7 @@ import {
 } from "@/lib/roamly/authenticatedFetch";
 import { calculateTripDateRange, shiftIsoDate } from "@/lib/roamly/dateUtils";
 import {
+  invalidTypedDayCount,
   planDateFieldErrors,
   planEntitlementCopy,
   PLAN_PREFERENCE_DEFAULTS,
@@ -358,11 +359,7 @@ function placeValue(place: NormalizedPlace | null) {
 
 function tripDateValidationMessage(startDate: string, endDate: string, daysRaw: string) {
   const synced = syncPlanDates(startDate, endDate, daysRaw);
-  const fieldErrors = planDateFieldErrors(
-    synced.startDate,
-    synced.endDate,
-    synced.days ? String(synced.days) : daysRaw
-  );
+  const fieldErrors = planDateFieldErrors(synced.startDate, synced.endDate, daysRaw);
   return fieldErrors.start || fieldErrors.end || fieldErrors.days;
 }
 
@@ -835,6 +832,7 @@ function TripPlanFormSession({
         ? current.filter((item) => item !== interest)
         : [...current, interest]
     );
+    setError((message) => (message === "Pick at least one interest." ? "" : message));
     resetDiscovery();
   }
 
@@ -1283,7 +1281,7 @@ function TripPlanFormSession({
 
   function goNext() {
     notePlanEdit();
-    if (step === 1) {
+    if (step === 1 && !invalidTypedDayCount(daysCount)) {
       const synced = syncPlanDates(startDate, endDate, daysCount);
       if (synced.endDate !== endDate) setEndDate(synced.endDate);
       if (synced.days && String(synced.days) !== daysCount) setDaysCount(String(synced.days));
@@ -1628,12 +1626,13 @@ function TripPlanFormSession({
   const syncedDates = syncPlanDates(startDate, endDate, daysCount);
   const shownDateErrors =
     step === 1 && error
-      ? planDateFieldErrors(
-          syncedDates.startDate,
-          syncedDates.endDate,
-          syncedDates.days ? String(syncedDates.days) : daysCount
-        )
+      ? planDateFieldErrors(syncedDates.startDate, syncedDates.endDate, daysCount)
       : { start: "", end: "", days: "" };
+  const budgetFieldError =
+    step === 2 && (error.startsWith("Add an estimated budget") || error.startsWith("Please enter a realistic trip budget"))
+      ? error
+      : "";
+  const interestFieldError = step === 3 && error === "Pick at least one interest." ? error : "";
   const dateErrorActive = Boolean(shownDateErrors.start || shownDateErrors.end || shownDateErrors.days);
   const lengthHint =
     tripDateRange.ok && tripDateRange.days
@@ -1670,9 +1669,7 @@ function TripPlanFormSession({
             <span className="text-slate-500"> · {translateText(steps[step].detail)}</span>
           </p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-3xl">{translateText(steps[step].title)}</h2>
-          {step === 0 ? (
-            <p className="mt-3 max-w-xl text-sm font-medium leading-6 text-slate-600">{translateText(entitlement.stepNote)}</p>
-          ) : null}
+          <p className="mt-2 max-w-xl text-xs font-medium leading-5 text-slate-500">{translateText(entitlement.stepNote)}</p>
           {testerAccess ? (
             <p className="mt-2 w-fit rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
               {translateText("Tester access")}
@@ -1864,7 +1861,7 @@ function TripPlanFormSession({
             <label className="block">
               <FieldLabel>{translateText("Number of days")}</FieldLabel>
               <TextInput
-                value={tripDateRange.ok ? String(resolvedDaysCount ?? "") : daysCount}
+                value={invalidTypedDayCount(daysCount) || !tripDateRange.ok ? daysCount : String(resolvedDaysCount ?? "")}
                 onChange={updateDaysCount}
                 type="number"
                 min={1}
@@ -1900,12 +1897,19 @@ function TripPlanFormSession({
                   onChange={(value) => {
                     notePlanEdit();
                     setBudgetAmount(value);
+                    const amount = toNumberOrNull(value);
+                    setError((current) => {
+                      if (current.startsWith("Add an estimated budget") && amount != null && amount > 0) return "";
+                      if (current.startsWith("Please enter a realistic trip budget") && amount != null && amount >= 100) return "";
+                      return current;
+                    });
                   }}
                   type="number"
                   min={1}
                   ariaLabel="Budget amount"
                 />
-                {budgetAmount.trim() ? null : (
+                <FieldError id="plan-budget-error" message={budgetFieldError} />
+                {budgetAmount.trim() || budgetFieldError ? null : (
                   <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-500">
                     {translateText("A rough total is enough. Many short trips land around 1,500–4,000 CAD. Roamly will not fill this in for you.")}
                   </p>
@@ -1969,6 +1973,7 @@ function TripPlanFormSession({
                   <Chip key={interest} label={interest} selected={interests.includes(interest)} onClick={() => { notePlanEdit(); toggleInterest(interest); }} />
                 ))}
               </div>
+              <FieldError id="plan-interest-error" message={interestFieldError} />
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block">

@@ -23,6 +23,10 @@ function isActive(pathname: string, href: string, hrefs: readonly string[]) {
   return primaryNavActiveHref(pathname, hrefs) === href;
 }
 
+function routeHidesBottomNav(pathname: string) {
+  return pathname === "/plan";
+}
+
 function AppShellContent({
   children,
   initialAuth
@@ -35,9 +39,9 @@ function AppShellContent({
   const [authenticated, setAuthenticated] = useState(initialAuth.authenticated);
   const [activeTripId, setActiveTripId] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
-  const [bottomNavHidden, setBottomNavHidden] = useState(pathname === "/");
+  const [bottomNavHidden, setBottomNavHidden] = useState(pathname === "/" || routeHidesBottomNav(pathname));
   const bottomNavRef = useRef<HTMLElement>(null);
-  const bottomNavHiddenRef = useRef(pathname === "/");
+  const bottomNavHiddenRef = useRef(pathname === "/" || routeHidesBottomNav(pathname));
   const bottomNavAnchorRef = useRef(0);
   const pathnameRef = useRef(pathname);
   pathnameRef.current = pathname;
@@ -122,10 +126,10 @@ function AppShellContent({
   }, [authenticated, pathname]);
 
   useEffect(() => {
-    const hideForHero = pathname === "/" && window.scrollY < window.innerHeight * 0.45;
+    const hideForRoute = routeHidesBottomNav(pathname) || (pathname === "/" && window.scrollY < window.innerHeight * 0.45);
     bottomNavAnchorRef.current = window.scrollY;
-    bottomNavHiddenRef.current = hideForHero;
-    setBottomNavHidden(hideForHero);
+    bottomNavHiddenRef.current = hideForRoute;
+    setBottomNavHidden(hideForRoute);
   }, [pathname]);
 
   useEffect(() => {
@@ -134,7 +138,7 @@ function AppShellContent({
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        if (pathnameRef.current === "/" && window.scrollY < window.innerHeight * 0.45) {
+        if (routeHidesBottomNav(pathnameRef.current) || (pathnameRef.current === "/" && window.scrollY < window.innerHeight * 0.45)) {
           bottomNavAnchorRef.current = window.scrollY;
           if (!bottomNavHiddenRef.current) {
             bottomNavHiddenRef.current = true;
@@ -277,7 +281,7 @@ function AppShellContent({
           </div>
         </header>
 
-        <main className="min-w-0 pb-[calc(8.75rem+env(safe-area-inset-bottom))] lg:pb-0">
+        <main className={`min-w-0 lg:pb-0 ${routeHidesBottomNav(pathname) ? "pb-[max(2rem,env(safe-area-inset-bottom))]" : "pb-[calc(8.75rem+env(safe-area-inset-bottom))]"}`}>
           {children}
         </main>
 

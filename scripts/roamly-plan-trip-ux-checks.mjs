@@ -13,6 +13,9 @@ import {
 assert.equal(positiveDayCount(""), null);
 assert.equal(positiveDayCount("0"), null);
 assert.equal(positiveDayCount("3"), 3);
+assert.match(planDateFieldErrors("2026-11-10", "2026-11-12", "0").days, /at least 1 day/i);
+assert.match(planDateFieldErrors("", "", "0").days, /at least 1 day/i);
+assert.equal(planDateFieldErrors("2026-11-10", "2026-11-12", "").days, "");
 assert.equal(tripLengthCopy(1), "1 day, no overnight");
 assert.equal(tripLengthCopy(5), "5 days, 4 nights");
 assert.equal(travelerCountPhrase(1, 0, 0), "1 adult");
@@ -70,7 +73,14 @@ assert.doesNotMatch(hero, /Travel, with room to be you/);
 assert.doesNotMatch(hero, /One full itinerary per account/);
 assert.match(hero, /PLAN_START_NOTE/);
 assert.match(hero, /role="tablist"/);
+assert.match(hero, /roamly-hero-dots/);
+assert.match(planForm, /plan-budget-error/);
+assert.match(planForm, /plan-interest-error/);
+assert.match(planForm, /invalidTypedDayCount/);
+assert.match(planForm, /entitlement\.stepNote/);
+assert.doesNotMatch(planForm, /step === 0 \? \([\s\S]{0,180}entitlement\.stepNote/);
 assert.match(shell, /pathname === "\/"/);
+assert.match(shell, /routeHidesBottomNav/);
 assert.doesNotMatch(places, /absolute left-0 right-0 z-30/);
 
 console.log("PASS: lean traveler plan and hero UX");
