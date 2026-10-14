@@ -1,4 +1,4 @@
-export type FindsWidgetKind = "experiences" | "flights" | "travel" | "cars" | "esim";
+export type FindsWidgetKind = "experiences" | "travel" | "cars" | "esim";
 
 export type FindsWidgetConfig = {
   id: string;
@@ -52,16 +52,6 @@ export const findsWidgets = {
     heading: "Make a day of it",
     description: "A second shelf of real experiences to keep exploring.",
     minHeight: 260,
-    placement: "primary"
-  },
-  flights: {
-    id: "travelpayouts-flights",
-    kind: "flights",
-    src: "https://tpwdgt.com/content?currency=usd&trs=549715&shmarker=750294&target_host=www.aviasales.com%2Fsearch&locale=en&limit=6&powered_by=true&primary=%230085FF&promo_id=4044&campaign_id=100",
-    eyebrow: "Flights worth checking",
-    heading: "A real place to start looking",
-    description: "Explore current fare ideas for your next trip.",
-    minHeight: 280,
     placement: "primary"
   },
   travel: {
@@ -118,6 +108,12 @@ export const findsTravelServices = {
   },
   stays: {
     href: "https://booking.stay22.com/roamly/YhpfMFjm2n"
+  },
+  flights: {
+    eyebrow: "The journey there",
+    headline: "Flights worth checking",
+    description: "Explore current fare ideas for your next trip.",
+    href: "https://aviasales.tpo.lu/ouGJJ2lr"
   }
 } as const;
 
