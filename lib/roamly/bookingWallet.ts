@@ -1159,34 +1159,26 @@ export async function createTripBooking(params: {
     params.input.segments
   );
 
-  if (previousBooking) {
-    const deleteSegments = await params.supabase
-      .from("booking_segments")
-      .delete()
-      .eq("booking_id", String(savedRow.id));
+  // CA3 FIX A — atomic segment replacement. The previous delete-then-insert ran
+  // as two separate statements: if the insert failed (deploy, restart, crash in
+  // between), the booking survived with all of its segments silently gone.
+  // roamly_replace_booking_segments performs the delete+insert in one
+  // transaction and re-checks trip ownership inside the function.
+  if (previousBooking || segments.length) {
+    const segmentReplace = await params.supabase.rpc(
+      "roamly_replace_booking_segments",
+      {
+        p_booking_id: String(savedRow.id),
+        p_user_id: params.userId,
+        p_trip_id: params.tripId,
+        p_segments: segments
+      }
+    );
 
-    if (deleteSegments.error) {
+    if (segmentReplace.error) {
       return {
         booking: createdBooking,
-        error: deleteSegments.error.message
-      };
-    }
-  }
-
-  if (segments.length) {
-    const segmentInsert = await params.supabase
-      .from("booking_segments")
-      .insert(
-        segments.map((segment) => ({
-          ...segment,
-          booking_id: savedRow.id
-        }))
-      );
-
-    if (segmentInsert.error) {
-      return {
-        booking: createdBooking,
-        error: segmentInsert.error.message
+        error: segmentReplace.error.message
       };
     }
   }
