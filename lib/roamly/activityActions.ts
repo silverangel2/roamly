@@ -200,47 +200,63 @@ async function transitionActivityAtomically(
   tripId: string,
   loaded: LoadedActivity,
   action: RoamlyActivityAction,
-  update: Record<string, unknown>
+  update: Record<string, unknown>,
+  userId?: string | null
 ) {
   if (actionAlreadyApplied(loaded, action)) return { ok: true as const, transitioned: false, loaded };
   if (actionConflict(loaded, action)) return { ok: false as const, error: "Activity is already in a different terminal state." };
 
-  const eligibleStatuses = actionAllowedStatuses(action);
-  const apply = async (table: "tracking" | "display", id: string) => supabase
-    .from(table === "tracking" ? "roamly_activities" : "roamly_trip_activities")
-    .update(update)
-    .eq("id", id)
-    .eq("trip_id", tripId)
-    .in("status", eligibleStatuses)
-    .select("*")
-    .maybeSingle();
+  // CA3 FIX B — single-transaction status transition. Previously the tracking
+  // row (roamly_activities) and its display mirror (roamly_trip_activities) were
+  // written by two sequential statements; a deploy/restart between them left
+  // the two sources of truth disagreeing (e.g. an activity showing skipped in
+  // one view and planned in another after a reconnect). The RPC keeps the same
+  // compare-and-swap semantics (only from the action's eligible statuses) and
+  // the same re-check/conflict handling below.
+  const rpc = await supabase.rpc("roamly_transition_activity_status", {
+    p_trip_id: tripId,
+    p_user_id: userId || null,
+    p_tracking_activity_id: loaded.trackingActivity?.id || null,
+    p_display_activity_id: loaded.displayActivity?.id || null,
+    p_to_status: actionConfig[action].status,
+    p_allowed_statuses: actionAllowedStatuses(action),
+    p_checked_in_at: typeof update.checked_in_at === "string" ? update.checked_in_at : null,
+    p_completed_at: typeof update.completed_at === "string" ? update.completed_at : null
+  });
+  if (rpc.error) return { ok: false as const, error: rpc.error.message };
 
-  if (loaded.trackingActivity) {
-    const result = await apply("tracking", loaded.trackingActivity.id);
-    if (result.error) return { ok: false as const, error: result.error.message };
-    if (result.data) {
-      if (loaded.displayActivity) {
-        const display = await supabase
-          .from("roamly_trip_activities")
-          .update(update)
-          .eq("id", loaded.displayActivity.id)
-          .eq("trip_id", tripId);
-        if (display.error) return { ok: false as const, error: display.error.message };
-      }
+  const row = Array.isArray(rpc.data) ? rpc.data[0] : rpc.data;
+  if (row && row.transitioned === true) {
+    if (loaded.trackingActivity) {
+      const refreshed = await supabase
+        .from("roamly_activities")
+        .select("*")
+        .eq("id", loaded.trackingActivity.id)
+        .eq("trip_id", tripId)
+        .maybeSingle();
       return {
         ok: true as const,
         transitioned: true,
-        loaded: { ...loaded, trackingActivity: result.data as TrackingActivity }
+        loaded: {
+          ...loaded,
+          trackingActivity: (refreshed?.data as TrackingActivity) || loaded.trackingActivity
+        }
       };
     }
-  } else if (loaded.displayActivity) {
-    const result = await apply("display", loaded.displayActivity.id);
-    if (result.error) return { ok: false as const, error: result.error.message };
-    if (result.data) {
+    if (loaded.displayActivity) {
+      const refreshed = await supabase
+        .from("roamly_trip_activities")
+        .select("*")
+        .eq("id", loaded.displayActivity.id)
+        .eq("trip_id", tripId)
+        .maybeSingle();
       return {
         ok: true as const,
         transitioned: true,
-        loaded: { ...loaded, displayActivity: result.data as DisplayActivity }
+        loaded: {
+          ...loaded,
+          displayActivity: (refreshed?.data as DisplayActivity) || loaded.displayActivity
+        }
       };
     }
   }
@@ -377,7 +393,7 @@ export async function performActivityAction(
   }
 
   const update = cleanUpdate(buildActionUpdate(params.action));
-  const transition = await transitionActivityAtomically(supabase, params.tripId, loaded, params.action, update);
+  const transition = await transitionActivityAtomically(supabase, params.tripId, loaded, params.action, update, params.userId || null);
   if (!transition.ok) return transition;
   const current = transition.loaded;
 
