@@ -424,7 +424,17 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
       </label>
 
       <label className="block">
-        <span className="text-sm font-black text-ink">Password</span>
+        <span className="flex items-center justify-between gap-2">
+          <span className="text-sm font-black text-ink">Password</span>
+          {!isSignup ? (
+            <Link
+              href="/forgot-password"
+              className="inline-flex min-h-8 items-center rounded-full px-1 text-xs font-black text-ocean hover:text-ink focus:outline-none focus:ring-4 focus:ring-ocean/15"
+            >
+              Forgot password?
+            </Link>
+          ) : null}
+        </span>
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
