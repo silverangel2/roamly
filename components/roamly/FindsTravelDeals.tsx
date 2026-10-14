@@ -1,5 +1,5 @@
 const FLIGHTS_AFFILIATE_URL =
-  "https://tpwdgt.com/content?currency=usd&trs=549715&shmarker=750294&target_host=www.aviasales.com%2Fsearch&locale=en&limit=6&powered_by=true&primary=%230085FF&promo_id=4044&campaign_id=100";
+  "https://aviasales.tpo.lu/ouGJJ2lr";
 
 const DEALS = [
   {
@@ -45,6 +45,30 @@ const DEALS = [
     )
   },
   {
+    title: "Rental cars",
+    via: "Find a car for the road · GetRentacar via Travelpayouts",
+    href: "https://getrentacar.tpo.lu/l16uVhOn",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-7 w-7" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12L6 7.7a2 2 0 011.9-1.4h8.2a2 2 0 011.9 1.4L19.5 12M4.5 12h15M4.5 12v5.2h2.4m12.6-5.2v5.2h-2.4M9.9 6.3v5.7M13.9 6.3v5.7" />
+        <circle cx="8.2" cy="17.4" r="1.7" />
+        <circle cx="15.8" cy="17.4" r="1.7" />
+      </svg>
+    )
+  },
+  {
+    title: "eSIM",
+    via: "Stay connected abroad · Airalo via Travelpayouts",
+    href: "https://airalo.tpo.lu/5dcQRiO5",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-7 w-7" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 2.5h7a1 1 0 011 1v17a1 1 0 01-1 1h-7a1 1 0 01-1-1v-17a1 1 0 011-1z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 9a4.5 4.5 0 014 0M10.6 12a2.6 2.6 0 012.8 0" />
+        <circle cx="12" cy="17.8" r="0.7" fill="currentColor" stroke="none" />
+      </svg>
+    )
+  },
+  {
     title: "Travel gear",
     via: "Shop travel essentials · Amazon Associates",
     href: "https://amazon.ca/s?k=travel+gear+essentials&tag=roamly060-20",
@@ -64,7 +88,7 @@ export function FindsTravelDeals() {
       </h2>
       <p className="mx-auto mt-3 max-w-md text-center text-[0.95rem] leading-6 text-slate-600">
         <span className="font-extrabold text-[#203c43]">Roamly&apos;s</span> hand-picked partners for
-        hotels, flights, tours, transfers &amp; travel gear.
+        hotels, flights, tours, transfers, rental cars, eSIM &amp; travel gear.
       </p>
 
       <div aria-hidden="true" className="my-6 border-t-2 border-dashed border-[#d8e2da]" />
