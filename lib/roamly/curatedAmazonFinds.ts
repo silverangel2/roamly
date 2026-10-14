@@ -1,7 +1,7 @@
 import { buildAmazonSearchUrl } from "@/lib/roamly/amazonAffiliate";
 import type { FindsCard } from "@/lib/roamly/findsMarketCore";
 
-export const ROAMLY_AMAZON_CURATED_TAG = "roamly060-20";
+export const ROAMLY_AMAZON_CURATED_TAG = "roamly02e-20";
 
 type CuratedAmazonFind = {
   id: string;
@@ -32,7 +32,7 @@ export function curatedAmazonFindCards(): FindsCard[] {
     eyebrow: "Travel edit",
     description: item.reason,
     href: buildAmazonSearchUrl(item.searchQuery, {
-      marketplace: "amazon.ca",
+      marketplace: "amazon.com",
       associateTag: ROAMLY_AMAZON_CURATED_TAG,
       enabled: true
     }),
