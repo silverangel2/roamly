@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
+import { CompanionInstallStep } from "@/components/roamly/CompanionInstallStep";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
 import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
@@ -18,6 +19,7 @@ import {
   SectionHeading,
   NavigationChipList,
   buildDisplayTimelineItems,
+
   DayTimelineCard,
   BuildingDayCard
 } from "@/components/trip/ItineraryDayPlan";
@@ -2158,6 +2160,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const checkoutProcessing = Boolean(checkoutAwaitingWebhook && !paidForItinerary && !trackingUnlocked);
   const checkoutStartFailed = one(search.checkout) === "failed";
   const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention && !checkoutProcessing);
+  // Fresh itinerary purchase return: show the Live Companion install step once.
+  const justPurchased = one(search.checkout) === "success" && paidForItinerary && trackingUnlocked;
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const canonicalDayByNumber = new Map(canonicalDays.map((day) => [day.day_number, day]));
@@ -2440,6 +2444,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
             </Badge>
           </div>
 
+          {justPurchased ? <CompanionInstallStep /> : null}
           {!draftCommand && commandNextTitle ? (
             <div className="roamly-now-next mt-6 rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
               <p className="text-[0.8125rem] font-medium text-slate-500">What matters now</p>
