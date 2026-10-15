@@ -59,6 +59,10 @@
   {
    "path": "/api/cron/roamly-executive-reports?reportType=year_end",
    "schedule": "17 10 1 1 *"
+  },
+  {
+   "path": "/api/cron/roamly-ops-worker",
+   "schedule": "*/15 * * * *"
   }
  ]
  }
