@@ -1089,6 +1089,7 @@ Rules: accepted preferences are soft guidance; inferred preferences are lower-co
 
 function aggregateGuidancePrompt(patterns: Array<Record<string, unknown>>) {
   if (!patterns.length) return "Anonymous aggregate successful-trip guidance: none relevant.";
+  const limitedEvidence = patterns.some((pattern) => pattern.evidenceStrength === "limited");
   return `Anonymous aggregate successful-trip guidance (soft historical context only; not provider facts, live inventory, availability, prices, booking evidence, or hard constraints): ${JSON.stringify(patterns.map((pattern) => ({
     destinationKey: pattern.destinationKey,
     travelStyle: pattern.travelStyle,
@@ -1096,7 +1097,10 @@ function aggregateGuidancePrompt(patterns: Array<Record<string, unknown>>) {
     transportationPreference: pattern.transportationPreference,
     durationBucket: pattern.durationBucket,
     travelersBucket: pattern.travelersBucket,
+    budgetBand: pattern.budgetBand ?? null,
     sampleCount: pattern.sampleCount,
+    sourceTripCount: pattern.sourceTripCount ?? pattern.sampleCount,
+    evidenceStrength: pattern.evidenceStrength ?? null,
     averageSatisfaction: pattern.averageSatisfaction,
     averageScheduleRealism: pattern.averageScheduleRealism,
     averageBudgetAccuracy: pattern.averageBudgetAccuracy,
@@ -1104,7 +1108,7 @@ function aggregateGuidancePrompt(patterns: Array<Record<string, unknown>>) {
     averageHotelQualitySatisfaction: pattern.averageHotelQualitySatisfaction,
     averageTransportationSatisfaction: pattern.averageTransportationSatisfaction
   })))}
-Use only to choose among already grounded, eligible candidates. Never create or name a candidate, provider, price, schedule, availability, coordinates, route, URL, booking, or factual venue from this guidance. Current requirements, must-dos, confirmed bookings, deterministic eligibility, feasibility, budget truth, current explicit preferences, and accepted user-specific preferences always override aggregate guidance.`;
+Use only to choose among already grounded, eligible candidates. Never create or name a candidate, provider, price, schedule, availability, coordinates, route, URL, booking, or factual venue from this guidance. Current requirements, must-dos, confirmed bookings, deterministic eligibility, feasibility, budget truth, current explicit preferences, and accepted user-specific preferences always override aggregate guidance.${limitedEvidence ? " Patterns marked limited evidence rest on few distinct trips: treat them as anecdotal, never as the proven best option." : ""}`;
 }
 
 function outlinePrompt(payload: TripPlannerPayload, state: StagedGenerationState) {
