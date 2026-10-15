@@ -44,7 +44,14 @@ export type EmailTemplateType =
   | "support_auto_reply"
   | "itinerary_email"
   | "booking_share"
-  | "launch_contact_confirmation";
+  | "launch_contact_confirmation"
+  | "fyi_check_in"
+  | "fyi_flight_change"
+  | "fyi_itinerary_ready"
+  | "fyi_trip_starting"
+  | "fyi_upsell_gap"
+  | "fyi_review_ask"
+  | "post_trip_library_ask";
 
 type SendRoamlyEmailParams = {
   to: string;
@@ -87,6 +94,9 @@ type TemplateData = {
   tripTitle?: string | null;
   destination?: string | null;
   actionUrl?: string | null;
+  ctaLabel?: string | null;
+  managePreferencesUrl?: string | null;
+  managePreferencesLabel?: string | null;
 };
 
 type EmailVerificationCheck = {
@@ -593,6 +603,20 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
                           ? "Beta invite"
                           : type === "booking_share"
                             ? "Booking organization"
+                            : type === "fyi_check_in"
+                              ? "Check-in"
+                              : type === "fyi_flight_change"
+                                ? "Flight update"
+                                : type === "fyi_itinerary_ready"
+                                  ? "Itinerary ready"
+                                  : type === "fyi_trip_starting"
+                                    ? "Trip reminder"
+                                    : type === "fyi_upsell_gap"
+                                      ? "Trip tip"
+                                      : type === "fyi_review_ask"
+                                        ? "Review"
+                                        : type === "post_trip_library_ask"
+                                          ? "Trip reflection"
                             : type.includes("packing")
                               ? "Packing"
                               : type.includes("document")
@@ -609,9 +633,11 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
     title,
     bodyHtml,
     bodyText,
-    ctaLabel: type === "itinerary_ready" || type === "itinerary_email" ? "View your itinerary" : "Open Roamly",
+    ctaLabel: data.ctaLabel || (type === "itinerary_ready" || type === "itinerary_email" ? "View your itinerary" : "Open Roamly"),
     ctaUrl: actionUrl,
-    supportEmail: getRoamlySupportEmail()
+    supportEmail: getRoamlySupportEmail(),
+    managePreferencesUrl: data.managePreferencesUrl || undefined,
+    managePreferencesLabel: data.managePreferencesLabel || undefined
   });
 }
 
