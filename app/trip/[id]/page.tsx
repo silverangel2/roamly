@@ -8,6 +8,7 @@ import { CompanionInstallStep } from "@/components/roamly/CompanionInstallStep";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
 import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
+import { TripGapCards } from "@/components/roamly/TripGapCards";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
 import { GenerationNavigationRefresh } from "@/components/trip/GenerationNavigationRefresh";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
@@ -22,6 +23,7 @@ import {
 
   DayTimelineCard,
   BuildingDayCard
+  
 } from "@/components/trip/ItineraryDayPlan";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
@@ -2773,6 +2775,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                   </details>
                 </section>
 
+                
+                {trackingUnlocked ? <TripGapCards tripId={id} /> : null}
                 {hasRequirements ? <section id="requirements" className="roamly-tab-panel roamly-panel-requirements mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Before you go" title="Entry requirements" summary={travelerRequirementState.evaluations.length > 1 ? "Requirements can differ for each traveler. Roamly evaluates each person only from their explicit passport country." : "A conservative review based on your destination and your declared passport country."} />
                   <TripTravelerRequirements tripId={id} evaluations={travelerRequirementState.evaluations} />
