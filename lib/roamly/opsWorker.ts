@@ -192,7 +192,7 @@ async function securityHeadersCheck(fetchFn: typeof fetch, baseUrl: string): Pro
   const ok = result.status === 200 && hsts && xcto && framing;
   return {
     checkId: "security_headers_home",
-    category: "safe_production_health",
+    category: "deterministic_check",
     ok,
     summary: ok ? "Security headers present on the home page." : "Security headers incomplete on the home page.",
     metadata: { check_id: "security_headers_home", path: "/", http_status: result.status === null ? -1 : result.status, hsts, xcto, framing }
@@ -204,7 +204,7 @@ async function securityCronAuthCheck(fetchFn: typeof fetch, baseUrl: string): Pr
   const ok = result.status === 401 || result.status === 503;
   return {
     checkId: "security_cron_rejects_anonymous",
-    category: "safe_production_health",
+    category: "deterministic_check",
     ok,
     summary: ok ? "Cron endpoint rejects anonymous requests." : "Cron endpoint did not reject an anonymous request.",
     metadata: { check_id: "security_cron_rejects_anonymous", path: "/api/cron/roamly-operations-signals", http_status: result.status === null ? -1 : result.status, rejected: ok }
@@ -216,7 +216,7 @@ async function securityAdminApiAuthCheck(fetchFn: typeof fetch, baseUrl: string)
   const ok = result.status === 401 || result.status === 403;
   return {
     checkId: "security_admin_api_rejects_anonymous",
-    category: "safe_production_health",
+    category: "deterministic_check",
     ok,
     summary: ok ? "Admin operations API rejects anonymous requests." : "Admin operations API did not reject an anonymous request.",
     metadata: { check_id: "security_admin_api_rejects_anonymous", path: "/api/admin/roamly/operations", http_status: result.status === null ? -1 : result.status, rejected: ok }
