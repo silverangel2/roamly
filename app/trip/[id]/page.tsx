@@ -22,8 +22,7 @@ import {
   buildDisplayTimelineItems,
 
   DayTimelineCard,
-  BuildingDayCard
-  
+  BuildingDayCard  
 } from "@/components/trip/ItineraryDayPlan";
 import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { Badge } from "@/components/ui/Badge";
