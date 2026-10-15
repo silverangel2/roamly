@@ -1,12 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { aggregateSuccessfulTripExperiencePatterns, isPublishableSuccessfulTripPattern } from "@/lib/roamly/successfulTripExperiencePatterns";
+import { aggregateSuccessfulTripExperiencePatterns, isPublishableSuccessfulTripPattern, type SuccessfulTripExperienceContextRecord } from "@/lib/roamly/successfulTripExperiencePatterns";
 import type { SuccessfulTripExperienceContext } from "@/lib/roamly/successfulTripExperience";
+import { readItineraryLibraryExperienceRecords } from "@/lib/roamly/itineraryLibraryAggregation";
 
 const PAGE_SIZE = 500;
 const MAX_PAGES = 100;
 
 export async function runSuccessfulTripExperiencePatternAggregation(admin: SupabaseClient) {
-  const records: Array<{ experienceContext: SuccessfulTripExperienceContext | null }> = [];
+  const records: SuccessfulTripExperienceContextRecord[] = [];
   const latestFeedbackByTrip = new Map<string, { createdAt: string; experienceContext: SuccessfulTripExperienceContext }>();
   let feedbackRowsRead = 0;
 
@@ -44,32 +45,48 @@ export async function runSuccessfulTripExperiencePatternAggregation(admin: Supab
 
   records.push(...[...latestFeedbackByTrip.values()].map(({ experienceContext }) => ({ experienceContext })));
 
+  // Itinerary Library lane: consenting traveler submissions with booking-proof
+  // item verdicts enter the same patterns, weighted highest (weight 2).
+  // Fail-soft: returns [] when the library tables do not exist yet.
+  const libraryRecords = await readItineraryLibraryExperienceRecords(admin);
+  records.push(...libraryRecords);
+
   const patterns = aggregateSuccessfulTripExperiencePatterns(records)
     .filter((pattern) => isPublishableSuccessfulTripPattern(pattern));
   if (!patterns.length) {
-    return { ok: true as const, feedbackRowsRead: records.length, qualifyingPatterns: 0, patternsWritten: 0 };
+    return { ok: true as const, feedbackRowsRead: records.length, libraryRecordsRead: libraryRecords.length, qualifyingPatterns: 0, patternsWritten: 0 };
   }
 
-  const { error } = await admin.from("successful_trip_experience_patterns").upsert(
-    patterns.map((pattern) => ({
-      pattern_key: pattern.patternKey,
-      destination_key: pattern.destinationKey,
-      travel_style: pattern.travelStyle,
-      accommodation_preference: pattern.accommodationPreference,
-      transportation_preference: pattern.transportationPreference,
-      duration_bucket: pattern.durationBucket,
-      travelers_bucket: pattern.travelersBucket,
-      sample_count: pattern.sampleCount,
-      average_satisfaction: pattern.averageSatisfaction,
-      average_schedule_realism: pattern.averageScheduleRealism,
-      average_budget_accuracy: pattern.averageBudgetAccuracy,
-      average_hotel_location_satisfaction: pattern.averageHotelLocationSatisfaction,
-      average_hotel_quality_satisfaction: pattern.averageHotelQualitySatisfaction,
-      average_transportation_satisfaction: pattern.averageTransportationSatisfaction,
-      updated_at: new Date().toISOString()
-    })),
-    { onConflict: "pattern_key" }
-  );
+  const baseRows = patterns.map((pattern) => ({
+    pattern_key: pattern.patternKey,
+    destination_key: pattern.destinationKey,
+    travel_style: pattern.travelStyle,
+    accommodation_preference: pattern.accommodationPreference,
+    transportation_preference: pattern.transportationPreference,
+    duration_bucket: pattern.durationBucket,
+    travelers_bucket: pattern.travelersBucket,
+    sample_count: pattern.sampleCount,
+    average_satisfaction: pattern.averageSatisfaction,
+    average_schedule_realism: pattern.averageScheduleRealism,
+    average_budget_accuracy: pattern.averageBudgetAccuracy,
+    average_hotel_location_satisfaction: pattern.averageHotelLocationSatisfaction,
+    average_hotel_quality_satisfaction: pattern.averageHotelQualitySatisfaction,
+    average_transportation_satisfaction: pattern.averageTransportationSatisfaction,
+    updated_at: new Date().toISOString()
+  }));
+  const extendedRows = baseRows.map((row, index) => ({
+    ...row,
+    source_trip_count: patterns[index].sourceTripCount,
+    budget_band: patterns[index].budgetBand
+  }));
+
+  // Graceful degradation: if migration 20261015000100 (budget_band,
+  // source_trip_count) is not applied yet, the feedback lane must keep
+  // writing — fall back to the base columns instead of failing the run.
+  let { error } = await admin.from("successful_trip_experience_patterns").upsert(extendedRows, { onConflict: "pattern_key" });
+  if (error && /budget_band|source_trip_count/i.test(error.message)) {
+    ({ error } = await admin.from("successful_trip_experience_patterns").upsert(baseRows, { onConflict: "pattern_key" }));
+  }
   if (error) return { ok: false as const, error: error.message, feedbackRowsRead: records.length, patternsWritten: 0 };
-  return { ok: true as const, feedbackRowsRead: records.length, qualifyingPatterns: patterns.length, patternsWritten: patterns.length };
+  return { ok: true as const, feedbackRowsRead: records.length, libraryRecordsRead: libraryRecords.length, qualifyingPatterns: patterns.length, patternsWritten: patterns.length };
 }
