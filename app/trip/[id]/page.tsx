@@ -15,6 +15,7 @@ import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshBu
 import { StagedGenerationProgress } from "@/components/trip/StagedGenerationProgress";
 import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
+import { PostTripLibraryAskCard } from "@/components/trip/PostTripLibraryAskCard";
 import {
   SectionHeading,
   NavigationChipList,
@@ -2462,7 +2463,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               {trackingUnlocked && !completedTrip ? <span className="text-slate-500">Live Companion available</span> : null}
             </p>
           ) : null}
-              {itineraryLocked ? <NoticeBanner>This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.</NoticeBanner> : null}
+                          {completedTrip ? <PostTripLibraryAskCard tripId={id} /> : null}
+          {itineraryLocked ? <NoticeBanner>This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.</NoticeBanner> : null}
               {checkoutNeedsAttention ? (
                 <NoticeBanner tone="coral">
                   Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
