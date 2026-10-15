@@ -2161,8 +2161,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const checkoutStartFailed = one(search.checkout) === "failed";
   const shouldCleanCheckoutUrl = Boolean((one(search.checkout) || sessionId) && !checkoutNeedsAttention && !checkoutProcessing);
   // Fresh itinerary purchase return: show the Live Companion install step once.
-  const justPurchased = one(search.checkout) === "success" && paidForItinerary && trackingUnlocked
-    ;
+  const justPurchased = one(search.checkout) === "success" && paidForItinerary && trackingUnlocked;
   const freeAvailable = !freeResult.used;
   const generationRequiresPayment = !itineraryLocked && !paidForItinerary && !freeAvailable;
   const canonicalDayByNumber = new Map(canonicalDays.map((day) => [day.day_number, day]));
