@@ -50,7 +50,8 @@ export type EmailTemplateType =
   | "fyi_itinerary_ready"
   | "fyi_trip_starting"
   | "fyi_upsell_gap"
-  | "fyi_review_ask";
+  | "fyi_review_ask"
+  | "post_trip_library_ask";
 
 type SendRoamlyEmailParams = {
   to: string;
@@ -614,6 +615,8 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
                                       ? "Trip tip"
                                       : type === "fyi_review_ask"
                                         ? "Review"
+                                        : type === "post_trip_library_ask"
+                                          ? "Trip reflection"
                             : type.includes("packing")
                               ? "Packing"
                               : type.includes("document")
