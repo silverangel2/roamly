@@ -34,6 +34,7 @@
  * Run exclusion: roamly_cron_locks (same pattern as processFyiDigest).
  */
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   enqueueOperationsJob,
   insertOperationsAttempt,
@@ -152,14 +153,23 @@ export function classifyEmailError(errorText: unknown): KeeperEmailErrorClass {
 
 export type KeeperDbFilter = { column: string; op: "eq" | "is" | "in" | "lt" | "gte" | "neq"; value: unknown };
 
+/** One database row as the keeper sees it: named columns are read off a
+ *  string-keyed record; every value is narrowed at the read site. */
+export type KeeperDbRow = Record<string, unknown>;
+
 export type KeeperDb = {
   table: (name: string) => {
     count: (filters: KeeperDbFilter[]) => Promise<number>;
-    rows: (filters: KeeperDbFilter[], opts?: { limit?: number; order?: string; columns?: string }) => Promise<any[]>;
+    rows: (filters: KeeperDbFilter[], opts?: { limit?: number; order?: string; columns?: string }) => Promise<KeeperDbRow[]>;
     update: (patch: Record<string, unknown>, filters: KeeperDbFilter[]) => Promise<{ updated: number }>;
   };
   tableMissing: (name: string) => boolean;
 };
+
+/** Narrow an unknown JSON value to a plain record; anything else becomes {}. */
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
 
 export type KeeperEnv = Record<string, string | undefined>;
 
@@ -221,7 +231,7 @@ async function completionEmailQueueCheck(deps: KeeperDeps): Promise<KeeperCheckR
     for (const row of stuck) classes[classifyEmailError(row.completion_email_last_error)] += 1;
     const oldestDays = stuck.length
       ? Math.max(0, ...stuck.map((r) => {
-          const t = r.updated_at ? Date.parse(r.updated_at) : NaN;
+          const t = typeof r.updated_at === "string" ? Date.parse(r.updated_at) : NaN;
           return Number.isFinite(t) ? (deps.now().getTime() - t) / 86_400_000 : 0;
         }))
       : 0;
@@ -383,7 +393,7 @@ export type RepairOutcome = { applied: boolean; reason: string };
  */
 export async function repairStuckCompletionEmails(
   deps: KeeperDeps,
-  stuckRows: any[]
+  stuckRows: KeeperDbRow[]
 ): Promise<KeeperRepairResult> {
   const escalations: KeeperEscalation[] = [];
   const redriven: string[] = [];
@@ -412,7 +422,7 @@ export async function repairStuckCompletionEmails(
 
   // Pass 1: classify everything. Diagnoses are never capped — the per-run
   // cap limits only the redrive writes in pass 2.
-  const eligible: { row: any; id: string }[] = [];
+  const eligible: { row: KeeperDbRow; id: string }[] = [];
   for (const row of stuckRows) {
     const id = String(row.id);
     const errorClass = classifyEmailError(row.completion_email_last_error);
@@ -442,7 +452,7 @@ export async function repairStuckCompletionEmails(
       });
       continue;
     }
-    const generationEmailMeta = ((row as any).metadata && (row as any).metadata.generationEmail) || {};
+    const generationEmailMeta = asRecord(asRecord(row.metadata).generationEmail);
     const keeperResets = Number(generationEmailMeta.keeper_reset_count || 0);
     if (keeperResets >= REPAIR_MAX_PER_TRIP) {
       skipped.push(id);
@@ -465,10 +475,10 @@ export async function repairStuckCompletionEmails(
       skipped.push(id);
       continue;
     }
-    const generationEmailMeta = ((row as any).metadata && (row as any).metadata.generationEmail) || {};
+    const generationEmailMeta = asRecord(asRecord(row.metadata).generationEmail);
     const keeperResets = Number(generationEmailMeta.keeper_reset_count || 0);
     const nextMetadata = {
-      ...((row as any).metadata || {}),
+      ...asRecord(row.metadata),
       generationEmail: {
         ...generationEmailMeta,
         keeper_reset_count: keeperResets + 1,
@@ -588,7 +598,7 @@ export async function runKeeperSuite(deps: KeeperDeps, runnerId: string): Promis
  * EvidenceCategory union; metadata values must be primitives).
  */
 export async function logKeeperRun(
-  admin: { from: (table: string) => any },
+  admin: SupabaseClient,
   report: KeeperSuiteReport
 ): Promise<{ jobId: string | null; ok: boolean }> {
   try {
@@ -628,8 +638,10 @@ export async function logKeeperRun(
         escalationReason: null,
         ownerApprovalRequired: false,
         runnerId: report.runnerId,
-      } as any,
-      admin as any
+        createdAt: report.at,
+        updatedAt: report.at,
+      },
+      admin
     );
     if (!enq.ok) return { jobId: null, ok: false };
     const attemptId = await insertOperationsAttempt({
@@ -663,7 +675,8 @@ export async function logKeeperRun(
           result: check.status === "healthy" ? "pass" : check.status === "degraded" ? "blocked" : "fail",
           summary: `${check.lane}: ${check.summary}`.slice(0, 500),
           metadata: { lane: check.lane, status: check.status, ...flatMeta(check.evidence) },
-        } as any,
+          createdAt: report.at,
+        },
         attemptId
       );
     }
@@ -678,7 +691,8 @@ export async function logKeeperRun(
           result: "blocked",
           summary: `${esc.causeClass}: ${esc.humanAction}`.slice(0, 500),
           metadata: { lane: esc.lane, causeClass: esc.causeClass, ...flatMeta(esc.evidence) },
-        } as any,
+          createdAt: report.at,
+        },
         attemptId
       );
     }
@@ -687,12 +701,12 @@ export async function logKeeperRun(
       completed_at: report.at,
     });
     return { jobId, ok: true };
-  } catch (error) {
+  } catch {
     return { jobId: null, ok: false };
   }
 }
 
-export async function acquireKeeperLock(admin: { from: (table: string) => any }, owner: string): Promise<boolean> {
+export async function acquireKeeperLock(admin: SupabaseClient, owner: string): Promise<boolean> {
   const now = new Date();
   const expires = new Date(now.getTime() + KEEPER_LOCK_TTL_SECONDS * 1000).toISOString();
   const result = await admin
@@ -704,6 +718,6 @@ export async function acquireKeeperLock(admin: { from: (table: string) => any },
   return !result.error;
 }
 
-export async function releaseKeeperLock(admin: { from: (table: string) => any }, owner: string): Promise<void> {
+export async function releaseKeeperLock(admin: SupabaseClient, owner: string): Promise<void> {
   await admin.from("roamly_cron_locks").delete().eq("lock_name", KEEPER_LOCK_NAME).eq("lock_owner", owner);
 }
