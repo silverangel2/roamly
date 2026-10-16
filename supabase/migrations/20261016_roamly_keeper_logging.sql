@@ -1,0 +1,20 @@
+-- ============================================================================
+-- ROAMLY KEEPER v1 — logging note (NO DDL — safe to paste or skip)
+-- ============================================================================
+-- The keeper intentionally creates NO new tables. It logs into Roamly's
+-- EXISTING ops ledger, mirroring the autobot family's conventions:
+--
+--   roamly_ops_jobs            — one row per keeper run (job_type 'roamly-keeper')
+--   roamly_ops_attempts        — one attempt row per run (worker_role 'keeper')
+--   roamly_ops_evidence        — one row per lane check (category 'keeper-check')
+--                                plus one row per escalation (category
+--                                'keeper-escalation', result 'escalated')
+--   roamly_cron_locks          — run exclusion (lock_name 'roamly-keeper',
+--                                30-minute lease; same pattern as processFyiDigest)
+--
+-- All four tables already exist in production (the autobot worker writes to
+-- them today). This file is documentation only: nothing to apply, nothing to
+-- migrate. If a future keeper v2 needs its own table, that DDL will ship as a
+-- separate reviewed migration.
+-- ============================================================================
+SELECT 1;
