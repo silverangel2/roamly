@@ -26,6 +26,9 @@ import {
   getGenerationEmailStatus,
 } from "@/lib/roamly/itineraryGenerationEmail";
 import { syncGeneratedItinerary, type RoamlyTripRecord } from "@/lib/trips";
+// ── Roamly bot round (types only; runtime loaded lazily, fail-soft) ──
+import type { SuccessfulTripExperiencePattern } from "@/lib/roamly/successfulTripExperiencePatterns";
+import type { PlanComment } from "@/lib/roamly/concierge/planCommentReader";
 import {
   getPublicSupabaseHost,
   classifyGenerationValidationErrors,
@@ -1970,6 +1973,74 @@ async function completeGeneration(params: {
   });
   await persistItinerary({ supabase: params.supabase, trip: params.trip, state: completed, final: true, requestId: params.requestId });
 
+  // ── Roamly bot round: Concierge personalization + library hooks ─────────
+  // Fail-soft by design: everything below is advisory — any throw leaves the
+  // generated itinerary standing exactly as persistItinerary wrote it.
+  let conciergeItinerary = itinerary;
+  try {
+    const { customizeItinerary } = await import("@/lib/roamly/concierge/travelerConcierge");
+    const { createDbPlanCommentSource } = await import("@/lib/roamly/concierge/planCommentSourceDb");
+    const { budgetBandForAmount } = await import("@/lib/roamly/successfulTripExperiencePatterns");
+    const planComments: PlanComment[] = await createDbPlanCommentSource(params.supabase)
+      .listComments({ tripId: params.trip.id, userId: params.trip.user_id })
+      .catch(() => []);
+    const concierge = customizeItinerary({
+      itinerary,
+      payload,
+      outlineDays: Array.isArray(completed.outline?.days) ? completed.outline.days : null,
+      signals: {
+        pace: typeof payload.pace === "string" ? payload.pace : null,
+        interests: Array.isArray(payload.interests)
+          ? payload.interests.filter((item): item is string => typeof item === "string")
+          : [],
+        budgetBand: budgetBandForAmount(payload.budgetAmount),
+        travelersCount: typeof payload.travelersCount === "number" ? payload.travelersCount : null,
+        travelStyle: typeof payload.travelStyle === "string" ? payload.travelStyle : null
+      },
+      patterns: (Array.isArray(state.personalization.aggregateGuidance)
+        ? state.personalization.aggregateGuidance
+        : []) as unknown as SuccessfulTripExperiencePattern[],
+      tripId: params.trip.id,
+      supabase: params.supabase,
+      comments: planComments
+    });
+    if (concierge && concierge.itinerary && concierge.suggestions.length > 0) {
+      const resync = await syncGeneratedItinerary(params.supabase, {
+        tripId: params.trip.id,
+        userId: params.trip.user_id,
+        itinerary: concierge.itinerary,
+        status: "generated",
+        diagnostic: { requestId: params.requestId }
+      });
+      if (!resync.error) conciergeItinerary = concierge.itinerary;
+    }
+  } catch {
+    // Advisory only — the generated itinerary stands.
+  }
+  // Itinerary Ingester at-birth hook (private-only until consent;
+  // generated plans are never pattern-eligible by the ingester's own gate).
+  try {
+    const { recordGeneratedItinerary } = await import("@/lib/roamly/itineraryIngester");
+    const birthOutlineDays = Array.isArray(completed.outline?.days) ? completed.outline.days : [];
+    await recordGeneratedItinerary(params.supabase, {
+      tripId: params.trip.id,
+      userId: params.trip.user_id,
+      destinationCity: typeof payload.destinationCity === "string" ? payload.destinationCity : null,
+      destinationCountry: typeof payload.destinationCountry === "string" ? payload.destinationCountry : null,
+      budgetAmount: typeof payload.budgetAmount === "number" ? payload.budgetAmount : null,
+      travelersCount: typeof payload.travelersCount === "number" ? payload.travelersCount : null,
+      travelStyle: typeof payload.travelStyle === "string" ? payload.travelStyle : null,
+      outlineDays: birthOutlineDays.map((day) => ({
+        dayNumber: day.dayNumber,
+        theme: day.theme,
+        geographicArea: day.geographicArea,
+        priorityActivities: Array.isArray(day.priorityActivities) ? day.priorityActivities : []
+      }))
+    });
+  } catch {
+    // The library feed is advisory — generation stands without it.
+  }
+
   if (completed.unlockSource === "free") {
     const marked = await markFreeItineraryUsed(params.supabase, params.trip.user_id, params.trip.id);
     if (!marked.ok) {
@@ -2036,7 +2107,7 @@ async function completeGeneration(params: {
       if (completion.error) throw new StagedGenerationError(completion.error.message, "INTENT_CHANGE_COMPLETION_FAILED", 500);
     }
   }
-  return { state: completed, itinerary, validationFailed: false as const, validationErrors: [] };
+  return { state: completed, itinerary: conciergeItinerary, validationFailed: false as const, validationErrors: [] };
 }
 
 export async function advanceStagedItineraryGeneration(params: {
