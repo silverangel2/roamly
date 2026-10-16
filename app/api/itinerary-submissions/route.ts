@@ -56,6 +56,37 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
+  // ── Itinerary Ingester (fail-soft; the share response never waits on it) ──
+  // bookingProven is set ONLY by the share adapter — this is the one path
+  // that can mark a plan pattern-eligible (the ingester's gate enforces it).
+  try {
+    const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
+    const { adaptSharedSubmission, ingestItinerary } = await import("@/lib/roamly/itineraryIngester");
+    const admin = createSupabaseAdminClient();
+    if (admin) {
+      const verdictRows = Array.isArray(body.itemVerdicts)
+        ? body.itemVerdicts.map((value) => {
+            const row = record(value);
+            return {
+              item_type: cleanString(row.itemType, 40) || null,
+              rating: typeof row.rating === "number" ? row.rating : null,
+              item_label: cleanString(row.itemLabel, 160) || null,
+              location: cleanString(row.location, 160) || null,
+              verdict: cleanString(row.verdict, 20) || null,
+              note: cleanString(row.note, 1000) || null
+            };
+          })
+        : [];
+      await ingestItinerary(
+        admin,
+        adaptSharedSubmission({ submission: result.submission, trip: null, verdicts: verdictRows }),
+        "shared"
+      );
+    }
+  } catch {
+    // The library feed is advisory — the share response stands.
+  }
+
   return NextResponse.json({
     ok: true,
     submission: result.submission,

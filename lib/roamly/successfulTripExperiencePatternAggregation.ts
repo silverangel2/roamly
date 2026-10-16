@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { aggregateSuccessfulTripExperiencePatterns, isPublishableSuccessfulTripPattern, type SuccessfulTripExperienceContextRecord } from "@/lib/roamly/successfulTripExperiencePatterns";
 import type { SuccessfulTripExperienceContext } from "@/lib/roamly/successfulTripExperience";
 import { readItineraryLibraryExperienceRecords } from "@/lib/roamly/itineraryLibraryAggregation";
+import { readIngesterLibraryRecords } from "@/lib/roamly/itineraryIngester";
 
 const PAGE_SIZE = 500;
 const MAX_PAGES = 100;
@@ -50,6 +51,12 @@ export async function runSuccessfulTripExperiencePatternAggregation(admin: Supab
   // Fail-soft: returns [] when the library tables do not exist yet.
   const libraryRecords = await readItineraryLibraryExperienceRecords(admin);
   records.push(...libraryRecords);
+
+  // Itinerary Ingester lane: library records (eligible rows only — generated
+  // plans are never pattern-eligible by the ingester's own gate). Fail-soft:
+  // returns [] when the ingester tables do not exist yet.
+  const ingesterRecords = await readIngesterLibraryRecords(admin);
+  records.push(...ingesterRecords);
 
   const patterns = aggregateSuccessfulTripExperiencePatterns(records)
     .filter((pattern) => isPublishableSuccessfulTripPattern(pattern));
