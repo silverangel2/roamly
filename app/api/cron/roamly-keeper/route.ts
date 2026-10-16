@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
   if (!isCronRequestAuthorized(request.headers, expected)) return NextResponse.json({ ok: false, error: "Unauthorized cron." }, { status: 401 });
 
   const admin = createSupabaseAdminClient();
+  if (!admin) return NextResponse.json({ ok: false, error: "Supabase admin client is not configured." }, { status: 503 });
   const runnerId = `${KEEPER_RUNNER_PREFIX}.${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}`;
   const locked = await acquireKeeperLock(admin, runnerId);
   if (!locked) {
