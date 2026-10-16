@@ -29,6 +29,10 @@
       "schedule": "7 * * * *"
     },
     {
+      "path": "/api/cron/roamly-keeper",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/cron/roamly-email-sync",
       "schedule": "*/30 * * * *"
     },

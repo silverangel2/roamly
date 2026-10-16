@@ -94,7 +94,9 @@ export type KeeperLane =
   | "social_autopost"
   | "fyi_upsell_hygiene"
   | "booking_audit_leftovers"
-  | "config_flags";
+  | "config_flags"
+  | "deploy_doctor"
+  | "library_health";
 
 export type KeeperStatus = "healthy" | "degraded" | "down";
 
@@ -173,10 +175,24 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 export type KeeperEnv = Record<string, string | undefined>;
 
+/**
+ * One Concierge suggestion's keep/drop tally, as the Library Keeper sees it.
+ * This is an adapter interface for the Concierge crew: the Concierge attaches
+ * its suggestion log here (array, one entry per suggestion). Until it does,
+ * the keep-rate scan is skipped with an honest note — never faked.
+ */
+export type LibrarySuggestionLogEntry = {
+  suggestionId: string;
+  label: string;
+  kept: number;
+  dropped: number;
+};
+
 export type KeeperDeps = {
   db: KeeperDb;
   env: KeeperEnv;
   now: () => Date;
+  suggestions?: LibrarySuggestionLogEntry[];
 };
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -368,6 +384,466 @@ export function configFlagsCheck(readiness: { label: string; status: string }[])
   return { lane, status: "healthy", summary: "all config ready", evidence };
 }
 
+// ── Deploy Doctor (v2 lane, both keepers) ───────────────────────────────────
+
+/**
+ * DEPLOY DOCTOR — watches which build is live and whether it broke lanes.
+ *
+ * The Oct-16 Roamly deploy failure (two layers: a TS null guard, then 23
+ * eslint no-explicit-any errors) sat silent for hours until a route probe
+ * flipped 404 → 401. This lane reads the build stamp the keeper itself is
+ * running inside (process.env.VERCEL_GIT_COMMIT_SHA — the same build
+ * serving production) and records it in the ops ledger every run:
+ *  - stamp CHANGES → the check row notes "new build live" old→new.
+ *  - lanes that were healthy last run (from deterministic_check evidence
+ *    rows) and are down/degraded now, right after a stamp change →
+ *    escalate "deploy suspect".
+ *  - optional env ROAMLY_EXPECTED_BUILD_SHA: when set and the observed
+ *    stamp hasn't matched it for 2 consecutive runs → escalate
+ *    "expected build not live." WITHOUT the env var this lane is
+ *    observation-only: it records the stamp and watches for fresh
+ *    failures, nothing more.
+ *
+ * Detection only — the keeper never rolls back; a human does. Fail-soft:
+ * the evidence table read degrades to "no history" when the table is
+ * absent, and the stamp is "unavailable" off Vercel.
+ */
+export const ROAMLY_EVIDENCE_TABLE = "roamly_ops_evidence";
+const ROAMLY_EXPECTED_BUILD_SHA_ENV = "ROAMLY_EXPECTED_BUILD_SHA";
+
+export type DeployDoctorResult = {
+  check: KeeperCheckResult;
+  escalation: { causeClass: string; humanAction: string } | null;
+};
+
+export function readRoamlyDeployStamp(env: KeeperEnv): { app: "roamly"; sha: string | null } {
+  const sha = env.VERCEL_GIT_COMMIT_SHA;
+  return { app: "roamly", sha: typeof sha === "string" && sha.trim() ? sha.trim() : null };
+}
+
+function roamlyShortSha(s: string | null): string {
+  return s ? s.slice(0, 12) : "none";
+}
+
+/** Narrow an evidence row's metadata to a record (DB column: safe_metadata). */
+function evidenceMetadata(row: KeeperDbRow): Record<string, unknown> {
+  return asRecord(row.safe_metadata ?? row.metadata);
+}
+
+/** Previous deploy-doctor stamp observations, newest first. Empty = no history. */
+async function readRoamlyStampHistory(deps: KeeperDeps): Promise<string[]> {
+  if (deps.db.tableMissing(ROAMLY_EVIDENCE_TABLE)) return [];
+  try {
+    const rows = await deps.db.table(ROAMLY_EVIDENCE_TABLE).rows(
+      [{ column: "source", op: "eq", value: "keeper:lane:deploy_doctor" }],
+      { limit: 5, order: "created_at desc", columns: "id,source,result,safe_metadata,created_at" }
+    );
+    return rows
+      .map((row) => {
+        const sha = evidenceMetadata(row).sha;
+        return typeof sha === "string" ? sha : "";
+      })
+      .filter((sha) => sha.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Previous run's per-lane statuses, from deterministic_check evidence rows
+ * (result pass → healthy, blocked → degraded, fail → down). The current
+ * run hasn't logged yet when checks execute, so the newest rows belong to
+ * the previous run. Empty = no history.
+ */
+async function readRoamlyPreviousLaneStatuses(deps: KeeperDeps): Promise<Partial<Record<KeeperLane, KeeperStatus>>> {
+  const out: Partial<Record<KeeperLane, KeeperStatus>> = {};
+  if (deps.db.tableMissing(ROAMLY_EVIDENCE_TABLE)) return out;
+  try {
+    const rows = await deps.db.table(ROAMLY_EVIDENCE_TABLE).rows(
+      [],
+      { limit: 60, order: "created_at desc", columns: "id,source,category,result,safe_metadata,created_at" }
+    );
+    const lanes = new Set<KeeperLane>(["completion_email_queue", "social_autopost", "fyi_upsell_hygiene", "booking_audit_leftovers", "config_flags", "deploy_doctor", "library_health"]);
+    for (const row of rows) {
+      const source = String(row.source || "");
+      if (!source.startsWith("keeper:lane:")) continue;
+      if (String(row.category || "") !== "deterministic_check") continue;
+      const laneName = source.slice("keeper:lane:".length);
+      if (laneName === "deploy_doctor") continue;
+      if (!lanes.has(laneName as KeeperLane)) continue;
+      const lane = laneName as KeeperLane;
+      if (lane in out) continue;
+      const result = String(row.result || "");
+      out[lane] = result === "pass" ? "healthy" : result === "blocked" ? "degraded" : result === "fail" ? "down" : "healthy";
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export async function deployDoctorCheck(deps: KeeperDeps, priorChecks: KeeperCheckResult[]): Promise<DeployDoctorResult> {
+  const lane: KeeperLane = "deploy_doctor";
+  const stamp = readRoamlyDeployStamp(deps.env);
+  if (!stamp.sha) {
+    return {
+      check: {
+        lane,
+        status: "healthy",
+        summary: "build stamp unavailable (VERCEL_GIT_COMMIT_SHA not set — not on Vercel); deploy tracking is observation-only off Vercel",
+        evidence: {},
+      },
+      escalation: null,
+    };
+  }
+
+  const history = await readRoamlyStampHistory(deps);
+  const previousSha = history.length > 0 ? history[0] : null;
+  const changed = Boolean(previousSha) && previousSha !== stamp.sha;
+
+  const expected = (deps.env[ROAMLY_EXPECTED_BUILD_SHA_ENV] || "").trim() || null;
+  let consecutiveMismatches = 0;
+  if (expected && stamp.sha !== expected) {
+    consecutiveMismatches = 1;
+    for (const h of history) {
+      if (h === expected) break;
+      consecutiveMismatches += 1;
+    }
+  }
+
+  const freshFailures: KeeperLane[] = [];
+  if (changed) {
+    const prev = await readRoamlyPreviousLaneStatuses(deps);
+    for (const check of priorChecks) {
+      if (prev[check.lane] === "healthy" && (check.status === "degraded" || check.status === "down")) {
+        freshFailures.push(check.lane);
+      }
+    }
+  }
+
+  const evidence: Record<string, unknown> = {
+    sha: stamp.sha,
+    previousSha,
+    changed,
+    expectedSha: expected,
+    consecutiveMismatches,
+    freshFailures,
+  };
+
+  if (expected && consecutiveMismatches >= 2) {
+    return {
+      check: {
+        lane,
+        status: "down",
+        summary: `expected build ${roamlyShortSha(expected)} not live after ${consecutiveMismatches} consecutive keeper runs (observed ${roamlyShortSha(stamp.sha)})`,
+        evidence,
+      },
+      escalation: {
+        causeClass: "expected-build-not-live",
+        humanAction: `Dylan: the Vercel deployment for commit ${expected} failed or Vercel is still serving an older build — read its build logs. If broken, fix and redeploy, or set ${ROAMLY_EXPECTED_BUILD_SHA_ENV} to the build that should be live.`,
+      },
+    };
+  }
+  if (changed && freshFailures.length > 0) {
+    return {
+      check: {
+        lane,
+        status: "down",
+        summary: `deploy suspect: new build ${roamlyShortSha(previousSha)} → ${roamlyShortSha(stamp.sha)} went live and ${freshFailures.length} lane(s) just started failing: ${freshFailures.join(", ")}`,
+        evidence,
+      },
+      escalation: {
+        causeClass: "deploy-suspect",
+        humanAction: `Dylan: the new build ${stamp.sha} may have introduced a regression — check the Vercel deployment logs. If the build is broken, roll back to the previous deployment in the Vercel dashboard and re-ship the round as one release.`,
+      },
+    };
+  }
+  if (expected && consecutiveMismatches === 1) {
+    return {
+      check: {
+        lane,
+        status: "degraded",
+        summary: `observed build ${roamlyShortSha(stamp.sha)} does not match expected ${roamlyShortSha(expected)} (1st run — watching one more before escalating)`,
+        evidence,
+      },
+      escalation: null,
+    };
+  }
+  return {
+    check: {
+      lane,
+      status: "healthy",
+      summary: changed
+        ? `new build live: ${roamlyShortSha(previousSha)} → ${roamlyShortSha(stamp.sha)}; no fresh lane failures`
+        : `build ${roamlyShortSha(stamp.sha)} still live; no drift`,
+      evidence,
+    },
+    escalation: null,
+  };
+}
+
+// ── Library Health (v3 lane) ─────────────────────────────────────────────
+
+/**
+ * LIBRARY HEALTH — watches Roamly's itinerary-library machinery:
+ *  1. Consent integrity: any library-bound submission row missing its
+ *     consent flag (consent_anonymized_reuse IS NULL) → DOWN. Junel's rule
+ *     is consent-gated reuse; a null flag means consent state is unknown,
+ *     and unknown is never treated as granted.
+ *  2. Publishability guard: any stored pattern below the 3-trip publish
+ *     floor (the writer filters these before saving, so a stored one is a
+ *     writer bug) → DOWN, naming the pattern.
+ *  3. Staleness: patterns with no refresh in 90+ days → DEGRADED, listed.
+ *  4. Provenance completeness: item verdicts missing the provenance stamp
+ *     (blank source, null booking_proven) → DEGRADED with counts.
+ *  5. Ask funnel evidence: post-trip asks sent vs answered (30d window),
+ *     from roamly_email_logs idempotency keys vs trip_feedback +
+ *     itinerary_submissions. Evidence only — a starving funnel is how the
+ *     library dies quietly; the verdict is for the humans.
+ *  6. Suggestion keep-rate: if the Concierge attached its suggestion log
+ *     (KeeperDeps.suggestions), any suggestion with ≥5 drops and 0 keeps
+ *     is flagged "retire candidate" — evidence only. Retiring is a
+ *     human/Concierge-side decision; this lane never writes.
+ *
+ * Front-door storage (migration 20261015000100) is applied by Junel by
+ * hand. If those tables are absent, the lane says so honestly
+ * ("storage not present yet") and degrades — never a false DOWN and
+ * never a crash. Detection only: no repair whitelist entry, the existing
+ * whitelist is untouched, and the write guard is never bypassed.
+ */
+export const LIBRARY_SUBMISSIONS_TABLE = "itinerary_submissions";
+export const LIBRARY_VERDICTS_TABLE = "item_verdicts";
+export const LIBRARY_PATTERNS_TABLE = "successful_trip_experience_patterns";
+export const LIBRARY_EMAIL_LOGS_TABLE = "roamly_email_logs";
+export const LIBRARY_FEEDBACK_TABLE = "trip_feedback";
+export const PUBLISHABLE_MIN_TRIPS = 3;
+export const PATTERN_STALE_DAYS = 90;
+export const SUGGESTION_RETIRE_DROPS = 5;
+export const ASK_WINDOW_DAYS = 30;
+export const POST_TRIP_ASK_PREFIX = "post_trip_library_ask:";
+
+export type LibraryHealthResult = {
+  check: KeeperCheckResult;
+  escalations: KeeperEscalation[];
+};
+
+function distinctStrings(values: unknown[]): string[] {
+  const out = new Set<string>();
+  for (const value of values) {
+    if (typeof value === "string" && value) out.add(value);
+  }
+  return [...out];
+}
+
+function countTrips(row: KeeperDbRow): number | null {
+  const source = row.source_trip_count;
+  const sample = row.sample_count;
+  const pick = typeof source === "number" ? source : typeof sample === "number" ? sample : null;
+  return pick !== null && Number.isFinite(pick) ? pick : null;
+}
+
+export async function libraryHealthCheck(deps: KeeperDeps): Promise<LibraryHealthResult> {
+  const lane: KeeperLane = "library_health";
+  try {
+    const db = deps.db;
+    const now = deps.now();
+    const evidence: Record<string, unknown> = {};
+    const escalations: KeeperEscalation[] = [];
+    const problems: string[] = [];
+
+    // ── 1/2. Patterns library: publishability + staleness ──
+    let patternCount = 0;
+    const stalePatterns: string[] = [];
+    const belowFloor: string[] = [];
+    if (db.tableMissing(LIBRARY_PATTERNS_TABLE)) {
+      evidence.patternsTable = "absent (expected since Oct 2025)";
+      problems.push("patterns table absent");
+    } else {
+      const rows = await db.table(LIBRARY_PATTERNS_TABLE).rows([], {
+        columns: "pattern_key,destination_key,sample_count,source_trip_count,updated_at",
+        order: "updated_at desc",
+        limit: 500,
+      });
+      patternCount = rows.length;
+      const staleCutoff = now.getTime() - PATTERN_STALE_DAYS * 86_400_000;
+      for (const row of rows) {
+        const key = String(row.pattern_key || "unnamed-pattern");
+        const trips = countTrips(row);
+        if (trips === null || trips < PUBLISHABLE_MIN_TRIPS) {
+          belowFloor.push(`${key} (${trips === null ? "no trip count" : `${trips} trips`})`);
+          continue;
+        }
+        const updatedAt = typeof row.updated_at === "string" ? row.updated_at : "";
+        if (updatedAt && Date.parse(updatedAt) < staleCutoff) stalePatterns.push(key);
+      }
+      evidence.patternCount = patternCount;
+      evidence.belowPublishFloor = belowFloor.slice(0, 10);
+      evidence.belowPublishFloorTotal = belowFloor.length;
+      evidence.stalePatterns = stalePatterns.slice(0, 10);
+      evidence.stalePatternsTotal = stalePatterns.length;
+      if (belowFloor.length) problems.push(`${belowFloor.length} pattern(s) below the ${PUBLISHABLE_MIN_TRIPS}-trip publish floor`);
+      if (stalePatterns.length) problems.push(`${stalePatterns.length} pattern(s) stale (${PATTERN_STALE_DAYS}+ days)`);
+    }
+
+    // ── Front-door storage (hand-applied migration): 1/4/consent/provenance ──
+    const frontDoorPresent =
+      !db.tableMissing(LIBRARY_SUBMISSIONS_TABLE) && !db.tableMissing(LIBRARY_VERDICTS_TABLE);
+    if (!frontDoorPresent) {
+      evidence.frontDoorStorage =
+        "not present yet — migration 20261015000100_roamly_itinerary_library_frontdoor.sql not applied; front-door checks skipped, no false alarm raised";
+      problems.push("front-door storage not present yet");
+    } else {
+      // 1. Consent integrity: a null consent flag = unknown consent state.
+      const missingConsent = await db.table(LIBRARY_SUBMISSIONS_TABLE).rows(
+        [{ column: "consent_anonymized_reuse", op: "is", value: null }],
+        { columns: "id,trip_id", limit: 50 }
+      );
+      evidence.missingConsentTotal = missingConsent.length;
+      if (missingConsent.length) {
+        const tripIds = distinctStrings(missingConsent.map((row) => row.trip_id)).slice(0, 10);
+        evidence.missingConsentTrips = tripIds;
+        problems.push(`${missingConsent.length} submission(s) missing the consent flag`);
+        escalations.push({
+          lane,
+          evidence: { missingConsentCount: missingConsent.length, tripIds },
+          causeClass: "consent-integrity-breach",
+          humanAction:
+            `Dylan: ${missingConsent.length} library submission(s) have no consent flag (trips: ${tripIds.join(", ") || "n/a"}). ` +
+            "Do NOT assume consent — inspect how the flag was nulled, then restore the correct value with Junel's explicit direction. " +
+            "Only rows the traveler approved may feed the patterns.",
+        });
+      }
+
+      // 4. Provenance completeness on item verdicts.
+      const verdicts = await db.table(LIBRARY_VERDICTS_TABLE).rows([], {
+        columns: "id,submission_id,source,booking_proven",
+        limit: 500,
+      });
+      const missingProvenance = verdicts.filter((row) => {
+        const source = typeof row.source === "string" ? row.source.trim() : "";
+        return !source || row.booking_proven === null || row.booking_proven === undefined;
+      });
+      evidence.verdictCount = verdicts.length;
+      evidence.missingProvenanceTotal = missingProvenance.length;
+      if (missingProvenance.length) {
+        problems.push(`${missingProvenance.length} item verdict(s) missing provenance stamps`);
+      }
+    }
+
+    // ── 5. Ask funnel evidence (30-day window) ──
+    const windowIso = new Date(now.getTime() - ASK_WINDOW_DAYS * 86_400_000).toISOString();
+    if (db.tableMissing(LIBRARY_EMAIL_LOGS_TABLE)) {
+      evidence.askFunnel = { note: "roamly_email_logs unreadable — funnel evidence unavailable" };
+    } else {
+      const sends = await db.table(LIBRARY_EMAIL_LOGS_TABLE).rows(
+        [
+          { column: "status", op: "in", value: ["sent", "captured"] },
+          { column: "created_at", op: "gte", value: windowIso },
+        ],
+        { columns: "id,idempotency_key,created_at", limit: 5000 }
+      );
+      const askedTrips = distinctStrings(
+        sends
+          .map((row) => (typeof row.idempotency_key === "string" ? row.idempotency_key : ""))
+          .filter((key) => key.startsWith(POST_TRIP_ASK_PREFIX))
+          .map((key) => key.slice(POST_TRIP_ASK_PREFIX.length))
+      );
+      let feedbackAnswers = -1;
+      let shareAnswers = -1;
+      if (!db.tableMissing(LIBRARY_FEEDBACK_TABLE)) {
+        const feedback = await db.table(LIBRARY_FEEDBACK_TABLE).rows(
+          [
+            { column: "feedback_type", op: "eq", value: "post_trip" },
+            { column: "created_at", op: "gte", value: windowIso },
+          ],
+          { columns: "trip_id", limit: 5000 }
+        );
+        feedbackAnswers = distinctStrings(feedback.map((row) => row.trip_id)).length;
+      }
+      if (frontDoorPresent) {
+        const shares = await db.table(LIBRARY_SUBMISSIONS_TABLE).rows(
+          [{ column: "created_at", op: "gte", value: windowIso }],
+          { columns: "trip_id", limit: 2000 }
+        );
+        shareAnswers = distinctStrings(shares.map((row) => row.trip_id)).length;
+      }
+      evidence.askFunnel = {
+        windowDays: ASK_WINDOW_DAYS,
+        asksSent: askedTrips.length,
+        feedbackAnswers,
+        shareAnswers,
+        note: "answers lag asks; evidence only, no verdict",
+      };
+    }
+
+    // ── 6. Suggestion keep-rate (Concierge adapter) ──
+    if (deps.suggestions) {
+      const retireCandidates = deps.suggestions
+        .filter(
+          (entry) =>
+            typeof entry.dropped === "number" &&
+            typeof entry.kept === "number" &&
+            entry.dropped >= SUGGESTION_RETIRE_DROPS &&
+            entry.kept === 0
+        )
+        .map((entry) => ({ suggestionId: entry.suggestionId, label: entry.label, dropped: entry.dropped }));
+      evidence.suggestionKeepRate = {
+        tracked: deps.suggestions.length,
+        retireCandidates,
+        note: "retire candidates are evidence only — retiring is a human/Concierge-side decision",
+      };
+    } else {
+      evidence.suggestionKeepRate = {
+        note: "no suggestion log attached — Concierge not wired yet; retire-candidate scan skipped",
+      };
+    }
+
+    const down = belowFloor.length > 0 || (evidence.missingConsentTotal as number) > 0;
+    if (down) {
+      if (belowFloor.length) {
+        escalations.push({
+          lane,
+          evidence: { belowFloorKeys: belowFloor.slice(0, 10), belowFloorTotal: belowFloor.length },
+          causeClass: "publishability-breach",
+          humanAction:
+            `Dylan: ${belowFloor.length} stored pattern(s) sit below the ${PUBLISHABLE_MIN_TRIPS}-trip publish floor ` +
+            `(${belowFloor.slice(0, 5).join("; ")}). The writer filters these before saving, so inspect the aggregation job; ` +
+            "remove the unpublishable rows deliberately — do not let them teach the Concierge.",
+        });
+      }
+      return {
+        check: { lane, status: "down", summary: `library health down: ${problems.join("; ")}`, evidence },
+        escalations,
+      };
+    }
+    if (problems.length) {
+      return {
+        check: { lane, status: "degraded", summary: `library needs attention: ${problems.join("; ")}`, evidence },
+        escalations,
+      };
+    }
+    return {
+      check: {
+        lane,
+        status: "healthy",
+        summary: `library healthy: ${patternCount} patterns above the publish floor, consent + provenance intact`,
+        evidence,
+      },
+      escalations,
+    };
+  } catch (error) {
+    return {
+      check: {
+        lane,
+        status: "degraded",
+        summary: `check failed softly: ${error instanceof Error ? error.message : String(error)}`,
+        evidence: { error: true },
+      },
+      escalations: [],
+    };
+  }
+}
+
 // ── Whitelisted repairs ─────────────────────────────────────────────────────
 
 export type RepairOutcome = { applied: boolean; reason: string };
@@ -551,6 +1027,26 @@ export async function runKeeperSuite(deps: KeeperDeps, runnerId: string): Promis
       status: "degraded",
       summary: `readiness unavailable: ${error instanceof Error ? error.message : String(error)}`,
       evidence: { error: true },
+    });
+  }
+
+  // Library health runs before the deploy doctor so the doctor sees its
+  // status when comparing this run's lanes against the previous run.
+  const libraryHealth = await libraryHealthCheck(deps);
+  checks.push(libraryHealth.check);
+  escalations.push(...libraryHealth.escalations);
+
+  // Deploy doctor runs last: it compares this run's lanes against the
+  // previous run's deterministic_check evidence rows and the observed
+  // build stamp.
+  const deployDoctor = await deployDoctorCheck(deps, checks);
+  checks.push(deployDoctor.check);
+  if (deployDoctor.escalation) {
+    escalations.push({
+      lane: "deploy_doctor",
+      evidence: deployDoctor.check.evidence,
+      causeClass: deployDoctor.escalation.causeClass,
+      humanAction: deployDoctor.escalation.humanAction,
     });
   }
 
