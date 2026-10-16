@@ -17,6 +17,7 @@ import { StagedGenerationProgress } from "@/components/trip/StagedGenerationProg
 import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
 import { PostTripLibraryAskCard } from "@/components/trip/PostTripLibraryAskCard";
+import { TripCommentBox } from "@/components/trip/TripCommentBox";
 import {
   SectionHeading,
   NavigationChipList,
@@ -2666,6 +2667,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     title="Your itinerary"
                     summary="Clean daily plan with timing, travel, and key notes."
                   />
+                  {canShowFull && full ? <TripCommentBox tripId={id} /> : null}
                   <div className="mb-5">
                     <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
                   </div>
