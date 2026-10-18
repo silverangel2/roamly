@@ -275,6 +275,15 @@ export type SophieSitrep = {
     ops: {
       tablesReady: boolean;
       counts: Record<string, number>;
+      failures: Array<{
+        id: string;
+        role: string;
+        authority_level: string;
+        status: string;
+        subsystem: string;
+        objective: string;
+        created_at: string;
+      }>;
       recentJobs: Array<{
         id: string;
         role: string;
@@ -304,6 +313,18 @@ function summarizeJobs(rows: OperationsJobRow[]) {
     const status = String(row.status ?? "unknown");
     counts[status] = (counts[status] || 0) + 1;
   }
+  const failures = rows
+    .filter((row) => String(row.status ?? "").toUpperCase() === "FAILED")
+    .slice(0, 5)
+    .map((row) => ({
+      id: String(row.id ?? ""),
+      role: String(row.role ?? ""),
+      authority_level: String(row.authority_level ?? ""),
+      status: String(row.status ?? ""),
+      subsystem: String(row.subsystem ?? ""),
+      objective: String(row.objective ?? "").slice(0, 160),
+      created_at: String(row.created_at ?? ""),
+    }));
   const recentJobs = rows.slice(0, 10).map((row) => ({
     id: String(row.id ?? ""),
     role: String(row.role ?? ""),
@@ -314,7 +335,7 @@ function summarizeJobs(rows: OperationsJobRow[]) {
     objective: String(row.objective ?? "").slice(0, 160),
     created_at: String(row.created_at ?? ""),
   }));
-  return { counts, recentJobs };
+  return { counts, failures, recentJobs };
 }
 
 /** The watch picture: ops ledger + recent keeper runs, fail-soft per section. */
@@ -331,8 +352,8 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
       degraded.push("keeper");
     } else {
       rows = listed.jobs as OperationsJobRow[];
-      const { counts, recentJobs } = summarizeJobs(rows);
-      ops = { tablesReady: true, counts, recentJobs };
+      const { counts, failures, recentJobs } = summarizeJobs(rows);
+      ops = { tablesReady: true, counts, failures, recentJobs };
       const keeperRows = rows
         .filter(
           (row) =>
