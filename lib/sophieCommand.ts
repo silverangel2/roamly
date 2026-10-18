@@ -1,6 +1,6 @@
 /**
  * Sophie Command Door — Roamly's side of the Empire Central Command
- * contract (v1, 2026-10-17).
+ * contract (v1, 2026-10-17; sitrep v1.2, 2026-10-18).
  *
  * Sophie (Junel's local AI) connects OUTBOUND from his iMac to this door.
  * She can read the keeper/ops picture (sitrep) and enqueue whitelisted jobs
@@ -267,6 +267,19 @@ export async function placeSophieOrder(
   };
 }
 
+/**
+ * Per-bot activity entry for the sitrep (v1.2). Drawn from the SAME
+ * roamly_ops_jobs rows the sitrep already reads — `name` is the job's
+ * role in the site's own terms (subsystem as fallback), `action` is the
+ * job's objective. Nothing here is invented.
+ */
+export type BotActivity = {
+  name: string;
+  action: string;
+  status: string;
+  at: string;
+};
+
 export type SophieSitrep = {
   ok: boolean;
   site: "roamly";
@@ -284,6 +297,7 @@ export type SophieSitrep = {
         objective: string;
         created_at: string;
       }>;
+      bots: BotActivity[];
       recentJobs: Array<{
         id: string;
         role: string;
@@ -325,6 +339,12 @@ function summarizeJobs(rows: OperationsJobRow[]) {
       objective: String(row.objective ?? "").slice(0, 160),
       created_at: String(row.created_at ?? ""),
     }));
+  const bots: BotActivity[] = rows.slice(0, 8).map((row) => ({
+    name: String(row.role ?? "") || String(row.subsystem ?? ""),
+    action: String(row.objective ?? "").slice(0, 160),
+    status: String(row.status ?? ""),
+    at: String(row.created_at ?? ""),
+  }));
   const recentJobs = rows.slice(0, 10).map((row) => ({
     id: String(row.id ?? ""),
     role: String(row.role ?? ""),
@@ -335,7 +355,7 @@ function summarizeJobs(rows: OperationsJobRow[]) {
     objective: String(row.objective ?? "").slice(0, 160),
     created_at: String(row.created_at ?? ""),
   }));
-  return { counts, failures, recentJobs };
+  return { counts, failures, bots, recentJobs };
 }
 
 /** The watch picture: ops ledger + recent keeper runs, fail-soft per section. */
@@ -352,8 +372,8 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
       degraded.push("keeper");
     } else {
       rows = listed.jobs as OperationsJobRow[];
-      const { counts, failures, recentJobs } = summarizeJobs(rows);
-      ops = { tablesReady: true, counts, failures, recentJobs };
+      const { counts, failures, bots, recentJobs } = summarizeJobs(rows);
+      ops = { tablesReady: true, counts, failures, bots, recentJobs };
       const keeperRows = rows
         .filter(
           (row) =>
