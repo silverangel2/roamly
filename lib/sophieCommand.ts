@@ -118,6 +118,7 @@ export function validateSophieOrder(body: unknown): OrderValidation {
       error: `Order type not whitelisted. Allowed: ${SOPHIE_ORDER_TYPES.join(", ")}.`,
     };
   }
+  const orderType = type as SophieOrderType;
   const cleanReason =
     typeof reason === "string" && reason.trim()
       ? reason.trim().slice(0, 300)
@@ -128,7 +129,7 @@ export function validateSophieOrder(body: unknown): OrderValidation {
       : {};
   let files: string[] = [];
   let estimatedLinesChanged = 40;
-  if (type === "prepare_repair") {
+  if (orderType === "prepare_repair") {
     files = cleanStringArray(cleanDetail.files).slice(0, MAX_REPAIR_FILES);
     if (files.length === 0) {
       return {
@@ -146,7 +147,7 @@ export function validateSophieOrder(body: unknown): OrderValidation {
   }
   return {
     ok: true,
-    type,
+    type: orderType,
     reason: cleanReason,
     detail: cleanDetail,
     files,
@@ -236,7 +237,6 @@ export async function placeSophieOrder(
       allowedFiles: validation.files,
       estimatedLinesChanged: validation.estimatedLinesChanged,
       acceptanceCriteria: [...REPAIR_ACCEPTANCE_CRITERIA],
-      findingId: null,
       approvalCategory: null,
       priority: "high",
     });
