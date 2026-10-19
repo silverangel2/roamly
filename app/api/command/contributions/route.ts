@@ -1,0 +1,7 @@
+import { NextResponse } from 'next/server';
+import { sophieAuthError } from '@/lib/sophieCommand';
+import { validateTravelProposal } from '@/lib/sophieContributions';
+import { listContributions,saveContribution } from '@/lib/sophieContributionStore';
+export const runtime='nodejs';export const dynamic='force-dynamic';
+export async function GET(r:Request){if(sophieAuthError(r))return NextResponse.json({ok:false,error:'Unauthorized'},{status:401});try{return NextResponse.json({ok:true,contributions:await listContributions(new URL(r.url).searchParams.get('status')||'pending')},{headers:{'Cache-Control':'no-store'}})}catch{return NextResponse.json({ok:false,error:'Queue unavailable'},{status:503})}}
+export async function POST(r:Request){if(sophieAuthError(r))return NextResponse.json({ok:false,error:'Unauthorized'},{status:401});let payload:ReturnType<typeof validateTravelProposal>;try{const raw=await r.text();if(raw.length>16384)throw Error('Proposal too large');payload=validateTravelProposal(JSON.parse(raw))}catch(e){return NextResponse.json({ok:false,error:e instanceof Error?e.message:'Invalid proposal'},{status:422})}try{return NextResponse.json({ok:true,contribution:await saveContribution(payload.destination+':'+String(payload.kind)+':'+payload.title,payload),published:false,bookingProven:false})}catch{return NextResponse.json({ok:false,error:'Submission could not be recorded; check storage provisioning'},{status:503})}}
