@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server';
+import { requireRoamlyAdmin } from '@/lib/roamly/adminGuard';
+import { listContributions,decideContribution } from '@/lib/sophieContributionStore';
+export const runtime='nodejs';export const dynamic='force-dynamic';
+export async function GET(r:Request){const guard=await requireRoamlyAdmin();if(!guard.ok)return guard.response;try{return NextResponse.json({ok:true,contributions:await listContributions(new URL(r.url).searchParams.get('status')||'pending')},{headers:{'Cache-Control':'no-store'}})}catch{return NextResponse.json({ok:false,error:'Queue unavailable'},{status:503})}}
+export async function PATCH(r:Request){const guard=await requireRoamlyAdmin();if(!guard.ok)return guard.response;if(!r.headers.get('content-type')?.includes('application/json')||(r.headers.get('origin')&&r.headers.get('origin')!==new URL(r.url).origin))return NextResponse.json({ok:false},{status:403});try{const raw=await r.text();if(raw.length>5000)throw Error();const b=JSON.parse(raw);return NextResponse.json({ok:true,contribution:await decideContribution(b.id,b.status,b.note),published:false})}catch{return NextResponse.json({ok:false,error:'Invalid, unavailable or already reviewed contribution'},{status:409})}}
