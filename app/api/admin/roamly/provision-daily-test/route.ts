@@ -2,14 +2,14 @@ import { randomBytes } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireRoamlyAdmin } from "@/lib/roamly/adminGuard";
+import {
+  createDailyTestClaim,
+  dailyTestProvisioningEnabled
+} from "@/lib/roamly/dailyTestClaim";
 
 export const runtime = "nodejs";
 
 const DEFAULT_DAILY_TEST_EMAIL = "daily.checks@roamlyhq.com";
-
-function provisioningEnabled() {
-  return /^(true|1|enabled)$/i.test((process.env.ROAMLY_DAILY_TEST_PROVISIONING || "").trim());
-}
 
 function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -29,7 +29,7 @@ async function findUserByEmail(admin: SupabaseClient, email: string) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!provisioningEnabled()) {
+  if (!dailyTestProvisioningEnabled()) {
     return NextResponse.json({ ok: false, error: "DAILY_TEST_PROVISIONING_DISABLED" }, { status: 404 });
   }
 
@@ -50,15 +50,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "DAILY_TEST_USER_LOOKUP_FAILED" }, { status: 500 });
   }
 
-  // Idempotent: the persistent test account is created exactly once. A
-  // re-run returns the existing account and never a duplicate — and never
-  // a password, because the stored credential lives in the automation's
-  // secret store, not here.
+  // The account password is generated fresh on every call and is NEVER
+  // returned. The caller receives only a one-time claim code; the
+  // password itself is stored encrypted under a key derived from that
+  // code in the test user's metadata and is revealed exactly once, by
+  // the claim route, to whoever presents the code within 15 minutes.
+  // Password and claim code are never logged.
+  const password = randomBytes(24).toString("base64url");
+
   if (existing.user) {
-    return NextResponse.json({ ok: true, created: false, userId: existing.user.id, email });
+    // Rotation: an existing account gets a fresh password + a fresh
+    // claim record. This is the designed remedy for a lost secret store:
+    // re-running provisioning re-keys the account and issues a new code;
+    // every previously issued code dies with the old record.
+    const { claimCode, record } = createDailyTestClaim(password, existing.user.id);
+    const updated = await gate.admin.auth.admin.updateUserById(existing.user.id, {
+      password,
+      user_metadata: {
+        ...(existing.user.user_metadata || {}),
+        daily_test: true,
+        daily_test_claim: record
+      }
+    });
+    if (updated.error || !updated.data.user) {
+      console.error("[Roamly daily test] Test user rotation failed", { email, error: updated.error?.message });
+      return NextResponse.json({ ok: false, error: "DAILY_TEST_USER_ROTATE_FAILED" }, { status: 500 });
+    }
+    console.info("[Roamly daily test] Test account rotated, claim issued", { email, userId: existing.user.id });
+    return NextResponse.json({
+      ok: true,
+      created: false,
+      rotated: true,
+      userId: existing.user.id,
+      email,
+      claimCode,
+      expiresAt: record.expiresAt
+    });
   }
 
-  const password = randomBytes(24).toString("base64url");
   const created = await gate.admin.auth.admin.createUser({
     email,
     password,
@@ -71,10 +100,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "DAILY_TEST_USER_CREATE_FAILED" }, { status: 500 });
   }
 
-  console.info("[Roamly daily test] Test account provisioned", { email, userId: created.data.user.id });
+  // The claim hash binds the code to the user id, so the claim record can
+  // only be attached once the user exists.
+  const userId = created.data.user.id;
+  const { claimCode, record } = createDailyTestClaim(password, userId);
+  const claimed = await gate.admin.auth.admin.updateUserById(userId, {
+    user_metadata: { daily_test: true, daily_test_claim: record }
+  });
+  if (claimed.error) {
+    console.error("[Roamly daily test] Test user claim attach failed", { email, error: claimed.error.message });
+    return NextResponse.json({ ok: false, error: "DAILY_TEST_CLAIM_ISSUE_FAILED" }, { status: 500 });
+  }
 
-  // The generated password is returned exactly once, in this
-  // admin-authenticated response only, so the calling automation can write
-  // it straight into its secret store. It is never logged.
-  return NextResponse.json({ ok: true, created: true, userId: created.data.user.id, email, password });
+  console.info("[Roamly daily test] Test account provisioned, claim issued", { email, userId });
+
+  return NextResponse.json({
+    ok: true,
+    created: true,
+    rotated: false,
+    userId,
+    email,
+    claimCode,
+    expiresAt: record.expiresAt
+  });
 }
