@@ -3,6 +3,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { safeAuthNextPath } from "@/lib/navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  createSupabaseBearerClient,
   createSupabaseServerClient,
   getCurrentUser as getSupabaseCurrentUser,
   type CurrentUserResult
@@ -143,7 +144,12 @@ export async function requireUser(): Promise<
     const { data: bearerData, error: bearerError } = await supabase.auth.getUser(bearerToken);
 
     if (!bearerError && bearerData.user) {
-      return { ok: true, user: bearerData.user, supabase };
+      // Return a client that carries the validated token: the cookie
+      // client has no session for bearer-only callers, so its PostgREST
+      // calls would run as anon (auth.uid() = NULL) and fail
+      // authenticated-only RLS policies despite the valid login.
+      const bearerSupabase = createSupabaseBearerClient(bearerToken);
+      return { ok: true, user: bearerData.user, supabase: bearerSupabase ?? supabase };
     }
   }
 

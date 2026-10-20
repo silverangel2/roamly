@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import type { User } from "@supabase/supabase-js";
+import { createClient, type User } from "@supabase/supabase-js";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
 import { normalizeSupabaseCookieOptions } from "@/lib/supabase/cookies";
 
@@ -28,6 +28,30 @@ export async function createSupabaseServerClient() {
         } catch {
           // Server components cannot always write cookies. Middleware and route handlers refresh them.
         }
+      }
+    }
+  });
+}
+
+// Client for callers who authenticated with an Authorization: Bearer
+// access token instead of cookies (API clients, the daily-test runner).
+// The cookie server client above has no session for those callers, so
+// its PostgREST calls would go out under the anon key with
+// auth.uid() = NULL and fail authenticated-only RLS policies. This
+// client carries the already-validated token on every request, so the
+// database sees the caller as that authenticated user.
+export function createSupabaseBearerClient(accessToken: string) {
+  if (!hasSupabaseConfig()) return null;
+
+  return createClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
       }
     }
   });
