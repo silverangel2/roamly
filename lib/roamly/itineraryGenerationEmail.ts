@@ -466,11 +466,18 @@ async function claimGenerationEmailSend(
     .maybeSingle();
 
   if (result.error && missingCompletionEmailColumns(result.error)) {
-    const fallback = await updateGenerationEmailMetadata(admin, trip, patch);
+    // Fail closed: without the completion_email_* columns there is no atomic
+    // claim, so falling back to a plain metadata write would send with the
+    // per-trip dedupe guard bypassed. Skip the send and surface the
+    // misconfiguration instead of emailing unguarded.
+    console.error(
+      "[Roamly generation email] completion email columns missing; refusing unguarded send",
+      result.error.message
+    );
     return {
-      claimed: !fallback.error,
-      error: fallback.error?.message || null,
-      generationEmail: fallback.generationEmail
+      claimed: false,
+      error: "Completion email guard columns are missing; send skipped to avoid a duplicate.",
+      generationEmail
     };
   }
 

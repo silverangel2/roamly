@@ -134,6 +134,16 @@ function emailCaptureEnabled() {
   );
 }
 
+export function getRoamlyDailyTestEmail() {
+  return readEnv("ROAMLY_DAILY_TEST_EMAIL").toLowerCase();
+}
+
+export function isRoamlyDailyTestRecipient(value: string) {
+  const dailyTestEmail = getRoamlyDailyTestEmail();
+  if (!dailyTestEmail) return false;
+  return emailAddressFromHeader(value).trim().toLowerCase() === dailyTestEmail;
+}
+
 export function getRoamlySupportEmail() {
   return readEnv("ROAMLY_SUPPORT_EMAIL") || "support@roamlyhq.com";
 }
@@ -575,7 +585,7 @@ export async function verifyRoamlyEmailProvider(): Promise<EmailVerificationResu
 export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData) {
   const title = data.subject || "Roamly travel update";
   const preheader = data.preheader || "A Roamly trip update is ready.";
-  const destination = data.destination || data.tripTitle || "your trip";
+  const destination = data.destination || data.tripTitle || null;
   const message = data.message || "Open Roamly to review your travel timeline and next steps.";
   const actionUrl = data.actionUrl?.startsWith("http") ? data.actionUrl : toRoamlyAbsoluteUrl(data.actionUrl || "/notifications");
   const badge =
@@ -622,9 +632,11 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
                               : type.includes("document")
                                 ? "Documents"
                                 : "Trip reminder";
-  const bodyHtml = `${renderEmailBodyCopy(message)}
-    <p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;font-weight:700;color:#475467;">Trip: ${escapeEmailHtml(destination)}</p>`;
-  const bodyText = `${message}\n\nTrip: ${destination}`;
+  const bodyHtml = destination
+    ? `${renderEmailBodyCopy(message)}
+    <p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;font-weight:700;color:#475467;">Trip: ${escapeEmailHtml(destination)}</p>`
+    : renderEmailBodyCopy(message);
+  const bodyText = destination ? `${message}\n\nTrip: ${destination}` : message;
 
   return renderRoamlyEmailShell({
     subject: title,
@@ -688,6 +700,25 @@ export async function sendRoamlyEmail(params: SendRoamlyEmailParams): Promise<Se
   const idempotencyKey =
     (params.idempotencyKey || (typeof params.metadata?.idempotencyKey === "string" ? params.metadata.idempotencyKey : "")).trim();
 
+  const captureSend = async (dailyTestOverride: boolean): Promise<SendRoamlyEmailResult> => {
+    const providerMessageId = `local-capture:${idempotencyKey || new Date().toISOString()}`;
+    const logId = await logEmail({
+      ...params,
+      to,
+      status: "captured",
+      providerName: "capture",
+      providerMessageId,
+      error: null,
+      metadata: {
+        ...(params.metadata || {}),
+        local_capture: true,
+        ...(dailyTestOverride ? { daily_test_capture: true } : {})
+      }
+    });
+    await markNotificationEmail(params.notificationId, "captured");
+    return { ok: true, status: "captured", provider: "capture", providerMessageId, logId, captured: true, permanent: false, retryable: false };
+  };
+
   if (!validEmail(to)) {
     const logId = await logEmail({ ...params, to, status: "failed", providerName: config.provider, error: "Invalid recipient email." });
     await markNotificationEmail(params.notificationId, "failed", "Invalid recipient email.");
@@ -701,6 +732,16 @@ export async function sendRoamlyEmail(params: SendRoamlyEmailParams): Promise<Se
     return { ok: false, status: "failed", provider: config.provider, error, logId, permanent: true, retryable: false };
   }
 
+  // Per-recipient capture override for the automation-owned daily test
+  // account: a send addressed to the configured daily-test recipient is
+  // always captured (logged, never delivered), regardless of the global
+  // provider, so the daily end-to-end test can never send a real email.
+  // This runs after the production recipient-safety block above and before
+  // any provider dispatch; every other recipient is untouched.
+  if (isRoamlyDailyTestRecipient(to)) {
+    return captureSend(true);
+  }
+
   if (!config.configured) {
     const logId = await logEmail({ ...params, to, status: "failed", providerName: config.provider, error: config.reason });
     await markNotificationEmail(params.notificationId, "failed", config.reason);
@@ -708,18 +749,7 @@ export async function sendRoamlyEmail(params: SendRoamlyEmailParams): Promise<Se
   }
 
   if (config.captureEnabled) {
-    const providerMessageId = `local-capture:${idempotencyKey || new Date().toISOString()}`;
-    const logId = await logEmail({
-      ...params,
-      to,
-      status: "captured",
-      providerName: "capture",
-      providerMessageId,
-      error: null,
-      metadata: { ...(params.metadata || {}), local_capture: true }
-    });
-    await markNotificationEmail(params.notificationId, "captured");
-    return { ok: true, status: "captured", provider: "capture", providerMessageId, logId, captured: true, permanent: false, retryable: false };
+    return captureSend(false);
   }
 
   try {

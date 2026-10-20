@@ -203,6 +203,7 @@ function AppShellContent({
             { href: "/#the-journey", label: t("ui.nav.howItWorks", "How it works") },
             { href: "/plan", label: t("ui.nav.plan", "Plan") },
             { href: "/finds", label: t("ui.nav.finds", "Finds") },
+            { href: "/pricing", label: t("ui.nav.pricing", "Pricing") },
             { href: "/login", label: t("ui.nav.login", "Log in") }
           ],
     [activeTripId, authenticated, t, unreadCount]
@@ -252,7 +253,7 @@ function AppShellContent({
                 <>
                   <Link
                     href="/login"
-                    className="hidden rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700 sm:inline-flex"
+                    className="inline-flex rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700"
                   >
                     {t("ui.nav.login", "Log in")}
                   </Link>
@@ -294,7 +295,7 @@ function AppShellContent({
           inert={bottomNavHidden ? true : undefined}
           className={`roamly-bottom-nav fixed inset-x-3 bottom-[max(0.55rem,env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-0.5 overflow-hidden rounded-[1.4rem] border border-black/5 bg-white/88 p-1 shadow-[0_8px_28px_rgba(16,32,51,0.1)] backdrop-blur-xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:hidden ${
             bottomNavHidden ? "pointer-events-none translate-y-[calc(100%+max(1rem,env(safe-area-inset-bottom)))]" : "translate-y-0"
-          } ${authenticated ? "grid-cols-5" : "grid-cols-5"}`}
+          } ${authenticated ? "grid-cols-5" : "grid-cols-6"}`}
         >
           {mobileRoutes.map((route) => (
             <Link
