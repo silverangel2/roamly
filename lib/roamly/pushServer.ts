@@ -11,6 +11,34 @@ import { normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
 import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 import { localizeActivityNotification } from "@/lib/roamly/briefingMessages.mjs";
 
+// Email discipline for scheduled companion events. A single event may trigger
+// at most MAX_COMPANION_EVENT_EMAIL_ATTEMPTS emails (the first send plus two
+// reminders); after that the event keeps retrying for push/in-app delivery but
+// never emails again. Due stage events for the same trip also collapse: only
+// the first event that actually emails for a trip in a dispatcher run claims
+// the trip's email slot, and any sibling event that was passed over because of
+// that collapse is marked (metadata.emailCollapsed) so it never bursts its own
+// email on a later retry either. Push behavior is unchanged in all cases.
+export const MAX_COMPANION_EVENT_EMAIL_ATTEMPTS = 3;
+
+export function companionEventEmailAttempts(metadata: unknown): number {
+  if (!metadata || typeof metadata !== "object") return 0;
+  const value = (metadata as Record<string, unknown>).emailAttempts;
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+export function companionEventEmailAllowed(params: {
+  attempts: number;
+  collapsed: boolean;
+  tripAlreadyEmailed: boolean;
+}): boolean {
+  return (
+    !params.collapsed &&
+    !params.tripAlreadyEmailed &&
+    params.attempts < MAX_COMPANION_EVENT_EMAIL_ATTEMPTS
+  );
+}
+
 export type NotificationPayload = {
   title: string;
   body?: string | null;
@@ -324,7 +352,7 @@ export async function sendScheduledTripNotifications() {
 
   if (error) return { ok: false, error: error.message };
   let sent = 0;
-  const touchedTrips = new Set<string>();
+  const emailedTrips = new Set<string>();
   for (const event of events || []) {
     const claimed = await supabase
       .from("roamly_trip_companion_events")
@@ -422,12 +450,6 @@ export async function sendScheduledTripNotifications() {
       }
     }
     if (event.trip_id) {
-      const tripKey = `${event.user_id}:${event.trip_id}`;
-      if (touchedTrips.has(tripKey)) {
-        await supabase.from("roamly_trip_companion_events").update({ status: "scheduled", scheduled_for: new Date(Date.now() + 15 * 60_000).toISOString() }).eq("id", event.id).eq("status", "processing");
-        continue;
-      }
-      touchedTrips.add(tripKey);
       const preferences = await getCompanionPreferences({ supabase, userId: event.user_id, tripId: event.trip_id });
       if (!preferences.liveCompanionEnabled) {
         await supabase.from("roamly_trip_companion_events").update({ status: "skipped", completed_at: new Date().toISOString() }).eq("id", event.id);
@@ -464,6 +486,10 @@ export async function sendScheduledTripNotifications() {
       : typeof eventMetadata.activity_id === "string"
         ? eventMetadata.activity_id
         : null;
+    const priorEmailAttempts = companionEventEmailAttempts(eventMetadata);
+    const emailCollapsed = eventMetadata.emailCollapsed === true;
+    const tripEmailKey = event.trip_id ? `${event.user_id}:${event.trip_id}` : null;
+    let emailSuppressedByCollapse = false;
     const liveEventTypes = new Set(["nearby_activity", "up_next_activity", "departure_reminder", "running_late", "arrival_detected"]);
     const liveNotificationType = event.event_type === "up_next_activity"
       ? "next_activity"
@@ -512,6 +538,13 @@ export async function sendScheduledTripNotifications() {
         continue;
       }
     } else {
+      const tripAlreadyEmailed = tripEmailKey ? emailedTrips.has(tripEmailKey) : false;
+      emailSuppressedByCollapse = tripAlreadyEmailed;
+      const emailAllowed = companionEventEmailAllowed({
+        attempts: priorEmailAttempts,
+        collapsed: emailCollapsed,
+        tripAlreadyEmailed
+      });
       delivery = await sendPushNotification(supabase, event.user_id, {
       title: event.title || "Roamly reminder",
       body: event.body,
@@ -519,7 +552,10 @@ export async function sendScheduledTripNotifications() {
       type: event.event_type,
       tripId: event.trip_id,
       eventId: event.id
-      });
+      }, { sendEmail: emailAllowed });
+      if (tripEmailKey && "emailResult" in delivery && delivery.emailResult) {
+        emailedTrips.add(tripEmailKey);
+      }
     }
     const pushAccepted = "sent" in delivery
       ? delivery.ok && (delivery.sent ?? 0) > 0
@@ -532,9 +568,19 @@ export async function sendScheduledTripNotifications() {
         .eq("id", event.id)
         .eq("status", "processing");
     } else {
+      const emailAttempted = "emailResult" in delivery ? Boolean(delivery.emailResult) : false;
+      const nextMetadata = emailAttempted
+        ? { ...eventMetadata, emailAttempts: priorEmailAttempts + 1 }
+        : emailSuppressedByCollapse && !emailCollapsed
+          ? { ...eventMetadata, emailCollapsed: true }
+          : null;
       await supabase
         .from("roamly_trip_companion_events")
-        .update({ status: "scheduled", scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString() })
+        .update({
+          status: "scheduled",
+          scheduled_for: new Date(Date.now() + 10 * 60_000).toISOString(),
+          ...(nextMetadata ? { metadata: nextMetadata } : {})
+        })
         .eq("id", event.id)
         .eq("status", "processing");
     }

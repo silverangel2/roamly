@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { LocationPermissionCard } from "@/components/roamly/LocationPermissionCard";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type ActiveTripResponse = {
   ok: boolean;
@@ -147,6 +148,20 @@ export function RoamlyLocationTracker() {
     let alive = true;
 
     async function load() {
+      // Both endpoints below require a signed-in session (or a field-test
+      // cookie) and answer 401 for guests. Skip the calls entirely when
+      // neither is present so public pages stop generating 401 noise on
+      // every navigation; signed-in users are unaffected.
+      let hasSession = false;
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        hasSession = Boolean(data.session);
+      } catch {
+        hasSession = false;
+      }
+      if (!hasSession && !document.cookie.includes("roamly_field_test_session=")) return;
+
       const [tripResponse, settingsResponse] = await Promise.all([
         fetch("/api/roamly/trips/active").catch(() => null),
         fetch("/api/roamly/location/settings").catch(() => null)
