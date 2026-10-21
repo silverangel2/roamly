@@ -7,13 +7,19 @@ import {
   StagedGenerationError
 } from "@/lib/roamly/stagedItineraryGeneration";
 import { processGenerationQueue } from "@/lib/roamly/generationWorker";
+import { scheduleStagedGenerationAdvance } from "@/lib/roamly/stagedGenerationBackground";
 import { getGenerationQueueForTrip, publicQueueProgress, queueTableMissing } from "@/lib/roamly/generationQueue";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 90;
 
-const ROUTE_EXECUTION_BUDGET_MS = 55_000;
+// Budget geometry: a day stage needs 45s timeout + 8s cleanup buffer (53s)
+// after auth/claim overhead. The old 55s budget inside a 60s route left ~2s
+// of slack, so client advances yielded instead of driving the stage. 80s of
+// worker budget inside a 90s route (the same cap the generate route uses)
+// fits one full stage comfortably.
+const ROUTE_EXECUTION_BUDGET_MS = 80_000;
 
 function workerQueueUnavailable(summary: Awaited<ReturnType<typeof processGenerationQueue>>) {
   const messages = [
@@ -21,6 +27,25 @@ function workerQueueUnavailable(summary: Awaited<ReturnType<typeof processGenera
     ...summary.results.map((result) => result.error)
   ].filter((message): message is string => Boolean(message));
   return messages.some((message) => queueTableMissing(message));
+}
+
+// Re-arm the background driver chain when a client advance leaves the trip
+// still in progress. The chain was previously armed only at trip creation,
+// so a stall disarmed it permanently; the trip lease arbitrates duplicates.
+function rearmIfInProgress(
+  request: NextRequest,
+  tripId: string,
+  requestId: string,
+  progress: { status?: string | null } | null | undefined
+) {
+  const status = progress?.status;
+  if (!status || status === "complete" || status === "failed" || status === "partially_failed") return;
+  scheduleStagedGenerationAdvance({
+    tripId,
+    origin: new URL(request.url).origin,
+    reason: "client_advance_rearm",
+    requestId
+  });
 }
 
 async function queueSnapshot(supabase: SupabaseClient, tripId: string, userId: string) {
@@ -64,6 +89,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           maxLayersPerRun: 8
         }
       });
+      rearmIfInProgress(request, id, requestId, summary.results[0]?.progress || publicStagedGenerationProgress({ generation: state }, id));
       if (!summary.ok && workerQueueUnavailable(summary)) {
         return NextResponse.json(
           {
@@ -100,6 +126,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         maxLayersPerRun: 8
       }
     });
+    rearmIfInProgress(request, id, requestId, summary.results[0]?.progress);
     if (!summary.ok && workerQueueUnavailable(summary)) {
       return NextResponse.json(
         {
