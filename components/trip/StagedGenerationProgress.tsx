@@ -35,6 +35,7 @@ type GenerationProgress = {
   aiOutputTokens: number;
   lastErrorCode: string | null;
   finalValidationErrors?: string[];
+  finalValidationAttemptCount?: number;
   retryLimit: number;
   emailNotification?: {
     email_me_when_ready: boolean;
@@ -95,6 +96,84 @@ const SAVED_QUEUE_MESSAGE =
   "Your trip is safely saved. Roamly will continue building it even if you close this page.";
 
 const STALE_PROGRESS_MS = 2 * 60 * 1000;
+
+// Estimated generation time, calibrated to production measurements
+// (2026-10-21): context prep runs before the first stage, the outline call
+// takes ~9s, each day batch ~9–14s of model time, and a healthy 5-day trip
+// completes end to end in ~95–115s. Shown to travelers as a friendly range —
+// a guide, never a promise.
+function estimateGenerationRangeSeconds(totalDayCount: number) {
+  const days = Math.max(1, Math.round(totalDayCount || 1));
+  return { low: 15 + 16 * days, high: 25 + 18 * days };
+}
+
+function formatEstimateRange(range: { low: number; high: number }) {
+  if (range.high <= 60) return "under a minute";
+  const lowMinutes = Math.max(1, Math.floor(range.low / 60));
+  const highMinutes = Math.max(lowMinutes + 1, Math.ceil(range.high / 60));
+  return `about ${lowMinutes}–${highMinutes} minutes`;
+}
+
+function formatElapsedClock(totalSeconds: number) {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
+type GenerationStepState = "done" | "active" | "pending";
+
+// The checklist is derived ONLY from real generation state (stage, call
+// counts, per-day and per-batch statuses, day counts) — no timers, no
+// canned progression. A step is marked done only when the state proves the
+// work behind it has happened.
+function generationChecklist(progress: GenerationProgress, destinationLabel: string) {
+  const total = Math.max(1, progress.totalDayCount || 1);
+  const completed = Math.max(0, Math.min(progress.completedDayCount || 0, total));
+  const complete = progress.status === "complete";
+  const daysBuilt = completed >= total;
+  const outlineDone =
+    complete ||
+    daysBuilt ||
+    completed > 0 ||
+    (progress.aiCallCount || 0) > 0 ||
+    progress.batches.some((batch) => batch.status !== "queued") ||
+    progress.days.some((day) => day.status !== "queued");
+  const requestDone = outlineDone || progress.status !== "queued";
+  const validationStarted = (progress.finalValidationAttemptCount || 0) > 0;
+
+  return [
+    {
+      label: "Reading your request",
+      detail: "Your dates, travelers, budget and must-dos",
+      state: (requestDone ? "done" : "active") as GenerationStepState
+    },
+    {
+      label: `Researching ${destinationLabel}`,
+      detail: "Real places, prices and timing for your destination",
+      state: (outlineDone ? "done" : requestDone ? "active" : "pending") as GenerationStepState
+    },
+    {
+      label: "Building your days",
+      detail: daysBuilt
+        ? `All ${total} days built`
+        : completed > 0
+          ? `Day ${completed} of ${total} built`
+          : `Building Day 1 of ${total}`,
+      state: (daysBuilt ? "done" : outlineDone ? "active" : "pending") as GenerationStepState
+    },
+    {
+      label: "Checking timing and your requirements",
+      detail: "Start times, pacing, and the needs in your request",
+      state: (complete ? "done" : daysBuilt ? "active" : "pending") as GenerationStepState
+    },
+    {
+      label: "Final checks and saving",
+      detail: "One last quality pass before your itinerary is ready",
+      state: (complete ? "done" : daysBuilt && validationStarted ? "active" : "pending") as GenerationStepState
+    }
+  ];
+}
 
 function isTerminalStatus(status: string) {
   return status === "complete" || status === "failed" || status === "partially_failed";
@@ -655,20 +734,20 @@ export function StagedGenerationProgress({
 
   const viewState = simpleGenerationState(progress, queueProgress, isTakingLonger);
   const failed = viewState.tone === "failed";
-  const activeSimpleStep =
-    progress.status === "complete"
-      ? 3
-      : /final|complete|saving|affiliates/i.test(progress.currentStage || queueProgress?.currentStage || "")
-        ? 2
-        : progress.completedDayCount > 0
-          ? 1
-          : 0;
-  const simpleSteps = [
-    "Shape your trip",
-    `Day ${Math.max(1, Math.min(progress.completedDayCount + 1, progress.totalDayCount || 1))} of ${progress.totalDayCount || 1}`,
-    "Finishing touches",
-    "Ready to go"
-  ];
+
+  // Live elapsed clock (ticks once a second while generation is running).
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (stopped) return;
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [stopped]);
+  const startedAtMs = Date.parse(progress.startedAt || "");
+  const elapsedSeconds = Number.isFinite(startedAtMs) ? Math.max(0, (nowMs - startedAtMs) / 1000) : 0;
+  const estimateRange = estimateGenerationRangeSeconds(progress.totalDayCount);
+  // Stall honesty: well past the top of the estimate, say so plainly.
+  const pastEstimate = !stopped && elapsedSeconds > estimateRange.high + 60;
+  const checklist = generationChecklist(progress, destinationLabel);
 
   return (
     <section
@@ -810,20 +889,64 @@ export function StagedGenerationProgress({
           </p>
         ) : null}
 
-        <div className="grid gap-2 sm:grid-cols-4">
-          {simpleSteps.map((label, index) => (
-            <div
-              key={label}
-              aria-current={index === activeSimpleStep ? "step" : undefined}
-              className={`rounded-2xl border px-3 py-3 text-sm font-black transition-colors duration-500 motion-reduce:transition-none ${
-                index <= activeSimpleStep
-                  ? "border-ocean/20 bg-ocean/10 text-ocean"
-                  : "border-slate-200 bg-slate-50 text-slate-500"
-              }`}
-            >
-              {label}
-            </div>
-          ))}
+        <div className="rounded-2xl border border-cloud/80 bg-white p-4 sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">What&rsquo;s happening</p>
+            <p className="text-xs font-black text-slate-500">
+              Elapsed {formatElapsedClock(elapsedSeconds)} · usually {formatEstimateRange(estimateRange)} for a{" "}
+              {progress.totalDayCount}-day trip
+            </p>
+          </div>
+          <ol className="mt-4 grid gap-3">
+            {checklist.map((step) => (
+              <li
+                key={step.label}
+                aria-current={step.state === "active" ? "step" : undefined}
+                className="flex items-center gap-3"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                    step.state === "done"
+                      ? "bg-ocean text-white"
+                      : step.state === "active"
+                        ? "bg-ocean/10 text-ocean"
+                        : "bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  {step.state === "done" ? (
+                    "✓"
+                  ) : step.state === "active" ? (
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-current motion-reduce:animate-none" />
+                  ) : (
+                    "·"
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black ${step.state === "pending" ? "text-slate-400" : "text-ink"}`}>
+                    {step.label}
+                  </span>
+                  <span className="block text-xs font-bold text-slate-500">{step.detail}</span>
+                </span>
+                <span
+                  className={`ml-auto shrink-0 text-xs font-black ${
+                    step.state === "done" ? "text-ocean" : step.state === "active" ? "text-sky-700" : "text-slate-400"
+                  }`}
+                >
+                  {step.state === "done" ? "Done" : step.state === "active" ? "Working now" : "Up next"}
+                </span>
+              </li>
+            ))}
+          </ol>
+          {pastEstimate && !failed ? (
+            <p role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+              This is taking longer than usual. Roamly is still working on your trip — and if a
+              step ever stalls, it is now picked up again automatically.{" "}
+              {canEmail
+                ? `You can leave this page; we’ll email ${maskedEmail} when your itinerary is ready.`
+                : "You can leave this page; your progress is saved as it goes."}
+            </p>
+          ) : null}
         </div>
 
         {progress.days.length ? (

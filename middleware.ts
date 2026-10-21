@@ -15,6 +15,7 @@ import {
   isSupabaseAuthCookieName,
   logAuthDiagnostic
 } from "@/lib/roamly/authDiagnostics";
+import { isMaintenanceExemptPath, isMaintenanceModeOn, isMemberAreaPath } from "@/lib/roamly/maintenanceGate";
 
 const AUTH_NEXT_COOKIE = "roamly_auth_next";
 
@@ -87,6 +88,26 @@ export async function middleware(request: NextRequest) {
     roamlyPathname.startsWith("/api/auth/facebook/")
   ) {
     return NextResponse.next();
+  }
+
+  // SITE MAINTENANCE GATE: when the owner flips maintenance on (a settings
+  // row, no redeploy — see lib/roamly/maintenanceMode.ts), public pages
+  // serve the maintenance page with a 503 while APIs, cron routes, admin
+  // and the QA seams keep working. Travelers who are already signed in can
+  // still open their member pages, so existing trips stay viewable. The
+  // gate fails open: if the flag cannot be read, the normal site serves.
+  if (
+    (request.method === "GET" || request.method === "HEAD") &&
+    !isMaintenanceExemptPath(roamlyPathname) &&
+    (await isMaintenanceModeOn())
+  ) {
+    const signedInMember = hasSupabaseAuthCookie(request) && isMemberAreaPath(roamlyPathname);
+    if (!signedInMember) {
+      const maintenanceResponse = NextResponse.rewrite(new URL("/maintenance", request.url), { status: 503 });
+      maintenanceResponse.headers.set("Retry-After", "1800");
+      maintenanceResponse.headers.set("Cache-Control", "no-store");
+      return maintenanceResponse;
+    }
   }
 
   const requestHeaders = new Headers(request.headers);

@@ -8,7 +8,11 @@ type ScheduleStagedGenerationAdvanceParams = {
   requestId?: string;
 };
 
-const BACKGROUND_WORKER_SLICE_BUDGET_MS = 55_000;
+// One slice drives one stage layer. A day stage needs its 45s timeout + the
+// slice's 1s cleanup buffer = 46s; the old 55s slice left only ~9s for claim
+// and reconcile overhead. 90s doubles the slack so a slice reliably fits a
+// full day stage.
+const BACKGROUND_WORKER_SLICE_BUDGET_MS = 90_000;
 const BACKGROUND_WORKER_MAX_SLICES = 25;
 
 export function getGenerationWorkerSecret() {
