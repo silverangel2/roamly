@@ -222,6 +222,11 @@ const MAX_AI_COST_USD = Number(process.env.ROAMLY_STAGED_MAX_AI_COST_USD || 0.05
 const DEFAULT_INPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_INPUT_PRICE_PER_1M || 0.4);
 const DEFAULT_OUTPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_OUTPUT_PRICE_PER_1M || 1.6);
 const STAGE_LEASE_MS = Number(process.env.ROAMLY_STAGED_GENERATION_LEASE_MS || 4 * 60_000);
+export const STAGED_GENERATION_STRANDED_ERROR_CODE = "STAGE_DRIVER_LOST";
+// A batch may only be treated as stranded once its "generating" flip is older
+// than the longest legitimate life of a stage attempt: the stage timeout plus
+// the full trip lease. Anything younger can still belong to a live driver.
+const STRANDED_BATCH_MIN_AGE_MS = STAGE_LEASE_MS + DAY_TIMEOUT_MS;
 export const STAGED_GENERATION_STAGE_TIMEOUTS_MS = {
   outline: OUTLINE_TIMEOUT_MS,
   day_batch: DAY_TIMEOUT_MS,
@@ -2110,6 +2115,90 @@ async function completeGeneration(params: {
   return { state: completed, itinerary: conciergeItinerary, validationFailed: false as const, validationErrors: [] };
 }
 
+// Watchdog for stranded stages. A driver that is hard-killed mid-call (platform
+// timeout, function eviction) leaves its batch stuck in "generating" with no
+// completion and no failure record, because every catchable failure path
+// persists one. This reset mirrors the stage error path exactly: the batch
+// returns to "queued" (or "failed" once its attempt ceiling is reached), its
+// days mirror the batch, and a failed stage run is appended for audit.
+//
+// Safety: this only runs inside advanceStagedItineraryGeneration AFTER the
+// caller has claimed the trip. claimTrip refuses entry while a live lease
+// exists, so holding the lease proves no other driver is working the trip;
+// the age gate (stage timeout + full lease) additionally guarantees a batch
+// that is genuinely progressing is never disturbed. Idempotent: a batch
+// already reset is no longer "generating", so a second pass is a no-op.
+export function resetStrandedGeneratingBatches(state: StagedGenerationState, nowMs: number) {
+  const strandedBefore = nowMs - STRANDED_BATCH_MIN_AGE_MS;
+  const resetBatchIds: string[] = [];
+  const exhaustedBatchIds: string[] = [];
+  let nextState = state;
+
+  for (const batch of Object.values(state.batches)) {
+    if (batch.status !== "generating") continue;
+    const flippedAt = new Date(batch.updatedAt || batch.startedAt || "").getTime();
+    if (!Number.isFinite(flippedAt) || flippedAt > strandedBefore) continue;
+    const retryLimit =
+      state.lastErrorCode === "DAY_BATCH_VALIDATION_FAILED" ? VALIDATION_REPAIR_ATTEMPT_LIMIT : BATCH_ATTEMPT_LIMIT;
+    const exhausted = batch.attemptCount >= retryLimit;
+    const status = exhausted ? ("failed" as StagedDayStatus) : ("queued" as StagedDayStatus);
+    (exhausted ? exhaustedBatchIds : resetBatchIds).push(batch.id);
+    const resetAt = nowIso();
+    nextState = appendStageRun(
+      {
+        ...nextState,
+        batches: {
+          ...nextState.batches,
+          [batch.id]: {
+            ...nextState.batches[batch.id],
+            status,
+            lastError: STAGED_GENERATION_STRANDED_ERROR_CODE,
+            updatedAt: resetAt
+          }
+        },
+        days: {
+          ...nextState.days,
+          ...Object.fromEntries(
+            batch.dayNumbers.map((dayNumber) => [
+              String(dayNumber),
+              {
+                ...nextState.days[String(dayNumber)],
+                dayNumber,
+                status,
+                lastError: STAGED_GENERATION_STRANDED_ERROR_CODE,
+                updatedAt: resetAt
+              }
+            ])
+          )
+        },
+        updatedAt: resetAt
+      },
+      {
+        stage: "day_batch",
+        batchId: batch.id,
+        dayNumbers: batch.dayNumbers,
+        provider: batch.provider || nextState.provider || null,
+        model: batch.model || nextState.model || null,
+        attemptNumber: batch.attemptCount,
+        status: "failed",
+        inputTokens: null,
+        outputTokens: null,
+        estimatedCostUsd: null,
+        durationMs: null,
+        failureCategory: "worker_interrupted",
+        errorCode: STAGED_GENERATION_STRANDED_ERROR_CODE
+      }
+    );
+  }
+
+  return {
+    state: nextState,
+    resetBatchIds,
+    exhaustedBatchIds,
+    changed: resetBatchIds.length + exhaustedBatchIds.length > 0
+  };
+}
+
 export async function advanceStagedItineraryGeneration(params: {
   supabase: SupabaseClient;
   tripId: string;
@@ -2163,6 +2252,24 @@ export async function advanceStagedItineraryGeneration(params: {
   }
   let state = getStagedGenerationState(claimedTrip.metadata, params.tripId) || initialState;
   const trace = { requestId: params.requestId, tripId: params.tripId, route: "stagedItineraryGeneration" };
+
+  // Watchdog: holding the claim proves no live driver owns this trip, so a
+  // batch still marked "generating" past the stage timeout + lease belonged
+  // to a driver that died mid-call. Reset it (error-path semantics) and let
+  // this same invocation re-drive it below.
+  const watchdog = resetStrandedGeneratingBatches(state, Date.now());
+  if (watchdog.changed) {
+    state = watchdog.state;
+    await persistState({ supabase: params.supabase, trip: claimedTrip, state });
+    logGenerationDiagnostic("staged_generation_stranded_batch_watchdog_reset", {
+      requestId: params.requestId,
+      route: "stagedItineraryGeneration",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      resetBatchIds: watchdog.resetBatchIds,
+      exhaustedBatchIds: watchdog.exhaustedBatchIds
+    });
+  }
 
   try {
     if (!state.outline) {
