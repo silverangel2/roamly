@@ -726,30 +726,44 @@ if (section(5)) {
     "@/lib/roamly/engine/packs/destinations.ts"
   );
 
+  // Verbatim jsonv2 shape from the live service (2026-10-22):
+  // the class field is named "category" — a fixture modeled on
+  // the v1 name let Lisbon classify not_found in production.
   const LISBON_NOMINATIM = [
     {
       osm_type: "relation",
-      osm_id: 540084,
-      lat: "38.7223",
-      lon: "-9.1393",
-      class: "place",
-      type: "city",
-      importance: 0.72,
+      osm_id: 5400890,
+      lat: "38.7077507",
+      lon: "-9.1365919",
+      category: "boundary",
+      type: "administrative",
+      importance: 0.7635036148306796,
       display_name: "Lisbon, Portugal",
-      address: { city: "Lisbon", country: "Portugal", country_code: "pt" }
+      address: { city: "Lisbon", county: "Lisbon", country: "Portugal", country_code: "pt" }
+    },
+    {
+      osm_type: "relation",
+      osm_id: 2897141,
+      lat: "38.9952469",
+      lon: "-9.1435928",
+      category: "boundary",
+      type: "administrative",
+      importance: 0.5597440686440401,
+      display_name: "Lisbon, Portugal",
+      address: { county: "Lisbon", country: "Portugal", country_code: "pt" }
     }
   ];
   const lisbonPlace = {
     canonicalName: "Lisbon",
     country: "Portugal",
     countryCode: "pt",
-    centre: { lat: 38.7223, lon: -9.1393 },
+    centre: { lat: 38.7077507, lon: -9.1365919 },
     osmType: "relation",
-    osmId: 540084,
-    importance: 0.72,
+    osmId: 5400890,
+    importance: 0.7635036148306796,
     displayName: "Lisbon, Portugal"
   };
-  const lisbonId = destinationRegistryId("Portugal", "Lisbon", { lat: 38.7223, lon: -9.1393 });
+  const lisbonId = destinationRegistryId("Portugal", "Lisbon", { lat: 38.7077507, lon: -9.1365919 });
   const depsFor = (packStore, geocoder) => ({
     store: {},
     packStore,
@@ -765,8 +779,8 @@ if (section(5)) {
     eq(found.place.country, "Portugal", "5: canonical country");
     eq(classifyGeocodeResults([]).kind, "not_found", "5: empty result set is not_found");
     const ambiguous = classifyGeocodeResults([
-      { osm_type: "node", osm_id: 1, lat: "39.9", lon: "-89.6", class: "place", type: "city", importance: 0.55, display_name: "Springfield, Illinois, United States", address: { city: "Springfield", country: "United States", country_code: "us" } },
-      { osm_type: "node", osm_id: 2, lat: "49.2", lon: "-123.0", class: "place", type: "city", importance: 0.5, display_name: "Springfield, British Columbia, Canada", address: { city: "Springfield", country: "Canada", country_code: "ca" } }
+      { osm_type: "node", osm_id: 1, lat: "39.9", lon: "-89.6", category: "place", type: "city", importance: 0.55, display_name: "Springfield, Illinois, United States", address: { city: "Springfield", country: "United States", country_code: "us" } },
+      { osm_type: "node", osm_id: 2, lat: "49.2", lon: "-123.0", category: "place", type: "city", importance: 0.5, display_name: "Springfield, British Columbia, Canada", address: { city: "Springfield", country: "Canada", country_code: "ca" } }
     ]);
     eq(ambiguous.kind, "ambiguous", "5: cross-country near-tie is ambiguous, not a coin flip");
     const viaHttp = await geocodePlaceWithNominatim(
@@ -787,7 +801,7 @@ if (section(5)) {
     eq(dto.destinationId, lisbonId, "5: registration ID is the registry content ID");
     eq(JSON.stringify(dto.bbox), JSON.stringify(shadowBBox(dto.centre, "city")), "5: bbox follows the registry shadow rule");
     eq(dto.geocodeProvenance.source, "nominatim", "5: provenance names the geocoder");
-    eq(dto.geocodeProvenance.sourceRef, "nominatim:relation:540084", "5: provenance carries the OSM identity");
+    eq(dto.geocodeProvenance.sourceRef, "nominatim:relation:5400890", "5: provenance carries the OSM identity");
   }
 
   // End-to-end resolution: unknown city registers, then resolves;
@@ -877,7 +891,7 @@ if (section(5)) {
     const listed = await reader.listDestinations();
     ok(listed.some((d) => d.destinationId === lisbonId), "5: registration survives across store instances (drain can resolve it)");
     const got = await reader.getDestination(lisbonId);
-    eq(got?.geocodeProvenance.sourceRef, "nominatim:relation:540084", "5: provenance survives the round trip");
+    eq(got?.geocodeProvenance.sourceRef, "nominatim:relation:5400890", "5: provenance survives the round trip");
     let dupThrew = false;
     try {
       await reader.registerDestination(dto);
