@@ -82,6 +82,15 @@ import { extractConstraints, namedMustSeeMiss, type ExtractedConstraints } from 
 import { fmt, isoPlus, parseHhmm, type EngineDay, type EngineItem, type EnginePack } from "@/lib/roamly/engine/util";
 import { predictionId } from "@/lib/roamly/engine/ids";
 import { assemblePinnedEnginePack, readServingPack } from "@/lib/roamly/engine/packs/builder";
+import { destinationRegistryId } from "@/lib/roamly/engine/packs/destinations";
+import { PackStoreError } from "@/lib/roamly/engine/packs/types";
+import {
+  buildAutoRegistration,
+  geocodeSourceRef,
+  liveGeocoder,
+  resolveTimeZoneForCoords,
+  type GeocodeOutcome
+} from "@/lib/roamly/engine/geocode";
 import type { PackStore } from "@/lib/roamly/engine/packs/store";
 import type { WeatherSnapshotRecord } from "@/lib/roamly/engine/packs/types";
 import { finalistKeysFromPlan, PlacesEnrichmentService } from "@/lib/roamly/engine/places/enrich";
@@ -1261,6 +1270,14 @@ export interface EngineAdvanceDeps {
   store: EngineGenerationStore;
   packStore: PackStore;
   placesService?: PlacesEnrichmentService | null;
+  /** Place geocoder for destination auto-registration (fix #5).
+   *  Optional: production uses the live Nominatim geocoder;
+   *  checks inject a fake. */
+  geocoder?: (name: string) => Promise<GeocodeOutcome>;
+  /** Plan-time-zone resolver for auto-registered destinations.
+   *  Optional: production asks Open-Meteo (timezone=auto) and
+   *  degrades to UTC; checks inject a fixed zone. */
+  timeZoneForCoords?: (centre: { lat: number; lon: number }) => Promise<string>;
 }
 
 export type EngineAdvanceResult = {
@@ -1300,7 +1317,7 @@ function normalizedPlaceName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-async function resolveDestinationId(deps: EngineAdvanceDeps, payload: TripPlannerPayload): Promise<string | null> {
+export async function resolveDestinationId(deps: EngineAdvanceDeps, payload: TripPlannerPayload): Promise<string> {
   const destinations = await deps.packStore.listDestinations();
   const wanted = [payload.destinationCity, payload.destination]
     .map((v) => normalizedPlaceName(getString(v)))
@@ -1309,7 +1326,74 @@ async function resolveDestinationId(deps: EngineAdvanceDeps, payload: TripPlanne
     const name = normalizedPlaceName(dest.displayName);
     if (wanted.some((w) => w === name || w.includes(name) || name.includes(w))) return dest.destinationId;
   }
-  return null;
+  return autoRegisterDestination(deps, payload);
+}
+
+/** Fix #5 — auto-registration (owner decision 2026-10-22: "Make
+ *  any city work automatically"). A destination with no registry
+ *  match is geocoded against OpenStreetMap/Nominatim (free, no
+ *  key) and registered in the same registry the corpus lives in;
+ *  the caller then takes the ordinary cold-destination path (the
+ *  serving read enqueues the pack build and the job waits). The
+ *  registration is deduped twice over: by the registry's content
+ *  ID over (country, canonical name, centre) and by the geocoded
+ *  place's Nominatim source reference, so spelling variants of
+ *  one place cannot fork the registry. Genuinely unresolvable or
+ *  ambiguous names fail honestly and permanently with traveler
+ *  wording (ZERO_ENGINE_DESTINATION_UNRESOLVABLE); a geocoder
+ *  outage is transient and retryable, never a dead trip. */
+export async function autoRegisterDestination(deps: EngineAdvanceDeps, payload: TripPlannerPayload): Promise<string> {
+  const rawName = (getString(payload.destinationCity) || getString(payload.destination)).trim();
+  const geocoder = deps.geocoder ?? liveGeocoder;
+  const outcome = await geocoder(rawName);
+  if (outcome.kind === "unavailable") {
+    throw new StagedGenerationError(
+      `The map lookup for "${rawName}" is unavailable right now, so this trip cannot start yet. It will be retried automatically.`,
+      "ZERO_ENGINE_GEOCODER_UNAVAILABLE",
+      502,
+      false,
+      { failureCategory: "engine_data" }
+    );
+  }
+  if (outcome.kind === "not_found") {
+    throw new StagedGenerationError(
+      `We could not find "${rawName}" on the map, so we cannot plan this trip yet. Check the destination spelling — adding the country usually helps.`,
+      "ZERO_ENGINE_DESTINATION_UNRESOLVABLE",
+      502,
+      true,
+      { failureCategory: "engine_data" }
+    );
+  }
+  if (outcome.kind === "ambiguous") {
+    throw new StagedGenerationError(
+      `"${rawName}" could be more than one place (${outcome.candidates.join("; ")}). Add the country or region so we plan the right one.`,
+      "ZERO_ENGINE_DESTINATION_UNRESOLVABLE",
+      502,
+      true,
+      { failureCategory: "engine_data" }
+    );
+  }
+  const place = outcome.place;
+  const wantedId = destinationRegistryId(place.country, place.canonicalName, place.centre);
+  const wantedRef = geocodeSourceRef(place);
+  const existing = await deps.packStore.listDestinations();
+  const dupe = existing.find(
+    (d) => d.destinationId === wantedId || d.geocodeProvenance?.sourceRef === wantedRef
+  );
+  if (dupe) return dupe.destinationId;
+  const timeZone = deps.timeZoneForCoords
+    ? await deps.timeZoneForCoords(place.centre)
+    : await resolveTimeZoneForCoords((url, init) => fetch(url, init), place.centre);
+  const dto = buildAutoRegistration(place, timeZone, new Date());
+  try {
+    await deps.packStore.registerDestination(dto);
+  } catch (err) {
+    // A concurrent wake registered the same place first: that is
+    // the dedupe working, not an error.
+    if (err instanceof PackStoreError && err.code === "DUPLICATE_DESTINATION") return dto.destinationId;
+    throw err;
+  }
+  return dto.destinationId;
 }
 
 /* ------------------------- outline stage ------------------------- */
@@ -1327,16 +1411,12 @@ async function runOutlineStage(params: {
   state = { ...state, status: "generating_outline", currentStage: "generating_outline", updatedAt: nowIso() };
   let trip = await deps.store.persistState(params.trip, state, run);
 
+  // Fix #5: an unregistered destination no longer fails here —
+  // resolveDestinationId auto-registers it from the geocoder and
+  // this stage continues into the ordinary cold-destination wait
+  // below. Only unresolvable/ambiguous names throw (from inside
+  // the resolver, with traveler-facing wording).
   const destinationId = run.destinationId || (await resolveDestinationId(deps, state.payload));
-  if (!destinationId) {
-    throw new StagedGenerationError(
-      "No registered destination matches this trip yet, so the zero-engine cannot ground a plan.",
-      "ZERO_ENGINE_DESTINATION_UNREGISTERED",
-      502,
-      true,
-      { failureCategory: "engine_data" }
-    );
-  }
   const serving = await readServingPack(deps.packStore, destinationId);
   if (serving.state !== "ready" || !serving.pack) {
     // Cold destination: a build is enqueued by the read itself; the
