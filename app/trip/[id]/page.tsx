@@ -5,6 +5,9 @@ import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
 import { CompanionInstallStep } from "@/components/roamly/CompanionInstallStep";
+import { EntryGate } from "@/components/roamly/EntryGate";
+import { HandoffBlock } from "@/components/roamly/HandoffBlock";
+import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
 import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
@@ -2448,7 +2451,16 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           </div>
 
           {justPurchased ? <CompanionInstallStep /> : null}
-          
+
+          {/* Phase 6 (DESIGN §2.4): Build 2 entry gates — mobile-only
+              pre-generation gate on the phone; the desktop handoff
+              block (QR pass) on desktop. Both exist only while
+              ROAMLY_BUILD2_GATES_ENABLED is on; the components
+              self-limit to their own surface (EntryGate renders
+              nothing on desktop, HandoffBlock nothing on mobile). */}
+          {build2GatesEnabled() ? <EntryGate tripId={id} /> : null}
+          {build2GatesEnabled() && canShowFull ? <HandoffBlock tripId={id} /> : null}
+
           {!draftCommand && commandNextTitle ? (
             <div className="roamly-now-next mt-6 rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
               <p className="text-[0.8125rem] font-medium text-slate-500">What matters now</p>

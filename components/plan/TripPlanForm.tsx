@@ -20,6 +20,13 @@ import {
   type NormalizedPlace
 } from "@/lib/roamly/places";
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
+import {
+  EntryGate,
+  gateFlowSurface,
+  getOrCreateGateDeviceId,
+  type EntryGateReadiness
+} from "@/components/roamly/EntryGate";
+import { ALERTS_BLOCK_MESSAGE, INSTALL_BLOCK_MESSAGE } from "@/lib/roamly/gateMachine";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { formatRoamlyNumber } from "@/lib/i18n";
 import {
@@ -576,6 +583,7 @@ export function TripPlanForm(props: {
   freeItineraryUsed?: boolean;
   testerAccess?: boolean;
   apiAuthToken?: string;
+  build2GatesEnabled?: boolean;
 }) {
   const [sessionKey, setSessionKey] = useState(0);
   return <TripPlanFormSession key={sessionKey} {...props} onStartNew={() => setSessionKey((value) => value + 1)} />;
@@ -585,12 +593,14 @@ function TripPlanFormSession({
   freeItineraryUsed = false,
   testerAccess = false,
   apiAuthToken = "",
+  build2GatesEnabled = false,
   onStartNew
 }: {
   onStartNew: () => void;
   freeItineraryUsed?: boolean;
   testerAccess?: boolean;
   apiAuthToken?: string;
+  build2GatesEnabled?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -605,6 +615,15 @@ function TripPlanFormSession({
   const fallbackEndDate = readIsoDate(searchParams.get("endDate") || searchParams.get("checkOutDate"));
   const fallbackCategory = searchParams.get("category") || "travel";
   const [step, setStep] = useState(0);
+  // Phase 6 entry gates: the EntryGate component reports readiness;
+  // submitPlan refuses while an applicable gate is red, and the
+  // generate route enforces the same attestation server-side.
+  const [gateReadiness, setGateReadiness] = useState<EntryGateReadiness>({
+    applicable: false,
+    ready: true,
+    reason: null,
+    deviceId: null
+  });
   const [originPlace, setOriginPlace] = useState<NormalizedPlace | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<NormalizedPlace | null>(null);
   const [tripType, setTripType] = useState<TripType>("single_destination");
@@ -1483,6 +1502,14 @@ function TripPlanFormSession({
 
   async function submitPlan(generationPayload: TripPlannerPayload = payload) {
     if (generationInFlight.current) return;
+    // Phase 6: the itinerary does not proceed past a red entry gate
+    // (owner rulings 2026-10-21 18:52 + 19:14 ADT). The gate surface
+    // itself is on screen; this line names the block honestly.
+    if (build2GatesEnabled && gateReadiness.applicable && !gateReadiness.ready) {
+      setNotice("");
+      setError(gateReadiness.reason === "ALERTS_REQUIRED" ? ALERTS_BLOCK_MESSAGE : INSTALL_BLOCK_MESSAGE);
+      return;
+    }
     const validation = validateBeforeGenerate();
     setError(validation);
     setNotice("");
@@ -1499,10 +1526,28 @@ function TripPlanFormSession({
       const response = await fetchWithSupabaseAuth("/api/trips/generate", {
         method: "POST",
         headers: jsonHeaders(),
-        body: JSON.stringify(generationPayload)
+        body: JSON.stringify({
+          ...generationPayload,
+          // Phase 6: the flow context the server gate enforces against
+          // (mobile flows need a green attestation for this device;
+          // desktop flows carry no gate).
+          gateFlow: {
+            surface: gateFlowSurface(),
+            deviceId: gateReadiness.deviceId ?? getOrCreateGateDeviceId()
+          }
+        })
       });
 
       const data = await response.json().catch(() => null);
+
+      if (
+        response.status === 403 &&
+        (data?.error === "INSTALL_REQUIRED" || data?.error === "ALERTS_REQUIRED")
+      ) {
+        setNotice("");
+        setError(typeof data?.message === "string" && data.message ? data.message : INSTALL_BLOCK_MESSAGE);
+        return;
+      }
 
       if (response.status === 401) {
         const user = await resolveSessionUser({ refresh: true });
@@ -1643,6 +1688,7 @@ function TripPlanFormSession({
 
   return (
     <>
+    {build2GatesEnabled ? <EntryGate onReadinessChange={setGateReadiness} /> : null}
     {!draftHydratedState ? (
       <section
         aria-busy="true"

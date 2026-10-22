@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
     location,
     source: simulated ? "tester_location_simulator" : "user_check_in",
     simulated,
-    requireNearbyForCheckIn: Boolean(location)
+    requireNearbyForCheckIn: Boolean(location),
+    // Offline panel taps flush late with their true time (Phase 7).
+    occurredAt: typeof body.occurredAt === "string" ? body.occurredAt : null
   });
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
   return NextResponse.json({ ok: true, activity: result.activity, upNextActivity: result.upNextActivity });

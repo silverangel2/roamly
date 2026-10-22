@@ -12,7 +12,18 @@ import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
-import { timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { localDateInTimeZone, timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { build2CompanionEnabled } from "@/lib/roamly/build2Flags";
+import { CompanionPanel } from "@/components/trip/CompanionPanel";
+import {
+  buildWalletPassView,
+  panelActivityFromRecord,
+  type CompanionPanelInput,
+  type PanelActivityInput,
+  type WalletPassView
+} from "@/lib/roamly/companionPanel";
+import { SupabaseCompanionLedgerStore } from "@/lib/roamly/companionLedger";
+import { addCalendarDays, instantStringToLocal } from "@/lib/roamly/engine/time";
 import { hasConfirmedFlightBooking } from "@/lib/roamly/itineraryPresentation";
 import {
   getTripBudgetAmount,
@@ -248,6 +259,72 @@ export default async function LiveTripPage({
       : "unknown",
     updatedAt: getRowString(booking, "updated_at") || getRowString(booking, "created_at")
   }));
+  // Build 2 (Phase 7): the compact companion panel — a new view over
+  // the same day activities this page already loaded, plus the trip's
+  // M2 ledger rows. Flag-gated: with ROAMLY_BUILD2_COMPANION_ENABLED
+  // off, nothing below runs and the page is byte-for-byte unchanged.
+  // The panel mounts only when the panel's date is the traveler's
+  // today (its now-geometry is meaningless for other days). Collision
+  // alerts arrive with Phase 9's updater; the input carries none yet.
+  let companionPanelInput: CompanionPanelInput | null = null;
+  let companionPassView: WalletPassView | null = null;
+  if (build2CompanionEnabled() && !tripCompleted) {
+    const nowInstant = new Date().toISOString();
+    const todayLocal = localDateInTimeZone(nowInstant, tripTimezone);
+    const panelDate = bundle.data.trip.start_date
+      ? addCalendarDays(bundle.data.trip.start_date, Math.max(0, currentDay - 1))
+      : todayLocal;
+    if (panelDate === todayLocal) {
+      const hotelBooking = bookingRows.find(
+        (booking) => getRowString(booking, "booking_type") === "hotel"
+      );
+      const hotelName = hotelBooking ? getRowString(hotelBooking, "title") : null;
+      const panelActivities: PanelActivityInput[] = dayActivities
+        .map((activity) => panelActivityFromRecord(activity, { date: panelDate }))
+        .filter((activity): activity is PanelActivityInput => activity !== null);
+      let ledgerEntries: CompanionPanelInput["ledgerEntries"] = [];
+      try {
+        ledgerEntries = await new SupabaseCompanionLedgerStore(supabase).listForTrip(id);
+      } catch {
+        ledgerEntries = [];
+      }
+      const nowParts = instantStringToLocal(nowInstant, tripTimezone);
+      companionPanelInput = {
+        tripId: id,
+        destination: destinationLabel,
+        date: panelDate,
+        timezone: tripTimezone,
+        nowMin: nowParts.minutes,
+        activities: panelActivities,
+        ledgerEntries,
+        alerts: [],
+        citymapperCoverage: false,
+        bufferMin: 10,
+        currentPlace: hotelName
+      };
+      const userMeta = (current.user.user_metadata || {}) as Record<string, unknown>;
+      const travelerName =
+        typeof userMeta.full_name === "string"
+          ? userMeta.full_name
+          : typeof userMeta.name === "string"
+            ? userMeta.name
+            : null;
+      companionPassView = buildWalletPassView({
+        destination: destinationLabel,
+        date: panelDate,
+        travelerName,
+        partyLabel: null,
+        activities: panelActivities,
+        hotelName,
+        hotelCheckInLabel: hotelBooking
+          ? canonicalBookingTime(hotelBooking, "start_at", "start_date", "start_time")
+          : null,
+        nowMin: nowParts.minutes,
+        cachedAt: null,
+        pendingSyncActions: 0
+      });
+    }
+  }
   const simulatorPlaces: LiveSimulatorPlace[] = [
     ...localizedActivitiesWithServerSkips.map((activity, index) => ({
       id: `activity:${activity.id || activity.title || index}`,
@@ -349,6 +426,11 @@ export default async function LiveTripPage({
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
+        {companionPanelInput ? (
+          <div className="mb-5">
+            <CompanionPanel tripId={id} initialInput={companionPanelInput} passView={companionPassView} />
+          </div>
+        ) : null}
         {tripCompleted ? (
           <Card>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip complete</p>

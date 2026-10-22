@@ -75,6 +75,14 @@
     {
       "path": "/api/cron/roamly-post-trip-ask",
       "schedule": "17 12 * * *"
+    },
+    {
+      "path": "/api/cron/roamly-lifecycle",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/roamly-pack-refresh",
+      "schedule": "15 * * * *"
     }
   ]
 }
