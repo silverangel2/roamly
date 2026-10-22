@@ -68,6 +68,11 @@ interface NominatimResult {
   osm_id?: number;
   lat?: string;
   lon?: string;
+  /** jsonv2 names this field "category" (the v1 name "class" is
+   *  accepted too) — filtering on "class" alone discarded every
+   *  real result (live-caught 2026-10-22: Lisbon read as
+   *  not_found against the real service). */
+  category?: string;
   class?: string;
   type?: string;
   importance?: number;
@@ -99,16 +104,17 @@ function countryOf(result: NominatimResult): string {
  *  acts on. Cross-country near-ties are ambiguity; everything
  *  else takes the geocoder's top-ranked real place. */
 export function classifyGeocodeResults(results: NominatimResult[]): GeocodeOutcome {
-  const usable = results
-    .filter(
-      (r) =>
-        Number.isFinite(Number(r.lat)) &&
-        Number.isFinite(Number(r.lon)) &&
-        (r.class === "place" || r.class === "boundary") &&
-        canonicalNameOf(r).length > 0 &&
-        countryOf(r).length > 0
-    )
-    .sort((x, y) => (y.importance ?? 0) - (x.importance ?? 0));
+  const usable = results.filter((r) => {
+    const category = r.category ?? r.class;
+    return (
+      Number.isFinite(Number(r.lat)) &&
+      Number.isFinite(Number(r.lon)) &&
+      (category === "place" || category === "boundary") &&
+      canonicalNameOf(r).length > 0 &&
+      countryOf(r).length > 0
+    );
+  });
+  usable.sort((x, y) => (y.importance ?? 0) - (x.importance ?? 0));
   if (!usable.length) return { kind: "not_found" };
   const top = usable[0];
   const second = usable[1];
