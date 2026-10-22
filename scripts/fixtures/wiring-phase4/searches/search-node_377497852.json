@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJQfkQK9-VuEwRrGaXocG1D7s",
+      "formattedAddress": "Rue Dauphine, Québec, QC G1R 3W7, Canada",
+      "location": {
+        "latitude": 46.8119058,
+        "longitude": -71.2126145
+      },
+      "displayName": {
+        "text": "Kent Gate",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "places": [
+    {
+      "id": "ChIJvzPL3OCVuEwRzSmuHnjNeYM",
+      "formattedAddress": "100 Quai Saint-André, Québec, QC G1K 3Y2, Canada",
+      "location": {
+        "latitude": 46.8172159,
+        "longitude": -71.2054416
+      },
+      "displayName": {
+        "text": "Espace 400e",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJl8_Hd8GXuEwReg2_b4EcLsc",
+      "formattedAddress": "5401 Bd des Galeries Niveau 2-K30, Québec, QC G2K 1N4, Canada",
+      "location": {
+        "latitude": 46.830742199999996,
+        "longitude": -71.2994539
+      },
+      "displayName": {
+        "text": "Bell",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJOx8ebaSXuEwRDTJ4bqcnfKQ",
+      "formattedAddress": "5401 Bd des Galeries Local 208, Québec, QC G2K 1N4, Canada",
+      "location": {
+        "latitude": 46.8309461,
+        "longitude": -71.300836
+      },
+      "displayName": {
+        "text": "Bell Galeries de la Capitale",
+        "languageCode": "fr"
+      }
+    }
+  ]
+}

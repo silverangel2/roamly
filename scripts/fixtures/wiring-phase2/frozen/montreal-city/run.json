@@ -1,0 +1,22 @@
+{
+  "poolId": "montreal-city",
+  "timingsMs": {
+    "pack": 117303,
+    "solve": 43,
+    "total": 117534
+  },
+  "packFromCache": false,
+  "networkFetchesThisRun": 3,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 25,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

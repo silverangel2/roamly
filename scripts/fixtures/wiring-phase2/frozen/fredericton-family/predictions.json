@@ -1,0 +1,281 @@
+{
+  "recordedAt": "2026-10-21T20:03:44.390Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "The Cultural Market",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "Quartermain Earth Science Centre",
+      "day": 4,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "The Tipsy Muse",
+      "day": 1,
+      "score": 65,
+      "reasons": [
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Nomad Coffee",
+      "day": 3,
+      "score": 65,
+      "reasons": [
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Grain and Grind Co.",
+      "day": 2,
+      "score": 60,
+      "reasons": [
+        "hours verified (osm)"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "Bill Thorpe Walking Bridge",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Gallery 78",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "The Tipsy Muse",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Musée de la région de Fredericton Region Museum",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Beaverbrook Sculpture Garden",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "The Cultural Market",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Charles Avenue Park",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Grain and Grind Co.",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Carleton Park",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Morell Park",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Nomad Coffee",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Momo Ramen & Izakaya",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Science East",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "The Green",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Quartermain Earth Science Centre",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "MOCO Downtown",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "School Days Museum",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "St. Mary's Old Reserve",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Musée de la région de Fredericton Region Museum",
+      "risk": "tight turnaround — only 2 min after \"The Tipsy Muse\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Beaverbrook Sculpture Garden",
+      "risk": "tight turnaround — only 5 min after \"Musée de la région de Fredericton Region Museum\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Carleton Park",
+      "risk": "tight turnaround — only 3 min after \"Grain and Grind Co.\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Science East",
+      "risk": "tight turnaround — only 4 min after \"Momo Ramen & Izakaya\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "The Green",
+      "risk": "tight turnaround — only 3 min after \"Science East\"",
+      "severity": "low"
+    },
+    {
+      "day": 5,
+      "item": "School Days Museum",
+      "risk": "tight turnaround — only 6 min after \"MOCO Downtown\"",
+      "severity": "low"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "AT RISK",
+    "note": "the estimated range (CAD 393–927) straddles the cap (CAD 900)",
+    "cap": {
+      "amount": 900,
+      "currency": "CAD",
+      "verdict": "AT RISK — the estimated range (CAD 393–927) straddles the cap (CAD 900) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.85,
+    "coverageThreshold": 0.5,
+    "pricedItems": 11,
+    "evidencedItems": 11,
+    "evidenceByTier": {
+      "COSTED": 11
+    },
+    "estimatedTotals": {
+      "low": 393,
+      "high": 927,
+      "currency": "CAD"
+    },
+    "payingParty": 3,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: not evidenced — excluded from the totals, never counted as zero; getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 0,
+    "bandDistribution": {},
+    "bandSource": null,
+    "scopeLines": 13,
+    "evidencedScopeLines": 11,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Fort Nashwaak Motel",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no price evidence for the stay — no booked price, no library price, no recorded price band. Named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": 4
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 6,
+      "walkingKmEstimated": 3.6,
+      "lastEnd": "17:24"
+    },
+    {
+      "day": 2,
+      "stops": 3,
+      "walkingKmEstimated": 2.35,
+      "lastEnd": "14:26"
+    },
+    {
+      "day": 3,
+      "stops": 2,
+      "walkingKmEstimated": 2.33,
+      "lastEnd": "17:03"
+    },
+    {
+      "day": 4,
+      "stops": 4,
+      "walkingKmEstimated": 3.22,
+      "lastEnd": "18:03"
+    },
+    {
+      "day": 5,
+      "stops": 3,
+      "walkingKmEstimated": 2.83,
+      "lastEnd": "16:13"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

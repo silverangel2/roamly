@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJVY3N4HmWuEwREw6JBrAcC6k",
+      "formattedAddress": "298 Rue Saint-Jean, Québec, QC G1R 1P1, Canada",
+      "location": {
+        "latitude": 46.808575,
+        "longitude": -71.2238472
+      },
+      "displayName": {
+        "text": "Le Bonnet d'Âne",
+        "languageCode": "fr"
+      }
+    }
+  ]
+}

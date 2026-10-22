@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJzdwHk96VuEwRItay862B2-c",
+      "formattedAddress": "81 Rue Sainte-Anne, Québec, QC G1R 3X4, Canada",
+      "location": {
+        "latitude": 46.8130556,
+        "longitude": -71.20888889999999
+      },
+      "displayName": {
+        "text": "Hôtel Marie-Rollet",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

@@ -1,0 +1,680 @@
+{
+  "scenario": "E1 variant — same Quebec arrival (Hôtel Marie Rollett, family trip); the room events below are travel-day events, applied by deterministic re-flow",
+  "early": {
+    "record": {
+      "event": "early-check-in",
+      "roomReadyMin": 765,
+      "roomReadyLabel": "12:45",
+      "originalCheckInMin": 870,
+      "freedMin": 105,
+      "restPreservedMin": 60,
+      "lunchMoved": {
+        "name": "Don Vegan",
+        "from": "13:12–14:12",
+        "to": "14:00–15:00"
+      },
+      "standingPlan": "gentle",
+      "options": {
+        "gentle": [
+          "Galerie Bédard 15:02–16:02"
+        ],
+        "fuller": [
+          "Galerie Bédard 15:02–16:02",
+          "Galerie Gisèle Bouliane 16:04–17:04"
+        ]
+      },
+      "note": "the freed time is an OFFER, never stuffed: the gentle afternoon stands as the plan; the fuller one is proposed and the traveler chooses"
+    },
+    "standingDay": {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "arrival": {
+          "journeyMin": 285,
+          "arriveBaseMin": 765,
+          "checkInMin": 765,
+          "checkInProvenance": "hotel event — the room was ready early (a travel-day event, reported by the desk; not a plan input)",
+          "restMinutes": 60,
+          "restTier": "2–5 hours",
+          "cap": "LIGHT",
+          "mode": "fly",
+          "reflowed": "early-check-in"
+        }
+      },
+      "items": [
+        {
+          "type": "journey",
+          "part": "to-airport",
+          "title": "To the airport",
+          "start": 480,
+          "end": 520,
+          "key": "journey-to-airport-2026-10-24",
+          "sub": "leave home — the trip starts at your own door",
+          "pos": null,
+          "startTime": "08:00",
+          "endTime": "08:40"
+        },
+        {
+          "type": "journey",
+          "part": "buffer",
+          "title": "Airport buffer",
+          "start": 520,
+          "end": 610,
+          "key": "journey-buffer-2026-10-24",
+          "sub": "check in, security, and time to breathe — never cut",
+          "pos": null,
+          "startTime": "08:40",
+          "endTime": "10:10"
+        },
+        {
+          "type": "journey",
+          "part": "travel",
+          "title": "Flight",
+          "start": 610,
+          "end": 730,
+          "key": "journey-travel-2026-10-24",
+          "sub": null,
+          "pos": null,
+          "startTime": "10:10",
+          "endTime": "12:10"
+        },
+        {
+          "type": "journey",
+          "part": "transfer",
+          "title": "Transfer to Hôtel Marie Rollett",
+          "start": 730,
+          "end": 765,
+          "key": "journey-transfer-2026-10-24",
+          "sub": "arrival transfer — bags in hand",
+          "pos": null,
+          "startTime": "12:10",
+          "endTime": "12:45"
+        },
+        {
+          "type": "checkin",
+          "part": "checkin",
+          "title": "Check in — Hôtel Marie Rollett",
+          "start": 765,
+          "end": 780,
+          "key": "checkin-2026-10-24",
+          "sub": "the room was ready early — the desk had it for you at 12:45",
+          "pos": null,
+          "startTime": "14:30",
+          "endTime": "14:45"
+        },
+        {
+          "type": "rest",
+          "part": "refresh",
+          "title": "Rest & refresh — travel takes something out of you",
+          "start": 780,
+          "end": 840,
+          "key": "refresh-2026-10-24",
+          "startTime": "14:45",
+          "endTime": "15:45"
+        },
+        {
+          "type": "food",
+          "key": "node/12326897876",
+          "name": "Don Vegan",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 840,
+          "end": 900,
+          "pos": {
+            "lat": 46.8161181,
+            "lon": -71.2037566
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12326897876",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "interruptible": true,
+          "startTime": "13:12",
+          "endTime": "14:12"
+        },
+        {
+          "type": "stop",
+          "role": "option",
+          "key": "node/6711176112",
+          "name": "Galerie Bédard",
+          "kind": "gallery",
+          "start": 902,
+          "end": 962,
+          "pos": {
+            "lat": 46.8159834,
+            "lon": -71.203668
+          },
+          "url": "https://www.openstreetmap.org/node/6711176112",
+          "hours": "unknown",
+          "priceProvenance": "UNKNOWN",
+          "walkKmFromPrev": 0.02,
+          "fromKeyPrev": "node/12326897876",
+          "fromNamePrev": "Don Vegan"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "node/12326897876",
+          "toKey": "node/6711176112",
+          "fromName": "Don Vegan",
+          "toName": "Galerie Bédard",
+          "mode": "walk",
+          "km": 0.02,
+          "minutes": 2,
+          "depart": 900,
+          "arrive": 902,
+          "departTime": "15:00",
+          "arriveTime": "15:02"
+        },
+        {
+          "fromKey": "node/6711176112",
+          "toKey": "base",
+          "fromName": "Galerie Bédard",
+          "toName": "the stay",
+          "mode": "walk",
+          "km": 0.02,
+          "minutes": 2,
+          "depart": 962,
+          "arrive": 964,
+          "departTime": "16:02",
+          "arriveTime": "16:04"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 24 starts at your own front door: out at 08:00, the airport buffer kept whole, a flight of about 120 minutes, and into Hôtel Marie Rollett around 12:45.",
+        "Expect a mild 11° — good walking weather, with layers for the shade.",
+        "The room is not promised until 14:30 — no room access is assumed before then, so the plan waits gently near base.",
+        "Lunch is at Don Vegan, 13:12–14:12.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "Check-in is at 14:30 — bags down, keys in hand.",
+        "Then the plan stops on purpose: 60 minutes to rest and refresh. Travel is part of the trip, and it takes something out of you — the sights will keep.",
+        "Cannonball Tree fills 15:48–16:48 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Cannonball Tree — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The day winds down back at base by 16:51 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 962,
+      "reflow": {
+        "earlyCheckIn": true,
+        "roomReadyMin": 765
+      }
+    },
+    "fullerOptionDay": {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "arrival": {
+          "journeyMin": 285,
+          "arriveBaseMin": 765,
+          "checkInMin": 765,
+          "checkInProvenance": "hotel event — the room was ready early (a travel-day event, reported by the desk; not a plan input)",
+          "restMinutes": 60,
+          "restTier": "2–5 hours",
+          "cap": "LIGHT",
+          "mode": "fly",
+          "reflowed": "early-check-in"
+        }
+      },
+      "items": [
+        {
+          "type": "journey",
+          "part": "to-airport",
+          "title": "To the airport",
+          "start": 480,
+          "end": 520,
+          "key": "journey-to-airport-2026-10-24",
+          "sub": "leave home — the trip starts at your own door",
+          "pos": null,
+          "startTime": "08:00",
+          "endTime": "08:40"
+        },
+        {
+          "type": "journey",
+          "part": "buffer",
+          "title": "Airport buffer",
+          "start": 520,
+          "end": 610,
+          "key": "journey-buffer-2026-10-24",
+          "sub": "check in, security, and time to breathe — never cut",
+          "pos": null,
+          "startTime": "08:40",
+          "endTime": "10:10"
+        },
+        {
+          "type": "journey",
+          "part": "travel",
+          "title": "Flight",
+          "start": 610,
+          "end": 730,
+          "key": "journey-travel-2026-10-24",
+          "sub": null,
+          "pos": null,
+          "startTime": "10:10",
+          "endTime": "12:10"
+        },
+        {
+          "type": "journey",
+          "part": "transfer",
+          "title": "Transfer to Hôtel Marie Rollett",
+          "start": 730,
+          "end": 765,
+          "key": "journey-transfer-2026-10-24",
+          "sub": "arrival transfer — bags in hand",
+          "pos": null,
+          "startTime": "12:10",
+          "endTime": "12:45"
+        },
+        {
+          "type": "checkin",
+          "part": "checkin",
+          "title": "Check in — Hôtel Marie Rollett",
+          "start": 765,
+          "end": 780,
+          "key": "checkin-2026-10-24",
+          "sub": "the room was ready early — the desk had it for you at 12:45",
+          "pos": null,
+          "startTime": "14:30",
+          "endTime": "14:45"
+        },
+        {
+          "type": "rest",
+          "part": "refresh",
+          "title": "Rest & refresh — travel takes something out of you",
+          "start": 780,
+          "end": 840,
+          "key": "refresh-2026-10-24",
+          "startTime": "14:45",
+          "endTime": "15:45"
+        },
+        {
+          "type": "food",
+          "key": "node/12326897876",
+          "name": "Don Vegan",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 840,
+          "end": 900,
+          "pos": {
+            "lat": 46.8161181,
+            "lon": -71.2037566
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12326897876",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "interruptible": true,
+          "startTime": "13:12",
+          "endTime": "14:12"
+        },
+        {
+          "type": "stop",
+          "role": "option",
+          "key": "node/6711176112",
+          "name": "Galerie Bédard",
+          "kind": "gallery",
+          "start": 902,
+          "end": 962,
+          "pos": {
+            "lat": 46.8159834,
+            "lon": -71.203668
+          },
+          "url": "https://www.openstreetmap.org/node/6711176112",
+          "hours": "unknown",
+          "priceProvenance": "UNKNOWN",
+          "walkKmFromPrev": 0.02,
+          "fromKeyPrev": "node/12326897876",
+          "fromNamePrev": "Don Vegan"
+        },
+        {
+          "type": "stop",
+          "role": "option",
+          "key": "node/6711176111",
+          "name": "Galerie Gisèle Bouliane",
+          "kind": "gallery",
+          "start": 964,
+          "end": 1024,
+          "pos": {
+            "lat": 46.8152014,
+            "lon": -71.2034681
+          },
+          "url": "https://www.openstreetmap.org/node/6711176111",
+          "hours": "unknown",
+          "priceProvenance": "UNKNOWN",
+          "walkKmFromPrev": 0.09,
+          "fromKeyPrev": "node/6711176112",
+          "fromNamePrev": "Galerie Bédard"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "node/12326897876",
+          "toKey": "node/6711176112",
+          "fromName": "Don Vegan",
+          "toName": "Galerie Bédard",
+          "mode": "walk",
+          "km": 0.02,
+          "minutes": 2,
+          "depart": 900,
+          "arrive": 902,
+          "departTime": "15:00",
+          "arriveTime": "15:02"
+        },
+        {
+          "fromKey": "node/6711176112",
+          "toKey": "base",
+          "fromName": "Galerie Bédard",
+          "toName": "the stay",
+          "mode": "walk",
+          "km": 0.02,
+          "minutes": 2,
+          "depart": 962,
+          "arrive": 964,
+          "departTime": "16:02",
+          "arriveTime": "16:04"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 24 starts at your own front door: out at 08:00, the airport buffer kept whole, a flight of about 120 minutes, and into Hôtel Marie Rollett around 12:45.",
+        "Expect a mild 11° — good walking weather, with layers for the shade.",
+        "The room is not promised until 14:30 — no room access is assumed before then, so the plan waits gently near base.",
+        "Lunch is at Don Vegan, 13:12–14:12.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "Check-in is at 14:30 — bags down, keys in hand.",
+        "Then the plan stops on purpose: 60 minutes to rest and refresh. Travel is part of the trip, and it takes something out of you — the sights will keep.",
+        "Cannonball Tree fills 15:48–16:48 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Cannonball Tree — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The day winds down back at base by 16:51 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 962,
+      "reflow": {
+        "earlyCheckIn": true,
+        "roomReadyMin": 765
+      }
+    },
+    "stuffedVariantFindings": [
+      {
+        "day": 1,
+        "check": "rushing",
+        "severity": "soft",
+        "evidence": "3 legs run at exactly travel pace (worst: 0 min of slack into \"Galerie Bédard\") — the day is a timetable, not a holiday",
+        "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+      },
+      {
+        "day": 1,
+        "check": "early-checkin-stuffing",
+        "severity": "hard",
+        "evidence": "the room opened early and the afternoon was stuffed in answer: 3 stops, 180 min of activity, 0.0 km of walking after the rest block — past the gentle (LIGHT) shape an arrival day is capped at",
+        "repair": "an early room is a gift of time, not a summons: keep the gentle afternoon as the plan and offer the fuller one — the traveler chooses"
+      }
+    ]
+  },
+  "late": {
+    "record": {
+      "event": "late-check-in",
+      "roomReadyMin": 960,
+      "roomReadyLabel": "16:00",
+      "originalCheckInMin": 870,
+      "waitExtendedMin": 90,
+      "luggage": "bags held at the front desk during the wait — LABELED ASSUMPTION (standard hotel practice; not data, never promised)",
+      "restPreservedMin": 60,
+      "threatened": [
+        "Cannonball Tree (was 15:48–16:48; after a 16:00 room and a full rest it would end 18:18 — past the softened day's 17:30 let-go)"
+      ],
+      "notify": true,
+      "notifyText": "Your room will be ready at 16:00 instead of 14:30. Nothing you had booked is affected; one gentle stop no longer fits the softened day: Cannonball Tree (was 15:48–16:48; after a 16:00 room and a full rest it would end 18:18 — past the softened day's 17:30 let-go). It is held for another day — reply if you would rather push on."
+    },
+    "day": {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "arrival": {
+          "journeyMin": 285,
+          "arriveBaseMin": 765,
+          "checkInMin": 960,
+          "checkInProvenance": "hotel event — the room ran late (a travel-day event, reported by the desk; not a plan input)",
+          "restMinutes": 60,
+          "restTier": "2–5 hours",
+          "cap": "LIGHT",
+          "mode": "fly",
+          "reflowed": "late-check-in"
+        }
+      },
+      "items": [
+        {
+          "type": "journey",
+          "part": "to-airport",
+          "title": "To the airport",
+          "start": 480,
+          "end": 520,
+          "key": "journey-to-airport-2026-10-24",
+          "sub": "leave home — the trip starts at your own door",
+          "pos": null,
+          "startTime": "08:00",
+          "endTime": "08:40"
+        },
+        {
+          "type": "journey",
+          "part": "buffer",
+          "title": "Airport buffer",
+          "start": 520,
+          "end": 610,
+          "key": "journey-buffer-2026-10-24",
+          "sub": "check in, security, and time to breathe — never cut",
+          "pos": null,
+          "startTime": "08:40",
+          "endTime": "10:10"
+        },
+        {
+          "type": "journey",
+          "part": "travel",
+          "title": "Flight",
+          "start": 610,
+          "end": 730,
+          "key": "journey-travel-2026-10-24",
+          "sub": null,
+          "pos": null,
+          "startTime": "10:10",
+          "endTime": "12:10"
+        },
+        {
+          "type": "journey",
+          "part": "transfer",
+          "title": "Transfer to Hôtel Marie Rollett",
+          "start": 730,
+          "end": 765,
+          "key": "journey-transfer-2026-10-24",
+          "sub": "arrival transfer — bags in hand",
+          "pos": null,
+          "startTime": "12:10",
+          "endTime": "12:45"
+        },
+        {
+          "type": "rest",
+          "part": "arrival-wait",
+          "key": "wait-late-2026-10-24-0",
+          "title": "Settle in near base — the room is not ready yet",
+          "sub": "bags held at the front desk during the wait — LABELED ASSUMPTION (standard hotel practice; not data, never promised)",
+          "start": 765,
+          "end": 792,
+          "pos": null
+        },
+        {
+          "type": "food",
+          "key": "node/12326897876",
+          "name": "Don Vegan",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 792,
+          "end": 852,
+          "pos": {
+            "lat": 46.8161181,
+            "lon": -71.2037566
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12326897876",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "interruptible": true,
+          "startTime": "13:12",
+          "endTime": "14:12"
+        },
+        {
+          "type": "rest",
+          "part": "arrival-wait",
+          "key": "wait-late-2026-10-24-1",
+          "title": "Settle in near base — the room is not ready yet",
+          "start": 852,
+          "end": 960,
+          "pos": null
+        },
+        {
+          "type": "checkin",
+          "part": "checkin",
+          "title": "Check in — Hôtel Marie Rollett",
+          "start": 960,
+          "end": 975,
+          "key": "checkin-2026-10-24",
+          "sub": "the desk confirmed the later time — the wait above is soft on purpose",
+          "pos": null,
+          "startTime": "14:30",
+          "endTime": "14:45"
+        },
+        {
+          "type": "rest",
+          "part": "refresh",
+          "title": "Rest & refresh — travel takes something out of you",
+          "start": 975,
+          "end": 1035,
+          "key": "refresh-2026-10-24",
+          "startTime": "14:45",
+          "endTime": "15:45"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/12326897876",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Don Vegan",
+          "mode": "walk",
+          "km": 0.52,
+          "minutes": 7,
+          "depart": 785,
+          "arrive": 792,
+          "departTime": "13:05",
+          "arriveTime": "13:12"
+        },
+        {
+          "fromKey": "node/12326897876",
+          "toKey": "base",
+          "fromName": "Don Vegan",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.52,
+          "minutes": 7,
+          "depart": 852,
+          "arrive": 859,
+          "departTime": "14:12",
+          "arriveTime": "14:19"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "node/6554061185",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Cannonball Tree",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 945,
+          "arrive": 948,
+          "departTime": "15:45",
+          "arriveTime": "15:48"
+        },
+        {
+          "fromKey": "node/6554061185",
+          "toKey": "base",
+          "fromName": "Cannonball Tree",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 1008,
+          "arrive": 1011,
+          "departTime": "16:48",
+          "arriveTime": "16:51"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 24 starts at your own front door: out at 08:00, the airport buffer kept whole, a flight of about 120 minutes, and into Hôtel Marie Rollett around 12:45.",
+        "Expect a mild 11° — good walking weather, with layers for the shade.",
+        "The room is not promised until 14:30 — no room access is assumed before then, so the plan waits gently near base.",
+        "Lunch is at Don Vegan, 13:12–14:12.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "Check-in is at 14:30 — bags down, keys in hand.",
+        "Then the plan stops on purpose: 60 minutes to rest and refresh. Travel is part of the trip, and it takes something out of you — the sights will keep.",
+        "Cannonball Tree fills 15:48–16:48 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Cannonball Tree — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The day winds down back at base by 16:51 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1035,
+      "reflow": {
+        "lateCheckIn": true,
+        "roomReadyMin": 960
+      }
+    }
+  },
+  "availabilityDataNote": "early/late check-in AVAILABILITY is a live hotel state: no enrichment source carries it (Google Places has no check-in-time or room-readiness fields; OSM has none). What data CAN carry is the BOOKED check-in time (the booking confirmation — the envelope already labels it hotel/booking data) and, at travel time, the event itself (the desk, a hotel message). The engine therefore treats readiness strictly as an EVENT input with provenance \"hotel event\", never as a promised plan input."
+}

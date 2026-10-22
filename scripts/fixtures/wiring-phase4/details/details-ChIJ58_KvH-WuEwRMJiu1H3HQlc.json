@@ -1,0 +1,16 @@
+{
+  "id": "ChIJ58_KvH-WuEwRMJiu1H3HQlc",
+  "rating": 5,
+  "businessStatus": "OPERATIONAL",
+  "userRatingCount": 15,
+  "displayName": {
+    "text": "Pavillon Pierre Lassonde",
+    "languageCode": "en"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleParking": true,
+    "wheelchairAccessibleEntrance": true,
+    "wheelchairAccessibleRestroom": true,
+    "wheelchairAccessibleSeating": true
+  }
+}

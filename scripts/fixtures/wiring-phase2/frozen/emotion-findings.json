@@ -1,0 +1,245 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "emotion-findings.json"
+      ],
+      "note": "The envelope proof's WS2 emotion audits over the frozen itineraries + the disaster-day mirror, as recorded by the shadow."
+    }
+  },
+  "data": {
+    "quebec-city-family": {
+      "verdict": "FAIL",
+      "hard": 1,
+      "soft": 4,
+      "findings": [
+        {
+          "day": 1,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Galerie d'art Bel Art Classique\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 2,
+          "check": "energy-burn",
+          "severity": "soft",
+          "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+          "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+        },
+        {
+          "day": 4,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Galerie d'art la Gazelle\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 5,
+          "check": "energy-burn",
+          "severity": "soft",
+          "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+          "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+        },
+        {
+          "day": 5,
+          "check": "departure-cruelty",
+          "severity": "hard",
+          "evidence": "the last day carries a headline sight — \"Chute Montmorency\" — when it should be winding down",
+          "repair": "move the headline into the body of the trip; the last day is for souvenirs, strolling, and leaving well"
+        }
+      ]
+    },
+    "charlottetown-smalltown": {
+      "verdict": "FAIL",
+      "hard": 1,
+      "soft": 2,
+      "findings": [
+        {
+          "day": 1,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Confederation Centre Art Gallery\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 1,
+          "check": "exhaustion",
+          "severity": "soft",
+          "evidence": "315 min of scheduled activity over this party's 300 min comfortable ceiling",
+          "repair": "consider softening this day to LIGHT"
+        },
+        {
+          "day": 3,
+          "check": "departure-cruelty",
+          "severity": "hard",
+          "evidence": "the last day carries a headline sight — \"Wrights Range Front Lighthouse\" — when it should be winding down",
+          "repair": "move the headline into the body of the trip; the last day is for souvenirs, strolling, and leaving well"
+        }
+      ]
+    },
+    "halifax-coastal": {
+      "verdict": "FAIL",
+      "hard": 1,
+      "soft": 3,
+      "findings": [
+        {
+          "day": 1,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Art Gallery of Nova Scotia\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 2,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "3 legs run at exactly travel pace (worst: 0 min of slack into \"Lou Pécou\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 4,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "3 legs run at exactly travel pace (worst: 0 min of slack into \"Grafton Street Park\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 4,
+          "check": "departure-cruelty",
+          "severity": "hard",
+          "evidence": "the last day carries a headline sight — \"Naval Museum of Halifax\" — when it should be winding down",
+          "repair": "move the headline into the body of the trip; the last day is for souvenirs, strolling, and leaving well"
+        }
+      ]
+    },
+    "pacing-quebec-14d": {
+      "verdict": "PASS",
+      "hard": 0,
+      "soft": 5,
+      "findings": [
+        {
+          "day": 1,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Galerie Porte Rouge - Vieux-Québec\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 2,
+          "check": "energy-burn",
+          "severity": "soft",
+          "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+          "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+        },
+        {
+          "day": 4,
+          "check": "energy-burn",
+          "severity": "soft",
+          "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+          "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+        },
+        {
+          "day": 8,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Galerie Perreault\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        },
+        {
+          "day": 9,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "3 legs run at exactly travel pace (worst: 0 min of slack into \"Le Lieu, centre en art actuel\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        }
+      ]
+    },
+    "envelope-quebec-arrival": {
+      "verdict": "PASS",
+      "hard": 0,
+      "soft": 3,
+      "findings": [
+        {
+          "day": 2,
+          "check": "energy-burn",
+          "severity": "soft",
+          "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+          "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+        },
+        {
+          "day": 4,
+          "check": "exhaustion",
+          "severity": "soft",
+          "evidence": "5.7 km of walking nudges past this party's 5.5 km day budget",
+          "repair": "trim one leg — the budget exists so the day stays kind"
+        },
+        {
+          "day": 5,
+          "check": "energy-burn",
+          "severity": "soft",
+          "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+          "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+        }
+      ]
+    },
+    "envelope-halifax-dawn": {
+      "verdict": "PASS",
+      "hard": 0,
+      "soft": 1,
+      "findings": [
+        {
+          "day": 2,
+          "check": "rushing",
+          "severity": "soft",
+          "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Slow Mornings Café & Restaurant\") — the day is a timetable, not a holiday",
+          "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+        }
+      ]
+    },
+    "spike-disaster-day (production mirror)": {
+      "verdict": "FAIL",
+      "hard": 4,
+      "soft": 1,
+      "findings": [
+        {
+          "day": 1,
+          "check": "protected-collision",
+          "severity": "hard",
+          "evidence": "\"Dinner at Five Guys\" (21:00–22:00) collides with the protected commitment \"Halifax Harbour Evening Cruise\" (20:30–22:00)",
+          "repair": "the protected commitment wins: hold \"Halifax Harbour Evening Cruise\" fixed and re-solve the rest of day 1 around it — never shift the traveler into their own booking"
+        },
+        {
+          "day": 1,
+          "check": "impossible-order",
+          "severity": "hard",
+          "evidence": "\"Slow Mornings Café & Restaurant\" is scheduled at 14:25, before the flight lands at 15:20",
+          "repair": "remove \"Slow Mornings Café & Restaurant\" from the arrival slate — the traveler is still in the air"
+        },
+        {
+          "day": 1,
+          "check": "arrival-cruelty",
+          "severity": "hard",
+          "evidence": "\"Halifax Citadel\" starts 15 min after wheels-down (15:20) — no check-in, no rest, no refresh in between",
+          "repair": "open the day with the journey envelope: transfer, check-in, and a rest & refresh block scaled to the journey before the first real activity"
+        },
+        {
+          "day": 1,
+          "check": "hunger-risk",
+          "severity": "hard",
+          "evidence": "335 min between 15:25 and the meal at 21:00 — hunger is a schedule failure, not a traveler failure",
+          "repair": "pull the meal earlier or hold a meal window inside the gap"
+        },
+        {
+          "day": 1,
+          "check": "delight-spacing",
+          "severity": "soft",
+          "evidence": "a full day with no highlight in it — competent, forgettable",
+          "repair": "trade one ordinary stop for the best unused candidate nearby"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "recordedAt": "2026-10-21T20:00:29.979Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "Curry Up & Eat",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Riverview Country Market",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "Farmacy + Fermentary",
+      "day": 2,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Wrights Range Front Lighthouse",
+      "day": 3,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "Island Chef",
+      "day": 3,
+      "score": 65,
+      "reasons": [
+        "dietary fit proven by listing tags"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "Confederation Centre Art Gallery",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Hillsborough Square",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Riverview Country Market",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "King Square",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Island Chef",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Wrights Range Front Lighthouse",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Curry Up & Eat",
+      "risk": "tight turnaround — only 2 min after \"Confederation Centre Art Gallery\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Hillsborough Square",
+      "risk": "tight turnaround — only 6 min after \"Curry Up & Eat\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "King Square",
+      "risk": "tight turnaround — only 5 min after \"Farmacy + Fermentary\"",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Wrights Range Front Lighthouse",
+      "risk": "long drive leg (29 km, ~44 min estimated from straight-line distance — real roads run longer)",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Holman Grand Hotel",
+      "risk": "long drive leg (29 km, ~43 min estimated from straight-line distance — real roads run longer)",
+      "severity": "medium"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "WITHIN",
+    "note": "even the top of the estimated range (CAD 308) sits under the cap (CAD 700)",
+    "cap": {
+      "amount": 700,
+      "currency": "CAD",
+      "verdict": "WITHIN — even the top of the estimated range (CAD 308) sits under the cap (CAD 700) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.75,
+    "coverageThreshold": 0.5,
+    "pricedItems": 6,
+    "evidencedItems": 6,
+    "evidenceByTier": {
+      "COSTED": 6
+    },
+    "estimatedTotals": {
+      "low": 128,
+      "high": 308,
+      "currency": "CAD"
+    },
+    "payingParty": 2,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: not evidenced — excluded from the totals, never counted as zero; getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 0,
+    "bandDistribution": {},
+    "bandSource": null,
+    "scopeLines": 8,
+    "evidencedScopeLines": 6,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Holman Grand Hotel",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no price evidence for the stay — no booked price, no library price, no recorded price band. Named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": 2
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 5,
+      "walkingKmEstimated": 3.19,
+      "lastEnd": "15:34"
+    },
+    {
+      "day": 2,
+      "stops": 2,
+      "walkingKmEstimated": 0.95,
+      "lastEnd": "14:14"
+    },
+    {
+      "day": 3,
+      "stops": 2,
+      "walkingKmEstimated": 0.3,
+      "lastEnd": "15:46"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

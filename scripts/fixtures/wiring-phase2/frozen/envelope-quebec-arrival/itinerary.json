@@ -1,0 +1,1111 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "scenario": "envelope-quebec-arrival",
+  "destination": "Quebec City",
+  "startDate": "2026-10-24",
+  "endDate": "2026-10-28",
+  "anchorStay": {
+    "name": "Hôtel Marie Rollett",
+    "walkableSights": 59
+  },
+  "partyProfile": {
+    "labels": [
+      "children aged 6 and 9"
+    ],
+    "kidAges": [
+      6,
+      9
+    ],
+    "hasInfant": false,
+    "senior": false,
+    "mature": false,
+    "energyBurn": true,
+    "slopeTolerance": "low",
+    "walkBudgetKm": {
+      "FULL": 5.5,
+      "LIGHT": 3
+    },
+    "maxLegKm": 1,
+    "breakEveryMin": 120,
+    "sitBreakMin": 15,
+    "maxActivityMin": 390
+  },
+  "journeySpec": {
+    "arrival": {
+      "mode": "fly",
+      "leaveHomeMin": 480,
+      "toAirportMin": 40,
+      "bufferMin": 90,
+      "travelMin": 120,
+      "transferMin": 35,
+      "checkInMin": 870,
+      "checkInProvenance": "hotel data (scenario fixture — a booked room whose check-in is 14:30)"
+    },
+    "departure": {
+      "flightMin": 1000,
+      "transferMin": 40,
+      "bufferMin": 90
+    }
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-falls",
+      "label": "Montmorency Falls trip",
+      "status": "scheduled",
+      "day": 2,
+      "item": "Chute Montmorency"
+    },
+    {
+      "id": "keyword-ferry",
+      "label": "ferry ride to Levis",
+      "status": "scheduled",
+      "day": 4,
+      "item": "Lévis"
+    }
+  ],
+  "solverNotes": [
+    "Excursion placed on 2026-10-25 — the driest eligible day in the forecast (5% rain chance).",
+    "2026-10-24: arrival envelope — 285 min door to door (2–5 hours); check-in hotel data (scenario fixture — a booked room whose check-in is 14:30); rest & refresh 60 min before any stop.",
+    "2026-10-28: departure envelope — flight 1000 min; gentle class only, pack-up protected, leave base at 870."
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Don Vegan\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Cannonball Tree\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Jean Castor\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Chute Montmorency\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Musée du Fort\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Lévis\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Porte Kent\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Parc-école Saint-Jean-Baptiste\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Jardins de l'hôtel de ville\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Parc Couillard\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Les Trois Garçons\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "emotion": {
+    "verdict": "PASS",
+    "hard": 0,
+    "soft": 3,
+    "findings": [
+      {
+        "day": 2,
+        "check": "energy-burn",
+        "severity": "soft",
+        "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+        "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+      },
+      {
+        "day": 4,
+        "check": "exhaustion",
+        "severity": "soft",
+        "evidence": "5.7 km of walking nudges past this party's 5.5 km day budget",
+        "repair": "trim one leg — the budget exists so the day stays kind"
+      },
+      {
+        "day": 5,
+        "check": "energy-burn",
+        "severity": "soft",
+        "evidence": "young kids aboard and no open-space stop after lunch — the energy has nowhere to go",
+        "repair": "put a park or open space in the afternoon slot so energy burns outdoors"
+      }
+    ]
+  },
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "arrival": {
+          "journeyMin": 285,
+          "arriveBaseMin": 765,
+          "checkInMin": 870,
+          "checkInProvenance": "hotel data (scenario fixture — a booked room whose check-in is 14:30)",
+          "restMinutes": 60,
+          "restTier": "2–5 hours",
+          "cap": "LIGHT",
+          "mode": "fly"
+        }
+      },
+      "items": [
+        {
+          "type": "journey",
+          "part": "to-airport",
+          "title": "To the airport",
+          "start": 480,
+          "end": 520,
+          "key": "journey-to-airport-2026-10-24",
+          "sub": "leave home — the trip starts at your own door",
+          "pos": null,
+          "startTime": "08:00",
+          "endTime": "08:40"
+        },
+        {
+          "type": "journey",
+          "part": "buffer",
+          "title": "Airport buffer",
+          "start": 520,
+          "end": 610,
+          "key": "journey-buffer-2026-10-24",
+          "sub": "check in, security, and time to breathe — never cut",
+          "pos": null,
+          "startTime": "08:40",
+          "endTime": "10:10"
+        },
+        {
+          "type": "journey",
+          "part": "travel",
+          "title": "Flight",
+          "start": 610,
+          "end": 730,
+          "key": "journey-travel-2026-10-24",
+          "sub": null,
+          "pos": null,
+          "startTime": "10:10",
+          "endTime": "12:10"
+        },
+        {
+          "type": "journey",
+          "part": "transfer",
+          "title": "Transfer to Hôtel Marie Rollett",
+          "start": 730,
+          "end": 765,
+          "key": "journey-transfer-2026-10-24",
+          "sub": "arrival transfer — bags in hand",
+          "pos": null,
+          "startTime": "12:10",
+          "endTime": "12:45"
+        },
+        {
+          "type": "rest",
+          "part": "arrival-wait",
+          "title": "Settle in near base — the room is not ready yet",
+          "start": 765,
+          "end": 785,
+          "key": "wait-2026-10-24-a",
+          "startTime": "12:45",
+          "endTime": "13:05"
+        },
+        {
+          "type": "food",
+          "key": "node/12326897876",
+          "name": "Don Vegan",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 792,
+          "end": 852,
+          "pos": {
+            "lat": 46.8161181,
+            "lon": -71.2037566
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12326897876",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "interruptible": true,
+          "startTime": "13:12",
+          "endTime": "14:12"
+        },
+        {
+          "type": "rest",
+          "part": "arrival-wait",
+          "title": "Settle in near base — the room is not ready yet",
+          "start": 859,
+          "end": 870,
+          "key": "wait-2026-10-24-b",
+          "startTime": "14:19",
+          "endTime": "14:30"
+        },
+        {
+          "type": "checkin",
+          "part": "checkin",
+          "title": "Check in — Hôtel Marie Rollett",
+          "start": 870,
+          "end": 885,
+          "key": "checkin-2026-10-24",
+          "sub": "room from 14:30 · hotel data (scenario fixture — a booked room whose check-in is 14:30)",
+          "pos": null,
+          "startTime": "14:30",
+          "endTime": "14:45"
+        },
+        {
+          "type": "rest",
+          "part": "refresh",
+          "title": "Rest & refresh — travel takes something out of you",
+          "start": 885,
+          "end": 945,
+          "key": "refresh-2026-10-24",
+          "startTime": "14:45",
+          "endTime": "15:45"
+        },
+        {
+          "type": "stop",
+          "key": "node/6554061185",
+          "name": "Cannonball Tree",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 948,
+          "end": 1008,
+          "pos": {
+            "lat": 46.8111132,
+            "lon": -71.2083792
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6554061185",
+          "price": "UNKNOWN",
+          "startTime": "15:48",
+          "endTime": "16:48"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/12326897876",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Don Vegan",
+          "mode": "walk",
+          "km": 0.52,
+          "minutes": 7,
+          "depart": 785,
+          "arrive": 792,
+          "departTime": "13:05",
+          "arriveTime": "13:12"
+        },
+        {
+          "fromKey": "node/12326897876",
+          "toKey": "base",
+          "fromName": "Don Vegan",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.52,
+          "minutes": 7,
+          "depart": 852,
+          "arrive": 859,
+          "departTime": "14:12",
+          "arriveTime": "14:19"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "node/6554061185",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Cannonball Tree",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 945,
+          "arrive": 948,
+          "departTime": "15:45",
+          "arriveTime": "15:48"
+        },
+        {
+          "fromKey": "node/6554061185",
+          "toKey": "base",
+          "fromName": "Cannonball Tree",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 1008,
+          "arrive": 1011,
+          "departTime": "16:48",
+          "arriveTime": "16:51"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 24 starts at your own front door: out at 08:00, the airport buffer kept whole, a flight of about 120 minutes, and into Hôtel Marie Rollett around 12:45.",
+        "Expect a mild 11° — good walking weather, with layers for the shade.",
+        "The room is not promised until 14:30 — no room access is assumed before then, so the plan waits gently near base.",
+        "Lunch is at Don Vegan, 13:12–14:12.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "Check-in is at 14:30 — bags down, keys in hand.",
+        "Then the plan stops on purpose: 60 minutes to rest and refresh. Travel is part of the trip, and it takes something out of you — the sights will keep.",
+        "Cannonball Tree fills 15:48–16:48 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Cannonball Tree — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The day winds down back at base by 16:51 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1011
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-25",
+      "role": "excursion",
+      "dayType": "FULL",
+      "envelope": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/14098650933",
+          "name": "Jean Castor",
+          "kind": "museum",
+          "role": "stop",
+          "start": 572,
+          "end": 662,
+          "pos": {
+            "lat": 46.8141263,
+            "lon": -71.2100975
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/14098650933",
+          "price": "UNKNOWN",
+          "startTime": "09:32",
+          "endTime": "11:02"
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 662,
+          "end": 677,
+          "key": "break-2026-10-25-662",
+          "startTime": "11:02",
+          "endTime": "11:17"
+        },
+        {
+          "type": "food",
+          "key": "node/4349079029",
+          "name": "Hortus Bistro",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 737,
+          "end": 797,
+          "pos": {
+            "lat": 46.8146605,
+            "lon": -71.209564
+          },
+          "hours": {
+            "status": "known",
+            "open": 570,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 11:30-22:00; Sa 09:30-22:00; Su 09:30-21:00",
+          "url": "https://www.openstreetmap.org/node/4349079029",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:17",
+          "endTime": "13:17"
+        },
+        {
+          "type": "stop",
+          "key": "node/1199354691",
+          "name": "Chute Montmorency",
+          "kind": "falls",
+          "role": "excursion",
+          "start": 812,
+          "end": 902,
+          "pos": {
+            "lat": 46.8907506,
+            "lon": -71.1477383
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/1199354691",
+          "price": "UNKNOWN",
+          "startTime": "13:32",
+          "endTime": "15:02"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/14098650933",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Jean Castor",
+          "mode": "walk",
+          "km": 0.15,
+          "minutes": 2,
+          "depart": 570,
+          "arrive": 572,
+          "departTime": "09:30",
+          "arriveTime": "09:32"
+        },
+        {
+          "fromKey": "node/14098650933",
+          "toKey": "node/4349079029",
+          "fromName": "Jean Castor",
+          "toName": "Hortus Bistro",
+          "mode": "walk",
+          "km": 0.07,
+          "minutes": 2,
+          "depart": 735,
+          "arrive": 737,
+          "departTime": "12:15",
+          "arriveTime": "12:17"
+        },
+        {
+          "fromKey": "node/4349079029",
+          "toKey": "node/1199354691",
+          "fromName": "Hortus Bistro",
+          "toName": "Chute Montmorency",
+          "mode": "drive",
+          "km": 9.68,
+          "minutes": 15,
+          "depart": 797,
+          "arrive": 812,
+          "departTime": "13:17",
+          "arriveTime": "13:32"
+        },
+        {
+          "fromKey": "node/1199354691",
+          "toKey": "base",
+          "fromName": "Chute Montmorency",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "drive",
+          "km": 9.82,
+          "minutes": 15,
+          "depart": 902,
+          "arrive": 917,
+          "departTime": "15:02",
+          "arriveTime": "15:17"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Sunday, October 25 is the day for Chute Montmorency — the trip's headline outing, given the room it deserves.",
+        "The forecast helps today: 14° and only a 5% chance of rain, which is why the outdoor outing sits here.",
+        "Jean Castor gets the morning's main slot, 09:32 to 11:02 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Jean Castor — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "From Jean Castor, it is a 2-minute walk to Hortus Bistro — close enough to stroll without watching the clock.",
+        "Lunch is at Hortus Bistro, 12:17–13:17.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Then the day's one longer leg: about 15 minutes by road to Chute Montmorency.",
+        "Chute Montmorency — the outing named in the request — gets a full 90 minutes, 13:32–15:02.",
+        "The drive back to base runs about 15 minutes.",
+        "The day winds down back at base by 15:17 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 917
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-26",
+      "role": "rest-afternoon",
+      "dayType": "FULL",
+      "envelope": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/283264348",
+          "name": "Musée du Fort",
+          "kind": "museum",
+          "role": "stop",
+          "start": 574,
+          "end": 664,
+          "pos": {
+            "lat": 46.8130715,
+            "lon": -71.2051909
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/283264348",
+          "price": "UNKNOWN",
+          "startTime": "09:34",
+          "endTime": "11:04"
+        },
+        {
+          "type": "stop",
+          "key": "node/5060622627",
+          "name": "Galerie d'art Bel Art Classique",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 667,
+          "end": 727,
+          "pos": {
+            "lat": 46.8140205,
+            "lon": -71.202794
+          },
+          "hours": {
+            "status": "known",
+            "open": 570,
+            "close": 1050,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 09:30-17:30",
+          "url": "https://www.openstreetmap.org/node/5060622627",
+          "price": "UNKNOWN",
+          "startTime": "11:07",
+          "endTime": "12:07"
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 727,
+          "end": 742,
+          "key": "break-2026-10-26-727",
+          "startTime": "12:07",
+          "endTime": "12:22"
+        },
+        {
+          "type": "food",
+          "key": "node/12207260095",
+          "name": "Concept Bala",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 753,
+          "end": 813,
+          "pos": {
+            "lat": 46.8165252,
+            "lon": -71.2124361
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 960,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 09:00-16:00",
+          "url": "https://www.openstreetmap.org/node/12207260095",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes"
+          },
+          "startTime": "12:33",
+          "endTime": "13:33"
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 813,
+          "end": 1020,
+          "key": "rest-2026-10-26",
+          "startTime": "13:33",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/283264348",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Musée du Fort",
+          "mode": "walk",
+          "km": 0.29,
+          "minutes": 4,
+          "depart": 570,
+          "arrive": 574,
+          "departTime": "09:30",
+          "arriveTime": "09:34"
+        },
+        {
+          "fromKey": "node/283264348",
+          "toKey": "node/5060622627",
+          "fromName": "Musée du Fort",
+          "toName": "Galerie d'art Bel Art Classique",
+          "mode": "walk",
+          "km": 0.21,
+          "minutes": 3,
+          "depart": 664,
+          "arrive": 667,
+          "departTime": "11:04",
+          "arriveTime": "11:07"
+        },
+        {
+          "fromKey": "node/5060622627",
+          "toKey": "node/12207260095",
+          "fromName": "Galerie d'art Bel Art Classique",
+          "toName": "Concept Bala",
+          "mode": "walk",
+          "km": 0.78,
+          "minutes": 11,
+          "depart": 742,
+          "arrive": 753,
+          "departTime": "12:22",
+          "arriveTime": "12:33"
+        },
+        {
+          "fromKey": "node/12207260095",
+          "toKey": "base",
+          "fromName": "Concept Bala",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.47,
+          "minutes": 7,
+          "depart": 1020,
+          "arrive": 1027,
+          "departTime": "17:00",
+          "arriveTime": "17:07"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Monday, October 26 is built around Musée du Fort, with the day's stops gathered close so the walking stays easy.",
+        "Musée du Fort gets the morning's main slot, 09:34 to 11:04 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Musée du Fort — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Musée du Fort, it is a 3-minute walk to Galerie d'art Bel Art Classique — close enough to stroll without watching the clock.",
+        "Galerie d'art Bel Art Classique offers a quieter hour indoors, 11:07–12:07.",
+        "Galerie d'art Bel Art Classique lists its hours as 09:30–17:30 today, and the visit sits comfortably inside them.",
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "Concept Bala is next, just 11 minutes on foot from Galerie d'art Bel Art Classique.",
+        "Lunch is at Concept Bala, 12:33–13:33.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The day winds down back at base by 17:07 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1027
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-27",
+      "role": "ferry",
+      "dayType": "FULL",
+      "envelope": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/130117210",
+          "name": "Lévis",
+          "title": "Ferry crossing (from Lévis)",
+          "kind": "ferry",
+          "role": "mustsee",
+          "start": 592,
+          "end": 667,
+          "pos": {
+            "lat": 46.8106109,
+            "lon": -71.1883369
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/130117210",
+          "price": "UNKNOWN",
+          "startTime": "09:52",
+          "endTime": "11:07"
+        },
+        {
+          "type": "stop",
+          "key": "node/377497852",
+          "name": "Porte Kent",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 694,
+          "end": 754,
+          "pos": {
+            "lat": 46.8119092,
+            "lon": -71.2125626
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/377497852",
+          "price": "UNKNOWN",
+          "startTime": "11:34",
+          "endTime": "12:34"
+        },
+        {
+          "type": "food",
+          "key": "node/2527418383",
+          "name": "Au Bonnet d'Âne",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 767,
+          "end": 827,
+          "pos": {
+            "lat": 46.8085538,
+            "lon": -71.2237941
+          },
+          "hours": {
+            "status": "known",
+            "open": 480,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Su-We 08:00-22:00; Th-Sa 08:00-23:00",
+          "url": "https://www.openstreetmap.org/node/2527418383",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = no",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = no, diet:vegetarian = yes"
+          },
+          "startTime": "12:47",
+          "endTime": "13:47"
+        },
+        {
+          "type": "stop",
+          "key": "way/231402578",
+          "name": "Parc-école Saint-Jean-Baptiste",
+          "kind": "park",
+          "role": "stop",
+          "start": 829,
+          "end": 874,
+          "pos": {
+            "lat": 46.8090002,
+            "lon": -71.2233895
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/231402578",
+          "price": "UNKNOWN",
+          "startTime": "13:49",
+          "endTime": "14:34"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/130117210",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Lévis",
+          "mode": "walk",
+          "km": 1.59,
+          "minutes": 22,
+          "depart": 570,
+          "arrive": 592,
+          "departTime": "09:30",
+          "arriveTime": "09:52"
+        },
+        {
+          "fromKey": "node/130117210",
+          "toKey": "base",
+          "fromName": "Lévis",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 1.59,
+          "minutes": 22,
+          "depart": 667,
+          "arrive": 689,
+          "departTime": "11:07",
+          "arriveTime": "11:29"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "node/377497852",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Porte Kent",
+          "mode": "walk",
+          "km": 0.3,
+          "minutes": 5,
+          "depart": 689,
+          "arrive": 694,
+          "departTime": "11:29",
+          "arriveTime": "11:34"
+        },
+        {
+          "fromKey": "node/377497852",
+          "toKey": "node/2527418383",
+          "fromName": "Porte Kent",
+          "toName": "Au Bonnet d'Âne",
+          "mode": "walk",
+          "km": 0.93,
+          "minutes": 13,
+          "depart": 754,
+          "arrive": 767,
+          "departTime": "12:34",
+          "arriveTime": "12:47"
+        },
+        {
+          "fromKey": "node/2527418383",
+          "toKey": "way/231402578",
+          "fromName": "Au Bonnet d'Âne",
+          "toName": "Parc-école Saint-Jean-Baptiste",
+          "mode": "walk",
+          "km": 0.06,
+          "minutes": 2,
+          "depart": 827,
+          "arrive": 829,
+          "departTime": "13:47",
+          "arriveTime": "13:49"
+        },
+        {
+          "fromKey": "way/231402578",
+          "toKey": "base",
+          "fromName": "Parc-école Saint-Jean-Baptiste",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 1.19,
+          "minutes": 16,
+          "depart": 874,
+          "arrive": 890,
+          "departTime": "14:34",
+          "arriveTime": "14:50"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Tuesday, October 27 is built around Lévis, with the day's stops gathered close so the walking stays easy.",
+        "The ferry crossing is the morning's small adventure: board at Lévis around 09:52 and give the round trip until 11:07. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
+        "Opening hours weren't listed for Lévis — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
+        "Porte Kent fills 11:34–12:34 — long enough to enjoy properly, short enough to keep the day light.",
+        "From Porte Kent, it is a 13-minute walk to Au Bonnet d'Âne — close enough to stroll without watching the clock.",
+        "Lunch is at Au Bonnet d'Âne, 12:47–13:47.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = no, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Parc-école Saint-Jean-Baptiste is next, just 2 minutes on foot from Au Bonnet d'Âne.",
+        "Parc-école Saint-Jean-Baptiste is the day's green pause, 13:49–14:34 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 14:50 — 3 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 890
+    },
+    {
+      "dayNumber": 5,
+      "date": "2026-10-28",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "departure": {
+          "flightMin": 1000,
+          "leaveBaseMin": 870,
+          "packOnEve": false,
+          "emptyMorning": false
+        }
+      },
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/105924769",
+          "name": "Jardins de l'hôtel de ville",
+          "kind": "park",
+          "role": "stop",
+          "start": 572,
+          "end": 617,
+          "pos": {
+            "lat": 46.813818,
+            "lon": -71.2081217
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/105924769",
+          "price": "UNKNOWN",
+          "startTime": "09:32",
+          "endTime": "10:17"
+        },
+        {
+          "type": "stop",
+          "key": "way/307982447",
+          "name": "Parc Couillard",
+          "kind": "park",
+          "role": "stop",
+          "start": 620,
+          "end": 665,
+          "pos": {
+            "lat": 46.8152374,
+            "lon": -71.2074139
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/307982447",
+          "price": "UNKNOWN",
+          "startTime": "10:20",
+          "endTime": "11:05"
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 665,
+          "end": 680,
+          "key": "break-2026-10-28-665",
+          "startTime": "11:05",
+          "endTime": "11:20"
+        },
+        {
+          "type": "food",
+          "key": "node/4231914032",
+          "name": "Les Trois Garçons",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 740,
+          "end": 800,
+          "pos": {
+            "lat": 46.8138271,
+            "lon": -71.2111733
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/4231914032",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:20",
+          "endTime": "13:20"
+        },
+        {
+          "type": "pack",
+          "part": "pack",
+          "title": "Pack up — close the bags, check the room",
+          "start": 810,
+          "end": 855,
+          "key": "pack-2026-10-28",
+          "sub": "protected time: nothing is scheduled against it",
+          "pos": null,
+          "startTime": "13:30",
+          "endTime": "14:15"
+        },
+        {
+          "type": "checkout",
+          "part": "checkout",
+          "title": "Check out",
+          "start": 855,
+          "end": 870,
+          "key": "checkout-2026-10-28",
+          "sub": null,
+          "pos": null,
+          "startTime": "14:15",
+          "endTime": "14:30"
+        },
+        {
+          "type": "transfer",
+          "part": "transfer",
+          "title": "Transfer to the airport",
+          "start": 870,
+          "end": 910,
+          "key": "transfer-2026-10-28",
+          "sub": "leaves 14:30 for a 16:40 flight — 40 min transfer + 90 min buffer, never cut",
+          "pos": null,
+          "startTime": "14:30",
+          "endTime": "15:10"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/105924769",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Jardins de l'hôtel de ville",
+          "mode": "walk",
+          "km": 0.11,
+          "minutes": 2,
+          "depart": 570,
+          "arrive": 572,
+          "departTime": "09:30",
+          "arriveTime": "09:32"
+        },
+        {
+          "fromKey": "way/105924769",
+          "toKey": "way/307982447",
+          "fromName": "Jardins de l'hôtel de ville",
+          "toName": "Parc Couillard",
+          "mode": "walk",
+          "km": 0.17,
+          "minutes": 3,
+          "depart": 617,
+          "arrive": 620,
+          "departTime": "10:17",
+          "arriveTime": "10:20"
+        },
+        {
+          "fromKey": "way/307982447",
+          "toKey": "node/4231914032",
+          "fromName": "Parc Couillard",
+          "toName": "Les Trois Garçons",
+          "mode": "walk",
+          "km": 0.33,
+          "minutes": 5,
+          "depart": 735,
+          "arrive": 740,
+          "departTime": "12:15",
+          "arriveTime": "12:20"
+        },
+        {
+          "fromKey": "node/4231914032",
+          "toKey": "base",
+          "fromName": "Les Trois Garçons",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.19,
+          "minutes": 3,
+          "depart": 800,
+          "arrive": 803,
+          "departTime": "13:20",
+          "arriveTime": "13:23"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Wednesday, October 28 is the last day, and the plan bends around the 16:40 flight: gentle things first, the bags packed in good time, and out of the hotel at 14:30.",
+        "A last stroll at Jardins de l'hôtel de ville, 09:32–10:17 — the trip ends the way it should: unhurried.",
+        "Opening hours weren't listed for Jardins de l'hôtel de ville — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Jardins de l'hôtel de ville, it is a 3-minute walk to Parc Couillard — close enough to stroll without watching the clock.",
+        "Parc Couillard is the day's green pause, 10:20–11:05 — no tickets, no timetable to chase.",
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "Les Trois Garçons is next, just 5 minutes on foot from Parc Couillard.",
+        "Lunch is at Les Trois Garçons, 12:20–13:20.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Pack-up is protected time, 13:30–14:15: close the bags, check the room twice — nothing is scheduled against it."
+      ],
+      "endMin": 910
+    }
+  ]
+}

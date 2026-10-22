@@ -1,0 +1,22 @@
+{
+  "poolId": "halifax-coastal",
+  "timingsMs": {
+    "pack": 14,
+    "solve": 8,
+    "total": 56
+  },
+  "packFromCache": true,
+  "networkFetchesThisRun": 1,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 21,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

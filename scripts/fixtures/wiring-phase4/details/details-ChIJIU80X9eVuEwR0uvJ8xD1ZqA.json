@@ -1,0 +1,283 @@
+{
+  "id": "ChIJIU80X9eVuEwR0uvJ8xD1ZqA",
+  "rating": 4.4,
+  "regularOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 0,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 1,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 1,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 2,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 2,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 3,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 4,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 5,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 6,
+          "hour": 9,
+          "minute": 0
+        },
+        "close": {
+          "day": 6,
+          "hour": 17,
+          "minute": 0
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: 9:00 AM – 5:00 PM",
+      "Tuesday: 9:00 AM – 5:00 PM",
+      "Wednesday: 9:00 AM – 5:00 PM",
+      "Thursday: 9:00 AM – 5:00 PM",
+      "Friday: 9:00 AM – 5:00 PM",
+      "Saturday: 9:00 AM – 5:00 PM",
+      "Sunday: 9:00 AM – 5:00 PM"
+    ],
+    "nextCloseTime": "2026-10-21T21:00:00Z"
+  },
+  "businessStatus": "OPERATIONAL",
+  "userRatingCount": 1627,
+  "displayName": {
+    "text": "The Plains of Abraham Museum",
+    "languageCode": "en"
+  },
+  "currentOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 25
+          }
+        },
+        "close": {
+          "day": 0,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 25
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 1,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 26
+          }
+        },
+        "close": {
+          "day": 1,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 26
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 2,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 27
+          }
+        },
+        "close": {
+          "day": 2,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 27
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        },
+        "close": {
+          "day": 3,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 22
+          }
+        },
+        "close": {
+          "day": 4,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 22
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 23
+          }
+        },
+        "close": {
+          "day": 5,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 23
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 6,
+          "hour": 9,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          }
+        },
+        "close": {
+          "day": 6,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          }
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: 9:00 AM – 5:00 PM",
+      "Tuesday: 9:00 AM – 5:00 PM",
+      "Wednesday: 9:00 AM – 5:00 PM",
+      "Thursday: 9:00 AM – 5:00 PM",
+      "Friday: 9:00 AM – 5:00 PM",
+      "Saturday: 9:00 AM – 5:00 PM",
+      "Sunday: 9:00 AM – 5:00 PM"
+    ],
+    "nextCloseTime": "2026-10-21T21:00:00Z"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleParking": true,
+    "wheelchairAccessibleEntrance": true,
+    "wheelchairAccessibleRestroom": true
+  }
+}

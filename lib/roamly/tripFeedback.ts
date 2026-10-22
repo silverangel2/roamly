@@ -2,6 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { TRAVELER_PREFERENCE_KEYS, type TravelerPreferenceKey } from "@/lib/roamly/travelerMemory";
 import { buildSuccessfulTripExperienceContext, type SuccessfulTripExperienceContext } from "@/lib/roamly/successfulTripExperience";
 import { isCanonicalCompletedTrip } from "@/lib/roamly/tripCompletion";
+import { build2LifecycleEnabled, build2PostTripEnabled } from "@/lib/roamly/build2Flags";
+import type { PostTripSeamResult } from "@/lib/roamly/libraryIngest";
+import type { FeedbackLifecycleResult } from "@/lib/roamly/tripLifecycle";
 
 export type TripFeedbackType = "post_trip" | "in_trip";
 
@@ -311,10 +314,62 @@ export async function submitTripFeedback(params: {
     }
   }
 
+  // Build 2 post-trip ingest seam (Phase 10): behind its flag, a
+  // post-trip feedback save runs the outstanding + verified-as-lived
+  // gate against the trip's as-lived record. The seam never fails
+  // the feedback save — its outcome rides along as data.
+  let postTripIngest: PostTripSeamResult | null = null;
+  if (feedback.feedback_type === "post_trip" && build2PostTripEnabled()) {
+    try {
+      const { maybeIngestCompletedTrip } = await import("@/lib/roamly/libraryIngest");
+      postTripIngest = await maybeIngestCompletedTrip({
+        supabase: params.supabase,
+        userId: params.userId,
+        tripId: params.tripId,
+        overallRating: feedback.overall_satisfaction,
+        wouldUseRoamlyAgain: feedback.would_use_roamly_again
+      });
+    } catch {
+      postTripIngest = null;
+    }
+  }
+
+  // Build 2 lifecycle seam (Phase 11): behind its flag, a post-trip
+  // feedback save IS the review submission — record Phase 10's
+  // ingest decision into the M4 history (its durable home) and close
+  // + archive the trip (reason: review-submitted). Fail-soft exactly
+  // like the Phase 10 seam above: the outcome rides along as data
+  // and can never fail the feedback save.
+  let lifecycleClose: FeedbackLifecycleResult | null = null;
+  if (feedback.feedback_type === "post_trip" && build2LifecycleEnabled()) {
+    try {
+      const { createLifecycleDeps, recordFeedbackReviewSubmission } =
+        await import("@/lib/roamly/tripLifecycle");
+      lifecycleClose = await recordFeedbackReviewSubmission(
+        createLifecycleDeps(params.supabase),
+        {
+          tripId: params.tripId,
+          decision:
+            postTripIngest && postTripIngest.status === "evaluated"
+              ? {
+                  eligible: postTripIngest.decision.eligible,
+                  ingested: postTripIngest.ingested
+                }
+              : null,
+          now: new Date().toISOString()
+        }
+      );
+    } catch {
+      lifecycleClose = null;
+    }
+  }
+
   return {
     ok: true as const,
     feedback,
     proposedPreferences: proposals,
+    postTripIngest,
+    lifecycleClose,
     message: proposals.length ? "Here is what Roamly learned from your trip." : "Feedback saved."
   };
 }

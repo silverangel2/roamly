@@ -1,0 +1,142 @@
+{
+  "grades": [
+    {
+      "leg": "request:earliest-start",
+      "status": "DONE",
+      "detail": "all 6 timed items start at or after 09:00"
+    },
+    {
+      "leg": "request:rest-block",
+      "status": "DONE",
+      "detail": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:17–17:00)"
+    },
+    {
+      "leg": "request:keyword-boat-tour",
+      "status": "VIOLATED",
+      "detail": "nothing in the itinerary matches Western Brook Pond boat tour"
+    },
+    {
+      "leg": "request:keyword-lighthouse",
+      "status": "DONE",
+      "detail": "itinerary mentions \"lighthouse\" (Lobster Cove lighthouse)"
+    },
+    {
+      "leg": "request:no-repeat",
+      "status": "DONE",
+      "detail": "no place is scheduled twice across the trip"
+    },
+    {
+      "leg": "request:dietary",
+      "status": "UNVERIFIABLE",
+      "detail": "0 of 4 lunches carry explicit dietary tags in the data (vegetarian, shellfish)"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "UNVERIFIABLE",
+      "detail": "open data carries no prices: a cap of 1000 cannot be totaled or checked — never faked as met"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "no hard violations; arithmetic, grounding, and hours all cohere"
+    },
+    {
+      "leg": "prices:budget",
+      "status": "DONE",
+      "detail": "WITHIN — evidence covers 6/8 all-in scope lines (75%): 6 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 136–328 vs cap CAD 1000; tiers {\"COSTED\":6}"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "NOT DONE",
+      "detail": "Western Brook Pond boat tour: unmet; Lobster Cove lighthouse: scheduled (day 2)"
+    },
+    {
+      "leg": "engine:extractor-agreement",
+      "status": "DONE",
+      "detail": "earliest-start: agree; rest-type: agree; budget: agree; dietary: agree; place-items-count: agree"
+    }
+  ],
+  "agreement": [
+    {
+      "id": "earliest-start",
+      "extracted": "\"09:00\"",
+      "truth": "\"09:00\"",
+      "agree": true
+    },
+    {
+      "id": "rest-type",
+      "extracted": "\"afternoon\"",
+      "truth": "\"afternoon\"",
+      "agree": true
+    },
+    {
+      "id": "budget",
+      "extracted": "1000",
+      "truth": "1000",
+      "agree": true
+    },
+    {
+      "id": "dietary",
+      "extracted": "[\"shellfish\",\"vegetarian\"]",
+      "truth": "[\"shellfish\",\"vegetarian\"]",
+      "agree": true
+    },
+    {
+      "id": "place-items-count",
+      "extracted": "2",
+      "truth": "2",
+      "agree": true
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 6 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:17–17:00)"
+    },
+    {
+      "id": "keyword-boat-tour",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches Western Brook Pond boat tour"
+    },
+    {
+      "id": "keyword-lighthouse",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"lighthouse\" (Lobster Cove lighthouse)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "0 of 4 lunches carry explicit dietary tags in the data (vegetarian, shellfish)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1000 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Gros Morne Wildlife Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Oceans\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"SunSet Café\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "unresolved": [
+    "must-see unmet: Western Brook Pond boat tour — no matching candidate exists in the open data for this destination",
+    "opening hours: 3 of 6 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap WITHIN on labeled evidence (coverage 6/6 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "grades": [
+    {
+      "leg": "pacing:calendar-shape",
+      "status": "DONE",
+      "detail": "12 days = Quebec City 6 based days + MOVE day 7 + Halifax 5 based days; no base under 2 nights; types: FULL, FULL, FULL, OPEN, FULL, FULL, MOVE, LIGHT, FULL, FULL, FULL, FULL"
+    },
+    {
+      "leg": "pacing:arrival-day-capped",
+      "status": "DONE",
+      "detail": "day 8, the first day in Halifax, is LIGHT (at most LIGHT after a move)"
+    },
+    {
+      "leg": "traveldays:move-day",
+      "status": "DONE",
+      "detail": "transfer block 09:30–16:30 Quebec City → Halifax; 1 light stop after arrival: \"Royal Artillery Park\" 16:33–17:03, 0.16 km from the Halifax base"
+    },
+    {
+      "leg": "pacing:segment-mustsees",
+      "status": "DONE",
+      "detail": "Quebec: ferry ride to Levis=scheduled, Montmorency Falls trip=scheduled · Halifax: one harbour ferry ride=scheduled, maritime museum visit=scheduled"
+    },
+    {
+      "leg": "judges:make-sense-segments",
+      "status": "DONE",
+      "detail": "Quebec segment PASS; Halifax segment PASS. The MOVE day is graded by the travel-days leg above — the judges' grounding rule predates move items (a 'move' exemption, like 'rest', is the production integration note)."
+    }
+  ]
+}

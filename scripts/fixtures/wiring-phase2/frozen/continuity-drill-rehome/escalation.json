@@ -1,0 +1,65 @@
+{
+  "scenario": "rain strikes day 9 (the last FULL day the effective arc leaves standing); no later FULL day exists",
+  "baselineHome": {
+    "id": "keyword-cartier",
+    "label": "Cartier-Brébeuf historic site visit",
+    "status": "scheduled",
+    "day": 9,
+    "item": "Lieu historique national Cartier-Brébeuf"
+  },
+  "ledger": [
+    {
+      "id": "ms:keyword-falls",
+      "label": "Montmorency Falls trip",
+      "kind": "must-see",
+      "itemKey": "node/1199354691",
+      "itemName": "Chute Montmorency",
+      "homeDay": 2,
+      "status": "kept"
+    },
+    {
+      "id": "ms:keyword-ferry",
+      "label": "ferry ride to Levis",
+      "kind": "must-see",
+      "itemKey": "node/130117210",
+      "itemName": "Lévis",
+      "homeDay": 4,
+      "status": "kept"
+    },
+    {
+      "id": "ms:keyword-cartier",
+      "label": "Cartier-Brébeuf historic site visit",
+      "kind": "must-see",
+      "itemKey": "way/223306278",
+      "itemName": "Lieu historique national Cartier-Brébeuf",
+      "homeDay": 9,
+      "status": "unresolved",
+      "reason": "rain closed day 9 for it (92% forecast); every later day is LIGHT, OPEN, or REST in the effective arc (the landing demotion took day 11) — no day can hold it, so it is escalated to the traveler as an explicit unresolved commitment instead of being silently dropped",
+      "escalated": true
+    }
+  ],
+  "continuityVerdict": {
+    "pass": false,
+    "hardViolations": [
+      "commitment \"Cartier-Brébeuf historic site visit\" (day 9) is UNRESOLVED: rain closed day 9 for it (92% forecast); every later day is LIGHT, OPEN, or REST in the effective arc (the landing demotion took day 11) — no day can hold it, so it is escalated to the traveler as an explicit unresolved commitment instead of being silently dropped"
+    ],
+    "warnings": [],
+    "checks": [
+      {
+        "leg": "continuity:commitment-ledger",
+        "status": "NOT DONE",
+        "detail": "3 commitments tracked — 2 kept on their home day, 0 rehomed with the move recorded, 0 unmet-and-reported at solve time, 1 unresolved"
+      },
+      {
+        "leg": "continuity:trip-arc",
+        "status": "DONE",
+        "detail": "settle day 1 · peak day 2 · land day 14 · adjustments: day 11 FULL->LIGHT"
+      },
+      {
+        "leg": "continuity:narrative-memory",
+        "status": "UNVERIFIABLE",
+        "detail": "narrative-memory pass not run on this trip (informational) — the ledger and arc legs above still bind"
+      }
+    ]
+  }
+}

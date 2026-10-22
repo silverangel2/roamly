@@ -1,0 +1,69 @@
+{
+  "id": "ChIJQfkQK9-VuEwRrGaXocG1D7s",
+  "rating": 4.4,
+  "regularOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 0,
+          "minute": 0
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: Open 24 hours",
+      "Tuesday: Open 24 hours",
+      "Wednesday: Open 24 hours",
+      "Thursday: Open 24 hours",
+      "Friday: Open 24 hours",
+      "Saturday: Open 24 hours",
+      "Sunday: Open 24 hours"
+    ]
+  },
+  "businessStatus": "OPERATIONAL",
+  "userRatingCount": 52,
+  "displayName": {
+    "text": "Kent Gate",
+    "languageCode": "en"
+  },
+  "currentOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 3,
+          "hour": 0,
+          "minute": 0,
+          "truncated": true,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        },
+        "close": {
+          "day": 2,
+          "hour": 23,
+          "minute": 59,
+          "truncated": true,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 27
+          }
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: Open 24 hours",
+      "Tuesday: Open 24 hours",
+      "Wednesday: Open 24 hours",
+      "Thursday: Open 24 hours",
+      "Friday: Open 24 hours",
+      "Saturday: Open 24 hours",
+      "Sunday: Open 24 hours"
+    ]
+  }
+}

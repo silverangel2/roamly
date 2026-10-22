@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ6wtvD9yVuEwReRilUWoTIOA",
+      "formattedAddress": "44 Rue Saint-Louis, Québec, QC G1R 3Z1, Canada",
+      "location": {
+        "latitude": 46.811563,
+        "longitude": -71.207756
+      },
+      "displayName": {
+        "text": "Polina Pizzeria",
+        "languageCode": "fr"
+      }
+    }
+  ]
+}

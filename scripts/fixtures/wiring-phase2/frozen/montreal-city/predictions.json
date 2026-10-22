@@ -1,0 +1,286 @@
+{
+  "recordedAt": "2026-10-21T20:55:42.484Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "LOV",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Resto Végo",
+      "day": 2,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Lola Rosa",
+      "day": 3,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Ütea",
+      "day": 4,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Bloom Sushi",
+      "day": 5,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "L'Original",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Square des Frères-Charon",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Sir George-Étienne Cartier NHS",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Parc Toussaint-Louverture",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Élément du mur de Berlin",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Galerie 203",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Galerie de Chine",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Square Dorchester",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "Bouche de métro Guimard",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "Galerie 2000",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "Le Parterre",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "L'Original",
+      "risk": "tight turnaround — only 4 min after \"Galerie D'Art Inuit Images Boréales\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+      "risk": "tight turnaround — only 4 min after \"LOV\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Square des Frères-Charon",
+      "risk": "tight turnaround — only 4 min after \"Musée du marché Sainte-Anne et du parlement de la province du Canada\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Galerie Peter W. Hart",
+      "risk": "tight turnaround — only 3 min after \"Sir George-Étienne Cartier NHS\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Centre de design de l'UQAM",
+      "risk": "tight turnaround — only 5 min after \"Resto Végo\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Parc Toussaint-Louverture",
+      "risk": "tight turnaround — only 3 min after \"Centre de design de l'UQAM\"",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Galerie 203",
+      "risk": "tight turnaround — only 4 min after \"Élément du mur de Berlin\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Barbie Expo",
+      "risk": "tight turnaround — only 5 min after \"Ütea\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Square Dorchester",
+      "risk": "tight turnaround — only 4 min after \"Barbie Expo\"",
+      "severity": "low"
+    },
+    {
+      "day": 5,
+      "item": "Galerie 2000",
+      "risk": "tight turnaround — only 6 min after \"Bouche de métro Guimard\"",
+      "severity": "low"
+    },
+    {
+      "day": 5,
+      "item": "Musée d'Art Contemporain (MAC)",
+      "risk": "tight turnaround — only 2 min after \"Bloom Sushi\"",
+      "severity": "low"
+    },
+    {
+      "day": 5,
+      "item": "Le Parterre",
+      "risk": "tight turnaround — only 4 min after \"Musée d'Art Contemporain (MAC)\"",
+      "severity": "low"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "AT RISK",
+    "note": "the estimated range (CAD 642–1506) straddles the cap (CAD 1300)",
+    "cap": {
+      "amount": 1300,
+      "currency": "CAD",
+      "verdict": "AT RISK — the estimated range (CAD 642–1506) straddles the cap (CAD 1300) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.9,
+    "coverageThreshold": 0.5,
+    "pricedItems": 19,
+    "evidencedItems": 19,
+    "evidenceByTier": {
+      "COSTED": 19
+    },
+    "estimatedTotals": {
+      "low": 642,
+      "high": 1506,
+      "currency": "CAD"
+    },
+    "payingParty": 3,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: not evidenced — excluded from the totals, never counted as zero; getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 0,
+    "bandDistribution": {},
+    "bandSource": null,
+    "scopeLines": 21,
+    "evidencedScopeLines": 19,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Hôtel Place d'Armes",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no price evidence for the stay — no booked price, no library price, no recorded price band. Named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": 4
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 5,
+      "walkingKmEstimated": 2.25,
+      "lastEnd": "15:54"
+    },
+    {
+      "day": 2,
+      "stops": 5,
+      "walkingKmEstimated": 3.7,
+      "lastEnd": "16:08"
+    },
+    {
+      "day": 3,
+      "stops": 3,
+      "walkingKmEstimated": 2.13,
+      "lastEnd": "17:03"
+    },
+    {
+      "day": 4,
+      "stops": 5,
+      "walkingKmEstimated": 3.46,
+      "lastEnd": "16:06"
+    },
+    {
+      "day": 5,
+      "stops": 5,
+      "walkingKmEstimated": 2.59,
+      "lastEnd": "15:54"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJvRD8EN2VuEwR8nWGEO8vRNI",
+      "formattedAddress": "43 Rue Saint-Pierre, Québec, QC G1K 3Z7, Canada",
+      "location": {
+        "latitude": 46.8135395,
+        "longitude": -71.2026771
+      },
+      "displayName": {
+        "text": "UNESCO Park",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

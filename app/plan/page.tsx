@@ -5,6 +5,7 @@ import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
 
 export const metadata: Metadata = {
   title: "Plan a Trip by Budget — AI Itinerary Planner",
@@ -42,7 +43,7 @@ export default async function PlanPage() {
         <header className="mb-4">
           <h1 className="text-sm font-semibold text-[#526b6c]">Plan a trip</h1>
         </header>
-        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} />
+        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} build2GatesEnabled={build2GatesEnabled()} />
       </div>
     </div>
   );

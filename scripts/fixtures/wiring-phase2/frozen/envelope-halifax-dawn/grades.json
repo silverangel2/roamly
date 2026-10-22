@@ -1,0 +1,24 @@
+{
+  "grades": [
+    {
+      "leg": "envelope:assumed-checkin-labeled",
+      "status": "DONE",
+      "detail": "no hotel data in the scenario → check-in 15:00 carried as: assumed — conservative 15:00 default; no hotel data in the open sources, and an earlier room is never invented"
+    },
+    {
+      "leg": "envelope:dawn-departure",
+      "status": "DONE",
+      "detail": "flight 07:45: last morning holds only Check out + Transfer to the airport; pack-up sits on day 3 at 19:30–20:15 with a wind-down envelope (yes)"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "pass, 7 warnings"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "DONE",
+      "detail": "one harbour ferry ride: scheduled (day 2); maritime museum visit: scheduled (day 2)"
+    }
+  ]
+}

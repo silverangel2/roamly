@@ -1,0 +1,291 @@
+{
+  "handoverVersion": 1,
+  "producedBy": "zero-token engine (shadow) — continuity layer",
+  "tripRef": "continuity-quebec-14d",
+  "travelerRef": "profile:quebec-city-family (pool identity — production uses the account id)",
+  "destination": "Quebec City",
+  "completedDays": 14,
+  "gradedPredictions": {
+    "gradingStatus": "pending — no post-trip outcomes recorded yet; LEARN grades only against recorded outcomes (the evidence rule), so nothing here is marked learned",
+    "predictionsRef": "trips/continuity-quebec-14d/itinerary.json (predictions are rebuilt per run; the graded record travels with the trip)",
+    "topHighlights": [
+      {
+        "name": "Hortus Bistro",
+        "day": 2,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Chute Montmorency",
+        "day": 2,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "Concept Bala",
+        "day": 3,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Lévis",
+        "day": 4,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "Au Bonnet d'Âne",
+        "day": 4,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      }
+    ],
+    "risksRecorded": 38
+  },
+  "favorites": [
+    {
+      "itemKey": "way/240740525",
+      "name": "Parc de l'Unesco",
+      "kind": "park",
+      "visits": 2,
+      "days": [
+        1,
+        12
+      ],
+      "repeatGapDays": 11
+    }
+  ],
+  "learnedTempo": {
+    "source": "the pacing calendar this trip actually ran + the party profile from its spec",
+    "effectiveDayTypes": [
+      "FULL",
+      "FULL",
+      "LIGHT",
+      "FULL",
+      "LIGHT",
+      "OPEN",
+      "REST",
+      "FULL",
+      "FULL",
+      "LIGHT",
+      "LIGHT",
+      "LIGHT",
+      "OPEN",
+      "REST"
+    ],
+    "arc": {
+      "settleDay": 1,
+      "peakDay": 2,
+      "landDay": 14
+    },
+    "partyProfile": {
+      "labels": [
+        "children aged 6 and 9"
+      ],
+      "walkBudgetKm": {
+        "FULL": 5.5,
+        "LIGHT": 3
+      },
+      "breakEveryMin": 120,
+      "maxActivityMin": 390,
+      "energyBurn": true
+    },
+    "note": "a tempo is learned only when outcomes confirm it; until then this is the tempo the plan USED, labeled as such"
+  },
+  "dietaryProofs": [
+    {
+      "item": "Don Vegan",
+      "tripDay": 1,
+      "evidence": "diet:vegan = only, diet:vegetarian = yes",
+      "scope": "same destination pack (Quebec City family trip)"
+    },
+    {
+      "item": "Polina",
+      "tripDay": 2,
+      "evidence": "diet:vegetarian = yes",
+      "scope": "same destination pack (Quebec City family trip)"
+    },
+    {
+      "item": "Hortus Bistro",
+      "tripDay": 3,
+      "evidence": "diet:vegetarian = yes",
+      "scope": "same destination pack (Quebec City family trip)"
+    },
+    {
+      "item": "Au Bonnet d'Âne",
+      "tripDay": 4,
+      "evidence": "diet:vegan = no, diet:vegetarian = yes",
+      "scope": "same destination pack (Quebec City family trip)"
+    },
+    {
+      "item": "Concept Bala",
+      "tripDay": 5,
+      "evidence": "diet:vegan = yes",
+      "scope": "same destination pack (Quebec City family trip)"
+    }
+  ],
+  "commitmentsKept": [
+    {
+      "label": "Montmorency Falls trip",
+      "homeDay": 2
+    },
+    {
+      "label": "ferry ride to Levis",
+      "homeDay": 4
+    }
+  ],
+  "learnedBehavior": {
+    "purpose": "the inputs the future ANTICIPATION engine reads (schema only in this pass — the engine itself is not built)",
+    "provenanceRule": "every field is one of: plan-derived-prior (computed from this plan), observed (written by LEARN only from recorded outcomes), or a flagged synthetic example. Nothing synthetic may ever be read as learned.",
+    "dwellMultipliersByKind": {
+      "provenance": "plan-derived-prior",
+      "note": "planned dwell vs the engine baseline per kind; LEARN replaces planDerivedMultiplier with observedMultiplier (actual minutes / planned minutes) after a real trip",
+      "byKind": {
+        "museum": {
+          "plannedMeanMin": 90,
+          "baselineMin": 90,
+          "planDerivedMultiplier": 1,
+          "observedMultiplier": null
+        },
+        "gallery": {
+          "plannedMeanMin": 60,
+          "baselineMin": 60,
+          "planDerivedMultiplier": 1,
+          "observedMultiplier": null
+        },
+        "park": {
+          "plannedMeanMin": 45,
+          "baselineMin": 45,
+          "planDerivedMultiplier": 1,
+          "observedMultiplier": null
+        },
+        "falls": {
+          "plannedMeanMin": 90,
+          "baselineMin": 90,
+          "planDerivedMultiplier": 1,
+          "observedMultiplier": null
+        },
+        "ferry": {
+          "plannedMeanMin": 75,
+          "baselineMin": 75,
+          "planDerivedMultiplier": 1,
+          "observedMultiplier": null
+        },
+        "attraction": {
+          "plannedMeanMin": 60,
+          "baselineMin": 60,
+          "planDerivedMultiplier": 1,
+          "observedMultiplier": null
+        }
+      }
+    },
+    "paceSignature": {
+      "observed": null,
+      "fields": {
+        "medianOffsetMin": "median minutes the traveler actually started items vs plan (negative = runs ahead)",
+        "byPartOfDay": {
+          "morning": "offset for items starting before 12:00",
+          "afternoon": "12:00–17:00",
+          "evening": "after 17:00"
+        },
+        "trend": "runs-ahead | on-time | runs-behind | insufficient-data"
+      },
+      "syntheticExample": {
+        "provenance": "SYNTHETIC-ILLUSTRATIVE — no post-trip outcomes recorded for this shadow trip; shape only, never learned fact",
+        "medianOffsetMin": -11,
+        "byPartOfDay": {
+          "morning": -16,
+          "afternoon": -6,
+          "evening": 3
+        },
+        "trend": "runs-ahead"
+      }
+    },
+    "hungerCadence": {
+      "plannedLunchStartMin": [
+        740,
+        742,
+        743,
+        769,
+        749
+      ],
+      "plannedNote": "lunch anchors are solver law (placed ~12:15–13:00, protected); the observed gap is what LEARN measures against them",
+      "observedGapMin": null,
+      "fields": {
+        "observedGapMin": "median actual minutes between waking/meal anchors and the next meal actually taken"
+      },
+      "syntheticExample": {
+        "provenance": "SYNTHETIC-ILLUSTRATIVE — no post-trip outcomes recorded for this shadow trip; shape only, never learned fact",
+        "observedGapMin": 268
+      }
+    },
+    "restCadence": {
+      "plannedMin": 120,
+      "observedMin": null,
+      "fields": {
+        "observedMin": "median actual minutes of activity between pauses the traveler actually took"
+      },
+      "syntheticExample": {
+        "provenance": "SYNTHETIC-ILLUSTRATIVE — no post-trip outcomes recorded for this shadow trip; shape only, never learned fact",
+        "observedMin": 141
+      }
+    },
+    "skipPatterns": {
+      "observed": [],
+      "fields": {
+        "kind": "place kind",
+        "offered": "times planned",
+        "skipped": "times the traveler dropped it",
+        "rate": "skipped/offered — anticipation down-weights kinds above ~0.5"
+      },
+      "syntheticExample": {
+        "provenance": "SYNTHETIC-ILLUSTRATIVE — no post-trip outcomes recorded for this shadow trip; shape only, never learned fact",
+        "entries": [
+          {
+            "kind": "gallery",
+            "offered": 4,
+            "skipped": 3,
+            "rate": 0.75
+          },
+          {
+            "kind": "museum",
+            "offered": 5,
+            "skipped": 1,
+            "rate": 0.2
+          }
+        ]
+      }
+    },
+    "arrivalTendency": {
+      "observed": null,
+      "fields": {
+        "medianMinVsAnchor": "median minutes actual arrival vs the planned anchor (check-in, reservations)",
+        "direction": "early | late | on-time | insufficient-data"
+      },
+      "syntheticExample": {
+        "provenance": "SYNTHETIC-ILLUSTRATIVE — no post-trip outcomes recorded for this shadow trip; shape only, never learned fact",
+        "medianMinVsAnchor": -9,
+        "direction": "early"
+      }
+    },
+    "sampleSizes": {
+      "days": 14,
+      "stops": 25,
+      "meals": 9,
+      "observedEvents": 0
+    }
+  }
+}

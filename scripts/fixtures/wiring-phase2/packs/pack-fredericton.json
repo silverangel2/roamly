@@ -1,0 +1,2589 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "cache/pack-fredericton.json"
+      ],
+      "note": "Cached destination pack as the solver consumes it; the collectors' `sources` provenance block is dropped (collector bookkeeping, not solver input)."
+    }
+  },
+  "data": {
+    "destination": "Fredericton",
+    "country": "Canada",
+    "center": {
+      "lat": 45.9636,
+      "lon": -66.6431
+    },
+    "startIso": "2026-10-22",
+    "endIso": "2026-10-26",
+    "generatedAt": "2026-10-21T20:03:44.296Z",
+    "counts": {
+      "total": 176,
+      "sights": 72,
+      "foods": 94,
+      "stays": 6,
+      "transport": 4
+    },
+    "stays": [
+      {
+        "key": "node/411224168",
+        "name": "Delta Fredericton",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 45.9648746,
+          "lon": -66.6625175
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/411224168"
+      },
+      {
+        "key": "node/412196446",
+        "name": "Best Western",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 45.9449942,
+          "lon": -66.680472
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Best Western"
+        },
+        "url": "https://www.openstreetmap.org/node/412196446"
+      },
+      {
+        "key": "node/1159797045",
+        "name": "Skyline Motel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 45.9368536,
+          "lon": -66.6335186
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1159797045"
+      },
+      {
+        "key": "node/12752962631",
+        "name": "Fort Nashwaak Motel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 45.9534261,
+          "lon": -66.6223907
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/12752962631"
+      },
+      {
+        "key": "node/13283006091",
+        "name": "Micro Boutique Fredericton",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 45.9421688,
+          "lon": -66.6331352
+        },
+        "hoursRaw": "Mo-Fr 09:00-17:00",
+        "tags": {
+          "website": "https://www.microboutique.com/fredericton-long-term-rental/"
+        },
+        "url": "https://www.openstreetmap.org/node/13283006091"
+      },
+      {
+        "key": "node/13742987101",
+        "name": "Meow Manor Cat Motel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 45.9402721,
+          "lon": -66.6331199
+        },
+        "hoursRaw": "Mo-Su 08:00-21:00",
+        "tags": {
+          "website": "https://meowmanorcat.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/13742987101"
+      }
+    ],
+    "sights": [
+      {
+        "key": "node/5420485335",
+        "name": "School Days Museum",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 45.963283,
+          "lon": -66.6419017
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://museum.nbta.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/5420485335"
+      },
+      {
+        "key": "node/6434257596",
+        "name": "Gallery 78",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 45.958687,
+          "lon": -66.6349701
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6434257596"
+      },
+      {
+        "key": "node/6549924695",
+        "name": "Wolastoq Boat Tours",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 45.9621542,
+          "lon": -66.6367773
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Wolastoq Boat Tours",
+          "website": "http://wolastoqboattours.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/6549924695"
+      },
+      {
+        "key": "node/6653505420",
+        "name": "The Cultural Market",
+        "nameEn": null,
+        "kind": "market",
+        "pos": {
+          "lat": 45.9613749,
+          "lon": -66.6560051
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6653505420"
+      },
+      {
+        "key": "node/13054316535",
+        "name": "Gallery on Queen",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 45.9628007,
+          "lon": -66.6430235
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/13054316535"
+      },
+      {
+        "key": "node/13783627757",
+        "name": "Quartermain Earth Science Centre",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 45.9481625,
+          "lon": -66.6423
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "no",
+          "operator": "University of New Brunswick"
+        },
+        "url": "https://www.openstreetmap.org/node/13783627757"
+      },
+      {
+        "key": "way/19797834",
+        "name": "Parc Odell Park",
+        "nameEn": "Odell Park",
+        "kind": "park",
+        "pos": {
+          "lat": 45.953,
+          "lon": -66.6706094
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "City of Fredericton"
+        },
+        "url": "https://www.openstreetmap.org/way/19797834"
+      },
+      {
+        "key": "way/34938840",
+        "name": "Royal Road Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9859745,
+          "lon": -66.6664633
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/34938840"
+      },
+      {
+        "key": "way/34938999",
+        "name": "Carleton Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9605502,
+          "lon": -66.6258285
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/34938999"
+      },
+      {
+        "key": "way/34939666",
+        "name": "Queens Square",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9533777,
+          "lon": -66.6408086
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/34939666"
+      },
+      {
+        "key": "way/34962109",
+        "name": "Henry Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9642994,
+          "lon": -66.6213635
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/34962109"
+      },
+      {
+        "key": "way/34964091",
+        "name": "Beaverbrook Art Gallery",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 45.9598988,
+          "lon": -66.6356138
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "yes",
+          "website": "https://www.beaverbrookartgallery.org/"
+        },
+        "url": "https://www.openstreetmap.org/way/34964091"
+      },
+      {
+        "key": "way/35022422",
+        "name": "Officers' Square",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9618651,
+          "lon": -66.6389938
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/35022422"
+      },
+      {
+        "key": "way/35022544",
+        "name": "Boyce Farmers Market",
+        "nameEn": null,
+        "kind": "market",
+        "pos": {
+          "lat": 45.9581876,
+          "lon": -66.6397017
+        },
+        "hoursRaw": "Sa 06:00-13:00",
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/35022544"
+      },
+      {
+        "key": "way/103740972",
+        "name": "Parc Wilmot Park",
+        "nameEn": "Wilmot Park",
+        "kind": "park",
+        "pos": {
+          "lat": 45.9635407,
+          "lon": -66.6565911
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "City of Fredericton"
+        },
+        "url": "https://www.openstreetmap.org/way/103740972"
+      },
+      {
+        "key": "way/103740984",
+        "name": "Burpee Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9770301,
+          "lon": -66.6652434
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/103740984"
+      },
+      {
+        "key": "way/103741298",
+        "name": "The Green",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9590199,
+          "lon": -66.6417949
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.fredericton.ca/en/recreation/parks-and-playgrounds"
+        },
+        "url": "https://www.openstreetmap.org/way/103741298"
+      },
+      {
+        "key": "way/103753560",
+        "name": "Royal Field Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9835799,
+          "lon": -66.5873639
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/103753560"
+      },
+      {
+        "key": "way/103753605",
+        "name": "Fisher Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9678969,
+          "lon": -66.614975
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/103753605"
+      },
+      {
+        "key": "way/105671774",
+        "name": "Veterans Memorial Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9782183,
+          "lon": -66.6287678
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/105671774"
+      },
+      {
+        "key": "way/105765352",
+        "name": "Bill Thorpe Walking Bridge",
+        "nameEn": "Bill Thorpe Walking Bridge",
+        "kind": "attraction",
+        "pos": {
+          "lat": 45.9573781,
+          "lon": -66.6275312
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/105765352"
+      },
+      {
+        "key": "way/105766599",
+        "name": "Science East",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 45.9584368,
+          "lon": -66.6390356
+        },
+        "hoursRaw": "Jun-Aug: Mo-Sa 10:00-17:00, Jun-Aug: Su 12:00-16:00",
+        "tags": {
+          "fee": "yes",
+          "website": "https://scienceeast.nb.ca/"
+        },
+        "url": "https://www.openstreetmap.org/way/105766599"
+      },
+      {
+        "key": "way/106112302",
+        "name": "Musée de la région de Fredericton Region Museum",
+        "nameEn": "Fredericton Region Museum",
+        "kind": "museum",
+        "pos": {
+          "lat": 45.9620319,
+          "lon": -66.6394187
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://frederictonregionmuseum.com/"
+        },
+        "url": "https://www.openstreetmap.org/way/106112302"
+      },
+      {
+        "key": "way/109161130",
+        "name": "New Brunswick Sports Hall of Fame",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 45.9622379,
+          "lon": -66.640355
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.nbsportshalloffame.com/"
+        },
+        "url": "https://www.openstreetmap.org/way/109161130"
+      },
+      {
+        "key": "way/109399086",
+        "name": "Charlotte Street Arts Centre",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 45.9557943,
+          "lon": -66.6392734
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.charlottestreetarts.ca"
+        },
+        "url": "https://www.openstreetmap.org/way/109399086"
+      },
+      {
+        "key": "way/111859729",
+        "name": "Fredericton Playhouse",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 45.9599803,
+          "lon": -66.6371194
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://theplayhouse.ca/en"
+        },
+        "url": "https://www.openstreetmap.org/way/111859729"
+      },
+      {
+        "key": "way/129767250",
+        "name": "ScotiaBank Park North",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.980395,
+          "lon": -66.6183191
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/129767250"
+      },
+      {
+        "key": "way/304556872",
+        "name": "Crocket House",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 45.9586583,
+          "lon": -66.6350372
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/304556872"
+      },
+      {
+        "key": "way/440500091",
+        "name": "Kent Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9790383,
+          "lon": -66.6848944
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/440500091"
+      },
+      {
+        "key": "way/469460903",
+        "name": "Angelview Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9662145,
+          "lon": -66.6921972
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/469460903"
+      },
+      {
+        "key": "way/489933471",
+        "name": "Hugh John Flemming Forestry Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9330162,
+          "lon": -66.6585851
+        },
+        "hoursRaw": null,
+        "tags": {
+          "description": "Public park in front of the Hugh John Flemming Forestry center. Often used not just by people in the forestry building but many of the people in the nearby Knowledge Park businesses."
+        },
+        "url": "https://www.openstreetmap.org/way/489933471"
+      },
+      {
+        "key": "way/490173202",
+        "name": "Rabbit Town Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9581979,
+          "lon": -66.6519488
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/490173202"
+      },
+      {
+        "key": "way/490177852",
+        "name": "Barton Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9917379,
+          "lon": -66.6623174
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/490177852"
+      },
+      {
+        "key": "way/490178056",
+        "name": "Sierra Drive Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.987685,
+          "lon": -66.6484756
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/490178056"
+      },
+      {
+        "key": "way/490178202",
+        "name": "Evans park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9836542,
+          "lon": -66.640148
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/490178202"
+      },
+      {
+        "key": "way/490178425",
+        "name": "Limerick Road Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9233053,
+          "lon": -66.6249481
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/490178425"
+      },
+      {
+        "key": "way/493913481",
+        "name": "Heron Drive Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 46.0020184,
+          "lon": -66.6453482
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/493913481"
+      },
+      {
+        "key": "way/494785221",
+        "name": "St. Mary's Old Reserve",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9694025,
+          "lon": -66.6339484
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "St. Mary's First Nation"
+        },
+        "url": "https://www.openstreetmap.org/way/494785221"
+      },
+      {
+        "key": "way/499195149",
+        "name": "Randolph Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.99814,
+          "lon": -66.6524678
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/499195149"
+      },
+      {
+        "key": "way/499375371",
+        "name": "Harrison Court Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.978078,
+          "lon": -66.5947502
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/499375371"
+      },
+      {
+        "key": "way/548966505",
+        "name": "Gibson-Neill Memorial Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9780967,
+          "lon": -66.592243
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/548966505"
+      },
+      {
+        "key": "way/556139162",
+        "name": "Neville St Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.987186,
+          "lon": -66.6626213
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/556139162"
+      },
+      {
+        "key": "way/638380735",
+        "name": "Sandyville Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9887018,
+          "lon": -66.591027
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/638380735"
+      },
+      {
+        "key": "way/638843880",
+        "name": "Manning Lane Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9892155,
+          "lon": -66.6413048
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/638843880"
+      },
+      {
+        "key": "way/642005096",
+        "name": "Charles Avenue Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9553102,
+          "lon": -66.6161237
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/642005096"
+      },
+      {
+        "key": "way/663042714",
+        "name": "Reading Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9347697,
+          "lon": -66.6475324
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/663042714"
+      },
+      {
+        "key": "way/663042721",
+        "name": "Rochester Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9341986,
+          "lon": -66.6433195
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/663042721"
+      },
+      {
+        "key": "way/684867930",
+        "name": "Dewitt Acres Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9511316,
+          "lon": -66.5946646
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/684867930"
+      },
+      {
+        "key": "way/702165557",
+        "name": "Bishop Heights Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9428526,
+          "lon": -66.6890846
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/702165557"
+      },
+      {
+        "key": "way/737149310",
+        "name": "Murray Avenue Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9721365,
+          "lon": -66.6082311
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/737149310"
+      },
+      {
+        "key": "way/738678813",
+        "name": "Duval Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.96378,
+          "lon": -66.6936548
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/738678813"
+      },
+      {
+        "key": "way/738679614",
+        "name": "Eagle-Birdie Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9602844,
+          "lon": -66.6788259
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/738679614"
+      },
+      {
+        "key": "way/741261719",
+        "name": "Massey Avenue Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9468093,
+          "lon": -66.6633575
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/741261719"
+      },
+      {
+        "key": "way/753591208",
+        "name": "Timber Lane Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9367457,
+          "lon": -66.6062799
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/753591208"
+      },
+      {
+        "key": "way/754111299",
+        "name": "Gloucester Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9362061,
+          "lon": -66.6435361
+        },
+        "hoursRaw": null,
+        "tags": {
+          "description": "Swingset, "
+        },
+        "url": "https://www.openstreetmap.org/way/754111299"
+      },
+      {
+        "key": "way/768970246",
+        "name": "Adney Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9798339,
+          "lon": -66.6712782
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/768970246"
+      },
+      {
+        "key": "way/768970247",
+        "name": "Robinson Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9807725,
+          "lon": -66.6668741
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/768970247"
+      },
+      {
+        "key": "way/768970770",
+        "name": "Melvin Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9806411,
+          "lon": -66.6395282
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/768970770"
+      },
+      {
+        "key": "way/845054562",
+        "name": "Dover Crescent Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9319449,
+          "lon": -66.6451925
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/845054562"
+      },
+      {
+        "key": "way/1084680875",
+        "name": "Irvine Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9680814,
+          "lon": -66.6072397
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1084680875"
+      },
+      {
+        "key": "way/1108351040",
+        "name": "Carleton & York Regiment Memorial Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9631644,
+          "lon": -66.6403016
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1108351040"
+      },
+      {
+        "key": "way/1138531557",
+        "name": "Lawson Court Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9665865,
+          "lon": -66.6127585
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1138531557"
+      },
+      {
+        "key": "way/1267538765",
+        "name": "Lawrence Amphitheatre",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 45.9794525,
+          "lon": -66.657131
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "City of Fredericton"
+        },
+        "url": "https://www.openstreetmap.org/way/1267538765"
+      },
+      {
+        "key": "way/1277837346",
+        "name": "Ron & Erma Hawkes Centre for the Arts",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 45.9600107,
+          "lon": -66.6402205
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1277837346"
+      },
+      {
+        "key": "way/1420776972",
+        "name": "Nashwaaksis Commons",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9795989,
+          "lon": -66.6569958
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "City of Fredericton"
+        },
+        "url": "https://www.openstreetmap.org/way/1420776972"
+      },
+      {
+        "key": "way/1548892933",
+        "name": "Parc Gourley Park",
+        "nameEn": "Gourley Park",
+        "kind": "park",
+        "pos": {
+          "lat": 45.976331,
+          "lon": -66.6440224
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "City of Fredericton"
+        },
+        "url": "https://www.openstreetmap.org/way/1548892933"
+      },
+      {
+        "key": "way/1550261171",
+        "name": "Beaverbrook Sculpture Garden",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9603542,
+          "lon": -66.6359009
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1550261171"
+      },
+      {
+        "key": "way/1550261172",
+        "name": "Morell Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 45.9497551,
+          "lon": -66.6328597
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "City of Fredericton"
+        },
+        "url": "https://www.openstreetmap.org/way/1550261172"
+      }
+    ],
+    "excursions": [
+      {
+        "key": "node/872836373",
+        "name": "Howland Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 45.9272961,
+          "lon": -67.019347
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/872836373"
+      },
+      {
+        "key": "node/879802523",
+        "name": "Lower Dunbar Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 46.1417897,
+          "lon": -66.6192111
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/879802523"
+      },
+      {
+        "key": "node/879812990",
+        "name": "Dunbar Falls",
+        "nameEn": "Dunbar Falls",
+        "kind": "falls",
+        "pos": {
+          "lat": 46.1447876,
+          "lon": -66.6241987
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/879812990"
+      },
+      {
+        "key": "node/12695641136",
+        "name": "Campbell Creek Dam remains",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 45.9865767,
+          "lon": -66.5789459
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/12695641136"
+      }
+    ],
+    "foods": [
+      {
+        "key": "node/409951077",
+        "name": "Greco Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9786195,
+          "lon": -66.6590126
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza",
+          "website": "https://greco.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/409951077"
+      },
+      {
+        "key": "node/409952436",
+        "name": "Subway",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9891849,
+          "lon": -66.652035
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "sandwich"
+        },
+        "url": "https://www.openstreetmap.org/node/409952436"
+      },
+      {
+        "key": "node/409959103",
+        "name": "Pizza Hut Express",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9764463,
+          "lon": -66.6500241
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/409959103"
+      },
+      {
+        "key": "node/409963780",
+        "name": "Pizza Delight",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9763819,
+          "lon": -66.6350882
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/409963780"
+      },
+      {
+        "key": "node/410290026",
+        "name": "Joe's Diner",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9627699,
+          "lon": -66.6221761
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/410290026"
+      },
+      {
+        "key": "node/410781454",
+        "name": "Nomad Coffee",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9615156,
+          "lon": -66.6400284
+        },
+        "hoursRaw": null,
+        "tags": {
+          "diet:vegan": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/410781454"
+      },
+      {
+        "key": "node/410783753",
+        "name": "Brewbakers",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9603472,
+          "lon": -66.6411228
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/410783753"
+      },
+      {
+        "key": "node/410784985",
+        "name": "Crispins",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9616478,
+          "lon": -66.6434682
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/410784985"
+      },
+      {
+        "key": "node/410785666",
+        "name": "Jack's Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9625772,
+          "lon": -66.6441891
+        },
+        "hoursRaw": "Su-Tu 10:00-23:00, We-Sa 10:00-03:00",
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/410785666"
+      },
+      {
+        "key": "node/410785667",
+        "name": "Luna Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9624305,
+          "lon": -66.644191
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/410785667"
+      },
+      {
+        "key": "node/410785672",
+        "name": "Carribean Flavas",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9616956,
+          "lon": -66.6445818
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/410785672"
+      },
+      {
+        "key": "node/411219411",
+        "name": "Great Canadian Bagel",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9411172,
+          "lon": -66.6576621
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/411219411"
+      },
+      {
+        "key": "node/411223396",
+        "name": "Ringo's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9432564,
+          "lon": -66.6695951
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/411223396"
+      },
+      {
+        "key": "node/411223397",
+        "name": "Coffee Mill",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9429819,
+          "lon": -66.6697906
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/411223397"
+      },
+      {
+        "key": "node/1159762594",
+        "name": "Tokyo Ramen",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9367314,
+          "lon": -66.6337312
+        },
+        "hoursRaw": "Mo-Th 11:00-20:00; Fr,Sa 11:00-20:30",
+        "tags": {
+          "cuisine": "noodle"
+        },
+        "url": "https://www.openstreetmap.org/node/1159762594"
+      },
+      {
+        "key": "node/1202012168",
+        "name": "Jungle Jim's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9434107,
+          "lon": -66.667193
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1202012168"
+      },
+      {
+        "key": "node/1438881291",
+        "name": "Deluxe Famous Fish & Chip",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9318041,
+          "lon": -66.6629536
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "fish_and_chips"
+        },
+        "url": "https://www.openstreetmap.org/node/1438881291"
+      },
+      {
+        "key": "node/1438881292",
+        "name": "Yoo China - Currie House",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9318489,
+          "lon": -66.6630555
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chinese;indian"
+        },
+        "url": "https://www.openstreetmap.org/node/1438881292"
+      },
+      {
+        "key": "node/1438881299",
+        "name": "Panago",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9317631,
+          "lon": -66.6628678
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/1438881299"
+      },
+      {
+        "key": "node/1475176014",
+        "name": "Kyoto Hana Izakays",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9632387,
+          "lon": -66.644066
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "japanese"
+        },
+        "url": "https://www.openstreetmap.org/node/1475176014"
+      },
+      {
+        "key": "node/1770612544",
+        "name": "Arom",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.960606,
+          "lon": -66.6389711
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chinese"
+        },
+        "url": "https://www.openstreetmap.org/node/1770612544"
+      },
+      {
+        "key": "node/1770612545",
+        "name": "The Palate",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9623141,
+          "lon": -66.6419258
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1770612545"
+      },
+      {
+        "key": "node/1850051306",
+        "name": "Domino's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.95694,
+          "lon": -66.6566454
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/1850051306"
+      },
+      {
+        "key": "node/1850051337",
+        "name": "The Happy Baker",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9570062,
+          "lon": -66.6555616
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "sandwich;ice_cream"
+        },
+        "url": "https://www.openstreetmap.org/node/1850051337"
+      },
+      {
+        "key": "node/1850051338",
+        "name": "Papa John's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9565213,
+          "lon": -66.6573146
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/1850051338"
+      },
+      {
+        "key": "node/2099368699",
+        "name": "Mary Brown's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9412967,
+          "lon": -66.6576633
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chicken"
+        },
+        "url": "https://www.openstreetmap.org/node/2099368699"
+      },
+      {
+        "key": "node/2099368707",
+        "name": "Yassou",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9407183,
+          "lon": -66.6571001
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "greek"
+        },
+        "url": "https://www.openstreetmap.org/node/2099368707"
+      },
+      {
+        "key": "node/2099382640",
+        "name": "Naru",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9616023,
+          "lon": -66.6402208
+        },
+        "hoursRaw": "Mo-Th,Sa 11:00-21:00, Fr 11:00-22:00",
+        "tags": {
+          "cuisine": "japanese"
+        },
+        "url": "https://www.openstreetmap.org/node/2099382640"
+      },
+      {
+        "key": "node/2099382641",
+        "name": "540 Kitchen & Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9615663,
+          "lon": -66.6401345
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.facebook.com/540kitchenandbar"
+        },
+        "url": "https://www.openstreetmap.org/node/2099382641"
+      },
+      {
+        "key": "node/2099382642",
+        "name": "Cora",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9622135,
+          "lon": -66.6416367
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "breakfast"
+        },
+        "url": "https://www.openstreetmap.org/node/2099382642"
+      },
+      {
+        "key": "node/2099385068",
+        "name": "The MidSea",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9603634,
+          "lon": -66.6395864
+        },
+        "hoursRaw": "Mo-Sa 12:00-21:00",
+        "tags": {
+          "cuisine": "lebanese"
+        },
+        "url": "https://www.openstreetmap.org/node/2099385068"
+      },
+      {
+        "key": "node/2232495930",
+        "name": "Zio's Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9784887,
+          "lon": -66.654678
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/2232495930"
+      },
+      {
+        "key": "node/2232581017",
+        "name": "Thai Spice Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9762181,
+          "lon": -66.6473237
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "thai"
+        },
+        "url": "https://www.openstreetmap.org/node/2232581017"
+      },
+      {
+        "key": "node/2330169379",
+        "name": "Coffee and Friends",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9620139,
+          "lon": -66.643459
+        },
+        "hoursRaw": "Mo-Fr 07:30-16:30; Sa 10:00-16:00",
+        "tags": {
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/2330169379"
+      },
+      {
+        "key": "node/2330169380",
+        "name": "Smoke's Poutinerie",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9622148,
+          "lon": -66.6440071
+        },
+        "hoursRaw": "Su-We 11:00-23:00, Th 11:00-03:00, Fr,Sa 11:00-04:00",
+        "tags": {
+          "cuisine": "poutine"
+        },
+        "url": "https://www.openstreetmap.org/node/2330169380"
+      },
+      {
+        "key": "node/2330173024",
+        "name": "Goji's Frozen Yogurt",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9413643,
+          "lon": -66.6576098
+        },
+        "hoursRaw": "Mo-Fr 12:00-22:00; Sa,Su 11:30-22:00",
+        "tags": {
+          "cuisine": "ice_cream"
+        },
+        "url": "https://www.openstreetmap.org/node/2330173024"
+      },
+      {
+        "key": "node/2491611396",
+        "name": "Unplugged Games Cafe",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.962692,
+          "lon": -66.642788
+        },
+        "hoursRaw": "Su 00:00-21:00; Th 17:00-21:00; Fr 17:00-23:00; Sa 12:00-23:00",
+        "tags": {
+          "cuisine": "american",
+          "website": "https://www.unpluggedgamescafe.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/2491611396"
+      },
+      {
+        "key": "node/2577122531",
+        "name": "Tim Hortons",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9450503,
+          "lon": -66.6413878
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/2577122531"
+      },
+      {
+        "key": "node/2579909354",
+        "name": "Pita Pit",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9415511,
+          "lon": -66.669855
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pita"
+        },
+        "url": "https://www.openstreetmap.org/node/2579909354"
+      },
+      {
+        "key": "node/2624615357",
+        "name": "King Street Ale House",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9605764,
+          "lon": -66.6409606
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "http://www.thekingstreetalehouse.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/2624615357"
+      },
+      {
+        "key": "node/3719158146",
+        "name": "Molly's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9614435,
+          "lon": -66.639853
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3719158146"
+      },
+      {
+        "key": "node/3720634039",
+        "name": "The Terrace",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9607949,
+          "lon": -66.6368299
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3720634039"
+      },
+      {
+        "key": "node/3729839641",
+        "name": "Gisele's Pizzeria",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9366237,
+          "lon": -66.633635
+        },
+        "hoursRaw": "Mo-Sa 10:00-23:00; Su 11:00-11:00",
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/3729839641"
+      },
+      {
+        "key": "node/3730823849",
+        "name": "Little Caesars",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9415511,
+          "lon": -66.6696003
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/3730823849"
+      },
+      {
+        "key": "node/3730823850",
+        "name": "Starbucks",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9407343,
+          "lon": -66.6678272
+        },
+        "hoursRaw": "Mo-Fr 18:00-22:00; Sa 06:30-22:00; Su 07:00-22:00",
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/3730823850"
+      },
+      {
+        "key": "node/4854088242",
+        "name": "Burger King",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9824223,
+          "lon": -66.6130347
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "burger"
+        },
+        "url": "https://www.openstreetmap.org/node/4854088242"
+      },
+      {
+        "key": "node/4934541558",
+        "name": "The Purrfect Cup Cat Café",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9822036,
+          "lon": -66.6131894
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://purrfectcup.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/4934541558"
+      },
+      {
+        "key": "node/5062419796",
+        "name": "Pizza Twice",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9785806,
+          "lon": -66.5932551
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/5062419796"
+      },
+      {
+        "key": "node/5062772825",
+        "name": "Misu",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9931342,
+          "lon": -66.6527492
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chinese"
+        },
+        "url": "https://www.openstreetmap.org/node/5062772825"
+      },
+      {
+        "key": "node/5062772828",
+        "name": "Tony Pepperoni",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9916584,
+          "lon": -66.6485971
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/5062772828"
+      },
+      {
+        "key": "node/5419437452",
+        "name": "Shan",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9617372,
+          "lon": -66.6436743
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chinese"
+        },
+        "url": "https://www.openstreetmap.org/node/5419437452"
+      },
+      {
+        "key": "node/5419437461",
+        "name": "Mimizawa",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9611813,
+          "lon": -66.6427021
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "bubble_tea"
+        },
+        "url": "https://www.openstreetmap.org/node/5419437461"
+      },
+      {
+        "key": "node/5420614722",
+        "name": "Dimitri's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9631002,
+          "lon": -66.6445294
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "greek"
+        },
+        "url": "https://www.openstreetmap.org/node/5420614722"
+      },
+      {
+        "key": "node/5826990185",
+        "name": "Sun Prince Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9832185,
+          "lon": -66.6625409
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "asian"
+        },
+        "url": "https://www.openstreetmap.org/node/5826990185"
+      },
+      {
+        "key": "node/6017868985",
+        "name": "Taco Boyz",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9566549,
+          "lon": -66.6572188
+        },
+        "hoursRaw": "Mo-Sa 11:00-23:00; Su 12:00-21:00",
+        "tags": {
+          "cuisine": "mexican;tacos",
+          "operator": "Taco Boyz",
+          "website": "https://www.tacoboyz.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/6017868985"
+      },
+      {
+        "key": "node/6017868986",
+        "name": "Claudine's Eatery",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9569085,
+          "lon": -66.6569599
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6017868986"
+      },
+      {
+        "key": "node/6363800275",
+        "name": "Booster Juice",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9353079,
+          "lon": -66.6637848
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "juice"
+        },
+        "url": "https://www.openstreetmap.org/node/6363800275"
+      },
+      {
+        "key": "node/6666349128",
+        "name": "Buffet 2 Go",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9930339,
+          "lon": -66.6486591
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chinese"
+        },
+        "url": "https://www.openstreetmap.org/node/6666349128"
+      },
+      {
+        "key": "node/7143267193",
+        "name": "Harvey's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9298462,
+          "lon": -66.664639
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "burger"
+        },
+        "url": "https://www.openstreetmap.org/node/7143267193"
+      },
+      {
+        "key": "node/8954944199",
+        "name": "Gisele's Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9821163,
+          "lon": -66.6132808
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/8954944199"
+      },
+      {
+        "key": "node/8954944200",
+        "name": "Street Greek",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9820327,
+          "lon": -66.6133781
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "greek"
+        },
+        "url": "https://www.openstreetmap.org/node/8954944200"
+      },
+      {
+        "key": "node/8975679077",
+        "name": "540 North",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.958955,
+          "lon": -66.6247517
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/8975679077"
+      },
+      {
+        "key": "node/8975679078",
+        "name": "Grain and Grind Co.",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9589084,
+          "lon": -66.6246189
+        },
+        "hoursRaw": "Mo-Su 07:00-15:00",
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/8975679078"
+      },
+      {
+        "key": "node/9010910791",
+        "name": "Rocket Burger",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9628891,
+          "lon": -66.6447224
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "burger"
+        },
+        "url": "https://www.openstreetmap.org/node/9010910791"
+      },
+      {
+        "key": "node/10282606467",
+        "name": "Jonnie Java Roasters",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9622735,
+          "lon": -66.6439379
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/10282606467"
+      },
+      {
+        "key": "node/10282606470",
+        "name": "11th Mile",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9625594,
+          "lon": -66.6437258
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10282606470"
+      },
+      {
+        "key": "node/10809398775",
+        "name": "Headrest Café",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9492656,
+          "lon": -66.6421203
+        },
+        "hoursRaw": "Mo-Fr 08:00-15:00",
+        "tags": {
+          "website": "https://dineoncampus.ca/unbf/"
+        },
+        "url": "https://www.openstreetmap.org/node/10809398775"
+      },
+      {
+        "key": "node/10940547883",
+        "name": "MOCO Downtown",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.960236,
+          "lon": -66.6392593
+        },
+        "hoursRaw": "Mo 11:30-14:00,17:00-21:00; Tu 11:30-14:00,17:00-21:00; We 11:30-14:00,17:00-21:00; Th 11:30-14:00,17:00-22:00; Fr 11:30-14:00,17:00-22:00; Sa 17:00-22:00; Su 17:00-21:00",
+        "tags": {
+          "cuisine": "italian;regional"
+        },
+        "url": "https://www.openstreetmap.org/node/10940547883"
+      },
+      {
+        "key": "node/11055400555",
+        "name": "Byblos Restaurant & Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.964752,
+          "lon": -66.6468383
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "lebanese",
+          "website": "https://byblosrestaurantbar.business.site"
+        },
+        "url": "https://www.openstreetmap.org/node/11055400555"
+      },
+      {
+        "key": "node/11062507034",
+        "name": "Pür & Simple",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9467224,
+          "lon": -66.6924109
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "breakfast"
+        },
+        "url": "https://www.openstreetmap.org/node/11062507034"
+      },
+      {
+        "key": "node/11062507037",
+        "name": "Que Padre",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9462058,
+          "lon": -66.6922983
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "mexican"
+        },
+        "url": "https://www.openstreetmap.org/node/11062507037"
+      },
+      {
+        "key": "node/11062507038",
+        "name": "Hi Tea",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9463382,
+          "lon": -66.6924807
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "bubble_tea"
+        },
+        "url": "https://www.openstreetmap.org/node/11062507038"
+      },
+      {
+        "key": "node/11754464582",
+        "name": "McDonald's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9883957,
+          "lon": -66.6260597
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "burger"
+        },
+        "url": "https://www.openstreetmap.org/node/11754464582"
+      },
+      {
+        "key": "node/11939789832",
+        "name": "Viscount Kitchen - Pinoy Fiesta",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9619211,
+          "lon": -66.6431897
+        },
+        "hoursRaw": "Mo-Su 09:30-21:00",
+        "tags": {
+          "cuisine": "filipino;western"
+        },
+        "url": "https://www.openstreetmap.org/node/11939789832"
+      },
+      {
+        "key": "node/11972279140",
+        "name": "Sam the Sub Man",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9785243,
+          "lon": -66.5932241
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "sandwich"
+        },
+        "url": "https://www.openstreetmap.org/node/11972279140"
+      },
+      {
+        "key": "node/11990315757",
+        "name": "Neighbourly Coffee",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9866752,
+          "lon": -66.6252039
+        },
+        "hoursRaw": "We-Su 07:00-15:00",
+        "tags": {
+          "cuisine": "coffee_shop",
+          "website": "https://neighbourly.coffee/"
+        },
+        "url": "https://www.openstreetmap.org/node/11990315757"
+      },
+      {
+        "key": "node/12427726954",
+        "name": "The Lily Dipper Cafe",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9659386,
+          "lon": -66.6518003
+        },
+        "hoursRaw": "Mo 12:00-20:00, Th-Fr 12:00-19:30, Sa-Su 10:00-18:00",
+        "tags": {
+          "cuisine": "coffee_shop;ice_cream;tea",
+          "website": "https://www.secondnatureoutdoors.com/the-lily-dipper-cafe"
+        },
+        "url": "https://www.openstreetmap.org/node/12427726954"
+      },
+      {
+        "key": "node/12431746918",
+        "name": "The Tipsy Muse",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9611027,
+          "lon": -66.6391019
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop;alcohol",
+          "diet:lactose_free": "yes",
+          "diet:vegan": "yes",
+          "website": "https://www.tipsymusecafe.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/12431746918"
+      },
+      {
+        "key": "node/12431762336",
+        "name": "The Squeeze",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9605734,
+          "lon": -66.6393752
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "juice",
+          "website": "https://thesqueeze.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/12431762336"
+      },
+      {
+        "key": "node/12431765008",
+        "name": "Dos Toros Taqueria & Tequila",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9616848,
+          "lon": -66.6404417
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "mexican"
+        },
+        "url": "https://www.openstreetmap.org/node/12431765008"
+      },
+      {
+        "key": "node/12718487457",
+        "name": "Costco Food Court",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9273321,
+          "lon": -66.6634917
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "hot_dog;pizza;sandwich"
+        },
+        "url": "https://www.openstreetmap.org/node/12718487457"
+      },
+      {
+        "key": "node/12752962630",
+        "name": "Canon's Cross Pub",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9533964,
+          "lon": -66.6225812
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/12752962630"
+      },
+      {
+        "key": "node/12762996601",
+        "name": "Momo Ramen & Izakaya",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9609644,
+          "lon": -66.6386275
+        },
+        "hoursRaw": "Su-Th 11:00-23:00; Fr-Sa 11:00-02:00",
+        "tags": {
+          "cuisine": "japanese;ramen",
+          "website": "https://www.momoramen.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/12762996601"
+      },
+      {
+        "key": "node/13097264858",
+        "name": "AMAZEburgs",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9756184,
+          "lon": -66.6476094
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "burger",
+          "description": "Regularly stationed food truck"
+        },
+        "url": "https://www.openstreetmap.org/node/13097264858"
+      },
+      {
+        "key": "node/13286674688",
+        "name": "Common Grounds",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.947753,
+          "lon": -66.641822
+        },
+        "hoursRaw": "Mo-Fr 09:00-15:00",
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/13286674688"
+      },
+      {
+        "key": "node/13505751126",
+        "name": "Firehouse Subs",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9785979,
+          "lon": -66.6583629
+        },
+        "hoursRaw": "Mo-Su 10:00-22:00",
+        "tags": {
+          "cuisine": "sandwich",
+          "website": "https://www.firehousesubs.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/13505751126"
+      },
+      {
+        "key": "node/13615602572",
+        "name": "Mantra Restaurant & Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.960087,
+          "lon": -66.661038
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "indian",
+          "website": "https://www.mformantra.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/13615602572"
+      },
+      {
+        "key": "node/13849451056",
+        "name": "Stacked",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.978604,
+          "lon": -66.6584331
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "american"
+        },
+        "url": "https://www.openstreetmap.org/node/13849451056"
+      },
+      {
+        "key": "node/13849727773",
+        "name": "Sakura Sushi",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9635577,
+          "lon": -66.6441373
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "sushi"
+        },
+        "url": "https://www.openstreetmap.org/node/13849727773"
+      },
+      {
+        "key": "node/13849740101",
+        "name": "Bam",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.96247,
+          "lon": -66.6437861
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "korean"
+        },
+        "url": "https://www.openstreetmap.org/node/13849740101"
+      },
+      {
+        "key": "node/14113765651",
+        "name": "El Mariachi",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9384274,
+          "lon": -66.6326077
+        },
+        "hoursRaw": "Tu-We 16:00-21:00; Th-Sa 12:00-21:00; Su 16:00-20:00",
+        "tags": {
+          "cuisine": "mexican",
+          "website": "https://elmariachi.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/14113765651"
+      },
+      {
+        "key": "node/14278037087",
+        "name": "BarBurrito",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9409469,
+          "lon": -66.6575139
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "mexican"
+        },
+        "url": "https://www.openstreetmap.org/node/14278037087"
+      },
+      {
+        "key": "node/14278037088",
+        "name": "Pizza Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9409196,
+          "lon": -66.6574506
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/14278037088"
+      },
+      {
+        "key": "node/14278037089",
+        "name": "EndoJapan",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 45.9408816,
+          "lon": -66.6573616
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "japanese"
+        },
+        "url": "https://www.openstreetmap.org/node/14278037089"
+      }
+    ],
+    "transport": [
+      {
+        "key": "node/5079912942",
+        "name": "Corbett Centre",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 45.9291586,
+          "lon": -66.6627008
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/5079912942"
+      },
+      {
+        "key": "node/10278484697",
+        "name": "Kings Place",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 45.9614842,
+          "lon": -66.6428943
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Fredericton Transit"
+        },
+        "url": "https://www.openstreetmap.org/node/10278484697"
+      },
+      {
+        "key": "node/12535198605",
+        "name": "Fredericton",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 45.9578696,
+          "lon": -66.6564223
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Coach Atlantic Group",
+          "website": "https://www.maritimebus.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/12535198605"
+      },
+      {
+        "key": "node/12618764499",
+        "name": "Regent Mall",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 45.935421,
+          "lon": -66.6627869
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Fredericton Transit"
+        },
+        "url": "https://www.openstreetmap.org/node/12618764499"
+      }
+    ],
+    "weather": [
+      {
+        "date": "2026-10-22",
+        "tMax": 12.3,
+        "tMin": 1.2,
+        "precipProb": 1
+      },
+      {
+        "date": "2026-10-23",
+        "tMax": 8.7,
+        "tMin": -0.5,
+        "precipProb": 1
+      },
+      {
+        "date": "2026-10-24",
+        "tMax": 12.6,
+        "tMin": -1.3,
+        "precipProb": 0
+      },
+      {
+        "date": "2026-10-25",
+        "tMax": 14.7,
+        "tMin": 1,
+        "precipProb": 0
+      },
+      {
+        "date": "2026-10-26",
+        "tMax": 13.9,
+        "tMin": 3.9,
+        "precipProb": 10
+      }
+    ],
+    "weatherNote": null,
+    "networkFetches": 3
+  }
+}

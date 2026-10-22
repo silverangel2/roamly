@@ -376,9 +376,16 @@ export async function createOrResumeGenerationJob(params: {
   queuePriorityReason?: string | null;
   duplicateRequestKey?: string | null;
   reason?: string;
+  /** Phase 5: the generation version the job rides (e.g. the
+   *  zero-engine's 'zero-engine-v1'). Defaults to ROAMLY_BRAIN_VERSION —
+   *  omitting it reproduces the pre-Phase-5 behavior exactly, and the
+   *  version participates in the idempotency key so an engine job and
+   *  a brain job for the same trip can never alias onto one row. */
+  generationVersion?: string;
 }) {
   const supabase = adminOrClient(params.supabase);
   if (!supabase) return { ok: false as const, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+  const generationVersion = params.generationVersion || ROAMLY_BRAIN_VERSION;
 
   const tripLookup = await supabase
     .from("roamly_trips")
@@ -390,7 +397,7 @@ export async function createOrResumeGenerationJob(params: {
   if (!tripLookup.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
   if (generationTripIsTerminal(tripLookup.data)) return { ok: false as const, error: "TRIP_TERMINAL" };
 
-  const idempotencyKey = generationIdempotencyKey(params.tripId);
+  const idempotencyKey = generationIdempotencyKey(params.tripId, generationVersion);
   const existing = await supabase
     .from("roamly_trip_generation_jobs")
     .select("*")
@@ -433,7 +440,7 @@ export async function createOrResumeGenerationJob(params: {
       queue_priority_reason: params.queuePriorityReason || params.reason || null,
       duplicate_request_key: params.duplicateRequestKey || null,
       current_stage: currentStagedLayerType(null, params.payload || null),
-      generation_version: ROAMLY_BRAIN_VERSION,
+      generation_version: generationVersion,
       model_version: modelVersion(),
       idempotency_key: idempotencyKey,
       next_attempt_at: new Date().toISOString()

@@ -1,0 +1,213 @@
+{
+  "id": "ChIJ2Uij99yVuEwRVyhMQ2LzOSU",
+  "rating": 4.7,
+  "regularOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 9,
+          "minute": 30
+        },
+        "close": {
+          "day": 0,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 9,
+          "minute": 30
+        },
+        "close": {
+          "day": 3,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 9,
+          "minute": 30
+        },
+        "close": {
+          "day": 4,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 9,
+          "minute": 30
+        },
+        "close": {
+          "day": 5,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 6,
+          "hour": 9,
+          "minute": 30
+        },
+        "close": {
+          "day": 6,
+          "hour": 17,
+          "minute": 0
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: Closed",
+      "Tuesday: Closed",
+      "Wednesday: 9:30 AM – 5:00 PM",
+      "Thursday: 9:30 AM – 5:00 PM",
+      "Friday: 9:30 AM – 5:00 PM",
+      "Saturday: 9:30 AM – 5:00 PM",
+      "Sunday: 9:30 AM – 5:00 PM"
+    ],
+    "nextCloseTime": "2026-10-21T21:00:00Z"
+  },
+  "businessStatus": "OPERATIONAL",
+  "userRatingCount": 394,
+  "displayName": {
+    "text": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+    "languageCode": "en"
+  },
+  "currentOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 9,
+          "minute": 30,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 25
+          }
+        },
+        "close": {
+          "day": 0,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 25
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 9,
+          "minute": 30,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        },
+        "close": {
+          "day": 3,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 9,
+          "minute": 30,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 22
+          }
+        },
+        "close": {
+          "day": 4,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 22
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 9,
+          "minute": 30,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 23
+          }
+        },
+        "close": {
+          "day": 5,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 23
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 6,
+          "hour": 9,
+          "minute": 30,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          }
+        },
+        "close": {
+          "day": 6,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          }
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: Closed",
+      "Tuesday: Closed",
+      "Wednesday: 9:30 AM – 5:00 PM",
+      "Thursday: 9:30 AM – 5:00 PM",
+      "Friday: 9:30 AM – 5:00 PM",
+      "Saturday: 9:30 AM – 5:00 PM",
+      "Sunday: 9:30 AM – 5:00 PM"
+    ],
+    "nextCloseTime": "2026-10-21T21:00:00Z"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleEntrance": false
+  }
+}

@@ -1,0 +1,1277 @@
+{
+  "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+  "calls": {
+    "search": 25,
+    "details": 25
+  },
+  "results": [
+    {
+      "key": "node/283264348",
+      "name": "Musée du Fort",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJJ9khTNyVuEwRzT2Bjflz-f4",
+        "displayName": "The Fort Museum",
+        "formattedAddress": "10 Rue Sainte-Anne, Québec, QC G1R 3X1, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "The Fort Museum"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJJ9khTNyVuEwRzT2Bjflz-f4",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": 4.5,
+        "userRatingCount": 188,
+        "wheelchairEntrance": false,
+        "businessStatus": "CLOSED_TEMPORARILY"
+      }
+    },
+    {
+      "key": "node/5060622627",
+      "name": "Galerie d'art Bel Art Classique",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ2WZ_N9OVuEwR9Y52GAzonro",
+        "displayName": "La Belle Galerie",
+        "formattedAddress": "113 Rue Saint-Paul, Québec, QC G1K 3V8, Canada",
+        "distanceKm": 0.31,
+        "candidates": [
+          "La Belle Galerie",
+          "Galerie Beauchamp Contemporain",
+          "Galerie Claude Belley"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ2WZ_N9OVuEwR9Y52GAzonro",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 630,
+            "close": 990
+          },
+          "Mo": {
+            "open": 630,
+            "close": 990
+          },
+          "Tu": {
+            "open": 630,
+            "close": 990
+          },
+          "We": {
+            "open": 630,
+            "close": 990
+          },
+          "Th": {
+            "open": 630,
+            "close": 990
+          },
+          "Fr": {
+            "open": 630,
+            "close": 990
+          },
+          "Sa": {
+            "open": 630,
+            "close": 990
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 10:30 AM – 4:30 PM",
+          "Tuesday: 10:30 AM – 4:30 PM",
+          "Wednesday: 10:30 AM – 4:30 PM",
+          "Thursday: 10:30 AM – 4:30 PM",
+          "Friday: 10:30 AM – 4:30 PM",
+          "Saturday: 10:30 AM – 4:30 PM",
+          "Sunday: 10:30 AM – 4:30 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.9,
+        "userRatingCount": 24,
+        "wheelchairEntrance": false,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/12326897876",
+      "name": "Don Vegan",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ8_9sYzCVuEwR5A47bho6Ljo",
+        "displayName": "Le Don Restaurant",
+        "formattedAddress": "97 Rue du Sault-au-Matelot, Québec, QC G1K 3X7, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Le Don Restaurant"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ8_9sYzCVuEwR5A47bho6Ljo",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 1020,
+            "close": 1260
+          },
+          "Mo": {
+            "open": 660,
+            "close": 1260
+          },
+          "Tu": {
+            "open": 660,
+            "close": 1260
+          },
+          "We": {
+            "open": 660,
+            "close": 1260
+          },
+          "Th": {
+            "open": 660,
+            "close": 1260
+          },
+          "Fr": {
+            "open": 660,
+            "close": 1320
+          },
+          "Sa": {
+            "open": 1020,
+            "close": 1320
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 11:00 AM – 9:00 PM",
+          "Tuesday: 11:00 AM – 9:00 PM",
+          "Wednesday: 11:00 AM – 9:00 PM",
+          "Thursday: 11:00 AM – 9:00 PM",
+          "Friday: 11:00 AM – 10:00 PM",
+          "Saturday: 9:00 AM – 2:00 PM, 5:00 – 10:00 PM",
+          "Sunday: 9:00 AM – 2:00 PM, 5:00 – 9:00 PM"
+        ],
+        "priceLevel": "PRICE_LEVEL_MODERATE",
+        "rating": 4.6,
+        "userRatingCount": 2221,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/388330237",
+      "name": "Espace 400e Bell",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJvzPL3OCVuEwRzSmuHnjNeYM",
+        "displayName": "Espace 400e",
+        "formattedAddress": "100 Quai Saint-André, Québec, QC G1K 3Y2, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Espace 400e",
+          "Bell",
+          "Bell Galeries de la Capitale"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJvzPL3OCVuEwRzSmuHnjNeYM",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 600,
+            "close": 1020
+          },
+          "Mo": {
+            "open": 480,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 480,
+            "close": 1020
+          },
+          "We": {
+            "open": 480,
+            "close": 1020
+          },
+          "Th": {
+            "open": 480,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 480,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 600,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 8:00 AM – 5:00 PM",
+          "Tuesday: 8:00 AM – 5:00 PM",
+          "Wednesday: 8:00 AM – 5:00 PM",
+          "Thursday: 8:00 AM – 5:00 PM",
+          "Friday: 8:00 AM – 5:00 PM",
+          "Saturday: 10:00 AM – 5:00 PM",
+          "Sunday: 10:00 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.3,
+        "userRatingCount": 773,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "way/307982447",
+      "name": "Parc Couillard",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ49nUYpWVuEwRZl5zzcu_jh8",
+        "displayName": "Parc Couillard",
+        "formattedAddress": "14 Rue Ferland, Québec, QC G1R 3S8, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Parc Couillard"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ49nUYpWVuEwRZl5zzcu_jh8",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": 5,
+        "userRatingCount": 5,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/130117210",
+      "name": "Lévis",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJk4jbBYqWuEwRAzro8GMtxY8",
+        "displayName": "Québec City",
+        "formattedAddress": "Québec City, QC, Canada",
+        "distanceKm": 1.48,
+        "candidates": [
+          "Québec City"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJk4jbBYqWuEwRAzro8GMtxY8",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": null,
+        "userRatingCount": null,
+        "wheelchairEntrance": null,
+        "businessStatus": null
+      }
+    },
+    {
+      "key": "node/6554061185",
+      "name": "Cannonball Tree",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ31qafQCVuEwRMnCG4z_XZxk",
+        "displayName": "cannonball tree",
+        "formattedAddress": "Haute-Ville, QC G1R 3X2, Canada",
+        "distanceKm": 0.28,
+        "candidates": [
+          "cannonball tree"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ31qafQCVuEwRMnCG4z_XZxk",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": null,
+        "userRatingCount": null,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/12646574028",
+      "name": "Polina",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ6wtvD9yVuEwReRilUWoTIOA",
+        "displayName": "Polina Pizzeria",
+        "formattedAddress": "44 Rue Saint-Louis, Québec, QC G1R 3Z1, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Polina Pizzeria"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ6wtvD9yVuEwReRilUWoTIOA",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 660,
+            "close": 1320
+          },
+          "Mo": {
+            "open": 660,
+            "close": 1320
+          },
+          "Tu": {
+            "open": 660,
+            "close": 1320
+          },
+          "We": {
+            "open": 660,
+            "close": 1320
+          },
+          "Th": {
+            "open": 660,
+            "close": 1320
+          },
+          "Fr": {
+            "open": 660,
+            "close": 1320
+          },
+          "Sa": {
+            "open": 660,
+            "close": 1320
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 11:00 AM – 10:00 PM",
+          "Tuesday: 11:00 AM – 10:00 PM",
+          "Wednesday: 11:00 AM – 10:00 PM",
+          "Thursday: 11:00 AM – 10:00 PM",
+          "Friday: 11:00 AM – 10:00 PM",
+          "Saturday: 11:00 AM – 10:00 PM",
+          "Sunday: 11:00 AM – 10:00 PM"
+        ],
+        "priceLevel": "PRICE_LEVEL_MODERATE",
+        "rating": 4.4,
+        "userRatingCount": 3364,
+        "wheelchairEntrance": false,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/6711176117",
+      "name": "Galerie Perreault",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJw8ezheCVuEwRaB0q_3fU_Vc",
+        "displayName": "Galerie Perreault",
+        "formattedAddress": "205 Rue Saint-Paul, Québec, QC G1K 9K7, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Galerie Perreault"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJw8ezheCVuEwRaB0q_3fU_Vc",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 600,
+            "close": 1020
+          },
+          "Mo": {
+            "open": 600,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 600,
+            "close": 1020
+          },
+          "We": {
+            "open": 600,
+            "close": 1020
+          },
+          "Th": {
+            "open": 600,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 600,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 600,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 10:00 AM – 5:00 PM",
+          "Tuesday: 10:00 AM – 5:00 PM",
+          "Wednesday: 10:00 AM – 5:00 PM",
+          "Thursday: 10:00 AM – 5:00 PM",
+          "Friday: 10:00 AM – 5:00 PM",
+          "Saturday: 10:00 AM – 5:00 PM",
+          "Sunday: 10:00 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.7,
+        "userRatingCount": 60,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "way/148301142",
+      "name": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ2Uij99yVuEwRVyhMQ2LzOSU",
+        "displayName": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+        "formattedAddress": "Dufferin Terrace, Québec, QC G1K 4E2, Canada",
+        "distanceKm": 0.12,
+        "candidates": [
+          "Lieu historique national des Forts-et-Châteaux-Saint-Louis"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ2Uij99yVuEwRVyhMQ2LzOSU",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 570,
+            "close": 1020
+          },
+          "We": {
+            "open": 570,
+            "close": 1020
+          },
+          "Th": {
+            "open": 570,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 570,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 570,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: Closed",
+          "Tuesday: Closed",
+          "Wednesday: 9:30 AM – 5:00 PM",
+          "Thursday: 9:30 AM – 5:00 PM",
+          "Friday: 9:30 AM – 5:00 PM",
+          "Saturday: 9:30 AM – 5:00 PM",
+          "Sunday: 9:30 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.7,
+        "userRatingCount": 394,
+        "wheelchairEntrance": false,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/6711176112",
+      "name": "Galerie Bédard",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJBfSsZ-eVuEwR3UqZAUMCYPc",
+        "displayName": "Galerie d'art GB Geneviève et Gilles Bédard",
+        "formattedAddress": "48 Rue St Jean Baptiste, Baie-Saint-Paul, QC G3Z 1L9, Canada",
+        "distanceKm": 87.39,
+        "candidates": [
+          "Galerie d'art GB Geneviève et Gilles Bédard",
+          "Galerie Québec Art",
+          "Galerie d'Art St-Paul"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJBfSsZ-eVuEwR3UqZAUMCYPc",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 630,
+            "close": 1020
+          },
+          "Mo": {
+            "open": 630,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 630,
+            "close": 1020
+          },
+          "We": {
+            "open": 630,
+            "close": 1020
+          },
+          "Th": {
+            "open": 630,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 630,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 630,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 10:30 AM – 5:00 PM",
+          "Tuesday: 10:30 AM – 5:00 PM",
+          "Wednesday: 10:30 AM – 5:00 PM",
+          "Thursday: 10:30 AM – 5:00 PM",
+          "Friday: 10:30 AM – 5:00 PM",
+          "Saturday: 10:30 AM – 5:00 PM",
+          "Sunday: 10:30 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 5,
+        "userRatingCount": 8,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/4349079029",
+      "name": "Hortus Bistro",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ4zbUT96VuEwRh8Jzt2oosuw",
+        "displayName": "Bistro Hortus",
+        "formattedAddress": "1190 Rue Saint-Jean, Québec, QC G1R 1S6, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Bistro Hortus"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ4zbUT96VuEwRh8Jzt2oosuw",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 570,
+            "close": 1320
+          },
+          "Mo": {
+            "open": 690,
+            "close": 1320
+          },
+          "Tu": {
+            "open": 690,
+            "close": 1320
+          },
+          "We": {
+            "open": 690,
+            "close": 1320
+          },
+          "Th": {
+            "open": 690,
+            "close": 1320
+          },
+          "Fr": {
+            "open": 690,
+            "close": 1320
+          },
+          "Sa": {
+            "open": 570,
+            "close": 1320
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 11:30 AM – 10:00 PM",
+          "Tuesday: 11:30 AM – 10:00 PM",
+          "Wednesday: 11:30 AM – 10:00 PM",
+          "Thursday: 11:30 AM – 10:00 PM",
+          "Friday: 11:30 AM – 10:00 PM",
+          "Saturday: 9:30 AM – 10:00 PM",
+          "Sunday: 9:30 AM – 10:00 PM"
+        ],
+        "priceLevel": "PRICE_LEVEL_MODERATE",
+        "rating": 4.5,
+        "userRatingCount": 1415,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/4279287390",
+      "name": "Musée des plaines d'Abraham",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJIU80X9eVuEwR0uvJ8xD1ZqA",
+        "displayName": "The Plains of Abraham Museum",
+        "formattedAddress": "835 Av. Wilfrid-Laurier, Québec, QC G1R 2L3, Canada",
+        "distanceKm": 0.03,
+        "candidates": [
+          "The Plains of Abraham Museum"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJIU80X9eVuEwR0uvJ8xD1ZqA",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 540,
+            "close": 1020
+          },
+          "Mo": {
+            "open": 540,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 540,
+            "close": 1020
+          },
+          "We": {
+            "open": 540,
+            "close": 1020
+          },
+          "Th": {
+            "open": 540,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 540,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 540,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 9:00 AM – 5:00 PM",
+          "Tuesday: 9:00 AM – 5:00 PM",
+          "Wednesday: 9:00 AM – 5:00 PM",
+          "Thursday: 9:00 AM – 5:00 PM",
+          "Friday: 9:00 AM – 5:00 PM",
+          "Saturday: 9:00 AM – 5:00 PM",
+          "Sunday: 9:00 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.4,
+        "userRatingCount": 1627,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/2527418385",
+      "name": "Galerie d'art la Gazelle",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJUwCE1ouXuEwR2RDl79M_JtU",
+        "displayName": "Galerie d'Art La Gazelle",
+        "formattedAddress": "234 Rue Saint-Jean, Québec, QC G1R 1P1, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Galerie d'Art La Gazelle"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJUwCE1ouXuEwR2RDl79M_JtU",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": 5,
+        "userRatingCount": 3,
+        "wheelchairEntrance": null,
+        "businessStatus": "CLOSED_TEMPORARILY"
+      }
+    },
+    {
+      "key": "node/2527418383",
+      "name": "Au Bonnet d'Âne",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJVY3N4HmWuEwREw6JBrAcC6k",
+        "displayName": "Le Bonnet d'Âne",
+        "formattedAddress": "298 Rue Saint-Jean, Québec, QC G1R 1P1, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Le Bonnet d'Âne"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJVY3N4HmWuEwREw6JBrAcC6k",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": "PRICE_LEVEL_MODERATE",
+        "rating": 4.5,
+        "userRatingCount": 1520,
+        "wheelchairEntrance": false,
+        "businessStatus": "CLOSED_TEMPORARILY"
+      }
+    },
+    {
+      "key": "node/4461909789",
+      "name": "Pavillon Pierre-Lassonde",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJ58_KvH-WuEwRMJiu1H3HQlc",
+        "displayName": "Pavillon Pierre Lassonde",
+        "formattedAddress": "Québec City, QC G1R 2H1, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Pavillon Pierre Lassonde"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ58_KvH-WuEwRMJiu1H3HQlc",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": 5,
+        "userRatingCount": 15,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "way/225125377",
+      "name": "Parc Lockwell",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJVVUVY3mWuEwR_4hwkh7WxzE",
+        "displayName": "Parc Lockwell",
+        "formattedAddress": "Rue Lockwell, Québec, QC G1R 1V6, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Parc Lockwell"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJVVUVY3mWuEwR_4hwkh7WxzE",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": null,
+        "userRatingCount": null,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/377497852",
+      "name": "Porte Kent",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJQfkQK9-VuEwRrGaXocG1D7s",
+        "displayName": "Kent Gate",
+        "formattedAddress": "Rue Dauphine, Québec, QC G1R 3W7, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Kent Gate"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJQfkQK9-VuEwRrGaXocG1D7s",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 0,
+            "close": 1440
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: Open 24 hours",
+          "Tuesday: Open 24 hours",
+          "Wednesday: Open 24 hours",
+          "Thursday: Open 24 hours",
+          "Friday: Open 24 hours",
+          "Saturday: Open 24 hours",
+          "Sunday: Open 24 hours"
+        ],
+        "priceLevel": null,
+        "rating": 4.4,
+        "userRatingCount": 52,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/12207260095",
+      "name": "Concept Bala",
+      "graded": true,
+      "matched": {
+        "placeId": "ChIJA0BQASVXM2QRX5b4kY0AoTs",
+        "displayName": "Concept BALA - Espace bien-être",
+        "formattedAddress": "329 Rue Saint-Paul, Québec, QC G1K 3W8, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Concept BALA - Espace bien-être"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJA0BQASVXM2QRX5b4kY0AoTs",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 540,
+            "close": 960
+          },
+          "Mo": {
+            "open": 480,
+            "close": 960
+          },
+          "Tu": {
+            "open": 480,
+            "close": 960
+          },
+          "We": {
+            "open": 480,
+            "close": 960
+          },
+          "Th": {
+            "open": 480,
+            "close": 960
+          },
+          "Fr": {
+            "open": 480,
+            "close": 960
+          },
+          "Sa": {
+            "open": 540,
+            "close": 960
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 8:00 AM – 4:00 PM",
+          "Tuesday: 8:00 AM – 4:00 PM",
+          "Wednesday: 8:00 AM – 4:00 PM",
+          "Thursday: 8:00 AM – 4:00 PM",
+          "Friday: 8:00 AM – 4:00 PM",
+          "Saturday: 9:00 AM – 4:00 PM",
+          "Sunday: 9:00 AM – 4:00 PM"
+        ],
+        "priceLevel": "PRICE_LEVEL_MODERATE",
+        "rating": 4.8,
+        "userRatingCount": 194,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/1199354691",
+      "name": "Chute Montmorency",
+      "graded": true,
+      "searchReusedFromStep2": true,
+      "matched": {
+        "placeId": "ChIJqwAQnqK-uEwRIxnWIPF1QtU",
+        "displayName": "Montmorency Falls",
+        "formattedAddress": "Québec City, QC G1C 2H1, Canada",
+        "distanceKm": 0.36,
+        "candidates": [
+          "Montmorency Falls",
+          "Parc de la Chute-Montmorency",
+          "Montmorency Falls Vista Point"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJqwAQnqK-uEwRIxnWIPF1QtU",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 540,
+            "close": 1080
+          },
+          "Mo": {
+            "open": 540,
+            "close": 1080
+          },
+          "Tu": {
+            "open": 540,
+            "close": 1080
+          },
+          "We": {
+            "open": 540,
+            "close": 1080
+          },
+          "Th": {
+            "open": 540,
+            "close": 1080
+          },
+          "Fr": {
+            "open": 540,
+            "close": 1080
+          },
+          "Sa": {
+            "open": 540,
+            "close": 1080
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 9:00 AM – 6:00 PM",
+          "Tuesday: 9:00 AM – 6:00 PM",
+          "Wednesday: 9:00 AM – 6:00 PM",
+          "Thursday: 9:00 AM – 6:00 PM",
+          "Friday: 9:00 AM – 6:00 PM",
+          "Saturday: 9:00 AM – 6:00 PM",
+          "Sunday: 9:00 AM – 6:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.7,
+        "userRatingCount": 38925,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/2546008681",
+      "name": "Musée de la Civilisation de Québec",
+      "graded": false,
+      "matched": {
+        "placeId": "ChIJW_IFg-eVuEwREN8gqw0H_DE",
+        "displayName": "Museum of Civilization",
+        "formattedAddress": "85 Rue Dalhousie, Québec, QC G1K 8R2, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Museum of Civilization"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJW_IFg-eVuEwREN8gqw0H_DE",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 600,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 600,
+            "close": 1020
+          },
+          "We": {
+            "open": 600,
+            "close": 1020
+          },
+          "Th": {
+            "open": 600,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 600,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 600,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: Closed",
+          "Tuesday: 10:00 AM – 5:00 PM",
+          "Wednesday: 10:00 AM – 5:00 PM",
+          "Thursday: 10:00 AM – 5:00 PM",
+          "Friday: 10:00 AM – 5:00 PM",
+          "Saturday: 10:00 AM – 5:00 PM",
+          "Sunday: 10:00 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.5,
+        "userRatingCount": 9103,
+        "wheelchairEntrance": true,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "way/106776418",
+      "name": "Musée Naval de Québec",
+      "graded": false,
+      "matched": {
+        "placeId": "ChIJ0fcx7uaVuEwRFIuFMYk6UyI",
+        "displayName": "Naval Museum of Quebec",
+        "formattedAddress": "170 Rue Dalhousie, Québec, QC G1K 8M7, Canada",
+        "distanceKm": 0.06,
+        "candidates": [
+          "Naval Museum of Quebec"
+        ],
+        "retriedAfter503": true
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJ0fcx7uaVuEwRFIuFMYk6UyI",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": 4.4,
+        "userRatingCount": 222,
+        "wheelchairEntrance": true,
+        "businessStatus": "CLOSED_TEMPORARILY"
+      }
+    },
+    {
+      "key": "node/14098650933",
+      "name": "Jean Castor",
+      "graded": false,
+      "matched": {
+        "placeId": "ChIJQci9ILOVuEwRJQmQL0e73sU",
+        "displayName": "Jean Castor",
+        "formattedAddress": "1143 Rue Saint-Jean, Québec, QC G1R 1S3, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "Jean Castor"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJQci9ILOVuEwRJQmQL0e73sU",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 660,
+            "close": 1020
+          },
+          "Mo": {
+            "open": 660,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 660,
+            "close": 1020
+          },
+          "We": {
+            "open": 660,
+            "close": 1020
+          },
+          "Th": {
+            "open": 660,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 660,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 660,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 11:00 AM – 5:00 PM",
+          "Tuesday: 11:00 AM – 5:00 PM",
+          "Wednesday: 11:00 AM – 5:00 PM",
+          "Thursday: 11:00 AM – 5:00 PM",
+          "Friday: 11:00 AM – 5:00 PM",
+          "Saturday: 11:00 AM – 5:00 PM",
+          "Sunday: 11:00 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.8,
+        "userRatingCount": 185,
+        "wheelchairEntrance": false,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/13250945951",
+      "name": "Galerie Porte Rouge - Vieux-Québec",
+      "graded": false,
+      "matched": {
+        "placeId": "ChIJAdih0t2VuEwR3fisOJRaYUc",
+        "displayName": "Galerie Porte Rouge - Vieux-Québec",
+        "formattedAddress": "35 Rue De Buade, Québec, QC G1R 4A2, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Galerie Porte Rouge - Vieux-Québec"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJAdih0t2VuEwR3fisOJRaYUc",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 600,
+            "close": 1020
+          },
+          "Mo": {
+            "open": 600,
+            "close": 1020
+          },
+          "Tu": {
+            "open": 600,
+            "close": 1020
+          },
+          "We": {
+            "open": 600,
+            "close": 1020
+          },
+          "Th": {
+            "open": 600,
+            "close": 1020
+          },
+          "Fr": {
+            "open": 600,
+            "close": 1020
+          },
+          "Sa": {
+            "open": 600,
+            "close": 1020
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 10:00 AM – 5:00 PM",
+          "Tuesday: 10:00 AM – 5:00 PM",
+          "Wednesday: 10:00 AM – 5:00 PM",
+          "Thursday: 10:00 AM – 5:00 PM",
+          "Friday: 10:00 AM – 5:00 PM",
+          "Saturday: 10:00 AM – 5:00 PM",
+          "Sunday: 10:00 AM – 5:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.6,
+        "userRatingCount": 31,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "way/240740525",
+      "name": "Parc de l'Unesco",
+      "graded": false,
+      "matched": {
+        "placeId": "ChIJvRD8EN2VuEwR8nWGEO8vRNI",
+        "displayName": "UNESCO Park",
+        "formattedAddress": "43 Rue Saint-Pierre, Québec, QC G1K 3Z7, Canada",
+        "distanceKm": 0.0,
+        "candidates": [
+          "UNESCO Park"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJvRD8EN2VuEwR8nWGEO8vRNI",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": {
+          "Su": {
+            "open": 300,
+            "close": 1380
+          },
+          "Mo": {
+            "open": 300,
+            "close": 1380
+          },
+          "Tu": {
+            "open": 300,
+            "close": 1380
+          },
+          "We": {
+            "open": 300,
+            "close": 1380
+          },
+          "Th": {
+            "open": 300,
+            "close": 1380
+          },
+          "Fr": {
+            "open": 300,
+            "close": 1380
+          },
+          "Sa": {
+            "open": 300,
+            "close": 1380
+          }
+        },
+        "weekdayDescriptions": [
+          "Monday: 5:00 AM – 11:00 PM",
+          "Tuesday: 5:00 AM – 11:00 PM",
+          "Wednesday: 5:00 AM – 11:00 PM",
+          "Thursday: 5:00 AM – 11:00 PM",
+          "Friday: 5:00 AM – 11:00 PM",
+          "Saturday: 5:00 AM – 11:00 PM",
+          "Sunday: 5:00 AM – 11:00 PM"
+        ],
+        "priceLevel": null,
+        "rating": 4.6,
+        "userRatingCount": 27,
+        "wheelchairEntrance": null,
+        "businessStatus": "OPERATIONAL"
+      }
+    },
+    {
+      "key": "node/10554222513",
+      "name": "Hôtel Marie Rollett",
+      "graded": false,
+      "matched": {
+        "placeId": "ChIJzdwHk96VuEwRItay862B2-c",
+        "displayName": "Hôtel Marie-Rollet",
+        "formattedAddress": "81 Rue Sainte-Anne, Québec, QC G1R 3X4, Canada",
+        "distanceKm": 0.01,
+        "candidates": [
+          "Hôtel Marie-Rollet"
+        ]
+      },
+      "google": {
+        "source": "google",
+        "placeId": "ChIJzdwHk96VuEwRItay862B2-c",
+        "fetchedAt": "2026-10-21T20:17:59.498429+00:00",
+        "refreshDue": "2026-11-20",
+        "hoursByDay": null,
+        "weekdayDescriptions": null,
+        "priceLevel": null,
+        "rating": 4.5,
+        "userRatingCount": 283,
+        "wheelchairEntrance": false,
+        "businessStatus": "OPERATIONAL"
+      }
+    }
+  ]
+}

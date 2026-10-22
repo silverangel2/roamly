@@ -4,6 +4,13 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { extractAndMatchTravelEmailBooking } from "@/lib/roamly/bookingExtraction";
 import { filterTravelEmail, recordTravelEmailFilterResult } from "@/lib/roamly/travelEmailFiltering";
 import { revokeGoogleOAuthToken, stopGmailPushDelivery } from "@/lib/roamly/gmailDisconnect";
+import { build2ReconciliationSilentEnabled } from "@/lib/roamly/build2Flags";
+import { GMAIL_CONSENT_SCOPE } from "@/lib/roamly/gateMachine";
+import {
+  classifyBookingPattern,
+  laneMessageFromMetadata,
+  parseLaneMessage
+} from "@/lib/roamly/reconciliationLane";
 
 export const GMAIL_PROVIDER = "gmail" as const;
 export const OUTLOOK_PROVIDER = "outlook" as const;
@@ -458,6 +465,24 @@ function gmailReceivedAt(message: GmailMessageMetadataResponse) {
   return internalDate > 0 ? new Date(internalDate).toISOString() : null;
 }
 
+/**
+ * Build 2 consent evidence for the sync seam (Phase 8): the consent
+ * scope recorded in the M1 gate states (table name owned by
+ * gateService, GATE_STATES_TABLE) at gate/connect time. No row — or
+ * no table yet — means no consent on record, and the lane refuses
+ * closed: reconciliation reads wait for consent, always.
+ */
+async function build2GmailConsentRecorded(supabase: SupabaseClient, userId: string) {
+  const { data, error } = await supabase
+    .from("roamly_gate_states")
+    .select("gmail_consent_scope")
+    .eq("user_id", userId)
+    .eq("gmail_consent_scope", GMAIL_CONSENT_SCOPE)
+    .limit(1);
+  if (error) return false;
+  return Array.isArray(data) && data.length > 0;
+}
+
 async function recordGmailTravelMessage(params: {
   supabase: SupabaseClient;
   connection: EmailConnectionRecord;
@@ -495,6 +520,17 @@ async function recordGmailTravelMessage(params: {
     metadata: enrichedMetadata
   });
   if (saved.saved && saved.filter.shouldProcess) {
+    // Build 2 lane (Phase 8): the booking-pattern gate stands in
+    // front of extraction — a message that is not booking-pattern
+    // never reaches the extractor, and the rejection reason is
+    // recorded on the result. (This seam is Gmail-only by
+    // construction; the Outlook path never enters the lane.)
+    if (build2ReconciliationSilentEnabled()) {
+      const pattern = classifyBookingPattern(parseLaneMessage(laneMessageFromMetadata(enrichedMetadata)));
+      if (!pattern.accepted) {
+        return { ...saved, retryable: false, laneRejected: pattern.reason };
+      }
+    }
     const extraction = await extractAndMatchTravelEmailBooking({
       supabase: params.supabase,
       connection: params.connection,
@@ -972,6 +1008,14 @@ async function syncGmailConnectionUnlocked(params: {
   if (!data) return { ok: false, error: "GMAIL_NOT_CONNECTED", processed: 0 };
 
   const connection = data as EmailConnectionRecord;
+  // Build 2 lane (Phase 8): consent is recorded BEFORE any read.
+  // With the lane on, a sync for a traveler with no recorded Build 2
+  // Gmail consent refuses here — before the token refresh, before
+  // the history listing, before a single message is fetched.
+  if (build2ReconciliationSilentEnabled()) {
+    const consented = await build2GmailConsentRecorded(writer, connection.user_id).catch(() => false);
+    if (!consented) return { ok: false, error: "RECONCILIATION_NOT_ARMED", processed: 0 };
+  }
   let accessToken: string;
   try {
     accessToken = await accessTokenForConnection(writer, connection);

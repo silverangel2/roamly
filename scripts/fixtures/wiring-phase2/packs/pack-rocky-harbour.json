@@ -1,0 +1,406 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "cache/pack-rocky-harbour.json"
+      ],
+      "note": "Cached destination pack as the solver consumes it; the collectors' `sources` provenance block is dropped (collector bookkeeping, not solver input)."
+    }
+  },
+  "data": {
+    "destination": "Rocky Harbour",
+    "country": "Canada",
+    "center": {
+      "lat": 49.5917,
+      "lon": -57.9184
+    },
+    "startIso": "2026-10-24",
+    "endIso": "2026-10-27",
+    "generatedAt": "2026-10-21T20:56:25.754Z",
+    "counts": {
+      "total": 24,
+      "sights": 10,
+      "foods": 7,
+      "stays": 7,
+      "transport": 0
+    },
+    "stays": [
+      {
+        "key": "node/4232002165",
+        "name": "Ocean View Hotel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5904618,
+          "lon": -57.9161927
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://theoceanview.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/4232002165"
+      },
+      {
+        "key": "node/4988262848",
+        "name": "Gros Morne Suites",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5851763,
+          "lon": -57.9374102
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.grosmornesuites.com"
+        },
+        "url": "https://www.openstreetmap.org/node/4988262848"
+      },
+      {
+        "key": "node/10945176662",
+        "name": "Augustus Jane Inn",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5871551,
+          "lon": -57.9224941
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.augustusjaneinn.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/10945176662"
+      },
+      {
+        "key": "node/10945176668",
+        "name": "Squid Row Suites",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5872326,
+          "lon": -57.9306785
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10945176668"
+      },
+      {
+        "key": "node/10947479201",
+        "name": "Buoy & Arrow",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5932608,
+          "lon": -57.9106889
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10947479201"
+      },
+      {
+        "key": "node/13099202004",
+        "name": "Outeastadventures",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5840334,
+          "lon": -57.9095486
+        },
+        "hoursRaw": null,
+        "tags": {
+          "description": "hostel , camping , agence d'excursions , location et achat  matériel randonnée camping",
+          "website": "https://www.outeastadventures.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/13099202004"
+      },
+      {
+        "key": "node/13100228811",
+        "name": "Fisherman's landinn inn",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 49.5836032,
+          "lon": -57.9081674
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://fishermanslandinginn.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/13100228811"
+      }
+    ],
+    "sights": [
+      {
+        "key": "node/475756548",
+        "name": "Gros Morne Visitor Information Centre",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 49.5722098,
+          "lon": -57.8750352
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "no",
+          "website": "https://parks.canada.ca/pn-np/nl/grosmorne"
+        },
+        "url": "https://www.openstreetmap.org/node/475756548"
+      },
+      {
+        "key": "node/4988262658",
+        "name": "Salmon viewpoint",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 49.5829504,
+          "lon": -57.9412404
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4988262658"
+      },
+      {
+        "key": "node/4993610470",
+        "name": "Berry Hill",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 49.6237581,
+          "lon": -57.9323033
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4993610470"
+      },
+      {
+        "key": "node/10792651675",
+        "name": "Gros Morne Wildlife Museum",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 49.5934325,
+          "lon": -57.9174434
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "yes",
+          "website": "https://grosmornewildlifemuseum.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/10792651675"
+      }
+    ],
+    "excursions": [
+      {
+        "key": "node/491406196",
+        "name": "Lobster Cove Head Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 49.6029013,
+          "lon": -57.9556771
+        },
+        "hoursRaw": "10:00-17:30",
+        "tags": {
+          "fee": "no",
+          "website": "https://parks.canada.ca/pn-np/nl/grosmorne/activ/decouverte-tours/lch"
+        },
+        "url": "https://www.openstreetmap.org/node/491406196"
+      },
+      {
+        "key": "node/1550469430",
+        "name": "The Overfalls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 49.8425723,
+          "lon": -57.6286003
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1550469430"
+      },
+      {
+        "key": "node/1551157338",
+        "name": "Crow Gulch Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 49.5650867,
+          "lon": -57.7536229
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1551157338"
+      },
+      {
+        "key": "node/4207811418",
+        "name": "Woody Point Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 49.5048171,
+          "lon": -57.9125592
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4207811418"
+      },
+      {
+        "key": "node/4209161895",
+        "name": "Cow Head Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 49.9213332,
+          "lon": -57.8227268
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4209161895"
+      },
+      {
+        "key": "node/4913810564",
+        "name": "Pissing Mare Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 49.7135026,
+          "lon": -57.6648104
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4913810564"
+      }
+    ],
+    "foods": [
+      {
+        "key": "node/4232002164",
+        "name": "Fisherman's Landing",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5911531,
+          "lon": -57.9164139
+        },
+        "hoursRaw": "Mo-Su 07:00-22:00",
+        "tags": {
+          "website": "https://fishermanslandingrestaurant.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/4232002164"
+      },
+      {
+        "key": "node/4232002364",
+        "name": "Earle‘s",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5864183,
+          "lon": -57.9348265
+        },
+        "hoursRaw": "11:00-20:00",
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4232002364"
+      },
+      {
+        "key": "node/5793746673",
+        "name": "SunSet Café",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5893023,
+          "lon": -57.9172548
+        },
+        "hoursRaw": null,
+        "tags": {
+          "description": "hearty home style cooking"
+        },
+        "url": "https://www.openstreetmap.org/node/5793746673"
+      },
+      {
+        "key": "node/10945176664",
+        "name": "Jackie‘s",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5872866,
+          "lon": -57.9309654
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10945176664"
+      },
+      {
+        "key": "node/10945176669",
+        "name": "Oceans",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5901968,
+          "lon": -57.9162323
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10945176669"
+      },
+      {
+        "key": "node/10947479200",
+        "name": "Buoy & Arrow",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5916061,
+          "lon": -57.9128394
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10947479200"
+      },
+      {
+        "key": "node/14178438203",
+        "name": "food truck",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 49.5823125,
+          "lon": -57.9160021
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "fish_and_chips",
+          "diet:fish": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/14178438203"
+      }
+    ],
+    "transport": [],
+    "weather": [
+      {
+        "date": "2026-10-24",
+        "tMax": 4.4,
+        "tMin": -0.4,
+        "precipProb": 4
+      },
+      {
+        "date": "2026-10-25",
+        "tMax": 9.5,
+        "tMin": 3.9,
+        "precipProb": 0
+      },
+      {
+        "date": "2026-10-26",
+        "tMax": 9.1,
+        "tMin": 5.6,
+        "precipProb": 25
+      },
+      {
+        "date": "2026-10-27",
+        "tMax": 6,
+        "tMin": 2.9,
+        "precipProb": 18
+      }
+    ],
+    "weatherNote": null,
+    "networkFetches": 3
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "poolId": "lunenburg-coastal",
+  "timingsMs": {
+    "pack": 33162,
+    "solve": 8,
+    "total": 33269
+  },
+  "packFromCache": false,
+  "networkFetchesThisRun": 1,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 11,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

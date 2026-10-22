@@ -1,0 +1,151 @@
+{
+  "grades": [
+    {
+      "leg": "request:earliest-start",
+      "status": "DONE",
+      "detail": "all 14 timed items start at or after 10:00"
+    },
+    {
+      "leg": "request:rest-block",
+      "status": "DONE",
+      "detail": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:26–17:00)"
+    },
+    {
+      "leg": "request:keyword-gondola",
+      "status": "VIOLATED",
+      "detail": "nothing in the itinerary matches gondola ride up Sulphur Mountain"
+    },
+    {
+      "leg": "request:keyword-hot-springs",
+      "status": "VIOLATED",
+      "detail": "nothing in the itinerary matches hot springs afternoon"
+    },
+    {
+      "leg": "request:no-repeat",
+      "status": "DONE",
+      "detail": "no place is scheduled twice across the trip"
+    },
+    {
+      "leg": "request:dietary",
+      "status": "DONE",
+      "detail": "4 of 4 lunches carry explicit dietary tags in the data (vegetarian, dairy free)"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "UNVERIFIABLE",
+      "detail": "open data carries no prices: a cap of 1500 cannot be totaled or checked — never faked as met"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "no hard violations; arithmetic, grounding, and hours all cohere"
+    },
+    {
+      "leg": "prices:budget",
+      "status": "DONE",
+      "detail": "WITHIN — evidence covers 10/12 all-in scope lines (83%): 10 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 244–586 vs cap CAD 1500; tiers {\"COSTED\":10}"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "NOT DONE",
+      "detail": "gondola ride up Sulphur Mountain: unmet; hot springs afternoon: unmet"
+    },
+    {
+      "leg": "engine:extractor-agreement",
+      "status": "DONE",
+      "detail": "earliest-start: agree; rest-type: agree; budget: agree; dietary: agree; place-items-count: agree"
+    }
+  ],
+  "agreement": [
+    {
+      "id": "earliest-start",
+      "extracted": "\"10:00\"",
+      "truth": "\"10:00\"",
+      "agree": true
+    },
+    {
+      "id": "rest-type",
+      "extracted": "\"afternoon\"",
+      "truth": "\"afternoon\"",
+      "agree": true
+    },
+    {
+      "id": "budget",
+      "extracted": "1500",
+      "truth": "1500",
+      "agree": true
+    },
+    {
+      "id": "dietary",
+      "extracted": "[\"dairy free\",\"vegetarian\"]",
+      "truth": "[\"dairy free\",\"vegetarian\"]",
+      "agree": true
+    },
+    {
+      "id": "place-items-count",
+      "extracted": "2",
+      "truth": "2",
+      "agree": true
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 14 timed items start at or after 10:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:26–17:00)"
+    },
+    {
+      "id": "keyword-gondola",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches gondola ride up Sulphur Mountain"
+    },
+    {
+      "id": "keyword-hot-springs",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches hot springs afternoon"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "KEPT",
+      "evidence": "4 of 4 lunches carry explicit dietary tags in the data (vegetarian, dairy free)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1500 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Luxton Home & Garden Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Brandon T. Brown Wilderness Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Whyte Museum of the Canadian Rockies\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Central Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Buffalo Nations Luxton Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Banff Recreation Grounds\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Canada Place Banff\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Muskrat Street Park\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Banff Pedestrian Bridge\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"JUGEMU Banff | Modern Japnaese\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Shaw Amphitheatre\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "unresolved": [
+    "must-see unmet: gondola ride up Sulphur Mountain — no matching candidate exists in the open data for this destination",
+    "must-see unmet: hot springs afternoon — candidate \"Banff Upper Hot Springs\" exists but no feasible slot remained (distance/geometry)",
+    "opening hours: 11 of 14 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap WITHIN on labeled evidence (coverage 10/10 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+  ]
+}

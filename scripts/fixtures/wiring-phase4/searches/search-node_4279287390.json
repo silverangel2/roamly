@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJIU80X9eVuEwR0uvJ8xD1ZqA",
+      "formattedAddress": "835 Av. Wilfrid-Laurier, Québec, QC G1R 2L3, Canada",
+      "location": {
+        "latitude": 46.806855000000006,
+        "longitude": -71.213084
+      },
+      "displayName": {
+        "text": "The Plains of Abraham Museum",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

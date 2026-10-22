@@ -1,0 +1,242 @@
+{
+  "recordedAt": "2026-10-21T20:00:30.139Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "Slow Mornings Café & Restaurant",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Army Museum",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "Metro Transit Ferry Terminal",
+      "day": 2,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "Lou Pécou",
+      "day": 2,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "Springhouse Market",
+      "day": 3,
+      "score": 75,
+      "reasons": [
+        "hours verified (osm)",
+        "dietary fit proven by listing tags"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "Nova Scotia Sport Hall of Fame",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Art Gallery of Nova Scotia",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Halifax Citadel National Historic Site",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Citadel Hill",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Army Museum",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Metro Transit Ferry Terminal",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Maritime Museum of the Atlantic",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "The Blue Building Gallery",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Garrison Grounds",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Salt Yard",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Naval Museum of Halifax",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Fuller Terrace Park",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Art Gallery of Nova Scotia",
+      "risk": "tight turnaround — only 4 min after \"Nova Scotia Sport Hall of Fame\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Citadel Hill",
+      "risk": "tight turnaround — only 3 min after \"Halifax Citadel National Historic Site\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "The Blue Building Gallery",
+      "risk": "tight turnaround — only 6 min after \"Lou Pécou\"",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Garrison Grounds",
+      "risk": "tight turnaround — only 4 min after \"Nova Scotia Museum of Natural History\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Grafton Street Park",
+      "risk": "tight turnaround — only 7 min after \"Salt Yard\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Fuller Terrace Park",
+      "risk": "tight turnaround — only 4 min after \"Naval Museum of Halifax\"",
+      "severity": "low"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "WITHIN",
+    "note": "even the top of the estimated range (CAD 672) sits under the cap (CAD 1200)",
+    "cap": {
+      "amount": 1200,
+      "currency": "CAD",
+      "verdict": "WITHIN — even the top of the estimated range (CAD 672) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.87,
+    "coverageThreshold": 0.5,
+    "pricedItems": 13,
+    "evidencedItems": 13,
+    "evidenceByTier": {
+      "COSTED": 13
+    },
+    "estimatedTotals": {
+      "low": 288,
+      "high": 672,
+      "currency": "CAD"
+    },
+    "payingParty": 2,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: not evidenced — excluded from the totals, never counted as zero; getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 0,
+    "bandDistribution": {},
+    "bandSource": null,
+    "scopeLines": 15,
+    "evidencedScopeLines": 13,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Residence Inn Halifax Downtown",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no price evidence for the stay — no booked price, no library price, no recorded price band. Named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": 3
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 6,
+      "walkingKmEstimated": 2.85,
+      "lastEnd": "17:50"
+    },
+    {
+      "day": 2,
+      "stops": 4,
+      "walkingKmEstimated": 3.25,
+      "lastEnd": "15:05"
+    },
+    {
+      "day": 3,
+      "stops": 3,
+      "walkingKmEstimated": 1.89,
+      "lastEnd": "17:03"
+    },
+    {
+      "day": 4,
+      "stops": 5,
+      "walkingKmEstimated": 3.42,
+      "lastEnd": "16:09"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

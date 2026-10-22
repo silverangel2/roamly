@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ31qafQCVuEwRMnCG4z_XZxk",
+      "formattedAddress": "Haute-Ville, QC G1R 3X2, Canada",
+      "location": {
+        "latitude": 46.8129171,
+        "longitude": -71.2058666
+      },
+      "displayName": {
+        "text": "cannonball tree",
+        "languageCode": "sr"
+      }
+    }
+  ]
+}

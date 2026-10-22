@@ -111,7 +111,20 @@
     "test:itinerary-language": "node scripts/roamly-itinerary-language-check.mjs",
     "test:saint-john-montreal-fixture": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-saint-john-montreal-fixture.mjs",
     "test:fyi-upsell": "node --experimental-strip-types scripts/roamly-fyi-upsell-checks.mjs",
-    "test:itinerary-library": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-itinerary-library-checks.mjs"
+    "test:itinerary-library": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-itinerary-library-checks.mjs",
+    "test:wiring-time": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-wiring-time-checks.mjs",
+    "test:wiring-phase1-golden": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-wiring-phase1-golden-checks.mjs",
+    "test:wiring-phase2-golden": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-wiring-phase2-golden-checks.mjs",
+    "test:wiring-phase3": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-wiring-phase3-checks.mjs",
+    "test:wiring-phase4": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-wiring-phase4-checks.mjs",
+    "test:wiring-phase5": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase5-checks.mjs",
+    "test:wiring-phase6": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase6-checks.mjs",
+    "test:wiring-phase7": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase7-checks.mjs",
+    "test:wiring-phase8": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase8-checks.mjs",
+    "test:wiring-phase9": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase9-checks.mjs",
+    "test:wiring-phase10": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase10-checks.mjs",
+    "test:wiring-phase11": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase11-checks.mjs",
+    "test:wiring-ship": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-ship-checks.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

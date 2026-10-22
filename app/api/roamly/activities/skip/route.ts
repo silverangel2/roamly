@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
     action: "skip",
     location,
     source: simulated ? "tester_location_simulator" : "user_skip",
-    simulated
+    simulated,
+    // Offline panel taps flush late with their true time (Phase 7).
+    occurredAt: typeof body.occurredAt === "string" ? body.occurredAt : null
   });
 
   if (!result.ok) return NextResponse.json({ ok: false, error: result.error }, { status: 400 });

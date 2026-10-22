@@ -60,18 +60,24 @@ function itineraryItems(fullJson: unknown) {
     .slice(0, 12);
 }
 
-function deterministicImpact(event: CompanionEventRecord, itinerary: unknown): ImpactResult {
+export function deterministicImpact(event: CompanionEventRecord, itinerary: unknown): ImpactResult {
   const items = itineraryItems(itinerary);
   const base = {
     severity: event.severity,
-    affectedItems: items
-      .filter((item) => {
-        const itemRecord = record(item);
-        return event.event_type.includes("flight")
-          ? /airport|flight|arrival|dinner|transfer/i.test(String(itemRecord.title || itemRecord.description || ""))
-          : true;
-      })
-      .slice(0, 6),
+    // PHASE 9 FIX (DESIGN-PRODUCTION.md Phase 9): the affected set is
+    // computed from the FULL day state — every item, with its times,
+    // state, and protection flags attached for the repair planner to
+    // evaluate. The previous filter matched `title || description`
+    // against a keyword regex, so plainly-titled items (a café lunch,
+    // a citadel) never entered the affected set at all: on the spike
+    // day, production's own shift then moved dinner INTO the prepaid
+    // cruise while the two items the delay actually killed were
+    // invisible. Keyword matching over titles is not impact analysis.
+    affectedItems: items.slice(0, 12).map((item) => ({
+      ...item,
+      affected_reason:
+        "full-day-state: timing feasibility is evaluated by the repair planner from times, state, and protection flags — not from title keywords"
+    })),
     costImpact: { amount_delta_known: false, paid_commitment_allowed: false },
     travelerActionRequired: event.requires_user_approval,
     fallbackOptions: [] as string[],

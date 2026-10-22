@@ -1,0 +1,754 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "scenario": "envelope-halifax-dawn",
+  "destination": "Halifax",
+  "startDate": "2026-10-24",
+  "endDate": "2026-10-27",
+  "anchorStay": {
+    "name": "Residence Inn Halifax Downtown",
+    "walkableSights": 43
+  },
+  "partyProfile": {
+    "labels": [
+      "travelers in their fifties/sixties"
+    ],
+    "kidAges": [],
+    "hasInfant": false,
+    "senior": false,
+    "mature": true,
+    "energyBurn": false,
+    "slopeTolerance": "low",
+    "walkBudgetKm": {
+      "FULL": 5.5,
+      "LIGHT": 3
+    },
+    "maxLegKm": 1,
+    "breakEveryMin": 135,
+    "sitBreakMin": 15,
+    "maxActivityMin": 450
+  },
+  "journeySpec": {
+    "arrival": {
+      "mode": "fly",
+      "leaveHomeMin": 430,
+      "toAirportMin": 40,
+      "bufferMin": 90,
+      "travelMin": 60,
+      "transferMin": 35
+    },
+    "departure": {
+      "flightMin": 465,
+      "transferMin": 35,
+      "bufferMin": 90
+    }
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-ferry",
+      "label": "one harbour ferry ride",
+      "status": "scheduled",
+      "day": 2,
+      "item": "Metro Transit Ferry Terminal"
+    },
+    {
+      "id": "keyword-maritime-museum",
+      "label": "maritime museum visit",
+      "status": "scheduled",
+      "day": 2,
+      "item": "Army Museum"
+    }
+  ],
+  "solverNotes": [
+    "2026-10-24: arrival envelope — 225 min door to door (2–5 hours); check-in assumed — conservative 15:00 default; no hotel data in the open sources, and an earlier room is never invented; rest & refresh 60 min before any stop.",
+    "2026-10-27: departure envelope — flight 465 min; gentle class only, pack-up protected, leave base at 340.",
+    "2026-10-26: wind-down evening — pack-up done tonight, nothing scheduled late, for tomorrow's 465-min dawn flight."
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Mezza\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Metro Transit Ferry Terminal\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Nova Scotia Sport Hall of Fame\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"The Blue Building Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Army Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Art Gallery of Nova Scotia\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "emotion": {
+    "verdict": "PASS",
+    "hard": 0,
+    "soft": 1,
+    "findings": [
+      {
+        "day": 2,
+        "check": "rushing",
+        "severity": "soft",
+        "evidence": "4 legs run at exactly travel pace (worst: 0 min of slack into \"Slow Mornings Café & Restaurant\") — the day is a timetable, not a holiday",
+        "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
+      }
+    ]
+  },
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "arrival": {
+          "journeyMin": 225,
+          "arriveBaseMin": 655,
+          "checkInMin": 900,
+          "checkInProvenance": "assumed — conservative 15:00 default; no hotel data in the open sources, and an earlier room is never invented",
+          "restMinutes": 60,
+          "restTier": "2–5 hours",
+          "cap": "LIGHT",
+          "mode": "fly"
+        }
+      },
+      "items": [
+        {
+          "type": "journey",
+          "part": "to-airport",
+          "title": "To the airport",
+          "start": 430,
+          "end": 470,
+          "key": "journey-to-airport-2026-10-24",
+          "sub": "leave home — the trip starts at your own door",
+          "pos": null,
+          "startTime": "07:10",
+          "endTime": "07:50"
+        },
+        {
+          "type": "journey",
+          "part": "buffer",
+          "title": "Airport buffer",
+          "start": 470,
+          "end": 560,
+          "key": "journey-buffer-2026-10-24",
+          "sub": "check in, security, and time to breathe — never cut",
+          "pos": null,
+          "startTime": "07:50",
+          "endTime": "09:20"
+        },
+        {
+          "type": "journey",
+          "part": "travel",
+          "title": "Flight",
+          "start": 560,
+          "end": 620,
+          "key": "journey-travel-2026-10-24",
+          "sub": null,
+          "pos": null,
+          "startTime": "09:20",
+          "endTime": "10:20"
+        },
+        {
+          "type": "journey",
+          "part": "transfer",
+          "title": "Transfer to Residence Inn Halifax Downtown",
+          "start": 620,
+          "end": 655,
+          "key": "journey-transfer-2026-10-24",
+          "sub": "arrival transfer — bags in hand",
+          "pos": null,
+          "startTime": "10:20",
+          "endTime": "10:55"
+        },
+        {
+          "type": "rest",
+          "part": "arrival-wait",
+          "title": "Settle in near base — the room is not ready yet",
+          "start": 655,
+          "end": 735,
+          "key": "wait-2026-10-24-a",
+          "startTime": "10:55",
+          "endTime": "12:15"
+        },
+        {
+          "type": "food",
+          "key": "node/3802394757",
+          "name": "Mezza",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 738,
+          "end": 798,
+          "pos": {
+            "lat": 44.6453457,
+            "lon": -63.5732433
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/3802394757",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "interruptible": true,
+          "startTime": "12:18",
+          "endTime": "13:18"
+        },
+        {
+          "type": "rest",
+          "part": "arrival-wait",
+          "title": "Settle in near base — the room is not ready yet",
+          "start": 801,
+          "end": 900,
+          "key": "wait-2026-10-24-b",
+          "startTime": "13:21",
+          "endTime": "15:00"
+        },
+        {
+          "type": "checkin",
+          "part": "checkin",
+          "title": "Check in — Residence Inn Halifax Downtown",
+          "start": 900,
+          "end": 915,
+          "key": "checkin-2026-10-24",
+          "sub": "room from 15:00 · assumed — conservative 15:00 default; no hotel data in the open sources, and an earlier room is never invented",
+          "pos": null,
+          "startTime": "15:00",
+          "endTime": "15:15"
+        },
+        {
+          "type": "rest",
+          "part": "refresh",
+          "title": "Rest & refresh — travel takes something out of you",
+          "start": 915,
+          "end": 975,
+          "key": "refresh-2026-10-24",
+          "startTime": "15:15",
+          "endTime": "16:15"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/3802394757",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Mezza",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 735,
+          "arrive": 738,
+          "departTime": "12:15",
+          "arriveTime": "12:18"
+        },
+        {
+          "fromKey": "node/3802394757",
+          "toKey": "base",
+          "fromName": "Mezza",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 798,
+          "arrive": 801,
+          "departTime": "13:18",
+          "arriveTime": "13:21"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 24 starts at your own front door: out at 07:10, the airport buffer kept whole, a flight of about 60 minutes, and into Residence Inn Halifax Downtown around 10:55.",
+        "Expect a mild 10° — good walking weather, with layers for the shade.",
+        "The room is not promised until 15:00 — no room access is assumed before then, so the plan waits gently near base.",
+        "Lunch is at Mezza, 12:18–13:18.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Check-in is at 15:00 — bags down, keys in hand.",
+        "Then the plan stops on purpose: 60 minutes to rest and refresh. Travel is part of the trip, and it takes something out of you — the sights will keep.",
+        "The day winds down back at base by 16:15 — 0 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 975
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-25",
+      "role": "ferry",
+      "dayType": "FULL",
+      "envelope": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/82668522",
+          "name": "Metro Transit Ferry Terminal",
+          "title": "Ferry crossing (from Metro Transit Ferry Terminal)",
+          "kind": "ferry",
+          "role": "mustsee",
+          "start": 578,
+          "end": 653,
+          "pos": {
+            "lat": 44.6497865,
+            "lon": -63.5715596
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/82668522",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "10:53"
+        },
+        {
+          "type": "stop",
+          "key": "node/5343221870",
+          "name": "Nova Scotia Sport Hall of Fame",
+          "kind": "museum",
+          "role": "stop",
+          "start": 665,
+          "end": 755,
+          "pos": {
+            "lat": 44.6481088,
+            "lon": -63.5760865
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5343221870",
+          "price": "UNKNOWN",
+          "startTime": "11:05",
+          "endTime": "12:35"
+        },
+        {
+          "type": "food",
+          "key": "node/2624375974",
+          "name": "Slow Mornings Café & Restaurant",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 767,
+          "end": 827,
+          "pos": {
+            "lat": 44.6531722,
+            "lon": -63.5848534
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1020,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 08:00-17:00; Sa,Su 09:00-17:00",
+          "url": "https://www.openstreetmap.org/node/2624375974",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = no",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = no, diet:vegetarian = yes"
+          },
+          "startTime": "12:47",
+          "endTime": "13:47"
+        },
+        {
+          "type": "stop",
+          "key": "node/11767822182",
+          "name": "The Blue Building Gallery",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 834,
+          "end": 894,
+          "pos": {
+            "lat": 44.6547525,
+            "lon": -63.5910584
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/11767822182",
+          "price": "UNKNOWN",
+          "startTime": "13:54",
+          "endTime": "14:54"
+        },
+        {
+          "type": "stop",
+          "key": "node/2405084369",
+          "name": "Army Museum",
+          "kind": "museum",
+          "role": "mustsee",
+          "start": 910,
+          "end": 1000,
+          "pos": {
+            "lat": 44.6473097,
+            "lon": -63.5803408
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/2405084369",
+          "price": "UNKNOWN",
+          "startTime": "15:10",
+          "endTime": "16:40"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/82668522",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Metro Transit Ferry Terminal",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "way/82668522",
+          "toKey": "base",
+          "fromName": "Metro Transit Ferry Terminal",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 653,
+          "arrive": 661,
+          "departTime": "10:53",
+          "arriveTime": "11:01"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "node/5343221870",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Nova Scotia Sport Hall of Fame",
+          "mode": "walk",
+          "km": 0.25,
+          "minutes": 4,
+          "depart": 661,
+          "arrive": 665,
+          "departTime": "11:01",
+          "arriveTime": "11:05"
+        },
+        {
+          "fromKey": "node/5343221870",
+          "toKey": "node/2624375974",
+          "fromName": "Nova Scotia Sport Hall of Fame",
+          "toName": "Slow Mornings Café & Restaurant",
+          "mode": "walk",
+          "km": 0.89,
+          "minutes": 12,
+          "depart": 755,
+          "arrive": 767,
+          "departTime": "12:35",
+          "arriveTime": "12:47"
+        },
+        {
+          "fromKey": "node/2624375974",
+          "toKey": "node/11767822182",
+          "fromName": "Slow Mornings Café & Restaurant",
+          "toName": "The Blue Building Gallery",
+          "mode": "walk",
+          "km": 0.52,
+          "minutes": 7,
+          "depart": 827,
+          "arrive": 834,
+          "departTime": "13:47",
+          "arriveTime": "13:54"
+        },
+        {
+          "fromKey": "node/11767822182",
+          "toKey": "node/2405084369",
+          "fromName": "The Blue Building Gallery",
+          "toName": "Army Museum",
+          "mode": "walk",
+          "km": 1.18,
+          "minutes": 16,
+          "depart": 894,
+          "arrive": 910,
+          "departTime": "14:54",
+          "arriveTime": "15:10"
+        },
+        {
+          "fromKey": "node/2405084369",
+          "toKey": "base",
+          "fromName": "Army Museum",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.42,
+          "minutes": 6,
+          "depart": 1000,
+          "arrive": 1006,
+          "departTime": "16:40",
+          "arriveTime": "16:46"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Sunday, October 25 is built around Metro Transit Ferry Terminal, with the day's stops gathered close so the walking stays easy.",
+        "The ferry crossing is the morning's small adventure: board at Metro Transit Ferry Terminal around 09:38 and give the round trip until 10:53. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
+        "Opening hours weren't listed for Metro Transit Ferry Terminal — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
+        "Nova Scotia Sport Hall of Fame gets the morning's main slot, 11:05 to 12:35 — unhurried, with time to double back to favourites.",
+        "From Nova Scotia Sport Hall of Fame, it is a 12-minute walk to Slow Mornings Café & Restaurant — close enough to stroll without watching the clock.",
+        "Lunch is at Slow Mornings Café & Restaurant, 12:47–13:47.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = no, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The Blue Building Gallery is next, just 7 minutes on foot from Slow Mornings Café & Restaurant.",
+        "Blue Building Gallery offers a quieter hour indoors, 13:54–14:54.",
+        "The walk from Blue Building Gallery to Army Museum takes about 16 minutes — a breather between stops, not a hike.",
+        "Give Army Museum a full 90 minutes (15:10–16:40); rushing it would miss the point.",
+        "The day winds down back at base by 16:46 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1006
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-26",
+      "role": "rest-afternoon",
+      "dayType": "FULL",
+      "envelope": {
+        "windDown": {
+          "by": 1260,
+          "reason": "dawn flight tomorrow (465 min) — the evening ends early on purpose"
+        }
+      },
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/62049157",
+          "name": "Maritime Museum of the Atlantic",
+          "kind": "museum",
+          "role": "stop",
+          "start": 576,
+          "end": 666,
+          "pos": {
+            "lat": 44.6475947,
+            "lon": -63.5709632
+          },
+          "hours": {
+            "status": "unknown",
+            "raw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
+            "provenance": "none"
+          },
+          "hoursRaw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
+          "url": "https://www.openstreetmap.org/way/62049157",
+          "price": "UNKNOWN",
+          "startTime": "09:36",
+          "endTime": "11:06"
+        },
+        {
+          "type": "stop",
+          "key": "way/553574590",
+          "name": "Art Gallery of Nova Scotia",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 669,
+          "end": 729,
+          "pos": {
+            "lat": 44.6484658,
+            "lon": -63.5729139
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/553574590",
+          "price": "UNKNOWN",
+          "startTime": "11:09",
+          "endTime": "12:09"
+        },
+        {
+          "type": "food",
+          "key": "node/12136077507",
+          "name": "Lou Pécou",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 751,
+          "end": 811,
+          "pos": {
+            "lat": 44.6525176,
+            "lon": -63.5868271
+          },
+          "hours": {
+            "status": "known",
+            "open": 720,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Th 12:00-21:00; Fr 12:00-22:00; Sa 10:00-22:00; Su 10:00-21:00",
+          "url": "https://www.openstreetmap.org/node/12136077507",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:gluten_free = yes",
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:31",
+          "endTime": "13:31"
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 811,
+          "end": 1020,
+          "key": "rest-2026-10-26",
+          "startTime": "13:31",
+          "endTime": "17:00"
+        },
+        {
+          "type": "pack",
+          "part": "pack",
+          "title": "Pack up tonight — dawn start tomorrow",
+          "start": 1170,
+          "end": 1215,
+          "key": "pack-eve-2026-10-27",
+          "sub": "the flight is early; the bags close tonight so the morning is only essentials",
+          "pos": null,
+          "startTime": "19:30",
+          "endTime": "20:15"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/62049157",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Maritime Museum of the Atlantic",
+          "mode": "walk",
+          "km": 0.4,
+          "minutes": 6,
+          "depart": 570,
+          "arrive": 576,
+          "departTime": "09:30",
+          "arriveTime": "09:36"
+        },
+        {
+          "fromKey": "way/62049157",
+          "toKey": "way/553574590",
+          "fromName": "Maritime Museum of the Atlantic",
+          "toName": "Art Gallery of Nova Scotia",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 666,
+          "arrive": 669,
+          "departTime": "11:06",
+          "arriveTime": "11:09"
+        },
+        {
+          "fromKey": "way/553574590",
+          "toKey": "node/12136077507",
+          "fromName": "Art Gallery of Nova Scotia",
+          "toName": "Lou Pécou",
+          "mode": "walk",
+          "km": 1.19,
+          "minutes": 16,
+          "depart": 735,
+          "arrive": 751,
+          "departTime": "12:15",
+          "arriveTime": "12:31"
+        },
+        {
+          "fromKey": "node/12136077507",
+          "toKey": "base",
+          "fromName": "Lou Pécou",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 1.17,
+          "minutes": 16,
+          "depart": 1020,
+          "arrive": 1036,
+          "departTime": "17:00",
+          "arriveTime": "17:16"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Monday, October 26 is built around Maritime Museum of the Atlantic, with the day's stops gathered close so the walking stays easy.",
+        "Maritime Museum of the Atlantic gets the morning's main slot, 09:36 to 11:06 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Maritime Museum of the Atlantic — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Maritime Museum of the Atlantic, it is a 3-minute walk to Art Gallery of Nova Scotia — close enough to stroll without watching the clock.",
+        "Art Gallery of Nova Scotia offers a quieter hour indoors, 11:09–12:09.",
+        "Lou Pécou is next, just 16 minutes on foot from Art Gallery of Nova Scotia.",
+        "Lunch is at Lou Pécou, 12:31–13:31.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The day winds down back at base by 17:16 — 2 stops, no long walks, and the evening left free.",
+        "Tonight the bags get packed, 19:30–20:15, and the evening winds down early — tomorrow's start is at dawn, and it will be only essentials."
+      ],
+      "endMin": 1036
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-27",
+      "role": "standard",
+      "dayType": "FULL",
+      "envelope": {
+        "departure": {
+          "flightMin": 465,
+          "leaveBaseMin": 340,
+          "packOnEve": true,
+          "emptyMorning": true
+        }
+      },
+      "items": [
+        {
+          "type": "checkout",
+          "part": "checkout",
+          "title": "Check out",
+          "start": 325,
+          "end": 340,
+          "key": "checkout-2026-10-27",
+          "sub": null,
+          "pos": null,
+          "startTime": "05:25",
+          "endTime": "05:40"
+        },
+        {
+          "type": "transfer",
+          "part": "transfer",
+          "title": "Transfer to the airport",
+          "start": 340,
+          "end": 375,
+          "key": "transfer-2026-10-27",
+          "sub": "leaves 05:40 for a 07:45 flight — 35 min transfer + 90 min buffer, never cut",
+          "pos": null,
+          "startTime": "05:40",
+          "endTime": "06:15"
+        }
+      ],
+      "legs": [],
+      "ideas": [],
+      "narrative": [
+        "Tuesday, October 27 is the last day, and the flight leaves at 07:45 — so the morning is only the essentials: check out, transfer, go. Nothing is scheduled, and that is the plan."
+      ],
+      "endMin": 375
+    }
+  ]
+}

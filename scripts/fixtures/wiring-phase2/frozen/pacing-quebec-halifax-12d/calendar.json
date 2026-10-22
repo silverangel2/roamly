@@ -1,0 +1,89 @@
+{
+  "counts": {
+    "FULL": 9,
+    "LIGHT": 1,
+    "REST": 0,
+    "OPEN": 1,
+    "MOVE": 1
+  },
+  "relaxFavorites": false,
+  "notes": [
+    "day 8: first day in Halifax capped at LIGHT (arrival recovery after the move)"
+  ],
+  "days": [
+    {
+      "day": 1,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 2,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 3,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 4,
+      "type": "OPEN",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 5,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 6,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 7,
+      "type": "MOVE",
+      "base": "Halifax",
+      "baseIndex": 1,
+      "fromBase": "Quebec City",
+      "toBase": "Halifax"
+    },
+    {
+      "day": 8,
+      "type": "LIGHT",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 9,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 10,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 11,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 12,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    }
+  ]
+}

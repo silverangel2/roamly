@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ58_KvH-WuEwRMJiu1H3HQlc",
+      "formattedAddress": "Québec City, QC G1R 2H1, Canada",
+      "location": {
+        "latitude": 46.8009424,
+        "longitude": -71.2253332
+      },
+      "displayName": {
+        "text": "Pavillon Pierre Lassonde",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

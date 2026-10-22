@@ -1,0 +1,15 @@
+{
+  "corpus": "wiring-phase1",
+  "fixtureVersion": 1,
+  "capturedAt": "2026-10-21",
+  "captureScript": "production-wiring-2026-10-21/capture-phase1-fixtures.mjs",
+  "fixtures": [
+    "engine-trip-quebec-city.json",
+    "engine-budget-verdicts.json",
+    "part2-booking-signals.json",
+    "part2-companion-day.json",
+    "gates-sequence.json",
+    "lifecycle-sequence.json",
+    "budget-vs-real-checkpoints.json"
+  ]
+}

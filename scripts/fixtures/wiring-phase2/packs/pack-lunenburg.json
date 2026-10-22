@@ -1,0 +1,651 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "cache/pack-lunenburg.json"
+      ],
+      "note": "Cached destination pack as the solver consumes it; the collectors' `sources` provenance block is dropped (collector bookkeeping, not solver input)."
+    }
+  },
+  "data": {
+    "destination": "Lunenburg",
+    "country": "Canada",
+    "center": {
+      "lat": 44.377,
+      "lon": -64.3184
+    },
+    "startIso": "2026-10-22",
+    "endIso": "2026-10-24",
+    "generatedAt": "2026-10-21T21:03:00.951Z",
+    "counts": {
+      "total": 42,
+      "sights": 30,
+      "foods": 9,
+      "stays": 3,
+      "transport": 0
+    },
+    "stays": [
+      {
+        "key": "node/4419360876",
+        "name": "Atlantic View Motel & Cottages",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 44.3660593,
+          "lon": -64.3206754
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.atlanticviewmotel.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/4419360876"
+      },
+      {
+        "key": "node/6011391332",
+        "name": "Rum Runner Inn",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 44.3765422,
+          "lon": -64.3118721
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6011391332"
+      },
+      {
+        "key": "node/12101384436",
+        "name": "Little Red Hostel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 44.3722634,
+          "lon": -64.3468834
+        },
+        "hoursRaw": "Mo-Su 10:00-20:00",
+        "tags": {
+          "description": "Small, homey hostel with private rooms and a dorm in a quiet area just outside Lunenburg.",
+          "website": "https://littleredhostel.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/12101384436"
+      }
+    ],
+    "sights": [
+      {
+        "key": "node/4418040190",
+        "name": "Fisheries Museum of the Atlantic",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 44.3761079,
+          "lon": -64.3119867
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://fisheriesmuseum.novascotia.ca/",
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/4418040190"
+      },
+      {
+        "key": "node/4418059989",
+        "name": "Lunenburg Waterfront",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 44.3754656,
+          "lon": -64.3108106
+        },
+        "hoursRaw": null,
+        "tags": {
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/4418059989"
+      },
+      {
+        "key": "node/5555343521",
+        "name": "southwestern railway museum",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 44.3783401,
+          "lon": -64.3350154
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/5555343521"
+      },
+      {
+        "key": "node/5773877760",
+        "name": "Bachman's Beach",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 44.4063611,
+          "lon": -64.2676009
+        },
+        "hoursRaw": null,
+        "tags": {
+          "description": "Private beach, owners allow public use. Treat with respect."
+        },
+        "url": "https://www.openstreetmap.org/node/5773877760"
+      },
+      {
+        "key": "node/6759684813",
+        "name": "boui",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 44.375919,
+          "lon": -64.3115535
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6759684813"
+      },
+      {
+        "key": "node/10695067474",
+        "name": "Cranston Gallery",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 44.3774238,
+          "lon": -64.3100953
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10695067474"
+      },
+      {
+        "key": "node/10764933237",
+        "name": "Battery Point Beach",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 44.3649015,
+          "lon": -64.2901786
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10764933237"
+      },
+      {
+        "key": "node/13812550943",
+        "name": "Lorne Street Fire Company",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 44.3780812,
+          "lon": -64.3181629
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/13812550943"
+      },
+      {
+        "key": "node/13814507667",
+        "name": "Foundry Art Gallery",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 44.3768088,
+          "lon": -64.3187642
+        },
+        "hoursRaw": "Mo off; Tu-Su 11:00-16:00",
+        "tags": {
+          "website": "https://foundrygallery.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/13814507667"
+      },
+      {
+        "key": "node/13814542928",
+        "name": "Heritage Interpretive Classroom",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 44.3800547,
+          "lon": -64.3137303
+        },
+        "hoursRaw": "Mo-Th 10:00-16:00",
+        "tags": {
+          "website": "https://www.lunenburgacademyfoundation.com/heritage-interpretive-classroom"
+        },
+        "url": "https://www.openstreetmap.org/node/13814542928"
+      },
+      {
+        "key": "node/13900180608",
+        "name": "Musique Royale",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 44.3783068,
+          "lon": -64.3123374
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.musiqueroyale.com/events/"
+        },
+        "url": "https://www.openstreetmap.org/node/13900180608"
+      },
+      {
+        "key": "way/342237363",
+        "name": "Second Peninsula Provincial Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 44.4044768,
+          "lon": -64.295615
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://parks.novascotia.ca/park/second-peninsula"
+        },
+        "url": "https://www.openstreetmap.org/way/342237363"
+      },
+      {
+        "key": "way/544429676",
+        "name": "Sylvia Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 44.378076,
+          "lon": -64.3048505
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/544429676"
+      },
+      {
+        "key": "way/720323626",
+        "name": "Lunenburg Opera House",
+        "nameEn": "Lunenburg Opera House",
+        "kind": "venue",
+        "pos": {
+          "lat": 44.377062,
+          "lon": -64.3089751
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/720323626"
+      },
+      {
+        "key": "way/1511151321",
+        "name": "Museum Boat Shop & Exhibit",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 44.3751555,
+          "lon": -64.3032279
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://fisheriesmuseum.novascotia.ca/"
+        },
+        "url": "https://www.openstreetmap.org/way/1511151321"
+      }
+    ],
+    "excursions": [
+      {
+        "key": "node/905865031",
+        "name": "Battery Point Breakwater Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 44.3602605,
+          "lon": -64.2963602
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/905865031"
+      },
+      {
+        "key": "node/1045343642",
+        "name": "Mosher Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.5647429,
+          "lon": -64.3503286
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1045343642"
+      },
+      {
+        "key": "node/1361051748",
+        "name": "Indian Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.591269,
+          "lon": -64.6048084
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/1361051748"
+      },
+      {
+        "key": "node/3510322693",
+        "name": "Mountain Dam Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.6220431,
+          "lon": -64.7940007
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3510322693"
+      },
+      {
+        "key": "node/3510499802",
+        "name": "Sheridan Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.5383585,
+          "lon": -64.7511343
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3510499802"
+      },
+      {
+        "key": "node/3510806960",
+        "name": "Dog Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.6267264,
+          "lon": -64.8084359
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3510806960"
+      },
+      {
+        "key": "node/3524514200",
+        "name": "Buggy Hole Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.235066,
+          "lon": -64.8031939
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3524514200"
+      },
+      {
+        "key": "node/3524586469",
+        "name": "Island Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.1819743,
+          "lon": -64.6890726
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3524586469"
+      },
+      {
+        "key": "node/3524586475",
+        "name": "Salmon Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.1824231,
+          "lon": -64.6957047
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3524586475"
+      },
+      {
+        "key": "node/3536766417",
+        "name": "Fort Point Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 44.0440637,
+          "lon": -64.707672
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3536766417"
+      },
+      {
+        "key": "node/3536831347",
+        "name": "Port Medway Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 44.1327565,
+          "lon": -64.5751752
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3536831347"
+      },
+      {
+        "key": "node/6548974108",
+        "name": "Indian Harbour Light",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 44.5220085,
+          "lon": -63.9457244
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6548974108"
+      },
+      {
+        "key": "node/6841634605",
+        "name": "Slaughenwhites Cascades",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 44.6835693,
+          "lon": -63.8867843
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6841634605"
+      },
+      {
+        "key": "node/8334912440",
+        "name": "Westhaver Island Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 44.436069,
+          "lon": -64.3375423
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.lighthousefriends.com/light.asp?ID=1369"
+        },
+        "url": "https://www.openstreetmap.org/node/8334912440"
+      },
+      {
+        "key": "way/358581448",
+        "name": "Peggys Point Lighthouse",
+        "nameEn": null,
+        "kind": "lighthouse",
+        "pos": {
+          "lat": 44.4918206,
+          "lon": -63.918677
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/358581448"
+      }
+    ],
+    "foods": [
+      {
+        "key": "node/2951139788",
+        "name": "The Savvy Sailor",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3763474,
+          "lon": -64.3104533
+        },
+        "hoursRaw": "Mo-Su 07:30-21:00",
+        "tags": {
+          "cuisine": "seafood;sandwich",
+          "website": "https://thesavvysailor.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/2951139788"
+      },
+      {
+        "key": "node/4418073789",
+        "name": "Laughing Whale Coffee Roasters",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3774029,
+          "lon": -64.3098329
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://laughingwhalecoffee.com",
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/4418073789"
+      },
+      {
+        "key": "node/4936281422",
+        "name": "Tim Hortons",
+        "nameEn": "Tim Hortons",
+        "kind": "food",
+        "pos": {
+          "lat": 44.3761726,
+          "lon": -64.324781
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/4936281422"
+      },
+      {
+        "key": "node/4937024837",
+        "name": "The Old Fish Factory",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3760134,
+          "lon": -64.312016
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4937024837"
+      },
+      {
+        "key": "node/5767121681",
+        "name": "No. 9",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3764252,
+          "lon": -64.3090375
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop;baked_goods",
+          "diet:gluten_free": "yes",
+          "diet:vegan": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/5767121681"
+      },
+      {
+        "key": "node/8926252829",
+        "name": "Rascals Run",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3763766,
+          "lon": -64.3087154
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "mexican",
+          "website": "https://rascalsrun.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/8926252829"
+      },
+      {
+        "key": "node/13042281866",
+        "name": "Subway",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3762977,
+          "lon": -64.3098723
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/13042281866"
+      },
+      {
+        "key": "node/13814507697",
+        "name": "Hustle & Bustle Catering",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3785732,
+          "lon": -64.3164603
+        },
+        "hoursRaw": "Mo-Fr 11:00-17:00; Sa-Su off",
+        "tags": {
+          "website": "https://www.facebook.com/hustlebustlecatering/"
+        },
+        "url": "https://www.openstreetmap.org/node/13814507697"
+      },
+      {
+        "key": "node/13814542914",
+        "name": "Scotia Curry",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 44.3777707,
+          "lon": -64.3139846
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "indian;thai",
+          "website": "https://scotiacurry.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/13814542914"
+      }
+    ],
+    "transport": [],
+    "weather": [
+      {
+        "date": "2026-10-22",
+        "tMax": 10.6,
+        "tMin": 7.3,
+        "precipProb": 63
+      },
+      {
+        "date": "2026-10-23",
+        "tMax": 8.1,
+        "tMin": 2.4,
+        "precipProb": 32
+      },
+      {
+        "date": "2026-10-24",
+        "tMax": 11.3,
+        "tMin": -1.2,
+        "precipProb": 6
+      }
+    ],
+    "weatherNote": null,
+    "networkFetches": 1
+  }
+}

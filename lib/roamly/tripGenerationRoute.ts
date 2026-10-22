@@ -6,6 +6,13 @@ import {
   StagedGenerationError,
   startStagedItineraryGeneration
 } from "@/lib/roamly/stagedItineraryGeneration";
+import {
+  buildEngineRuntimeDeps,
+  prepareEngineGenerationContext,
+  startEngineGeneration,
+  zeroEngineFlagEnabled,
+  ZERO_ENGINE_GENERATION_VERSION
+} from "@/lib/roamly/engine/generate";
 import { normalizeLocale } from "@/lib/i18n";
 import { getRequestLocale } from "@/lib/i18n-server";
 import {
@@ -14,6 +21,12 @@ import {
   requireTripEditable
 } from "@/lib/roamly/billing";
 import { requireUser } from "@/lib/roamly/auth";
+import {
+  createSupabaseGateStore,
+  enforceGenerationGate,
+  type GateFlowContext
+} from "@/lib/roamly/gateService";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { calculateTripDateRange, type TripDateRangeResult } from "@/lib/roamly/dateUtils";
 import { recordAppEvent, recordTripEvent } from "@/lib/roamly/events";
@@ -99,6 +112,21 @@ function getFirstBoolean(fallback: boolean, ...values: unknown[]) {
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+/*
+ * Phase 6 (DESIGN §2.4): the Build 2 flow context the plan form sends
+ * with a generation request — which surface the flow runs on, and the
+ * device whose gate attestation the server enforces. Absent context
+ * (legacy clients, non-Build-2 flows) carries no gate.
+ */
+function gateFlowContextFromBody(body: Record<string, unknown>): GateFlowContext | null {
+  const flow = getRecord(body.gateFlow);
+  if (!flow) return null;
+  const surface = flow.surface === "mobile" || flow.surface === "desktop" ? flow.surface : null;
+  if (!surface) return null;
+  const deviceId = getString(flow.deviceId);
+  return { surface, deviceId: deviceId || null };
 }
 
 function getTripType(value: unknown): TripType {
@@ -427,6 +455,7 @@ async function ensureDurableGenerationQueue(params: {
   paidPriority?: boolean;
   queuePriorityReason?: string | null;
   duplicateRequestKey?: string | null;
+  generationVersion?: string;
 }) {
   const result = await createOrResumeGenerationJob({
     supabase: params.supabase,
@@ -438,6 +467,7 @@ async function ensureDurableGenerationQueue(params: {
     paidPriority: params.paidPriority,
     queuePriorityReason: params.queuePriorityReason,
     duplicateRequestKey: params.duplicateRequestKey,
+    generationVersion: params.generationVersion,
     reason: "generate_route"
   });
 
@@ -463,6 +493,7 @@ async function finalizeItinerary(params: {
   payload: TripPlannerPayload;
   requestId: string;
   requestOrigin: string;
+  gateContext?: GateFlowContext | null;
 }) {
   const serverDateRange = calculateTripDateRange(params.payload.startDate, params.payload.endDate);
   if (!serverDateRange.ok) return invalidTripDatesResponse(serverDateRange);
@@ -540,6 +571,42 @@ async function finalizeItinerary(params: {
     );
   }
 
+  // Phase 6 (DESIGN §2.4): entry-gate enforcement, beside the billing
+  // gate above. With ROAMLY_BUILD2_GATES_ENABLED off (the default) this
+  // is inert. A mobile Build 2 flow without a green (READY) attestation
+  // for its device is refused HERE — before the trip is marked
+  // generating and before any generation job exists. Desktop flows
+  // carry no gate (owner ruling 2026-10-21 18:54 ADT).
+  const gateAdmin = createSupabaseAdminClient();
+  const gateDecision = await enforceGenerationGate({
+    store: gateAdmin ? createSupabaseGateStore(gateAdmin) : null,
+    userId: params.userId,
+    context: params.gateContext ?? null
+  });
+  if (!gateDecision.ok) {
+    await recordAppEvent(params.supabase, {
+      userId: params.userId,
+      eventType: "itinerary_generation_failed",
+      metadata: {
+        tripId: params.tripId,
+        destination: payload.destination,
+        error: gateDecision.error
+      }
+    });
+    logGenerationDiagnostic("generation_gate_blocked", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      status: gateDecision.status,
+      errorCode: gateDecision.error
+    });
+    return NextResponse.json(
+      { ok: false, error: gateDecision.error, message: gateDecision.message },
+      { status: gateDecision.status }
+    );
+  }
+
   const qaTester = access.hasQaAccess || ("qaTester" in canGenerate && canGenerate.qaTester === true);
   if (qaTester) {
     await markTripAsQaTester(params.supabase, params.userId, params.tripId, {
@@ -587,6 +654,21 @@ async function finalizeItinerary(params: {
     ].join("|")
   });
 
+  // Phase 5 (DESIGN §2.3): the zero-engine decision is made once, here,
+  // at job creation. It requires BOTH the flag (default OFF) and the
+  // engine runtime deps to be live; with either absent the incumbent
+  // staged-AI path below runs exactly as before.
+  const engineDeps = buildEngineRuntimeDeps(params.supabase);
+  const useZeroEngine = engineDeps !== null && zeroEngineFlagEnabled();
+  if (useZeroEngine) {
+    logGenerationDiagnostic("generation_engine_selected", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      generationVersion: ZERO_ENGINE_GENERATION_VERSION
+    });
+  }
+
   const queueResult = await ensureDurableGenerationQueue({
     supabase: params.supabase,
     userId: params.userId,
@@ -597,7 +679,8 @@ async function finalizeItinerary(params: {
     userPlan: priority.userPlan,
     paidPriority: priority.paidPriority,
     queuePriorityReason: priority.queuePriorityReason,
-    duplicateRequestKey
+    duplicateRequestKey,
+    generationVersion: useZeroEngine ? ZERO_ENGINE_GENERATION_VERSION : undefined
   });
   if (!queueResult.ok) {
     await params.supabase
@@ -626,26 +709,45 @@ async function finalizeItinerary(params: {
 
   let state: Awaited<ReturnType<typeof startStagedItineraryGeneration>>;
   try {
-    const context = await prepareStagedGenerationContext({
-      supabase: params.supabase,
-      userId: params.userId,
-      tripId: params.tripId,
-      payload
-    });
-    state = await startStagedItineraryGeneration({
-      supabase: params.supabase,
-      userId: params.userId,
-      tripId: params.tripId,
-      payload: {
-        ...payload,
-        priceDiscoveryId: context.priceDiscoveryId,
-        budgetConstraint: context.budgetConstraint
-      },
-      requestId: params.requestId,
-      unlockSource: canGenerate.source,
-      qaTester,
-      context
-    });
+    if (useZeroEngine && engineDeps) {
+      const engineContext = await prepareEngineGenerationContext({
+        supabase: params.supabase,
+        userId: params.userId,
+        tripId: params.tripId,
+        payload
+      });
+      state = await startEngineGeneration({
+        store: engineDeps.store,
+        tripId: params.tripId,
+        userId: params.userId,
+        payload,
+        requestId: params.requestId,
+        unlockSource: canGenerate.source,
+        qaTester,
+        context: engineContext
+      });
+    } else {
+      const context = await prepareStagedGenerationContext({
+        supabase: params.supabase,
+        userId: params.userId,
+        tripId: params.tripId,
+        payload
+      });
+      state = await startStagedItineraryGeneration({
+        supabase: params.supabase,
+        userId: params.userId,
+        tripId: params.tripId,
+        payload: {
+          ...payload,
+          priceDiscoveryId: context.priceDiscoveryId,
+          budgetConstraint: context.budgetConstraint
+        },
+        requestId: params.requestId,
+        unlockSource: canGenerate.source,
+        qaTester,
+        context
+      });
+    }
   } catch (error) {
     const generationError =
       error instanceof StagedGenerationError
@@ -939,7 +1041,8 @@ export async function generateTripForActor(
         tripId: existingTripId,
         payload,
         requestId,
-        requestOrigin: request.nextUrl.origin
+        requestOrigin: request.nextUrl.origin,
+        gateContext: gateFlowContextFromBody(body)
       });
     }
 
@@ -1003,7 +1106,8 @@ export async function generateTripForActor(
       tripId: trip.id,
       payload,
       requestId,
-      requestOrigin: request.nextUrl.origin
+      requestOrigin: request.nextUrl.origin,
+      gateContext: gateFlowContextFromBody(body)
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Itinerary generation failed.";

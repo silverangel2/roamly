@@ -1,0 +1,2372 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "scenario": "continuity-B — 12 days, two bases, seam-chained move day",
+  "destination": "Quebec City + Halifax",
+  "startDate": "2026-10-24",
+  "endDate": "2026-11-04",
+  "anchorStays": [
+    {
+      "name": "Hôtel Marie Rollett",
+      "base": "Quebec City"
+    },
+    {
+      "name": "Residence Inn Halifax Downtown",
+      "base": "Halifax"
+    }
+  ],
+  "pacingCalendar": [
+    {
+      "day": 1,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 2,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 3,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 4,
+      "type": "OPEN",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 5,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 6,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 7,
+      "type": "MOVE",
+      "base": "Halifax",
+      "baseIndex": 1,
+      "fromBase": "Quebec City",
+      "toBase": "Halifax"
+    },
+    {
+      "day": 8,
+      "type": "LIGHT",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 9,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 10,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 11,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    },
+    {
+      "day": 12,
+      "type": "FULL",
+      "base": "Halifax",
+      "baseIndex": 1
+    }
+  ],
+  "arc": {
+    "roles": [
+      "SETTLE",
+      "EXPLORE",
+      "EXPLORE",
+      "EXPLORE",
+      "PEAK",
+      "EXPLORE",
+      "EXPLORE",
+      "EXPLORE",
+      "EXPLORE",
+      "EXPLORE",
+      "EXPLORE",
+      "LAND"
+    ],
+    "peakDay": 5,
+    "landDay": 12,
+    "settleDay": 1,
+    "adjustments": [
+      {
+        "day": 6,
+        "from": "FULL",
+        "to": "LIGHT",
+        "reason": "landing protection — the last full day steps down so the trip descends from its peak instead of ending at full throttle"
+      },
+      {
+        "day": 12,
+        "from": "FULL",
+        "to": "LIGHT",
+        "reason": "landing protection — the last full day steps down so the trip descends from its peak instead of ending at full throttle"
+      }
+    ],
+    "notes": [
+      "trip arc stitched from the two segment arcs: peak = the first segment headline day; landing = the final day"
+    ]
+  },
+  "commitmentLedger": [
+    {
+      "id": "ms:keyword-ferry",
+      "label": "ferry ride to Levis",
+      "kind": "must-see",
+      "itemKey": "node/130117210",
+      "itemName": "Lévis",
+      "homeDay": 2,
+      "status": "kept"
+    },
+    {
+      "id": "ms:keyword-falls",
+      "label": "Montmorency Falls trip",
+      "kind": "must-see",
+      "itemKey": "node/1199354691",
+      "itemName": "Chute Montmorency",
+      "homeDay": 5,
+      "status": "kept"
+    },
+    {
+      "id": "ms:keyword-ferry",
+      "label": "one harbour ferry ride",
+      "kind": "must-see",
+      "itemKey": "way/82668522",
+      "itemName": "Metro Transit Ferry Terminal",
+      "homeDay": 9,
+      "status": "kept"
+    },
+    {
+      "id": "ms:keyword-maritime-museum",
+      "label": "maritime museum visit",
+      "kind": "must-see",
+      "itemKey": "node/2405084369",
+      "itemName": "Army Museum",
+      "homeDay": 9,
+      "status": "kept"
+    },
+    {
+      "id": "env:arrival:7",
+      "label": "arrival chain + check-in (check-in assumed 15:00)",
+      "kind": "envelope-anchor",
+      "itemKey": null,
+      "itemName": null,
+      "homeDay": 7,
+      "status": "kept"
+    }
+  ],
+  "storyInsertions": [
+    {
+      "day": 5,
+      "kind": "peak"
+    },
+    {
+      "day": 7,
+      "kind": "seam"
+    },
+    {
+      "day": 12,
+      "kind": "land"
+    }
+  ],
+  "continuity": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [],
+    "checks": [
+      {
+        "leg": "continuity:commitment-ledger",
+        "status": "DONE",
+        "detail": "5 commitments tracked — 5 kept on their home day, 0 rehomed with the move recorded, 0 unmet-and-reported at solve time, 0 unresolved"
+      },
+      {
+        "leg": "continuity:trip-arc",
+        "status": "DONE",
+        "detail": "settle day 1 · peak day 5 · land day 12 · adjustments: day 6 FULL->LIGHT; day 12 FULL->LIGHT"
+      },
+      {
+        "leg": "continuity:narrative-memory",
+        "status": "DONE",
+        "detail": "3 memory lines woven in (peak, landing, returns, re-homes) — every one triggered by ledger/arc state, none invented"
+      },
+      {
+        "leg": "continuity:seam-chaining",
+        "status": "DONE",
+        "detail": "day 7: checkout -> transfer -> check-in (bags with you until 16:30 check-in) -> rest, one motion, 0 orphaned minutes"
+      }
+    ]
+  },
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "dayType": "FULL",
+      "arcRole": "SETTLE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/14098650933",
+          "name": "Jean Castor",
+          "kind": "museum",
+          "role": "stop",
+          "start": 572,
+          "end": 662,
+          "pos": {
+            "lat": 46.8141263,
+            "lon": -71.2100975
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/14098650933",
+          "price": "UNKNOWN",
+          "startTime": "09:32",
+          "endTime": "11:02"
+        },
+        {
+          "type": "stop",
+          "key": "node/13250945951",
+          "name": "Galerie Porte Rouge - Vieux-Québec",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 666,
+          "end": 726,
+          "pos": {
+            "lat": 46.8135247,
+            "lon": -71.206492
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/13250945951",
+          "price": "UNKNOWN",
+          "startTime": "11:06",
+          "endTime": "12:06"
+        },
+        {
+          "type": "food",
+          "key": "node/12326897876",
+          "name": "Don Vegan",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 740,
+          "end": 800,
+          "pos": {
+            "lat": 46.8161181,
+            "lon": -71.2037566
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12326897876",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "startTime": "12:20",
+          "endTime": "13:20"
+        },
+        {
+          "type": "stop",
+          "key": "node/2546008681",
+          "name": "Musée de la Civilisation de Québec",
+          "kind": "museum",
+          "role": "stop",
+          "start": 803,
+          "end": 893,
+          "pos": {
+            "lat": 46.8151739,
+            "lon": -71.2023007
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/2546008681",
+          "price": "UNKNOWN",
+          "startTime": "13:23",
+          "endTime": "14:53"
+        },
+        {
+          "type": "stop",
+          "key": "way/240740525",
+          "name": "Parc de l'Unesco",
+          "kind": "park",
+          "role": "stop",
+          "start": 896,
+          "end": 941,
+          "pos": {
+            "lat": 46.8135529,
+            "lon": -71.2027204
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/240740525",
+          "price": "UNKNOWN",
+          "startTime": "14:56",
+          "endTime": "15:41"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/14098650933",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Jean Castor",
+          "mode": "walk",
+          "km": 0.15,
+          "minutes": 2,
+          "depart": 570,
+          "arrive": 572,
+          "departTime": "09:30",
+          "arriveTime": "09:32"
+        },
+        {
+          "fromKey": "node/14098650933",
+          "toKey": "node/13250945951",
+          "fromName": "Jean Castor",
+          "toName": "Galerie Porte Rouge - Vieux-Québec",
+          "mode": "walk",
+          "km": 0.28,
+          "minutes": 4,
+          "depart": 662,
+          "arrive": 666,
+          "departTime": "11:02",
+          "arriveTime": "11:06"
+        },
+        {
+          "fromKey": "node/13250945951",
+          "toKey": "node/12326897876",
+          "fromName": "Galerie Porte Rouge - Vieux-Québec",
+          "toName": "Don Vegan",
+          "mode": "walk",
+          "km": 0.36,
+          "minutes": 5,
+          "depart": 735,
+          "arrive": 740,
+          "departTime": "12:15",
+          "arriveTime": "12:20"
+        },
+        {
+          "fromKey": "node/12326897876",
+          "toKey": "node/2546008681",
+          "fromName": "Don Vegan",
+          "toName": "Musée de la Civilisation de Québec",
+          "mode": "walk",
+          "km": 0.15,
+          "minutes": 3,
+          "depart": 800,
+          "arrive": 803,
+          "departTime": "13:20",
+          "arriveTime": "13:23"
+        },
+        {
+          "fromKey": "node/2546008681",
+          "toKey": "way/240740525",
+          "fromName": "Musée de la Civilisation de Québec",
+          "toName": "Parc de l'Unesco",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 893,
+          "arrive": 896,
+          "departTime": "14:53",
+          "arriveTime": "14:56"
+        },
+        {
+          "fromKey": "way/240740525",
+          "toKey": "base",
+          "fromName": "Parc de l'Unesco",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.48,
+          "minutes": 7,
+          "depart": 941,
+          "arrive": 948,
+          "departTime": "15:41",
+          "arriveTime": "15:48"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 24 begins at a humane hour — the first stop is Jean Castor at 09:32, and nothing on this day starts before 09:00.",
+        "The base for the night is Hôtel Marie Rollett, picked for what surrounds it: 59 sights within a short walk.",
+        "Expect a mild 11° — good walking weather, with layers for the shade.",
+        "Jean Castor gets the morning's main slot, 09:32 to 11:02 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Jean Castor — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Jean Castor, it is a 4-minute walk to Galerie Porte Rouge - Vieux-Québec — close enough to stroll without watching the clock.",
+        "Galerie Porte Rouge - Vieux-Québec offers a quieter hour indoors, 11:06–12:06.",
+        "Don Vegan is next, just 5 minutes on foot from Galerie Porte Rouge - Vieux-Québec.",
+        "Lunch is at Don Vegan, 12:20–13:20.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "The walk from Don Vegan to Musée de la Civilisation de Québec takes about 3 minutes — a breather between stops, not a hike.",
+        "Give Musée de la Civilisation de Québec a full 90 minutes (13:23–14:53); rushing it would miss the point.",
+        "A short wander of 3 minutes brings you to Parc de l'Unesco.",
+        "Parc de l'Unesco is the day's green pause, 14:56–15:41 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 15:48 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 948
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-25",
+      "role": "ferry",
+      "dayType": "FULL",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/130117210",
+          "name": "Lévis",
+          "title": "Ferry crossing (from Lévis)",
+          "kind": "ferry",
+          "role": "mustsee",
+          "start": 592,
+          "end": 667,
+          "pos": {
+            "lat": 46.8106109,
+            "lon": -71.1883369
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/130117210",
+          "price": "UNKNOWN",
+          "startTime": "09:52",
+          "endTime": "11:07"
+        },
+        {
+          "type": "stop",
+          "key": "node/6554061185",
+          "name": "Cannonball Tree",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 692,
+          "end": 752,
+          "pos": {
+            "lat": 46.8111132,
+            "lon": -71.2083792
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6554061185",
+          "price": "UNKNOWN",
+          "startTime": "11:32",
+          "endTime": "12:32"
+        },
+        {
+          "type": "food",
+          "key": "node/4349079029",
+          "name": "Hortus Bistro",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 758,
+          "end": 818,
+          "pos": {
+            "lat": 46.8146605,
+            "lon": -71.209564
+          },
+          "hours": {
+            "status": "known",
+            "open": 570,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 11:30-22:00; Sa 09:30-22:00; Su 09:30-21:00",
+          "url": "https://www.openstreetmap.org/node/4349079029",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:38",
+          "endTime": "13:38"
+        },
+        {
+          "type": "stop",
+          "key": "node/6711176117",
+          "name": "Galerie Perreault",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 822,
+          "end": 882,
+          "pos": {
+            "lat": 46.8167291,
+            "lon": -71.2082103
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6711176117",
+          "price": "UNKNOWN",
+          "startTime": "13:42",
+          "endTime": "14:42"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/130117210",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Lévis",
+          "mode": "walk",
+          "km": 1.59,
+          "minutes": 22,
+          "depart": 570,
+          "arrive": 592,
+          "departTime": "09:30",
+          "arriveTime": "09:52"
+        },
+        {
+          "fromKey": "node/130117210",
+          "toKey": "base",
+          "fromName": "Lévis",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 1.59,
+          "minutes": 22,
+          "depart": 667,
+          "arrive": 689,
+          "departTime": "11:07",
+          "arriveTime": "11:29"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "node/6554061185",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Cannonball Tree",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 689,
+          "arrive": 692,
+          "departTime": "11:29",
+          "arriveTime": "11:32"
+        },
+        {
+          "fromKey": "node/6554061185",
+          "toKey": "node/4349079029",
+          "fromName": "Cannonball Tree",
+          "toName": "Hortus Bistro",
+          "mode": "walk",
+          "km": 0.4,
+          "minutes": 6,
+          "depart": 752,
+          "arrive": 758,
+          "departTime": "12:32",
+          "arriveTime": "12:38"
+        },
+        {
+          "fromKey": "node/4349079029",
+          "toKey": "node/6711176117",
+          "fromName": "Hortus Bistro",
+          "toName": "Galerie Perreault",
+          "mode": "walk",
+          "km": 0.25,
+          "minutes": 4,
+          "depart": 818,
+          "arrive": 822,
+          "departTime": "13:38",
+          "arriveTime": "13:42"
+        },
+        {
+          "fromKey": "node/6711176117",
+          "toKey": "base",
+          "fromName": "Galerie Perreault",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.41,
+          "minutes": 6,
+          "depart": 882,
+          "arrive": 888,
+          "departTime": "14:42",
+          "arriveTime": "14:48"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Sunday, October 25 is built around Lévis, with the day's stops gathered close so the walking stays easy.",
+        "The ferry crossing is the morning's small adventure: board at Lévis around 09:52 and give the round trip until 11:07. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
+        "Opening hours weren't listed for Lévis — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
+        "Cannonball Tree fills 11:32–12:32 — long enough to enjoy properly, short enough to keep the day light.",
+        "From Cannonball Tree, it is a 6-minute walk to Hortus Bistro — close enough to stroll without watching the clock.",
+        "Lunch is at Hortus Bistro, 12:38–13:38.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Galerie Perreault is next, just 4 minutes on foot from Hortus Bistro.",
+        "Galerie Perreault offers a quieter hour indoors, 13:42–14:42.",
+        "The day winds down back at base by 14:48 — 3 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 888
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-26",
+      "role": "standard",
+      "dayType": "FULL",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/148301142",
+          "name": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+          "kind": "museum",
+          "role": "stop",
+          "start": 576,
+          "end": 666,
+          "pos": {
+            "lat": 46.8117665,
+            "lon": -71.2043178
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/148301142",
+          "price": "UNKNOWN",
+          "startTime": "09:36",
+          "endTime": "11:06"
+        },
+        {
+          "type": "stop",
+          "key": "node/6711176114",
+          "name": "Galerie Alain Lacaze",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 673,
+          "end": 733,
+          "pos": {
+            "lat": 46.8164019,
+            "lon": -71.2053819
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6711176114",
+          "price": "UNKNOWN",
+          "startTime": "11:13",
+          "endTime": "12:13"
+        },
+        {
+          "type": "food",
+          "key": "node/12207260095",
+          "name": "Concept Bala",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 743,
+          "end": 803,
+          "pos": {
+            "lat": 46.8165252,
+            "lon": -71.2124361
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 960,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 09:00-16:00",
+          "url": "https://www.openstreetmap.org/node/12207260095",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes"
+          },
+          "startTime": "12:23",
+          "endTime": "13:23"
+        },
+        {
+          "type": "stop",
+          "key": "way/106776418",
+          "name": "Musée Naval de Québec",
+          "kind": "museum",
+          "role": "stop",
+          "start": 816,
+          "end": 906,
+          "pos": {
+            "lat": 46.8184694,
+            "lon": -71.2009166
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/106776418",
+          "price": "UNKNOWN",
+          "startTime": "13:36",
+          "endTime": "15:06"
+        },
+        {
+          "type": "stop",
+          "key": "way/247649573",
+          "name": "Espace 400e Bell",
+          "kind": "park",
+          "role": "stop",
+          "start": 913,
+          "end": 958,
+          "pos": {
+            "lat": 46.8178894,
+            "lon": -71.2070839
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/247649573",
+          "price": "UNKNOWN",
+          "startTime": "15:13",
+          "endTime": "15:58"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/148301142",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+          "mode": "walk",
+          "km": 0.38,
+          "minutes": 6,
+          "depart": 570,
+          "arrive": 576,
+          "departTime": "09:30",
+          "arriveTime": "09:36"
+        },
+        {
+          "fromKey": "way/148301142",
+          "toKey": "node/6711176114",
+          "fromName": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+          "toName": "Galerie Alain Lacaze",
+          "mode": "walk",
+          "km": 0.52,
+          "minutes": 7,
+          "depart": 666,
+          "arrive": 673,
+          "departTime": "11:06",
+          "arriveTime": "11:13"
+        },
+        {
+          "fromKey": "node/6711176114",
+          "toKey": "node/12207260095",
+          "fromName": "Galerie Alain Lacaze",
+          "toName": "Concept Bala",
+          "mode": "walk",
+          "km": 0.54,
+          "minutes": 8,
+          "depart": 735,
+          "arrive": 743,
+          "departTime": "12:15",
+          "arriveTime": "12:23"
+        },
+        {
+          "fromKey": "node/12207260095",
+          "toKey": "way/106776418",
+          "fromName": "Concept Bala",
+          "toName": "Musée Naval de Québec",
+          "mode": "walk",
+          "km": 0.9,
+          "minutes": 13,
+          "depart": 803,
+          "arrive": 816,
+          "departTime": "13:23",
+          "arriveTime": "13:36"
+        },
+        {
+          "fromKey": "way/106776418",
+          "toKey": "way/247649573",
+          "fromName": "Musée Naval de Québec",
+          "toName": "Espace 400e Bell",
+          "mode": "walk",
+          "km": 0.47,
+          "minutes": 7,
+          "depart": 906,
+          "arrive": 913,
+          "departTime": "15:06",
+          "arriveTime": "15:13"
+        },
+        {
+          "fromKey": "way/247649573",
+          "toKey": "base",
+          "fromName": "Espace 400e Bell",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.56,
+          "minutes": 8,
+          "depart": 958,
+          "arrive": 966,
+          "departTime": "15:58",
+          "arriveTime": "16:06"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Monday, October 26 is built around Lieu historique national des Forts-et-Châteaux-Saint-Louis, with the day's stops gathered close so the walking stays easy.",
+        "Forts-et-Châteaux-Saint-Louis gets the morning's main slot, 09:36 to 11:06 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Forts-et-Châteaux-Saint-Louis — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Forts-et-Châteaux-Saint-Louis, it is a 7-minute walk to Galerie Alain Lacaze — close enough to stroll without watching the clock.",
+        "Galerie Alain Lacaze offers a quieter hour indoors, 11:13–12:13.",
+        "Concept Bala is next, just 8 minutes on foot from Galerie Alain Lacaze.",
+        "Lunch is at Concept Bala, 12:23–13:23.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Concept Bala to Musée Naval de Québec takes about 13 minutes — a breather between stops, not a hike.",
+        "Give Musée Naval de Québec a full 90 minutes (13:36–15:06); rushing it would miss the point.",
+        "A short wander of 7 minutes brings you to Espace 400e Bell.",
+        "Espace 400e Bell is the day's green pause, 15:13–15:58 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 16:06 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 966
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-27",
+      "role": "open-day",
+      "dayType": "OPEN",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [],
+      "legs": [],
+      "ideas": [
+        {
+          "key": "way/105924769",
+          "name": "Jardins de l'hôtel de ville",
+          "kind": "park",
+          "km": 0.11,
+          "walkMin": 2
+        },
+        {
+          "key": "node/401881640",
+          "name": "Lorne",
+          "kind": "viewpoint",
+          "km": 0.38,
+          "walkMin": 6
+        },
+        {
+          "key": "node/1019193938",
+          "name": "Édifice de l'ancien cinéma Empire",
+          "kind": "historic",
+          "km": 0.18,
+          "walkMin": 3
+        }
+      ],
+      "narrative": [
+        "Tuesday, October 27 is an open day, on purpose — no fixed plans at all.",
+        "If the mood strikes, the day has gentle options: Jardins de l'hôtel de ville, Lorne and Édifice de l'ancien cinéma Empire. Nothing is booked and nothing is expected — they are simply there if wanted."
+      ],
+      "endMin": 1020
+    },
+    {
+      "dayNumber": 5,
+      "date": "2026-10-28",
+      "role": "excursion",
+      "dayType": "FULL",
+      "arcRole": "PEAK",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/4279287390",
+          "name": "Musée des plaines d'Abraham",
+          "kind": "museum",
+          "role": "stop",
+          "start": 580,
+          "end": 670,
+          "pos": {
+            "lat": 46.8070268,
+            "lon": -71.2128445
+          },
+          "hours": {
+            "status": "known",
+            "open": 510,
+            "close": 1020,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 08:30-17:00; Sa-Su 09:00-17:00",
+          "url": "https://www.openstreetmap.org/node/4279287390",
+          "price": "UNKNOWN",
+          "startTime": "09:40",
+          "endTime": "11:10"
+        },
+        {
+          "type": "food",
+          "key": "node/2527418383",
+          "name": "Au Bonnet d'Âne",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 747,
+          "end": 807,
+          "pos": {
+            "lat": 46.8085538,
+            "lon": -71.2237941
+          },
+          "hours": {
+            "status": "known",
+            "open": 480,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Su-We 08:00-22:00; Th-Sa 08:00-23:00",
+          "url": "https://www.openstreetmap.org/node/2527418383",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = no",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = no, diet:vegetarian = yes"
+          },
+          "startTime": "12:27",
+          "endTime": "13:27"
+        },
+        {
+          "type": "stop",
+          "key": "node/1199354691",
+          "name": "Chute Montmorency",
+          "kind": "falls",
+          "role": "excursion",
+          "start": 824,
+          "end": 914,
+          "pos": {
+            "lat": 46.8907506,
+            "lon": -71.1477383
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/1199354691",
+          "price": "UNKNOWN",
+          "startTime": "13:44",
+          "endTime": "15:14"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/4279287390",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Musée des plaines d'Abraham",
+          "mode": "walk",
+          "km": 0.73,
+          "minutes": 10,
+          "depart": 570,
+          "arrive": 580,
+          "departTime": "09:30",
+          "arriveTime": "09:40"
+        },
+        {
+          "fromKey": "node/4279287390",
+          "toKey": "node/2527418383",
+          "fromName": "Musée des plaines d'Abraham",
+          "toName": "Au Bonnet d'Âne",
+          "mode": "walk",
+          "km": 0.85,
+          "minutes": 12,
+          "depart": 735,
+          "arrive": 747,
+          "departTime": "12:15",
+          "arriveTime": "12:27"
+        },
+        {
+          "fromKey": "node/2527418383",
+          "toKey": "node/1199354691",
+          "fromName": "Au Bonnet d'Âne",
+          "toName": "Chute Montmorency",
+          "mode": "drive",
+          "km": 10.82,
+          "minutes": 17,
+          "depart": 807,
+          "arrive": 824,
+          "departTime": "13:27",
+          "arriveTime": "13:44"
+        },
+        {
+          "fromKey": "node/1199354691",
+          "toKey": "base",
+          "fromName": "Chute Montmorency",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "drive",
+          "km": 9.82,
+          "minutes": 15,
+          "depart": 914,
+          "arrive": 929,
+          "departTime": "15:14",
+          "arriveTime": "15:29"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "If this trip has a high point, today is it — Wednesday, October 28 is built around Musée des plaines d'Abraham, the stop everything else has been leading toward.",
+        "Wednesday, October 28 is the day for Chute Montmorency — the trip's headline outing, given the room it deserves.",
+        "The forecast helps today: 8° and only a 4% chance of rain, which is why the outdoor outing sits here.",
+        "Musée des plaines d'Abraham gets the morning's main slot, 09:40 to 11:10 — unhurried, with time to double back to favourites.",
+        "Musée des plaines d'Abraham lists its hours as 08:30–17:00 today, and the visit sits comfortably inside them.",
+        "From Musée des plaines d'Abraham, it is a 12-minute walk to Au Bonnet d'Âne — close enough to stroll without watching the clock.",
+        "Lunch is at Au Bonnet d'Âne, 12:27–13:27.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = no, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Then the day's one longer leg: about 17 minutes by road to Chute Montmorency.",
+        "Chute Montmorency — the outing named in the request — gets a full 90 minutes, 13:44–15:14.",
+        "Opening hours weren't listed for Chute Montmorency — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The drive back to base runs about 15 minutes.",
+        "The day winds down back at base by 15:29 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 929
+    },
+    {
+      "dayNumber": 6,
+      "date": "2026-10-29",
+      "role": "light",
+      "dayType": "LIGHT",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/377497852",
+          "name": "Porte Kent",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 605,
+          "end": 665,
+          "pos": {
+            "lat": 46.8119092,
+            "lon": -71.2125626
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/377497852",
+          "price": "UNKNOWN",
+          "startTime": "10:05",
+          "endTime": "11:05"
+        },
+        {
+          "type": "food",
+          "key": "node/11049491190",
+          "name": "Shiraz",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 745,
+          "end": 805,
+          "pos": {
+            "lat": 46.8060017,
+            "lon": -71.2166771
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 1380,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Tu-We 16:30-22:00; Th-Su 11:30-23:00",
+          "url": "https://www.openstreetmap.org/node/11049491190",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:25",
+          "endTime": "13:25"
+        },
+        {
+          "type": "stop",
+          "key": "way/146379474",
+          "name": "Parc de la Francophonie",
+          "kind": "park",
+          "role": "stop",
+          "start": 808,
+          "end": 853,
+          "pos": {
+            "lat": 46.8075571,
+            "lon": -71.2152329
+          },
+          "hours": {
+            "status": "known",
+            "open": 0,
+            "close": 1440,
+            "provenance": "osm"
+          },
+          "hoursRaw": "24/7",
+          "url": "https://www.openstreetmap.org/way/146379474",
+          "price": "UNKNOWN",
+          "startTime": "13:28",
+          "endTime": "14:13"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/377497852",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Porte Kent",
+          "mode": "walk",
+          "km": 0.3,
+          "minutes": 5,
+          "depart": 600,
+          "arrive": 605,
+          "departTime": "10:00",
+          "arriveTime": "10:05"
+        },
+        {
+          "fromKey": "node/377497852",
+          "toKey": "node/11049491190",
+          "fromName": "Porte Kent",
+          "toName": "Shiraz",
+          "mode": "walk",
+          "km": 0.73,
+          "minutes": 10,
+          "depart": 735,
+          "arrive": 745,
+          "departTime": "12:15",
+          "arriveTime": "12:25"
+        },
+        {
+          "fromKey": "node/11049491190",
+          "toKey": "way/146379474",
+          "fromName": "Shiraz",
+          "toName": "Parc de la Francophonie",
+          "mode": "walk",
+          "km": 0.2,
+          "minutes": 3,
+          "depart": 805,
+          "arrive": 808,
+          "departTime": "13:25",
+          "arriveTime": "13:28"
+        },
+        {
+          "fromKey": "way/146379474",
+          "toKey": "base",
+          "fromName": "Parc de la Francophonie",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.77,
+          "minutes": 11,
+          "depart": 853,
+          "arrive": 864,
+          "departTime": "14:13",
+          "arriveTime": "14:24"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Thursday, October 29 is a light day, on purpose — a late start, one or two good stops, and no rushing.",
+        "Porte Kent fills 10:05–11:05 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Porte Kent — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Porte Kent, it is a 10-minute walk to Shiraz — close enough to stroll without watching the clock.",
+        "Lunch is at Shiraz, 12:25–13:25.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Parc de la Francophonie is next, just 3 minutes on foot from Shiraz.",
+        "Parc de la Francophonie is the day's green pause, 13:28–14:13 — no tickets, no timetable to chase.",
+        "Parc de la Francophonie lists its hours as 00:00–24:00 today, and the visit sits comfortably inside them.",
+        "The day winds down back at base by 14:24 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 864
+    },
+    {
+      "dayNumber": 7,
+      "date": "2026-10-30",
+      "role": "move",
+      "dayType": "MOVE",
+      "arcRole": "EXPLORE",
+      "envelope": {
+        "arrival": {
+          "journeyMin": 420,
+          "checkInMin": 900,
+          "checkInProvenance": "assumed — conservative 15:00 default; an earlier room is never invented",
+          "restMinutes": 120,
+          "via": "move-day",
+          "arriveBaseMin": 990
+        }
+      },
+      "seam": {
+        "day": 7,
+        "fromBase": "Quebec City",
+        "toBase": "Halifax",
+        "checkoutMin": 540,
+        "transferStart": 570,
+        "transferEnd": 990,
+        "checkInMin": 990,
+        "checkInLabel": "16:30",
+        "restEndMin": 1125,
+        "luggageNote": "bags with you until 16:30 check-in",
+        "orphanMin": 0,
+        "chain": "checkout -> transfer -> check-in -> rest & refresh (one motion)",
+        "orphanNote": "computed over the seam chain blocks (checkout -> move -> wait/check-in -> refresh): the checkout block runs to the moment the motion starts, so every minute from checkout to the end of rest is carried by a named block"
+      },
+      "items": [
+        {
+          "type": "checkout",
+          "part": "checkout",
+          "title": "Check out — Hôtel Marie Rollett",
+          "start": 540,
+          "end": 570,
+          "key": "checkout-2026-10-30",
+          "sub": "keys handed back, bags in hand — the block runs to the moment the motion starts, so no minute of the seam is unaccounted",
+          "pos": null,
+          "startTime": "09:00",
+          "endTime": "09:30"
+        },
+        {
+          "type": "move",
+          "title": "Travel day — Quebec City → Halifax",
+          "start": 570,
+          "end": 990,
+          "key": "move-2026-10-30",
+          "fromName": "Quebec City",
+          "toName": "Halifax",
+          "sub": "bags with you from checkout until check-in at Halifax (16:30) — nothing is left behind or orphaned in between",
+          "startTime": "09:30",
+          "endTime": "16:30"
+        },
+        {
+          "type": "checkin",
+          "part": "checkin",
+          "title": "Check in — Residence Inn Halifax Downtown",
+          "start": 990,
+          "end": 1005,
+          "key": "checkin-2026-10-30",
+          "sub": "room from 15:00 · assumed — conservative 15:00 default; an earlier room is never invented",
+          "pos": null,
+          "startTime": "16:30",
+          "endTime": "16:45"
+        },
+        {
+          "type": "rest",
+          "part": "refresh",
+          "title": "Rest & refresh — travel takes something out of you",
+          "start": 1005,
+          "end": 1125,
+          "key": "refresh-2026-10-30",
+          "startTime": "16:45",
+          "endTime": "18:45"
+        }
+      ],
+      "legs": [],
+      "ideas": [],
+      "narrative": [
+        "Friday, October 30 is moving day — Quebec City to Halifax. The transfer is pencilled in below; your booking has the final word on times.",
+        "Leaving Quebec City and arriving in Halifax is one motion, not two journeys: out of the old base, the transfer, and into the new one — no orphaned hours in between.",
+        "Your bags stay with you the whole way, until check-in at 16:30 — and once they are down, the rest comes before anything else. Travel days ask enough without asking for a performance at the end of them."
+      ],
+      "endMin": 1125
+    },
+    {
+      "dayNumber": 8,
+      "date": "2026-10-31",
+      "role": "light",
+      "dayType": "LIGHT",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/5343221870",
+          "name": "Nova Scotia Sport Hall of Fame",
+          "kind": "museum",
+          "role": "stop",
+          "start": 604,
+          "end": 694,
+          "pos": {
+            "lat": 44.6481088,
+            "lon": -63.5760865
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5343221870",
+          "price": "UNKNOWN",
+          "startTime": "10:04",
+          "endTime": "11:34"
+        },
+        {
+          "type": "food",
+          "key": "node/2624375974",
+          "name": "Slow Mornings Café & Restaurant",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 747,
+          "end": 807,
+          "pos": {
+            "lat": 44.6531722,
+            "lon": -63.5848534
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1020,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 08:00-17:00; Sa,Su 09:00-17:00",
+          "url": "https://www.openstreetmap.org/node/2624375974",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = no",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = no, diet:vegetarian = yes"
+          },
+          "startTime": "12:27",
+          "endTime": "13:27"
+        },
+        {
+          "type": "stop",
+          "key": "way/1541331198",
+          "name": "Alamalek Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 812,
+          "end": 857,
+          "pos": {
+            "lat": 44.6535608,
+            "lon": -63.5806102
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/1541331198",
+          "price": "UNKNOWN",
+          "startTime": "13:32",
+          "endTime": "14:17"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/5343221870",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Nova Scotia Sport Hall of Fame",
+          "mode": "walk",
+          "km": 0.25,
+          "minutes": 4,
+          "depart": 600,
+          "arrive": 604,
+          "departTime": "10:00",
+          "arriveTime": "10:04"
+        },
+        {
+          "fromKey": "node/5343221870",
+          "toKey": "node/2624375974",
+          "fromName": "Nova Scotia Sport Hall of Fame",
+          "toName": "Slow Mornings Café & Restaurant",
+          "mode": "walk",
+          "km": 0.89,
+          "minutes": 12,
+          "depart": 735,
+          "arrive": 747,
+          "departTime": "12:15",
+          "arriveTime": "12:27"
+        },
+        {
+          "fromKey": "node/2624375974",
+          "toKey": "way/1541331198",
+          "fromName": "Slow Mornings Café & Restaurant",
+          "toName": "Alamalek Park",
+          "mode": "walk",
+          "km": 0.34,
+          "minutes": 5,
+          "depart": 807,
+          "arrive": 812,
+          "departTime": "13:27",
+          "arriveTime": "13:32"
+        },
+        {
+          "fromKey": "way/1541331198",
+          "toKey": "base",
+          "fromName": "Alamalek Park",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.95,
+          "minutes": 13,
+          "depart": 857,
+          "arrive": 870,
+          "departTime": "14:17",
+          "arriveTime": "14:30"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Saturday, October 31 is a light day, on purpose — a late start, one or two good stops, and no rushing.",
+        "The base for the night is Residence Inn Halifax Downtown, picked for what surrounds it: 43 sights within a short walk.",
+        "Nova Scotia Sport Hall of Fame gets the morning's main slot, 10:04 to 11:34 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Nova Scotia Sport Hall of Fame — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Nova Scotia Sport Hall of Fame, it is a 12-minute walk to Slow Mornings Café & Restaurant — close enough to stroll without watching the clock.",
+        "Lunch is at Slow Mornings Café & Restaurant, 12:27–13:27.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = no, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Alamalek Park is next, just 5 minutes on foot from Slow Mornings Café & Restaurant.",
+        "Alamalek Park is the day's green pause, 13:32–14:17 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 14:30 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 870
+    },
+    {
+      "dayNumber": 9,
+      "date": "2026-11-01",
+      "role": "ferry",
+      "dayType": "FULL",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/82668522",
+          "name": "Metro Transit Ferry Terminal",
+          "title": "Ferry crossing (from Metro Transit Ferry Terminal)",
+          "kind": "ferry",
+          "role": "mustsee",
+          "start": 578,
+          "end": 653,
+          "pos": {
+            "lat": 44.6497865,
+            "lon": -63.5715596
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/82668522",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "10:53"
+        },
+        {
+          "type": "stop",
+          "key": "way/62049157",
+          "name": "Maritime Museum of the Atlantic",
+          "kind": "museum",
+          "role": "stop",
+          "start": 667,
+          "end": 757,
+          "pos": {
+            "lat": 44.6475947,
+            "lon": -63.5709632
+          },
+          "hours": {
+            "status": "unknown",
+            "raw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
+            "provenance": "none"
+          },
+          "hoursRaw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
+          "url": "https://www.openstreetmap.org/way/62049157",
+          "price": "UNKNOWN",
+          "startTime": "11:07",
+          "endTime": "12:37"
+        },
+        {
+          "type": "food",
+          "key": "node/12136077507",
+          "name": "Lou Pécou",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 776,
+          "end": 836,
+          "pos": {
+            "lat": 44.6525176,
+            "lon": -63.5868271
+          },
+          "hours": {
+            "status": "known",
+            "open": 600,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Th 12:00-21:00; Fr 12:00-22:00; Sa 10:00-22:00; Su 10:00-21:00",
+          "url": "https://www.openstreetmap.org/node/12136077507",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:gluten_free = yes",
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:56",
+          "endTime": "13:56"
+        },
+        {
+          "type": "stop",
+          "key": "node/11767822182",
+          "name": "The Blue Building Gallery",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 842,
+          "end": 902,
+          "pos": {
+            "lat": 44.6547525,
+            "lon": -63.5910584
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/11767822182",
+          "price": "UNKNOWN",
+          "startTime": "14:02",
+          "endTime": "15:02"
+        },
+        {
+          "type": "stop",
+          "key": "node/2405084369",
+          "name": "Army Museum",
+          "kind": "museum",
+          "role": "mustsee",
+          "start": 918,
+          "end": 1008,
+          "pos": {
+            "lat": 44.6473097,
+            "lon": -63.5803408
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/2405084369",
+          "price": "UNKNOWN",
+          "startTime": "15:18",
+          "endTime": "16:48"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/82668522",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Metro Transit Ferry Terminal",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "way/82668522",
+          "toKey": "base",
+          "fromName": "Metro Transit Ferry Terminal",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 653,
+          "arrive": 661,
+          "departTime": "10:53",
+          "arriveTime": "11:01"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "way/62049157",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Maritime Museum of the Atlantic",
+          "mode": "walk",
+          "km": 0.4,
+          "minutes": 6,
+          "depart": 661,
+          "arrive": 667,
+          "departTime": "11:01",
+          "arriveTime": "11:07"
+        },
+        {
+          "fromKey": "way/62049157",
+          "toKey": "node/12136077507",
+          "fromName": "Maritime Museum of the Atlantic",
+          "toName": "Lou Pécou",
+          "mode": "walk",
+          "km": 1.37,
+          "minutes": 19,
+          "depart": 757,
+          "arrive": 776,
+          "departTime": "12:37",
+          "arriveTime": "12:56"
+        },
+        {
+          "fromKey": "node/12136077507",
+          "toKey": "node/11767822182",
+          "fromName": "Lou Pécou",
+          "toName": "The Blue Building Gallery",
+          "mode": "walk",
+          "km": 0.42,
+          "minutes": 6,
+          "depart": 836,
+          "arrive": 842,
+          "departTime": "13:56",
+          "arriveTime": "14:02"
+        },
+        {
+          "fromKey": "node/11767822182",
+          "toKey": "node/2405084369",
+          "fromName": "The Blue Building Gallery",
+          "toName": "Army Museum",
+          "mode": "walk",
+          "km": 1.18,
+          "minutes": 16,
+          "depart": 902,
+          "arrive": 918,
+          "departTime": "15:02",
+          "arriveTime": "15:18"
+        },
+        {
+          "fromKey": "node/2405084369",
+          "toKey": "base",
+          "fromName": "Army Museum",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.42,
+          "minutes": 6,
+          "depart": 1008,
+          "arrive": 1014,
+          "departTime": "16:48",
+          "arriveTime": "16:54"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Sunday, November 1 is built around Metro Transit Ferry Terminal, with the day's stops gathered close so the walking stays easy.",
+        "The ferry crossing is the morning's small adventure: board at Metro Transit Ferry Terminal around 09:38 and give the round trip until 10:53. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
+        "Opening hours weren't listed for Metro Transit Ferry Terminal — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
+        "Maritime Museum of the Atlantic gets the morning's main slot, 11:07 to 12:37 — unhurried, with time to double back to favourites.",
+        "From Maritime Museum of the Atlantic, it is a 19-minute walk to Lou Pécou — close enough to stroll without watching the clock.",
+        "Lunch is at Lou Pécou, 12:56–13:56.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The Blue Building Gallery is next, just 6 minutes on foot from Lou Pécou.",
+        "Blue Building Gallery offers a quieter hour indoors, 14:02–15:02.",
+        "The walk from Blue Building Gallery to Army Museum takes about 16 minutes — a breather between stops, not a hike.",
+        "Give Army Museum a full 90 minutes (15:18–16:48); rushing it would miss the point.",
+        "The day winds down back at base by 16:54 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1014
+    },
+    {
+      "dayNumber": 10,
+      "date": "2026-11-02",
+      "role": "standard",
+      "dayType": "FULL",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/82668545",
+          "name": "Nova Scotia Museum of Natural History",
+          "kind": "museum",
+          "role": "stop",
+          "start": 581,
+          "end": 671,
+          "pos": {
+            "lat": 44.6456181,
+            "lon": -63.5848539
+          },
+          "hours": {
+            "status": "known",
+            "open": 570,
+            "close": 990,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 09:30-16:30",
+          "url": "https://www.openstreetmap.org/way/82668545",
+          "price": "UNKNOWN",
+          "startTime": "09:41",
+          "endTime": "11:11"
+        },
+        {
+          "type": "stop",
+          "key": "way/553574590",
+          "name": "Art Gallery of Nova Scotia",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 685,
+          "end": 745,
+          "pos": {
+            "lat": 44.6484658,
+            "lon": -63.5729139
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/553574590",
+          "price": "UNKNOWN",
+          "startTime": "11:25",
+          "endTime": "12:25"
+        },
+        {
+          "type": "food",
+          "key": "node/7082566318",
+          "name": "G-Street Pizza",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 762,
+          "end": 822,
+          "pos": {
+            "lat": 44.6540205,
+            "lon": -63.5865456
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Su-Th 11:00-21:00, Fr-Sa 11:00-23:00",
+          "url": "https://www.openstreetmap.org/node/7082566318",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:42",
+          "endTime": "13:42"
+        },
+        {
+          "type": "stop",
+          "key": "node/5845059318",
+          "name": "Naval Museum of Halifax",
+          "kind": "museum",
+          "role": "stop",
+          "start": 833,
+          "end": 923,
+          "pos": {
+            "lat": 44.6595611,
+            "lon": -63.5927716
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5845059318",
+          "price": "UNKNOWN",
+          "startTime": "13:53",
+          "endTime": "15:23"
+        },
+        {
+          "type": "stop",
+          "key": "way/522220159",
+          "name": "Fuller Terrace Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 927,
+          "end": 972,
+          "pos": {
+            "lat": 44.6576485,
+            "lon": -63.5949631
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/522220159",
+          "price": "UNKNOWN",
+          "startTime": "15:27",
+          "endTime": "16:12"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/82668545",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Nova Scotia Museum of Natural History",
+          "mode": "walk",
+          "km": 0.75,
+          "minutes": 11,
+          "depart": 570,
+          "arrive": 581,
+          "departTime": "09:30",
+          "arriveTime": "09:41"
+        },
+        {
+          "fromKey": "way/82668545",
+          "toKey": "way/553574590",
+          "fromName": "Nova Scotia Museum of Natural History",
+          "toName": "Art Gallery of Nova Scotia",
+          "mode": "walk",
+          "km": 1,
+          "minutes": 14,
+          "depart": 671,
+          "arrive": 685,
+          "departTime": "11:11",
+          "arriveTime": "11:25"
+        },
+        {
+          "fromKey": "way/553574590",
+          "toKey": "node/7082566318",
+          "fromName": "Art Gallery of Nova Scotia",
+          "toName": "G-Street Pizza",
+          "mode": "walk",
+          "km": 1.24,
+          "minutes": 17,
+          "depart": 745,
+          "arrive": 762,
+          "departTime": "12:25",
+          "arriveTime": "12:42"
+        },
+        {
+          "fromKey": "node/7082566318",
+          "toKey": "node/5845059318",
+          "fromName": "G-Street Pizza",
+          "toName": "Naval Museum of Halifax",
+          "mode": "walk",
+          "km": 0.79,
+          "minutes": 11,
+          "depart": 822,
+          "arrive": 833,
+          "departTime": "13:42",
+          "arriveTime": "13:53"
+        },
+        {
+          "fromKey": "node/5845059318",
+          "toKey": "way/522220159",
+          "fromName": "Naval Museum of Halifax",
+          "toName": "Fuller Terrace Park",
+          "mode": "walk",
+          "km": 0.27,
+          "minutes": 4,
+          "depart": 923,
+          "arrive": 927,
+          "departTime": "15:23",
+          "arriveTime": "15:27"
+        },
+        {
+          "fromKey": "way/522220159",
+          "toKey": "base",
+          "fromName": "Fuller Terrace Park",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "drive",
+          "km": 2.03,
+          "minutes": 4,
+          "depart": 972,
+          "arrive": 976,
+          "departTime": "16:12",
+          "arriveTime": "16:16"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Monday, November 2 is built around Nova Scotia Museum of Natural History, with the day's stops gathered close so the walking stays easy.",
+        "Natural History gets the morning's main slot, 09:41 to 11:11 — unhurried, with time to double back to favourites.",
+        "Natural History lists its hours as 09:30–16:30 today, and the visit sits comfortably inside them.",
+        "From Natural History, it is a 14-minute walk to Art Gallery of Nova Scotia — close enough to stroll without watching the clock.",
+        "Art Gallery of Nova Scotia offers a quieter hour indoors, 11:25–12:25.",
+        "Opening hours weren't listed for Art Gallery of Nova Scotia — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "G-Street Pizza is next, just 17 minutes on foot from Art Gallery of Nova Scotia.",
+        "Lunch is at G-Street Pizza, 12:42–13:42.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The walk from G-Street Pizza to Naval Museum of Halifax takes about 11 minutes — a breather between stops, not a hike.",
+        "Give Naval Museum of Halifax a full 90 minutes (13:53–15:23); rushing it would miss the point.",
+        "A short wander of 4 minutes brings you to Fuller Terrace Park.",
+        "Fuller Terrace Park is the day's green pause, 15:27–16:12 — no tickets, no timetable to chase.",
+        "The drive back to base runs about 4 minutes.",
+        "The day winds down back at base by 16:16 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 976
+    },
+    {
+      "dayNumber": 11,
+      "date": "2026-11-03",
+      "role": "standard",
+      "dayType": "FULL",
+      "arcRole": "EXPLORE",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/915518390",
+          "name": "Salt Yard",
+          "kind": "market",
+          "role": "stop",
+          "start": 577,
+          "end": 637,
+          "pos": {
+            "lat": 44.6461283,
+            "lon": -63.56962
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/915518390",
+          "price": "UNKNOWN",
+          "startTime": "09:37",
+          "endTime": "10:37"
+        },
+        {
+          "type": "stop",
+          "key": "node/3789235357",
+          "name": "The Prow Gallery",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 640,
+          "end": 700,
+          "pos": {
+            "lat": 44.6443495,
+            "lon": -63.5696733
+          },
+          "hours": {
+            "status": "known",
+            "open": 600,
+            "close": 1020,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Tu-Sa 10:00-17:00; Su 11:00-17:00",
+          "url": "https://www.openstreetmap.org/node/3789235357",
+          "price": "UNKNOWN",
+          "startTime": "10:40",
+          "endTime": "11:40"
+        },
+        {
+          "type": "food",
+          "key": "node/7082566320",
+          "name": "Springhouse Market",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 758,
+          "end": 818,
+          "pos": {
+            "lat": 44.6538212,
+            "lon": -63.5862609
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1200,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Tu-Sa 11:00-20:00; Su 11:00-18:00",
+          "url": "https://www.openstreetmap.org/node/7082566320",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:38",
+          "endTime": "13:38"
+        },
+        {
+          "type": "stop",
+          "key": "node/962125376",
+          "name": "Halifax Town Clock",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 832,
+          "end": 892,
+          "pos": {
+            "lat": 44.6473381,
+            "lon": -63.5776771
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/962125376",
+          "price": "UNKNOWN",
+          "startTime": "13:52",
+          "endTime": "14:52"
+        },
+        {
+          "type": "stop",
+          "key": "way/553592156",
+          "name": "Royal Artillery Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 897,
+          "end": 942,
+          "pos": {
+            "lat": 44.6446426,
+            "lon": -63.5764311
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/553592156",
+          "price": "UNKNOWN",
+          "startTime": "14:57",
+          "endTime": "15:42"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/915518390",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Salt Yard",
+          "mode": "walk",
+          "km": 0.46,
+          "minutes": 7,
+          "depart": 570,
+          "arrive": 577,
+          "departTime": "09:30",
+          "arriveTime": "09:37"
+        },
+        {
+          "fromKey": "way/915518390",
+          "toKey": "node/3789235357",
+          "fromName": "Salt Yard",
+          "toName": "The Prow Gallery",
+          "mode": "walk",
+          "km": 0.2,
+          "minutes": 3,
+          "depart": 637,
+          "arrive": 640,
+          "departTime": "10:37",
+          "arriveTime": "10:40"
+        },
+        {
+          "fromKey": "node/3789235357",
+          "toKey": "node/7082566320",
+          "fromName": "The Prow Gallery",
+          "toName": "Springhouse Market",
+          "mode": "walk",
+          "km": 1.68,
+          "minutes": 23,
+          "depart": 735,
+          "arrive": 758,
+          "departTime": "12:15",
+          "arriveTime": "12:38"
+        },
+        {
+          "fromKey": "node/7082566320",
+          "toKey": "node/962125376",
+          "fromName": "Springhouse Market",
+          "toName": "Halifax Town Clock",
+          "mode": "walk",
+          "km": 0.99,
+          "minutes": 14,
+          "depart": 818,
+          "arrive": 832,
+          "departTime": "13:38",
+          "arriveTime": "13:52"
+        },
+        {
+          "fromKey": "node/962125376",
+          "toKey": "way/553592156",
+          "fromName": "Halifax Town Clock",
+          "toName": "Royal Artillery Park",
+          "mode": "walk",
+          "km": 0.32,
+          "minutes": 5,
+          "depart": 892,
+          "arrive": 897,
+          "departTime": "14:52",
+          "arriveTime": "14:57"
+        },
+        {
+          "fromKey": "way/553592156",
+          "toKey": "base",
+          "fromName": "Royal Artillery Park",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "walk",
+          "km": 0.16,
+          "minutes": 3,
+          "depart": 942,
+          "arrive": 945,
+          "departTime": "15:42",
+          "arriveTime": "15:45"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Tuesday, November 3 is built around Salt Yard, with the day's stops gathered close so the walking stays easy.",
+        "Salt Yard is the place to browse like a local, 09:37–10:37 — go hungry.",
+        "Opening hours weren't listed for Salt Yard — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Salt Yard, it is a 3-minute walk to The Prow Gallery — close enough to stroll without watching the clock.",
+        "Prow Gallery offers a quieter hour indoors, 10:40–11:40.",
+        "Prow Gallery lists its hours as 10:00–17:00 today, and the visit sits comfortably inside them.",
+        "Springhouse Market is next, just 23 minutes on foot from Prow Gallery.",
+        "Lunch is at Springhouse Market, 12:38–13:38.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Springhouse Market to Halifax Town Clock takes about 14 minutes — a breather between stops, not a hike.",
+        "Halifax Town Clock fills 13:52–14:52 — long enough to enjoy properly, short enough to keep the day light.",
+        "A short wander of 5 minutes brings you to Royal Artillery Park.",
+        "Royal Artillery Park is the day's green pause, 14:57–15:42 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 15:45 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 945
+    },
+    {
+      "dayNumber": 12,
+      "date": "2026-11-04",
+      "role": "light",
+      "dayType": "LIGHT",
+      "arcRole": "LAND",
+      "envelope": null,
+      "seam": null,
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/70587396",
+          "name": "Victoria Park",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 609,
+          "end": 669,
+          "pos": {
+            "lat": 44.6409895,
+            "lon": -63.579516
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/70587396",
+          "price": "UNKNOWN",
+          "startTime": "10:09",
+          "endTime": "11:09"
+        },
+        {
+          "type": "food",
+          "key": "node/3802169599",
+          "name": "Wild Leek Food & Juice Bar",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 756,
+          "end": 816,
+          "pos": {
+            "lat": 44.6495005,
+            "lon": -63.5946382
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1140,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-We 11:00-19:00; Th-Sa 11:00-20:00",
+          "url": "https://www.openstreetmap.org/node/3802169599",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes"
+          },
+          "startTime": "12:36",
+          "endTime": "13:36"
+        },
+        {
+          "type": "stop",
+          "key": "way/701207141",
+          "name": "Chebucto Road Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 821,
+          "end": 866,
+          "pos": {
+            "lat": 44.65035,
+            "lon": -63.5984674
+          },
+          "hours": {
+            "status": "known",
+            "open": 360,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "06:00-22:00",
+          "url": "https://www.openstreetmap.org/way/701207141",
+          "price": "UNKNOWN",
+          "startTime": "13:41",
+          "endTime": "14:26"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/70587396",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Victoria Park",
+          "mode": "walk",
+          "km": 0.64,
+          "minutes": 9,
+          "depart": 600,
+          "arrive": 609,
+          "departTime": "10:00",
+          "arriveTime": "10:09"
+        },
+        {
+          "fromKey": "way/70587396",
+          "toKey": "node/3802169599",
+          "fromName": "Victoria Park",
+          "toName": "Wild Leek Food & Juice Bar",
+          "mode": "walk",
+          "km": 1.53,
+          "minutes": 21,
+          "depart": 735,
+          "arrive": 756,
+          "departTime": "12:15",
+          "arriveTime": "12:36"
+        },
+        {
+          "fromKey": "node/3802169599",
+          "toKey": "way/701207141",
+          "fromName": "Wild Leek Food & Juice Bar",
+          "toName": "Chebucto Road Park",
+          "mode": "walk",
+          "km": 0.32,
+          "minutes": 5,
+          "depart": 816,
+          "arrive": 821,
+          "departTime": "13:36",
+          "arriveTime": "13:41"
+        },
+        {
+          "fromKey": "way/701207141",
+          "toKey": "base",
+          "fromName": "Chebucto Road Park",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "drive",
+          "km": 1.89,
+          "minutes": 3,
+          "depart": 866,
+          "arrive": 869,
+          "departTime": "14:26",
+          "arriveTime": "14:29"
+        }
+      ],
+      "ideas": [],
+      "narrative": [
+        "Wednesday, November 4 is a light day, on purpose — a late start, one or two good stops, and no rushing.",
+        "Victoria Park fills 10:09–11:09 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Victoria Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Victoria Park, it is a 21-minute walk to Wild Leek Food & Juice Bar — close enough to stroll without watching the clock.",
+        "Lunch is at Wild Leek Food & Juice Bar, 12:36–13:36.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "Chebucto Road Park is next, just 5 minutes on foot from Wild Leek Food & Juice Bar.",
+        "Chebucto Road Park is the day's green pause, 13:41–14:26 — no tickets, no timetable to chase.",
+        "Chebucto Road Park lists its hours as 06:00–22:00 today, and the visit sits comfortably inside them.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 14:29 — 2 stops, no long walks, and the evening left free.",
+        "The trip is winding down now — this is the last day — and the plan lets it: today is not trying to outdo what came before."
+      ],
+      "endMin": 869
+    }
+  ]
+}

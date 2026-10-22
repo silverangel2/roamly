@@ -1,0 +1,919 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T21:03:01.008Z",
+  "runDate": "2026-10-21",
+  "destination": "Lunenburg",
+  "country": "Canada",
+  "poolId": "lunenburg-coastal",
+  "startDate": "2026-10-22",
+  "endDate": "2026-10-24",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-22",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/4418040190",
+          "name": "Fisheries Museum of the Atlantic",
+          "kind": "museum",
+          "role": "stop",
+          "start": 572,
+          "end": 662,
+          "pos": {
+            "lat": 44.3761079,
+            "lon": -64.3119867
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/4418040190",
+          "price": "UNKNOWN",
+          "startTime": "09:32",
+          "endTime": "11:02",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/10695067474",
+          "name": "Cranston Gallery",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 665,
+          "end": 725,
+          "pos": {
+            "lat": 44.3774238,
+            "lon": -64.3100953
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/10695067474",
+          "price": "UNKNOWN",
+          "startTime": "11:05",
+          "endTime": "12:05",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/5767121681",
+          "name": "No. 9",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 737,
+          "end": 797,
+          "pos": {
+            "lat": 44.3764252,
+            "lon": -64.3090375
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5767121681",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:gluten_free = yes",
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:gluten_free = yes, diet:vegan = yes"
+          },
+          "startTime": "12:17",
+          "endTime": "13:17",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/1511151321",
+          "name": "Museum Boat Shop & Exhibit",
+          "kind": "museum",
+          "role": "stop",
+          "start": 804,
+          "end": 894,
+          "pos": {
+            "lat": 44.3751555,
+            "lon": -64.3032279
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/1511151321",
+          "price": "UNKNOWN",
+          "startTime": "13:24",
+          "endTime": "14:54",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/544429676",
+          "name": "Sylvia Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 899,
+          "end": 944,
+          "pos": {
+            "lat": 44.378076,
+            "lon": -64.3048505
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/544429676",
+          "price": "UNKNOWN",
+          "startTime": "14:59",
+          "endTime": "15:44",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/4418040190",
+          "fromName": "Rum Runner Inn",
+          "toName": "Fisheries Museum of the Atlantic",
+          "mode": "walk",
+          "km": 0.05,
+          "minutes": 2,
+          "depart": 570,
+          "arrive": 572,
+          "departTime": "09:30",
+          "arriveTime": "09:32"
+        },
+        {
+          "fromKey": "node/4418040190",
+          "toKey": "node/10695067474",
+          "fromName": "Fisheries Museum of the Atlantic",
+          "toName": "Cranston Gallery",
+          "mode": "walk",
+          "km": 0.21,
+          "minutes": 3,
+          "depart": 662,
+          "arrive": 665,
+          "departTime": "11:02",
+          "arriveTime": "11:05"
+        },
+        {
+          "fromKey": "node/10695067474",
+          "toKey": "node/5767121681",
+          "fromName": "Cranston Gallery",
+          "toName": "No. 9",
+          "mode": "walk",
+          "km": 0.14,
+          "minutes": 2,
+          "depart": 735,
+          "arrive": 737,
+          "departTime": "12:15",
+          "arriveTime": "12:17"
+        },
+        {
+          "fromKey": "node/5767121681",
+          "toKey": "way/1511151321",
+          "fromName": "No. 9",
+          "toName": "Museum Boat Shop & Exhibit",
+          "mode": "walk",
+          "km": 0.48,
+          "minutes": 7,
+          "depart": 797,
+          "arrive": 804,
+          "departTime": "13:17",
+          "arriveTime": "13:24"
+        },
+        {
+          "fromKey": "way/1511151321",
+          "toKey": "way/544429676",
+          "fromName": "Museum Boat Shop & Exhibit",
+          "toName": "Sylvia Park",
+          "mode": "walk",
+          "km": 0.35,
+          "minutes": 5,
+          "depart": 894,
+          "arrive": 899,
+          "departTime": "14:54",
+          "arriveTime": "14:59"
+        },
+        {
+          "fromKey": "way/544429676",
+          "toKey": "base",
+          "fromName": "Sylvia Park",
+          "toName": "Rum Runner Inn",
+          "mode": "walk",
+          "km": 0.58,
+          "minutes": 8,
+          "depart": 944,
+          "arrive": 952,
+          "departTime": "15:44",
+          "arriveTime": "15:52"
+        }
+      ],
+      "narrative": [
+        "Thursday, October 22 begins at a humane hour — the first stop is Fisheries Museum of the Atlantic at 09:32, and nothing on this day starts before 09:00.",
+        "The base for the night is Rum Runner Inn, picked for what surrounds it: 11 sights within a short walk.",
+        "Rain is likelier today (63% chance), so the plan leans indoors and keeps the outdoor time short.",
+        "Fisheries Museum of the Atlantic gets the morning's main slot, 09:32 to 11:02 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Fisheries Museum of the Atlantic — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Fisheries Museum of the Atlantic, it is a 3-minute walk to Cranston Gallery — close enough to stroll without watching the clock.",
+        "Cranston Gallery offers a quieter hour indoors, 11:05–12:05.",
+        "No. 9 is next, just 2 minutes on foot from Cranston Gallery.",
+        "Lunch is at No. 9, 12:17–13:17.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "The walk from No. 9 to Museum Boat Shop & Exhibit takes about 7 minutes — a breather between stops, not a hike.",
+        "Give Museum Boat Shop & Exhibit a full 90 minutes (13:24–14:54); rushing it would miss the point.",
+        "A short wander of 5 minutes brings you to Sylvia Park.",
+        "Sylvia Park is the day's green pause, 14:59–15:44 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 15:52 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 952
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-23",
+      "role": "rest-afternoon",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/13812550943",
+          "name": "Lorne Street Fire Company",
+          "kind": "museum",
+          "role": "stop",
+          "start": 578,
+          "end": 668,
+          "pos": {
+            "lat": 44.3780812,
+            "lon": -64.3181629
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/13812550943",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "11:08",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/2951139788",
+          "name": "The Savvy Sailor",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 744,
+          "end": 804,
+          "pos": {
+            "lat": 44.3763474,
+            "lon": -64.3104533
+          },
+          "hours": {
+            "status": "known",
+            "open": 450,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 07:30-21:00",
+          "url": "https://www.openstreetmap.org/node/2951139788",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:24",
+          "endTime": "13:24",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 804,
+          "end": 1020,
+          "key": "rest-2026-10-23",
+          "startTime": "13:24",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/13812550943",
+          "fromName": "Rum Runner Inn",
+          "toName": "Lorne Street Fire Company",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "node/13812550943",
+          "toKey": "node/2951139788",
+          "fromName": "Lorne Street Fire Company",
+          "toName": "The Savvy Sailor",
+          "mode": "walk",
+          "km": 0.64,
+          "minutes": 9,
+          "depart": 735,
+          "arrive": 744,
+          "departTime": "12:15",
+          "arriveTime": "12:24"
+        },
+        {
+          "fromKey": "node/2951139788",
+          "toKey": "base",
+          "fromName": "The Savvy Sailor",
+          "toName": "Rum Runner Inn",
+          "mode": "walk",
+          "km": 0.11,
+          "minutes": 2,
+          "depart": 1020,
+          "arrive": 1022,
+          "departTime": "17:00",
+          "arriveTime": "17:02"
+        }
+      ],
+      "narrative": [
+        "Friday, October 23 is built around Lorne Street Fire Company, with the day's stops gathered close so the walking stays easy.",
+        "Lorne Street Fire Company gets the morning's main slot, 09:38 to 11:08 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Lorne Street Fire Company — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Lorne Street Fire Company, it is a 9-minute walk to The Savvy Sailor — close enough to stroll without watching the clock.",
+        "Lunch is at Savvy Sailor, 12:24–13:24.",
+        "Listings don't spell out the dietary details here, so a quick word with the kitchen on arrival is the safe move.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The day winds down back at base by 17:02 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1022
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-24",
+      "role": "excursion",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/4937024837",
+          "name": "The Old Fish Factory",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 737,
+          "end": 797,
+          "pos": {
+            "lat": 44.3760134,
+            "lon": -64.312016
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/4937024837",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:17",
+          "endTime": "13:17",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6548974108",
+          "name": "Indian Harbour Light",
+          "kind": "lighthouse",
+          "role": "excursion",
+          "start": 847,
+          "end": 907,
+          "pos": {
+            "lat": 44.5220085,
+            "lon": -63.9457244
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6548974108",
+          "price": "UNKNOWN",
+          "startTime": "14:07",
+          "endTime": "15:07",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 18,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — lighthouse site admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/4937024837",
+          "fromName": "Rum Runner Inn",
+          "toName": "The Old Fish Factory",
+          "mode": "walk",
+          "km": 0.06,
+          "minutes": 2,
+          "depart": 735,
+          "arrive": 737,
+          "departTime": "12:15",
+          "arriveTime": "12:17"
+        },
+        {
+          "fromKey": "node/4937024837",
+          "toKey": "node/6548974108",
+          "fromName": "The Old Fish Factory",
+          "toName": "Indian Harbour Light",
+          "mode": "drive",
+          "km": 33.3,
+          "minutes": 50,
+          "depart": 797,
+          "arrive": 847,
+          "departTime": "13:17",
+          "arriveTime": "14:07"
+        },
+        {
+          "fromKey": "node/6548974108",
+          "toKey": "base",
+          "fromName": "Indian Harbour Light",
+          "toName": "Rum Runner Inn",
+          "mode": "drive",
+          "km": 33.26,
+          "minutes": 50,
+          "depart": 907,
+          "arrive": 957,
+          "departTime": "15:07",
+          "arriveTime": "15:57"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 is the day for Indian Harbour Light — the trip's headline outing, given the room it deserves.",
+        "The forecast helps today: 11° and only a 6% chance of rain, which is why the outdoor outing sits here.",
+        "Lunch is at The Old Fish Factory, 12:17–13:17.",
+        "Listings don't spell out the dietary details here, so a quick word with the kitchen on arrival is the safe move.",
+        "Then the day's one longer leg: about 50 minutes by road to Indian Harbour Light.",
+        "Indian Harbour Light rewards the drive: 60 minutes there, 14:07–15:07, with the coast doing the talking.",
+        "Opening hours weren't listed for Indian Harbour Light — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The drive back to base runs about 50 minutes.",
+        "The day winds down back at base by 15:57 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 957
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 0,
+    "infants": 1
+  },
+  "budgetCap": {
+    "amount": 650,
+    "currency": "CAD",
+    "verdict": "WITHIN — even the top of the estimated range (CAD 412) sits under the cap (CAD 650) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "We are a couple traveling with our baby for a quiet three day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor room with space for a crib and quiet streets at night so the baby can sleep. My partner cannot eat shellfish and I am vegetarian, so please favor restaurants with clear vegetarian menus. Keep the total budget under six hundred fifty dollars, avoid long walks between stops, and also include the fisheries museum on the waterfront and a slow harbour walk in the morning please.",
+    "wordCount": 102,
+    "source": "generated-for-location"
+  },
+  "anchorStay": {
+    "name": "Rum Runner Inn",
+    "url": "https://www.openstreetmap.org/node/6011391332",
+    "walkableSights": 11,
+    "walkableFood": 8,
+    "distCenterKm": 0.52,
+    "quietProxy": 6,
+    "anchorScore": 45.8,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-harbour",
+      "label": "harbour walk",
+      "status": "scheduled",
+      "day": 3,
+      "item": "Indian Harbour Light"
+    },
+    {
+      "id": "keyword-fisheries-museum",
+      "label": "fisheries museum visit",
+      "status": "scheduled",
+      "day": 1,
+      "item": "Fisheries Museum of the Atlantic"
+    }
+  ],
+  "solverNotes": [
+    "Excursion placed on 2026-10-24 — the driest eligible day in the forecast (6% rain chance)."
+  ],
+  "packCounts": {
+    "total": 42,
+    "sights": 30,
+    "foods": 9,
+    "stays": 3,
+    "transport": 0
+  },
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 11,
+    "enriched": 0,
+    "hoursUnknown": null,
+    "dataLabel": "off — OSM only",
+    "liveApiProof": "NOT DONE — awaiting GOOGLE_PLACES_API_KEY provisioning by the owner; the key is read from env at runtime only and never stored"
+  },
+  "requirementVerdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 9 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 2 carries an explicit rest block (Rest afternoon — nothing booked, 13:24–17:00)"
+    },
+    {
+      "id": "keyword-fisheries-museum",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"fisheries museum\" (fisheries museum visit)"
+    },
+    {
+      "id": "keyword-harbour",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"harbour\" (harbour walk)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "1 of 3 lunches carry explicit dietary tags in the data (vegetarian, shellfish)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 650 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Fisheries Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Cranston Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"No. 9\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Museum Boat Shop & Exhibit\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Sylvia Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Lorne Street Fire Company\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"The Old Fish Factory\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Indian Harbour Light\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T21:03:01.010Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "Indian Harbour Light",
+        "day": 3,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "No. 9",
+        "day": 1,
+        "score": 65,
+        "reasons": [
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "The Savvy Sailor",
+        "day": 2,
+        "score": 60,
+        "reasons": [
+          "hours verified (osm)"
+        ]
+      },
+      {
+        "name": "Fisheries Museum of the Atlantic",
+        "day": 1,
+        "score": 50,
+        "reasons": []
+      },
+      {
+        "name": "Cranston Gallery",
+        "day": 1,
+        "score": 50,
+        "reasons": []
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "Fisheries Museum of the Atlantic",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Cranston Gallery",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "No. 9",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Museum Boat Shop & Exhibit",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Sylvia Park",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Lorne Street Fire Company",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "The Savvy Sailor",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "The Old Fish Factory",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "The Old Fish Factory",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Indian Harbour Light",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Cranston Gallery",
+        "risk": "tight turnaround — only 3 min after \"Fisheries Museum of the Atlantic\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Museum Boat Shop & Exhibit",
+        "risk": "tight turnaround — only 7 min after \"No. 9\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Sylvia Park",
+        "risk": "tight turnaround — only 5 min after \"Museum Boat Shop & Exhibit\"",
+        "severity": "low"
+      },
+      {
+        "day": 3,
+        "item": "Indian Harbour Light",
+        "risk": "long drive leg (33 km, ~50 min estimated from straight-line distance — real roads run longer)",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Rum Runner Inn",
+        "risk": "long drive leg (33 km, ~50 min estimated from straight-line distance — real roads run longer)",
+        "severity": "medium"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "WITHIN",
+      "note": "even the top of the estimated range (CAD 412) sits under the cap (CAD 650)",
+      "cap": {
+        "amount": 650,
+        "currency": "CAD",
+        "verdict": "WITHIN — even the top of the estimated range (CAD 412) sits under the cap (CAD 650) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 8,
+      "evidencedItems": 8,
+      "evidenceByTier": {
+        "COSTED": 8
+      },
+      "estimatedTotals": {
+        "low": 176,
+        "high": 412,
+        "currency": "CAD"
+      },
+      "payingParty": 2,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 0,
+      "bandDistribution": {},
+      "bandSource": null
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 5,
+        "walkingKmEstimated": 1.81,
+        "lastEnd": "15:52"
+      },
+      {
+        "day": 2,
+        "stops": 2,
+        "walkingKmEstimated": 1.28,
+        "lastEnd": "17:02"
+      },
+      {
+        "day": 3,
+        "stops": 2,
+        "walkingKmEstimated": 0.06,
+        "lastEnd": "15:57"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Rum Runner Inn",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "the plan includes a long drive — a rental may serve it better",
+        "label": "cars-getrentacar",
+        "text": "Rental cars",
+        "url": "https://getrentacar.tpo.lu/l16uVhOn"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 6
+  }
+}

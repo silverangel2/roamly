@@ -1,0 +1,211 @@
+{
+  "recordedAt": "2026-10-21T21:03:01.010Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "Indian Harbour Light",
+      "day": 3,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
+      "name": "No. 9",
+      "day": 1,
+      "score": 65,
+      "reasons": [
+        "dietary fit proven by listing tags"
+      ]
+    },
+    {
+      "name": "The Savvy Sailor",
+      "day": 2,
+      "score": 60,
+      "reasons": [
+        "hours verified (osm)"
+      ]
+    },
+    {
+      "name": "Fisheries Museum of the Atlantic",
+      "day": 1,
+      "score": 50,
+      "reasons": []
+    },
+    {
+      "name": "Cranston Gallery",
+      "day": 1,
+      "score": 50,
+      "reasons": []
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "Fisheries Museum of the Atlantic",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Cranston Gallery",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "No. 9",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Museum Boat Shop & Exhibit",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Sylvia Park",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Lorne Street Fire Company",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "The Savvy Sailor",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "The Old Fish Factory",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "The Old Fish Factory",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Indian Harbour Light",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Cranston Gallery",
+      "risk": "tight turnaround — only 3 min after \"Fisheries Museum of the Atlantic\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Museum Boat Shop & Exhibit",
+      "risk": "tight turnaround — only 7 min after \"No. 9\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Sylvia Park",
+      "risk": "tight turnaround — only 5 min after \"Museum Boat Shop & Exhibit\"",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Indian Harbour Light",
+      "risk": "long drive leg (33 km, ~50 min estimated from straight-line distance — real roads run longer)",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Rum Runner Inn",
+      "risk": "long drive leg (33 km, ~50 min estimated from straight-line distance — real roads run longer)",
+      "severity": "medium"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "WITHIN",
+    "note": "even the top of the estimated range (CAD 412) sits under the cap (CAD 650)",
+    "cap": {
+      "amount": 650,
+      "currency": "CAD",
+      "verdict": "WITHIN — even the top of the estimated range (CAD 412) sits under the cap (CAD 650) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.8,
+    "coverageThreshold": 0.5,
+    "pricedItems": 8,
+    "evidencedItems": 8,
+    "evidenceByTier": {
+      "COSTED": 8
+    },
+    "estimatedTotals": {
+      "low": 176,
+      "high": 412,
+      "currency": "CAD"
+    },
+    "payingParty": 2,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: not evidenced — excluded from the totals, never counted as zero; getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 0,
+    "bandDistribution": {},
+    "bandSource": null,
+    "scopeLines": 10,
+    "evidencedScopeLines": 8,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Rum Runner Inn",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no price evidence for the stay — no booked price, no library price, no recorded price band. Named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": 2
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 5,
+      "walkingKmEstimated": 1.81,
+      "lastEnd": "15:52"
+    },
+    {
+      "day": 2,
+      "stops": 2,
+      "walkingKmEstimated": 1.28,
+      "lastEnd": "17:02"
+    },
+    {
+      "day": 3,
+      "stops": 2,
+      "walkingKmEstimated": 0.06,
+      "lastEnd": "15:57"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

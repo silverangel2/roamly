@@ -1,0 +1,334 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "part2-travel-days-2026-10-21",
+      "files": [
+        "src/trip-lifecycle.mjs",
+        "fixtures/as-lived-trip.json",
+        "outputs/aligned-itinerary.json"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "The lifecycle machine walked end-to-end twice (review-submitted close; window-expired close), snapshotted as LifecycleStateDTO after every transition. Conversion notes, recorded rather than hidden: (1) the archive record — owner ruling 2026-10-21 19:39 ADT archives the purchased itinerary in the account, where the shadow store deleted the live copy outright; the shadow purge also destroys the store itself (every key but the receipt), so the PURGED snapshot is assembled from the last pre-purge snapshot plus the receipt, its final history entry timestamped by the receipt; (2) deletion counts are the shadow receipt's own counts, renamed to the M5 field names. The 7-day review window is Dylan's labeled default, as in the shadow."
+    }
+  },
+  "data": {
+    "scenarios": [
+      {
+        "name": "review-submitted-outstanding",
+        "snapshots": [
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "ACTIVE",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": null,
+            "endedAt": null,
+            "closedAt": null,
+            "closedReason": null,
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "TRIP_ENDED",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": null,
+            "closedReason": null,
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "POST_TRIP_PENDING",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": null,
+            "closedReason": null,
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              },
+              {
+                "state": "POST_TRIP_PENDING",
+                "at": "2026-10-26T09:00:00-03:00"
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "CLOSED",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": "2026-10-27T10:00:00-03:00",
+            "closedReason": "review-submitted",
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              },
+              {
+                "state": "POST_TRIP_PENDING",
+                "at": "2026-10-26T09:00:00-03:00"
+              },
+              {
+                "state": "CLOSED",
+                "at": "2026-10-27T10:00:00-03:00"
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "PURGED",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": "2026-10-27T10:00:00-03:00",
+            "closedReason": "review-submitted",
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              },
+              {
+                "state": "POST_TRIP_PENDING",
+                "at": "2026-10-26T09:00:00-03:00"
+              },
+              {
+                "state": "CLOSED",
+                "at": "2026-10-27T10:00:00-03:00"
+              },
+              {
+                "state": "PURGED",
+                "at": "2026-10-27T10:05:00-03:00"
+              }
+            ],
+            "archive": {
+              "archivedAt": "2026-10-27T10:05:00-03:00",
+              "itineraryRef": "archive:shadow-halifax-owner-chain"
+            },
+            "purgeReceipt": {
+              "tripRef": "shadow-halifax-owner-chain",
+              "dates": {
+                "start": "2026-10-23",
+                "end": "2026-10-25"
+              },
+              "purgedAt": "2026-10-27T10:05:00-03:00",
+              "closedReason": "review-submitted",
+              "reviewWindowDays": 7,
+              "deletedCounts": {
+                "notifications": 4,
+                "cachedDays": 3,
+                "ledgerEntries": 3,
+                "itineraryItems": 12,
+                "liveCopies": 1
+              },
+              "libraryRetained": true
+            }
+          }
+        ]
+      },
+      {
+        "name": "review-window-expired",
+        "snapshots": [
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "ACTIVE",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": null,
+            "endedAt": null,
+            "closedAt": null,
+            "closedReason": null,
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "POST_TRIP_PENDING",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": null,
+            "closedReason": null,
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              },
+              {
+                "state": "POST_TRIP_PENDING",
+                "at": "2026-10-26T09:00:00-03:00"
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "CLOSED",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": "2026-11-02T23:06:00-03:00",
+            "closedReason": "review-window-expired",
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              },
+              {
+                "state": "POST_TRIP_PENDING",
+                "at": "2026-10-26T09:00:00-03:00"
+              },
+              {
+                "state": "CLOSED",
+                "at": "2026-11-02T23:06:00-03:00"
+              }
+            ],
+            "archive": null,
+            "purgeReceipt": null
+          },
+          {
+            "tripId": "shadow-halifax-owner-chain",
+            "state": "PURGED",
+            "dates": {
+              "start": "2026-10-23",
+              "end": "2026-10-25"
+            },
+            "reviewWindowDays": 7,
+            "reviewWindowEndsAt": "2026-11-02T02:05:00.000Z",
+            "endedAt": "2026-10-25T23:05:00-03:00",
+            "closedAt": "2026-11-02T23:06:00-03:00",
+            "closedReason": "review-window-expired",
+            "history": [
+              {
+                "state": "ACTIVE",
+                "at": null
+              },
+              {
+                "state": "TRIP_ENDED",
+                "at": "2026-10-25T23:05:00-03:00"
+              },
+              {
+                "state": "POST_TRIP_PENDING",
+                "at": "2026-10-26T09:00:00-03:00"
+              },
+              {
+                "state": "CLOSED",
+                "at": "2026-11-02T23:06:00-03:00"
+              },
+              {
+                "state": "PURGED",
+                "at": "2026-11-02T23:10:00-03:00"
+              }
+            ],
+            "archive": {
+              "archivedAt": "2026-11-02T23:10:00-03:00",
+              "itineraryRef": "archive:shadow-halifax-owner-chain"
+            },
+            "purgeReceipt": {
+              "tripRef": "shadow-halifax-owner-chain",
+              "dates": {
+                "start": "2026-10-23",
+                "end": "2026-10-25"
+              },
+              "purgedAt": "2026-11-02T23:10:00-03:00",
+              "closedReason": "review-window-expired",
+              "reviewWindowDays": 7,
+              "deletedCounts": {
+                "notifications": 4,
+                "cachedDays": 3,
+                "ledgerEntries": 3,
+                "itineraryItems": 12,
+                "liveCopies": 1
+              },
+              "libraryRetained": false
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

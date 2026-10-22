@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJAdih0t2VuEwR3fisOJRaYUc",
+      "formattedAddress": "35 Rue De Buade, Québec, QC G1R 4A2, Canada",
+      "location": {
+        "latitude": 46.813579499999996,
+        "longitude": -71.2064783
+      },
+      "displayName": {
+        "text": "Galerie Porte Rouge - Vieux-Québec",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

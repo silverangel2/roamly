@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJW_IFg-eVuEwREN8gqw0H_DE",
+      "formattedAddress": "85 Rue Dalhousie, Québec, QC G1K 8R2, Canada",
+      "location": {
+        "latitude": 46.815290499999996,
+        "longitude": -71.2022957
+      },
+      "displayName": {
+        "text": "Museum of Civilization",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

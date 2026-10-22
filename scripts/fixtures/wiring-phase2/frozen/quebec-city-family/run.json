@@ -1,0 +1,27 @@
+{
+  "poolId": "quebec-city-family",
+  "timingsMs": {
+    "pack": 7,
+    "solve": 34,
+    "total": 111
+  },
+  "packFromCache": true,
+  "networkFetchesThisRun": 3,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "fixture",
+    "finalists": 22,
+    "enriched": 17,
+    "hoursUnknown": {
+      "osmOnly": 16,
+      "enriched": 8
+    },
+    "rejectedMatches": [],
+    "costGuard": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

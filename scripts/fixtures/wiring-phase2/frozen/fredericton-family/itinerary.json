@@ -1,0 +1,1474 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T20:03:44.381Z",
+  "runDate": "2026-10-21",
+  "destination": "Fredericton",
+  "country": "Canada",
+  "poolId": "fredericton-family",
+  "startDate": "2026-10-22",
+  "endDate": "2026-10-26",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-22",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/105765352",
+          "name": "Bill Thorpe Walking Bridge",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 578,
+          "end": 638,
+          "pos": {
+            "lat": 45.9573781,
+            "lon": -66.6275312
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/105765352",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "10:38",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6434257596",
+          "name": "Gallery 78",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 646,
+          "end": 706,
+          "pos": {
+            "lat": 45.958687,
+            "lon": -66.6349701
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6434257596",
+          "price": "UNKNOWN",
+          "startTime": "10:46",
+          "endTime": "11:46",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/12431746918",
+          "name": "The Tipsy Muse",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 741,
+          "end": 801,
+          "pos": {
+            "lat": 45.9611027,
+            "lon": -66.6391019
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12431746918",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:lactose_free = yes",
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:lactose_free = yes, diet:vegan = yes"
+          },
+          "startTime": "12:21",
+          "endTime": "13:21",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/106112302",
+          "name": "Musée de la région de Fredericton Region Museum",
+          "kind": "museum",
+          "role": "stop",
+          "start": 803,
+          "end": 893,
+          "pos": {
+            "lat": 45.9620319,
+            "lon": -66.6394187
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/106112302",
+          "price": "UNKNOWN",
+          "startTime": "13:23",
+          "endTime": "14:53",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/1550261171",
+          "name": "Beaverbrook Sculpture Garden",
+          "kind": "park",
+          "role": "stop",
+          "start": 898,
+          "end": 943,
+          "pos": {
+            "lat": 45.9603542,
+            "lon": -66.6359009
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/1550261171",
+          "price": "UNKNOWN",
+          "startTime": "14:58",
+          "endTime": "15:43",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 943,
+          "end": 958,
+          "key": "break-2026-10-22-943",
+          "startTime": "15:43",
+          "endTime": "15:58"
+        },
+        {
+          "type": "stop",
+          "key": "node/6653505420",
+          "name": "The Cultural Market",
+          "kind": "market",
+          "role": "mustsee",
+          "start": 979,
+          "end": 1039,
+          "pos": {
+            "lat": 45.9613749,
+            "lon": -66.6560051
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6653505420",
+          "price": "UNKNOWN",
+          "startTime": "16:19",
+          "endTime": "17:19",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/105765352",
+          "fromName": "Fort Nashwaak Motel",
+          "toName": "Bill Thorpe Walking Bridge",
+          "mode": "walk",
+          "km": 0.59,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "way/105765352",
+          "toKey": "node/6434257596",
+          "fromName": "Bill Thorpe Walking Bridge",
+          "toName": "Gallery 78",
+          "mode": "walk",
+          "km": 0.59,
+          "minutes": 8,
+          "depart": 638,
+          "arrive": 646,
+          "departTime": "10:38",
+          "arriveTime": "10:46"
+        },
+        {
+          "fromKey": "node/6434257596",
+          "toKey": "node/12431746918",
+          "fromName": "Gallery 78",
+          "toName": "The Tipsy Muse",
+          "mode": "walk",
+          "km": 0.42,
+          "minutes": 6,
+          "depart": 735,
+          "arrive": 741,
+          "departTime": "12:15",
+          "arriveTime": "12:21"
+        },
+        {
+          "fromKey": "node/12431746918",
+          "toKey": "way/106112302",
+          "fromName": "The Tipsy Muse",
+          "toName": "Musée de la région de Fredericton Region Museum",
+          "mode": "walk",
+          "km": 0.11,
+          "minutes": 2,
+          "depart": 801,
+          "arrive": 803,
+          "departTime": "13:21",
+          "arriveTime": "13:23"
+        },
+        {
+          "fromKey": "way/106112302",
+          "toKey": "way/1550261171",
+          "fromName": "Musée de la région de Fredericton Region Museum",
+          "toName": "Beaverbrook Sculpture Garden",
+          "mode": "walk",
+          "km": 0.33,
+          "minutes": 5,
+          "depart": 893,
+          "arrive": 898,
+          "departTime": "14:53",
+          "arriveTime": "14:58"
+        },
+        {
+          "fromKey": "way/1550261171",
+          "toKey": "node/6653505420",
+          "fromName": "Beaverbrook Sculpture Garden",
+          "toName": "The Cultural Market",
+          "mode": "walk",
+          "km": 1.56,
+          "minutes": 21,
+          "depart": 958,
+          "arrive": 979,
+          "departTime": "15:58",
+          "arriveTime": "16:19"
+        },
+        {
+          "fromKey": "node/6653505420",
+          "toKey": "base",
+          "fromName": "The Cultural Market",
+          "toName": "Fort Nashwaak Motel",
+          "mode": "drive",
+          "km": 2.74,
+          "minutes": 5,
+          "depart": 1039,
+          "arrive": 1044,
+          "departTime": "17:19",
+          "arriveTime": "17:24"
+        }
+      ],
+      "narrative": [
+        "Thursday, October 22 begins at a humane hour — the first stop is Bill Thorpe Walking Bridge at 09:38, and nothing on this day starts before 09:00.",
+        "The base for the night is Fort Nashwaak Motel, picked for what surrounds it: 2 sights within a short walk.",
+        "Expect a mild 12° — good walking weather, with layers for the shade.",
+        "Bill Thorpe Walking Bridge fills 09:38–10:38 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Bill Thorpe Walking Bridge — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Bill Thorpe Walking Bridge, it is a 8-minute walk to Gallery 78 — close enough to stroll without watching the clock.",
+        "Gallery 78 offers a quieter hour indoors, 10:46–11:46.",
+        "The Tipsy Muse is next, just 6 minutes on foot from Gallery 78.",
+        "Lunch is at Tipsy Muse, 12:21–13:21.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:lactose_free = yes, diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Tipsy Muse to Musée de la région de Fredericton Region Museum takes about 2 minutes — a breather between stops, not a hike.",
+        "Fredericton Region Museum gets the morning's main slot, 13:23 to 14:53 — unhurried, with time to double back to favourites.",
+        "A short wander of 5 minutes brings you to Beaverbrook Sculpture Garden.",
+        "Beaverbrook Sculpture Garden is the day's green pause, 14:58–15:43 — no tickets, no timetable to chase.",
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "Beaverbrook Sculpture Garden to The Cultural Market is an easy 21-minute amble.",
+        "Cultural Market is the place to browse like a local, 16:19–17:19 — go hungry.",
+        "The drive back to base runs about 5 minutes.",
+        "The day winds down back at base by 17:24 — 5 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1044
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-23",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/642005096",
+          "name": "Charles Avenue Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 578,
+          "end": 623,
+          "pos": {
+            "lat": 45.9553102,
+            "lon": -66.6161237
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/642005096",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "10:23",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/8975679078",
+          "name": "Grain and Grind Co.",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 746,
+          "end": 806,
+          "pos": {
+            "lat": 45.9589084,
+            "lon": -66.6246189
+          },
+          "hours": {
+            "status": "known",
+            "open": 420,
+            "close": 900,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 07:00-15:00",
+          "url": "https://www.openstreetmap.org/node/8975679078",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:26",
+          "endTime": "13:26",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/34938999",
+          "name": "Carleton Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 809,
+          "end": 854,
+          "pos": {
+            "lat": 45.9605502,
+            "lon": -66.6258285
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/34938999",
+          "price": "UNKNOWN",
+          "startTime": "13:29",
+          "endTime": "14:14",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/642005096",
+          "fromName": "Fort Nashwaak Motel",
+          "toName": "Charles Avenue Park",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "way/642005096",
+          "toKey": "node/8975679078",
+          "fromName": "Charles Avenue Park",
+          "toName": "Grain and Grind Co.",
+          "mode": "walk",
+          "km": 0.77,
+          "minutes": 11,
+          "depart": 735,
+          "arrive": 746,
+          "departTime": "12:15",
+          "arriveTime": "12:26"
+        },
+        {
+          "fromKey": "node/8975679078",
+          "toKey": "way/34938999",
+          "fromName": "Grain and Grind Co.",
+          "toName": "Carleton Park",
+          "mode": "walk",
+          "km": 0.21,
+          "minutes": 3,
+          "depart": 806,
+          "arrive": 809,
+          "departTime": "13:26",
+          "arriveTime": "13:29"
+        },
+        {
+          "fromKey": "way/34938999",
+          "toKey": "base",
+          "fromName": "Carleton Park",
+          "toName": "Fort Nashwaak Motel",
+          "mode": "walk",
+          "km": 0.84,
+          "minutes": 12,
+          "depart": 854,
+          "arrive": 866,
+          "departTime": "14:14",
+          "arriveTime": "14:26"
+        }
+      ],
+      "narrative": [
+        "Friday, October 23 is built around Charles Avenue Park, with the day's stops gathered close so the walking stays easy.",
+        "Charles Avenue Park is the day's green pause, 09:38–10:23 — no tickets, no timetable to chase.",
+        "Opening hours weren't listed for Charles Avenue Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Charles Avenue Park, it is a 11-minute walk to Grain and Grind Co. — close enough to stroll without watching the clock.",
+        "Lunch is at Grain and Grind Co., 12:26–13:26.",
+        "Carleton Park is next, just 3 minutes on foot from Grain and Grind Co..",
+        "A slower stretch follows at Carleton Park, 13:29–14:14.",
+        "The day winds down back at base by 14:26 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 866
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-24",
+      "role": "rest-afternoon",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/1550261172",
+          "name": "Morell Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 583,
+          "end": 628,
+          "pos": {
+            "lat": 45.9497551,
+            "lon": -66.6328597
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/1550261172",
+          "price": "UNKNOWN",
+          "startTime": "09:43",
+          "endTime": "10:28",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/410781454",
+          "name": "Nomad Coffee",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 754,
+          "end": 814,
+          "pos": {
+            "lat": 45.9615156,
+            "lon": -66.6400284
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/410781454",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes"
+          },
+          "startTime": "12:34",
+          "endTime": "13:34",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 814,
+          "end": 1020,
+          "key": "rest-2026-10-24",
+          "startTime": "13:34",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/1550261172",
+          "fromName": "Fort Nashwaak Motel",
+          "toName": "Morell Park",
+          "mode": "walk",
+          "km": 0.91,
+          "minutes": 13,
+          "depart": 570,
+          "arrive": 583,
+          "departTime": "09:30",
+          "arriveTime": "09:43"
+        },
+        {
+          "fromKey": "way/1550261172",
+          "toKey": "node/410781454",
+          "fromName": "Morell Park",
+          "toName": "Nomad Coffee",
+          "mode": "walk",
+          "km": 1.42,
+          "minutes": 19,
+          "depart": 735,
+          "arrive": 754,
+          "departTime": "12:15",
+          "arriveTime": "12:34"
+        },
+        {
+          "fromKey": "node/410781454",
+          "toKey": "base",
+          "fromName": "Nomad Coffee",
+          "toName": "Fort Nashwaak Motel",
+          "mode": "drive",
+          "km": 1.63,
+          "minutes": 3,
+          "depart": 1020,
+          "arrive": 1023,
+          "departTime": "17:00",
+          "arriveTime": "17:03"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 is built around Morell Park, with the day's stops gathered close so the walking stays easy.",
+        "Morell Park is the day's green pause, 09:43–10:28 — no tickets, no timetable to chase.",
+        "Opening hours weren't listed for Morell Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Morell Park, it is a 19-minute walk to Nomad Coffee — close enough to stroll without watching the clock.",
+        "Lunch is at Nomad Coffee, 12:34–13:34.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 17:03 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1023
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-25",
+      "role": "standard",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/12762996601",
+          "name": "Momo Ramen & Izakaya",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 756,
+          "end": 816,
+          "pos": {
+            "lat": 45.9609644,
+            "lon": -66.6386275
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1380,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Su-Th 11:00-23:00; Fr-Sa 11:00-02:00",
+          "url": "https://www.openstreetmap.org/node/12762996601",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:36",
+          "endTime": "13:36",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/105766599",
+          "name": "Science East",
+          "kind": "museum",
+          "role": "stop",
+          "start": 820,
+          "end": 910,
+          "pos": {
+            "lat": 45.9584368,
+            "lon": -66.6390356
+          },
+          "hours": {
+            "status": "unknown",
+            "raw": "Jun-Aug: Mo-Sa 10:00-17:00, Jun-Aug: Su 12:00-16:00",
+            "provenance": "none"
+          },
+          "hoursRaw": "Jun-Aug: Mo-Sa 10:00-17:00, Jun-Aug: Su 12:00-16:00",
+          "url": "https://www.openstreetmap.org/way/105766599",
+          "price": "UNKNOWN",
+          "startTime": "13:40",
+          "endTime": "15:10",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/103741298",
+          "name": "The Green",
+          "kind": "park",
+          "role": "stop",
+          "start": 913,
+          "end": 958,
+          "pos": {
+            "lat": 45.9590199,
+            "lon": -66.6417949
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/103741298",
+          "price": "UNKNOWN",
+          "startTime": "15:13",
+          "endTime": "15:58",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 958,
+          "end": 973,
+          "key": "break-2026-10-25-958",
+          "startTime": "15:58",
+          "endTime": "16:13"
+        },
+        {
+          "type": "stop",
+          "key": "node/13783627757",
+          "name": "Quartermain Earth Science Centre",
+          "kind": "museum",
+          "role": "mustsee",
+          "start": 990,
+          "end": 1080,
+          "pos": {
+            "lat": 45.9481625,
+            "lon": -66.6423
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/13783627757",
+          "price": "UNKNOWN",
+          "startTime": "16:30",
+          "endTime": "18:00",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/12762996601",
+          "fromName": "Fort Nashwaak Motel",
+          "toName": "Momo Ramen & Izakaya",
+          "mode": "walk",
+          "km": 1.51,
+          "minutes": 21,
+          "depart": 735,
+          "arrive": 756,
+          "departTime": "12:15",
+          "arriveTime": "12:36"
+        },
+        {
+          "fromKey": "node/12762996601",
+          "toKey": "way/105766599",
+          "fromName": "Momo Ramen & Izakaya",
+          "toName": "Science East",
+          "mode": "walk",
+          "km": 0.28,
+          "minutes": 4,
+          "depart": 816,
+          "arrive": 820,
+          "departTime": "13:36",
+          "arriveTime": "13:40"
+        },
+        {
+          "fromKey": "way/105766599",
+          "toKey": "way/103741298",
+          "fromName": "Science East",
+          "toName": "The Green",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 910,
+          "arrive": 913,
+          "departTime": "15:10",
+          "arriveTime": "15:13"
+        },
+        {
+          "fromKey": "way/103741298",
+          "toKey": "node/13783627757",
+          "fromName": "The Green",
+          "toName": "Quartermain Earth Science Centre",
+          "mode": "walk",
+          "km": 1.21,
+          "minutes": 17,
+          "depart": 973,
+          "arrive": 990,
+          "departTime": "16:13",
+          "arriveTime": "16:30"
+        },
+        {
+          "fromKey": "node/13783627757",
+          "toKey": "base",
+          "fromName": "Quartermain Earth Science Centre",
+          "toName": "Fort Nashwaak Motel",
+          "mode": "drive",
+          "km": 1.65,
+          "minutes": 3,
+          "depart": 1080,
+          "arrive": 1083,
+          "departTime": "18:00",
+          "arriveTime": "18:03"
+        }
+      ],
+      "narrative": [
+        "Sunday, October 25 is built around Science East, with the day's stops gathered close so the walking stays easy.",
+        "Lunch is at Momo Ramen & Izakaya, 12:36–13:36.",
+        "From Momo Ramen & Izakaya, it is a 4-minute walk to Science East — close enough to stroll without watching the clock.",
+        "Science East gets the morning's main slot, 13:40 to 15:10 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Science East — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The Green is next, just 3 minutes on foot from Science East.",
+        "Green is the day's green pause, 15:13–15:58 — no tickets, no timetable to chase.",
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "The walk from Green to Quartermain Earth Science Centre takes about 17 minutes — a breather between stops, not a hike.",
+        "Give Quartermain Earth Science Centre a full 90 minutes (16:30–18:00); rushing it would miss the point.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 18:03 — 3 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1083
+    },
+    {
+      "dayNumber": 5,
+      "date": "2026-10-26",
+      "role": "standard",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/10940547883",
+          "name": "MOCO Downtown",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 756,
+          "end": 816,
+          "pos": {
+            "lat": 45.960236,
+            "lon": -66.6392593
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 840,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo 11:30-14:00,17:00-21:00; Tu 11:30-14:00,17:00-21:00; We 11:30-14:00,17:00-21:00; Th 11:30-14:00,17:00-22:00; Fr 11:30-14:00,17:00-22:00; Sa 17:00-22:00; Su 17:00-21:00",
+          "url": "https://www.openstreetmap.org/node/10940547883",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:36",
+          "endTime": "13:36",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/5420485335",
+          "name": "School Days Museum",
+          "kind": "museum",
+          "role": "stop",
+          "start": 822,
+          "end": 912,
+          "pos": {
+            "lat": 45.963283,
+            "lon": -66.6419017
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5420485335",
+          "price": "UNKNOWN",
+          "startTime": "13:42",
+          "endTime": "15:12",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/494785221",
+          "name": "St. Mary's Old Reserve",
+          "kind": "park",
+          "role": "stop",
+          "start": 925,
+          "end": 970,
+          "pos": {
+            "lat": 45.9694025,
+            "lon": -66.6339484
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/494785221",
+          "price": "UNKNOWN",
+          "startTime": "15:25",
+          "endTime": "16:10",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/10940547883",
+          "fromName": "Fort Nashwaak Motel",
+          "toName": "MOCO Downtown",
+          "mode": "walk",
+          "km": 1.51,
+          "minutes": 21,
+          "depart": 735,
+          "arrive": 756,
+          "departTime": "12:15",
+          "arriveTime": "12:36"
+        },
+        {
+          "fromKey": "node/10940547883",
+          "toKey": "node/5420485335",
+          "fromName": "MOCO Downtown",
+          "toName": "School Days Museum",
+          "mode": "walk",
+          "km": 0.4,
+          "minutes": 6,
+          "depart": 816,
+          "arrive": 822,
+          "departTime": "13:36",
+          "arriveTime": "13:42"
+        },
+        {
+          "fromKey": "node/5420485335",
+          "toKey": "way/494785221",
+          "fromName": "School Days Museum",
+          "toName": "St. Mary's Old Reserve",
+          "mode": "walk",
+          "km": 0.92,
+          "minutes": 13,
+          "depart": 912,
+          "arrive": 925,
+          "departTime": "15:12",
+          "arriveTime": "15:25"
+        },
+        {
+          "fromKey": "way/494785221",
+          "toKey": "base",
+          "fromName": "St. Mary's Old Reserve",
+          "toName": "Fort Nashwaak Motel",
+          "mode": "drive",
+          "km": 1.99,
+          "minutes": 3,
+          "depart": 970,
+          "arrive": 973,
+          "departTime": "16:10",
+          "arriveTime": "16:13"
+        }
+      ],
+      "narrative": [
+        "Monday, October 26 is built around School Days Museum, with the day's stops gathered close so the walking stays easy.",
+        "Lunch is at MOCO Downtown, 12:36–13:36.",
+        "From MOCO Downtown, it is a 6-minute walk to School Days Museum — close enough to stroll without watching the clock.",
+        "School Days Museum gets the morning's main slot, 13:42 to 15:12 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for School Days Museum — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "St. Mary's Old Reserve is next, just 13 minutes on foot from School Days Museum.",
+        "St. Mary's Old Reserve is the day's green pause, 15:25–16:10 — no tickets, no timetable to chase.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 16:13 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 973
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 1,
+    "infants": 0
+  },
+  "budgetCap": {
+    "amount": 900,
+    "currency": "CAD",
+    "verdict": "AT RISK — the estimated range (CAD 393–927) straddles the cap (CAD 900) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "We are a couple traveling with our three year old daughter for a relaxed five day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor room or a building with an elevator, a crib for the toddler, and quiet streets at night. I am vegetarian and my partner cannot eat shellfish, so please favor restaurants with clear vegetarian menus. Keep the total budget under nine hundred dollars, avoid long walks between stops, and also include one local market visit and one children's museum morning please",
+    "wordCount": 100,
+    "source": "owner-verbatim-day-1"
+  },
+  "anchorStay": {
+    "name": "Fort Nashwaak Motel",
+    "url": "https://www.openstreetmap.org/node/12752962631",
+    "walkableSights": 2,
+    "walkableFood": 1,
+    "distCenterKm": 1.96,
+    "quietProxy": 9,
+    "anchorScore": 6.3,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-market",
+      "label": "one local market visit",
+      "status": "scheduled",
+      "day": 1,
+      "item": "The Cultural Market"
+    },
+    {
+      "id": "keyword-childrens-museum",
+      "label": "one children's museum morning",
+      "status": "scheduled",
+      "day": 4,
+      "item": "Quartermain Earth Science Centre"
+    }
+  ],
+  "solverNotes": [],
+  "packCounts": {
+    "total": 176,
+    "sights": 72,
+    "foods": 94,
+    "stays": 6,
+    "transport": 4
+  },
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 22,
+    "enriched": 0,
+    "hoursUnknown": null,
+    "dataLabel": "off — OSM only",
+    "liveApiProof": "NOT DONE — awaiting GOOGLE_PLACES_API_KEY provisioning by the owner; the key is read from env at runtime only and never stored"
+  },
+  "requirementVerdicts": [
+    {
+      "id": "keyword-market",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"market\" (one local market visit)"
+    },
+    {
+      "id": "keyword-childrens-museum",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"science centre\" (one children's museum morning)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 900 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Bill Thorpe Walking Bridge\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Gallery 78\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"The Tipsy Muse\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Musée de la région de Fredericton Region Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Beaverbrook Sculpture Garden\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"The Cultural Market\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Charles Avenue Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Carleton Park\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Morell Park\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Nomad Coffee\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Science East\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"The Green\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Quartermain Earth Science Centre\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"School Days Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"St. Mary's Old Reserve\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T20:03:44.390Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "The Cultural Market",
+        "day": 1,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "Quartermain Earth Science Centre",
+        "day": 4,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "The Tipsy Muse",
+        "day": 1,
+        "score": 65,
+        "reasons": [
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Nomad Coffee",
+        "day": 3,
+        "score": 65,
+        "reasons": [
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Grain and Grind Co.",
+        "day": 2,
+        "score": 60,
+        "reasons": [
+          "hours verified (osm)"
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "Bill Thorpe Walking Bridge",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Gallery 78",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "The Tipsy Muse",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Musée de la région de Fredericton Region Museum",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Beaverbrook Sculpture Garden",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "The Cultural Market",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Charles Avenue Park",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Grain and Grind Co.",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Carleton Park",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Morell Park",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Nomad Coffee",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Momo Ramen & Izakaya",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Science East",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "The Green",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Quartermain Earth Science Centre",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "MOCO Downtown",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "School Days Museum",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "St. Mary's Old Reserve",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Musée de la région de Fredericton Region Museum",
+        "risk": "tight turnaround — only 2 min after \"The Tipsy Muse\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Beaverbrook Sculpture Garden",
+        "risk": "tight turnaround — only 5 min after \"Musée de la région de Fredericton Region Museum\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Carleton Park",
+        "risk": "tight turnaround — only 3 min after \"Grain and Grind Co.\"",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Science East",
+        "risk": "tight turnaround — only 4 min after \"Momo Ramen & Izakaya\"",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "The Green",
+        "risk": "tight turnaround — only 3 min after \"Science East\"",
+        "severity": "low"
+      },
+      {
+        "day": 5,
+        "item": "School Days Museum",
+        "risk": "tight turnaround — only 6 min after \"MOCO Downtown\"",
+        "severity": "low"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "AT RISK",
+      "note": "the estimated range (CAD 393–927) straddles the cap (CAD 900)",
+      "cap": {
+        "amount": 900,
+        "currency": "CAD",
+        "verdict": "AT RISK — the estimated range (CAD 393–927) straddles the cap (CAD 900) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 11,
+      "evidencedItems": 11,
+      "evidenceByTier": {
+        "COSTED": 11
+      },
+      "estimatedTotals": {
+        "low": 393,
+        "high": 927,
+        "currency": "CAD"
+      },
+      "payingParty": 3,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 0,
+      "bandDistribution": {},
+      "bandSource": null
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 6,
+        "walkingKmEstimated": 3.6,
+        "lastEnd": "17:24"
+      },
+      {
+        "day": 2,
+        "stops": 3,
+        "walkingKmEstimated": 2.35,
+        "lastEnd": "14:26"
+      },
+      {
+        "day": 3,
+        "stops": 2,
+        "walkingKmEstimated": 2.33,
+        "lastEnd": "17:03"
+      },
+      {
+        "day": 4,
+        "stops": 4,
+        "walkingKmEstimated": 3.22,
+        "lastEnd": "18:03"
+      },
+      {
+        "day": 5,
+        "stops": 3,
+        "walkingKmEstimated": 2.83,
+        "lastEnd": "16:13"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Fort Nashwaak Motel",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 13
+  }
+}

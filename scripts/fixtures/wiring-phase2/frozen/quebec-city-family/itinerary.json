@@ -1,0 +1,1938 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T21:06:54.936Z",
+  "runDate": "2026-10-21",
+  "destination": "Quebec City",
+  "country": "Canada",
+  "poolId": "quebec-city-family",
+  "startDate": "2026-10-24",
+  "endDate": "2026-10-28",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/283264348",
+          "name": "Musée du Fort",
+          "kind": "museum",
+          "role": "stop",
+          "start": 574,
+          "end": 664,
+          "pos": {
+            "lat": 46.8130715,
+            "lon": -71.2051909
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/283264348",
+          "price": "UNKNOWN",
+          "startTime": "09:34",
+          "endTime": "11:04",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/5060622627",
+          "name": "Galerie d'art Bel Art Classique",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 667,
+          "end": 727,
+          "pos": {
+            "lat": 46.8140205,
+            "lon": -71.202794
+          },
+          "hours": {
+            "status": "known",
+            "open": 570,
+            "close": 1050,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 09:30-17:30",
+          "url": "https://www.openstreetmap.org/node/5060622627",
+          "price": "UNKNOWN",
+          "startTime": "11:07",
+          "endTime": "12:07",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/12326897876",
+          "name": "Don Vegan",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 739,
+          "end": 799,
+          "pos": {
+            "lat": 46.8161181,
+            "lon": -71.2037566
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1260,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12326897876",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "startTime": "12:19",
+          "endTime": "13:19",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.7,
+            "userRatingCount": 689,
+            "wheelchairEntrance": true,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_MODERATE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "meal",
+            "range": {
+              "low": 18,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a meal range; a band, never an exact price"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/388330237",
+          "name": "Espace 400e Bell",
+          "kind": "museum",
+          "role": "stop",
+          "start": 802,
+          "end": 892,
+          "pos": {
+            "lat": 46.8173213,
+            "lon": -71.2054402
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/388330237",
+          "price": "UNKNOWN",
+          "startTime": "13:22",
+          "endTime": "14:52",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/307982447",
+          "name": "Parc Couillard",
+          "kind": "park",
+          "role": "stop",
+          "start": 896,
+          "end": 941,
+          "pos": {
+            "lat": 46.8152374,
+            "lon": -71.2074139
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/307982447",
+          "price": "UNKNOWN",
+          "startTime": "14:56",
+          "endTime": "15:41",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/283264348",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Musée du Fort",
+          "mode": "walk",
+          "km": 0.29,
+          "minutes": 4,
+          "depart": 570,
+          "arrive": 574,
+          "departTime": "09:30",
+          "arriveTime": "09:34"
+        },
+        {
+          "fromKey": "node/283264348",
+          "toKey": "node/5060622627",
+          "fromName": "Musée du Fort",
+          "toName": "Galerie d'art Bel Art Classique",
+          "mode": "walk",
+          "km": 0.21,
+          "minutes": 3,
+          "depart": 664,
+          "arrive": 667,
+          "departTime": "11:04",
+          "arriveTime": "11:07"
+        },
+        {
+          "fromKey": "node/5060622627",
+          "toKey": "node/12326897876",
+          "fromName": "Galerie d'art Bel Art Classique",
+          "toName": "Don Vegan",
+          "mode": "walk",
+          "km": 0.24,
+          "minutes": 4,
+          "depart": 735,
+          "arrive": 739,
+          "departTime": "12:15",
+          "arriveTime": "12:19"
+        },
+        {
+          "fromKey": "node/12326897876",
+          "toKey": "node/388330237",
+          "fromName": "Don Vegan",
+          "toName": "Espace 400e Bell",
+          "mode": "walk",
+          "km": 0.19,
+          "minutes": 3,
+          "depart": 799,
+          "arrive": 802,
+          "departTime": "13:19",
+          "arriveTime": "13:22"
+        },
+        {
+          "fromKey": "node/388330237",
+          "toKey": "way/307982447",
+          "fromName": "Espace 400e Bell",
+          "toName": "Parc Couillard",
+          "mode": "walk",
+          "km": 0.28,
+          "minutes": 4,
+          "depart": 892,
+          "arrive": 896,
+          "departTime": "14:52",
+          "arriveTime": "14:56"
+        },
+        {
+          "fromKey": "way/307982447",
+          "toKey": "base",
+          "fromName": "Parc Couillard",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.27,
+          "minutes": 4,
+          "depart": 941,
+          "arrive": 945,
+          "departTime": "15:41",
+          "arriveTime": "15:45"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 begins at a humane hour — the first stop is Musée du Fort at 09:34, and nothing on this day starts before 09:00.",
+        "The base for the night is Hôtel Marie Rollett, picked for what surrounds it: 59 sights within a short walk.",
+        "Expect a mild 11° — good walking weather, with layers for the shade.",
+        "Musée du Fort gets the morning's main slot, 09:34 to 11:04 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Musée du Fort — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Musée du Fort, it is a 3-minute walk to Galerie d'art Bel Art Classique — close enough to stroll without watching the clock.",
+        "Galerie d'art Bel Art Classique offers a quieter hour indoors, 11:07–12:07.",
+        "Galerie d'art Bel Art Classique lists its hours as 09:30–17:30 today, and the visit sits comfortably inside them.",
+        "Don Vegan is next, just 4 minutes on foot from Galerie d'art Bel Art Classique.",
+        "Lunch is at Don Vegan, 12:19–13:19.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "The walk from Don Vegan to Espace 400e Bell takes about 3 minutes — a breather between stops, not a hike.",
+        "Give Espace 400e Bell a full 90 minutes (13:22–14:52); rushing it would miss the point.",
+        "A short wander of 4 minutes brings you to Parc Couillard.",
+        "Parc Couillard is the day's green pause, 14:56–15:41 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 15:45 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 945
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-25",
+      "role": "ferry",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/130117210",
+          "name": "Lévis",
+          "title": "Ferry crossing (from Lévis)",
+          "kind": "ferry",
+          "role": "mustsee",
+          "start": 592,
+          "end": 667,
+          "pos": {
+            "lat": 46.8106109,
+            "lon": -71.1883369
+          },
+          "hours": {
+            "status": "known",
+            "open": 300,
+            "close": 1439,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/130117210",
+          "price": "UNKNOWN",
+          "startTime": "09:52",
+          "endTime": "11:07",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": null,
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.4,
+            "userRatingCount": 923,
+            "wheelchairEntrance": true,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "crossing",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — harbour ferry fare, per person, CAD (cost model assumption; sailing times and fares are the terminal board's)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6554061185",
+          "name": "Cannonball Tree",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 692,
+          "end": 752,
+          "pos": {
+            "lat": 46.8111132,
+            "lon": -71.2083792
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6554061185",
+          "price": "UNKNOWN",
+          "startTime": "11:32",
+          "endTime": "12:32",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/12646574028",
+          "name": "Polina",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 754,
+          "end": 814,
+          "pos": {
+            "lat": 46.8115884,
+            "lon": -71.2077463
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1260,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12646574028",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:34",
+          "endTime": "13:34",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_INEXPENSIVE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.3,
+            "userRatingCount": 176,
+            "wheelchairEntrance": null,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_INEXPENSIVE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "meal",
+            "range": {
+              "low": 8,
+              "high": 18,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level INEXPENSIVE (google-fixture) mapped to a meal range; a band, never an exact price"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6711176117",
+          "name": "Galerie Perreault",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 822,
+          "end": 882,
+          "pos": {
+            "lat": 46.8167291,
+            "lon": -71.2082103
+          },
+          "hours": {
+            "status": "known",
+            "open": 600,
+            "close": 1020,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6711176117",
+          "price": "UNKNOWN",
+          "startTime": "13:42",
+          "endTime": "14:42",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": null,
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.6,
+            "userRatingCount": 58,
+            "wheelchairEntrance": null,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/130117210",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Lévis",
+          "mode": "walk",
+          "km": 1.59,
+          "minutes": 22,
+          "depart": 570,
+          "arrive": 592,
+          "departTime": "09:30",
+          "arriveTime": "09:52"
+        },
+        {
+          "fromKey": "node/130117210",
+          "toKey": "base",
+          "fromName": "Lévis",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 1.59,
+          "minutes": 22,
+          "depart": 667,
+          "arrive": 689,
+          "departTime": "11:07",
+          "arriveTime": "11:29"
+        },
+        {
+          "fromKey": "base",
+          "toKey": "node/6554061185",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Cannonball Tree",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 689,
+          "arrive": 692,
+          "departTime": "11:29",
+          "arriveTime": "11:32"
+        },
+        {
+          "fromKey": "node/6554061185",
+          "toKey": "node/12646574028",
+          "fromName": "Cannonball Tree",
+          "toName": "Polina",
+          "mode": "walk",
+          "km": 0.07,
+          "minutes": 2,
+          "depart": 752,
+          "arrive": 754,
+          "departTime": "12:32",
+          "arriveTime": "12:34"
+        },
+        {
+          "fromKey": "node/12646574028",
+          "toKey": "node/6711176117",
+          "fromName": "Polina",
+          "toName": "Galerie Perreault",
+          "mode": "walk",
+          "km": 0.57,
+          "minutes": 8,
+          "depart": 814,
+          "arrive": 822,
+          "departTime": "13:34",
+          "arriveTime": "13:42"
+        },
+        {
+          "fromKey": "node/6711176117",
+          "toKey": "base",
+          "fromName": "Galerie Perreault",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.41,
+          "minutes": 6,
+          "depart": 882,
+          "arrive": 888,
+          "departTime": "14:42",
+          "arriveTime": "14:48"
+        }
+      ],
+      "narrative": [
+        "Sunday, October 25 is built around Lévis, with the day's stops gathered close so the walking stays easy.",
+        "The ferry crossing is the morning's small adventure: board at Lévis around 09:52 and give the round trip until 11:07. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
+        "Lévis lists its hours as 05:00–23:59 today, and the visit sits comfortably inside them.",
+        "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
+        "Cannonball Tree fills 11:32–12:32 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Cannonball Tree — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Cannonball Tree, it is a 2-minute walk to Polina — close enough to stroll without watching the clock.",
+        "Lunch is at Polina, 12:34–13:34.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Galerie Perreault is next, just 8 minutes on foot from Polina.",
+        "Galerie Perreault offers a quieter hour indoors, 13:42–14:42.",
+        "The day winds down back at base by 14:48 — 3 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 888
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-26",
+      "role": "rest-afternoon",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/148301142",
+          "name": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+          "kind": "museum",
+          "role": "stop",
+          "start": 576,
+          "end": 666,
+          "pos": {
+            "lat": 46.8117665,
+            "lon": -71.2043178
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1020,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/148301142",
+          "price": "UNKNOWN",
+          "startTime": "09:36",
+          "endTime": "11:06",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_INEXPENSIVE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.6,
+            "userRatingCount": 1284,
+            "wheelchairEntrance": true,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_INEXPENSIVE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "admission",
+            "range": {
+              "low": 0,
+              "high": 12,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level INEXPENSIVE (google-fixture) mapped to a admission range; a band, never an exact price"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6711176112",
+          "name": "Galerie Bédard",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 673,
+          "end": 733,
+          "pos": {
+            "lat": 46.8159834,
+            "lon": -71.203668
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6711176112",
+          "price": "UNKNOWN",
+          "startTime": "11:13",
+          "endTime": "12:13",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/4349079029",
+          "name": "Hortus Bistro",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 742,
+          "end": 802,
+          "pos": {
+            "lat": 46.8146605,
+            "lon": -71.209564
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 1320,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": "Mo-Fr 11:30-22:00; Sa 09:30-22:00; Su 09:30-21:00",
+          "url": "https://www.openstreetmap.org/node/4349079029",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:22",
+          "endTime": "13:22",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_EXPENSIVE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.6,
+            "userRatingCount": 402,
+            "wheelchairEntrance": null,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_EXPENSIVE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "meal",
+            "range": {
+              "low": 35,
+              "high": 60,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level EXPENSIVE (google-fixture) mapped to a meal range; a band, never an exact price"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 802,
+          "end": 1020,
+          "key": "rest-2026-10-26",
+          "startTime": "13:22",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/148301142",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+          "mode": "walk",
+          "km": 0.38,
+          "minutes": 6,
+          "depart": 570,
+          "arrive": 576,
+          "departTime": "09:30",
+          "arriveTime": "09:36"
+        },
+        {
+          "fromKey": "way/148301142",
+          "toKey": "node/6711176112",
+          "fromName": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+          "toName": "Galerie Bédard",
+          "mode": "walk",
+          "km": 0.47,
+          "minutes": 7,
+          "depart": 666,
+          "arrive": 673,
+          "departTime": "11:06",
+          "arriveTime": "11:13"
+        },
+        {
+          "fromKey": "node/6711176112",
+          "toKey": "node/4349079029",
+          "fromName": "Galerie Bédard",
+          "toName": "Hortus Bistro",
+          "mode": "walk",
+          "km": 0.47,
+          "minutes": 7,
+          "depart": 735,
+          "arrive": 742,
+          "departTime": "12:15",
+          "arriveTime": "12:22"
+        },
+        {
+          "fromKey": "node/4349079029",
+          "toKey": "base",
+          "fromName": "Hortus Bistro",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 1020,
+          "arrive": 1023,
+          "departTime": "17:00",
+          "arriveTime": "17:03"
+        }
+      ],
+      "narrative": [
+        "Monday, October 26 is built around Lieu historique national des Forts-et-Châteaux-Saint-Louis, with the day's stops gathered close so the walking stays easy.",
+        "Forts-et-Châteaux-Saint-Louis gets the morning's main slot, 09:36 to 11:06 — unhurried, with time to double back to favourites.",
+        "Forts-et-Châteaux-Saint-Louis lists its hours as 09:00–17:00 today, and the visit sits comfortably inside them.",
+        "From Forts-et-Châteaux-Saint-Louis, it is a 7-minute walk to Galerie Bédard — close enough to stroll without watching the clock.",
+        "Galerie Bédard offers a quieter hour indoors, 11:13–12:13.",
+        "Opening hours weren't listed for Galerie Bédard — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "Hortus Bistro is next, just 7 minutes on foot from Galerie Bédard.",
+        "Lunch is at Hortus Bistro, 12:22–13:22.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The day winds down back at base by 17:03 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1023
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-27",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/4279287390",
+          "name": "Musée des plaines d'Abraham",
+          "kind": "museum",
+          "role": "stop",
+          "start": 580,
+          "end": 670,
+          "pos": {
+            "lat": 46.8070268,
+            "lon": -71.2128445
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1020,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": "Mo-Fr 08:30-17:00; Sa-Su 09:00-17:00",
+          "url": "https://www.openstreetmap.org/node/4279287390",
+          "price": "UNKNOWN",
+          "startTime": "09:40",
+          "endTime": "11:10",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.5,
+            "userRatingCount": 1980,
+            "wheelchairEntrance": true,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_MODERATE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 28,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/2527418385",
+          "name": "Galerie d'art la Gazelle",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 683,
+          "end": 743,
+          "pos": {
+            "lat": 46.8082892,
+            "lon": -71.2247789
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/2527418385",
+          "price": "UNKNOWN",
+          "startTime": "11:23",
+          "endTime": "12:23",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/2527418383",
+          "name": "Au Bonnet d'Âne",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 745,
+          "end": 805,
+          "pos": {
+            "lat": 46.8085538,
+            "lon": -71.2237941
+          },
+          "hours": {
+            "status": "known",
+            "open": 480,
+            "close": 900,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": "Su-We 08:00-22:00; Th-Sa 08:00-23:00",
+          "url": "https://www.openstreetmap.org/node/2527418383",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = no",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = no, diet:vegetarian = yes"
+          },
+          "startTime": "12:25",
+          "endTime": "13:25",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.4,
+            "userRatingCount": 517,
+            "wheelchairEntrance": null,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_MODERATE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "meal",
+            "range": {
+              "low": 18,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a meal range; a band, never an exact price"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/4461909789",
+          "name": "Pavillon Pierre-Lassonde",
+          "kind": "museum",
+          "role": "stop",
+          "start": 817,
+          "end": 907,
+          "pos": {
+            "lat": 46.800875,
+            "lon": -71.2253618
+          },
+          "hours": {
+            "status": "known",
+            "open": 600,
+            "close": 1020,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/4461909789",
+          "price": "UNKNOWN",
+          "startTime": "13:37",
+          "endTime": "15:07",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.7,
+            "userRatingCount": 2875,
+            "wheelchairEntrance": true,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_MODERATE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 28,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/225125377",
+          "name": "Parc Lockwell",
+          "kind": "park",
+          "role": "stop",
+          "start": 915,
+          "end": 960,
+          "pos": {
+            "lat": 46.8061577,
+            "lon": -71.2264804
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/225125377",
+          "price": "UNKNOWN",
+          "startTime": "15:15",
+          "endTime": "16:00",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/4279287390",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Musée des plaines d'Abraham",
+          "mode": "walk",
+          "km": 0.73,
+          "minutes": 10,
+          "depart": 570,
+          "arrive": 580,
+          "departTime": "09:30",
+          "arriveTime": "09:40"
+        },
+        {
+          "fromKey": "node/4279287390",
+          "toKey": "node/2527418385",
+          "fromName": "Musée des plaines d'Abraham",
+          "toName": "Galerie d'art la Gazelle",
+          "mode": "walk",
+          "km": 0.92,
+          "minutes": 13,
+          "depart": 670,
+          "arrive": 683,
+          "departTime": "11:10",
+          "arriveTime": "11:23"
+        },
+        {
+          "fromKey": "node/2527418385",
+          "toKey": "node/2527418383",
+          "fromName": "Galerie d'art la Gazelle",
+          "toName": "Au Bonnet d'Âne",
+          "mode": "walk",
+          "km": 0.08,
+          "minutes": 2,
+          "depart": 743,
+          "arrive": 745,
+          "departTime": "12:23",
+          "arriveTime": "12:25"
+        },
+        {
+          "fromKey": "node/2527418383",
+          "toKey": "node/4461909789",
+          "fromName": "Au Bonnet d'Âne",
+          "toName": "Pavillon Pierre-Lassonde",
+          "mode": "walk",
+          "km": 0.86,
+          "minutes": 12,
+          "depart": 805,
+          "arrive": 817,
+          "departTime": "13:25",
+          "arriveTime": "13:37"
+        },
+        {
+          "fromKey": "node/4461909789",
+          "toKey": "way/225125377",
+          "fromName": "Pavillon Pierre-Lassonde",
+          "toName": "Parc Lockwell",
+          "mode": "walk",
+          "km": 0.59,
+          "minutes": 8,
+          "depart": 907,
+          "arrive": 915,
+          "departTime": "15:07",
+          "arriveTime": "15:15"
+        },
+        {
+          "fromKey": "way/225125377",
+          "toKey": "base",
+          "fromName": "Parc Lockwell",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "drive",
+          "km": 1.54,
+          "minutes": 3,
+          "depart": 960,
+          "arrive": 963,
+          "departTime": "16:00",
+          "arriveTime": "16:03"
+        }
+      ],
+      "narrative": [
+        "Tuesday, October 27 is built around Musée des plaines d'Abraham, with the day's stops gathered close so the walking stays easy.",
+        "Musée des plaines d'Abraham gets the morning's main slot, 09:40 to 11:10 — unhurried, with time to double back to favourites.",
+        "Musée des plaines d'Abraham lists its hours as 09:00–17:00 today, and the visit sits comfortably inside them.",
+        "From Musée des plaines d'Abraham, it is a 13-minute walk to Galerie d'art la Gazelle — close enough to stroll without watching the clock.",
+        "Galerie d'art la Gazelle offers a quieter hour indoors, 11:23–12:23.",
+        "Opening hours weren't listed for Galerie d'art la Gazelle — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "Au Bonnet d'Âne is next, just 2 minutes on foot from Galerie d'art la Gazelle.",
+        "Lunch is at Au Bonnet d'Âne, 12:25–13:25.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = no, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Au Bonnet d'Âne to Pavillon Pierre-Lassonde takes about 12 minutes — a breather between stops, not a hike.",
+        "Give Pavillon Pierre-Lassonde a full 90 minutes (13:37–15:07); rushing it would miss the point.",
+        "A short wander of 8 minutes brings you to Parc Lockwell.",
+        "Parc Lockwell is the day's green pause, 15:15–16:00 — no tickets, no timetable to chase.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 16:03 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 963
+    },
+    {
+      "dayNumber": 5,
+      "date": "2026-10-28",
+      "role": "excursion",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/377497852",
+          "name": "Porte Kent",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 575,
+          "end": 635,
+          "pos": {
+            "lat": 46.8119092,
+            "lon": -71.2125626
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/377497852",
+          "price": "UNKNOWN",
+          "startTime": "09:35",
+          "endTime": "10:35",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/12207260095",
+          "name": "Concept Bala",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 742,
+          "end": 802,
+          "pos": {
+            "lat": 46.8165252,
+            "lon": -71.2124361
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1320,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": "Mo-Su 09:00-16:00",
+          "url": "https://www.openstreetmap.org/node/12207260095",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes"
+          },
+          "startTime": "12:22",
+          "endTime": "13:22",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.5,
+            "userRatingCount": 233,
+            "wheelchairEntrance": null,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_MODERATE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "meal",
+            "range": {
+              "low": 18,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a meal range; a band, never an exact price"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/1199354691",
+          "name": "Chute Montmorency",
+          "kind": "falls",
+          "role": "excursion",
+          "start": 817,
+          "end": 907,
+          "pos": {
+            "lat": 46.8907506,
+            "lon": -71.1477383
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1020,
+            "provenance": "google-fixture"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/1199354691",
+          "price": "UNKNOWN",
+          "startTime": "13:37",
+          "endTime": "15:07",
+          "google": {
+            "source": "google-fixture",
+            "priceLevel": "PRICE_LEVEL_MODERATE",
+            "priceBandNote": "band only — never an exact price",
+            "rating": 4.7,
+            "userRatingCount": 18934,
+            "wheelchairEntrance": true,
+            "businessStatus": "OPERATIONAL",
+            "fetchedAt": "2026-10-21T21:06:54.896Z",
+            "refreshDue": "2026-11-20"
+          },
+          "priceBand": {
+            "level": "PRICE_LEVEL_MODERATE",
+            "source": "google-fixture"
+          },
+          "priceEvidence": {
+            "tier": "BAND",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 28,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/377497852",
+          "fromName": "Hôtel Marie Rollett",
+          "toName": "Porte Kent",
+          "mode": "walk",
+          "km": 0.3,
+          "minutes": 5,
+          "depart": 570,
+          "arrive": 575,
+          "departTime": "09:30",
+          "arriveTime": "09:35"
+        },
+        {
+          "fromKey": "node/377497852",
+          "toKey": "node/12207260095",
+          "fromName": "Porte Kent",
+          "toName": "Concept Bala",
+          "mode": "walk",
+          "km": 0.51,
+          "minutes": 7,
+          "depart": 735,
+          "arrive": 742,
+          "departTime": "12:15",
+          "arriveTime": "12:22"
+        },
+        {
+          "fromKey": "node/12207260095",
+          "toKey": "node/1199354691",
+          "fromName": "Concept Bala",
+          "toName": "Chute Montmorency",
+          "mode": "drive",
+          "km": 9.61,
+          "minutes": 15,
+          "depart": 802,
+          "arrive": 817,
+          "departTime": "13:22",
+          "arriveTime": "13:37"
+        },
+        {
+          "fromKey": "node/1199354691",
+          "toKey": "base",
+          "fromName": "Chute Montmorency",
+          "toName": "Hôtel Marie Rollett",
+          "mode": "drive",
+          "km": 9.82,
+          "minutes": 15,
+          "depart": 907,
+          "arrive": 922,
+          "departTime": "15:07",
+          "arriveTime": "15:22"
+        }
+      ],
+      "narrative": [
+        "Wednesday, October 28 is the day for Chute Montmorency — the trip's headline outing, given the room it deserves.",
+        "The forecast helps today: 8° and only a 4% chance of rain, which is why the outdoor outing sits here.",
+        "Porte Kent fills 09:35–10:35 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Porte Kent — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Porte Kent, it is a 7-minute walk to Concept Bala — close enough to stroll without watching the clock.",
+        "Lunch is at Concept Bala, 12:22–13:22.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "Then the day's one longer leg: about 15 minutes by road to Chute Montmorency.",
+        "Chute Montmorency — the outing named in the request — gets a full 90 minutes, 13:37–15:07.",
+        "Chute Montmorency lists its hours as 09:00–17:00 today, and the visit sits comfortably inside them.",
+        "The drive back to base runs about 15 minutes.",
+        "The day winds down back at base by 15:22 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 922
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 2,
+    "infants": 0
+  },
+  "budgetCap": {
+    "amount": 1100,
+    "currency": "CAD",
+    "verdict": "OVER — even the bottom of the estimated range (CAD 1348) exceeds the cap (CAD 1100) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "We are a couple traveling with our two kids, aged six and nine for an easy five day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a family room with an elevator in the building and stroller friendly routes where possible. I am vegetarian and our youngest cannot eat eggs, so please favor restaurants with clear vegetarian menus. Keep the total budget under one thousand one hundred dollars, avoid long walks between stops, and also include the ferry ride across to Levis and a trip out to Montmorency Falls please.",
+    "wordCount": 103,
+    "source": "generated-for-location"
+  },
+  "anchorStay": {
+    "name": "Hôtel Marie Rollett",
+    "url": "https://www.openstreetmap.org/node/10554222513",
+    "walkableSights": 59,
+    "walkableFood": 72,
+    "distCenterKm": 0.12,
+    "quietProxy": 0,
+    "anchorScore": 284.8,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-ferry",
+      "label": "ferry ride to Levis",
+      "status": "scheduled",
+      "day": 2,
+      "item": "Lévis"
+    },
+    {
+      "id": "keyword-falls",
+      "label": "Montmorency Falls trip",
+      "status": "scheduled",
+      "day": 5,
+      "item": "Chute Montmorency"
+    }
+  ],
+  "solverNotes": [
+    "Excursion placed on 2026-10-28 — the driest eligible day in the forecast (4% rain chance)."
+  ],
+  "packCounts": {
+    "total": 852,
+    "sights": 353,
+    "foods": 420,
+    "stays": 72,
+    "transport": 7
+  },
+  "googleEnrichment": {
+    "mode": "fixture",
+    "finalists": 22,
+    "enriched": 17,
+    "hoursUnknown": {
+      "osmOnly": 16,
+      "enriched": 8
+    },
+    "rejectedMatches": [],
+    "costGuard": null,
+    "dataLabel": "FIXTURE — stubbed Places responses, NOT live data",
+    "liveApiProof": "DONE 2026-10-21 (live-google-proof record) — the collector runs flag-gated on the env key only, behind the distance gate and the cost guard"
+  },
+  "transportArgument": {
+    "scenario": "Saint John, NB -> Quebec City, QC — flight vs drive, 2 travelers, 5-day trip",
+    "assumptions": {
+      "roadDistanceKm": {
+        "value": 600,
+        "basis": "ESTIMATED — road distance Saint John, NB to Quebec City via A-2/QC-85 corridor"
+      },
+      "driveHoursDoorToDoor": {
+        "value": 8,
+        "basis": "ESTIMATED — owner framing: ~8h door to door with stops"
+      },
+      "fuelPer100Km": {
+        "value": 8,
+        "basis": "ESTIMATED — typical midsize car, L/100km"
+      },
+      "fuelPricePerL": {
+        "value": 1.55,
+        "basis": "ESTIMATED — CAD per litre, Oct 2026 Atlantic Canada"
+      },
+      "parkingPerDay": {
+        "value": 20,
+        "basis": "ESTIMATED — CAD, destination parking"
+      },
+      "parkingDays": {
+        "value": 5,
+        "basis": "scenario — matches the 5-day trip"
+      },
+      "flightFarePerPerson": {
+        "value": 289,
+        "basis": "ESTIMATED — CAD, one-stop YSJ->YQB economy, no direct flight exists"
+      },
+      "flightHoursDoorToDoor": {
+        "value": 5.5,
+        "basis": "ESTIMATED — airport time + one connection + transfers"
+      },
+      "airportTransfersTotal": {
+        "value": 60,
+        "basis": "ESTIMATED — CAD, both ends combined"
+      },
+      "travelers": {
+        "value": 2,
+        "basis": "scenario — the couple from the request"
+      },
+      "valueOfTimePerHourPerPerson": {
+        "value": 25,
+        "basis": "ESTIMATED — guardian rate for scoring only, CAD"
+      }
+    },
+    "drive": {
+      "money": 174.4,
+      "hours": 8,
+      "effectiveCost": 574.4,
+      "case": "Driving wins on money by $464 — but it spends 8 hours of the trip on the road, each way framing the arrival day as a write-off."
+    },
+    "flight": {
+      "money": 638,
+      "hours": 5.5,
+      "effectiveCost": 913,
+      "case": "Flying costs $464 more but buys back 2.5 hours and arrives with energy left — on a tight budget with a long trip ahead, the drive is the justifiable argue-back."
+    },
+    "guardianRule": "effective cost = all-in money + (hours x value-of-time x travelers); if effective costs are within 20%, BOTH options are emitted",
+    "verdict": "drive scores better on effective cost",
+    "bothOptionsEmitted": false,
+    "arrivalDayConsolidation": {
+      "flight": "land ~5.5h after leaving home -> transfer -> check-in -> only a gentle evening walk is honestly schedulable",
+      "drive": "after 8h on the road the arrival day holds nothing but check-in and food — the plan must not pretend otherwise"
+    }
+  },
+  "requirementVerdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 20 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:22–17:00)"
+    },
+    {
+      "id": "keyword-ferry",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"ferry\" (ferry ride to Levis)"
+    },
+    {
+      "id": "keyword-falls",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"montmorency\" (Montmorency Falls trip)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "egg-free can only be proven at vegan-only kitchens; 1 of 5 lunches qualify — the rest stay honestly unverified"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1100 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Musée du Fort\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Espace 400e Bell\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Parc Couillard\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Cannonball Tree\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Galerie Bédard\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Galerie d'art la Gazelle\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Parc Lockwell\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Porte Kent\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T21:06:54.940Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "Chute Montmorency",
+        "day": 5,
+        "score": 92,
+        "reasons": [
+          "named in the traveler's request",
+          "hours verified (google-fixture)",
+          "rating 4.7 (google-fixture)"
+        ]
+      },
+      {
+        "name": "Lévis",
+        "day": 2,
+        "score": 89,
+        "reasons": [
+          "named in the traveler's request",
+          "hours verified (google-fixture)",
+          "rating 4.4 (google-fixture)"
+        ]
+      },
+      {
+        "name": "Don Vegan",
+        "day": 1,
+        "score": 82,
+        "reasons": [
+          "hours verified (google-fixture)",
+          "dietary fit proven by listing tags",
+          "rating 4.7 (google-fixture)"
+        ]
+      },
+      {
+        "name": "Hortus Bistro",
+        "day": 3,
+        "score": 81,
+        "reasons": [
+          "hours verified (google-fixture)",
+          "dietary fit proven by listing tags",
+          "rating 4.6 (google-fixture)"
+        ]
+      },
+      {
+        "name": "Concept Bala",
+        "day": 5,
+        "score": 80,
+        "reasons": [
+          "hours verified (google-fixture)",
+          "dietary fit proven by listing tags",
+          "rating 4.5 (google-fixture)"
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "Musée du Fort",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Don Vegan",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Espace 400e Bell",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Parc Couillard",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Lévis",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Cannonball Tree",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Polina",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Galerie Perreault",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 3,
+        "item": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 3,
+        "item": "Galerie Bédard",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Hortus Bistro",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Musée des plaines d'Abraham",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Galerie d'art la Gazelle",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Au Bonnet d'Âne",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Pavillon Pierre-Lassonde",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Parc Lockwell",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "Porte Kent",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "Concept Bala",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 5,
+        "item": "Chute Montmorency",
+        "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Galerie d'art Bel Art Classique",
+        "risk": "tight turnaround — only 3 min after \"Musée du Fort\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Espace 400e Bell",
+        "risk": "tight turnaround — only 3 min after \"Don Vegan\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Parc Couillard",
+        "risk": "tight turnaround — only 4 min after \"Espace 400e Bell\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Polina",
+        "risk": "tight turnaround — only 2 min after \"Cannonball Tree\"",
+        "severity": "low"
+      },
+      {
+        "day": 3,
+        "item": "Galerie Bédard",
+        "risk": "tight turnaround — only 7 min after \"Lieu historique national des Forts-et-Châteaux-Saint-Louis\"",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Au Bonnet d'Âne",
+        "risk": "tight turnaround — only 2 min after \"Galerie d'art la Gazelle\"",
+        "severity": "low"
+      },
+      {
+        "day": 5,
+        "item": "Chute Montmorency",
+        "risk": "long drive leg (10 km, ~15 min estimated from straight-line distance — real roads run longer)",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "Hôtel Marie Rollett",
+        "risk": "long drive leg (10 km, ~15 min estimated from straight-line distance — real roads run longer)",
+        "severity": "medium"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "AT RISK",
+      "note": "the estimated range (CAD 908–2004) straddles the cap (CAD 1100)",
+      "cap": {
+        "amount": 1100,
+        "currency": "CAD",
+        "verdict": "AT RISK — the estimated range (CAD 908–2004) straddles the cap (CAD 1100) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 18,
+      "evidencedItems": 18,
+      "evidenceByTier": {
+        "COSTED": 9,
+        "BAND": 9
+      },
+      "estimatedTotals": {
+        "low": 908,
+        "high": 2004,
+        "currency": "CAD"
+      },
+      "payingParty": 4,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 9,
+      "bandDistribution": {
+        "PRICE_LEVEL_MODERATE": 6,
+        "PRICE_LEVEL_INEXPENSIVE": 2,
+        "PRICE_LEVEL_EXPENSIVE": 1
+      },
+      "bandSource": "google-fixture"
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 5,
+        "walkingKmEstimated": 1.48,
+        "lastEnd": "15:45"
+      },
+      {
+        "day": 2,
+        "stops": 4,
+        "walkingKmEstimated": 4.45,
+        "lastEnd": "14:48"
+      },
+      {
+        "day": 3,
+        "stops": 3,
+        "walkingKmEstimated": 1.5,
+        "lastEnd": "17:03"
+      },
+      {
+        "day": 4,
+        "stops": 5,
+        "walkingKmEstimated": 3.18,
+        "lastEnd": "16:03"
+      },
+      {
+        "day": 5,
+        "stops": 3,
+        "walkingKmEstimated": 0.81,
+        "lastEnd": "15:22"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Hôtel Marie Rollett",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "the plan includes a long drive — a rental may serve it better",
+        "label": "cars-getrentacar",
+        "text": "Rental cars",
+        "url": "https://getrentacar.tpo.lu/l16uVhOn"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 15
+  }
+}

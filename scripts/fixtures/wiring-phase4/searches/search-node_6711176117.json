@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJw8ezheCVuEwRaB0q_3fU_Vc",
+      "formattedAddress": "205 Rue Saint-Paul, Québec, QC G1K 9K7, Canada",
+      "location": {
+        "latitude": 46.8167267,
+        "longitude": -71.2081676
+      },
+      "displayName": {
+        "text": "Galerie Perreault",
+        "languageCode": "en"
+      }
+    }
+  ]
+}
