@@ -1,0 +1,99 @@
+{
+  "counts": {
+    "FULL": 6,
+    "LIGHT": 4,
+    "REST": 2,
+    "OPEN": 2,
+    "MOVE": 0
+  },
+  "relaxFavorites": true,
+  "notes": [
+    "long single-base stay (14 days in Quebec City): the used-up ledger relaxes for beloved repeatables — markets and parks may return after a gap of days; headline sights never repeat"
+  ],
+  "days": [
+    {
+      "day": 1,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 2,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 3,
+      "type": "LIGHT",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 4,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 5,
+      "type": "LIGHT",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 6,
+      "type": "OPEN",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 7,
+      "type": "REST",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 8,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 9,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 10,
+      "type": "LIGHT",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 11,
+      "type": "FULL",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 12,
+      "type": "LIGHT",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 13,
+      "type": "OPEN",
+      "base": "Quebec City",
+      "baseIndex": 0
+    },
+    {
+      "day": 14,
+      "type": "REST",
+      "base": "Quebec City",
+      "baseIndex": 0
+    }
+  ]
+}

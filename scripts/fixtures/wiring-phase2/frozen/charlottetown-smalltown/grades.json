@@ -1,0 +1,144 @@
+{
+  "grades": [
+    {
+      "leg": "request:earliest-start",
+      "status": "DONE",
+      "detail": "all 9 timed items start at or after 09:00"
+    },
+    {
+      "leg": "request:rest-block",
+      "status": "DONE",
+      "detail": "day 2 carries an explicit rest block (Slow morning — nothing booked, 09:00–12:00)"
+    },
+    {
+      "leg": "request:keyword-lighthouse",
+      "status": "DONE",
+      "detail": "itinerary mentions \"lighthouse\" (one lighthouse visit)"
+    },
+    {
+      "leg": "request:keyword-market",
+      "status": "DONE",
+      "detail": "itinerary mentions \"market\" (local farmers market)"
+    },
+    {
+      "leg": "request:no-repeat",
+      "status": "DONE",
+      "detail": "no place is scheduled twice across the trip"
+    },
+    {
+      "leg": "request:dietary",
+      "status": "DONE",
+      "detail": "3 of 3 lunches carry explicit dietary tags in the data (nuts, lactose)"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "UNVERIFIABLE",
+      "detail": "open data carries no prices: a cap of 700 cannot be totaled or checked — never faked as met"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "no hard violations; arithmetic, grounding, and hours all cohere"
+    },
+    {
+      "leg": "prices:budget",
+      "status": "DONE",
+      "detail": "WITHIN — evidence covers 6/8 all-in scope lines (75%): 6 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 128–308 vs cap CAD 700; tiers {\"COSTED\":6}"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "DONE",
+      "detail": "local farmers market: scheduled (day 1); one lighthouse visit: scheduled (day 3)"
+    },
+    {
+      "leg": "engine:extractor-agreement",
+      "status": "DONE",
+      "detail": "earliest-start: agree; rest-type: agree; budget: agree; dietary: agree; place-items-count: agree"
+    }
+  ],
+  "agreement": [
+    {
+      "id": "earliest-start",
+      "extracted": "\"09:00\"",
+      "truth": "\"09:00\"",
+      "agree": true
+    },
+    {
+      "id": "rest-type",
+      "extracted": "\"morning\"",
+      "truth": "\"morning\"",
+      "agree": true
+    },
+    {
+      "id": "budget",
+      "extracted": "700",
+      "truth": "700",
+      "agree": true
+    },
+    {
+      "id": "dietary",
+      "extracted": "[\"lactose\",\"nuts\"]",
+      "truth": "[\"lactose\",\"nuts\"]",
+      "agree": true
+    },
+    {
+      "id": "place-items-count",
+      "extracted": "2",
+      "truth": "2",
+      "agree": true
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 9 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 2 carries an explicit rest block (Slow morning — nothing booked, 09:00–12:00)"
+    },
+    {
+      "id": "keyword-lighthouse",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"lighthouse\" (one lighthouse visit)"
+    },
+    {
+      "id": "keyword-market",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"market\" (local farmers market)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "KEPT",
+      "evidence": "3 of 3 lunches carry explicit dietary tags in the data (nuts, lactose)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 700 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Confederation Centre Art Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Hillsborough Square\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Riverview Country Market\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"King Square\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Island Chef\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Wrights Range Front Lighthouse\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "unresolved": [
+    "opening hours: 6 of 9 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap WITHIN on labeled evidence (coverage 6/6 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+  ]
+}

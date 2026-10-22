@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJk4jbBYqWuEwRAzro8GMtxY8",
+      "formattedAddress": "Québec City, QC, Canada",
+      "location": {
+        "latitude": 46.8130816,
+        "longitude": -71.20745959999999
+      },
+      "displayName": {
+        "text": "Québec City",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

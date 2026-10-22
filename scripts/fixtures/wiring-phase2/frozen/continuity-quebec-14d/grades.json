@@ -1,0 +1,44 @@
+{
+  "grades": [
+    {
+      "leg": "continuity:peak-from-predict",
+      "status": "DONE",
+      "detail": "PREDICT-scored arc peak = day 2 — the day carrying \"Hortus Bistro\", the predictions record's top highlight (fit 75); peak scoring counts sightseeing only (meals are essentials, never peaks) with the excursion — the trip's headline outing — weighted triple, so a busy day of ordinary stops cannot outrank it; the solver's placement-heuristic arc independently picked day 2"
+    },
+    {
+      "leg": "continuity:landing-demoted",
+      "status": "DONE",
+      "detail": "day 11 FULL -> LIGHT (landing protection — the last full day steps down so the trip descends from its peak instead of ending at full throttle)"
+    },
+    {
+      "leg": "continuity:commitment-ledger",
+      "status": "DONE",
+      "detail": "2 commitments tracked — 2 kept on their home day, 0 rehomed with the move recorded, 0 unmet-and-reported at solve time, 0 unresolved"
+    },
+    {
+      "leg": "continuity:trip-arc",
+      "status": "DONE",
+      "detail": "settle day 1 · peak day 2 · land day 14 · adjustments: day 11 FULL->LIGHT"
+    },
+    {
+      "leg": "continuity:narrative-memory",
+      "status": "DONE",
+      "detail": "3 memory lines woven in (peak, landing, returns, re-homes) — every one triggered by ledger/arc state, none invented"
+    },
+    {
+      "leg": "continuity:return-narrated",
+      "status": "DONE",
+      "detail": "\"Parc de l'Unesco\" is scheduled on day 1 and returns on day 12 (ledger relaxation, gap 11 days); day 12's story names it as a return"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "pass, 27 warnings (unknown hours, labeled)"
+    },
+    {
+      "leg": "emotion:audit",
+      "status": "PASS",
+      "detail": "0 hard / 5 soft findings (the bot reports; it does not rewrite)"
+    }
+  ]
+}

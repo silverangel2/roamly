@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJVVUVY3mWuEwR_4hwkh7WxzE",
+      "formattedAddress": "Rue Lockwell, Québec, QC G1R 1V6, Canada",
+      "location": {
+        "latitude": 46.8061151,
+        "longitude": -71.2265887
+      },
+      "displayName": {
+        "text": "Parc Lockwell",
+        "languageCode": "fr"
+      }
+    }
+  ]
+}

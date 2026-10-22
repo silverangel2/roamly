@@ -1,0 +1,210 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "breadth-table.json"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "The WS-BREADTH rotation table (8 destinations, make-sense 8/8, continuity 8/8) frozen as grading records. Budget strings are parsed to the canonical verdict enum + coverage; the emotion column keeps the shadow judge's conviction text verbatim (6 of 8 convicted for departure-cruelty — a known solver pattern, recorded, not hidden)."
+    }
+  },
+  "data": {
+    "generatedAt": "2026-10-21T21:07:26.468Z",
+    "trips": [
+      {
+        "tripRef": "fredericton-family",
+        "destination": "Fredericton",
+        "days": 5,
+        "budgetVerdict": "AT RISK",
+        "budgetCoverage": 0.85,
+        "requirements": "3/4 KEPT",
+        "makeSense": "PASS",
+        "emotion": "FAIL (1 hard: departure-cruelty)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 176,
+          "sights": 72,
+          "foods": 94,
+          "stays": 6,
+          "transport": 4,
+          "excursions": 4,
+          "hoursCoveragePct": 14,
+          "hoursKnownOf": "23/162",
+          "dietaryProofPct": 2,
+          "dietaryProvenOf": "2/94",
+          "networkFetches": 3
+        }
+      },
+      {
+        "tripRef": "halifax-coastal",
+        "destination": "Halifax",
+        "days": 4,
+        "budgetVerdict": "WITHIN",
+        "budgetCoverage": 0.87,
+        "requirements": "6/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "FAIL (1 hard: departure-cruelty)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 728,
+          "sights": 262,
+          "foods": 428,
+          "stays": 26,
+          "transport": 12,
+          "excursions": 26,
+          "hoursCoveragePct": 31,
+          "hoursKnownOf": "205/664",
+          "dietaryProofPct": 5,
+          "dietaryProvenOf": "22/428",
+          "networkFetches": 1
+        }
+      },
+      {
+        "tripRef": "charlottetown-smalltown",
+        "destination": "Charlottetown",
+        "days": 3,
+        "budgetVerdict": "WITHIN",
+        "budgetCoverage": 0.75,
+        "requirements": "6/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "FAIL (1 hard: departure-cruelty)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 190,
+          "sights": 89,
+          "foods": 92,
+          "stays": 8,
+          "transport": 1,
+          "excursions": 16,
+          "hoursCoveragePct": 24,
+          "hoursKnownOf": "40/165",
+          "dietaryProofPct": 4,
+          "dietaryProvenOf": "4/92",
+          "networkFetches": 1
+        }
+      },
+      {
+        "tripRef": "quebec-city-family",
+        "destination": "Quebec City",
+        "days": 5,
+        "budgetVerdict": "OVER",
+        "budgetCoverage": 0.95,
+        "requirements": "5/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "FAIL (1 hard: departure-cruelty)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 852,
+          "sights": 353,
+          "foods": 420,
+          "stays": 72,
+          "transport": 7,
+          "excursions": 16,
+          "hoursCoveragePct": 20,
+          "hoursKnownOf": "154/757",
+          "dietaryProofPct": 4,
+          "dietaryProvenOf": "16/420",
+          "networkFetches": 3
+        }
+      },
+      {
+        "tripRef": "banff-mountain",
+        "destination": "Banff",
+        "days": 4,
+        "budgetVerdict": "WITHIN",
+        "budgetCoverage": 0.83,
+        "requirements": "4/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "PASS (3 findings, 3 soft)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 177,
+          "sights": 49,
+          "foods": 104,
+          "stays": 21,
+          "transport": 3,
+          "excursions": 14,
+          "hoursCoveragePct": 52,
+          "hoursKnownOf": "72/139",
+          "dietaryProofPct": 7,
+          "dietaryProvenOf": "7/104",
+          "networkFetches": 1
+        }
+      },
+      {
+        "tripRef": "lunenburg-coastal",
+        "destination": "Lunenburg",
+        "days": 3,
+        "budgetVerdict": "WITHIN",
+        "budgetCoverage": 0.8,
+        "requirements": "5/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "FAIL (1 hard: departure-cruelty)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 42,
+          "sights": 30,
+          "foods": 9,
+          "stays": 3,
+          "transport": 0,
+          "excursions": 15,
+          "hoursCoveragePct": 17,
+          "hoursKnownOf": "4/24",
+          "dietaryProofPct": 11,
+          "dietaryProvenOf": "1/9",
+          "networkFetches": 1
+        }
+      },
+      {
+        "tripRef": "montreal-city",
+        "destination": "Montreal",
+        "days": 5,
+        "budgetVerdict": "AT RISK",
+        "budgetCoverage": 0.9,
+        "requirements": "4/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "FAIL (1 hard: departure-cruelty)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 3511,
+          "sights": 850,
+          "foods": 2451,
+          "stays": 146,
+          "transport": 64,
+          "excursions": 3,
+          "hoursCoveragePct": 36,
+          "hoursKnownOf": "1203/3298",
+          "dietaryProofPct": 18,
+          "dietaryProvenOf": "432/2451",
+          "networkFetches": 3
+        }
+      },
+      {
+        "tripRef": "rocky-harbour-gros-morne",
+        "destination": "Rocky Harbour",
+        "days": 4,
+        "budgetVerdict": "WITHIN",
+        "budgetCoverage": 0.75,
+        "requirements": "4/7 KEPT",
+        "makeSense": "PASS",
+        "emotion": "PASS (0 findings, 0 soft)",
+        "continuity": "PASS",
+        "depth": {
+          "candidates": 24,
+          "sights": 10,
+          "foods": 7,
+          "stays": 7,
+          "transport": 0,
+          "excursions": 6,
+          "hoursCoveragePct": 18,
+          "hoursKnownOf": "2/11",
+          "dietaryProofPct": 14,
+          "dietaryProvenOf": "1/7",
+          "networkFetches": 3
+        }
+      }
+    ]
+  }
+}

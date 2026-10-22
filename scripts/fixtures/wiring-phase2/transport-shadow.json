@@ -1,0 +1,80 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "engine/anchors.mjs transportArgument()"
+      ],
+      "note": "The shadow's hard-coded Saint John -> Quebec City transport argument, verbatim. The redesigned parameterized service must reproduce these numbers and verdict when fed these assumptions."
+    }
+  },
+  "data": {
+    "scenario": "Saint John, NB -> Quebec City, QC — flight vs drive, 2 travelers, 5-day trip",
+    "assumptions": {
+      "roadDistanceKm": {
+        "value": 600,
+        "basis": "ESTIMATED — road distance Saint John, NB to Quebec City via A-2/QC-85 corridor"
+      },
+      "driveHoursDoorToDoor": {
+        "value": 8,
+        "basis": "ESTIMATED — owner framing: ~8h door to door with stops"
+      },
+      "fuelPer100Km": {
+        "value": 8,
+        "basis": "ESTIMATED — typical midsize car, L/100km"
+      },
+      "fuelPricePerL": {
+        "value": 1.55,
+        "basis": "ESTIMATED — CAD per litre, Oct 2026 Atlantic Canada"
+      },
+      "parkingPerDay": {
+        "value": 20,
+        "basis": "ESTIMATED — CAD, destination parking"
+      },
+      "parkingDays": {
+        "value": 5,
+        "basis": "scenario — matches the 5-day trip"
+      },
+      "flightFarePerPerson": {
+        "value": 289,
+        "basis": "ESTIMATED — CAD, one-stop YSJ->YQB economy, no direct flight exists"
+      },
+      "flightHoursDoorToDoor": {
+        "value": 5.5,
+        "basis": "ESTIMATED — airport time + one connection + transfers"
+      },
+      "airportTransfersTotal": {
+        "value": 60,
+        "basis": "ESTIMATED — CAD, both ends combined"
+      },
+      "travelers": {
+        "value": 2,
+        "basis": "scenario — the couple from the request"
+      },
+      "valueOfTimePerHourPerPerson": {
+        "value": 25,
+        "basis": "ESTIMATED — guardian rate for scoring only, CAD"
+      }
+    },
+    "drive": {
+      "money": 174.4,
+      "hours": 8,
+      "effectiveCost": 574.4,
+      "case": "Driving wins on money by $464 — but it spends 8 hours of the trip on the road, each way framing the arrival day as a write-off."
+    },
+    "flight": {
+      "money": 638,
+      "hours": 5.5,
+      "effectiveCost": 913,
+      "case": "Flying costs $464 more but buys back 2.5 hours and arrives with energy left — on a tight budget with a long trip ahead, the drive is the justifiable argue-back."
+    },
+    "guardianRule": "effective cost = all-in money + (hours x value-of-time x travelers); if effective costs are within 20%, BOTH options are emitted",
+    "verdict": "drive scores better on effective cost",
+    "bothOptionsEmitted": false,
+    "arrivalDayConsolidation": {
+      "flight": "land ~5.5h after leaving home -> transfer -> check-in -> only a gentle evening walk is honestly schedulable",
+      "drive": "after 8h on the road the arrival day holds nothing but check-in and food — the plan must not pretend otherwise"
+    }
+  }
+}

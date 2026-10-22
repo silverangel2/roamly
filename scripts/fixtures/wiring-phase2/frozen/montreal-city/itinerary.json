@@ -1,0 +1,1796 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T20:55:42.478Z",
+  "runDate": "2026-10-21",
+  "destination": "Montreal",
+  "country": "Canada",
+  "poolId": "montreal-city",
+  "startDate": "2026-10-23",
+  "endDate": "2026-10-27",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-23",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/5692087726",
+          "name": "Galerie D'Art Inuit Images Boréales",
+          "kind": "museum",
+          "role": "stop",
+          "start": 574,
+          "end": 664,
+          "pos": {
+            "lat": 45.5056496,
+            "lon": -73.5536481
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1080,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Sa 09:00-18:00; Su 10:00-17:00",
+          "url": "https://www.openstreetmap.org/node/5692087726",
+          "price": "UNKNOWN",
+          "startTime": "09:34",
+          "endTime": "11:04",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/11244840471",
+          "name": "L'Original",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 668,
+          "end": 728,
+          "pos": {
+            "lat": 45.503362,
+            "lon": -73.5550528
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/11244840471",
+          "price": "UNKNOWN",
+          "startTime": "11:08",
+          "endTime": "12:08",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/5016542021",
+          "name": "LOV",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 741,
+          "end": 801,
+          "pos": {
+            "lat": 45.5006566,
+            "lon": -73.5590248
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 870,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 11:30-14:30, Mo-We 14:30-21:00, Th 14:30-21:30, Fr 16:30-22:00, Sa,Su 10:00-15:00, Sa 17:00-22:00, Su 17:00-21:00",
+          "url": "https://www.openstreetmap.org/node/5016542021",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = only"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = only"
+          },
+          "startTime": "12:21",
+          "endTime": "13:21",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/12877474049",
+          "name": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+          "kind": "museum",
+          "role": "stop",
+          "start": 805,
+          "end": 895,
+          "pos": {
+            "lat": 45.5010591,
+            "lon": -73.5554989
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/12877474049",
+          "price": "UNKNOWN",
+          "startTime": "13:25",
+          "endTime": "14:55",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/119271750",
+          "name": "Square des Frères-Charon",
+          "kind": "park",
+          "role": "stop",
+          "start": 899,
+          "end": 944,
+          "pos": {
+            "lat": 45.4990998,
+            "lon": -73.554738
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/119271750",
+          "price": "UNKNOWN",
+          "startTime": "14:59",
+          "endTime": "15:44",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/5692087726",
+          "fromName": "Hôtel Place d'Armes",
+          "toName": "Galerie D'Art Inuit Images Boréales",
+          "mode": "walk",
+          "km": 0.29,
+          "minutes": 4,
+          "depart": 570,
+          "arrive": 574,
+          "departTime": "09:30",
+          "arriveTime": "09:34"
+        },
+        {
+          "fromKey": "node/5692087726",
+          "toKey": "node/11244840471",
+          "fromName": "Galerie D'Art Inuit Images Boréales",
+          "toName": "L'Original",
+          "mode": "walk",
+          "km": 0.28,
+          "minutes": 4,
+          "depart": 664,
+          "arrive": 668,
+          "departTime": "11:04",
+          "arriveTime": "11:08"
+        },
+        {
+          "fromKey": "node/11244840471",
+          "toKey": "node/5016542021",
+          "fromName": "L'Original",
+          "toName": "LOV",
+          "mode": "walk",
+          "km": 0.43,
+          "minutes": 6,
+          "depart": 735,
+          "arrive": 741,
+          "departTime": "12:15",
+          "arriveTime": "12:21"
+        },
+        {
+          "fromKey": "node/5016542021",
+          "toKey": "node/12877474049",
+          "fromName": "LOV",
+          "toName": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+          "mode": "walk",
+          "km": 0.28,
+          "minutes": 4,
+          "depart": 801,
+          "arrive": 805,
+          "departTime": "13:21",
+          "arriveTime": "13:25"
+        },
+        {
+          "fromKey": "node/12877474049",
+          "toKey": "way/119271750",
+          "fromName": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+          "toName": "Square des Frères-Charon",
+          "mode": "walk",
+          "km": 0.23,
+          "minutes": 4,
+          "depart": 895,
+          "arrive": 899,
+          "departTime": "14:55",
+          "arriveTime": "14:59"
+        },
+        {
+          "fromKey": "way/119271750",
+          "toKey": "base",
+          "fromName": "Square des Frères-Charon",
+          "toName": "Hôtel Place d'Armes",
+          "mode": "walk",
+          "km": 0.74,
+          "minutes": 10,
+          "depart": 944,
+          "arrive": 954,
+          "departTime": "15:44",
+          "arriveTime": "15:54"
+        }
+      ],
+      "narrative": [
+        "Friday, October 23 begins at a humane hour — the first stop is Galerie D'Art Inuit Images Boréales at 09:34, and nothing on this day starts before 09:00.",
+        "The base for the night is Hôtel Place d'Armes, picked for what surrounds it: 80 sights within a short walk.",
+        "Expect a mild 10° — good walking weather, with layers for the shade.",
+        "Galerie D'Art Inuit Images Boréales gets the morning's main slot, 09:34 to 11:04 — unhurried, with time to double back to favourites.",
+        "Galerie D'Art Inuit Images Boréales lists its hours as 09:00–18:00 today, and the visit sits comfortably inside them.",
+        "From Galerie D'Art Inuit Images Boréales, it is a 4-minute walk to L'Original — close enough to stroll without watching the clock.",
+        "L'Original offers a quieter hour indoors, 11:08–12:08.",
+        "Opening hours weren't listed for L'Original — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "LOV is next, just 6 minutes on foot from L'Original.",
+        "Lunch is at LOV, 12:21–13:21.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = only — the dietary need is provided for, not hoped for.",
+        "The walk from LOV to Musée du marché Sainte-Anne et du parlement de la province du Canada takes about 4 minutes — a breather between stops, not a hike.",
+        "Give Canada a full 90 minutes (13:25–14:55); rushing it would miss the point.",
+        "A short wander of 4 minutes brings you to Square des Frères-Charon.",
+        "Square des Frères-Charon is the day's green pause, 14:59–15:44 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 15:54 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 954
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-24",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/224757074",
+          "name": "Sir George-Étienne Cartier NHS",
+          "kind": "museum",
+          "role": "stop",
+          "start": 581,
+          "end": 671,
+          "pos": {
+            "lat": 45.5111488,
+            "lon": -73.551719
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/224757074",
+          "price": "UNKNOWN",
+          "startTime": "09:41",
+          "endTime": "11:11",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/12195201441",
+          "name": "Galerie Peter W. Hart",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 674,
+          "end": 734,
+          "pos": {
+            "lat": 45.5095455,
+            "lon": -73.5516986
+          },
+          "hours": {
+            "status": "known",
+            "open": 600,
+            "close": 1020,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 10:00-17:00",
+          "url": "https://www.openstreetmap.org/node/12195201441",
+          "price": "UNKNOWN",
+          "startTime": "11:14",
+          "endTime": "12:14",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/1270300326",
+          "name": "Resto Végo",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 752,
+          "end": 812,
+          "pos": {
+            "lat": 45.5155243,
+            "lon": -73.5646563
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo 11:00-21:00; Tu-Sa 11:00-22:00; Su 11:00-21:00",
+          "url": "https://www.openstreetmap.org/node/1270300326",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = only"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = only"
+          },
+          "startTime": "12:32",
+          "endTime": "13:32",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6090219915",
+          "name": "Centre de design de l'UQAM",
+          "kind": "museum",
+          "role": "stop",
+          "start": 817,
+          "end": 907,
+          "pos": {
+            "lat": 45.5129552,
+            "lon": -73.5620656
+          },
+          "hours": {
+            "status": "known",
+            "open": 720,
+            "close": 1080,
+            "provenance": "osm"
+          },
+          "hoursRaw": "We-Su 12:00-18:00",
+          "url": "https://www.openstreetmap.org/node/6090219915",
+          "price": "UNKNOWN",
+          "startTime": "13:37",
+          "endTime": "15:07",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/21257549",
+          "name": "Parc Toussaint-Louverture",
+          "kind": "park",
+          "role": "stop",
+          "start": 910,
+          "end": 955,
+          "pos": {
+            "lat": 45.5125077,
+            "lon": -73.5647513
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/21257549",
+          "price": "UNKNOWN",
+          "startTime": "15:10",
+          "endTime": "15:55",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/224757074",
+          "fromName": "Hôtel Place d'Armes",
+          "toName": "Sir George-Étienne Cartier NHS",
+          "mode": "walk",
+          "km": 0.77,
+          "minutes": 11,
+          "depart": 570,
+          "arrive": 581,
+          "departTime": "09:30",
+          "arriveTime": "09:41"
+        },
+        {
+          "fromKey": "way/224757074",
+          "toKey": "node/12195201441",
+          "fromName": "Sir George-Étienne Cartier NHS",
+          "toName": "Galerie Peter W. Hart",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 671,
+          "arrive": 674,
+          "departTime": "11:11",
+          "arriveTime": "11:14"
+        },
+        {
+          "fromKey": "node/12195201441",
+          "toKey": "node/1270300326",
+          "fromName": "Galerie Peter W. Hart",
+          "toName": "Resto Végo",
+          "mode": "walk",
+          "km": 1.21,
+          "minutes": 17,
+          "depart": 735,
+          "arrive": 752,
+          "departTime": "12:15",
+          "arriveTime": "12:32"
+        },
+        {
+          "fromKey": "node/1270300326",
+          "toKey": "node/6090219915",
+          "fromName": "Resto Végo",
+          "toName": "Centre de design de l'UQAM",
+          "mode": "walk",
+          "km": 0.35,
+          "minutes": 5,
+          "depart": 812,
+          "arrive": 817,
+          "departTime": "13:32",
+          "arriveTime": "13:37"
+        },
+        {
+          "fromKey": "node/6090219915",
+          "toKey": "way/21257549",
+          "fromName": "Centre de design de l'UQAM",
+          "toName": "Parc Toussaint-Louverture",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 907,
+          "arrive": 910,
+          "departTime": "15:07",
+          "arriveTime": "15:10"
+        },
+        {
+          "fromKey": "way/21257549",
+          "toKey": "base",
+          "fromName": "Parc Toussaint-Louverture",
+          "toName": "Hôtel Place d'Armes",
+          "mode": "walk",
+          "km": 0.97,
+          "minutes": 13,
+          "depart": 955,
+          "arrive": 968,
+          "departTime": "15:55",
+          "arriveTime": "16:08"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 is built around Sir George-Étienne Cartier NHS, with the day's stops gathered close so the walking stays easy.",
+        "Sir George-Étienne Cartier NHS gets the morning's main slot, 09:41 to 11:11 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Sir George-Étienne Cartier NHS — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Sir George-Étienne Cartier NHS, it is a 3-minute walk to Galerie Peter W. Hart — close enough to stroll without watching the clock.",
+        "Galerie Peter W. Hart offers a quieter hour indoors, 11:14–12:14.",
+        "Galerie Peter W. Hart lists its hours as 10:00–17:00 today, and the visit sits comfortably inside them.",
+        "Resto Végo is next, just 17 minutes on foot from Galerie Peter W. Hart.",
+        "Lunch is at Resto Végo, 12:32–13:32.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = only — the dietary need is provided for, not hoped for.",
+        "The walk from Resto Végo to Centre de design de l'UQAM takes about 5 minutes — a breather between stops, not a hike.",
+        "Give Centre de design de l'UQAM a full 90 minutes (13:37–15:07); rushing it would miss the point.",
+        "A short wander of 3 minutes brings you to Parc Toussaint-Louverture.",
+        "Parc Toussaint-Louverture is the day's green pause, 15:10–15:55 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 16:08 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 968
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-25",
+      "role": "rest-afternoon",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/6227437985",
+          "name": "Élément du mur de Berlin",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 576,
+          "end": 636,
+          "pos": {
+            "lat": 45.502331,
+            "lon": -73.5603368
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6227437985",
+          "price": "UNKNOWN",
+          "startTime": "09:36",
+          "endTime": "10:36",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/4357497394",
+          "name": "Galerie 203",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 640,
+          "end": 700,
+          "pos": {
+            "lat": 45.5036459,
+            "lon": -73.5577806
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/4357497394",
+          "price": "UNKNOWN",
+          "startTime": "10:40",
+          "endTime": "11:40",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/936010440",
+          "name": "Lola Rosa",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 755,
+          "end": 815,
+          "pos": {
+            "lat": 45.5072463,
+            "lon": -73.5758087
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 1290,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 11:30-21:30",
+          "url": "https://www.openstreetmap.org/node/936010440",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only"
+          },
+          "startTime": "12:35",
+          "endTime": "13:35",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 815,
+          "end": 1020,
+          "key": "rest-2026-10-25",
+          "startTime": "13:35",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/6227437985",
+          "fromName": "Hôtel Place d'Armes",
+          "toName": "Élément du mur de Berlin",
+          "mode": "walk",
+          "km": 0.42,
+          "minutes": 6,
+          "depart": 570,
+          "arrive": 576,
+          "departTime": "09:30",
+          "arriveTime": "09:36"
+        },
+        {
+          "fromKey": "node/6227437985",
+          "toKey": "node/4357497394",
+          "fromName": "Élément du mur de Berlin",
+          "toName": "Galerie 203",
+          "mode": "walk",
+          "km": 0.25,
+          "minutes": 4,
+          "depart": 636,
+          "arrive": 640,
+          "departTime": "10:36",
+          "arriveTime": "10:40"
+        },
+        {
+          "fromKey": "node/4357497394",
+          "toKey": "node/936010440",
+          "fromName": "Galerie 203",
+          "toName": "Lola Rosa",
+          "mode": "walk",
+          "km": 1.46,
+          "minutes": 20,
+          "depart": 735,
+          "arrive": 755,
+          "departTime": "12:15",
+          "arriveTime": "12:35"
+        },
+        {
+          "fromKey": "node/936010440",
+          "toKey": "base",
+          "fromName": "Lola Rosa",
+          "toName": "Hôtel Place d'Armes",
+          "mode": "drive",
+          "km": 1.45,
+          "minutes": 3,
+          "depart": 1020,
+          "arrive": 1023,
+          "departTime": "17:00",
+          "arriveTime": "17:03"
+        }
+      ],
+      "narrative": [
+        "Sunday, October 25 is built around Élément du mur de Berlin, with the day's stops gathered close so the walking stays easy.",
+        "Élément du mur de Berlin fills 09:36–10:36 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Élément du mur de Berlin — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Élément du mur de Berlin, it is a 4-minute walk to Galerie 203 — close enough to stroll without watching the clock.",
+        "Galerie 203 offers a quieter hour indoors, 10:40–11:40.",
+        "Lola Rosa is next, just 20 minutes on foot from Galerie 203.",
+        "Lunch is at Lola Rosa, 12:35–13:35.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 17:03 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1023
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-26",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/46866809",
+          "name": "Centre des sciences de Montréal",
+          "kind": "museum",
+          "role": "stop",
+          "start": 577,
+          "end": 667,
+          "pos": {
+            "lat": 45.5046515,
+            "lon": -73.5513012
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 960,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 09:00-16:00; Sa, Su 10:00-17:00",
+          "url": "https://www.openstreetmap.org/way/46866809",
+          "price": "UNKNOWN",
+          "startTime": "09:37",
+          "endTime": "11:07",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/2329817388",
+          "name": "Galerie de Chine",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 678,
+          "end": 738,
+          "pos": {
+            "lat": 45.5069545,
+            "lon": -73.5607177
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/2329817388",
+          "price": "UNKNOWN",
+          "startTime": "11:18",
+          "endTime": "12:18",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/5809163554",
+          "name": "Ütea",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 759,
+          "end": 819,
+          "pos": {
+            "lat": 45.4990351,
+            "lon": -73.5771587
+          },
+          "hours": {
+            "status": "known",
+            "open": 0,
+            "close": 1440,
+            "provenance": "osm"
+          },
+          "hoursRaw": "24/7",
+          "url": "https://www.openstreetmap.org/node/5809163554",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only, diet:vegetarian = yes"
+          },
+          "startTime": "12:39",
+          "endTime": "13:39",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/6654202269",
+          "name": "Barbie Expo",
+          "kind": "museum",
+          "role": "stop",
+          "start": 824,
+          "end": 914,
+          "pos": {
+            "lat": 45.5012232,
+            "lon": -73.5738436
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1110,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-We 09:00-18:30; Th-Fr 09:00-21:00; Sa-Su 09:00-17:00",
+          "url": "https://www.openstreetmap.org/node/6654202269",
+          "price": "UNKNOWN",
+          "startTime": "13:44",
+          "endTime": "15:14",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/21260050",
+          "name": "Square Dorchester",
+          "kind": "park",
+          "role": "stop",
+          "start": 918,
+          "end": 963,
+          "pos": {
+            "lat": 45.4995713,
+            "lon": -73.5708817
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/21260050",
+          "price": "UNKNOWN",
+          "startTime": "15:18",
+          "endTime": "16:03",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/46866809",
+          "fromName": "Hôtel Place d'Armes",
+          "toName": "Centre des sciences de Montréal",
+          "mode": "walk",
+          "km": 0.48,
+          "minutes": 7,
+          "depart": 570,
+          "arrive": 577,
+          "departTime": "09:30",
+          "arriveTime": "09:37"
+        },
+        {
+          "fromKey": "way/46866809",
+          "toKey": "node/2329817388",
+          "fromName": "Centre des sciences de Montréal",
+          "toName": "Galerie de Chine",
+          "mode": "walk",
+          "km": 0.78,
+          "minutes": 11,
+          "depart": 667,
+          "arrive": 678,
+          "departTime": "11:07",
+          "arriveTime": "11:18"
+        },
+        {
+          "fromKey": "node/2329817388",
+          "toKey": "node/5809163554",
+          "fromName": "Galerie de Chine",
+          "toName": "Ütea",
+          "mode": "walk",
+          "km": 1.55,
+          "minutes": 21,
+          "depart": 738,
+          "arrive": 759,
+          "departTime": "12:18",
+          "arriveTime": "12:39"
+        },
+        {
+          "fromKey": "node/5809163554",
+          "toKey": "node/6654202269",
+          "fromName": "Ütea",
+          "toName": "Barbie Expo",
+          "mode": "walk",
+          "km": 0.35,
+          "minutes": 5,
+          "depart": 819,
+          "arrive": 824,
+          "departTime": "13:39",
+          "arriveTime": "13:44"
+        },
+        {
+          "fromKey": "node/6654202269",
+          "toKey": "way/21260050",
+          "fromName": "Barbie Expo",
+          "toName": "Square Dorchester",
+          "mode": "walk",
+          "km": 0.3,
+          "minutes": 4,
+          "depart": 914,
+          "arrive": 918,
+          "departTime": "15:14",
+          "arriveTime": "15:18"
+        },
+        {
+          "fromKey": "way/21260050",
+          "toKey": "base",
+          "fromName": "Square Dorchester",
+          "toName": "Hôtel Place d'Armes",
+          "mode": "drive",
+          "km": 1.24,
+          "minutes": 3,
+          "depart": 963,
+          "arrive": 966,
+          "departTime": "16:03",
+          "arriveTime": "16:06"
+        }
+      ],
+      "narrative": [
+        "Monday, October 26 is built around Centre des sciences de Montréal, with the day's stops gathered close so the walking stays easy.",
+        "Centre des sciences de Montréal gets the morning's main slot, 09:37 to 11:07 — unhurried, with time to double back to favourites.",
+        "Centre des sciences de Montréal lists its hours as 09:00–16:00 today, and the visit sits comfortably inside them.",
+        "From Centre des sciences de Montréal, it is a 11-minute walk to Galerie de Chine — close enough to stroll without watching the clock.",
+        "Galerie de Chine offers a quieter hour indoors, 11:18–12:18.",
+        "Opening hours weren't listed for Galerie de Chine — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "Ütea is next, just 21 minutes on foot from Galerie de Chine.",
+        "Lunch is at Ütea, 12:39–13:39.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "The walk from Ütea to Barbie Expo takes about 5 minutes — a breather between stops, not a hike.",
+        "Give Barbie Expo a full 90 minutes (13:44–15:14); rushing it would miss the point.",
+        "A short wander of 4 minutes brings you to Square Dorchester.",
+        "Square Dorchester is the day's green pause, 15:18–16:03 — no tickets, no timetable to chase.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 16:06 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 966
+    },
+    {
+      "dayNumber": 5,
+      "date": "2026-10-27",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/104671937",
+          "name": "Bouche de métro Guimard",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 578,
+          "end": 638,
+          "pos": {
+            "lat": 45.5017313,
+            "lon": -73.5621006
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/104671937",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "10:38",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/1278632226",
+          "name": "Galerie 2000",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 644,
+          "end": 704,
+          "pos": {
+            "lat": 45.50341,
+            "lon": -73.5665003
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/1278632226",
+          "price": "UNKNOWN",
+          "startTime": "10:44",
+          "endTime": "11:44",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/4912902408",
+          "name": "Bloom Sushi",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 741,
+          "end": 801,
+          "pos": {
+            "lat": 45.5067868,
+            "lon": -73.566322
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 870,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo 17:00-21:00; Tu-We 11:30-14:30,17:00-21:00; Th 11:30-14:30,17:00-21:30; Fr-Sa 17:00-22:00; Su 17:00-21:00",
+          "url": "https://www.openstreetmap.org/node/4912902408",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 0,
+            "labels": [
+              "diet:vegan = only"
+            ],
+            "strong": true,
+            "veganOnly": true,
+            "evidenceText": "diet:vegan = only"
+          },
+          "startTime": "12:21",
+          "endTime": "13:21",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/19910836",
+          "name": "Musée d'Art Contemporain (MAC)",
+          "kind": "museum",
+          "role": "stop",
+          "start": 803,
+          "end": 893,
+          "pos": {
+            "lat": 45.5078251,
+            "lon": -73.5670516
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1080,
+            "provenance": "osm"
+          },
+          "hoursRaw": "We-Fr 11:00-21:00; Tu,Sa-Su 11:00-18:00",
+          "url": "https://www.openstreetmap.org/way/19910836",
+          "price": "UNKNOWN",
+          "startTime": "13:23",
+          "endTime": "14:53",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/199560529",
+          "name": "Le Parterre",
+          "kind": "park",
+          "role": "stop",
+          "start": 897,
+          "end": 942,
+          "pos": {
+            "lat": 45.5100437,
+            "lon": -73.5666109
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/199560529",
+          "price": "UNKNOWN",
+          "startTime": "14:57",
+          "endTime": "15:42",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/104671937",
+          "fromName": "Hôtel Place d'Armes",
+          "toName": "Bouche de métro Guimard",
+          "mode": "walk",
+          "km": 0.56,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "way/104671937",
+          "toKey": "node/1278632226",
+          "fromName": "Bouche de métro Guimard",
+          "toName": "Galerie 2000",
+          "mode": "walk",
+          "km": 0.39,
+          "minutes": 6,
+          "depart": 638,
+          "arrive": 644,
+          "departTime": "10:38",
+          "arriveTime": "10:44"
+        },
+        {
+          "fromKey": "node/1278632226",
+          "toKey": "node/4912902408",
+          "fromName": "Galerie 2000",
+          "toName": "Bloom Sushi",
+          "mode": "walk",
+          "km": 0.38,
+          "minutes": 6,
+          "depart": 735,
+          "arrive": 741,
+          "departTime": "12:15",
+          "arriveTime": "12:21"
+        },
+        {
+          "fromKey": "node/4912902408",
+          "toKey": "way/19910836",
+          "fromName": "Bloom Sushi",
+          "toName": "Musée d'Art Contemporain (MAC)",
+          "mode": "walk",
+          "km": 0.13,
+          "minutes": 2,
+          "depart": 801,
+          "arrive": 803,
+          "departTime": "13:21",
+          "arriveTime": "13:23"
+        },
+        {
+          "fromKey": "way/19910836",
+          "toKey": "way/199560529",
+          "fromName": "Musée d'Art Contemporain (MAC)",
+          "toName": "Le Parterre",
+          "mode": "walk",
+          "km": 0.25,
+          "minutes": 4,
+          "depart": 893,
+          "arrive": 897,
+          "departTime": "14:53",
+          "arriveTime": "14:57"
+        },
+        {
+          "fromKey": "way/199560529",
+          "toKey": "base",
+          "fromName": "Le Parterre",
+          "toName": "Hôtel Place d'Armes",
+          "mode": "walk",
+          "km": 0.88,
+          "minutes": 12,
+          "depart": 942,
+          "arrive": 954,
+          "departTime": "15:42",
+          "arriveTime": "15:54"
+        }
+      ],
+      "narrative": [
+        "Tuesday, October 27 is built around Bouche de métro Guimard, with the day's stops gathered close so the walking stays easy.",
+        "Bouche de métro Guimard fills 09:38–10:38 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Bouche de métro Guimard — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Bouche de métro Guimard, it is a 6-minute walk to Galerie 2000 — close enough to stroll without watching the clock.",
+        "Galerie 2000 offers a quieter hour indoors, 10:44–11:44.",
+        "Bloom Sushi is next, just 6 minutes on foot from Galerie 2000.",
+        "Lunch is at Bloom Sushi, 12:21–13:21.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = only — the dietary need is provided for, not hoped for.",
+        "Because the kitchen is vegan-only, its menu carries no egg either; only shared-surface cross-contact can't be confirmed from listings, so a quick word on arrival is still wise.",
+        "The walk from Bloom Sushi to Musée d'Art Contemporain (MAC) takes about 2 minutes — a breather between stops, not a hike.",
+        "Musée d'Art Contemporain (MAC) gets the morning's main slot, 13:23 to 14:53 — unhurried, with time to double back to favourites.",
+        "Musée d'Art Contemporain (MAC) lists its hours as 11:00–18:00 today, and the visit sits comfortably inside them.",
+        "A short wander of 4 minutes brings you to Le Parterre.",
+        "Le Parterre is the day's green pause, 14:57–15:42 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 15:54 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 954
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 1,
+    "infants": 0
+  },
+  "budgetCap": {
+    "amount": 1300,
+    "currency": "CAD",
+    "verdict": "AT RISK — the estimated range (CAD 642–1506) straddles the cap (CAD 1300) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "We are a couple traveling with our five year old son for a relaxed five day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a building with an elevator and metro friendly routes so we never walk too far with a tired kid. We eat halal and our son cannot eat peanuts, so please favor restaurants that label halal options clearly. Keep the total budget under one thousand three hundred dollars, avoid long walks between stops, and also include a morning at the Jean Talon market and an afternoon at the science centre please.",
+    "wordCount": 107,
+    "source": "generated-for-location"
+  },
+  "anchorStay": {
+    "name": "Hôtel Place d'Armes",
+    "url": "https://www.openstreetmap.org/node/1178670185",
+    "walkableSights": 80,
+    "walkableFood": 164,
+    "distCenterKm": 0.88,
+    "quietProxy": 0,
+    "anchorScore": 484.2,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-science-centre",
+      "label": "science centre afternoon",
+      "status": "unmet",
+      "reason": "no matching candidate exists in the open data for this destination"
+    },
+    {
+      "id": "keyword-market",
+      "label": "Jean Talon market morning",
+      "status": "unmet",
+      "reason": "candidate \"Marché Jean Talon\" exists but no feasible slot remained (distance/geometry)"
+    }
+  ],
+  "solverNotes": [],
+  "packCounts": {
+    "total": 3511,
+    "sights": 850,
+    "foods": 2451,
+    "stays": 146,
+    "transport": 64
+  },
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 25,
+    "enriched": 0,
+    "hoursUnknown": null,
+    "dataLabel": "off — OSM only",
+    "liveApiProof": "NOT DONE — awaiting GOOGLE_PLACES_API_KEY provisioning by the owner; the key is read from env at runtime only and never stored"
+  },
+  "requirementVerdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 23 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:35–17:00)"
+    },
+    {
+      "id": "keyword-market",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches Jean Talon market morning"
+    },
+    {
+      "id": "keyword-science-centre",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches science centre afternoon"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "KEPT",
+      "evidence": "5 of 5 lunches carry explicit dietary tags in the data (peanuts, halal)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1300 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"L'Original\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Musée du marché Sainte-Anne et du parlement de la province du Canada\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Square des Frères-Charon\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Sir George-Étienne Cartier NHS\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Parc Toussaint-Louverture\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Élément du mur de Berlin\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Galerie 203\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Galerie de Chine\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Square Dorchester\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Bouche de métro Guimard\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Galerie 2000\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Le Parterre\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T20:55:42.484Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "LOV",
+        "day": 1,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Resto Végo",
+        "day": 2,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Lola Rosa",
+        "day": 3,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Ütea",
+        "day": 4,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Bloom Sushi",
+        "day": 5,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "L'Original",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Square des Frères-Charon",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Sir George-Étienne Cartier NHS",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Parc Toussaint-Louverture",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Élément du mur de Berlin",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Galerie 203",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Galerie de Chine",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Square Dorchester",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "Bouche de métro Guimard",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "Galerie 2000",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 5,
+        "item": "Le Parterre",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "L'Original",
+        "risk": "tight turnaround — only 4 min after \"Galerie D'Art Inuit Images Boréales\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Musée du marché Sainte-Anne et du parlement de la province du Canada",
+        "risk": "tight turnaround — only 4 min after \"LOV\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Square des Frères-Charon",
+        "risk": "tight turnaround — only 4 min after \"Musée du marché Sainte-Anne et du parlement de la province du Canada\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Galerie Peter W. Hart",
+        "risk": "tight turnaround — only 3 min after \"Sir George-Étienne Cartier NHS\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Centre de design de l'UQAM",
+        "risk": "tight turnaround — only 5 min after \"Resto Végo\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Parc Toussaint-Louverture",
+        "risk": "tight turnaround — only 3 min after \"Centre de design de l'UQAM\"",
+        "severity": "low"
+      },
+      {
+        "day": 3,
+        "item": "Galerie 203",
+        "risk": "tight turnaround — only 4 min after \"Élément du mur de Berlin\"",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Barbie Expo",
+        "risk": "tight turnaround — only 5 min after \"Ütea\"",
+        "severity": "low"
+      },
+      {
+        "day": 4,
+        "item": "Square Dorchester",
+        "risk": "tight turnaround — only 4 min after \"Barbie Expo\"",
+        "severity": "low"
+      },
+      {
+        "day": 5,
+        "item": "Galerie 2000",
+        "risk": "tight turnaround — only 6 min after \"Bouche de métro Guimard\"",
+        "severity": "low"
+      },
+      {
+        "day": 5,
+        "item": "Musée d'Art Contemporain (MAC)",
+        "risk": "tight turnaround — only 2 min after \"Bloom Sushi\"",
+        "severity": "low"
+      },
+      {
+        "day": 5,
+        "item": "Le Parterre",
+        "risk": "tight turnaround — only 4 min after \"Musée d'Art Contemporain (MAC)\"",
+        "severity": "low"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "AT RISK",
+      "note": "the estimated range (CAD 642–1506) straddles the cap (CAD 1300)",
+      "cap": {
+        "amount": 1300,
+        "currency": "CAD",
+        "verdict": "AT RISK — the estimated range (CAD 642–1506) straddles the cap (CAD 1300) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 19,
+      "evidencedItems": 19,
+      "evidenceByTier": {
+        "COSTED": 19
+      },
+      "estimatedTotals": {
+        "low": 642,
+        "high": 1506,
+        "currency": "CAD"
+      },
+      "payingParty": 3,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 0,
+      "bandDistribution": {},
+      "bandSource": null
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 5,
+        "walkingKmEstimated": 2.25,
+        "lastEnd": "15:54"
+      },
+      {
+        "day": 2,
+        "stops": 5,
+        "walkingKmEstimated": 3.7,
+        "lastEnd": "16:08"
+      },
+      {
+        "day": 3,
+        "stops": 3,
+        "walkingKmEstimated": 2.13,
+        "lastEnd": "17:03"
+      },
+      {
+        "day": 4,
+        "stops": 5,
+        "walkingKmEstimated": 3.46,
+        "lastEnd": "16:06"
+      },
+      {
+        "day": 5,
+        "stops": 5,
+        "walkingKmEstimated": 2.59,
+        "lastEnd": "15:54"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Hôtel Place d'Armes",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 18
+  }
+}

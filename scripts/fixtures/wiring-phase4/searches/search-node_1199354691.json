@@ -1,0 +1,40 @@
+{
+  "places": [
+    {
+      "id": "ChIJqwAQnqK-uEwRIxnWIPF1QtU",
+      "formattedAddress": "Québec City, QC G1C 2H1, Canada",
+      "location": {
+        "latitude": 46.8875043,
+        "longitude": -71.1477874
+      },
+      "displayName": {
+        "text": "Montmorency Falls",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJA3AF9hS_uEwRQ4ZcVuaCDoA",
+      "formattedAddress": "5300 Bd Sainte-Anne, Québec, QC G1C 0M3, Canada",
+      "location": {
+        "latitude": 46.885368799999995,
+        "longitude": -71.14506469999999
+      },
+      "displayName": {
+        "text": "Parc de la Chute-Montmorency",
+        "languageCode": "en"
+      }
+    },
+    {
+      "id": "ChIJr9Olv7y-uEwRoUWddcxEiaw",
+      "formattedAddress": "5300 Bd Sainte-Anne, Québec, QC G1C 0M3, Canada",
+      "location": {
+        "latitude": 46.8896537,
+        "longitude": -71.1456078
+      },
+      "displayName": {
+        "text": "Montmorency Falls Vista Point",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

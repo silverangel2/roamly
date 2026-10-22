@@ -1,0 +1,5 @@
+{
+  "corpus": "wiring-phase2",
+  "capturedBy": "capture-phase2-fixtures.mjs",
+  "note": "Inputs + frozen shadow outputs for the Phase 2 TS domain core parity checks. Tests replay from this corpus only — no shadow imports, no outside files."
+}

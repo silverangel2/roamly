@@ -1,0 +1,16 @@
+{
+  "id": "ChIJ0fcx7uaVuEwRFIuFMYk6UyI",
+  "rating": 4.4,
+  "businessStatus": "CLOSED_TEMPORARILY",
+  "userRatingCount": 222,
+  "displayName": {
+    "text": "Naval Museum of Quebec",
+    "languageCode": "en"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleParking": true,
+    "wheelchairAccessibleEntrance": true,
+    "wheelchairAccessibleRestroom": true,
+    "wheelchairAccessibleSeating": true
+  }
+}

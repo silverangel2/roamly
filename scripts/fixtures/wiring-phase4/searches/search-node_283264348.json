@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJJ9khTNyVuEwRzT2Bjflz-f4",
+      "formattedAddress": "10 Rue Sainte-Anne, Québec, QC G1R 3X1, Canada",
+      "location": {
+        "latitude": 46.8130951,
+        "longitude": -71.205182
+      },
+      "displayName": {
+        "text": "The Fort Museum",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

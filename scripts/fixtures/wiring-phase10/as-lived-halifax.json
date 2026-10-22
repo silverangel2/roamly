@@ -1,0 +1,319 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase10",
+    "source": {
+      "package": "part2-travel-days-2026-10-21",
+      "files": [
+        "fixtures/as-lived-trip.json"
+      ],
+      "note": "The shadow Build 2 as-lived Halifax record verbatim (E2E tester Ch. 6 scenario): 10 lived items, 6 verified check-ins, overall rating 5, known booked subtotal CAD 876 (flight 412 + hotel 368 + cruise 96; Lou Pecou unpriced). The Phase 10 checks rebuild production-shaped inputs (plan items, M2 ledger entries, booking facts) from this record and grade the wired modules against its facts."
+    }
+  },
+  "data": {
+    "constraintOutcomes": [
+      {
+        "constraint": "budget",
+        "note": "Known booked subtotal CAD 876; restaurant price remained UNKNOWN and was not converted to zero.",
+        "verdict": "held"
+      },
+      {
+        "constraint": "rest-block",
+        "note": "The party returned to the hotel after the museum on day 2.",
+        "verdict": "held"
+      },
+      {
+        "constraint": "earliest-start",
+        "note": "No day began before 09:00.",
+        "verdict": "held"
+      }
+    ],
+    "dates": [
+      "2026-10-23",
+      "2026-10-24",
+      "2026-10-25"
+    ],
+    "destination": "Halifax",
+    "evidenceStatus": "SYNTHETIC-ILLUSTRATIVE as-lived record for shadow proof; not a real traveler's history",
+    "flights": [
+      {
+        "arrival": "2026-10-23 13:20 America/Halifax",
+        "departure": "2026-10-23 10:05 America/Toronto",
+        "flight": "AC 1847",
+        "from": "Toronto Pearson (YYZ)",
+        "price": {
+          "amount": 412,
+          "currency": "CAD",
+          "status": "booked"
+        },
+        "provider": "Air Canada",
+        "to": "Halifax Stanfield (YHZ)"
+      }
+    ],
+    "hotel": {
+      "checkInActual": "2026-10-23 15:04",
+      "checkOutActual": "2026-10-25 10:52",
+      "name": "Harbourlight Hotel & Suites",
+      "price": {
+        "amount": 368,
+        "currency": "CAD",
+        "status": "booked"
+      },
+      "stars": 4
+    },
+    "items": [
+      {
+        "actual": {
+          "end": "13:20",
+          "start": "10:05"
+        },
+        "day": 1,
+        "evidence": {
+          "reference": "SYN-AC-7Q2M",
+          "type": "booking-reconciliation"
+        },
+        "itemKey": "flight-ac1847",
+        "name": "Flight AC 1847 to Halifax",
+        "outcome": "kept",
+        "planned": {
+          "end": "13:20",
+          "start": "10:05"
+        },
+        "travelerRating": 5
+      },
+      {
+        "actual": {
+          "checkedIn": "14:07",
+          "dwellMin": 41,
+          "left": "14:48"
+        },
+        "day": 1,
+        "evidence": {
+          "type": "check-in",
+          "verified": true
+        },
+        "itemKey": "arrival-lunch",
+        "liked": "A calm first meal after the flight.",
+        "name": "Five Fishermen",
+        "outcome": "kept",
+        "planned": {
+          "end": "14:50",
+          "start": "14:05"
+        },
+        "travelerRating": 5
+      },
+      {
+        "actual": {
+          "checkedIn": "15:40",
+          "dwellMin": 62,
+          "left": "16:42"
+        },
+        "day": 1,
+        "evidence": {
+          "type": "check-in",
+          "verified": true
+        },
+        "itemKey": "citadel",
+        "liked": "The view and the unhurried pace.",
+        "name": "Halifax Citadel National Historic Site",
+        "outcome": "kept",
+        "planned": {
+          "end": "16:45",
+          "start": "15:40"
+        },
+        "travelerRating": 5
+      },
+      {
+        "actual": {
+          "end": "18:45",
+          "start": "16:55",
+          "state": "rested at the hotel"
+        },
+        "day": 1,
+        "evidence": {
+          "type": "traveler-action",
+          "verified": true
+        },
+        "itemKey": "hotel-rest",
+        "name": "Back to the hotel — rest and change",
+        "outcome": "kept",
+        "planned": {
+          "end": "18:45",
+          "start": "16:55"
+        },
+        "travelerRating": null
+      },
+      {
+        "actual": {
+          "checkedIn": "19:03",
+          "dwellMin": 68,
+          "left": "20:11"
+        },
+        "day": 1,
+        "evidence": {
+          "type": "check-in",
+          "verified": true
+        },
+        "itemKey": "lou-pecou-dinner",
+        "liked": "Warm service and a quiet table.",
+        "name": "Lou Pécou",
+        "outcome": "kept",
+        "planned": {
+          "end": "20:00",
+          "start": "19:00"
+        },
+        "travelerRating": 5
+      },
+      {
+        "actual": {
+          "checkedIn": "20:18",
+          "dwellMin": 102,
+          "left": "22:00"
+        },
+        "day": 1,
+        "evidence": {
+          "type": "check-in",
+          "verified": true
+        },
+        "itemKey": "harbour-cruise",
+        "liked": "The harbour lights were the high point of the day.",
+        "name": "Halifax Harbour Evening Cruise",
+        "outcome": "kept",
+        "planned": {
+          "end": "22:00",
+          "start": "20:30"
+        },
+        "travelerRating": 5
+      },
+      {
+        "actual": {
+          "recordedAt": "09:42",
+          "state": "skipped-by-choice"
+        },
+        "day": 2,
+        "evidence": {
+          "action": "skip",
+          "type": "traveler-action",
+          "verified": true
+        },
+        "itemKey": "art-gallery-day2",
+        "name": "Art Gallery of Nova Scotia",
+        "outcome": "skipped",
+        "planned": {
+          "end": "11:00",
+          "start": "10:00"
+        },
+        "signal": {
+          "classification": "SKIP",
+          "meaning": "traveler choice; teaches taste",
+          "rehomeCandidate": false
+        },
+        "travelerRating": null
+      },
+      {
+        "actual": {
+          "checkedIn": "11:34",
+          "dwellMin": 88,
+          "left": "13:02"
+        },
+        "day": 2,
+        "evidence": {
+          "type": "check-in",
+          "verified": true
+        },
+        "itemKey": "maritime-museum-day2",
+        "liked": "Worth more time than planned.",
+        "name": "Maritime Museum of the Atlantic",
+        "outcome": "kept",
+        "planned": {
+          "end": "13:00",
+          "start": "11:30"
+        },
+        "travelerRating": 5
+      },
+      {
+        "actual": {
+          "recordedAt": "14:05",
+          "state": "missed-due-to-weather-and-fatigue"
+        },
+        "day": 2,
+        "evidence": {
+          "note": "Afternoon rain arrived and the party chose rest; retained as a re-homing candidate, not a taste skip.",
+          "type": "circumstance-record",
+          "verified": true
+        },
+        "itemKey": "royal-artillery-day2",
+        "name": "Royal Artillery Park",
+        "outcome": "changed",
+        "planned": {
+          "end": "15:00",
+          "start": "14:00"
+        },
+        "signal": {
+          "classification": "MISSED",
+          "meaning": "circumstance, not taste",
+          "rehomeCandidate": true
+        },
+        "travelerRating": null
+      },
+      {
+        "actual": {
+          "checkedIn": "13:12",
+          "dwellMin": 40,
+          "left": "13:52"
+        },
+        "day": 2,
+        "evidence": {
+          "type": "check-in",
+          "verified": true
+        },
+        "itemKey": "day2-lunch",
+        "liked": "Good soup, close to the museum.",
+        "name": "The Bread Lounge",
+        "outcome": "kept",
+        "planned": {
+          "end": "13:50",
+          "start": "13:10"
+        },
+        "travelerRating": 5
+      }
+    ],
+    "overallTravelerRating": 5,
+    "ratingScale": 5,
+    "riskOutcomes": [
+      {
+        "materialized": false,
+        "riskRef": "hours-risk:citadel"
+      },
+      {
+        "materialized": true,
+        "riskRef": "weather:day2-afternoon-rain"
+      }
+    ],
+    "synthetic": true,
+    "travelerRef": "traveler:avery-morgan-synthetic",
+    "tripRef": "shadow-halifax-owner-chain",
+    "weather": [
+      {
+        "conditions": "Clear",
+        "date": "2026-10-23",
+        "highC": 12,
+        "lowC": 7,
+        "source": "synthetic as-lived fixture"
+      },
+      {
+        "conditions": "Light rain in the afternoon",
+        "date": "2026-10-24",
+        "highC": 10,
+        "lowC": 6,
+        "source": "synthetic as-lived fixture"
+      },
+      {
+        "conditions": "Cloudy",
+        "date": "2026-10-25",
+        "highC": 11,
+        "lowC": 6,
+        "source": "synthetic as-lived fixture"
+      }
+    ]
+  }
+}

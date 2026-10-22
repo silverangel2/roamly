@@ -1,0 +1,1218 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T21:01:30.566Z",
+  "runDate": "2026-10-21",
+  "destination": "Banff",
+  "country": "Canada",
+  "poolId": "banff-mountain",
+  "startDate": "2026-10-23",
+  "endDate": "2026-10-26",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-23",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/476721234",
+          "name": "Luxton Home & Garden Museum",
+          "kind": "museum",
+          "role": "stop",
+          "start": 602,
+          "end": 692,
+          "pos": {
+            "lat": 51.1768899,
+            "lon": -115.5690306
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/476721234",
+          "price": "UNKNOWN",
+          "startTime": "10:02",
+          "endTime": "11:32",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/10922654374",
+          "name": "Brandon T. Brown Wilderness Gallery",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 696,
+          "end": 756,
+          "pos": {
+            "lat": 51.1774373,
+            "lon": -115.5725632
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/10922654374",
+          "price": "UNKNOWN",
+          "startTime": "11:36",
+          "endTime": "12:36",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/10268515174",
+          "name": "The Bear Street Tavern",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 758,
+          "end": 818,
+          "pos": {
+            "lat": 51.1775,
+            "lon": -115.572551
+          },
+          "hours": {
+            "status": "known",
+            "open": 690,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "11:30-21:00",
+          "url": "https://www.openstreetmap.org/node/10268515174",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:gluten_free = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:gluten_free = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:38",
+          "endTime": "13:38",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/202755721",
+          "name": "Whyte Museum of the Canadian Rockies",
+          "kind": "museum",
+          "role": "stop",
+          "start": 822,
+          "end": 912,
+          "pos": {
+            "lat": 51.1751534,
+            "lon": -115.5732121
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/202755721",
+          "price": "UNKNOWN",
+          "startTime": "13:42",
+          "endTime": "15:12",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/202739088",
+          "name": "Central Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 915,
+          "end": 960,
+          "pos": {
+            "lat": 51.1736615,
+            "lon": -115.5728355
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/202739088",
+          "price": "UNKNOWN",
+          "startTime": "15:15",
+          "endTime": "16:00",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/476721234",
+          "fromName": "Mountain Home B & B",
+          "toName": "Luxton Home & Garden Museum",
+          "mode": "walk",
+          "km": 0.12,
+          "minutes": 2,
+          "depart": 600,
+          "arrive": 602,
+          "departTime": "10:00",
+          "arriveTime": "10:02"
+        },
+        {
+          "fromKey": "way/476721234",
+          "toKey": "node/10922654374",
+          "fromName": "Luxton Home & Garden Museum",
+          "toName": "Brandon T. Brown Wilderness Gallery",
+          "mode": "walk",
+          "km": 0.25,
+          "minutes": 4,
+          "depart": 692,
+          "arrive": 696,
+          "departTime": "11:32",
+          "arriveTime": "11:36"
+        },
+        {
+          "fromKey": "node/10922654374",
+          "toKey": "node/10268515174",
+          "fromName": "Brandon T. Brown Wilderness Gallery",
+          "toName": "The Bear Street Tavern",
+          "mode": "walk",
+          "km": 0.01,
+          "minutes": 2,
+          "depart": 756,
+          "arrive": 758,
+          "departTime": "12:36",
+          "arriveTime": "12:38"
+        },
+        {
+          "fromKey": "node/10268515174",
+          "toKey": "way/202755721",
+          "fromName": "The Bear Street Tavern",
+          "toName": "Whyte Museum of the Canadian Rockies",
+          "mode": "walk",
+          "km": 0.26,
+          "minutes": 4,
+          "depart": 818,
+          "arrive": 822,
+          "departTime": "13:38",
+          "arriveTime": "13:42"
+        },
+        {
+          "fromKey": "way/202755721",
+          "toKey": "way/202739088",
+          "fromName": "Whyte Museum of the Canadian Rockies",
+          "toName": "Central Park",
+          "mode": "walk",
+          "km": 0.17,
+          "minutes": 3,
+          "depart": 912,
+          "arrive": 915,
+          "departTime": "15:12",
+          "arriveTime": "15:15"
+        },
+        {
+          "fromKey": "way/202739088",
+          "toKey": "base",
+          "fromName": "Central Park",
+          "toName": "Mountain Home B & B",
+          "mode": "walk",
+          "km": 0.4,
+          "minutes": 6,
+          "depart": 960,
+          "arrive": 966,
+          "departTime": "16:00",
+          "arriveTime": "16:06"
+        }
+      ],
+      "narrative": [
+        "Friday, October 23 begins at a humane hour — the first stop is Luxton Home & Garden Museum at 10:02, and nothing on this day starts before 10:00.",
+        "The base for the night is Mountain Home B & B, picked for what surrounds it: 16 sights within a short walk.",
+        "Rain is likelier today (72% chance), so the plan leans indoors and keeps the outdoor time short.",
+        "Luxton Home & Garden Museum gets the morning's main slot, 10:02 to 11:32 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Luxton Home & Garden Museum — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Luxton Home & Garden Museum, it is a 4-minute walk to Brandon T. Brown Wilderness Gallery — close enough to stroll without watching the clock.",
+        "Brandon T. Brown Wilderness Gallery offers a quieter hour indoors, 11:36–12:36.",
+        "The Bear Street Tavern is next, just 2 minutes on foot from Brandon T. Brown Wilderness Gallery.",
+        "Lunch is at Bear Street Tavern, 12:38–13:38.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Bear Street Tavern to Whyte Museum of the Canadian Rockies takes about 4 minutes — a breather between stops, not a hike.",
+        "Give the Canadian Rockies a full 90 minutes (13:42–15:12); rushing it would miss the point.",
+        "A short wander of 3 minutes brings you to Central Park.",
+        "Central Park is the day's green pause, 15:15–16:00 — no tickets, no timetable to chase.",
+        "The day winds down back at base by 16:06 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 966
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-24",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/476428301",
+          "name": "Buffalo Nations Luxton Museum",
+          "kind": "museum",
+          "role": "stop",
+          "start": 608,
+          "end": 698,
+          "pos": {
+            "lat": 51.1721093,
+            "lon": -115.5734728
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/476428301",
+          "price": "UNKNOWN",
+          "startTime": "10:08",
+          "endTime": "11:38",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/202864187",
+          "name": "Banff Recreation Grounds",
+          "kind": "park",
+          "role": "stop",
+          "start": 701,
+          "end": 746,
+          "pos": {
+            "lat": 51.1730711,
+            "lon": -115.5762893
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/202864187",
+          "price": "UNKNOWN",
+          "startTime": "11:41",
+          "endTime": "12:26",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/14049566901",
+          "name": "Mountain Folk Coffee Co.",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 752,
+          "end": 812,
+          "pos": {
+            "lat": 51.1753527,
+            "lon": -115.5712215
+          },
+          "hours": {
+            "status": "known",
+            "open": 360,
+            "close": 1080,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 06:00-18:00",
+          "url": "https://www.openstreetmap.org/node/14049566901",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:gluten_free = yes",
+              "diet:lactose_free = yes",
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:gluten_free = yes, diet:lactose_free = yes, diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:32",
+          "endTime": "13:32",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/263399270",
+          "name": "Canada Place Banff",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 818,
+          "end": 878,
+          "pos": {
+            "lat": 51.171522,
+            "lon": -115.5713091
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/263399270",
+          "price": "UNKNOWN",
+          "startTime": "13:38",
+          "endTime": "14:38",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/476428301",
+          "fromName": "Mountain Home B & B",
+          "toName": "Buffalo Nations Luxton Museum",
+          "mode": "walk",
+          "km": 0.56,
+          "minutes": 8,
+          "depart": 600,
+          "arrive": 608,
+          "departTime": "10:00",
+          "arriveTime": "10:08"
+        },
+        {
+          "fromKey": "way/476428301",
+          "toKey": "way/202864187",
+          "fromName": "Buffalo Nations Luxton Museum",
+          "toName": "Banff Recreation Grounds",
+          "mode": "walk",
+          "km": 0.22,
+          "minutes": 3,
+          "depart": 698,
+          "arrive": 701,
+          "departTime": "11:38",
+          "arriveTime": "11:41"
+        },
+        {
+          "fromKey": "way/202864187",
+          "toKey": "node/14049566901",
+          "fromName": "Banff Recreation Grounds",
+          "toName": "Mountain Folk Coffee Co.",
+          "mode": "walk",
+          "km": 0.43,
+          "minutes": 6,
+          "depart": 746,
+          "arrive": 752,
+          "departTime": "12:26",
+          "arriveTime": "12:32"
+        },
+        {
+          "fromKey": "node/14049566901",
+          "toKey": "node/263399270",
+          "fromName": "Mountain Folk Coffee Co.",
+          "toName": "Canada Place Banff",
+          "mode": "walk",
+          "km": 0.43,
+          "minutes": 6,
+          "depart": 812,
+          "arrive": 818,
+          "departTime": "13:32",
+          "arriveTime": "13:38"
+        },
+        {
+          "fromKey": "node/263399270",
+          "toKey": "base",
+          "fromName": "Canada Place Banff",
+          "toName": "Mountain Home B & B",
+          "mode": "walk",
+          "km": 0.53,
+          "minutes": 8,
+          "depart": 878,
+          "arrive": 886,
+          "departTime": "14:38",
+          "arriveTime": "14:46"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 is built around Buffalo Nations Luxton Museum, with the day's stops gathered close so the walking stays easy.",
+        "Rain is likelier today (62% chance), so the plan leans indoors and keeps the outdoor time short.",
+        "Buffalo Nations Luxton Museum gets the morning's main slot, 10:08 to 11:38 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Buffalo Nations Luxton Museum — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Buffalo Nations Luxton Museum, it is a 3-minute walk to Banff Recreation Grounds — close enough to stroll without watching the clock.",
+        "Banff Recreation Grounds is the day's green pause, 11:41–12:26 — no tickets, no timetable to chase.",
+        "Mountain Folk Coffee Co. is next, just 6 minutes on foot from Banff Recreation Grounds.",
+        "Lunch is at Mountain Folk Coffee Co., 12:32–13:32.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:lactose_free = yes, diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Mountain Folk Coffee Co. to Canada Place Banff takes about 6 minutes — a breather between stops, not a hike.",
+        "Canada Place Banff fills 13:38–14:38 — long enough to enjoy properly, short enough to keep the day light.",
+        "The day winds down back at base by 14:46 — 3 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 886
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-25",
+      "role": "rest-afternoon",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/1467693084",
+          "name": "Muskrat Street Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 609,
+          "end": 654,
+          "pos": {
+            "lat": 51.1814639,
+            "lon": -115.5651122
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/1467693084",
+          "price": "UNKNOWN",
+          "startTime": "10:09",
+          "endTime": "10:54",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/10916000020",
+          "name": "BeaverTails Pastry Coffee",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 746,
+          "end": 806,
+          "pos": {
+            "lat": 51.1755111,
+            "lon": -115.570738
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 11:00-22:00",
+          "url": "https://www.openstreetmap.org/node/10916000020",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:26",
+          "endTime": "13:26",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 806,
+          "end": 1020,
+          "key": "rest-2026-10-25",
+          "startTime": "13:26",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/1467693084",
+          "fromName": "Mountain Home B & B",
+          "toName": "Muskrat Street Park",
+          "mode": "walk",
+          "km": 0.65,
+          "minutes": 9,
+          "depart": 600,
+          "arrive": 609,
+          "departTime": "10:00",
+          "arriveTime": "10:09"
+        },
+        {
+          "fromKey": "way/1467693084",
+          "toKey": "node/10916000020",
+          "fromName": "Muskrat Street Park",
+          "toName": "BeaverTails Pastry Coffee",
+          "mode": "walk",
+          "km": 0.77,
+          "minutes": 11,
+          "depart": 735,
+          "arrive": 746,
+          "departTime": "12:15",
+          "arriveTime": "12:26"
+        },
+        {
+          "fromKey": "node/10916000020",
+          "toKey": "base",
+          "fromName": "BeaverTails Pastry Coffee",
+          "toName": "Mountain Home B & B",
+          "mode": "walk",
+          "km": 0.18,
+          "minutes": 3,
+          "depart": 1020,
+          "arrive": 1023,
+          "departTime": "17:00",
+          "arriveTime": "17:03"
+        }
+      ],
+      "narrative": [
+        "Sunday, October 25 is built around Muskrat Street Park, with the day's stops gathered close so the walking stays easy.",
+        "Rain is likelier today (62% chance), so the plan leans indoors and keeps the outdoor time short.",
+        "Muskrat Street Park is the day's green pause, 10:09–10:54 — no tickets, no timetable to chase.",
+        "Opening hours weren't listed for Muskrat Street Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Muskrat Street Park, it is a 11-minute walk to BeaverTails Pastry Coffee — close enough to stroll without watching the clock.",
+        "Lunch is at BeaverTails Pastry Coffee, 12:26–13:26.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The day winds down back at base by 17:03 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1023
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-26",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/6467331285",
+          "name": "Banff Pedestrian Bridge",
+          "kind": "viewpoint",
+          "role": "stop",
+          "start": 605,
+          "end": 630,
+          "pos": {
+            "lat": 51.1727524,
+            "lon": -115.5682317
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/6467331285",
+          "price": "UNKNOWN",
+          "startTime": "10:05",
+          "endTime": "10:30",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/13929952785",
+          "name": "JUGEMU Banff | Modern Japnaese",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 739,
+          "end": 799,
+          "pos": {
+            "lat": 51.17478,
+            "lon": -115.5705142
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/13929952785",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes"
+          },
+          "startTime": "12:19",
+          "endTime": "13:19",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/1180698590",
+          "name": "Shaw Amphitheatre",
+          "kind": "venue",
+          "role": "stop",
+          "start": 808,
+          "end": 868,
+          "pos": {
+            "lat": 51.1721373,
+            "lon": -115.562909
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/1180698590",
+          "price": "UNKNOWN",
+          "startTime": "13:28",
+          "endTime": "14:28",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 40,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — venue/theatre admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/6467331285",
+          "fromName": "Mountain Home B & B",
+          "toName": "Banff Pedestrian Bridge",
+          "mode": "walk",
+          "km": 0.35,
+          "minutes": 5,
+          "depart": 600,
+          "arrive": 605,
+          "departTime": "10:00",
+          "arriveTime": "10:05"
+        },
+        {
+          "fromKey": "node/6467331285",
+          "toKey": "node/13929952785",
+          "fromName": "Banff Pedestrian Bridge",
+          "toName": "JUGEMU Banff | Modern Japnaese",
+          "mode": "walk",
+          "km": 0.28,
+          "minutes": 4,
+          "depart": 735,
+          "arrive": 739,
+          "departTime": "12:15",
+          "arriveTime": "12:19"
+        },
+        {
+          "fromKey": "node/13929952785",
+          "toKey": "way/1180698590",
+          "fromName": "JUGEMU Banff | Modern Japnaese",
+          "toName": "Shaw Amphitheatre",
+          "mode": "walk",
+          "km": 0.61,
+          "minutes": 9,
+          "depart": 799,
+          "arrive": 808,
+          "departTime": "13:19",
+          "arriveTime": "13:28"
+        },
+        {
+          "fromKey": "way/1180698590",
+          "toKey": "base",
+          "fromName": "Shaw Amphitheatre",
+          "toName": "Mountain Home B & B",
+          "mode": "walk",
+          "km": 0.57,
+          "minutes": 8,
+          "depart": 868,
+          "arrive": 876,
+          "departTime": "14:28",
+          "arriveTime": "14:36"
+        }
+      ],
+      "narrative": [
+        "Monday, October 26 is built around Banff Pedestrian Bridge, with the day's stops gathered close so the walking stays easy.",
+        "Banff Pedestrian Bridge fills 10:05–10:30 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Banff Pedestrian Bridge — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Banff Pedestrian Bridge, it is a 4-minute walk to JUGEMU Banff | Modern Japnaese — close enough to stroll without watching the clock.",
+        "Lunch is at JUGEMU Banff | Modern Japnaese, 12:19–13:19.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes — the dietary need is provided for, not hoped for.",
+        "Shaw Amphitheatre is next, just 9 minutes on foot from JUGEMU Banff | Modern Japnaese.",
+        "Shaw Amphitheatre anchors the stop from 13:28 to 14:28.",
+        "The day winds down back at base by 14:36 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 876
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 0,
+    "infants": 0
+  },
+  "budgetCap": {
+    "amount": 1500,
+    "currency": "CAD",
+    "verdict": "WITHIN — even the top of the estimated range (CAD 586) sits under the cap (CAD 1500) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "We are a couple who love the mountains but not early alarms for a slow four day break. Please keep every day gentle, with no starts before ten and one full rest afternoon in the middle. We need a room with an elevator in the building and gentle paths only, as my knee cannot handle steep hikes. I am dairy free and my partner is vegetarian, so please favor restaurants with clear plant based options. Keep the total budget under one thousand five hundred dollars, avoid long walks between stops, and also include the gondola ride up Sulphur Mountain and an afternoon at the hot springs please.",
+    "wordCount": 107,
+    "source": "generated-for-location"
+  },
+  "anchorStay": {
+    "name": "Mountain Home B & B",
+    "url": "https://www.openstreetmap.org/node/11024192936",
+    "walkableSights": 16,
+    "walkableFood": 71,
+    "distCenterKm": 0.33,
+    "quietProxy": 0,
+    "anchorScore": 153.8,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-gondola",
+      "label": "gondola ride up Sulphur Mountain",
+      "status": "unmet",
+      "reason": "no matching candidate exists in the open data for this destination"
+    },
+    {
+      "id": "keyword-hot-springs",
+      "label": "hot springs afternoon",
+      "status": "unmet",
+      "reason": "candidate \"Banff Upper Hot Springs\" exists but no feasible slot remained (distance/geometry)"
+    }
+  ],
+  "solverNotes": [],
+  "packCounts": {
+    "total": 177,
+    "sights": 49,
+    "foods": 104,
+    "stays": 21,
+    "transport": 3
+  },
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 16,
+    "enriched": 0,
+    "hoursUnknown": null,
+    "dataLabel": "off — OSM only",
+    "liveApiProof": "NOT DONE — awaiting GOOGLE_PLACES_API_KEY provisioning by the owner; the key is read from env at runtime only and never stored"
+  },
+  "requirementVerdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 14 timed items start at or after 10:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:26–17:00)"
+    },
+    {
+      "id": "keyword-gondola",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches gondola ride up Sulphur Mountain"
+    },
+    {
+      "id": "keyword-hot-springs",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches hot springs afternoon"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "KEPT",
+      "evidence": "4 of 4 lunches carry explicit dietary tags in the data (vegetarian, dairy free)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1500 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Luxton Home & Garden Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Brandon T. Brown Wilderness Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Whyte Museum of the Canadian Rockies\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Central Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Buffalo Nations Luxton Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Banff Recreation Grounds\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Canada Place Banff\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Muskrat Street Park\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Banff Pedestrian Bridge\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"JUGEMU Banff | Modern Japnaese\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Shaw Amphitheatre\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T21:01:30.569Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "The Bear Street Tavern",
+        "day": 1,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Mountain Folk Coffee Co.",
+        "day": 2,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "BeaverTails Pastry Coffee",
+        "day": 3,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "JUGEMU Banff | Modern Japnaese",
+        "day": 4,
+        "score": 65,
+        "reasons": [
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Luxton Home & Garden Museum",
+        "day": 1,
+        "score": 50,
+        "reasons": []
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "Luxton Home & Garden Museum",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Brandon T. Brown Wilderness Gallery",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Whyte Museum of the Canadian Rockies",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Central Park",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Buffalo Nations Luxton Museum",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Banff Recreation Grounds",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Canada Place Banff",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Muskrat Street Park",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Banff Pedestrian Bridge",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "JUGEMU Banff | Modern Japnaese",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "Shaw Amphitheatre",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Brandon T. Brown Wilderness Gallery",
+        "risk": "tight turnaround — only 4 min after \"Luxton Home & Garden Museum\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "The Bear Street Tavern",
+        "risk": "tight turnaround — only 2 min after \"Brandon T. Brown Wilderness Gallery\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Whyte Museum of the Canadian Rockies",
+        "risk": "tight turnaround — only 4 min after \"The Bear Street Tavern\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Central Park",
+        "risk": "tight turnaround — only 3 min after \"Whyte Museum of the Canadian Rockies\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Banff Recreation Grounds",
+        "risk": "tight turnaround — only 3 min after \"Buffalo Nations Luxton Museum\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Mountain Folk Coffee Co.",
+        "risk": "tight turnaround — only 6 min after \"Banff Recreation Grounds\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "Canada Place Banff",
+        "risk": "tight turnaround — only 6 min after \"Mountain Folk Coffee Co.\"",
+        "severity": "low"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "WITHIN",
+      "note": "even the top of the estimated range (CAD 586) sits under the cap (CAD 1500)",
+      "cap": {
+        "amount": 1500,
+        "currency": "CAD",
+        "verdict": "WITHIN — even the top of the estimated range (CAD 586) sits under the cap (CAD 1500) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 10,
+      "evidencedItems": 10,
+      "evidenceByTier": {
+        "COSTED": 10
+      },
+      "estimatedTotals": {
+        "low": 244,
+        "high": 586,
+        "currency": "CAD"
+      },
+      "payingParty": 2,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 0,
+      "bandDistribution": {},
+      "bandSource": null
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 5,
+        "walkingKmEstimated": 1.21,
+        "lastEnd": "16:06"
+      },
+      {
+        "day": 2,
+        "stops": 4,
+        "walkingKmEstimated": 2.17,
+        "lastEnd": "14:46"
+      },
+      {
+        "day": 3,
+        "stops": 2,
+        "walkingKmEstimated": 1.6,
+        "lastEnd": "17:03"
+      },
+      {
+        "day": 4,
+        "stops": 3,
+        "walkingKmEstimated": 1.81,
+        "lastEnd": "14:36"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Mountain Home B & B",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 10
+  }
+}

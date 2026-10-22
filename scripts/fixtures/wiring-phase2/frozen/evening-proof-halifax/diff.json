@@ -1,0 +1,74 @@
+{
+  "diff": {
+    "scenario": "Halifax fly-in day, flight +120 min (land 15:20), hotel anchor 16:00, cruise protected 20:30-22:00",
+    "closeness": {
+      "native": false,
+      "spike": true,
+      "note": "the spike presented both plans as CLOSE; the native dinner anchor (an evening meal starts no earlier than 17:00) pushes the dinner-first ordering later, so the pre-registered 45-min closeness test no longer fires — the winner is presented alone. The chosen plan is the same."
+    },
+    "chosen": {
+      "native": "A",
+      "spike": "B",
+      "sameSchedule": true,
+      "note": "plan letters differ (native letters follow permutation order); the chosen SCHEDULE is byte-identical to the spike's chosen plan"
+    },
+    "plans": [
+      {
+        "plan": "A",
+        "matchesSpikePlan": "B",
+        "nativeLabel": "Halifax Citadel first, then dinner",
+        "spikeLabel": "The Citadel first, then dinner",
+        "native": "Halifax Citadel 16:06–17:06 -> Lou Pécou 17:17–18:17",
+        "spike": "Halifax Citadel 16:06–17:06 -> Lou Pécou 17:17–18:17",
+        "scheduleIdenticalToSpike": true,
+        "nativeEndMin": "18:17",
+        "spikeEndMin": "18:17",
+        "nativeLegMin": 20,
+        "spikeTotalWalk": 20,
+        "nativeArriveProtected": "18:20",
+        "spikeArriveWaterfront": "18:20"
+      },
+      {
+        "plan": "B",
+        "matchesSpikePlan": "A",
+        "nativeLabel": "Dinner first, then Halifax Citadel",
+        "spikeLabel": "Dinner first, then the Citadel",
+        "native": "Lou Pécou 17:00–18:00 -> Halifax Citadel 18:11–19:11",
+        "spike": "Lou Pécou 16:16–17:16 -> Halifax Citadel 17:27–18:27",
+        "scheduleIdenticalToSpike": false,
+        "nativeEndMin": "19:11",
+        "spikeEndMin": "18:27",
+        "nativeLegMin": 37,
+        "spikeTotalWalk": 37,
+        "nativeArriveProtected": "19:21",
+        "spikeArriveWaterfront": "18:37"
+      }
+    ]
+  },
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Halifax Citadel\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Halifax Harbour Evening Cruise\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "narrative": [
+    "Friday, October 23 is built around Halifax Citadel, with the day's stops gathered close so the walking stays easy.",
+    "Rain is likelier today (60% chance), so the plan leans indoors and keeps the outdoor time short.",
+    "Halifax Citadel fills 16:06–17:06 — long enough to enjoy properly, short enough to keep the day light.",
+    "Opening hours weren't listed for Halifax Citadel — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+    "Dinner is at Lou Pécou, 17:17–18:17.",
+    "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+    "Halifax Harbour Evening Cruise anchors the stop from 20:30 to 22:00.",
+    "By 18:17 the planned part of the day is done — what remains is the evening, and it is spoken for: Halifax Harbour Evening Cruise at 20:30."
+  ],
+  "assertions": {
+    "dinnerNamedByClock": true,
+    "narrativeCallsItDinner": true,
+    "narrativeNeverCallsItLunch": true,
+    "closeNamesTheCruise": true,
+    "noFreeEveningClaim": true
+  },
+  "frameLibrarySize": 79
+}

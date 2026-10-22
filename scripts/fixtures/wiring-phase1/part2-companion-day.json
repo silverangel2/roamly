@@ -1,0 +1,180 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "part2-travel-days-2026-10-21",
+      "files": [
+        "outputs/companion-day.json",
+        "outputs/aligned-itinerary.json",
+        "src/live-companion.mjs"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "The accepted v2-compact companion day (Halifax, 2026-10-23, panel at 14:52) as CompanionItemDTOs, plus ledger entries driven through the shadow ledger machine (directions viewed at 14:52 — non-terminal by the owner interaction rules; Citadel check-in 15:36, completion 16:17, dwell 41 min recorded on the CHECKED_IN entry; dinner SKIPPED at 19:00 — a taste signal, distinct from MISSED). Shadow item slugs become content IDs keyed on (tripRef, shadow id); instants convert through the canonical time adapter (America/Halifax)."
+    }
+  },
+  "data": {
+    "tripRef": "shadow-halifax-owner-chain",
+    "date": "2026-10-23",
+    "passHeadline": "Hey, your next destination is Halifax Citadel National Historic Site.",
+    "items": [
+      {
+        "itemId": "item-87b9c6c5e4870140",
+        "kind": "attraction",
+        "title": "Halifax Citadel National Historic Site",
+        "state": "leave-by",
+        "date": "2026-10-23",
+        "startMin": 940,
+        "endMin": 1005,
+        "leaveByMin": 912,
+        "mapChoices": [
+          {
+            "provider": "google",
+            "available": true,
+            "recommended": true,
+            "label": "Google Maps"
+          },
+          {
+            "provider": "citymapper",
+            "available": false,
+            "recommended": false,
+            "label": "Citymapper"
+          },
+          {
+            "provider": "apple",
+            "available": true,
+            "recommended": false,
+            "label": "Apple Maps"
+          }
+        ],
+        "provenance": {
+          "source": "zero-engine",
+          "sourceRef": "part2 outputs/companion-day.json#note-citadel",
+          "recordedAt": null,
+          "label": "shadow companion panel (14:52 travel moment)"
+        }
+      },
+      {
+        "itemId": "item-7464cf817ebae731",
+        "kind": "food",
+        "title": "Lou Pécou",
+        "state": "upcoming",
+        "date": "2026-10-23",
+        "startMin": 1140,
+        "endMin": 1200,
+        "leaveByMin": null,
+        "mapChoices": [
+          {
+            "provider": "google",
+            "available": true,
+            "recommended": true,
+            "label": "Google Maps"
+          },
+          {
+            "provider": "citymapper",
+            "available": false,
+            "recommended": false,
+            "label": "Citymapper"
+          },
+          {
+            "provider": "apple",
+            "available": true,
+            "recommended": false,
+            "label": "Apple Maps"
+          }
+        ],
+        "provenance": {
+          "source": "zero-engine",
+          "sourceRef": "part2 outputs/companion-day.json#note-lou-pecou-dinner",
+          "recordedAt": null,
+          "label": "shadow companion panel (14:52 travel moment)"
+        }
+      },
+      {
+        "itemId": "item-a658e6f3228be8c3",
+        "kind": "cruise",
+        "title": "Halifax Harbour Evening Cruise",
+        "state": "upcoming",
+        "date": "2026-10-23",
+        "startMin": 1230,
+        "endMin": 1320,
+        "leaveByMin": null,
+        "mapChoices": [
+          {
+            "provider": "google",
+            "available": true,
+            "recommended": true,
+            "label": "Google Maps"
+          },
+          {
+            "provider": "citymapper",
+            "available": false,
+            "recommended": false,
+            "label": "Citymapper"
+          },
+          {
+            "provider": "apple",
+            "available": true,
+            "recommended": false,
+            "label": "Apple Maps"
+          }
+        ],
+        "provenance": {
+          "source": "zero-engine",
+          "sourceRef": "part2 outputs/companion-day.json#note-harbour-cruise",
+          "recordedAt": null,
+          "label": "shadow companion panel (14:52 travel moment)"
+        }
+      }
+    ],
+    "ledgerEntries": [
+      {
+        "entryId": "ledger-df2e34fa2880fa4f",
+        "tripId": "shadow-halifax-owner-chain",
+        "activityRef": "item-87b9c6c5e4870140",
+        "classification": "DIRECTIONS_VIEWED",
+        "at": "2026-10-23T17:52:00.000Z",
+        "atMinuteOfTrip": 892,
+        "dwellMinutes": null,
+        "undoOfEntryId": null,
+        "provenance": {
+          "source": "traveler",
+          "sourceRef": "live-companion ledger (citadel)",
+          "recordedAt": "2026-10-23T17:52:00.000Z",
+          "label": "shadow live-companion ledger action"
+        }
+      },
+      {
+        "entryId": "ledger-4907281e8abcb8de",
+        "tripId": "shadow-halifax-owner-chain",
+        "activityRef": "item-87b9c6c5e4870140",
+        "classification": "CHECKED_IN",
+        "at": "2026-10-23T18:36:00.000Z",
+        "atMinuteOfTrip": 936,
+        "dwellMinutes": 41,
+        "undoOfEntryId": null,
+        "provenance": {
+          "source": "traveler",
+          "sourceRef": "live-companion ledger (citadel)",
+          "recordedAt": "2026-10-23T18:36:00.000Z",
+          "label": "shadow live-companion ledger action"
+        }
+      },
+      {
+        "entryId": "ledger-b88319225daf4bc6",
+        "tripId": "shadow-halifax-owner-chain",
+        "activityRef": "item-7464cf817ebae731",
+        "classification": "SKIPPED",
+        "at": "2026-10-23T22:00:00.000Z",
+        "atMinuteOfTrip": 1140,
+        "dwellMinutes": null,
+        "undoOfEntryId": null,
+        "provenance": {
+          "source": "traveler",
+          "sourceRef": "live-companion ledger (lou-pecou-dinner)",
+          "recordedAt": "2026-10-23T22:00:00.000Z",
+          "label": "shadow live-companion ledger action"
+        }
+      }
+    ]
+  }
+}

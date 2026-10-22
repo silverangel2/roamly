@@ -1,0 +1,1018 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "trips/quebec-city-family/itinerary.json",
+        "trips/quebec-city-family/predictions.json"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "Graded shadow trip (8 DONE / 2 UNVERIFIABLE / 0 NOT DONE) converted to TripPlanDocumentDTO + PredictionRecordDTO. Conversions: OSM keys gain the osm: source prefix; item IDs are content IDs (ids.itineraryItemId); the trip IANA zone (America/Toronto) is assigned at capture — the shadow engine is offset-based, production plans carry the IANA zone (DESIGN §2.1). Narrative prose, legs and transport argument are presentation/solver detail, not plan-document contract, and are not carried. Prediction grades are null: PREDICT wrote them, LEARN has not graded this trip."
+    }
+  },
+  "data": {
+    "plan": {
+      "schemaVersion": 1,
+      "tripId": "trip-b3c1394ce1f97248",
+      "destinationId": "dest-725e9eafedf27885",
+      "destinationName": "Quebec City",
+      "country": "Canada",
+      "timeZone": "America/Toronto",
+      "startDate": "2026-10-24",
+      "endDate": "2026-10-28",
+      "travelers": {
+        "adults": 2,
+        "children": 2,
+        "infants": 0
+      },
+      "days": [
+        {
+          "dayId": "day-9e93f31bc59b45d7",
+          "dayNumber": 1,
+          "date": "2026-10-24",
+          "role": "standard",
+          "items": [
+            {
+              "itemId": "item-8ce5f0ee78e0d8cf",
+              "candidateKey": "osm:node/283264348",
+              "type": "stop",
+              "kind": "museum",
+              "name": "Musée du Fort",
+              "startMin": 574,
+              "endMin": 664,
+              "pos": {
+                "lat": 46.8130715,
+                "lon": -71.2051909
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 12,
+                  "high": 26,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/283264348",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-24936c987148611e",
+              "candidateKey": "osm:node/5060622627",
+              "type": "stop",
+              "kind": "gallery",
+              "name": "Galerie d'art Bel Art Classique",
+              "startMin": 667,
+              "endMin": 727,
+              "pos": {
+                "lat": 46.8140205,
+                "lon": -71.202794
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 8,
+                  "high": 20,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/5060622627",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-dd2a715f7af0f019",
+              "candidateKey": "osm:node/12326897876",
+              "type": "food",
+              "kind": "food",
+              "name": "Don Vegan",
+              "startMin": 739,
+              "endMin": 799,
+              "pos": {
+                "lat": 46.8161181,
+                "lon": -71.2037566
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "meal",
+                "range": {
+                  "low": 18,
+                  "high": 35,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a meal range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/12326897876",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-c3db8ac9cb54c8b2",
+              "candidateKey": "osm:node/388330237",
+              "type": "stop",
+              "kind": "museum",
+              "name": "Espace 400e Bell",
+              "startMin": 802,
+              "endMin": 892,
+              "pos": {
+                "lat": 46.8173213,
+                "lon": -71.2054402
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 12,
+                  "high": 26,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/388330237",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-7f2a5a82bc6c0695",
+              "candidateKey": "osm:way/307982447",
+              "type": "stop",
+              "kind": "park",
+              "name": "Parc Couillard",
+              "startMin": 896,
+              "endMin": 941,
+              "pos": {
+                "lat": 46.8152374,
+                "lon": -71.2074139
+              },
+              "bookingReference": null,
+              "priceEvidence": null,
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/way/307982447",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            }
+          ],
+          "endMin": 945
+        },
+        {
+          "dayId": "day-e9ad87b1d4bb7bb3",
+          "dayNumber": 2,
+          "date": "2026-10-25",
+          "role": "ferry",
+          "items": [
+            {
+              "itemId": "item-bcd3a493a27063a0",
+              "candidateKey": "osm:node/130117210",
+              "type": "stop",
+              "kind": "ferry",
+              "name": "Lévis",
+              "startMin": 592,
+              "endMin": 667,
+              "pos": {
+                "lat": 46.8106109,
+                "lon": -71.1883369
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "crossing",
+                "range": {
+                  "low": 8,
+                  "high": 20,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — harbour ferry fare, per person, CAD (cost model assumption; sailing times and fares are the terminal board's)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/130117210",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-18b35985d9690b8b",
+              "candidateKey": "osm:node/6554061185",
+              "type": "stop",
+              "kind": "attraction",
+              "name": "Cannonball Tree",
+              "startMin": 692,
+              "endMin": 752,
+              "pos": {
+                "lat": 46.8111132,
+                "lon": -71.2083792
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 15,
+                  "high": 35,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/6554061185",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-d5e30f109d797e6e",
+              "candidateKey": "osm:node/12646574028",
+              "type": "food",
+              "kind": "food",
+              "name": "Polina",
+              "startMin": 754,
+              "endMin": 814,
+              "pos": {
+                "lat": 46.8115884,
+                "lon": -71.2077463
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "meal",
+                "range": {
+                  "low": 8,
+                  "high": 18,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level INEXPENSIVE (google-fixture) mapped to a meal range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/12646574028",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-39b90ea4355587da",
+              "candidateKey": "osm:node/6711176117",
+              "type": "stop",
+              "kind": "gallery",
+              "name": "Galerie Perreault",
+              "startMin": 822,
+              "endMin": 882,
+              "pos": {
+                "lat": 46.8167291,
+                "lon": -71.2082103
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 8,
+                  "high": 20,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/6711176117",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            }
+          ],
+          "endMin": 888
+        },
+        {
+          "dayId": "day-67e745a4fdbdb89d",
+          "dayNumber": 3,
+          "date": "2026-10-26",
+          "role": "rest-afternoon",
+          "items": [
+            {
+              "itemId": "item-36a7d299bf68048f",
+              "candidateKey": "osm:way/148301142",
+              "type": "stop",
+              "kind": "museum",
+              "name": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+              "startMin": 576,
+              "endMin": 666,
+              "pos": {
+                "lat": 46.8117665,
+                "lon": -71.2043178
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "admission",
+                "range": {
+                  "low": 0,
+                  "high": 12,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level INEXPENSIVE (google-fixture) mapped to a admission range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/way/148301142",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-ca20e5a8182c2cf3",
+              "candidateKey": "osm:node/6711176112",
+              "type": "stop",
+              "kind": "gallery",
+              "name": "Galerie Bédard",
+              "startMin": 673,
+              "endMin": 733,
+              "pos": {
+                "lat": 46.8159834,
+                "lon": -71.203668
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 8,
+                  "high": 20,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/6711176112",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-84916e9d1f683805",
+              "candidateKey": "osm:node/4349079029",
+              "type": "food",
+              "kind": "food",
+              "name": "Hortus Bistro",
+              "startMin": 742,
+              "endMin": 802,
+              "pos": {
+                "lat": 46.8146605,
+                "lon": -71.209564
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "meal",
+                "range": {
+                  "low": 35,
+                  "high": 60,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level EXPENSIVE (google-fixture) mapped to a meal range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/4349079029",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-b1387e92b76ec088",
+              "candidateKey": "osm:rest-2026-10-26",
+              "type": "rest",
+              "kind": null,
+              "name": "rest",
+              "startMin": 802,
+              "endMin": 1020,
+              "pos": null,
+              "bookingReference": null,
+              "priceEvidence": null,
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "osm:rest-2026-10-26",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            }
+          ],
+          "endMin": 1023
+        },
+        {
+          "dayId": "day-063d9d8312ae8a1a",
+          "dayNumber": 4,
+          "date": "2026-10-27",
+          "role": "standard",
+          "items": [
+            {
+              "itemId": "item-fad52a9721fddae0",
+              "candidateKey": "osm:node/4279287390",
+              "type": "stop",
+              "kind": "museum",
+              "name": "Musée des plaines d'Abraham",
+              "startMin": 580,
+              "endMin": 670,
+              "pos": {
+                "lat": 46.8070268,
+                "lon": -71.2128445
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "admission",
+                "range": {
+                  "low": 12,
+                  "high": 28,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/4279287390",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-8ac55cb28ac95a94",
+              "candidateKey": "osm:node/2527418385",
+              "type": "stop",
+              "kind": "gallery",
+              "name": "Galerie d'art la Gazelle",
+              "startMin": 683,
+              "endMin": 743,
+              "pos": {
+                "lat": 46.8082892,
+                "lon": -71.2247789
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 8,
+                  "high": 20,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/2527418385",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-9bda96858ce9f7b7",
+              "candidateKey": "osm:node/2527418383",
+              "type": "food",
+              "kind": "food",
+              "name": "Au Bonnet d'Âne",
+              "startMin": 745,
+              "endMin": 805,
+              "pos": {
+                "lat": 46.8085538,
+                "lon": -71.2237941
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "meal",
+                "range": {
+                  "low": 18,
+                  "high": 35,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a meal range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/2527418383",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-126de3fda724e84e",
+              "candidateKey": "osm:node/4461909789",
+              "type": "stop",
+              "kind": "museum",
+              "name": "Pavillon Pierre-Lassonde",
+              "startMin": 817,
+              "endMin": 907,
+              "pos": {
+                "lat": 46.800875,
+                "lon": -71.2253618
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "admission",
+                "range": {
+                  "low": 12,
+                  "high": 28,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/4461909789",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-b070afae13bcc5dc",
+              "candidateKey": "osm:way/225125377",
+              "type": "stop",
+              "kind": "park",
+              "name": "Parc Lockwell",
+              "startMin": 915,
+              "endMin": 960,
+              "pos": {
+                "lat": 46.8061577,
+                "lon": -71.2264804
+              },
+              "bookingReference": null,
+              "priceEvidence": null,
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/way/225125377",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            }
+          ],
+          "endMin": 963
+        },
+        {
+          "dayId": "day-58536b989cbf530a",
+          "dayNumber": 5,
+          "date": "2026-10-28",
+          "role": "excursion",
+          "items": [
+            {
+              "itemId": "item-fbb9acb024de09db",
+              "candidateKey": "osm:node/377497852",
+              "type": "stop",
+              "kind": "attraction",
+              "name": "Porte Kent",
+              "startMin": 575,
+              "endMin": 635,
+              "pos": {
+                "lat": 46.8119092,
+                "lon": -71.2125626
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "COSTED",
+                "category": "admission",
+                "range": {
+                  "low": 15,
+                  "high": 35,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/377497852",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-8cf9f89f479e0820",
+              "candidateKey": "osm:node/12207260095",
+              "type": "food",
+              "kind": "food",
+              "name": "Concept Bala",
+              "startMin": 742,
+              "endMin": 802,
+              "pos": {
+                "lat": 46.8165252,
+                "lon": -71.2124361
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "meal",
+                "range": {
+                  "low": 18,
+                  "high": 35,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a meal range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/12207260095",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            },
+            {
+              "itemId": "item-664e1bd1280ed1b0",
+              "candidateKey": "osm:node/1199354691",
+              "type": "stop",
+              "kind": "falls",
+              "name": "Chute Montmorency",
+              "startMin": 817,
+              "endMin": 907,
+              "pos": {
+                "lat": 46.8907506,
+                "lon": -71.1477383
+              },
+              "bookingReference": null,
+              "priceEvidence": {
+                "tier": "BAND",
+                "category": "admission",
+                "range": {
+                  "low": 12,
+                  "high": 28,
+                  "currency": "CAD",
+                  "per": "person"
+                },
+                "per": "person",
+                "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+              },
+              "provenance": {
+                "source": "osm",
+                "sourceRef": "https://www.openstreetmap.org/node/1199354691",
+                "recordedAt": "2026-10-21T21:06:54.936Z",
+                "label": "zero-engine candidate"
+              }
+            }
+          ],
+          "endMin": 922
+        }
+      ],
+      "budgetCap": {
+        "amount": 1100,
+        "currency": "CAD",
+        "verdict": "OVER",
+        "verdictNote": "even the bottom of the estimated range (CAD 1348) exceeds the cap (CAD 1100)"
+      },
+      "anchorStay": {
+        "name": "Hôtel Marie Rollett",
+        "candidateKey": "osm:node/10554222513"
+      },
+      "source": "zero-engine",
+      "packVersionId": "pack-df4609735f85e63a",
+      "policyVersions": {
+        "pricePolicy": "prices-2",
+        "extractor": "recon-canonical-1"
+      },
+      "provenance": {
+        "source": "zero-engine",
+        "sourceRef": "zero-engine-2026-10-21/trips/quebec-city-family/itinerary.json",
+        "recordedAt": "2026-10-21T21:06:54.936Z",
+        "label": "shadow zero-engine graded trip (Quebec City, 5 days)"
+      }
+    },
+    "prediction": {
+      "predictionId": "pred-69757ace3cfd3c10",
+      "tripId": "trip-b3c1394ce1f97248",
+      "recordedAt": "2026-10-21T21:06:54.940Z",
+      "highlights": [
+        {
+          "itemRef": "item-664e1bd1280ed1b0",
+          "name": "Chute Montmorency",
+          "day": 5,
+          "score": 92,
+          "reasons": [
+            "named in the traveler's request",
+            "hours verified (google-fixture)",
+            "rating 4.7 (google-fixture)"
+          ]
+        },
+        {
+          "itemRef": "item-bcd3a493a27063a0",
+          "name": "Lévis",
+          "day": 2,
+          "score": 89,
+          "reasons": [
+            "named in the traveler's request",
+            "hours verified (google-fixture)",
+            "rating 4.4 (google-fixture)"
+          ]
+        },
+        {
+          "itemRef": "item-dd2a715f7af0f019",
+          "name": "Don Vegan",
+          "day": 1,
+          "score": 82,
+          "reasons": [
+            "hours verified (google-fixture)",
+            "dietary fit proven by listing tags",
+            "rating 4.7 (google-fixture)"
+          ]
+        },
+        {
+          "itemRef": "item-84916e9d1f683805",
+          "name": "Hortus Bistro",
+          "day": 3,
+          "score": 81,
+          "reasons": [
+            "hours verified (google-fixture)",
+            "dietary fit proven by listing tags",
+            "rating 4.6 (google-fixture)"
+          ]
+        },
+        {
+          "itemRef": "item-8cf9f89f479e0820",
+          "name": "Concept Bala",
+          "day": 5,
+          "score": 80,
+          "reasons": [
+            "hours verified (google-fixture)",
+            "dietary fit proven by listing tags",
+            "rating 4.5 (google-fixture)"
+          ]
+        }
+      ],
+      "risks": [
+        {
+          "riskRef": "risk-ec494e31f67ff9de",
+          "itemRef": "item-8ce5f0ee78e0d8cf",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-74acc1ea0bdcac8f",
+          "itemRef": "item-dd2a715f7af0f019",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-ea75340163f0d004",
+          "itemRef": "item-c3db8ac9cb54c8b2",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-55d3f01ac8e9419d",
+          "itemRef": "item-7f2a5a82bc6c0695",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-4ac8b7a5c344fd9d",
+          "itemRef": "item-bcd3a493a27063a0",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-892d98dfa8b5aa38",
+          "itemRef": "item-18b35985d9690b8b",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-b0d0469c4d7c2db0",
+          "itemRef": "item-d5e30f109d797e6e",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-f8befa3ec28806de",
+          "itemRef": "item-39b90ea4355587da",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-95e846a5cbcd4032",
+          "itemRef": "item-36a7d299bf68048f",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-d4b64720a6124ef8",
+          "itemRef": "item-ca20e5a8182c2cf3",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-5adf6321ede87e83",
+          "itemRef": "item-84916e9d1f683805",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-0875dca1416cf1e3",
+          "itemRef": "item-fad52a9721fddae0",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-6e08067097f2578f",
+          "itemRef": "item-8ac55cb28ac95a94",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-ef64e31d7d353433",
+          "itemRef": "item-9bda96858ce9f7b7",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-ed1e447a14676b46",
+          "itemRef": "item-126de3fda724e84e",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-03c87cf4d079629c",
+          "itemRef": "item-b070afae13bcc5dc",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-c080649d8baeb61b",
+          "itemRef": "item-fbb9acb024de09db",
+          "kind": "medium",
+          "note": "opening hours not in any data source — door time could differ from the plan"
+        },
+        {
+          "riskRef": "risk-7431d0258cfc5716",
+          "itemRef": "item-8cf9f89f479e0820",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-55fa04173b8ecef5",
+          "itemRef": "item-664e1bd1280ed1b0",
+          "kind": "low",
+          "note": "hours come from FIXTURE data (mechanism proof) — unverified against the live place"
+        },
+        {
+          "riskRef": "risk-4987e3ce4de17bcf",
+          "itemRef": "item-24936c987148611e",
+          "kind": "low",
+          "note": "tight turnaround — only 3 min after \"Musée du Fort\""
+        },
+        {
+          "riskRef": "risk-2b6bd4e28c870336",
+          "itemRef": "item-c3db8ac9cb54c8b2",
+          "kind": "low",
+          "note": "tight turnaround — only 3 min after \"Don Vegan\""
+        },
+        {
+          "riskRef": "risk-5c24c0c0046af9aa",
+          "itemRef": "item-7f2a5a82bc6c0695",
+          "kind": "low",
+          "note": "tight turnaround — only 4 min after \"Espace 400e Bell\""
+        },
+        {
+          "riskRef": "risk-736030bfe5c0d194",
+          "itemRef": "item-d5e30f109d797e6e",
+          "kind": "low",
+          "note": "tight turnaround — only 2 min after \"Cannonball Tree\""
+        },
+        {
+          "riskRef": "risk-07ad47a2fc060ca4",
+          "itemRef": "item-ca20e5a8182c2cf3",
+          "kind": "low",
+          "note": "tight turnaround — only 7 min after \"Lieu historique national des Forts-et-Châteaux-Saint-Louis\""
+        },
+        {
+          "riskRef": "risk-1dbf35a5ef7fd147",
+          "itemRef": "item-9bda96858ce9f7b7",
+          "kind": "low",
+          "note": "tight turnaround — only 2 min after \"Galerie d'art la Gazelle\""
+        },
+        {
+          "riskRef": "risk-ae50385a6701ac3b",
+          "itemRef": "item-664e1bd1280ed1b0",
+          "kind": "medium",
+          "note": "long drive leg (10 km, ~15 min estimated from straight-line distance — real roads run longer)"
+        },
+        {
+          "riskRef": "risk-8dd9539ba6e3a978",
+          "itemRef": "item-18d9a6c941268f29",
+          "kind": "medium",
+          "note": "long drive leg (10 km, ~15 min estimated from straight-line distance — real roads run longer)"
+        }
+      ],
+      "budgetPosture": {
+        "verdict": "OVER",
+        "note": "even the bottom of the estimated range (CAD 1348) exceeds the cap (CAD 1100)",
+        "cap": {
+          "amount": 1100,
+          "currency": "CAD"
+        },
+        "coverage": 0.95,
+        "coverageThreshold": 0.5,
+        "pricedItems": 18,
+        "evidencedItems": 18,
+        "evidenceByTier": {
+          "COSTED": 9,
+          "BAND": 10
+        },
+        "estimatedTotals": {
+          "low": 1348,
+          "high": 2724,
+          "currency": "CAD",
+          "per": "party"
+        },
+        "scopeNote": "All-in scope (owner decision, 2026-10-22): plan-priced items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); a component with no evidence is named and excluded from the totals — never counted as zero. This trip: lodging not evidenced; getting-there not evidenced."
+      },
+      "paceLoad": [
+        {
+          "day": 1,
+          "stops": 5,
+          "walkingKmEstimated": 1.48,
+          "lastEnd": "15:45"
+        },
+        {
+          "day": 2,
+          "stops": 4,
+          "walkingKmEstimated": 4.45,
+          "lastEnd": "14:48"
+        },
+        {
+          "day": 3,
+          "stops": 3,
+          "walkingKmEstimated": 1.5,
+          "lastEnd": "17:03"
+        },
+        {
+          "day": 4,
+          "stops": 5,
+          "walkingKmEstimated": 3.18,
+          "lastEnd": "16:03"
+        },
+        {
+          "day": 5,
+          "stops": 3,
+          "walkingKmEstimated": 0.81,
+          "lastEnd": "15:22"
+        }
+      ],
+      "grades": null
+    }
+  }
+}

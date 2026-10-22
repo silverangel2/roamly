@@ -1,0 +1,384 @@
+{
+  "destination": "Quebec City",
+  "country": "Canada",
+  "targets": [
+    {
+      "key": "node/283264348",
+      "name": "Musée du Fort",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8130715,
+        "lon": -71.2051909
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/5060622627",
+      "name": "Galerie d'art Bel Art Classique",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8140205,
+        "lon": -71.202794
+      },
+      "osmHoursRaw": "Mo-Su 09:30-17:30",
+      "fixtureProvenance": "osm",
+      "fixtureOpen": 570,
+      "fixtureClose": 1050,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/12326897876",
+      "name": "Don Vegan",
+      "group": "foods",
+      "graded": true,
+      "pos": {
+        "lat": 46.8161181,
+        "lon": -71.2037566
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 660,
+      "fixtureClose": 1260,
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "node/388330237",
+      "name": "Espace 400e Bell",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8173213,
+        "lon": -71.2054402
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "way/307982447",
+      "name": "Parc Couillard",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8152374,
+        "lon": -71.2074139
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/130117210",
+      "name": "Lévis",
+      "group": "transport",
+      "graded": true,
+      "pos": {
+        "lat": 46.8106109,
+        "lon": -71.1883369
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 300,
+      "fixtureClose": 1439,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/6554061185",
+      "name": "Cannonball Tree",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8111132,
+        "lon": -71.2083792
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/12646574028",
+      "name": "Polina",
+      "group": "foods",
+      "graded": true,
+      "pos": {
+        "lat": 46.8115884,
+        "lon": -71.2077463
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 660,
+      "fixtureClose": 1260,
+      "fixtureBand": "PRICE_LEVEL_INEXPENSIVE"
+    },
+    {
+      "key": "node/6711176117",
+      "name": "Galerie Perreault",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8167291,
+        "lon": -71.2082103
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 600,
+      "fixtureClose": 1020,
+      "fixtureBand": null
+    },
+    {
+      "key": "way/148301142",
+      "name": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8117665,
+        "lon": -71.2043178
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 540,
+      "fixtureClose": 1020,
+      "fixtureBand": "PRICE_LEVEL_INEXPENSIVE"
+    },
+    {
+      "key": "node/6711176112",
+      "name": "Galerie Bédard",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8159834,
+        "lon": -71.203668
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/4349079029",
+      "name": "Hortus Bistro",
+      "group": "foods",
+      "graded": true,
+      "pos": {
+        "lat": 46.8146605,
+        "lon": -71.209564
+      },
+      "osmHoursRaw": "Mo-Fr 11:30-22:00; Sa 09:30-22:00; Su 09:30-21:00",
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 690,
+      "fixtureClose": 1320,
+      "fixtureBand": "PRICE_LEVEL_EXPENSIVE"
+    },
+    {
+      "key": "node/4279287390",
+      "name": "Musée des plaines d'Abraham",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8070268,
+        "lon": -71.2128445
+      },
+      "osmHoursRaw": "Mo-Fr 08:30-17:00; Sa-Su 09:00-17:00",
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 540,
+      "fixtureClose": 1020,
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "node/2527418385",
+      "name": "Galerie d'art la Gazelle",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8082892,
+        "lon": -71.2247789
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/2527418383",
+      "name": "Au Bonnet d'Âne",
+      "group": "foods",
+      "graded": true,
+      "pos": {
+        "lat": 46.8085538,
+        "lon": -71.2237941
+      },
+      "osmHoursRaw": "Su-We 08:00-22:00; Th-Sa 08:00-23:00",
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 480,
+      "fixtureClose": 900,
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "node/4461909789",
+      "name": "Pavillon Pierre-Lassonde",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.800875,
+        "lon": -71.2253618
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 600,
+      "fixtureClose": 1020,
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "way/225125377",
+      "name": "Parc Lockwell",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8061577,
+        "lon": -71.2264804
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/377497852",
+      "name": "Porte Kent",
+      "group": "sights",
+      "graded": true,
+      "pos": {
+        "lat": 46.8119092,
+        "lon": -71.2125626
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "none",
+      "fixtureOpen": null,
+      "fixtureClose": null,
+      "fixtureBand": null
+    },
+    {
+      "key": "node/12207260095",
+      "name": "Concept Bala",
+      "group": "foods",
+      "graded": true,
+      "pos": {
+        "lat": 46.8165252,
+        "lon": -71.2124361
+      },
+      "osmHoursRaw": "Mo-Su 09:00-16:00",
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 660,
+      "fixtureClose": 1320,
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "node/1199354691",
+      "name": "Chute Montmorency",
+      "group": "excursions",
+      "graded": true,
+      "pos": {
+        "lat": 46.8907506,
+        "lon": -71.1477383
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureOpen": 540,
+      "fixtureClose": 1020,
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "node/2546008681",
+      "name": "Musée de la Civilisation de Québec",
+      "group": "sights",
+      "graded": false,
+      "pos": {
+        "lat": 46.8151739,
+        "lon": -71.2023007
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    },
+    {
+      "key": "way/106776418",
+      "name": "Musée Naval de Québec",
+      "group": "sights",
+      "graded": false,
+      "pos": {
+        "lat": 46.8184694,
+        "lon": -71.2009166
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureBand": null
+    },
+    {
+      "key": "node/14098650933",
+      "name": "Jean Castor",
+      "group": "sights",
+      "graded": false,
+      "pos": {
+        "lat": 46.8141263,
+        "lon": -71.2100975
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureBand": null
+    },
+    {
+      "key": "node/13250945951",
+      "name": "Galerie Porte Rouge - Vieux-Québec",
+      "group": "sights",
+      "graded": false,
+      "pos": {
+        "lat": 46.8135247,
+        "lon": -71.206492
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureBand": null
+    },
+    {
+      "key": "way/240740525",
+      "name": "Parc de l'Unesco",
+      "group": "sights",
+      "graded": false,
+      "pos": {
+        "lat": 46.8135529,
+        "lon": -71.2027204
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureBand": null
+    },
+    {
+      "key": "node/10554222513",
+      "name": "Hôtel Marie Rollett",
+      "group": "stays",
+      "graded": false,
+      "pos": {
+        "lat": 46.8130486,
+        "lon": -71.2089844
+      },
+      "osmHoursRaw": null,
+      "fixtureProvenance": "google-fixture",
+      "fixtureBand": "PRICE_LEVEL_MODERATE"
+    }
+  ]
+}

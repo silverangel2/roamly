@@ -1,0 +1,754 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T20:56:25.782Z",
+  "runDate": "2026-10-21",
+  "destination": "Rocky Harbour",
+  "country": "Canada",
+  "poolId": "rocky-harbour-gros-morne",
+  "startDate": "2026-10-24",
+  "endDate": "2026-10-27",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-24",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/10792651675",
+          "name": "Gros Morne Wildlife Museum",
+          "kind": "museum",
+          "role": "stop",
+          "start": 575,
+          "end": 665,
+          "pos": {
+            "lat": 49.5934325,
+            "lon": -57.9174434
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/10792651675",
+          "price": "UNKNOWN",
+          "startTime": "09:35",
+          "endTime": "11:05",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/4232002164",
+          "name": "Fisherman's Landing",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 739,
+          "end": 799,
+          "pos": {
+            "lat": 49.5911531,
+            "lon": -57.9164139
+          },
+          "hours": {
+            "status": "known",
+            "open": 420,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Su 07:00-22:00",
+          "url": "https://www.openstreetmap.org/node/4232002164",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:19",
+          "endTime": "13:19",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/10792651675",
+          "fromName": "Ocean View Hotel",
+          "toName": "Gros Morne Wildlife Museum",
+          "mode": "walk",
+          "km": 0.34,
+          "minutes": 5,
+          "depart": 570,
+          "arrive": 575,
+          "departTime": "09:30",
+          "arriveTime": "09:35"
+        },
+        {
+          "fromKey": "node/10792651675",
+          "toKey": "node/4232002164",
+          "fromName": "Gros Morne Wildlife Museum",
+          "toName": "Fisherman's Landing",
+          "mode": "walk",
+          "km": 0.26,
+          "minutes": 4,
+          "depart": 735,
+          "arrive": 739,
+          "departTime": "12:15",
+          "arriveTime": "12:19"
+        },
+        {
+          "fromKey": "node/4232002164",
+          "toKey": "base",
+          "fromName": "Fisherman's Landing",
+          "toName": "Ocean View Hotel",
+          "mode": "walk",
+          "km": 0.08,
+          "minutes": 2,
+          "depart": 799,
+          "arrive": 801,
+          "departTime": "13:19",
+          "arriveTime": "13:21"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 begins at a humane hour — the first stop is Gros Morne Wildlife Museum at 09:35, and nothing on this day starts before 09:00.",
+        "The base for the night is Ocean View Hotel, picked for what surrounds it: 1 sights within a short walk.",
+        "Expect a mild 4° — good walking weather, with layers for the shade.",
+        "Gros Morne Wildlife Museum gets the morning's main slot, 09:35 to 11:05 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Gros Morne Wildlife Museum — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Gros Morne Wildlife Museum, it is a 4-minute walk to Fisherman's Landing — close enough to stroll without watching the clock.",
+        "Lunch is at Fisherman's Landing, 12:19–13:19.",
+        "Listings don't spell out the dietary details here, so a quick word with the kitchen on arrival is the safe move.",
+        "The day winds down back at base by 13:21 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 801
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-25",
+      "role": "excursion",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/4232002364",
+          "name": "Earle‘s",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 754,
+          "end": 814,
+          "pos": {
+            "lat": 49.5864183,
+            "lon": -57.9348265
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1200,
+            "provenance": "osm"
+          },
+          "hoursRaw": "11:00-20:00",
+          "url": "https://www.openstreetmap.org/node/4232002364",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:34",
+          "endTime": "13:34",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/491406196",
+          "name": "Lobster Cove Head Lighthouse",
+          "kind": "lighthouse",
+          "role": "excursion",
+          "start": 818,
+          "end": 878,
+          "pos": {
+            "lat": 49.6029013,
+            "lon": -57.9556771
+          },
+          "hours": {
+            "status": "known",
+            "open": 600,
+            "close": 1050,
+            "provenance": "osm"
+          },
+          "hoursRaw": "10:00-17:30",
+          "url": "https://www.openstreetmap.org/node/491406196",
+          "price": "UNKNOWN",
+          "startTime": "13:38",
+          "endTime": "14:38",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 18,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — lighthouse site admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/4232002364",
+          "fromName": "Ocean View Hotel",
+          "toName": "Earle‘s",
+          "mode": "walk",
+          "km": 1.42,
+          "minutes": 19,
+          "depart": 735,
+          "arrive": 754,
+          "departTime": "12:15",
+          "arriveTime": "12:34"
+        },
+        {
+          "fromKey": "node/4232002364",
+          "toKey": "node/491406196",
+          "fromName": "Earle‘s",
+          "toName": "Lobster Cove Head Lighthouse",
+          "mode": "drive",
+          "km": 2.37,
+          "minutes": 4,
+          "depart": 814,
+          "arrive": 818,
+          "departTime": "13:34",
+          "arriveTime": "13:38"
+        },
+        {
+          "fromKey": "node/491406196",
+          "toKey": "base",
+          "fromName": "Lobster Cove Head Lighthouse",
+          "toName": "Ocean View Hotel",
+          "mode": "drive",
+          "km": 3.16,
+          "minutes": 5,
+          "depart": 878,
+          "arrive": 883,
+          "departTime": "14:38",
+          "arriveTime": "14:43"
+        }
+      ],
+      "narrative": [
+        "Sunday, October 25 is the day for Lobster Cove Head Lighthouse — the trip's headline outing, given the room it deserves.",
+        "The forecast helps today: 10° and only a 0% chance of rain, which is why the outdoor outing sits here.",
+        "Lunch is at Earle‘s, 12:34–13:34.",
+        "Listings don't spell out the dietary details here, so a quick word with the kitchen on arrival is the safe move.",
+        "Then the day's one longer leg: about 4 minutes by road to Lobster Cove Head Lighthouse.",
+        "Lobster Cove Head Lighthouse rewards the drive: 60 minutes there, 13:38–14:38, with the coast doing the talking.",
+        "Lobster Cove Head Lighthouse lists its hours as 10:00–17:30 today, and the visit sits comfortably inside them.",
+        "The drive back to base runs about 5 minutes.",
+        "The day winds down back at base by 14:43 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 883
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-26",
+      "role": "rest-afternoon",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/10945176669",
+          "name": "Oceans",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 737,
+          "end": 797,
+          "pos": {
+            "lat": 49.5901968,
+            "lon": -57.9162323
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/10945176669",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:17",
+          "endTime": "13:17",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 797,
+          "end": 1020,
+          "key": "rest-2026-10-26",
+          "startTime": "13:17",
+          "endTime": "17:00"
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/10945176669",
+          "fromName": "Ocean View Hotel",
+          "toName": "Oceans",
+          "mode": "walk",
+          "km": 0.03,
+          "minutes": 2,
+          "depart": 735,
+          "arrive": 737,
+          "departTime": "12:15",
+          "arriveTime": "12:17"
+        },
+        {
+          "fromKey": "node/10945176669",
+          "toKey": "base",
+          "fromName": "Oceans",
+          "toName": "Ocean View Hotel",
+          "mode": "walk",
+          "km": 0.03,
+          "minutes": 2,
+          "depart": 1020,
+          "arrive": 1022,
+          "departTime": "17:00",
+          "arriveTime": "17:02"
+        }
+      ],
+      "narrative": [
+        "Monday, October 26 is built around a slow start, with the day's stops gathered close so the walking stays easy.",
+        "Lunch is at Oceans, 12:17–13:17.",
+        "Listings don't spell out the dietary details here, so a quick word with the kitchen on arrival is the safe move.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The day winds down back at base by 17:02 — 0 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1022
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-27",
+      "role": "standard",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/5793746673",
+          "name": "SunSet Café",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 737,
+          "end": 797,
+          "pos": {
+            "lat": 49.5893023,
+            "lon": -57.9172548
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5793746673",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 3,
+            "labels": [],
+            "strong": false,
+            "veganOnly": false,
+            "evidenceText": ""
+          },
+          "startTime": "12:17",
+          "endTime": "13:17",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/5793746673",
+          "fromName": "Ocean View Hotel",
+          "toName": "SunSet Café",
+          "mode": "walk",
+          "km": 0.15,
+          "minutes": 2,
+          "depart": 735,
+          "arrive": 737,
+          "departTime": "12:15",
+          "arriveTime": "12:17"
+        },
+        {
+          "fromKey": "node/5793746673",
+          "toKey": "base",
+          "fromName": "SunSet Café",
+          "toName": "Ocean View Hotel",
+          "mode": "walk",
+          "km": 0.15,
+          "minutes": 2,
+          "depart": 797,
+          "arrive": 799,
+          "departTime": "13:17",
+          "arriveTime": "13:19"
+        }
+      ],
+      "narrative": [
+        "Tuesday, October 27 is built around a slow start, with the day's stops gathered close so the walking stays easy.",
+        "Lunch is at SunSet Café, 12:17–13:17.",
+        "Listings don't spell out the dietary details here, so a quick word with the kitchen on arrival is the safe move.",
+        "The day winds down back at base by 13:19 — 0 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 799
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 0,
+    "infants": 0
+  },
+  "budgetCap": {
+    "amount": 1000,
+    "currency": "CAD",
+    "verdict": "WITHIN — even the top of the estimated range (CAD 328) sits under the cap (CAD 1000) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "We are a couple who want coast and quiet for a slow four day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor cabin or a building with an elevator and short flat trails only, as my ankle is still healing. I am vegetarian and my partner cannot eat shellfish, so please favor restaurants with clear vegetarian options. Keep the total budget under one thousand dollars, avoid long walks between stops, and also include the boat tour on Western Brook Pond and the lighthouse at Lobster Cove please.",
+    "wordCount": 103,
+    "source": "generated-for-location"
+  },
+  "anchorStay": {
+    "name": "Ocean View Hotel",
+    "url": "https://www.openstreetmap.org/node/4232002165",
+    "walkableSights": 1,
+    "walkableFood": 4,
+    "distCenterKm": 0.21,
+    "quietProxy": 7,
+    "anchorScore": 10.7,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-boat-tour",
+      "label": "Western Brook Pond boat tour",
+      "status": "unmet",
+      "reason": "no matching candidate exists in the open data for this destination"
+    },
+    {
+      "id": "keyword-lighthouse",
+      "label": "Lobster Cove lighthouse",
+      "status": "scheduled",
+      "day": 2,
+      "item": "Lobster Cove Head Lighthouse"
+    }
+  ],
+  "solverNotes": [
+    "Excursion placed on 2026-10-25 — the driest eligible day in the forecast (0% rain chance)."
+  ],
+  "packCounts": {
+    "total": 24,
+    "sights": 10,
+    "foods": 7,
+    "stays": 7,
+    "transport": 0
+  },
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 8,
+    "enriched": 0,
+    "hoursUnknown": null,
+    "dataLabel": "off — OSM only",
+    "liveApiProof": "NOT DONE — awaiting GOOGLE_PLACES_API_KEY provisioning by the owner; the key is read from env at runtime only and never stored"
+  },
+  "requirementVerdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 6 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:17–17:00)"
+    },
+    {
+      "id": "keyword-boat-tour",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches Western Brook Pond boat tour"
+    },
+    {
+      "id": "keyword-lighthouse",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"lighthouse\" (Lobster Cove lighthouse)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "0 of 4 lunches carry explicit dietary tags in the data (vegetarian, shellfish)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1000 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Gros Morne Wildlife Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Oceans\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"SunSet Café\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T20:56:25.785Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "Lobster Cove Head Lighthouse",
+        "day": 2,
+        "score": 85,
+        "reasons": [
+          "named in the traveler's request",
+          "hours verified (osm)"
+        ]
+      },
+      {
+        "name": "Fisherman's Landing",
+        "day": 1,
+        "score": 60,
+        "reasons": [
+          "hours verified (osm)"
+        ]
+      },
+      {
+        "name": "Earle‘s",
+        "day": 2,
+        "score": 60,
+        "reasons": [
+          "hours verified (osm)"
+        ]
+      },
+      {
+        "name": "Gros Morne Wildlife Museum",
+        "day": 1,
+        "score": 50,
+        "reasons": []
+      },
+      {
+        "name": "Oceans",
+        "day": 3,
+        "score": 50,
+        "reasons": []
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "Gros Morne Wildlife Museum",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Fisherman's Landing",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Earle‘s",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Oceans",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Oceans",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "SunSet Café",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 4,
+        "item": "SunSet Café",
+        "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "Lobster Cove Head Lighthouse",
+        "risk": "tight turnaround — only 4 min after \"Earle‘s\"",
+        "severity": "low"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "WITHIN",
+      "note": "even the top of the estimated range (CAD 328) sits under the cap (CAD 1000)",
+      "cap": {
+        "amount": 1000,
+        "currency": "CAD",
+        "verdict": "WITHIN — even the top of the estimated range (CAD 328) sits under the cap (CAD 1000) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 6,
+      "evidencedItems": 6,
+      "evidenceByTier": {
+        "COSTED": 6
+      },
+      "estimatedTotals": {
+        "low": 136,
+        "high": 328,
+        "currency": "CAD"
+      },
+      "payingParty": 2,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 0,
+      "bandDistribution": {},
+      "bandSource": null
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 2,
+        "walkingKmEstimated": 0.68,
+        "lastEnd": "13:21"
+      },
+      {
+        "day": 2,
+        "stops": 2,
+        "walkingKmEstimated": 1.42,
+        "lastEnd": "14:43"
+      },
+      {
+        "day": 3,
+        "stops": 1,
+        "walkingKmEstimated": 0.06,
+        "lastEnd": "17:02"
+      },
+      {
+        "day": 4,
+        "stops": 1,
+        "walkingKmEstimated": 0.3,
+        "lastEnd": "13:19"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Ocean View Hotel",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 2
+  }
+}

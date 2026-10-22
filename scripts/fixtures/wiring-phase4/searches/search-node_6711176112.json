@@ -1,0 +1,40 @@
+{
+  "places": [
+    {
+      "id": "ChIJBfSsZ-eVuEwR3UqZAUMCYPc",
+      "formattedAddress": "48 Rue St Jean Baptiste, Baie-Saint-Paul, QC G3Z 1L9, Canada",
+      "location": {
+        "latitude": 47.4427057,
+        "longitude": -70.5065291
+      },
+      "displayName": {
+        "text": "Galerie d'art GB Geneviève et Gilles Bédard",
+        "languageCode": "fr"
+      }
+    },
+    {
+      "id": "ChIJD64FD92VuEwRsjHpbhCXH5I",
+      "formattedAddress": "40 Rue Notre-Dame, Québec, QC G1K 8A5, Canada",
+      "location": {
+        "latitude": 46.813522,
+        "longitude": -71.2029979
+      },
+      "displayName": {
+        "text": "Galerie Québec Art",
+        "languageCode": "fr"
+      }
+    },
+    {
+      "id": "ChIJL7fxYQCVuEwRRCYx61JwgOU",
+      "formattedAddress": "133 Rue Saint-Paul, Québec, QC G1K 3V8, Canada",
+      "location": {
+        "latitude": 46.8164113,
+        "longitude": -71.2054462
+      },
+      "displayName": {
+        "text": "Galerie d'Art St-Paul",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

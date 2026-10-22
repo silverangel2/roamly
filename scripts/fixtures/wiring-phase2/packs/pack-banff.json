@@ -1,0 +1,2727 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "cache/pack-banff.json"
+      ],
+      "note": "Cached destination pack as the solver consumes it; the collectors' `sources` provenance block is dropped (collector bookkeeping, not solver input)."
+    }
+  },
+  "data": {
+    "destination": "Banff",
+    "country": "Canada",
+    "center": {
+      "lat": 51.1784,
+      "lon": -115.5708
+    },
+    "startIso": "2026-10-23",
+    "endIso": "2026-10-26",
+    "generatedAt": "2026-10-21T21:01:30.451Z",
+    "counts": {
+      "total": 177,
+      "sights": 49,
+      "foods": 104,
+      "stays": 21,
+      "transport": 3
+    },
+    "stays": [
+      {
+        "key": "node/263426674",
+        "name": "HI Banff Alpine Centre",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1852498,
+          "lon": -115.548053
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.hihostels.ca/banff"
+        },
+        "url": "https://www.openstreetmap.org/node/263426674"
+      },
+      {
+        "key": "node/678180329",
+        "name": "Fox Hotel and Suites",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1833309,
+          "lon": -115.5630479
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Banff Lodging Co.",
+          "website": "https://foxhotelandsuites.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/678180329"
+      },
+      {
+        "key": "node/678241304",
+        "name": "Hidden Ridge Resort",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1881312,
+          "lon": -115.546148
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Banff Lodging Co.",
+          "website": "https://banffhiddenridge.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/678241304"
+      },
+      {
+        "key": "node/678981448",
+        "name": "Brewster's Mountain Lodge",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1767745,
+          "lon": -115.57213
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://brewstermountainlodge.com"
+        },
+        "url": "https://www.openstreetmap.org/node/678981448"
+      },
+      {
+        "key": "node/2126966387",
+        "name": "Bow View Lodge",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1779127,
+          "lon": -115.575576
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://bowview.com"
+        },
+        "url": "https://www.openstreetmap.org/node/2126966387"
+      },
+      {
+        "key": "node/2127000697",
+        "name": "Mountain Country",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1828579,
+          "lon": -115.5681337
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/2127000697"
+      },
+      {
+        "key": "node/2128371758",
+        "name": "King Edward Hotel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1765327,
+          "lon": -115.5711913
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.kingedwardhotelbanff.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/2128371758"
+      },
+      {
+        "key": "node/2129749862",
+        "name": "Big Horn Bed and Breakfast",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1806811,
+          "lon": -115.5743277
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/2129749862"
+      },
+      {
+        "key": "node/4307400891",
+        "name": "Elkhorn Lodge",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1690782,
+          "lon": -115.5674848
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://elkhornbanff.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/4307400891"
+      },
+      {
+        "key": "node/9248601429",
+        "name": "Peaks Hotel and Suites",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1777859,
+          "lon": -115.573377
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.peaksbanff.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/9248601429"
+      },
+      {
+        "key": "node/10916588799",
+        "name": "Mount Royal Hotel",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1762725,
+          "lon": -115.5706916
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.banffjaspercollection.com/hotels/mount-royal-hotel"
+        },
+        "url": "https://www.openstreetmap.org/node/10916588799"
+      },
+      {
+        "key": "node/11018880405",
+        "name": "Cascade Cabin Bed and Breakfast",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1713175,
+          "lon": -115.5746004
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://cascadecabinbedandbreakfast.com"
+        },
+        "url": "https://www.openstreetmap.org/node/11018880405"
+      },
+      {
+        "key": "node/11018880406",
+        "name": "Cascade Court Bed and Breakfast",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1678643,
+          "lon": -115.5675248
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11018880406"
+      },
+      {
+        "key": "node/11018880485",
+        "name": "Glacier Studios",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1671446,
+          "lon": -115.5695154
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11018880485"
+      },
+      {
+        "key": "node/11018880587",
+        "name": "Holiday Lodge B & B & Cabins",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1792183,
+          "lon": -115.5730676
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11018880587"
+      },
+      {
+        "key": "node/11024192936",
+        "name": "Mountain Home B & B",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1759254,
+          "lon": -115.5683114
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11024192936"
+      },
+      {
+        "key": "node/11027001647",
+        "name": "Riverside Bed & Breakfast",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1773941,
+          "lon": -115.5751978
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11027001647"
+      },
+      {
+        "key": "node/11027001831",
+        "name": "Ugly Bunny Guest House",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.175499,
+          "lon": -115.5631945
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11027001831"
+      },
+      {
+        "key": "node/11027001832",
+        "name": "Wolf Den Bed & Breakfast",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1805197,
+          "lon": -115.5750946
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://wolfdenbedandbreakfast.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/11027001832"
+      },
+      {
+        "key": "node/11927007531",
+        "name": "Basecamp Suites",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1791141,
+          "lon": -115.5721738
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11927007531"
+      },
+      {
+        "key": "node/12242038524",
+        "name": "Park Place Condominiums",
+        "nameEn": null,
+        "kind": "stay",
+        "pos": {
+          "lat": 51.1831264,
+          "lon": -115.566384
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/12242038524"
+      }
+    ],
+    "sights": [
+      {
+        "key": "node/263388342",
+        "name": "Cave & Basin National Historic Site",
+        "nameEn": "Cave & Basin National Historic Site",
+        "kind": "attraction",
+        "pos": {
+          "lat": 51.1692307,
+          "lon": -115.590891
+        },
+        "hoursRaw": "May 15-Oct 15 Mo-Su 09:00-17:00; Oct 16-May 14 We-Su 10:00-16:00",
+        "tags": {
+          "fee": "yes",
+          "operator": "Parks Canada",
+          "website": "https://parks.canada.ca/lhn-nhs/ab/caveandbasin"
+        },
+        "url": "https://www.openstreetmap.org/node/263388342"
+      },
+      {
+        "key": "node/263399270",
+        "name": "Canada Place Banff",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 51.171522,
+          "lon": -115.5713091
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/263399270"
+      },
+      {
+        "key": "node/341211424",
+        "name": "The Banff Centre",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 51.1722937,
+          "lon": -115.5607448
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/341211424"
+      },
+      {
+        "key": "node/341211830",
+        "name": "Surprise Corner",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1676228,
+          "lon": -115.5598284
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/341211830"
+      },
+      {
+        "key": "node/678937141",
+        "name": "Vermilion Lake",
+        "nameEn": "Vermilion Lake",
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1822654,
+          "lon": -115.6032476
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/678937141"
+      },
+      {
+        "key": "node/4110686120",
+        "name": "Sulphur Mountain Cosmic Ray Station",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 51.1470726,
+          "lon": -115.5785579
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4110686120"
+      },
+      {
+        "key": "node/4218161190",
+        "name": "Fenland Trail",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 51.1842127,
+          "lon": -115.5826121
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4218161190"
+      },
+      {
+        "key": "node/4221098311",
+        "name": "Vermilion Lakes",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 51.1843374,
+          "lon": -115.5906486
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://parks.canada.ca/pn-np/ab/banff/visit/les10-top10/vermilion"
+        },
+        "url": "https://www.openstreetmap.org/node/4221098311"
+      },
+      {
+        "key": "node/4986091121",
+        "name": "Waterfall",
+        "nameEn": "Waterfall",
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.2134683,
+          "lon": -115.5432895
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4986091121"
+      },
+      {
+        "key": "node/5078963233",
+        "name": "Path to Hoodoos",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1885738,
+          "lon": -115.5210391
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/5078963233"
+      },
+      {
+        "key": "node/5109473123",
+        "name": "Bow falls viewpoint",
+        "nameEn": "Bow falls viewpoint",
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1659761,
+          "lon": -115.5601982
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/5109473123"
+      },
+      {
+        "key": "node/5111932321",
+        "name": "King's Lookout",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1776653,
+          "lon": -115.5535791
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/5111932321"
+      },
+      {
+        "key": "node/5164268822",
+        "name": "Banff Hoodoos Viewpoint",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1885395,
+          "lon": -115.520055
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/5164268822"
+      },
+      {
+        "key": "node/6467331285",
+        "name": "Banff Pedestrian Bridge",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1727524,
+          "lon": -115.5682317
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6467331285"
+      },
+      {
+        "key": "node/6472383086",
+        "name": "Mt Norquay Sightseeing Chairlift",
+        "nameEn": null,
+        "kind": "attraction",
+        "pos": {
+          "lat": 51.2013162,
+          "lon": -115.6001362
+        },
+        "hoursRaw": "Mo-Su 10:00-18:00",
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6472383086"
+      },
+      {
+        "key": "node/6472399686",
+        "name": "Vermilion Lake Viewpoint",
+        "nameEn": null,
+        "kind": "viewpoint",
+        "pos": {
+          "lat": 51.1814138,
+          "lon": -115.6048294
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6472399686"
+      },
+      {
+        "key": "node/10912657779",
+        "name": "Cave",
+        "nameEn": "Cave",
+        "kind": "historic",
+        "pos": {
+          "lat": 51.1687815,
+          "lon": -115.590695
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "yes",
+          "operator": "Parks Canada",
+          "website": "https://parks.canada.ca/lhn-nhs/ab/caveandbasin"
+        },
+        "url": "https://www.openstreetmap.org/node/10912657779"
+      },
+      {
+        "key": "node/10922654374",
+        "name": "Brandon T. Brown Wilderness Gallery",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 51.1774373,
+          "lon": -115.5725632
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "no",
+          "website": "https://brandontbrown.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10922654374"
+      },
+      {
+        "key": "node/10922654379",
+        "name": "Carter-Ryan Gallery and Live Art Venue",
+        "nameEn": null,
+        "kind": "gallery",
+        "pos": {
+          "lat": 51.1783694,
+          "lon": -115.572469
+        },
+        "hoursRaw": "Mo-Th 11:00-18:00; Fr,Sa 11:00-19:00; Su 10:00-17:00",
+        "tags": {
+          "website": "https://www.carter-ryan.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10922654379"
+      },
+      {
+        "key": "node/10968396043",
+        "name": "The Club",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 51.1732063,
+          "lon": -115.5608482
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.banffcentre.ca/performing-arts/facilities"
+        },
+        "url": "https://www.openstreetmap.org/node/10968396043"
+      },
+      {
+        "key": "way/37017993",
+        "name": "Jenny Belzberg Theatre",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 51.1735585,
+          "lon": -115.5608944
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.banffcentre.ca/theatre-revitalization-project"
+        },
+        "url": "https://www.openstreetmap.org/way/37017993"
+      },
+      {
+        "key": "way/37017994",
+        "name": "Margaret Greenham Theatre",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 51.1731898,
+          "lon": -115.5604551
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/37017994"
+      },
+      {
+        "key": "way/48303777",
+        "name": "Banff Rotary Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 51.1847074,
+          "lon": -115.5596473
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/48303777"
+      },
+      {
+        "key": "way/202233167",
+        "name": "Banff Upper Hot Springs",
+        "nameEn": "Banff Upper Hot Springs",
+        "kind": "attraction",
+        "pos": {
+          "lat": 51.1508634,
+          "lon": -115.5606199
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Parks Canada",
+          "website": "https://parks.canada.ca/pn-np/ab/banff/sources-banff-springs"
+        },
+        "url": "https://www.openstreetmap.org/way/202233167"
+      },
+      {
+        "key": "way/202739088",
+        "name": "Central Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 51.1736615,
+          "lon": -115.5728355
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/202739088"
+      },
+      {
+        "key": "way/202755721",
+        "name": "Whyte Museum of the Canadian Rockies",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 51.1751534,
+          "lon": -115.5732121
+        },
+        "hoursRaw": null,
+        "tags": {
+          "fee": "yes",
+          "website": "https://www.whyte.org/"
+        },
+        "url": "https://www.openstreetmap.org/way/202755721"
+      },
+      {
+        "key": "way/202864187",
+        "name": "Banff Recreation Grounds",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 51.1730711,
+          "lon": -115.5762893
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/202864187"
+      },
+      {
+        "key": "way/226594257",
+        "name": "Banff Park Museum",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 51.173781,
+          "lon": -115.5716805
+        },
+        "hoursRaw": "Th-Mo 09:30-17:00",
+        "tags": {
+          "fee": "yes",
+          "website": "https://www.pc.gc.ca/eng/lhn-nhs/ab/banff/index.aspx"
+        },
+        "url": "https://www.openstreetmap.org/way/226594257"
+      },
+      {
+        "key": "way/476428301",
+        "name": "Buffalo Nations Luxton Museum",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 51.1721093,
+          "lon": -115.5734728
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.buffalonationsmuseum.com/"
+        },
+        "url": "https://www.openstreetmap.org/way/476428301"
+      },
+      {
+        "key": "way/476721234",
+        "name": "Luxton Home & Garden Museum",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 51.1768899,
+          "lon": -115.5690306
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Eleanor Luxton Historical Foundation",
+          "website": "https://luxtonfoundation.org/museum/the-luxton-home.html"
+        },
+        "url": "https://www.openstreetmap.org/way/476721234"
+      },
+      {
+        "key": "way/1127745474",
+        "name": "First World War Internment Exhibit",
+        "nameEn": null,
+        "kind": "museum",
+        "pos": {
+          "lat": 51.1688764,
+          "lon": -115.5928291
+        },
+        "hoursRaw": "Mo-Su 09:30-17:00",
+        "tags": {
+          "fee": "no"
+        },
+        "url": "https://www.openstreetmap.org/way/1127745474"
+      },
+      {
+        "key": "way/1180698590",
+        "name": "Shaw Amphitheatre",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 51.1721373,
+          "lon": -115.562909
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.banffcentre.ca/shaw-amphitheatre"
+        },
+        "url": "https://www.openstreetmap.org/way/1180698590"
+      },
+      {
+        "key": "way/1322749335",
+        "name": "Pine Meadows",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 51.1983159,
+          "lon": -115.5368079
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1322749335"
+      },
+      {
+        "key": "way/1467693084",
+        "name": "Muskrat Street Park",
+        "nameEn": null,
+        "kind": "park",
+        "pos": {
+          "lat": 51.1814639,
+          "lon": -115.5651122
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1467693084"
+      },
+      {
+        "key": "way/1467710907",
+        "name": "Tunnel Mountain Amphitheater",
+        "nameEn": null,
+        "kind": "venue",
+        "pos": {
+          "lat": 51.1932512,
+          "lon": -115.5204691
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/way/1467710907"
+      }
+    ],
+    "excursions": [
+      {
+        "key": "node/263386936",
+        "name": "Bow Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.1674103,
+          "lon": -115.5609012
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/263386936"
+      },
+      {
+        "key": "node/301457845",
+        "name": "Cascade Amphitheatre",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.2298772,
+          "lon": -115.5845135
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/301457845"
+      },
+      {
+        "key": "node/3005639506",
+        "name": "Lower Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.2548639,
+          "lon": -115.8373229
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3005639506"
+      },
+      {
+        "key": "node/3005649751",
+        "name": "Tunnel Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.256906,
+          "lon": -115.8361171
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3005649751"
+      },
+      {
+        "key": "node/3005649765",
+        "name": "Stella Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.2598264,
+          "lon": -115.8338769
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3005649765"
+      },
+      {
+        "key": "node/3005649801",
+        "name": "Upper Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.2618643,
+          "lon": -115.831285
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3005649801"
+      },
+      {
+        "key": "node/3355129386",
+        "name": "Troll Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 50.948287,
+          "lon": -115.1472949
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3355129386"
+      },
+      {
+        "key": "node/3355138682",
+        "name": "O'Shaughnessy Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 50.999134,
+          "lon": -115.0743444
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3355138682"
+      },
+      {
+        "key": "node/3537367884",
+        "name": "Lower Spray Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.0320254,
+          "lon": -115.2512596
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3537367884"
+      },
+      {
+        "key": "node/4318879789",
+        "name": "Silverton Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.2732241,
+          "lon": -115.9085017
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/4318879789"
+      },
+      {
+        "key": "node/6250727785",
+        "name": "Cascade de glace",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 50.8604816,
+          "lon": -115.096344
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/6250727785"
+      },
+      {
+        "key": "node/11248457096",
+        "name": "Marmot Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 50.948016,
+          "lon": -115.1482888
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11248457096"
+      },
+      {
+        "key": "node/11517889425",
+        "name": "Three Sisters Creek Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.0595637,
+          "lon": -115.3288308
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11517889425"
+      },
+      {
+        "key": "node/13076496901",
+        "name": "Marguerite Falls",
+        "nameEn": null,
+        "kind": "falls",
+        "pos": {
+          "lat": 51.2606865,
+          "lon": -115.830386
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/13076496901"
+      }
+    ],
+    "foods": [
+      {
+        "key": "node/295231816",
+        "name": "Hankki",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.174503,
+          "lon": -115.571782
+        },
+        "hoursRaw": "Su-Th 11:30-20:00; Fr-Sa 11:30-22:00",
+        "tags": {
+          "cuisine": "korean",
+          "description": "Korean Street Food",
+          "website": "https://hankkica.com"
+        },
+        "url": "https://www.openstreetmap.org/node/295231816"
+      },
+      {
+        "key": "node/341203803",
+        "name": "Wild Flour Bakery",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1771471,
+          "lon": -115.572596
+        },
+        "hoursRaw": "Mo-Su 07:00-16:00",
+        "tags": {
+          "cuisine": "coffee_shop",
+          "website": "https://www.wildflourbakery.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/341203803"
+      },
+      {
+        "key": "node/579055392",
+        "name": "Vistas Dining Room",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1717574,
+          "lon": -115.5612551
+        },
+        "hoursRaw": "07:00-09:30,11:30-13:30,17:30-19:30",
+        "tags": {
+          "website": "https://www.banffcentre.ca/vistas-dining-room"
+        },
+        "url": "https://www.openstreetmap.org/node/579055392"
+      },
+      {
+        "key": "node/613568544",
+        "name": "Brazen",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1764787,
+          "lon": -115.570643
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "regional",
+          "website": "https://www.banffjaspercollection.com/dining/brazen"
+        },
+        "url": "https://www.openstreetmap.org/node/613568544"
+      },
+      {
+        "key": "node/616963571",
+        "name": "McDonald's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1752515,
+          "lon": -115.570715
+        },
+        "hoursRaw": "06:00-00:00",
+        "tags": {
+          "cuisine": "burger",
+          "website": "http://www.mcdonalds.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/616963571"
+      },
+      {
+        "key": "node/616963574",
+        "name": "Banff Social",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1779215,
+          "lon": -115.572553
+        },
+        "hoursRaw": "12:00-23:00",
+        "tags": {
+          "cuisine": "steak_house",
+          "website": "https://banffsocial.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/616963574"
+      },
+      {
+        "key": "node/678181564",
+        "name": "Meatball Pizza & Pasta",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1802949,
+          "lon": -115.5699438
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "italian",
+          "website": "https://meatballbanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/678181564"
+      },
+      {
+        "key": "node/678185323",
+        "name": "Pad Thai Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1749777,
+          "lon": -115.5705666
+        },
+        "hoursRaw": "Th-Mo 12:00-21:00; We 12:00-19:00; Tu off",
+        "tags": {
+          "cuisine": "thai",
+          "website": "https://www.padthaibanff.com/",
+          "wheelchair": "no"
+        },
+        "url": "https://www.openstreetmap.org/node/678185323"
+      },
+      {
+        "key": "node/678186631",
+        "name": "Second Cup",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1785378,
+          "lon": -115.571312
+        },
+        "hoursRaw": "Mo-Th 07:00-20:00; Fr,Sa 07:00-21:00; Su 07:00-19:00",
+        "tags": {
+          "cuisine": "coffee_shop",
+          "website": "https://secondcup.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/678186631"
+      },
+      {
+        "key": "node/678187048",
+        "name": "The Old Spaghetti Factory",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1786918,
+          "lon": -115.57145
+        },
+        "hoursRaw": "Su-Fr 11:30-21:00; Sa 11:30-21:30",
+        "tags": {
+          "cuisine": "italian",
+          "website": "https://www.oldspaghettifactory.ca/locations/banff",
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/678187048"
+      },
+      {
+        "key": "node/678240636",
+        "name": "The Keg",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1842847,
+          "lon": -115.560555
+        },
+        "hoursRaw": "Mo-Su 06:30-11:00, Sa,Su 15:00-23:00, Mo-Fr 16:00-23:00",
+        "tags": {
+          "cuisine": "steak_house",
+          "website": "https://thekeg.com/en/locations/banff-caribou"
+        },
+        "url": "https://www.openstreetmap.org/node/678240636"
+      },
+      {
+        "key": "node/678977497",
+        "name": "Sky Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1447466,
+          "lon": -115.5750165
+        },
+        "hoursRaw": "11:00-20:00",
+        "tags": {
+          "cuisine": "canadian",
+          "website": "https://www.banffjaspercollection.com/dining/sky-bistro",
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/678977497"
+      },
+      {
+        "key": "node/678977633",
+        "name": "Starbucks",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1480302,
+          "lon": -115.555376
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/678977633"
+      },
+      {
+        "key": "node/678981146",
+        "name": "The Maple Leaf Grille & Spirits",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1765325,
+          "lon": -115.571306
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "steak_house",
+          "operator": "10:00-21:30",
+          "website": "https://banffmapleleaf.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/678981146"
+      },
+      {
+        "key": "node/773189928",
+        "name": "Coyotes Deli & Grill",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1767217,
+          "lon": -115.5716298
+        },
+        "hoursRaw": "08:00+",
+        "tags": {
+          "cuisine": "tex-mex",
+          "website": "https://coyotesbanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/773189928"
+      },
+      {
+        "key": "node/926052153",
+        "name": "Chaya",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1753279,
+          "lon": -115.570768
+        },
+        "hoursRaw": "11:30-20:30",
+        "tags": {
+          "cuisine": "japanese",
+          "website": "https://www.chayabanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/926052153"
+      },
+      {
+        "key": "node/926052157",
+        "name": "Balkan The Greek Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1754535,
+          "lon": -115.5706073
+        },
+        "hoursRaw": "11:30-21:00",
+        "tags": {
+          "cuisine": "greek",
+          "website": "https://www.banffbalkan.ca",
+          "wheelchair": "no"
+        },
+        "url": "https://www.openstreetmap.org/node/926052157"
+      },
+      {
+        "key": "node/926082940",
+        "name": "Grizzly House Steak & Cheese Fondue",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.177043,
+          "lon": -115.5711659
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "meat",
+          "website": "https://banffgrizzlyhouse.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/926082940"
+      },
+      {
+        "key": "node/936688935",
+        "name": "The Boss Kitchen & Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.178328,
+          "lon": -115.5712767
+        },
+        "hoursRaw": "Mo-Su 11:30-23:00",
+        "tags": {
+          "cuisine": "american",
+          "website": "https://thebossbanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/936688935"
+      },
+      {
+        "key": "node/1304519227",
+        "name": "Castello Ristorante",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1633481,
+          "lon": -115.5609263
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.fairmont.com/banffsprings/GuestServices/Restaurants/CastelloRistorante.htm"
+        },
+        "url": "https://www.openstreetmap.org/node/1304519227"
+      },
+      {
+        "key": "node/1304519229",
+        "name": "Bow Valley Grill",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1644986,
+          "lon": -115.5618705
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.fairmont.com/banffsprings/GuestServices/Restaurants/BowValleyGrill.htm"
+        },
+        "url": "https://www.openstreetmap.org/node/1304519229"
+      },
+      {
+        "key": "node/1304560464",
+        "name": "Sushi House Banff",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1766953,
+          "lon": -115.570309
+        },
+        "hoursRaw": "12:00-20:00",
+        "tags": {
+          "cuisine": "sushi",
+          "website": "https://sushihousebanff.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/1304560464"
+      },
+      {
+        "key": "node/1304560482",
+        "name": "Athena Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1749808,
+          "lon": -115.5707903
+        },
+        "hoursRaw": "Mo-Fr 17:00-22:00; Sa-Su 12:00-22:00",
+        "tags": {
+          "website": "http://www.athenapizzabanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/1304560482"
+      },
+      {
+        "key": "node/2125873583",
+        "name": "Boston Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1779536,
+          "lon": -115.5711177
+        },
+        "hoursRaw": "Mo-Su 11:00-22:00",
+        "tags": {
+          "cuisine": "pizza",
+          "website": "https://bostonpizza.com"
+        },
+        "url": "https://www.openstreetmap.org/node/2125873583"
+      },
+      {
+        "key": "node/2127004351",
+        "name": "Chili's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1834317,
+          "lon": -115.5628884
+        },
+        "hoursRaw": "Su-Th 07:00-10:00; Fr,Sa 07:00-23:00",
+        "tags": {
+          "cuisine": "tex-mex",
+          "operator": "Fox Hotel and Suites",
+          "website": "https://foxhotelandsuites.com/restaurant"
+        },
+        "url": "https://www.openstreetmap.org/node/2127004351"
+      },
+      {
+        "key": "node/2127007823",
+        "name": "Buffalo Mountain Cafe",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1840033,
+          "lon": -115.5514873
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "regional"
+        },
+        "url": "https://www.openstreetmap.org/node/2127007823"
+      },
+      {
+        "key": "node/2128359953",
+        "name": "Pizza Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1787417,
+          "lon": -115.573934
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "pizza"
+        },
+        "url": "https://www.openstreetmap.org/node/2128359953"
+      },
+      {
+        "key": "node/2128375286",
+        "name": "Sushi Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1767379,
+          "lon": -115.571781
+        },
+        "hoursRaw": "11:30-21:30",
+        "tags": {
+          "cuisine": "japanese",
+          "website": "https://www.banffsushibistro.com"
+        },
+        "url": "https://www.openstreetmap.org/node/2128375286"
+      },
+      {
+        "key": "node/2128380227",
+        "name": "The Bison Restaurant & Terrace",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1775432,
+          "lon": -115.5726268
+        },
+        "hoursRaw": "Su-Th 17:00-21:00; Fr,Sa 16:30-21:00",
+        "tags": {
+          "cuisine": "canadian",
+          "website": "https://www.thebison.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/2128380227"
+      },
+      {
+        "key": "node/2128381753",
+        "name": "The Cake Company",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1779101,
+          "lon": -115.5721617
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "cake"
+        },
+        "url": "https://www.openstreetmap.org/node/2128381753"
+      },
+      {
+        "key": "node/3028699694",
+        "name": "Cave and Basin Cafe",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1690002,
+          "lon": -115.5917344
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3028699694"
+      },
+      {
+        "key": "node/3119311237",
+        "name": "Tim Hortons",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1801069,
+          "lon": -115.575988
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop",
+          "operator": "Restaurant Brands International Inc.",
+          "website": "https://www.timhortons.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/3119311237"
+      },
+      {
+        "key": "node/3756374927",
+        "name": "Bamboo Garden",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1772864,
+          "lon": -115.5712897
+        },
+        "hoursRaw": "11:30-22:00",
+        "tags": {
+          "cuisine": "chinese;thai",
+          "website": "http://banffbamboo.com"
+        },
+        "url": "https://www.openstreetmap.org/node/3756374927"
+      },
+      {
+        "key": "node/3756374928",
+        "name": "Evelyn's Coffee World",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1774944,
+          "lon": -115.571086
+        },
+        "hoursRaw": "Sa,Su 08:00-19:00; Mo-Fr 08:00-17:00",
+        "tags": {
+          "website": "https://evelynscoffeebar.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/3756374928"
+      },
+      {
+        "key": "node/4306486005",
+        "name": "Block Kitchen + Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1767121,
+          "lon": -115.5712845
+        },
+        "hoursRaw": "11:30-23:00",
+        "tags": {
+          "cuisine": "international;tapas",
+          "website": "https://www.banffblock.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/4306486005"
+      },
+      {
+        "key": "node/4306690621",
+        "name": "The Eddie Burger + Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1765338,
+          "lon": -115.571557
+        },
+        "hoursRaw": "11:00-02:00",
+        "tags": {
+          "cuisine": "burger",
+          "website": "https://www.eddieburgerbar.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/4306690621"
+      },
+      {
+        "key": "node/4423693589",
+        "name": "Park Distillery Restaurant and Bar",
+        "nameEn": "Park Distillery Restaurant and Bar",
+        "kind": "food",
+        "pos": {
+          "lat": 51.1777744,
+          "lon": -115.571067
+        },
+        "hoursRaw": "Mo-Su 11:00-01:00",
+        "tags": {
+          "website": "https://www.parkdistillery.com"
+        },
+        "url": "https://www.openstreetmap.org/node/4423693589"
+      },
+      {
+        "key": "node/4712434388",
+        "name": "BeaverTails Pastry",
+        "nameEn": "BeaverTails",
+        "kind": "food",
+        "pos": {
+          "lat": 51.1768054,
+          "lon": -115.5711209
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "donut",
+          "website": "https://beavertails.com"
+        },
+        "url": "https://www.openstreetmap.org/node/4712434388"
+      },
+      {
+        "key": "node/4712635059",
+        "name": "Shoku Izakaya",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1766919,
+          "lon": -115.570216
+        },
+        "hoursRaw": "11:30-23:00",
+        "tags": {
+          "cuisine": "japanese",
+          "website": "https://shokubanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/4712635059"
+      },
+      {
+        "key": "node/4712644479",
+        "name": "Aardvark Pizza & Sub",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1766964,
+          "lon": -115.570393
+        },
+        "hoursRaw": "10:00-03:30",
+        "tags": {
+          "cuisine": "pizza",
+          "website": "https://www.aardvarkpizza.com"
+        },
+        "url": "https://www.openstreetmap.org/node/4712644479"
+      },
+      {
+        "key": "node/4723440153",
+        "name": "Subway",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1765338,
+          "lon": -115.571449
+        },
+        "hoursRaw": "08:00-03:00",
+        "tags": {
+          "cuisine": "sandwich"
+        },
+        "url": "https://www.openstreetmap.org/node/4723440153"
+      },
+      {
+        "key": "node/4770571823",
+        "name": "Nourish Bistro",
+        "nameEn": "Nourish Bistro",
+        "kind": "food",
+        "pos": {
+          "lat": 51.1775825,
+          "lon": -115.572537
+        },
+        "hoursRaw": null,
+        "tags": {
+          "diet:vegan": "yes",
+          "diet:vegetarian": "yes",
+          "website": "https://www.nourishbistro.com"
+        },
+        "url": "https://www.openstreetmap.org/node/4770571823"
+      },
+      {
+        "key": "node/5618377421",
+        "name": "Tooloulou's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1767203,
+          "lon": -115.5715419
+        },
+        "hoursRaw": "Mo-Fr 08:00-21:00; Sa,Su 07:30-21:00",
+        "tags": {
+          "cuisine": "regional",
+          "website": "https://tooloulous.com"
+        },
+        "url": "https://www.openstreetmap.org/node/5618377421"
+      },
+      {
+        "key": "node/5712713721",
+        "name": "Whitebark Cafe",
+        "nameEn": "Whitebark Cafe",
+        "kind": "food",
+        "pos": {
+          "lat": 51.1811674,
+          "lon": -115.5690305
+        },
+        "hoursRaw": "Mo-Su 06:00-18:00",
+        "tags": {
+          "cuisine": "coffee_shop",
+          "operator": "Great coffee and baked goods. Line can be long, limited seating inside. But there's outdoor seating.",
+          "website": "https://whitebarkcafe.com/"
+        },
+        "url": "https://www.openstreetmap.org/node/5712713721"
+      },
+      {
+        "key": "node/5939962011",
+        "name": "Tama Teriaki & Sushi",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1749606,
+          "lon": -115.5712934
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "japanese;sushi"
+        },
+        "url": "https://www.openstreetmap.org/node/5939962011"
+      },
+      {
+        "key": "node/6467331885",
+        "name": "JK Bakery Cafe",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1783094,
+          "lon": -115.572478
+        },
+        "hoursRaw": "Mo-Sa 08:30-16:00",
+        "tags": {
+          "website": "https://www.jkbakery.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/6467331885"
+      },
+      {
+        "key": "node/6467353585",
+        "name": "Good Earth Coffeehouse Banff",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1796007,
+          "lon": -115.5704762
+        },
+        "hoursRaw": "06:30-19:00",
+        "tags": {
+          "website": "https://goodearthcoffeehouse.com/location/elk-avenue"
+        },
+        "url": "https://www.openstreetmap.org/node/6467353585"
+      },
+      {
+        "key": "node/6472399685",
+        "name": "Cliffhouse Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1994081,
+          "lon": -115.611826
+        },
+        "hoursRaw": "Mo-Su 11:00-18:00",
+        "tags": {
+          "website": "https://banffnorquay.com/dining/cliffhouse-bistro"
+        },
+        "url": "https://www.openstreetmap.org/node/6472399685"
+      },
+      {
+        "key": "node/6652324811",
+        "name": "Chuck's Steakhouse",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1745553,
+          "lon": -115.5713023
+        },
+        "hoursRaw": "Su-Th 17:00-21:00; Fr-Sa 16:30-21:30",
+        "tags": {
+          "cuisine": "steak_house",
+          "website": "https://www.chuckssteakhouse.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/6652324811"
+      },
+      {
+        "key": "node/6783676568",
+        "name": "Maclab Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1720913,
+          "lon": -115.5623591
+        },
+        "hoursRaw": "07:00-02:00",
+        "tags": {
+          "cuisine": "regional"
+        },
+        "url": "https://www.openstreetmap.org/node/6783676568"
+      },
+      {
+        "key": "node/6783712313",
+        "name": "Three Ravens Restaurant & Wine Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1717842,
+          "lon": -115.5611998
+        },
+        "hoursRaw": "17:00-21:00",
+        "tags": {
+          "cuisine": "regional"
+        },
+        "url": "https://www.openstreetmap.org/node/6783712313"
+      },
+      {
+        "key": "node/6848890886",
+        "name": "Little Wild Coffee",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1754584,
+          "lon": -115.571249
+        },
+        "hoursRaw": "Mo-Su 08:00-18:00",
+        "tags": {
+          "website": "https://www.littlewildcoffee.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/6848890886"
+      },
+      {
+        "key": "node/7129721966",
+        "name": "Waldhaus Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1643349,
+          "lon": -115.55908
+        },
+        "hoursRaw": "Th-Mo 18:00-21:00",
+        "tags": {
+          "cuisine": "german",
+          "website": "https://www.fairmont.com/banff-springs/dining/waldhausrestaurant/"
+        },
+        "url": "https://www.openstreetmap.org/node/7129721966"
+      },
+      {
+        "key": "node/9247432002",
+        "name": "Pacini",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1807674,
+          "lon": -115.5693548
+        },
+        "hoursRaw": "06:30-23:00",
+        "tags": {
+          "cuisine": "italian",
+          "website": "https://moosehotelandsuites.com/pacini-restaurant"
+        },
+        "url": "https://www.openstreetmap.org/node/9247432002"
+      },
+      {
+        "key": "node/9922467799",
+        "name": "Indian Curry House",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1780649,
+          "lon": -115.5711081
+        },
+        "hoursRaw": "Mo-Su 11:30-23:30",
+        "tags": {
+          "cuisine": "indian",
+          "website": "https://www.banffcurry.com"
+        },
+        "url": "https://www.openstreetmap.org/node/9922467799"
+      },
+      {
+        "key": "node/10268515174",
+        "name": "The Bear Street Tavern",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1775,
+          "lon": -115.572551
+        },
+        "hoursRaw": "11:30-21:00",
+        "tags": {
+          "cuisine": "pizza",
+          "diet:gluten_free": "yes",
+          "diet:vegetarian": "yes",
+          "website": "https://www.bearstreettavern.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/10268515174"
+      },
+      {
+        "key": "node/10312720179",
+        "name": "Bluebird Restaurant & Lobby Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1772638,
+          "lon": -115.573367
+        },
+        "hoursRaw": "Mo-Fr 09:00-14:00,16:00-21:00; Sa,Su 09:00-21:00",
+        "tags": {
+          "cuisine": "regional",
+          "website": "https://www.bluebirdbanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10312720179"
+      },
+      {
+        "key": "node/10914191109",
+        "name": "Yan's Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1789947,
+          "lon": -115.571454
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chinese",
+          "website": "https://yanbistro.mystrikingly.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10914191109"
+      },
+      {
+        "key": "node/10914191118",
+        "name": "Lupo",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1785911,
+          "lon": -115.572307
+        },
+        "hoursRaw": "Su-Fr 16:30-21:00; Sa 16:00-21:00",
+        "tags": {
+          "cuisine": "italian",
+          "website": "https://www.lupobanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10914191118"
+      },
+      {
+        "key": "node/10914191120",
+        "name": "Edo Japan",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1789711,
+          "lon": -115.571528
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "japanese",
+          "website": "https://www.edojapan.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10914191120"
+      },
+      {
+        "key": "node/10914191121",
+        "name": "iyycburg",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1789853,
+          "lon": -115.571377
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "burger",
+          "website": "https://www.iyycburg.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10914191121"
+      },
+      {
+        "key": "node/10914191127",
+        "name": "Banff Shawarma",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1789341,
+          "lon": -115.571591
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "middle-eastern;sandwich;shawarma",
+          "diet:halal": "yes",
+          "website": "https://banffshawarma.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/10914191127"
+      },
+      {
+        "key": "node/10914191130",
+        "name": "Popeyes",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1788921,
+          "lon": -115.571631
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "chicken"
+        },
+        "url": "https://www.openstreetmap.org/node/10914191130"
+      },
+      {
+        "key": "node/10916000014",
+        "name": "Peak Café",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1748994,
+          "lon": -115.5712927
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "vietnamese",
+          "website": "https://peakcafebanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10916000014"
+      },
+      {
+        "key": "node/10916000016",
+        "name": "Anejo Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1750583,
+          "lon": -115.571326
+        },
+        "hoursRaw": "Mo-Th 11:00-23:00; Fr-Su 11:00-01:00",
+        "tags": {
+          "cuisine": "mexican",
+          "website": "https://www.anejo.ca/en/locations/ab/banff/111-banff-ave"
+        },
+        "url": "https://www.openstreetmap.org/node/10916000016"
+      },
+      {
+        "key": "node/10916000020",
+        "name": "BeaverTails Pastry Coffee",
+        "nameEn": "BeaverTails",
+        "kind": "food",
+        "pos": {
+          "lat": 51.1755111,
+          "lon": -115.570738
+        },
+        "hoursRaw": "Mo-Su 11:00-22:00",
+        "tags": {
+          "cuisine": "donut",
+          "diet:vegan": "yes",
+          "diet:vegetarian": "yes",
+          "website": "https://beavertails.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10916000020"
+      },
+      {
+        "key": "node/10917575602",
+        "name": "Milk Tea at Banff",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1773118,
+          "lon": -115.571214
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.milkteaatbanff.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/10917575602"
+      },
+      {
+        "key": "node/10917598017",
+        "name": "Pho House",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1772828,
+          "lon": -115.571211
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/10917598017"
+      },
+      {
+        "key": "node/10917598022",
+        "name": "Seoul Country Korean Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1774946,
+          "lon": -115.571202
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "korean"
+        },
+        "url": "https://www.openstreetmap.org/node/10917598022"
+      },
+      {
+        "key": "node/10922654364",
+        "name": "The Uprising Craft Bakery",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.17674,
+          "lon": -115.5706511
+        },
+        "hoursRaw": "07:30-18:00",
+        "tags": {
+          "website": "https://www.theuprisingbakery.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10922654364"
+      },
+      {
+        "key": "node/10930938357",
+        "name": "Masala Authentic Indian Cuisine",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1784047,
+          "lon": -115.5729408
+        },
+        "hoursRaw": "Su-Th 12:00-14:30,17:00-22:00; Fr,Sa 12:00-14:30,17:00-23:00",
+        "tags": {
+          "cuisine": "indian",
+          "website": "https://masalabanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10930938357"
+      },
+      {
+        "key": "node/10931791085",
+        "name": "A&W",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1856884,
+          "lon": -115.5561273
+        },
+        "hoursRaw": "Su-Th 06:00-01:00; Fr,Sa 06:00-02:00",
+        "tags": {
+          "cuisine": "burger",
+          "website": "https://web.aw.ca/en/locations/1614/banff/banff"
+        },
+        "url": "https://www.openstreetmap.org/node/10931791085"
+      },
+      {
+        "key": "node/10932505968",
+        "name": "Alpha Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1998337,
+          "lon": -115.5358738
+        },
+        "hoursRaw": "08:00-11:00,17:00-21:00",
+        "tags": {
+          "website": "https://rockymountainresort.com/restaurant"
+        },
+        "url": "https://www.openstreetmap.org/node/10932505968"
+      },
+      {
+        "key": "node/10932505970",
+        "name": "Amu Ramen Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1754807,
+          "lon": -115.5714095
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "ramen",
+          "website": "https://amu-ramenbar-banff.square.site"
+        },
+        "url": "https://www.openstreetmap.org/node/10932505970"
+      },
+      {
+        "key": "node/10932505987",
+        "name": "Banff National Perk Coffee House & Eatery",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1778742,
+          "lon": -115.5721865
+        },
+        "hoursRaw": null,
+        "tags": {
+          "website": "https://www.facebook.com/banffnationalperk"
+        },
+        "url": "https://www.openstreetmap.org/node/10932505987"
+      },
+      {
+        "key": "node/10932520142",
+        "name": "Banff Poutine",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1780453,
+          "lon": -115.5725173
+        },
+        "hoursRaw": "11:30-21:00",
+        "tags": {
+          "cuisine": "poutine",
+          "website": "https://www.banff-poutine.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520142"
+      },
+      {
+        "key": "node/10932520146",
+        "name": "Una Pizza + Wine",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1767108,
+          "lon": -115.571343
+        },
+        "hoursRaw": "11:30-22:00",
+        "tags": {
+          "cuisine": "pizza",
+          "website": "https://unapizzeria.com/locations/una-banff"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520146"
+      },
+      {
+        "key": "node/10932520147",
+        "name": "Melissa's MisSteak",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1767139,
+          "lon": -115.5712122
+        },
+        "hoursRaw": "Mo-Su 08:00-21:00",
+        "tags": {
+          "cuisine": "steak_house",
+          "website": "https://melissasmissteak.com",
+          "wheelchair": "no"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520147"
+      },
+      {
+        "key": "node/10932520148",
+        "name": "Carlito's Pizzaria",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1839607,
+          "lon": -115.5622154
+        },
+        "hoursRaw": "17:00-23:00",
+        "tags": {
+          "cuisine": "pizza",
+          "website": "https://banffinn.com/dining"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520148"
+      },
+      {
+        "key": "node/10932520149",
+        "name": "Chopstix Noodle Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1772941,
+          "lon": -115.571358
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "noodle;asian"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520149"
+      },
+      {
+        "key": "node/10932520150",
+        "name": "Crave Mountain Grill",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1776321,
+          "lon": -115.5744875
+        },
+        "hoursRaw": "07:00-11:00",
+        "tags": {
+          "cuisine": "regional",
+          "website": "https://www.banffparklodge.com/crave-mountain-grill"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520150"
+      },
+      {
+        "key": "node/10932520151",
+        "name": "La Terrazza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1775252,
+          "lon": -115.5744927
+        },
+        "hoursRaw": "17:00-22:00",
+        "tags": {
+          "cuisine": "regional",
+          "website": "https://www.banffparklodge.com/la-terrazza"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520151"
+      },
+      {
+        "key": "node/10932520152",
+        "name": "Domino's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1790708,
+          "lon": -115.5722631
+        },
+        "hoursRaw": "09:30-03:00",
+        "tags": {
+          "cuisine": "pizza",
+          "website": "https://pizza.dominos.ca/Banff-Alberta-10132"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520152"
+      },
+      {
+        "key": "node/10932520154",
+        "name": "El Toro Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1823906,
+          "lon": -115.5664007
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "mexican;spanish",
+          "website": "https://www.eltorobanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520154"
+      },
+      {
+        "key": "node/10932520175",
+        "name": "Farm & Fire",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1799436,
+          "lon": -115.570258
+        },
+        "hoursRaw": "Mo-Th 08:00-14:00,16:00-21:00; Fr 08:00-14:00,16:00-22:00; Sa 08:00-14:00,17:00-22:00; Su 08:00-14:00,17:00-21:00",
+        "tags": {
+          "cuisine": "regional"
+        },
+        "url": "https://www.openstreetmap.org/node/10932520175"
+      },
+      {
+        "key": "node/10935435547",
+        "name": "The Happy Camper Cafe & Bar",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1851689,
+          "lon": -115.5578853
+        },
+        "hoursRaw": "07:00-22:00",
+        "tags": {
+          "website": "https://canaltalodge.com/happy-camper"
+        },
+        "url": "https://www.openstreetmap.org/node/10935435547"
+      },
+      {
+        "key": "node/10935435561",
+        "name": "Hello Sunshine Sushi & Karaoke",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1786161,
+          "lon": -115.5721357
+        },
+        "hoursRaw": "Mo-Th 16:00-22:30; Fr 16:00-23:00; Sa 11:30-23:00; Su 11:30-20:30",
+        "tags": {
+          "cuisine": "sushi",
+          "website": "https://www.hellosunshinebanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10935435561"
+      },
+      {
+        "key": "node/10935435568",
+        "name": "Patrino's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1848812,
+          "lon": -115.5587739
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "italian",
+          "website": "https://patrinos.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/10935435568"
+      },
+      {
+        "key": "node/10935435569",
+        "name": "Ramen Arashi",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1774618,
+          "lon": -115.5712986
+        },
+        "hoursRaw": "11:30-21:00",
+        "tags": {
+          "cuisine": "japanese",
+          "website": "https://www.ramenarashi.ca/"
+        },
+        "url": "https://www.openstreetmap.org/node/10935435569"
+      },
+      {
+        "key": "node/10935435570",
+        "name": "Saffron Indian Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1783545,
+          "lon": -115.5719239
+        },
+        "hoursRaw": "12:00-22:00",
+        "tags": {
+          "cuisine": "indian",
+          "website": "https://saffronbanff.ca"
+        },
+        "url": "https://www.openstreetmap.org/node/10935435570"
+      },
+      {
+        "key": "node/10935435589",
+        "name": "Evergreen Restaurant and Lounge",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1831897,
+          "lon": -115.5638625
+        },
+        "hoursRaw": "07:00-11:00, 16:00-22:00; Mo off",
+        "tags": {
+          "cuisine": "regional",
+          "website": "https://www.royalcanadianlodge.com/hotel-dining"
+        },
+        "url": "https://www.openstreetmap.org/node/10935435589"
+      },
+      {
+        "key": "node/10948354947",
+        "name": "Zyka Elevated Indian Restaurant",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1772735,
+          "lon": -115.5713931
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "indian",
+          "diet:halal": "yes",
+          "diet:vegan": "yes",
+          "website": "https://zykabanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10948354947"
+      },
+      {
+        "key": "node/10948808933",
+        "name": "Oh Bento & Pizza",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1830179,
+          "lon": -115.578648
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "japanese;sushi",
+          "website": "https://www.ohbentobanff.com"
+        },
+        "url": "https://www.openstreetmap.org/node/10948808933"
+      },
+      {
+        "key": "node/10951904725",
+        "name": "The Prow",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1838987,
+          "lon": -115.5502499
+        },
+        "hoursRaw": "07:00-22:00",
+        "tags": {
+          "cuisine": "regional",
+          "operator": "Canadian Rocky Mountain Resorts",
+          "website": "https://crmr.com/resorts/buffalo-mountain/dining"
+        },
+        "url": "https://www.openstreetmap.org/node/10951904725"
+      },
+      {
+        "key": "node/10958808436",
+        "name": "Charlie's",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1839572,
+          "lon": -115.5616524
+        },
+        "hoursRaw": "07:00-11:00",
+        "tags": {
+          "cuisine": "breakfast"
+        },
+        "url": "https://www.openstreetmap.org/node/10958808436"
+      },
+      {
+        "key": "node/11001702860",
+        "name": "Northern Lights Alpine Kitchen",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1446355,
+          "lon": -115.5751362
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "fine_dining",
+          "website": "https://www.banffjaspercollection.com/attractions/banff-gondola/dining/peak-patio"
+        },
+        "url": "https://www.openstreetmap.org/node/11001702860"
+      },
+      {
+        "key": "node/11001702861",
+        "name": "Castle Mountain Coffee Co.",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1445191,
+          "lon": -115.5750313
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "coffee_shop"
+        },
+        "url": "https://www.openstreetmap.org/node/11001702861"
+      },
+      {
+        "key": "node/11036341760",
+        "name": "The Juniper Bistro",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1872635,
+          "lon": -115.5887651
+        },
+        "hoursRaw": "08:30-15:00;17:00-21:30",
+        "tags": {
+          "website": "https://thejuniper.com/dine"
+        },
+        "url": "https://www.openstreetmap.org/node/11036341760"
+      },
+      {
+        "key": "node/11746112952",
+        "name": "Cascade Lodge",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.2037829,
+          "lon": -115.5982947
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/11746112952"
+      },
+      {
+        "key": "node/12242534344",
+        "name": "Pattis Pantry",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1892796,
+          "lon": -115.5626211
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/12242534344"
+      },
+      {
+        "key": "node/13061061803",
+        "name": "Good Folk",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1851393,
+          "lon": -115.556078
+        },
+        "hoursRaw": "Mo-Su 07:00-12:00, 14:00-22:00",
+        "tags": {
+          "cuisine": "american;fine_dining;international;local",
+          "website": "https://goodfolkrestaurant.com"
+        },
+        "url": "https://www.openstreetmap.org/node/13061061803"
+      },
+      {
+        "key": "node/13929952785",
+        "name": "JUGEMU Banff | Modern Japnaese",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.17478,
+          "lon": -115.5705142
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "japanese;ramen;sushi",
+          "diet:vegan": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/13929952785"
+      },
+      {
+        "key": "node/14049566901",
+        "name": "Mountain Folk Coffee Co.",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1753527,
+          "lon": -115.5712215
+        },
+        "hoursRaw": "Mo-Su 06:00-18:00",
+        "tags": {
+          "cuisine": "breakfast;cake;coffee_shop;tea",
+          "diet:gluten_free": "yes",
+          "diet:lactose_free": "yes",
+          "diet:vegan": "yes",
+          "diet:vegetarian": "yes",
+          "website": "https://mountainfolkcoffeeco.com"
+        },
+        "url": "https://www.openstreetmap.org/node/14049566901"
+      },
+      {
+        "key": "node/14148803339",
+        "name": "El Patio",
+        "nameEn": null,
+        "kind": "food",
+        "pos": {
+          "lat": 51.1765256,
+          "lon": -115.5722838
+        },
+        "hoursRaw": null,
+        "tags": {
+          "cuisine": "mexican"
+        },
+        "url": "https://www.openstreetmap.org/node/14148803339"
+      }
+    ],
+    "transport": [
+      {
+        "key": "node/263427639",
+        "name": "Banff",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 51.1817533,
+          "lon": -115.5761548
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Rocky Mountaineer",
+          "wheelchair": "yes"
+        },
+        "url": "https://www.openstreetmap.org/node/263427639"
+      },
+      {
+        "key": "node/3119311236",
+        "name": "Pursuit Bus Station",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 51.1802784,
+          "lon": -115.576865
+        },
+        "hoursRaw": null,
+        "tags": {},
+        "url": "https://www.openstreetmap.org/node/3119311236"
+      },
+      {
+        "key": "node/12495121945",
+        "name": "Banff Explorer",
+        "nameEn": null,
+        "kind": "station",
+        "pos": {
+          "lat": 51.1762272,
+          "lon": -115.5699273
+        },
+        "hoursRaw": null,
+        "tags": {
+          "operator": "Banff Explorer"
+        },
+        "url": "https://www.openstreetmap.org/node/12495121945"
+      }
+    ],
+    "weather": [
+      {
+        "date": "2026-10-23",
+        "tMax": 5.7,
+        "tMin": -0.8,
+        "precipProb": 72
+      },
+      {
+        "date": "2026-10-24",
+        "tMax": 1.8,
+        "tMin": -5.7,
+        "precipProb": 62
+      },
+      {
+        "date": "2026-10-25",
+        "tMax": -2.5,
+        "tMin": -7.6,
+        "precipProb": 62
+      },
+      {
+        "date": "2026-10-26",
+        "tMax": 3.6,
+        "tMin": -13.3,
+        "precipProb": 13
+      }
+    ],
+    "weatherNote": null,
+    "networkFetches": 1
+  }
+}

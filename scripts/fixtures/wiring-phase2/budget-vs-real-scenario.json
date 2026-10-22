@@ -1,0 +1,159 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "budget-vs-real-bot-2026-10-21",
+      "files": [
+        "proofs/proof-budget-vs-real.mjs scenario, via capture-phase1-fixtures.mjs §7"
+      ],
+      "note": "The bot's proof scenario verbatim: 7 priced items, party of 2, cap CAD 200; library seed, live checks (lighthouse check is 72h old at BEFORE -> STALE), booking facts (the ferry matched by NAME), post-trip actuals, and the three checkpoint instants."
+    }
+  },
+  "data": {
+    "itinerary": {
+      "tripRef": "fixture-halifax-budget",
+      "travelers": {
+        "adults": 2,
+        "children": 0,
+        "infants": 0
+      },
+      "budgetCap": {
+        "amount": 200,
+        "currency": "CAD"
+      },
+      "days": [
+        {
+          "dayNumber": 1,
+          "items": [
+            {
+              "key": "citadel",
+              "name": "Halifax Citadel",
+              "kind": "attraction",
+              "type": "activity",
+              "priceBand": {
+                "level": "PRICE_LEVEL_MODERATE",
+                "source": "google-fixture"
+              }
+            },
+            {
+              "key": "bistro-lunch",
+              "name": "Bistro Le Port",
+              "kind": "restaurant",
+              "type": "food"
+            },
+            {
+              "key": "harbour-ferry",
+              "name": "Harbour Ferry",
+              "kind": "ferry",
+              "type": "activity"
+            },
+            {
+              "key": "museum",
+              "name": "Maritime Museum",
+              "kind": "museum",
+              "type": "activity"
+            },
+            {
+              "key": "gallery",
+              "name": "Art Gallery",
+              "kind": "gallery",
+              "type": "activity"
+            },
+            {
+              "key": "lighthouse",
+              "name": "Harbour Lighthouse",
+              "kind": "lighthouse",
+              "type": "activity"
+            },
+            {
+              "key": "falls",
+              "name": "Elm Falls",
+              "kind": "falls",
+              "type": "activity",
+              "priceEvidence": {
+                "tier": "UNKNOWN",
+                "category": "admission",
+                "range": null,
+                "basis": "no evidence — never zero, never guessed"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "seed": {
+      "citadel": {
+        "amount": 20,
+        "per": "person",
+        "currency": "CAD",
+        "source": "owner library — completed trip 2026-09",
+        "recordedAt": "2026-09-14",
+        "evidenceCount": 3
+      }
+    },
+    "liveChecks": [
+      {
+        "itemKey": "gallery",
+        "amountPerPerson": 15,
+        "currency": "CAD",
+        "observedAt": "2026-10-24T07:00:00Z",
+        "source": "partner market check (fixture)"
+      },
+      {
+        "itemKey": "lighthouse",
+        "amountPerPerson": 20,
+        "currency": "CAD",
+        "observedAt": "2026-10-21T09:00:00Z",
+        "source": "partner market check (fixture)"
+      }
+    ],
+    "bookingFacts": [
+      {
+        "itemKey": "bistro-lunch",
+        "name": "Bistro Le Port",
+        "reference": "SYN-BK-1101",
+        "price": {
+          "amount": 50,
+          "currency": "CAD",
+          "status": "booked"
+        }
+      },
+      {
+        "name": "Harbour Ferry",
+        "reference": "SYN-BK-1102",
+        "price": {
+          "amount": 95,
+          "currency": "CAD",
+          "status": "booked"
+        }
+      },
+      {
+        "itemKey": "museum",
+        "name": "Maritime Museum",
+        "reference": "SYN-BK-1103",
+        "price": {
+          "amount": 20,
+          "currency": "CAD",
+          "status": "booked"
+        }
+      }
+    ],
+    "actuals": [
+      {
+        "itemKey": "citadel",
+        "amount": 44,
+        "currency": "CAD",
+        "source": "post-trip actual (door price, fixture)"
+      },
+      {
+        "itemKey": "gallery",
+        "amount": 28,
+        "currency": "CAD",
+        "source": "post-trip actual (fixture)"
+      }
+    ],
+    "nowBefore": "2026-10-24T09:00:00Z",
+    "nowDuring": "2026-10-24T12:00:00Z",
+    "nowAfter": "2026-10-29T15:00:00Z"
+  }
+}

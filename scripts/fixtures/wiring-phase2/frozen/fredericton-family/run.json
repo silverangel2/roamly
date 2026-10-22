@@ -1,0 +1,22 @@
+{
+  "poolId": "fredericton-family",
+  "timingsMs": {
+    "pack": 54627,
+    "solve": 28,
+    "total": 54726
+  },
+  "packFromCache": false,
+  "networkFetchesThisRun": 3,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 22,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

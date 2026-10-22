@@ -1,0 +1,15 @@
+{
+  "id": "ChIJJ9khTNyVuEwRzT2Bjflz-f4",
+  "rating": 4.5,
+  "businessStatus": "CLOSED_TEMPORARILY",
+  "userRatingCount": 188,
+  "displayName": {
+    "text": "The Fort Museum",
+    "languageCode": "en"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleParking": false,
+    "wheelchairAccessibleEntrance": false,
+    "wheelchairAccessibleRestroom": false
+  }
+}

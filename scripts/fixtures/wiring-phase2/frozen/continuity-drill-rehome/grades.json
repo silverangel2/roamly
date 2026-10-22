@@ -1,0 +1,34 @@
+{
+  "grades": [
+    {
+      "leg": "drill:baseline-home",
+      "status": "DONE",
+      "detail": "in the dry plan the committed must-see sits on its booked day: Pavillon Pierre-Lassonde visit — scheduled, day 8"
+    },
+    {
+      "leg": "drill:struck-day-holds",
+      "status": "DONE",
+      "detail": "with the rain posted (92% for 2026-10-31) the Pavillon is closed on day 8 and absent from that day's slate — the plan does not pretend otherwise"
+    },
+    {
+      "leg": "drill:rehomed",
+      "status": "DONE",
+      "detail": "the commitment was re-homed by trial re-solve to day 9 (the first later FULL day that provably holds it) — the item is on day 9 in the final plan"
+    },
+    {
+      "leg": "drill:story-acknowledges",
+      "status": "DONE",
+      "detail": "day 8's story says where the Pavillon went; day 9's story says it was kept for today — both lines triggered by the ledger, worded from its reason"
+    },
+    {
+      "leg": "drill:final-plan-judged",
+      "status": "DONE",
+      "detail": "continuity judge PASS; Make-Sense PASS"
+    },
+    {
+      "leg": "drill:escalation-path",
+      "status": "DONE",
+      "detail": "baseline home: Cartier-Brébeuf historic site visit — scheduled, day 9. After the strike: re-home found no later FULL day (days 10–14 run LIGHT / demoted-LIGHT / LIGHT / OPEN / REST), the ledger carries it as UNRESOLVED with the reason stated, and the continuity judge FAILS the trip on it — silent loss is impossible"
+    }
+  ]
+}

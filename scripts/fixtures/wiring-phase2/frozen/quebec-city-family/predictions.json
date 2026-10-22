@@ -1,0 +1,319 @@
+{
+  "recordedAt": "2026-10-21T21:06:54.940Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "Chute Montmorency",
+      "day": 5,
+      "score": 92,
+      "reasons": [
+        "named in the traveler's request",
+        "hours verified (google-fixture)",
+        "rating 4.7 (google-fixture)"
+      ]
+    },
+    {
+      "name": "Lévis",
+      "day": 2,
+      "score": 89,
+      "reasons": [
+        "named in the traveler's request",
+        "hours verified (google-fixture)",
+        "rating 4.4 (google-fixture)"
+      ]
+    },
+    {
+      "name": "Don Vegan",
+      "day": 1,
+      "score": 82,
+      "reasons": [
+        "hours verified (google-fixture)",
+        "dietary fit proven by listing tags",
+        "rating 4.7 (google-fixture)"
+      ]
+    },
+    {
+      "name": "Hortus Bistro",
+      "day": 3,
+      "score": 81,
+      "reasons": [
+        "hours verified (google-fixture)",
+        "dietary fit proven by listing tags",
+        "rating 4.6 (google-fixture)"
+      ]
+    },
+    {
+      "name": "Concept Bala",
+      "day": 5,
+      "score": 80,
+      "reasons": [
+        "hours verified (google-fixture)",
+        "dietary fit proven by listing tags",
+        "rating 4.5 (google-fixture)"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "Musée du Fort",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Don Vegan",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Espace 400e Bell",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Parc Couillard",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Lévis",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Cannonball Tree",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Polina",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Galerie Perreault",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Galerie Bédard",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Hortus Bistro",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Musée des plaines d'Abraham",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Galerie d'art la Gazelle",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Au Bonnet d'Âne",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Pavillon Pierre-Lassonde",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Parc Lockwell",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "Porte Kent",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "Concept Bala",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 5,
+      "item": "Chute Montmorency",
+      "risk": "hours come from FIXTURE data (mechanism proof) — unverified against the live place",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Galerie d'art Bel Art Classique",
+      "risk": "tight turnaround — only 3 min after \"Musée du Fort\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Espace 400e Bell",
+      "risk": "tight turnaround — only 3 min after \"Don Vegan\"",
+      "severity": "low"
+    },
+    {
+      "day": 1,
+      "item": "Parc Couillard",
+      "risk": "tight turnaround — only 4 min after \"Espace 400e Bell\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Polina",
+      "risk": "tight turnaround — only 2 min after \"Cannonball Tree\"",
+      "severity": "low"
+    },
+    {
+      "day": 3,
+      "item": "Galerie Bédard",
+      "risk": "tight turnaround — only 7 min after \"Lieu historique national des Forts-et-Châteaux-Saint-Louis\"",
+      "severity": "low"
+    },
+    {
+      "day": 4,
+      "item": "Au Bonnet d'Âne",
+      "risk": "tight turnaround — only 2 min after \"Galerie d'art la Gazelle\"",
+      "severity": "low"
+    },
+    {
+      "day": 5,
+      "item": "Chute Montmorency",
+      "risk": "long drive leg (10 km, ~15 min estimated from straight-line distance — real roads run longer)",
+      "severity": "medium"
+    },
+    {
+      "day": 5,
+      "item": "Hôtel Marie Rollett",
+      "risk": "long drive leg (10 km, ~15 min estimated from straight-line distance — real roads run longer)",
+      "severity": "medium"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "OVER",
+    "note": "even the bottom of the estimated range (CAD 1348) exceeds the cap (CAD 1100)",
+    "cap": {
+      "amount": 1100,
+      "currency": "CAD",
+      "verdict": "OVER — even the bottom of the estimated range (CAD 1348) exceeds the cap (CAD 1100) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.95,
+    "coverageThreshold": 0.5,
+    "pricedItems": 18,
+    "evidencedItems": 18,
+    "evidenceByTier": {
+      "COSTED": 9,
+      "BAND": 10
+    },
+    "estimatedTotals": {
+      "low": 1348,
+      "high": 2724,
+      "currency": "CAD"
+    },
+    "payingParty": 4,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: evidenced (BAND — the stay's recorded price band); getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 9,
+    "bandDistribution": {
+      "PRICE_LEVEL_MODERATE": 6,
+      "PRICE_LEVEL_INEXPENSIVE": 2,
+      "PRICE_LEVEL_EXPENSIVE": 1
+    },
+    "bandSource": "google-fixture",
+    "scopeLines": 20,
+    "evidencedScopeLines": 19,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Hôtel Marie Rollett",
+        "applicable": true,
+        "evidenced": true,
+        "evidence": {
+          "tier": "BAND",
+          "range": {
+            "low": 440,
+            "high": 720,
+            "currency": "CAD",
+            "per": "party"
+          },
+          "basis": "the stay's recorded PRICE_LEVEL_MODERATE price band (Google price level) priced at CAD 110–CAD 180 per room-night × 4 nights — an ESTIMATED range, never a point price; one room assumed",
+          "source": "google"
+        },
+        "nights": 4
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 5,
+      "walkingKmEstimated": 1.48,
+      "lastEnd": "15:45"
+    },
+    {
+      "day": 2,
+      "stops": 4,
+      "walkingKmEstimated": 4.45,
+      "lastEnd": "14:48"
+    },
+    {
+      "day": 3,
+      "stops": 3,
+      "walkingKmEstimated": 1.5,
+      "lastEnd": "17:03"
+    },
+    {
+      "day": 4,
+      "stops": 5,
+      "walkingKmEstimated": 3.18,
+      "lastEnd": "16:03"
+    },
+    {
+      "day": 5,
+      "stops": 3,
+      "walkingKmEstimated": 0.81,
+      "lastEnd": "15:22"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

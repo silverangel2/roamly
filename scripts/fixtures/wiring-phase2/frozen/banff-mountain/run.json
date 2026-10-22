@@ -1,0 +1,22 @@
+{
+  "poolId": "banff-mountain",
+  "timingsMs": {
+    "pack": 214353,
+    "solve": 13,
+    "total": 214482
+  },
+  "packFromCache": false,
+  "networkFetchesThisRun": 1,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 16,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

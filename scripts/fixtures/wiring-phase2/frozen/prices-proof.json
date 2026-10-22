@@ -1,0 +1,137 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "zero-engine-2026-10-21",
+      "files": [
+        "trips/prices-proof.json"
+      ],
+      "note": "The prices proof's frozen rows + synthetic judge-mechanics checks."
+    }
+  },
+  "data": {
+    "rows": [
+      {
+        "trip": "quebec-city-family",
+        "before": "UNVERIFIABLE",
+        "after": "AT RISK",
+        "coverage": 0.95,
+        "priced": 18,
+        "evidenced": 18,
+        "tiers": {
+          "COSTED": 9,
+          "BAND": 9
+        },
+        "totals": {
+          "low": 908,
+          "high": 2004,
+          "currency": "CAD"
+        },
+        "cap": {
+          "amount": 1100,
+          "currency": "CAD",
+          "verdict": "AT RISK — the estimated range (CAD 908–2004) straddles the cap (CAD 1100) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+        },
+        "reason": "the estimated range (CAD 908–2004) straddles the cap (CAD 1100)"
+      },
+      {
+        "trip": "charlottetown-smalltown",
+        "before": "UNVERIFIABLE",
+        "after": "WITHIN",
+        "coverage": 0.75,
+        "priced": 6,
+        "evidenced": 6,
+        "tiers": {
+          "COSTED": 6
+        },
+        "totals": {
+          "low": 128,
+          "high": 308,
+          "currency": "CAD"
+        },
+        "cap": {
+          "amount": 700,
+          "currency": "CAD",
+          "verdict": "WITHIN — even the top of the estimated range (CAD 308) sits under the cap (CAD 700) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+        },
+        "reason": "even the top of the estimated range (CAD 308) sits under the cap (CAD 700)"
+      },
+      {
+        "trip": "halifax-coastal",
+        "before": "UNVERIFIABLE",
+        "after": "WITHIN",
+        "coverage": 0.87,
+        "priced": 13,
+        "evidenced": 13,
+        "tiers": {
+          "COSTED": 13
+        },
+        "totals": {
+          "low": 288,
+          "high": 672,
+          "currency": "CAD"
+        },
+        "cap": {
+          "amount": 1200,
+          "currency": "CAD",
+          "verdict": "WITHIN — even the top of the estimated range (CAD 672) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+        },
+        "reason": "even the top of the estimated range (CAD 672) sits under the cap (CAD 1200)"
+      },
+      {
+        "trip": "pacing-quebec-14d (judged under quebec-city-family parameters)",
+        "before": "UNVERIFIABLE (no posture recorded by the pacing artifact)",
+        "after": "OVER",
+        "coverage": 0.93,
+        "priced": 26,
+        "evidenced": 26,
+        "tiers": {
+          "COSTED": 26
+        },
+        "totals": {
+          "low": 1196,
+          "high": 2832,
+          "currency": "CAD"
+        },
+        "cap": {
+          "amount": 1100,
+          "currency": "CAD"
+        },
+        "reason": "even the bottom of the estimated range (CAD 1196) exceeds the cap (CAD 1100)"
+      }
+    ],
+    "syntheticChecks": [
+      {
+        "name": "below-majority coverage -> UNVERIFIABLE with coverage stated",
+        "pass": true,
+        "detail": "UNVERIFIABLE coverage=0.33"
+      },
+      {
+        "name": "straddle -> AT RISK",
+        "pass": true,
+        "detail": "AT RISK"
+      },
+      {
+        "name": "tiny cap -> OVER",
+        "pass": true,
+        "detail": "OVER"
+      },
+      {
+        "name": "huge cap -> WITHIN",
+        "pass": true,
+        "detail": "WITHIN"
+      },
+      {
+        "name": "VERIFIED interface resolves + wins over model",
+        "pass": true,
+        "detail": "VERIFIED {\"low\":44,\"high\":44,\"currency\":\"CAD\"}"
+      },
+      {
+        "name": "a band beats the cost model (hierarchy order)",
+        "pass": true,
+        "detail": "BAND"
+      }
+    ],
+    "leaks": []
+  }
+}

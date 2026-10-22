@@ -1,0 +1,40 @@
+{
+  "places": [
+    {
+      "id": "ChIJ2WZ_N9OVuEwR9Y52GAzonro",
+      "formattedAddress": "113 Rue Saint-Paul, Québec, QC G1K 3V8, Canada",
+      "location": {
+        "latitude": 46.816365399999995,
+        "longitude": -71.2049631
+      },
+      "displayName": {
+        "text": "La Belle Galerie",
+        "languageCode": "fr"
+      }
+    },
+    {
+      "id": "ChIJcSrrdd2VuEwRttTvQ3G9CfM",
+      "formattedAddress": "28 Rue du Sault-au-Matelot, Québec, QC G1K 9A8, Canada",
+      "location": {
+        "latitude": 46.8143514,
+        "longitude": -71.2030935
+      },
+      "displayName": {
+        "text": "Galerie Beauchamp Contemporain",
+        "languageCode": "fr"
+      }
+    },
+    {
+      "id": "ChIJS0U9ReeVuEwRnv9RNmyXtrY",
+      "formattedAddress": "85 Rue du Sault-au-Matelot, Québec, QC G1K 3Y9, Canada",
+      "location": {
+        "latitude": 46.8159681,
+        "longitude": -71.20369529999999
+      },
+      "displayName": {
+        "text": "Galerie Claude Belley",
+        "languageCode": "fr"
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ49nUYpWVuEwRZl5zzcu_jh8",
+      "formattedAddress": "14 Rue Ferland, Québec, QC G1R 3S8, Canada",
+      "location": {
+        "latitude": 46.81521540000001,
+        "longitude": -71.2073496
+      },
+      "displayName": {
+        "text": "Parc Couillard",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

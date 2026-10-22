@@ -1,0 +1,242 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "part2-travel-days-2026-10-21",
+      "files": [
+        "src/email-reconciliation.mjs",
+        "fixtures/booking-emails/*.eml"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "The reconciler run over the five synthetic booking-pattern fixtures (flight confirmation, flight delay, hotel, cruise, restaurant) plus the general newsletter, which the booking-pattern gate rejects. Signals are frozen in the canonical BookingSignalDTO shape; signalIds are the shadow recon- content IDs (ids.bookingSignalId reproduces the scheme byte-for-byte). Stated times keep the source's stated timezone string as provenance — conversion to trip plan time is the time adapter's job against the trip's IANA zone."
+    }
+  },
+  "data": {
+    "signals": [
+      {
+        "signalId": "recon-cdcb85b7c712253d",
+        "classification": "signal",
+        "booking": {
+          "kind": "activity",
+          "provider": "Harbour Cruises",
+          "reference": "SYN-HC-2030",
+          "leadTraveler": "Avery Morgan",
+          "status": "confirmed",
+          "price": {
+            "amount": 96,
+            "currency": "CAD",
+            "status": "booked"
+          },
+          "name": "Halifax Harbour Evening Cruise",
+          "place": "Halifax Harbour Evening Cruise",
+          "address": "Synthetic Ferry Terminal, Halifax Waterfront, Halifax, NS",
+          "boarding": {
+            "date": "2026-10-23",
+            "time": "20:15",
+            "minutes": 1215,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 8:15 PM (America/Halifax)"
+          },
+          "prepaid": true,
+          "start": {
+            "date": "2026-10-23",
+            "time": "20:30",
+            "minutes": 1230,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 8:30 PM (America/Halifax)"
+          },
+          "end": {
+            "date": "2026-10-23",
+            "time": "22:00",
+            "minutes": 1320,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 10:00 PM (America/Halifax)"
+          }
+        },
+        "missingFields": [],
+        "provenance": {
+          "source": "gmail",
+          "sourceRef": "<synthetic-cruise-confirmation@roamly-shadow.invalid>",
+          "recordedAt": "Tue, 20 Oct 2026 10:18:00 -0300",
+          "label": "booking-email",
+          "messageId": "<synthetic-cruise-confirmation@roamly-shadow.invalid>"
+        }
+      },
+      {
+        "signalId": "recon-48c74ce44db3845d",
+        "classification": "signal",
+        "booking": {
+          "kind": "flight",
+          "provider": "Air Canada",
+          "reference": "SYN-AC-7Q2M",
+          "leadTraveler": "Avery Morgan",
+          "status": "confirmed",
+          "price": {
+            "amount": 412,
+            "currency": "CAD",
+            "status": "booked"
+          },
+          "name": "Flight AC 1847 to Halifax Stanfield",
+          "flight": "AC 1847",
+          "from": "Toronto Pearson (YYZ)",
+          "to": "Halifax Stanfield (YHZ)",
+          "place": "Halifax Stanfield (YHZ)",
+          "address": "Halifax Stanfield (YHZ)",
+          "start": {
+            "date": "2026-10-23",
+            "time": "10:05",
+            "minutes": 605,
+            "timeZone": "America/Toronto",
+            "stated": "Friday, October 23, 2026 at 10:05 AM (America/Toronto)"
+          },
+          "end": {
+            "date": "2026-10-23",
+            "time": "13:20",
+            "minutes": 800,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 1:20 PM (America/Halifax)"
+          }
+        },
+        "missingFields": [],
+        "provenance": {
+          "source": "gmail",
+          "sourceRef": "<synthetic-ac-confirmation@roamly-shadow.invalid>",
+          "recordedAt": "Tue, 20 Oct 2026 09:12:00 -0300",
+          "label": "booking-email",
+          "messageId": "<synthetic-ac-confirmation@roamly-shadow.invalid>"
+        }
+      },
+      {
+        "signalId": "recon-b9a33b5ecfd79dd1",
+        "classification": "signal",
+        "booking": {
+          "kind": "flight",
+          "provider": "Air Canada",
+          "reference": "SYN-AC-7Q2M",
+          "leadTraveler": "Avery Morgan",
+          "status": "delayed",
+          "price": {
+            "amount": 412,
+            "currency": "CAD",
+            "status": "booked"
+          },
+          "name": "Flight AC 1847 to Halifax Stanfield",
+          "flight": "AC 1847",
+          "from": "Toronto Pearson (YYZ)",
+          "to": "Halifax Stanfield (YHZ)",
+          "place": "Halifax Stanfield (YHZ)",
+          "address": "Halifax Stanfield (YHZ)",
+          "start": {
+            "date": "2026-10-23",
+            "time": "16:40",
+            "minutes": 1000,
+            "timeZone": "America/Toronto",
+            "stated": "Friday, October 23, 2026 at 4:40 PM (America/Toronto)"
+          },
+          "end": {
+            "date": "2026-10-23",
+            "time": "19:55",
+            "minutes": 1195,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 7:55 PM (America/Halifax)"
+          }
+        },
+        "missingFields": [],
+        "provenance": {
+          "source": "gmail",
+          "sourceRef": "<synthetic-ac-delay@roamly-shadow.invalid>",
+          "recordedAt": "Fri, 23 Oct 2026 09:12:00 -0300",
+          "label": "booking-email",
+          "messageId": "<synthetic-ac-delay@roamly-shadow.invalid>"
+        }
+      },
+      {
+        "signalId": "recon-7922a44f94058b41",
+        "classification": "signal",
+        "booking": {
+          "kind": "hotel",
+          "provider": "Harbourlight Hotel & Suites",
+          "reference": "SYN-HH-41KD",
+          "leadTraveler": "Avery Morgan",
+          "status": "confirmed",
+          "price": {
+            "amount": 368,
+            "currency": "CAD",
+            "status": "booked"
+          },
+          "name": "Harbourlight Hotel & Suites",
+          "place": "Harbourlight Hotel & Suites",
+          "address": "1200 Synthetic Harbour Way, Halifax, NS",
+          "stars": 4,
+          "room": "One queen room",
+          "start": {
+            "date": "2026-10-23",
+            "time": "15:00",
+            "minutes": 900,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 3:00 PM (America/Halifax)"
+          },
+          "end": {
+            "date": "2026-10-25",
+            "time": "11:00",
+            "minutes": 660,
+            "timeZone": "America/Halifax",
+            "stated": "Sunday, October 25, 2026 at 11:00 AM (America/Halifax)"
+          }
+        },
+        "missingFields": [],
+        "provenance": {
+          "source": "gmail",
+          "sourceRef": "<synthetic-hotel-confirmation@roamly-shadow.invalid>",
+          "recordedAt": "Tue, 20 Oct 2026 09:26:00 -0300",
+          "label": "booking-email",
+          "messageId": "<synthetic-hotel-confirmation@roamly-shadow.invalid>"
+        }
+      },
+      {
+        "signalId": "recon-67087c1500e90acc",
+        "classification": "signal",
+        "booking": {
+          "kind": "restaurant",
+          "provider": "Lou Pécou",
+          "reference": "SYN-LP-19A",
+          "leadTraveler": "Avery Morgan",
+          "status": "confirmed",
+          "price": {
+            "amount": null,
+            "currency": null,
+            "status": "UNKNOWN"
+          },
+          "name": "Lou Pécou",
+          "place": "Lou Pécou",
+          "address": "88 Synthetic Waterfront Lane, Halifax, NS",
+          "partySize": 2,
+          "start": {
+            "date": "2026-10-23",
+            "time": "19:00",
+            "minutes": 1140,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 7:00 PM (America/Halifax)"
+          },
+          "end": {
+            "date": "2026-10-23",
+            "time": "20:00",
+            "minutes": 1200,
+            "timeZone": "America/Halifax",
+            "stated": "Friday, October 23, 2026 at 8:00 PM (America/Halifax)"
+          }
+        },
+        "missingFields": [],
+        "provenance": {
+          "source": "gmail",
+          "sourceRef": "<synthetic-restaurant-confirmation@roamly-shadow.invalid>",
+          "recordedAt": "Tue, 20 Oct 2026 10:03:00 -0300",
+          "label": "booking-email",
+          "messageId": "<synthetic-restaurant-confirmation@roamly-shadow.invalid>"
+        }
+      }
+    ],
+    "ignoredCount": 1,
+    "unresolvedCount": 0
+  }
+}

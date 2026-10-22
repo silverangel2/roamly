@@ -1,0 +1,22 @@
+{
+  "poolId": "rocky-harbour-gros-morne",
+  "timingsMs": {
+    "pack": 43050,
+    "solve": 5,
+    "total": 43085
+  },
+  "packFromCache": false,
+  "networkFetchesThisRun": 3,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 8,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

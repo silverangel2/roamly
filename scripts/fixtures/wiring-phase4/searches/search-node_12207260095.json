@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJA0BQASVXM2QRX5b4kY0AoTs",
+      "formattedAddress": "329 Rue Saint-Paul, Québec, QC G1K 3W8, Canada",
+      "location": {
+        "latitude": 46.816549099999996,
+        "longitude": -71.2124517
+      },
+      "displayName": {
+        "text": "Concept BALA - Espace bien-être",
+        "languageCode": "fr"
+      }
+    }
+  ]
+}

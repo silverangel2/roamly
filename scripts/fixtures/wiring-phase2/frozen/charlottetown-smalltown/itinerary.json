@@ -1,0 +1,889 @@
+{
+  "engine": "roamly-zero-token/shadow",
+  "generatedAt": "2026-10-21T20:00:29.976Z",
+  "runDate": "2026-10-21",
+  "destination": "Charlottetown",
+  "country": "Canada",
+  "poolId": "charlottetown-smalltown",
+  "startDate": "2026-10-22",
+  "endDate": "2026-10-24",
+  "days": [
+    {
+      "dayNumber": 1,
+      "date": "2026-10-22",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "way/255413795",
+          "name": "Beaconsfield Historic House",
+          "kind": "museum",
+          "role": "stop",
+          "start": 578,
+          "end": 668,
+          "pos": {
+            "lat": 46.2318838,
+            "lon": -63.1334996
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 960,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Sa 09:00-16:00",
+          "url": "https://www.openstreetmap.org/way/255413795",
+          "price": "UNKNOWN",
+          "startTime": "09:38",
+          "endTime": "11:08",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/158556710",
+          "name": "Confederation Centre Art Gallery",
+          "kind": "gallery",
+          "role": "stop",
+          "start": 677,
+          "end": 737,
+          "pos": {
+            "lat": 46.2348329,
+            "lon": -63.1268058
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/158556710",
+          "price": "UNKNOWN",
+          "startTime": "11:17",
+          "endTime": "12:17",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 20,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/13131503728",
+          "name": "Curry Up & Eat",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 739,
+          "end": 799,
+          "pos": {
+            "lat": 46.2355457,
+            "lon": -63.1261842
+          },
+          "hours": {
+            "status": "known",
+            "open": 720,
+            "close": 1320,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-Fr 12:00-22:00; Sa-Su 12:00-15:00; Sa-Su 19:00-03:00",
+          "url": "https://www.openstreetmap.org/node/13131503728",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegetarian = yes"
+          },
+          "startTime": "12:19",
+          "endTime": "13:19",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/28310120",
+          "name": "Hillsborough Square",
+          "kind": "park",
+          "role": "stop",
+          "start": 805,
+          "end": 850,
+          "pos": {
+            "lat": 46.236834,
+            "lon": -63.1215053
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/28310120",
+          "price": "UNKNOWN",
+          "startTime": "13:25",
+          "endTime": "14:10",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/4426845996",
+          "name": "Riverview Country Market",
+          "kind": "market",
+          "role": "mustsee",
+          "start": 871,
+          "end": 931,
+          "pos": {
+            "lat": 46.2486985,
+            "lon": -63.1121111
+          },
+          "hours": {
+            "status": "unknown",
+            "raw": "Mo-Fr 08:00-18:00; Sa 09:00-17:00; Jun-Dec Su 12:00-17:00",
+            "provenance": "none"
+          },
+          "hoursRaw": "Mo-Fr 08:00-18:00; Sa 09:00-17:00; Jun-Dec Su 12:00-17:00",
+          "url": "https://www.openstreetmap.org/node/4426845996",
+          "price": "UNKNOWN",
+          "startTime": "14:31",
+          "endTime": "15:31",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "way/255413795",
+          "fromName": "Holman Grand Hotel",
+          "toName": "Beaconsfield Historic House",
+          "mode": "walk",
+          "km": 0.6,
+          "minutes": 8,
+          "depart": 570,
+          "arrive": 578,
+          "departTime": "09:30",
+          "arriveTime": "09:38"
+        },
+        {
+          "fromKey": "way/255413795",
+          "toKey": "way/158556710",
+          "fromName": "Beaconsfield Historic House",
+          "toName": "Confederation Centre Art Gallery",
+          "mode": "walk",
+          "km": 0.61,
+          "minutes": 9,
+          "depart": 668,
+          "arrive": 677,
+          "departTime": "11:08",
+          "arriveTime": "11:17"
+        },
+        {
+          "fromKey": "way/158556710",
+          "toKey": "node/13131503728",
+          "fromName": "Confederation Centre Art Gallery",
+          "toName": "Curry Up & Eat",
+          "mode": "walk",
+          "km": 0.09,
+          "minutes": 2,
+          "depart": 737,
+          "arrive": 739,
+          "departTime": "12:17",
+          "arriveTime": "12:19"
+        },
+        {
+          "fromKey": "node/13131503728",
+          "toKey": "way/28310120",
+          "fromName": "Curry Up & Eat",
+          "toName": "Hillsborough Square",
+          "mode": "walk",
+          "km": 0.39,
+          "minutes": 6,
+          "depart": 799,
+          "arrive": 805,
+          "departTime": "13:19",
+          "arriveTime": "13:25"
+        },
+        {
+          "fromKey": "way/28310120",
+          "toKey": "node/4426845996",
+          "fromName": "Hillsborough Square",
+          "toName": "Riverview Country Market",
+          "mode": "walk",
+          "km": 1.5,
+          "minutes": 21,
+          "depart": 850,
+          "arrive": 871,
+          "departTime": "14:10",
+          "arriveTime": "14:31"
+        },
+        {
+          "fromKey": "node/4426845996",
+          "toKey": "base",
+          "fromName": "Riverview Country Market",
+          "toName": "Holman Grand Hotel",
+          "mode": "drive",
+          "km": 1.91,
+          "minutes": 3,
+          "depart": 931,
+          "arrive": 934,
+          "departTime": "15:31",
+          "arriveTime": "15:34"
+        }
+      ],
+      "narrative": [
+        "Thursday, October 22 begins at a humane hour — the first stop is Beaconsfield Historic House at 09:38, and nothing on this day starts before 09:00.",
+        "The base for the night is Holman Grand Hotel, picked for what surrounds it: 12 sights within a short walk.",
+        "Expect a mild 9° — good walking weather, with layers for the shade.",
+        "Beaconsfield Historic House gets the morning's main slot, 09:38 to 11:08 — unhurried, with time to double back to favourites.",
+        "Beaconsfield Historic House lists its hours as 09:00–16:00 today, and the visit sits comfortably inside them.",
+        "From Beaconsfield Historic House, it is a 9-minute walk to Confederation Centre Art Gallery — close enough to stroll without watching the clock.",
+        "Confederation Centre Art Gallery offers a quieter hour indoors, 11:17–12:17.",
+        "Opening hours weren't listed for Confederation Centre Art Gallery — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "Curry Up & Eat is next, just 2 minutes on foot from Confederation Centre Art Gallery.",
+        "Lunch is at Curry Up & Eat, 12:19–13:19.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "The walk from Curry Up & Eat to Hillsborough Square takes about 6 minutes — a breather between stops, not a hike.",
+        "Hillsborough Square is the day's green pause, 13:25–14:10 — no tickets, no timetable to chase.",
+        "A short wander of 21 minutes brings you to Riverview Country Market.",
+        "Riverview Country Market is the place to browse like a local, 14:31–15:31 — go hungry.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 15:34 — 4 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 934
+    },
+    {
+      "dayNumber": 2,
+      "date": "2026-10-23",
+      "role": "rest-morning",
+      "items": [
+        {
+          "type": "rest",
+          "part": "morning",
+          "title": "Slow morning — nothing booked",
+          "start": 540,
+          "end": 720,
+          "key": "rest-2026-10-23",
+          "startTime": "09:00",
+          "endTime": "12:00"
+        },
+        {
+          "type": "food",
+          "key": "node/6685552004",
+          "name": "Farmacy + Fermentary",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 737,
+          "end": 797,
+          "pos": {
+            "lat": 46.236157,
+            "lon": -63.12713
+          },
+          "hours": {
+            "status": "known",
+            "open": 540,
+            "close": 1020,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Tu-Fr 09:00-17:00; Sa 09:00-15:00",
+          "url": "https://www.openstreetmap.org/node/6685552004",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:17",
+          "endTime": "13:17",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/28310121",
+          "name": "King Square",
+          "kind": "park",
+          "role": "stop",
+          "start": 802,
+          "end": 847,
+          "pos": {
+            "lat": 46.2387875,
+            "lon": -63.1240841
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/28310121",
+          "price": "UNKNOWN",
+          "startTime": "13:22",
+          "endTime": "14:07",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/6685552004",
+          "fromName": "Holman Grand Hotel",
+          "toName": "Farmacy + Fermentary",
+          "mode": "walk",
+          "km": 0.11,
+          "minutes": 2,
+          "depart": 735,
+          "arrive": 737,
+          "departTime": "12:15",
+          "arriveTime": "12:17"
+        },
+        {
+          "fromKey": "node/6685552004",
+          "toKey": "way/28310121",
+          "fromName": "Farmacy + Fermentary",
+          "toName": "King Square",
+          "mode": "walk",
+          "km": 0.37,
+          "minutes": 5,
+          "depart": 797,
+          "arrive": 802,
+          "departTime": "13:17",
+          "arriveTime": "13:22"
+        },
+        {
+          "fromKey": "way/28310121",
+          "toKey": "base",
+          "fromName": "King Square",
+          "toName": "Holman Grand Hotel",
+          "mode": "walk",
+          "km": 0.47,
+          "minutes": 7,
+          "depart": 847,
+          "arrive": 854,
+          "departTime": "14:07",
+          "arriveTime": "14:14"
+        }
+      ],
+      "narrative": [
+        "Friday, October 23 is the trip's breathing day: one good outing in the morning, then the afternoon is deliberately left empty.",
+        "The morning is deliberately empty — a slow start with nothing booked at all, exactly as asked.",
+        "Lunch is at Farmacy + Fermentary, 12:17–13:17.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "From Farmacy + Fermentary, it is a 5-minute walk to King Square — close enough to stroll without watching the clock.",
+        "King Square is the day's green pause, 13:22–14:07 — no tickets, no timetable to chase.",
+        "Opening hours weren't listed for King Square — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The day winds down back at base by 14:14 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 854
+    },
+    {
+      "dayNumber": 3,
+      "date": "2026-10-24",
+      "role": "excursion",
+      "items": [
+        {
+          "type": "food",
+          "key": "node/13939131201",
+          "name": "Island Chef",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 739,
+          "end": 799,
+          "pos": {
+            "lat": 46.2327897,
+            "lon": -63.1255807
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/13939131201",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:19",
+          "endTime": "13:19",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/1748032273",
+          "name": "Wrights Range Front Lighthouse",
+          "kind": "lighthouse",
+          "role": "excursion",
+          "start": 843,
+          "end": 903,
+          "pos": {
+            "lat": 46.2045076,
+            "lon": -63.4968192
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/1748032273",
+          "price": "UNKNOWN",
+          "startTime": "14:03",
+          "endTime": "15:03",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 8,
+              "high": 18,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — lighthouse site admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/13939131201",
+          "fromName": "Holman Grand Hotel",
+          "toName": "Island Chef",
+          "mode": "walk",
+          "km": 0.3,
+          "minutes": 4,
+          "depart": 735,
+          "arrive": 739,
+          "departTime": "12:15",
+          "arriveTime": "12:19"
+        },
+        {
+          "fromKey": "node/13939131201",
+          "toKey": "node/1748032273",
+          "fromName": "Island Chef",
+          "toName": "Wrights Range Front Lighthouse",
+          "mode": "drive",
+          "km": 28.73,
+          "minutes": 44,
+          "depart": 799,
+          "arrive": 843,
+          "departTime": "13:19",
+          "arriveTime": "14:03"
+        },
+        {
+          "fromKey": "node/1748032273",
+          "toKey": "base",
+          "fromName": "Wrights Range Front Lighthouse",
+          "toName": "Holman Grand Hotel",
+          "mode": "drive",
+          "km": 28.63,
+          "minutes": 43,
+          "depart": 903,
+          "arrive": 946,
+          "departTime": "15:03",
+          "arriveTime": "15:46"
+        }
+      ],
+      "narrative": [
+        "Saturday, October 24 is the day for Wrights Range Front Lighthouse — the trip's headline outing, given the room it deserves.",
+        "The forecast helps today: 9° and only a 5% chance of rain, which is why the outdoor outing sits here.",
+        "Lunch is at Island Chef, 12:19–13:19.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "Then the day's one longer leg: about 44 minutes by road to Wrights Range Front Lighthouse.",
+        "Wrights Range Front Lighthouse rewards the drive: 60 minutes there, 14:03–15:03, with the coast doing the talking.",
+        "Opening hours weren't listed for Wrights Range Front Lighthouse — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "The drive back to base runs about 43 minutes.",
+        "The day winds down back at base by 15:46 — 1 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 946
+    }
+  ],
+  "travelers": {
+    "adults": 2,
+    "children": 0,
+    "infants": 0
+  },
+  "budgetCap": {
+    "amount": 700,
+    "currency": "CAD",
+    "verdict": "WITHIN — even the top of the estimated range (CAD 308) sits under the cap (CAD 700) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+  },
+  "request": {
+    "text": "I am traveling with my elderly mother for a slow three day break. Please keep every day gentle, with no starts before nine and one slow morning with nothing booked at all. We need a ground floor room or a building with an elevator and as few stairs as possible. My mother cannot eat nuts and I am lactose intolerant, so please favor restaurants with clear allergen labels. Keep the total budget under seven hundred dollars, keep walks between stops short and flat, and also include one lighthouse visit and a morning at the local farmers market please.",
+    "wordCount": 98,
+    "source": "generated-for-location"
+  },
+  "anchorStay": {
+    "name": "Holman Grand Hotel",
+    "url": "https://www.openstreetmap.org/node/3980228660",
+    "walkableSights": 12,
+    "walkableFood": 55,
+    "distCenterKm": 0.44,
+    "quietProxy": 0,
+    "anchorScore": 117.6,
+    "quietNote": "quiet is a PROXY (inverse of food-venue density within 200 m), not a measurement"
+  },
+  "mustSeeResults": [
+    {
+      "id": "keyword-market",
+      "label": "local farmers market",
+      "status": "scheduled",
+      "day": 1,
+      "item": "Riverview Country Market"
+    },
+    {
+      "id": "keyword-lighthouse",
+      "label": "one lighthouse visit",
+      "status": "scheduled",
+      "day": 3,
+      "item": "Wrights Range Front Lighthouse"
+    }
+  ],
+  "solverNotes": [
+    "Excursion placed on 2026-10-24 — the driest eligible day in the forecast (5% rain chance)."
+  ],
+  "packCounts": {
+    "total": 190,
+    "sights": 89,
+    "foods": 92,
+    "stays": 8,
+    "transport": 1
+  },
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 11,
+    "enriched": 0,
+    "hoursUnknown": null,
+    "dataLabel": "off — OSM only",
+    "liveApiProof": "NOT DONE — awaiting GOOGLE_PLACES_API_KEY provisioning by the owner; the key is read from env at runtime only and never stored"
+  },
+  "requirementVerdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 9 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 2 carries an explicit rest block (Slow morning — nothing booked, 09:00–12:00)"
+    },
+    {
+      "id": "keyword-lighthouse",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"lighthouse\" (one lighthouse visit)"
+    },
+    {
+      "id": "keyword-market",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"market\" (local farmers market)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "KEPT",
+      "evidence": "3 of 3 lunches carry explicit dietary tags in the data (nuts, lactose)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 700 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "makeSense": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Confederation Centre Art Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Hillsborough Square\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Riverview Country Market\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"King Square\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Island Chef\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Wrights Range Front Lighthouse\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "predictions": {
+    "recordedAt": "2026-10-21T20:00:29.979Z",
+    "engineStage": "PREDICT",
+    "highlights": [
+      {
+        "name": "Curry Up & Eat",
+        "day": 1,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Riverview Country Market",
+        "day": 1,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "Farmacy + Fermentary",
+        "day": 2,
+        "score": 75,
+        "reasons": [
+          "hours verified (osm)",
+          "dietary fit proven by listing tags"
+        ]
+      },
+      {
+        "name": "Wrights Range Front Lighthouse",
+        "day": 3,
+        "score": 75,
+        "reasons": [
+          "named in the traveler's request"
+        ]
+      },
+      {
+        "name": "Island Chef",
+        "day": 3,
+        "score": 65,
+        "reasons": [
+          "dietary fit proven by listing tags"
+        ]
+      }
+    ],
+    "risks": [
+      {
+        "day": 1,
+        "item": "Confederation Centre Art Gallery",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Hillsborough Square",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Riverview Country Market",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 2,
+        "item": "King Square",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Island Chef",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Wrights Range Front Lighthouse",
+        "risk": "opening hours not in any data source — door time could differ from the plan",
+        "severity": "medium"
+      },
+      {
+        "day": 1,
+        "item": "Curry Up & Eat",
+        "risk": "tight turnaround — only 2 min after \"Confederation Centre Art Gallery\"",
+        "severity": "low"
+      },
+      {
+        "day": 1,
+        "item": "Hillsborough Square",
+        "risk": "tight turnaround — only 6 min after \"Curry Up & Eat\"",
+        "severity": "low"
+      },
+      {
+        "day": 2,
+        "item": "King Square",
+        "risk": "tight turnaround — only 5 min after \"Farmacy + Fermentary\"",
+        "severity": "low"
+      },
+      {
+        "day": 3,
+        "item": "Wrights Range Front Lighthouse",
+        "risk": "long drive leg (29 km, ~44 min estimated from straight-line distance — real roads run longer)",
+        "severity": "medium"
+      },
+      {
+        "day": 3,
+        "item": "Holman Grand Hotel",
+        "risk": "long drive leg (29 km, ~43 min estimated from straight-line distance — real roads run longer)",
+        "severity": "medium"
+      }
+    ],
+    "budgetPosture": {
+      "verdict": "WITHIN",
+      "note": "even the top of the estimated range (CAD 308) sits under the cap (CAD 700)",
+      "cap": {
+        "amount": 700,
+        "currency": "CAD",
+        "verdict": "WITHIN — even the top of the estimated range (CAD 308) sits under the cap (CAD 700) (scope: plan-priced items only; evidence ESTIMATED unless VERIFIED)"
+      },
+      "coverage": 1,
+      "coverageThreshold": 0.5,
+      "pricedItems": 6,
+      "evidencedItems": 6,
+      "evidenceByTier": {
+        "COSTED": 6
+      },
+      "estimatedTotals": {
+        "low": 128,
+        "high": 308,
+        "currency": "CAD"
+      },
+      "payingParty": 2,
+      "scopeNote": "the verdict prices what the PLAN commits the traveler to — meals, admissions, crossings — from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices). Lodging and transport to the destination are outside this evidence and outside the verdict.",
+      "priceBandsKnown": 0,
+      "bandDistribution": {},
+      "bandSource": null
+    },
+    "paceLoad": [
+      {
+        "day": 1,
+        "stops": 5,
+        "walkingKmEstimated": 3.19,
+        "lastEnd": "15:34"
+      },
+      {
+        "day": 2,
+        "stops": 2,
+        "walkingKmEstimated": 0.95,
+        "lastEnd": "14:14"
+      },
+      {
+        "day": 3,
+        "stops": 2,
+        "walkingKmEstimated": 0.3,
+        "lastEnd": "15:46"
+      }
+    ],
+    "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+  },
+  "affiliateAttachments": {
+    "attachedAt": "after-judges-pass",
+    "stay": {
+      "forStay": "Holman Grand Hotel",
+      "label": "hotels",
+      "text": "Book hotels",
+      "url": "https://booking.stay22.com/roamly/YhpfMFjm2n"
+    },
+    "flightOption": null,
+    "gaps": [
+      {
+        "gap": "no connectivity arranged in the plan",
+        "label": "esim",
+        "text": "Get a travel eSIM",
+        "url": "https://airalo.tpo.lu/5dcQRiO5"
+      },
+      {
+        "gap": "arrival transfer not arranged",
+        "label": "transfers",
+        "text": "Airport transfers",
+        "url": "https://intui.tpo.lu/6GQiV5Ai"
+      },
+      {
+        "gap": "the plan includes a long drive — a rental may serve it better",
+        "label": "cars-getrentacar",
+        "text": "Rental cars",
+        "url": "https://getrentacar.tpo.lu/l16uVhOn"
+      },
+      {
+        "gap": "trip gear",
+        "label": "gear",
+        "text": "Travel gear",
+        "url": "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20"
+      }
+    ],
+    "activitiesLinked": 6
+  }
+}

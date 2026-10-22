@@ -1,0 +1,22 @@
+{
+  "poolId": "charlottetown-smalltown",
+  "timingsMs": {
+    "pack": 6,
+    "solve": 6,
+    "total": 44
+  },
+  "packFromCache": true,
+  "networkFetchesThisRun": 1,
+  "frameLibrarySize": 79,
+  "googleEnrichment": {
+    "mode": "off",
+    "finalists": 11,
+    "enriched": 0,
+    "hoursUnknown": null
+  },
+  "cost": {
+    "modelCalls": 0,
+    "paidApiCalls": 0,
+    "currency": "CAD 0.00"
+  }
+}

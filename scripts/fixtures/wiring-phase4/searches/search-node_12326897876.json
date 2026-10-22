@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ8_9sYzCVuEwR5A47bho6Ljo",
+      "formattedAddress": "97 Rue du Sault-au-Matelot, Québec, QC G1K 3X7, Canada",
+      "location": {
+        "latitude": 46.8161592,
+        "longitude": -71.2037947
+      },
+      "displayName": {
+        "text": "Le Don Restaurant",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

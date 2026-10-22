@@ -1,0 +1,16 @@
+{
+  "id": "ChIJVY3N4HmWuEwREw6JBrAcC6k",
+  "rating": 4.5,
+  "businessStatus": "CLOSED_TEMPORARILY",
+  "priceLevel": "PRICE_LEVEL_MODERATE",
+  "userRatingCount": 1520,
+  "displayName": {
+    "text": "Le Bonnet d'Âne",
+    "languageCode": "fr"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleParking": false,
+    "wheelchairAccessibleEntrance": false,
+    "wheelchairAccessibleSeating": true
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "recordedAt": "2026-10-21T20:56:25.785Z",
+  "engineStage": "PREDICT",
+  "highlights": [
+    {
+      "name": "Lobster Cove Head Lighthouse",
+      "day": 2,
+      "score": 85,
+      "reasons": [
+        "named in the traveler's request",
+        "hours verified (osm)"
+      ]
+    },
+    {
+      "name": "Fisherman's Landing",
+      "day": 1,
+      "score": 60,
+      "reasons": [
+        "hours verified (osm)"
+      ]
+    },
+    {
+      "name": "Earle‘s",
+      "day": 2,
+      "score": 60,
+      "reasons": [
+        "hours verified (osm)"
+      ]
+    },
+    {
+      "name": "Gros Morne Wildlife Museum",
+      "day": 1,
+      "score": 50,
+      "reasons": []
+    },
+    {
+      "name": "Oceans",
+      "day": 3,
+      "score": 50,
+      "reasons": []
+    }
+  ],
+  "risks": [
+    {
+      "day": 1,
+      "item": "Gros Morne Wildlife Museum",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Fisherman's Landing",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Earle‘s",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Oceans",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 3,
+      "item": "Oceans",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "SunSet Café",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "SunSet Café",
+      "risk": "dietary fit not provable from listing tags — kitchen confirmation advised",
+      "severity": "medium"
+    },
+    {
+      "day": 2,
+      "item": "Lobster Cove Head Lighthouse",
+      "risk": "tight turnaround — only 4 min after \"Earle‘s\"",
+      "severity": "low"
+    }
+  ],
+  "budgetPosture": {
+    "verdict": "WITHIN",
+    "note": "even the top of the estimated range (CAD 328) sits under the cap (CAD 1000)",
+    "cap": {
+      "amount": 1000,
+      "currency": "CAD",
+      "verdict": "WITHIN — even the top of the estimated range (CAD 328) sits under the cap (CAD 1000) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    },
+    "coverage": 0.75,
+    "coverageThreshold": 0.5,
+    "pricedItems": 6,
+    "evidencedItems": 6,
+    "evidenceByTier": {
+      "COSTED": 6
+    },
+    "estimatedTotals": {
+      "low": 136,
+      "high": 328,
+      "currency": "CAD"
+    },
+    "payingParty": 2,
+    "scopeNote": "all-in scope — plan items (meals, admissions, crossings) + lodging + getting-there, each priced from labeled evidence (bands and cost models are ESTIMATED ranges, never point prices); lodging: not evidenced — excluded from the totals, never counted as zero; getting-there: not evidenced — excluded from the totals, never counted as zero.",
+    "priceBandsKnown": 0,
+    "bandDistribution": {},
+    "bandSource": null,
+    "scopeLines": 8,
+    "evidencedScopeLines": 6,
+    "components": [
+      {
+        "component": "lodging",
+        "name": "Lodging — Ocean View Hotel",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no price evidence for the stay — no booked price, no library price, no recorded price band. Named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": 3
+      },
+      {
+        "component": "transport",
+        "name": "Getting there (transport to the destination)",
+        "applicable": true,
+        "evidenced": false,
+        "evidence": {
+          "tier": "UNKNOWN",
+          "range": null,
+          "basis": "no transport estimate and no booked fare on record — named and excluded from the totals (never counted as zero)",
+          "source": "none"
+        },
+        "nights": null
+      }
+    ]
+  },
+  "paceLoad": [
+    {
+      "day": 1,
+      "stops": 2,
+      "walkingKmEstimated": 0.68,
+      "lastEnd": "13:21"
+    },
+    {
+      "day": 2,
+      "stops": 2,
+      "walkingKmEstimated": 1.42,
+      "lastEnd": "14:43"
+    },
+    {
+      "day": 3,
+      "stops": 1,
+      "walkingKmEstimated": 0.06,
+      "lastEnd": "17:02"
+    },
+    {
+      "day": 4,
+      "stops": 1,
+      "walkingKmEstimated": 0.3,
+      "lastEnd": "13:19"
+    }
+  ],
+  "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."
+}

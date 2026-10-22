@@ -1,0 +1,34 @@
+{
+  "grades": [
+    {
+      "leg": "envelope:arrival-chain",
+      "status": "DONE",
+      "detail": "day 1 opens at the front door: To the airport 08:00–08:40 · Airport buffer 08:40–10:10 · Flight 10:10–12:10 · Transfer to Hôtel Marie Rollett 12:10–12:45 · Settle in near base — the room is not ready yet 12:45–13:05 · Don Vegan 13:12–14:12 · Settle in near base — the room is not ready yet 14:19–14:30 · Check in — Hôtel Marie Rollett 14:30–14:45 · Rest & refresh — travel takes something out of you 14:45–15:45 · Cannonball Tree 15:48–16:48"
+    },
+    {
+      "leg": "envelope:meal-inside-wait",
+      "status": "DONE",
+      "detail": "lunch 13:12–14:12 sits inside the room wait (check-in 14:30, hotel data (scenario fixture — a booked room whose check-in is 14:30))"
+    },
+    {
+      "leg": "envelope:rest-before-activity",
+      "status": "DONE",
+      "detail": "rest & refresh 14:45–15:45 (60 min for a 285 min journey); first real stop 15:48 \"Cannonball Tree\""
+    },
+    {
+      "leg": "envelope:departure-shape",
+      "status": "DONE",
+      "detail": "day 5 gentle class only (Jardins de l'hôtel de ville, Parc Couillard); pack-up 13:30–14:15 protected; leave base 14:30 for the 16:40 flight"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "pass, 11 warnings (unknown hours, labeled)"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "DONE",
+      "detail": "Montmorency Falls trip: scheduled (day 2); ferry ride to Levis: scheduled (day 4)"
+    }
+  ]
+}

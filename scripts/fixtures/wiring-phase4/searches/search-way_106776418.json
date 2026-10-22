@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ0fcx7uaVuEwRFIuFMYk6UyI",
+      "formattedAddress": "170 Rue Dalhousie, Québec, QC G1K 8M7, Canada",
+      "location": {
+        "latitude": 46.8185126,
+        "longitude": -71.2000274
+      },
+      "displayName": {
+        "text": "Naval Museum of Quebec",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

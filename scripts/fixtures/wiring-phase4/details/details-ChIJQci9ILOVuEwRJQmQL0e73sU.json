@@ -1,0 +1,284 @@
+{
+  "id": "ChIJQci9ILOVuEwRJQmQL0e73sU",
+  "rating": 4.8,
+  "regularOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 0,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 1,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 1,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 2,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 2,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 3,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 4,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 5,
+          "hour": 17,
+          "minute": 0
+        }
+      },
+      {
+        "open": {
+          "day": 6,
+          "hour": 11,
+          "minute": 0
+        },
+        "close": {
+          "day": 6,
+          "hour": 17,
+          "minute": 0
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: 11:00 AM – 5:00 PM",
+      "Tuesday: 11:00 AM – 5:00 PM",
+      "Wednesday: 11:00 AM – 5:00 PM",
+      "Thursday: 11:00 AM – 5:00 PM",
+      "Friday: 11:00 AM – 5:00 PM",
+      "Saturday: 11:00 AM – 5:00 PM",
+      "Sunday: 11:00 AM – 5:00 PM"
+    ],
+    "nextCloseTime": "2026-10-21T21:00:00Z"
+  },
+  "businessStatus": "OPERATIONAL",
+  "userRatingCount": 185,
+  "displayName": {
+    "text": "Jean Castor",
+    "languageCode": "fr"
+  },
+  "currentOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 0,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 25
+          }
+        },
+        "close": {
+          "day": 0,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 25
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 1,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 26
+          }
+        },
+        "close": {
+          "day": 1,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 26
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 2,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 27
+          }
+        },
+        "close": {
+          "day": 2,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 27
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        },
+        "close": {
+          "day": 3,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 21
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 22
+          }
+        },
+        "close": {
+          "day": 4,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 22
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 23
+          }
+        },
+        "close": {
+          "day": 5,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 23
+          }
+        }
+      },
+      {
+        "open": {
+          "day": 6,
+          "hour": 11,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          }
+        },
+        "close": {
+          "day": 6,
+          "hour": 17,
+          "minute": 0,
+          "date": {
+            "year": 2026,
+            "month": 10,
+            "day": 24
+          }
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: 11:00 AM – 5:00 PM",
+      "Tuesday: 11:00 AM – 5:00 PM",
+      "Wednesday: 11:00 AM – 5:00 PM",
+      "Thursday: 11:00 AM – 5:00 PM",
+      "Friday: 11:00 AM – 5:00 PM",
+      "Saturday: 11:00 AM – 5:00 PM",
+      "Sunday: 11:00 AM – 5:00 PM"
+    ],
+    "nextCloseTime": "2026-10-21T21:00:00Z"
+  },
+  "accessibilityOptions": {
+    "wheelchairAccessibleParking": false,
+    "wheelchairAccessibleEntrance": false,
+    "wheelchairAccessibleRestroom": false,
+    "wheelchairAccessibleSeating": false
+  }
+}

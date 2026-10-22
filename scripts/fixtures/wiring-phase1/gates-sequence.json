@@ -1,0 +1,252 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "build2-entry-gates-2026-10-21",
+      "files": [
+        "src/gates.mjs",
+        "proofs/proof-entry-gates.mjs"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "Two owner-ruled gate walks frozen as GateStateDTO snapshots after every dispatch: (1) the happy path — popup, Later (minimized, gate stays red), banner, guided install, standalone DETECTED, alerts granted, then Connect Gmail with consent recorded before any read; (2) the alerts-denied path — denial does NOT pass (owner, 2026-10-21 19:14 ADT), guided enable, Later on the alerts step, and only a platform permission re-check reading GRANTED reaches READY. Self-report events exist in the machine and flip nothing; they are exercised by the shadow proof (26/26), not snapshotted here."
+    }
+  },
+  "data": {
+    "sequences": [
+      {
+        "name": "ios-install-granted-then-gmail",
+        "snapshots": [
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "NOT_INSTALLED",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T21:52:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "PROMPT",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T21:53:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "MINIMIZED",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T21:54:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "PROMPT",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T21:55:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "GUIDED",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T21:56:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "NOTIFY_ASK",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": "2026-10-21T21:57:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T21:58:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "READY",
+            "alertsPermission": "granted",
+            "alertsCheckedAt": "2026-10-21T21:59:00.000Z",
+            "installDetectedAt": "2026-10-21T21:57:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": true,
+            "updatedAt": "2026-10-21T22:00:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "READY",
+            "alertsPermission": "granted",
+            "alertsCheckedAt": "2026-10-21T22:01:00.000Z",
+            "installDetectedAt": "2026-10-21T21:57:00.000Z",
+            "gmailState": "ASK",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": true,
+            "updatedAt": "2026-10-21T22:02:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "READY",
+            "alertsPermission": "granted",
+            "alertsCheckedAt": "2026-10-21T22:03:00.000Z",
+            "installDetectedAt": "2026-10-21T21:57:00.000Z",
+            "gmailState": "RECONCILIATION_ARMED",
+            "gmailConnectionRef": "gmail-connection-fixture",
+            "gmailConsentScope": "booking-confirmations-only-in-gmail",
+            "flowAllowed": true,
+            "updatedAt": "2026-10-21T22:04:00.000Z"
+          }
+        ]
+      },
+      {
+        "name": "ios-alerts-denied-guided-enable",
+        "snapshots": [
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "NOT_INSTALLED",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T22:05:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "PROMPT",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": null,
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T22:06:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "NOTIFY_ASK",
+            "alertsPermission": null,
+            "alertsCheckedAt": null,
+            "installDetectedAt": "2026-10-21T22:07:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T22:08:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "NOTIFY_DENIED",
+            "alertsPermission": "denied",
+            "alertsCheckedAt": "2026-10-21T22:09:00.000Z",
+            "installDetectedAt": "2026-10-21T22:07:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T22:10:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "GUIDED_ENABLE",
+            "alertsPermission": "denied",
+            "alertsCheckedAt": "2026-10-21T22:11:00.000Z",
+            "installDetectedAt": "2026-10-21T22:07:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T22:12:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "MINIMIZED",
+            "alertsPermission": "denied",
+            "alertsCheckedAt": "2026-10-21T22:13:00.000Z",
+            "installDetectedAt": "2026-10-21T22:07:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": false,
+            "updatedAt": "2026-10-21T22:14:00.000Z"
+          },
+          {
+            "userId": "fixture-traveler",
+            "deviceId": "fixture-iphone",
+            "platform": "ios",
+            "installState": "READY",
+            "alertsPermission": "granted",
+            "alertsCheckedAt": "2026-10-21T22:15:00.000Z",
+            "installDetectedAt": "2026-10-21T22:07:00.000Z",
+            "gmailState": "NOT_CONNECTED",
+            "gmailConnectionRef": null,
+            "gmailConsentScope": null,
+            "flowAllowed": true,
+            "updatedAt": "2026-10-21T22:16:00.000Z"
+          }
+        ]
+      }
+    ]
+  }
+}

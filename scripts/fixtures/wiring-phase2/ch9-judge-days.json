@@ -1,0 +1,331 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "build2-e2e-tester-2026-10-21 + part2-travel-days-2026-10-21",
+      "files": [
+        "run-e2e-tester.mjs Ch. 9 (judgeItemsFor mapping)",
+        "outputs/aligned-itinerary.json",
+        "outputs/collision-branch.json"
+      ],
+      "note": "Ch. 9 judge inputs built from the part2 outputs with the tester's own mapping; expected outcomes computed by the SHADOW judgeTrip at capture time (the tester reported PASS/PASS/FAIL over its runtime-built itineraries)."
+    }
+  },
+  "data": {
+    "clean2026_10_23": {
+      "day": {
+        "dayNumber": 1,
+        "date": "2026-10-23",
+        "items": [
+          {
+            "type": "journey",
+            "key": "SYN-AC-7Q2M",
+            "name": "Flight AC 1847 to Halifax Stanfield",
+            "kind": "flight",
+            "start": 605,
+            "end": 800,
+            "pos": null,
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "transfer",
+            "key": "arrival-transfer",
+            "name": "Arrival transfer to hotel",
+            "kind": "transfer",
+            "start": 800,
+            "end": 840,
+            "pos": {
+              "lat": 44.6488,
+              "lon": -63.5752
+            },
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "food",
+            "key": "node/1139389702",
+            "name": "Five Fishermen",
+            "kind": "food",
+            "start": 845,
+            "end": 890,
+            "pos": {
+              "lat": 44.6478474,
+              "lon": -63.5753833
+            },
+            "url": "https://www.openstreetmap.org/node/1139389702",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "checkin",
+            "key": "SYN-HH-41KD",
+            "name": "Hotel check-in",
+            "kind": "hotel",
+            "start": 900,
+            "end": 930,
+            "pos": {
+              "lat": 44.6488,
+              "lon": -63.5752
+            },
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "stop",
+            "key": "node/26286235",
+            "name": "Halifax Citadel National Historic Site",
+            "kind": "attraction",
+            "start": 940,
+            "end": 1005,
+            "pos": {
+              "lat": 44.6475,
+              "lon": -63.5804
+            },
+            "url": "https://www.openstreetmap.org/node/26286235",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "rest",
+            "key": "hotel-rest",
+            "name": "Back to the hotel — rest and change",
+            "kind": "rest",
+            "start": 1015,
+            "end": 1125,
+            "pos": {
+              "lat": 44.6488,
+              "lon": -63.5752
+            },
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "food",
+            "key": "node/12136077507",
+            "name": "Lou Pécou",
+            "kind": "food",
+            "start": 1140,
+            "end": 1200,
+            "pos": {
+              "lat": 44.6441,
+              "lon": -63.5683
+            },
+            "url": "https://www.openstreetmap.org/node/12136077507",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "stop",
+            "key": "SYN-HC-2030",
+            "name": "Halifax Harbour Evening Cruise",
+            "kind": "cruise",
+            "start": 1230,
+            "end": 1320,
+            "pos": {
+              "lat": 44.6495,
+              "lon": -63.5714
+            },
+            "url": "fixtures/booking-emails/cruise-booking.eml",
+            "price": "UNKNOWN"
+          }
+        ],
+        "legs": []
+      },
+      "expected": {
+        "pass": true,
+        "hardViolations": [],
+        "warnings": []
+      }
+    },
+    "clean2026_10_24": {
+      "day": {
+        "dayNumber": 1,
+        "date": "2026-10-24",
+        "items": [
+          {
+            "type": "stop",
+            "key": "way/553574590",
+            "name": "Art Gallery of Nova Scotia",
+            "kind": "gallery",
+            "start": 600,
+            "end": 660,
+            "pos": {
+              "lat": 44.6481,
+              "lon": -63.5729
+            },
+            "url": "https://www.openstreetmap.org/way/553574590",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "stop",
+            "key": "way/62049157",
+            "name": "Maritime Museum of the Atlantic",
+            "kind": "museum",
+            "start": 690,
+            "end": 780,
+            "pos": {
+              "lat": 44.6478,
+              "lon": -63.571
+            },
+            "url": "https://www.openstreetmap.org/way/62049157",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "food",
+            "key": "node/9099103643",
+            "name": "The Bread Lounge",
+            "kind": "food",
+            "start": 790,
+            "end": 830,
+            "pos": {
+              "lat": 44.6444064,
+              "lon": -63.5721493
+            },
+            "url": "https://www.openstreetmap.org/node/9099103643",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "stop",
+            "key": "way/553592156",
+            "name": "Royal Artillery Park",
+            "kind": "park",
+            "start": 840,
+            "end": 900,
+            "pos": {
+              "lat": 44.6465,
+              "lon": -63.5745
+            },
+            "url": "https://www.openstreetmap.org/way/553592156",
+            "price": "UNKNOWN"
+          }
+        ],
+        "legs": []
+      },
+      "expected": {
+        "pass": true,
+        "hardViolations": [],
+        "warnings": []
+      }
+    },
+    "collided2026_10_23": {
+      "day": {
+        "dayNumber": 1,
+        "date": "2026-10-23",
+        "items": [
+          {
+            "type": "journey",
+            "key": "SYN-AC-7Q2M",
+            "name": "Flight AC 1847 to Halifax Stanfield",
+            "kind": "flight",
+            "start": 1000,
+            "end": 1195,
+            "pos": null,
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "transfer",
+            "key": "arrival-transfer",
+            "name": "Arrival transfer to hotel",
+            "kind": "transfer",
+            "start": 1195,
+            "end": 1235,
+            "pos": {
+              "lat": 44.6488,
+              "lon": -63.5752
+            },
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "food",
+            "key": "node/1139389702",
+            "name": "Five Fishermen",
+            "kind": "food",
+            "start": 845,
+            "end": 890,
+            "pos": {
+              "lat": 44.6478474,
+              "lon": -63.5753833
+            },
+            "url": "https://www.openstreetmap.org/node/1139389702",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "checkin",
+            "key": "SYN-HH-41KD",
+            "name": "Hotel check-in",
+            "kind": "hotel",
+            "start": 900,
+            "end": 930,
+            "pos": {
+              "lat": 44.6488,
+              "lon": -63.5752
+            },
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "stop",
+            "key": "node/26286235",
+            "name": "Halifax Citadel National Historic Site",
+            "kind": "attraction",
+            "start": 940,
+            "end": 1005,
+            "pos": {
+              "lat": 44.6475,
+              "lon": -63.5804
+            },
+            "url": "https://www.openstreetmap.org/node/26286235",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "rest",
+            "key": "hotel-rest",
+            "name": "Back to the hotel — rest and change",
+            "kind": "rest",
+            "start": 1015,
+            "end": 1125,
+            "pos": {
+              "lat": 44.6488,
+              "lon": -63.5752
+            },
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "food",
+            "key": "node/12136077507",
+            "name": "Lou Pécou",
+            "kind": "food",
+            "start": 1140,
+            "end": 1200,
+            "pos": {
+              "lat": 44.6441,
+              "lon": -63.5683
+            },
+            "url": "https://www.openstreetmap.org/node/12136077507",
+            "price": "UNKNOWN"
+          },
+          {
+            "type": "stop",
+            "key": "SYN-HC-2030",
+            "name": "Halifax Harbour Evening Cruise",
+            "kind": "cruise",
+            "start": 1230,
+            "end": 1320,
+            "pos": {
+              "lat": 44.6495,
+              "lon": -63.5714
+            },
+            "url": "fixtures/booking-emails/cruise-booking.eml",
+            "price": "UNKNOWN"
+          }
+        ],
+        "legs": []
+      },
+      "expected": {
+        "pass": false,
+        "hardViolations": [
+          "day 1: \"Flight AC 1847 to Halifax Stanfield\" (16:40) overlaps \"Halifax Citadel National Historic Site\" (ends 16:45)",
+          "day 1: \"Back to the hotel — rest and change\" (16:55) overlaps \"Flight AC 1847 to Halifax Stanfield\" (ends 19:55)",
+          "day 1: \"Arrival transfer to hotel\" (19:55) overlaps \"Lou Pécou\" (ends 20:00)",
+          "day 1: \"Halifax Harbour Evening Cruise\" (20:30) overlaps \"Arrival transfer to hotel\" (ends 20:35)",
+          "day 1: only -5 min between \"Lou Pécou\" and \"Arrival transfer to hotel\" but the 0.8 km walk needs ~11 min",
+          "day 1: only -5 min between \"Arrival transfer to hotel\" and \"Halifax Harbour Evening Cruise\" but the 0.3 km walk needs ~5 min"
+        ],
+        "warnings": []
+      }
+    }
+  }
+}

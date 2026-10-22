@@ -1,0 +1,123 @@
+{
+  "grades": [
+    {
+      "leg": "request:keyword-market",
+      "status": "DONE",
+      "detail": "itinerary mentions \"market\" (one local market visit)"
+    },
+    {
+      "leg": "request:keyword-childrens-museum",
+      "status": "DONE",
+      "detail": "itinerary mentions \"science centre\" (one children's museum morning)"
+    },
+    {
+      "leg": "request:no-repeat",
+      "status": "DONE",
+      "detail": "no place is scheduled twice across the trip"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "UNVERIFIABLE",
+      "detail": "open data carries no prices: a cap of 900 cannot be totaled or checked — never faked as met"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "no hard violations; arithmetic, grounding, and hours all cohere"
+    },
+    {
+      "leg": "prices:budget",
+      "status": "DONE",
+      "detail": "AT RISK — evidence covers 11/13 all-in scope lines (85%): 11 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 393–927 vs cap CAD 900; tiers {\"COSTED\":11}"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "DONE",
+      "detail": "one local market visit: scheduled (day 1); one children's museum morning: scheduled (day 4)"
+    },
+    {
+      "leg": "engine:extractor-agreement",
+      "status": "NOT DONE",
+      "detail": "earliest-start: extractor \"09:00\" vs truth null; rest-type: extractor \"afternoon\" vs truth null; budget: agree; dietary: extractor [\"shellfish\",\"vegetarian\"] vs truth []; place-items-count: extractor 2 vs truth 0"
+    }
+  ],
+  "agreement": [
+    {
+      "id": "earliest-start",
+      "extracted": "\"09:00\"",
+      "truth": "null",
+      "agree": false
+    },
+    {
+      "id": "rest-type",
+      "extracted": "\"afternoon\"",
+      "truth": "null",
+      "agree": false
+    },
+    {
+      "id": "budget",
+      "extracted": "900",
+      "truth": "900",
+      "agree": true
+    },
+    {
+      "id": "dietary",
+      "extracted": "[\"shellfish\",\"vegetarian\"]",
+      "truth": "[]",
+      "agree": false
+    },
+    {
+      "id": "place-items-count",
+      "extracted": "2",
+      "truth": "0",
+      "agree": false
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "keyword-market",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"market\" (one local market visit)"
+    },
+    {
+      "id": "keyword-childrens-museum",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"science centre\" (one children's museum morning)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 900 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Bill Thorpe Walking Bridge\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Gallery 78\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"The Tipsy Muse\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Musée de la région de Fredericton Region Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Beaverbrook Sculpture Garden\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"The Cultural Market\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Charles Avenue Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Carleton Park\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Morell Park\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Nomad Coffee\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Science East\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"The Green\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Quartermain Earth Science Centre\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"School Days Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"St. Mary's Old Reserve\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "unresolved": [
+    "opening hours: 15 of 18 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap AT RISK on labeled evidence (coverage 11/11 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+  ]
+}

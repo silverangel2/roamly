@@ -1,0 +1,152 @@
+{
+  "grades": [
+    {
+      "leg": "request:earliest-start",
+      "status": "DONE",
+      "detail": "all 23 timed items start at or after 09:00"
+    },
+    {
+      "leg": "request:rest-block",
+      "status": "DONE",
+      "detail": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:35–17:00)"
+    },
+    {
+      "leg": "request:keyword-market",
+      "status": "VIOLATED",
+      "detail": "nothing in the itinerary matches Jean Talon market morning"
+    },
+    {
+      "leg": "request:keyword-science-centre",
+      "status": "VIOLATED",
+      "detail": "nothing in the itinerary matches science centre afternoon"
+    },
+    {
+      "leg": "request:no-repeat",
+      "status": "DONE",
+      "detail": "no place is scheduled twice across the trip"
+    },
+    {
+      "leg": "request:dietary",
+      "status": "DONE",
+      "detail": "5 of 5 lunches carry explicit dietary tags in the data (peanuts, halal)"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "UNVERIFIABLE",
+      "detail": "open data carries no prices: a cap of 1300 cannot be totaled or checked — never faked as met"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "no hard violations; arithmetic, grounding, and hours all cohere"
+    },
+    {
+      "leg": "prices:budget",
+      "status": "DONE",
+      "detail": "AT RISK — evidence covers 19/21 all-in scope lines (90%): 19 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 642–1506 vs cap CAD 1300; tiers {\"COSTED\":19}"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "NOT DONE",
+      "detail": "science centre afternoon: unmet; Jean Talon market morning: unmet"
+    },
+    {
+      "leg": "engine:extractor-agreement",
+      "status": "DONE",
+      "detail": "earliest-start: agree; rest-type: agree; budget: agree; dietary: agree; place-items-count: agree"
+    }
+  ],
+  "agreement": [
+    {
+      "id": "earliest-start",
+      "extracted": "\"09:00\"",
+      "truth": "\"09:00\"",
+      "agree": true
+    },
+    {
+      "id": "rest-type",
+      "extracted": "\"afternoon\"",
+      "truth": "\"afternoon\"",
+      "agree": true
+    },
+    {
+      "id": "budget",
+      "extracted": "1300",
+      "truth": "1300",
+      "agree": true
+    },
+    {
+      "id": "dietary",
+      "extracted": "[\"halal\",\"peanuts\"]",
+      "truth": "[\"halal\",\"peanuts\"]",
+      "agree": true
+    },
+    {
+      "id": "place-items-count",
+      "extracted": "2",
+      "truth": "2",
+      "agree": true
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 23 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:35–17:00)"
+    },
+    {
+      "id": "keyword-market",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches Jean Talon market morning"
+    },
+    {
+      "id": "keyword-science-centre",
+      "verdict": "VIOLATED",
+      "evidence": "nothing in the itinerary matches science centre afternoon"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "KEPT",
+      "evidence": "5 of 5 lunches carry explicit dietary tags in the data (peanuts, halal)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 1300 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"L'Original\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Musée du marché Sainte-Anne et du parlement de la province du Canada\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Square des Frères-Charon\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Sir George-Étienne Cartier NHS\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Parc Toussaint-Louverture\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Élément du mur de Berlin\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Galerie 203\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Galerie de Chine\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Square Dorchester\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Bouche de métro Guimard\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Galerie 2000\" — opening hours not in the data (labeled, not invented)",
+      "day 5: \"Le Parterre\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "unresolved": [
+    "must-see unmet: science centre afternoon — no matching candidate exists in the open data for this destination",
+    "must-see unmet: Jean Talon market morning — candidate \"Marché Jean Talon\" exists but no feasible slot remained (distance/geometry)",
+    "opening hours: 12 of 23 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap AT RISK on labeled evidence (coverage 19/19 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "grades": [
+    {
+      "leg": "request:earliest-start",
+      "status": "DONE",
+      "detail": "all 9 timed items start at or after 09:00"
+    },
+    {
+      "leg": "request:rest-block",
+      "status": "DONE",
+      "detail": "day 2 carries an explicit rest block (Rest afternoon — nothing booked, 13:24–17:00)"
+    },
+    {
+      "leg": "request:keyword-fisheries-museum",
+      "status": "DONE",
+      "detail": "itinerary mentions \"fisheries museum\" (fisheries museum visit)"
+    },
+    {
+      "leg": "request:keyword-harbour",
+      "status": "DONE",
+      "detail": "itinerary mentions \"harbour\" (harbour walk)"
+    },
+    {
+      "leg": "request:no-repeat",
+      "status": "DONE",
+      "detail": "no place is scheduled twice across the trip"
+    },
+    {
+      "leg": "request:dietary",
+      "status": "UNVERIFIABLE",
+      "detail": "1 of 3 lunches carry explicit dietary tags in the data (vegetarian, shellfish)"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "UNVERIFIABLE",
+      "detail": "open data carries no prices: a cap of 650 cannot be totaled or checked — never faked as met"
+    },
+    {
+      "leg": "judges:make-sense",
+      "status": "DONE",
+      "detail": "no hard violations; arithmetic, grounding, and hours all cohere"
+    },
+    {
+      "leg": "prices:budget",
+      "status": "DONE",
+      "detail": "WITHIN — evidence covers 8/10 all-in scope lines (80%): 8 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 176–412 vs cap CAD 650; tiers {\"COSTED\":8}"
+    },
+    {
+      "leg": "engine:must-sees",
+      "status": "DONE",
+      "detail": "harbour walk: scheduled (day 3); fisheries museum visit: scheduled (day 1)"
+    },
+    {
+      "leg": "engine:extractor-agreement",
+      "status": "DONE",
+      "detail": "earliest-start: agree; rest-type: agree; budget: agree; dietary: agree; place-items-count: agree"
+    }
+  ],
+  "agreement": [
+    {
+      "id": "earliest-start",
+      "extracted": "\"09:00\"",
+      "truth": "\"09:00\"",
+      "agree": true
+    },
+    {
+      "id": "rest-type",
+      "extracted": "\"afternoon\"",
+      "truth": "\"afternoon\"",
+      "agree": true
+    },
+    {
+      "id": "budget",
+      "extracted": "650",
+      "truth": "650",
+      "agree": true
+    },
+    {
+      "id": "dietary",
+      "extracted": "[\"shellfish\",\"vegetarian\"]",
+      "truth": "[\"shellfish\",\"vegetarian\"]",
+      "agree": true
+    },
+    {
+      "id": "place-items-count",
+      "extracted": "2",
+      "truth": "2",
+      "agree": true
+    }
+  ],
+  "verdicts": [
+    {
+      "id": "earliest-start",
+      "verdict": "KEPT",
+      "evidence": "all 9 timed items start at or after 09:00"
+    },
+    {
+      "id": "rest-block",
+      "verdict": "KEPT",
+      "evidence": "day 2 carries an explicit rest block (Rest afternoon — nothing booked, 13:24–17:00)"
+    },
+    {
+      "id": "keyword-fisheries-museum",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"fisheries museum\" (fisheries museum visit)"
+    },
+    {
+      "id": "keyword-harbour",
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"harbour\" (harbour walk)"
+    },
+    {
+      "id": "no-repeat",
+      "verdict": "KEPT",
+      "evidence": "no place is scheduled twice across the trip"
+    },
+    {
+      "id": "dietary",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "1 of 3 lunches carry explicit dietary tags in the data (vegetarian, shellfish)"
+    },
+    {
+      "id": "budget-cap",
+      "verdict": "UNVERIFIABLE",
+      "evidence": "open data carries no prices: a cap of 650 cannot be totaled or checked — never faked as met"
+    }
+  ],
+  "judge": {
+    "pass": true,
+    "hardViolations": [],
+    "warnings": [
+      "day 1: \"Fisheries Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Cranston Gallery\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"No. 9\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Museum Boat Shop & Exhibit\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Sylvia Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Lorne Street Fire Company\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"The Old Fish Factory\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Indian Harbour Light\" — opening hours not in the data (labeled, not invented)"
+    ]
+  },
+  "unresolved": [
+    "opening hours: 8 of 9 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap WITHIN on labeled evidence (coverage 8/8 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+  ]
+}

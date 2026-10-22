@@ -1,0 +1,790 @@
+{
+  "_fixture": {
+    "fixtureVersion": 1,
+    "source": {
+      "package": "budget-vs-real-bot-2026-10-21",
+      "files": [
+        "src/budget-vs-real.mjs",
+        "proofs/proof-budget-vs-real.mjs"
+      ],
+      "capturedAt": "2026-10-21",
+      "note": "The bot's own proof scenario (7 priced items, party of 2, cap CAD 200) replayed through BEFORE / DURING / AFTER and frozen as BudgetVsRealComparisonDTOs. The stale lighthouse live-check (72h old) stays STALE and excluded; the ferry's PAID 95 against a 16–40 estimate is the loud item; calibration writes are the PAID prices in the ladder's VERIFIED record shape. Estimates are carried on the party basis the bot grades on."
+    }
+  },
+  "data": {
+    "reports": [
+      {
+        "checkpoint": "BEFORE",
+        "at": "2026-10-24T09:00:00Z",
+        "tripRef": "fixture-halifax-budget",
+        "items": [
+          {
+            "itemRef": "item-7056a7eb72fc11c0",
+            "dayNumber": 1,
+            "name": "Halifax Citadel",
+            "estimate": {
+              "tier": "BAND",
+              "category": "admission",
+              "range": {
+                "low": 24,
+                "high": 56,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+            },
+            "real": {
+              "source": "LIBRARY",
+              "amount": 40,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "recorded real price — owner library — completed trip 2026-09 (2026-09-14); evidence count 3"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-58ef63a44001cc26",
+            "dayNumber": 1,
+            "name": "Bistro Le Port",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "meal",
+              "range": {
+                "low": 24,
+                "high": 60,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-ce7ff720a86547ef",
+            "dayNumber": 1,
+            "name": "Harbour Ferry",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "crossing",
+              "range": {
+                "low": 16,
+                "high": 40,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — harbour ferry fare, per person, CAD (cost model assumption; sailing times and fares are the terminal board's)"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-6d44df4f3bd9357a",
+            "dayNumber": 1,
+            "name": "Maritime Museum",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 24,
+                "high": 52,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-1ae058b068cc8e88",
+            "dayNumber": 1,
+            "name": "Art Gallery",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 16,
+                "high": 40,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+            },
+            "real": {
+              "source": "LIVE-CHECK",
+              "amount": 30,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": "2026-10-24T07:00:00Z",
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "live check observed 2026-10-24T07:00:00Z (partner market check (fixture)) — evidence about now, not a promise"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-67ea7f76ea823296",
+            "dayNumber": 1,
+            "name": "Harbour Lighthouse",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 16,
+                "high": 36,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — lighthouse site admission, per person, CAD (cost model assumption)"
+            },
+            "real": {
+              "source": "LIVE-CHECK",
+              "amount": 40,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": "2026-10-21T09:00:00Z",
+              "stale": true,
+              "excludedFromTotals": true,
+              "basis": "live check observed 2026-10-21T09:00:00Z is 72h old — STALE, labeled and excluded from totals; a stale price is evidence about then, not now"
+            },
+            "verdict": "ABOVE",
+            "loud": true
+          },
+          {
+            "itemRef": "item-425dcef5ca0695e3",
+            "dayNumber": 1,
+            "name": "Elm Falls",
+            "estimate": {
+              "tier": "UNKNOWN",
+              "category": "admission",
+              "range": null,
+              "per": "party",
+              "basis": "no evidence — never zero, never guessed"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          }
+        ],
+        "rollups": {
+          "realTotal": 70,
+          "unverifiableItems": 4,
+          "byCategory": {
+            "admission": {
+              "realTotal": 70,
+              "items": 2
+            },
+            "meal": {
+              "realTotal": 0,
+              "items": 0
+            },
+            "crossing": {
+              "realTotal": 0,
+              "items": 0
+            }
+          }
+        },
+        "regrade": {
+          "verdict": "AT RISK",
+          "totals": {
+            "low": 150,
+            "high": 258,
+            "currency": "CAD",
+            "per": "party"
+          },
+          "cap": {
+            "amount": 200,
+            "currency": "CAD"
+          }
+        },
+        "loud": false,
+        "calibrationWrites": []
+      },
+      {
+        "checkpoint": "DURING",
+        "at": "2026-10-24T12:00:00Z",
+        "tripRef": "fixture-halifax-budget",
+        "items": [
+          {
+            "itemRef": "item-7056a7eb72fc11c0",
+            "dayNumber": 1,
+            "name": "Halifax Citadel",
+            "estimate": {
+              "tier": "BAND",
+              "category": "admission",
+              "range": {
+                "low": 24,
+                "high": 56,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+            },
+            "real": {
+              "source": "LIBRARY",
+              "amount": 40,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "recorded real price — owner library — completed trip 2026-09 (2026-09-14); evidence count 3"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-58ef63a44001cc26",
+            "dayNumber": 1,
+            "name": "Bistro Le Port",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "meal",
+              "range": {
+                "low": 24,
+                "high": 60,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 50,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — booking confirmation SYN-BK-1101"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-ce7ff720a86547ef",
+            "dayNumber": 1,
+            "name": "Harbour Ferry",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "crossing",
+              "range": {
+                "low": 16,
+                "high": 40,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — harbour ferry fare, per person, CAD (cost model assumption; sailing times and fares are the terminal board's)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 95,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — booking confirmation SYN-BK-1102"
+            },
+            "verdict": "ABOVE",
+            "loud": true
+          },
+          {
+            "itemRef": "item-6d44df4f3bd9357a",
+            "dayNumber": 1,
+            "name": "Maritime Museum",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 24,
+                "high": 52,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 20,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — booking confirmation SYN-BK-1103"
+            },
+            "verdict": "BELOW",
+            "loud": false
+          },
+          {
+            "itemRef": "item-1ae058b068cc8e88",
+            "dayNumber": 1,
+            "name": "Art Gallery",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 16,
+                "high": 40,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+            },
+            "real": {
+              "source": "LIVE-CHECK",
+              "amount": 30,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": "2026-10-24T07:00:00Z",
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "live check observed 2026-10-24T07:00:00Z (partner market check (fixture)) — evidence about now, not a promise"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-67ea7f76ea823296",
+            "dayNumber": 1,
+            "name": "Harbour Lighthouse",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 16,
+                "high": 36,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — lighthouse site admission, per person, CAD (cost model assumption)"
+            },
+            "real": {
+              "source": "LIVE-CHECK",
+              "amount": 40,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": "2026-10-21T09:00:00Z",
+              "stale": true,
+              "excludedFromTotals": true,
+              "basis": "live check observed 2026-10-21T09:00:00Z is 75h old — STALE, labeled and excluded from totals; a stale price is evidence about then, not now"
+            },
+            "verdict": "ABOVE",
+            "loud": true
+          },
+          {
+            "itemRef": "item-425dcef5ca0695e3",
+            "dayNumber": 1,
+            "name": "Elm Falls",
+            "estimate": {
+              "tier": "UNKNOWN",
+              "category": "admission",
+              "range": null,
+              "per": "party",
+              "basis": "no evidence — never zero, never guessed"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          }
+        ],
+        "rollups": {
+          "realTotal": 235,
+          "unverifiableItems": 1,
+          "byCategory": {
+            "admission": {
+              "realTotal": 90,
+              "items": 3
+            },
+            "meal": {
+              "realTotal": 50,
+              "items": 1
+            },
+            "crossing": {
+              "realTotal": 95,
+              "items": 1
+            }
+          }
+        },
+        "regrade": {
+          "verdict": "OVER",
+          "totals": {
+            "low": 251,
+            "high": 271,
+            "currency": "CAD",
+            "per": "party"
+          },
+          "cap": {
+            "amount": 200,
+            "currency": "CAD"
+          }
+        },
+        "loud": true,
+        "calibrationWrites": [
+          {
+            "candidateKey": "bistro-lunch",
+            "amount": 50,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — booking confirmation SYN-BK-1101",
+            "recordedAt": "2026-10-24",
+            "evidenceCount": 1
+          },
+          {
+            "candidateKey": "harbour-ferry",
+            "amount": 95,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — booking confirmation SYN-BK-1102",
+            "recordedAt": "2026-10-24",
+            "evidenceCount": 1
+          },
+          {
+            "candidateKey": "museum",
+            "amount": 20,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — booking confirmation SYN-BK-1103",
+            "recordedAt": "2026-10-24",
+            "evidenceCount": 1
+          }
+        ]
+      },
+      {
+        "checkpoint": "AFTER",
+        "at": "2026-10-29T15:00:00Z",
+        "tripRef": "fixture-halifax-budget",
+        "items": [
+          {
+            "itemRef": "item-7056a7eb72fc11c0",
+            "dayNumber": 1,
+            "name": "Halifax Citadel",
+            "estimate": {
+              "tier": "BAND",
+              "category": "admission",
+              "range": {
+                "low": 24,
+                "high": 56,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — Google price level MODERATE (google-fixture) mapped to a admission range; a band, never an exact price"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 44,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — post-trip actual (post-trip actual (door price, fixture))"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-58ef63a44001cc26",
+            "dayNumber": 1,
+            "name": "Bistro Le Port",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "meal",
+              "range": {
+                "low": 24,
+                "high": 60,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 50,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — booking confirmation SYN-BK-1101"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-ce7ff720a86547ef",
+            "dayNumber": 1,
+            "name": "Harbour Ferry",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "crossing",
+              "range": {
+                "low": 16,
+                "high": 40,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — harbour ferry fare, per person, CAD (cost model assumption; sailing times and fares are the terminal board's)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 95,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — booking confirmation SYN-BK-1102"
+            },
+            "verdict": "ABOVE",
+            "loud": true
+          },
+          {
+            "itemRef": "item-6d44df4f3bd9357a",
+            "dayNumber": 1,
+            "name": "Maritime Museum",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 24,
+                "high": 52,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 20,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — booking confirmation SYN-BK-1103"
+            },
+            "verdict": "BELOW",
+            "loud": false
+          },
+          {
+            "itemRef": "item-1ae058b068cc8e88",
+            "dayNumber": 1,
+            "name": "Art Gallery",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 16,
+                "high": 40,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — gallery admission, per person, CAD (cost model assumption; many galleries sit at the low end)"
+            },
+            "real": {
+              "source": "PAID",
+              "amount": 28,
+              "currency": "CAD",
+              "per": "party",
+              "observedAt": null,
+              "stale": false,
+              "excludedFromTotals": false,
+              "basis": "price paid — post-trip actual (post-trip actual (fixture))"
+            },
+            "verdict": "INSIDE-RANGE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-67ea7f76ea823296",
+            "dayNumber": 1,
+            "name": "Harbour Lighthouse",
+            "estimate": {
+              "tier": "COSTED",
+              "category": "admission",
+              "range": {
+                "low": 16,
+                "high": 36,
+                "currency": "CAD",
+                "per": "party"
+              },
+              "per": "party",
+              "basis": "ESTIMATED — lighthouse site admission, per person, CAD (cost model assumption)"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          },
+          {
+            "itemRef": "item-425dcef5ca0695e3",
+            "dayNumber": 1,
+            "name": "Elm Falls",
+            "estimate": {
+              "tier": "UNKNOWN",
+              "category": "admission",
+              "range": null,
+              "per": "party",
+              "basis": "no evidence — never zero, never guessed"
+            },
+            "real": null,
+            "verdict": "UNVERIFIABLE",
+            "loud": false
+          }
+        ],
+        "rollups": {
+          "realTotal": 237,
+          "unverifiableItems": 2,
+          "byCategory": {
+            "admission": {
+              "realTotal": 92,
+              "items": 3
+            },
+            "meal": {
+              "realTotal": 50,
+              "items": 1
+            },
+            "crossing": {
+              "realTotal": 95,
+              "items": 1
+            }
+          }
+        },
+        "regrade": {
+          "verdict": "OVER",
+          "totals": {
+            "low": 253,
+            "high": 273,
+            "currency": "CAD",
+            "per": "party"
+          },
+          "cap": {
+            "amount": 200,
+            "currency": "CAD"
+          }
+        },
+        "loud": true,
+        "calibrationWrites": [
+          {
+            "candidateKey": "citadel",
+            "amount": 44,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — post-trip actual (post-trip actual (door price, fixture))",
+            "recordedAt": "2026-10-29",
+            "evidenceCount": 4
+          },
+          {
+            "candidateKey": "bistro-lunch",
+            "amount": 50,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — booking confirmation SYN-BK-1101",
+            "recordedAt": "2026-10-29",
+            "evidenceCount": 2
+          },
+          {
+            "candidateKey": "harbour-ferry",
+            "amount": 95,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — booking confirmation SYN-BK-1102",
+            "recordedAt": "2026-10-29",
+            "evidenceCount": 2
+          },
+          {
+            "candidateKey": "museum",
+            "amount": 20,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — booking confirmation SYN-BK-1103",
+            "recordedAt": "2026-10-29",
+            "evidenceCount": 2
+          },
+          {
+            "candidateKey": "gallery",
+            "amount": 28,
+            "currency": "CAD",
+            "per": "party",
+            "source": "price paid — post-trip actual (post-trip actual (fixture))",
+            "recordedAt": "2026-10-29",
+            "evidenceCount": 1
+          }
+        ]
+      }
+    ],
+    "libraryAfter": [
+      {
+        "candidateKey": "citadel",
+        "amount": 44,
+        "currency": "CAD",
+        "per": "party",
+        "source": "price paid — post-trip actual (post-trip actual (door price, fixture))",
+        "recordedAt": "2026-10-29",
+        "evidenceCount": 4
+      },
+      {
+        "candidateKey": "bistro-lunch",
+        "amount": 50,
+        "currency": "CAD",
+        "per": "party",
+        "source": "price paid — booking confirmation SYN-BK-1101",
+        "recordedAt": "2026-10-29",
+        "evidenceCount": 2
+      },
+      {
+        "candidateKey": "harbour-ferry",
+        "amount": 95,
+        "currency": "CAD",
+        "per": "party",
+        "source": "price paid — booking confirmation SYN-BK-1102",
+        "recordedAt": "2026-10-29",
+        "evidenceCount": 2
+      },
+      {
+        "candidateKey": "museum",
+        "amount": 20,
+        "currency": "CAD",
+        "per": "party",
+        "source": "price paid — booking confirmation SYN-BK-1103",
+        "recordedAt": "2026-10-29",
+        "evidenceCount": 2
+      },
+      {
+        "candidateKey": "gallery",
+        "amount": 28,
+        "currency": "CAD",
+        "per": "party",
+        "source": "price paid — post-trip actual (post-trip actual (fixture))",
+        "recordedAt": "2026-10-29",
+        "evidenceCount": 1
+      }
+    ]
+  }
+}

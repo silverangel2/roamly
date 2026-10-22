@@ -1,0 +1,34 @@
+{
+  "grades": [
+    {
+      "leg": "continuity:commitment-ledger",
+      "status": "DONE",
+      "detail": "5 commitments tracked — 5 kept on their home day, 0 rehomed with the move recorded, 0 unmet-and-reported at solve time, 0 unresolved"
+    },
+    {
+      "leg": "continuity:trip-arc",
+      "status": "DONE",
+      "detail": "settle day 1 · peak day 5 · land day 12 · adjustments: day 6 FULL->LIGHT; day 12 FULL->LIGHT"
+    },
+    {
+      "leg": "continuity:narrative-memory",
+      "status": "DONE",
+      "detail": "3 memory lines woven in (peak, landing, returns, re-homes) — every one triggered by ledger/arc state, none invented"
+    },
+    {
+      "leg": "continuity:seam-chaining",
+      "status": "DONE",
+      "detail": "day 7: checkout -> transfer -> check-in (bags with you until 16:30 check-in) -> rest, one motion, 0 orphaned minutes"
+    },
+    {
+      "leg": "continuity:seam-chain-rendered",
+      "status": "DONE",
+      "detail": "move day blocks: Check out — Hôtel Marie Rollett 09:00–09:30 · Travel day — Quebec City → Halifax 09:30–16:30 · Check in — Residence Inn Halifax Downtown 16:30–16:45 · Rest & refresh — travel takes something out of you 16:45–18:45"
+    },
+    {
+      "leg": "continuity:seam-rest-applied",
+      "status": "DONE",
+      "detail": "rest & refresh at the new base runs to 18:45 (journey 420 min -> 120 min rest, the long-journey tier); stops after it: 0 — the gentle arrival stop yields to the rest rule, by design"
+    }
+  ]
+}

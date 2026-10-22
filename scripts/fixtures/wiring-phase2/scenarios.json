@@ -1,0 +1,643 @@
+{
+  "_fixture": {
+    "corpus": "wiring-phase2",
+    "source": {
+      "package": "daily-test-2026-10-20 + zero-engine-2026-10-21",
+      "files": [
+        "mock-pool.mjs",
+        "trips/<pool-id>/itinerary.json"
+      ],
+      "note": "Mock-pool entries verbatim, each frozen run's request text and dates. The TS core re-runs the engine.mjs pipeline against these inputs and must reproduce the frozen outputs."
+    }
+  },
+  "data": [
+    {
+      "entry": {
+        "id": "fredericton-family",
+        "destination": "Fredericton",
+        "destinationCountry": "Canada",
+        "kind": "small city",
+        "days": 5,
+        "startOffsetDays": 1,
+        "budgetAmount": 900,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 1,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "food",
+          "family",
+          "history"
+        ],
+        "coordinates": {
+          "latitude": 45.9636,
+          "longitude": -66.6431
+        },
+        "request": {
+          "verbatimDayOne": true
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-market",
+            "kind": "keyword",
+            "label": "one local market visit",
+            "patterns": [
+              "market"
+            ]
+          },
+          {
+            "id": "keyword-childrens-museum",
+            "kind": "keyword",
+            "label": "one children's museum morning",
+            "patterns": [
+              "children's museum",
+              "childrens museum",
+              "children museum",
+              "kids museum",
+              "science centre",
+              "science center"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple traveling with our three year old daughter for a relaxed five day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor room or a building with an elevator, a crib for the toddler, and quiet streets at night. I am vegetarian and my partner cannot eat shellfish, so please favor restaurants with clear vegetarian menus. Keep the total budget under nine hundred dollars, avoid long walks between stops, and also include one local market visit and one children's museum morning please",
+      "startDate": "2026-10-22",
+      "endDate": "2026-10-26",
+      "enrichmentMode": "off"
+    },
+    {
+      "entry": {
+        "id": "halifax-coastal",
+        "destination": "Halifax",
+        "destinationCountry": "Canada",
+        "kind": "coastal city",
+        "days": 4,
+        "startOffsetDays": 2,
+        "budgetAmount": 1200,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 0,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "food",
+          "history",
+          "waterfront"
+        ],
+        "coordinates": {
+          "latitude": 44.6488,
+          "longitude": -63.5752
+        },
+        "request": {
+          "party": "We are a couple in our fifties",
+          "tripNoun": "a gentle four day break by the water",
+          "pacing": "no starts before nine",
+          "earliestStart": "09:00",
+          "rest": "one full rest afternoon in the middle",
+          "access": [
+            "a ground floor room or a building with an elevator",
+            "step free routes wherever possible"
+          ],
+          "dietary": "My partner is gluten free and I cannot eat peanuts, so please favor restaurants that label allergens clearly",
+          "walking": "avoid long walks between stops",
+          "placeItems": [
+            "one harbour ferry ride",
+            "a visit to the maritime museum"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-ferry",
+            "kind": "keyword",
+            "label": "one harbour ferry ride",
+            "patterns": [
+              "ferry"
+            ]
+          },
+          {
+            "id": "keyword-maritime-museum",
+            "kind": "keyword",
+            "label": "maritime museum visit",
+            "patterns": [
+              "maritime museum",
+              "museum"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple in our fifties for a gentle four day break by the water. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor room or a building with an elevator and step free routes wherever possible. My partner is gluten free and I cannot eat peanuts, so please favor restaurants that label allergens clearly. Keep the total budget under one thousand two hundred dollars, avoid long walks between stops, and also include one harbour ferry ride and a visit to the maritime museum please.",
+      "startDate": "2026-10-23",
+      "endDate": "2026-10-26",
+      "enrichmentMode": "off"
+    },
+    {
+      "entry": {
+        "id": "charlottetown-smalltown",
+        "destination": "Charlottetown",
+        "destinationCountry": "Canada",
+        "kind": "small coastal town",
+        "days": 3,
+        "startOffsetDays": 1,
+        "budgetAmount": 700,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 0,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "food",
+          "history",
+          "scenery"
+        ],
+        "coordinates": {
+          "latitude": 46.2382,
+          "longitude": -63.1311
+        },
+        "request": {
+          "party": "I am traveling with my elderly mother",
+          "tripNoun": "a slow three day break",
+          "pacing": "no starts before nine",
+          "earliestStart": "09:00",
+          "rest": "one slow morning with nothing booked at all",
+          "access": [
+            "a ground floor room or a building with an elevator",
+            "as few stairs as possible"
+          ],
+          "dietary": "My mother cannot eat nuts and I am lactose intolerant, so please favor restaurants with clear allergen labels",
+          "walking": "keep walks between stops short and flat",
+          "placeItems": [
+            "one lighthouse visit",
+            "a morning at the local farmers market"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one slow morning with nothing booked"
+          },
+          {
+            "id": "keyword-lighthouse",
+            "kind": "keyword",
+            "label": "one lighthouse visit",
+            "patterns": [
+              "lighthouse"
+            ]
+          },
+          {
+            "id": "keyword-market",
+            "kind": "keyword",
+            "label": "local farmers market",
+            "patterns": [
+              "market"
+            ]
+          }
+        ]
+      },
+      "requestText": "I am traveling with my elderly mother for a slow three day break. Please keep every day gentle, with no starts before nine and one slow morning with nothing booked at all. We need a ground floor room or a building with an elevator and as few stairs as possible. My mother cannot eat nuts and I am lactose intolerant, so please favor restaurants with clear allergen labels. Keep the total budget under seven hundred dollars, keep walks between stops short and flat, and also include one lighthouse visit and a morning at the local farmers market please.",
+      "startDate": "2026-10-22",
+      "endDate": "2026-10-24",
+      "enrichmentMode": "off"
+    },
+    {
+      "entry": {
+        "id": "quebec-city-family",
+        "destination": "Quebec City",
+        "destinationCountry": "Canada",
+        "kind": "old city",
+        "days": 5,
+        "startOffsetDays": 3,
+        "budgetAmount": 1100,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 2,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "food",
+          "family",
+          "history"
+        ],
+        "coordinates": {
+          "latitude": 46.8139,
+          "longitude": -71.208
+        },
+        "request": {
+          "party": "We are a couple traveling with our two kids, aged six and nine",
+          "tripNoun": "an easy five day break",
+          "pacing": "no starts before nine",
+          "earliestStart": "09:00",
+          "rest": "one full rest afternoon in the middle",
+          "access": [
+            "a family room with an elevator in the building",
+            "stroller friendly routes where possible"
+          ],
+          "dietary": "I am vegetarian and our youngest cannot eat eggs, so please favor restaurants with clear vegetarian menus",
+          "walking": "avoid long walks between stops",
+          "placeItems": [
+            "the ferry ride across to Levis",
+            "a trip out to Montmorency Falls"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-ferry",
+            "kind": "keyword",
+            "label": "ferry ride to Levis",
+            "patterns": [
+              "ferry",
+              "levis",
+              "lévis"
+            ]
+          },
+          {
+            "id": "keyword-falls",
+            "kind": "keyword",
+            "label": "Montmorency Falls trip",
+            "patterns": [
+              "montmorency",
+              "falls"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple traveling with our two kids, aged six and nine for an easy five day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a family room with an elevator in the building and stroller friendly routes where possible. I am vegetarian and our youngest cannot eat eggs, so please favor restaurants with clear vegetarian menus. Keep the total budget under one thousand one hundred dollars, avoid long walks between stops, and also include the ferry ride across to Levis and a trip out to Montmorency Falls please.",
+      "startDate": "2026-10-24",
+      "endDate": "2026-10-28",
+      "enrichmentMode": "fixture"
+    },
+    {
+      "entry": {
+        "id": "banff-mountain",
+        "destination": "Banff",
+        "destinationCountry": "Canada",
+        "kind": "mountain town",
+        "days": 4,
+        "startOffsetDays": 2,
+        "budgetAmount": 1500,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 0,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "scenery",
+          "nature",
+          "food"
+        ],
+        "coordinates": {
+          "latitude": 51.1784,
+          "longitude": -115.5708
+        },
+        "request": {
+          "party": "We are a couple who love the mountains but not early alarms",
+          "tripNoun": "a slow four day break",
+          "pacing": "no starts before ten",
+          "earliestStart": "10:00",
+          "rest": "one full rest afternoon in the middle",
+          "access": [
+            "a room with an elevator in the building",
+            "gentle paths only, as my knee cannot handle steep hikes"
+          ],
+          "dietary": "I am dairy free and my partner is vegetarian, so please favor restaurants with clear plant based options",
+          "walking": "avoid long walks between stops",
+          "placeItems": [
+            "the gondola ride up Sulphur Mountain",
+            "an afternoon at the hot springs"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before ten",
+            "time": "10:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-gondola",
+            "kind": "keyword",
+            "label": "gondola ride up Sulphur Mountain",
+            "patterns": [
+              "gondola"
+            ]
+          },
+          {
+            "id": "keyword-hot-springs",
+            "kind": "keyword",
+            "label": "hot springs afternoon",
+            "patterns": [
+              "hot springs",
+              "hot spring"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple who love the mountains but not early alarms for a slow four day break. Please keep every day gentle, with no starts before ten and one full rest afternoon in the middle. We need a room with an elevator in the building and gentle paths only, as my knee cannot handle steep hikes. I am dairy free and my partner is vegetarian, so please favor restaurants with clear plant based options. Keep the total budget under one thousand five hundred dollars, avoid long walks between stops, and also include the gondola ride up Sulphur Mountain and an afternoon at the hot springs please.",
+      "startDate": "2026-10-23",
+      "endDate": "2026-10-26",
+      "enrichmentMode": "off"
+    },
+    {
+      "entry": {
+        "id": "lunenburg-coastal",
+        "destination": "Lunenburg",
+        "destinationCountry": "Canada",
+        "kind": "small coastal town",
+        "days": 3,
+        "startOffsetDays": 1,
+        "budgetAmount": 650,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 0,
+          "infants": 1
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "food",
+          "history",
+          "waterfront"
+        ],
+        "coordinates": {
+          "latitude": 44.377,
+          "longitude": -64.3184
+        },
+        "request": {
+          "party": "We are a couple traveling with our baby",
+          "tripNoun": "a quiet three day break",
+          "pacing": "no starts before nine",
+          "earliestStart": "09:00",
+          "rest": "one full rest afternoon in the middle",
+          "access": [
+            "a ground floor room with space for a crib",
+            "quiet streets at night so the baby can sleep"
+          ],
+          "dietary": "My partner cannot eat shellfish and I am vegetarian, so please favor restaurants with clear vegetarian menus",
+          "walking": "avoid long walks between stops",
+          "placeItems": [
+            "the fisheries museum on the waterfront",
+            "a slow harbour walk in the morning"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-fisheries-museum",
+            "kind": "keyword",
+            "label": "fisheries museum visit",
+            "patterns": [
+              "fisheries museum",
+              "museum"
+            ]
+          },
+          {
+            "id": "keyword-harbour",
+            "kind": "keyword",
+            "label": "harbour walk",
+            "patterns": [
+              "harbour",
+              "harbor"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple traveling with our baby for a quiet three day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor room with space for a crib and quiet streets at night so the baby can sleep. My partner cannot eat shellfish and I am vegetarian, so please favor restaurants with clear vegetarian menus. Keep the total budget under six hundred fifty dollars, avoid long walks between stops, and also include the fisheries museum on the waterfront and a slow harbour walk in the morning please.",
+      "startDate": "2026-10-22",
+      "endDate": "2026-10-24",
+      "enrichmentMode": "off"
+    },
+    {
+      "entry": {
+        "id": "montreal-city",
+        "destination": "Montreal",
+        "destinationCountry": "Canada",
+        "kind": "big city",
+        "days": 5,
+        "startOffsetDays": 2,
+        "budgetAmount": 1300,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 1,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "food",
+          "family",
+          "culture"
+        ],
+        "coordinates": {
+          "latitude": 45.5017,
+          "longitude": -73.5673
+        },
+        "request": {
+          "party": "We are a couple traveling with our five year old son",
+          "tripNoun": "a relaxed five day break",
+          "pacing": "no starts before nine",
+          "earliestStart": "09:00",
+          "rest": "one full rest afternoon in the middle",
+          "access": [
+            "a building with an elevator",
+            "metro friendly routes so we never walk too far with a tired kid"
+          ],
+          "dietary": "We eat halal and our son cannot eat peanuts, so please favor restaurants that label halal options clearly",
+          "walking": "avoid long walks between stops",
+          "placeItems": [
+            "a morning at the Jean Talon market",
+            "an afternoon at the science centre"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-market",
+            "kind": "keyword",
+            "label": "Jean Talon market morning",
+            "patterns": [
+              "jean talon",
+              "jean-talon",
+              "market"
+            ]
+          },
+          {
+            "id": "keyword-science-centre",
+            "kind": "keyword",
+            "label": "science centre afternoon",
+            "patterns": [
+              "science centre",
+              "science center"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple traveling with our five year old son for a relaxed five day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a building with an elevator and metro friendly routes so we never walk too far with a tired kid. We eat halal and our son cannot eat peanuts, so please favor restaurants that label halal options clearly. Keep the total budget under one thousand three hundred dollars, avoid long walks between stops, and also include a morning at the Jean Talon market and an afternoon at the science centre please.",
+      "startDate": "2026-10-23",
+      "endDate": "2026-10-27",
+      "enrichmentMode": "off"
+    },
+    {
+      "entry": {
+        "id": "rocky-harbour-gros-morne",
+        "destination": "Rocky Harbour",
+        "destinationCountry": "Canada",
+        "kind": "coastal mountain small town",
+        "days": 4,
+        "startOffsetDays": 3,
+        "budgetAmount": 1000,
+        "budgetCurrency": "CAD",
+        "travelers": {
+          "adults": 2,
+          "children": 0,
+          "infants": 0
+        },
+        "travelStyle": "Relaxed",
+        "pace": "Relaxed",
+        "interests": [
+          "nature",
+          "scenery",
+          "food"
+        ],
+        "coordinates": {
+          "latitude": 49.5917,
+          "longitude": -57.9184
+        },
+        "request": {
+          "party": "We are a couple who want coast and quiet",
+          "tripNoun": "a slow four day break",
+          "pacing": "no starts before nine",
+          "earliestStart": "09:00",
+          "rest": "one full rest afternoon in the middle",
+          "access": [
+            "a ground floor cabin or a building with an elevator",
+            "short flat trails only, as my ankle is still healing"
+          ],
+          "dietary": "I am vegetarian and my partner cannot eat shellfish, so please favor restaurants with clear vegetarian options",
+          "walking": "avoid long walks between stops",
+          "placeItems": [
+            "the boat tour on Western Brook Pond",
+            "the lighthouse at Lobster Cove"
+          ]
+        },
+        "checks": [
+          {
+            "id": "earliest-start",
+            "kind": "earliest-start",
+            "label": "no starts before nine",
+            "time": "09:00"
+          },
+          {
+            "id": "rest-block",
+            "kind": "rest-block",
+            "label": "one full rest afternoon in the middle"
+          },
+          {
+            "id": "keyword-boat-tour",
+            "kind": "keyword",
+            "label": "Western Brook Pond boat tour",
+            "patterns": [
+              "western brook",
+              "boat tour",
+              "boat"
+            ]
+          },
+          {
+            "id": "keyword-lighthouse",
+            "kind": "keyword",
+            "label": "Lobster Cove lighthouse",
+            "patterns": [
+              "lighthouse",
+              "lobster cove"
+            ]
+          }
+        ]
+      },
+      "requestText": "We are a couple who want coast and quiet for a slow four day break. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor cabin or a building with an elevator and short flat trails only, as my ankle is still healing. I am vegetarian and my partner cannot eat shellfish, so please favor restaurants with clear vegetarian options. Keep the total budget under one thousand dollars, avoid long walks between stops, and also include the boat tour on Western Brook Pond and the lighthouse at Lobster Cove please.",
+      "startDate": "2026-10-24",
+      "endDate": "2026-10-27",
+      "enrichmentMode": "off"
+    }
+  ]
+}

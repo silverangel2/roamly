@@ -1,0 +1,54 @@
+{
+  "grades": [
+    {
+      "leg": "envelope:wait-carries-no-commitments",
+      "status": "DONE",
+      "detail": "E1 as shipped passes the wait-window rule: inside 12:45–14:30 the day holds only settle blocks and the lunch the solver marks interruptible — an early room costs the traveler nothing"
+    },
+    {
+      "leg": "envelope:wait-rule-has-teeth",
+      "status": "DONE",
+      "detail": "a synthetic timed commitment placed inside the wait FAILS the Make-Sense judge: \"day 1: \"A Booked Museum Slot\" (13:00–14:00) sits inside the room wait (12:45–14:30) — wait content must be interruptible by design; no protected or timed commitment may live in a room wait\""
+    },
+    {
+      "leg": "reflow:rest-moves-up-preserved",
+      "status": "DONE",
+      "detail": "check-in 12:45–13:00 (was 14:30); rest & refresh 13:00–14:00 — the full 60 minutes preserved, moved up with the anchor; the wait blocks are gone entirely"
+    },
+    {
+      "leg": "reflow:lunch-slides-not-lost",
+      "status": "DONE",
+      "detail": "the wait-held lunch (Don Vegan) slid 13:12–14:12 -> 14:00–15:00 — same venue, just after the moved rest; it was interruptible by design, so accepting the early room cost nothing"
+    },
+    {
+      "leg": "reflow:two-options-offered",
+      "status": "DONE",
+      "detail": "the freed 105 minutes became an OFFER — gentle: [Galerie Bédard 15:02–16:02]; fuller: [Galerie Bédard 15:02–16:02; Galerie Gisèle Bouliane 16:04–17:04]. The standing plan is the GENTLE one; the fuller afternoon is a proposal the traveler accepts or ignores"
+    },
+    {
+      "leg": "reflow:make-sense-pass",
+      "status": "DONE",
+      "detail": "the re-flowed standing day passes the Make-Sense judge"
+    },
+    {
+      "leg": "reflow:emotion-standing-pass",
+      "status": "DONE",
+      "detail": "Emotion audit of the standing (gentle) re-flowed day in trip context: no findings on day 1"
+    },
+    {
+      "leg": "reflow:emotion-fuller-pass",
+      "status": "DONE",
+      "detail": "the FULLER option is also emotion-checked before it may be offered: no findings on day 1 — it fills the gentle shape without breaking it"
+    },
+    {
+      "leg": "reflow:emotion-stuffing-caught",
+      "status": "DONE",
+      "detail": "a deliberately crammed variant (3 stops forced into the freed afternoon) is CAUGHT: \"NOT CAUGHT\" — early check-in may never become an excuse to cram"
+    },
+    {
+      "leg": "reflow:late-mirror",
+      "status": "DONE",
+      "detail": "room at 16:00: the soft wait extends 90 min around the unchanged interruptible lunch; bags held at the front desk during the wait — LABELED ASSUMPTION (standard hotel practice; not data, never promised); rest preserved 16:15–17:15; afternoon softens — threatened: Cannonball Tree (was 15:48–16:48; after a 16:00 room and a full rest it would end 18:18 — past the softened day's 17:30 let-go); notification owed: YES — a timed item is threatened, so exactly one factual note goes out; re-flowed day still passes the Make-Sense judge"
+    }
+  ]
+}

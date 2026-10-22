@@ -1,0 +1,16 @@
+{
+  "places": [
+    {
+      "id": "ChIJ2Uij99yVuEwRVyhMQ2LzOSU",
+      "formattedAddress": "Dufferin Terrace, Québec, QC G1K 4E2, Canada",
+      "location": {
+        "latitude": 46.812828499999995,
+        "longitude": -71.2045631
+      },
+      "displayName": {
+        "text": "Lieu historique national des Forts-et-Châteaux-Saint-Louis",
+        "languageCode": "en"
+      }
+    }
+  ]
+}

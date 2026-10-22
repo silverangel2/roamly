@@ -1,0 +1,109 @@
+{
+  "pacingCounts": {
+    "FULL": 6,
+    "LIGHT": 4,
+    "REST": 2,
+    "OPEN": 2,
+    "MOVE": 0
+  },
+  "relaxFavorites": true,
+  "days": [
+    {
+      "day": 1,
+      "pacingType": "FULL",
+      "effectiveType": "FULL",
+      "arcRole": "SETTLE"
+    },
+    {
+      "day": 2,
+      "pacingType": "FULL",
+      "effectiveType": "FULL",
+      "arcRole": "PEAK"
+    },
+    {
+      "day": 3,
+      "pacingType": "LIGHT",
+      "effectiveType": "LIGHT",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 4,
+      "pacingType": "FULL",
+      "effectiveType": "FULL",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 5,
+      "pacingType": "LIGHT",
+      "effectiveType": "LIGHT",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 6,
+      "pacingType": "OPEN",
+      "effectiveType": "OPEN",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 7,
+      "pacingType": "REST",
+      "effectiveType": "REST",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 8,
+      "pacingType": "FULL",
+      "effectiveType": "FULL",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 9,
+      "pacingType": "FULL",
+      "effectiveType": "FULL",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 10,
+      "pacingType": "LIGHT",
+      "effectiveType": "LIGHT",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 11,
+      "pacingType": "FULL",
+      "effectiveType": "LIGHT",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 12,
+      "pacingType": "LIGHT",
+      "effectiveType": "LIGHT",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 13,
+      "pacingType": "OPEN",
+      "effectiveType": "OPEN",
+      "arcRole": "EXPLORE"
+    },
+    {
+      "day": 14,
+      "pacingType": "REST",
+      "effectiveType": "REST",
+      "arcRole": "LAND"
+    }
+  ],
+  "arc": {
+    "peakDay": 2,
+    "landDay": 14,
+    "settleDay": 1,
+    "adjustments": [
+      {
+        "day": 11,
+        "from": "FULL",
+        "to": "LIGHT",
+        "reason": "landing protection — the last full day steps down so the trip descends from its peak instead of ending at full throttle"
+      }
+    ]
+  }
+}
