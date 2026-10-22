@@ -260,12 +260,18 @@ async function enqueueLegacyTripJobs(admin: SupabaseClient, config: RoamlyGenera
       String((trip as { id: string }).id)
     );
     if (!state) continue;
+    const generationVersion = await existingJobGenerationVersion({
+      admin,
+      tripId: String((trip as { id: string }).id),
+      userId: String((trip as { user_id: string }).user_id)
+    });
     const result = await createOrResumeGenerationJob({
       supabase: admin,
       tripId: String((trip as { id: string }).id),
       userId: String((trip as { user_id: string }).user_id),
       payload: state.payload,
       priority: terminalStatus(state.status) ? 1 : 10,
+      generationVersion: generationVersion || undefined,
       reason: "legacy_staged_generation_transition"
     });
     if (result.ok) enqueued += 1;
@@ -273,7 +279,39 @@ async function enqueueLegacyTripJobs(admin: SupabaseClient, config: RoamlyGenera
   return { ok: true as const, enqueued };
 }
 
-async function ensureTripJob(params: {
+/**
+ * The generation version of the trip's most recent resumable job, if
+ * one exists. The version participates in the queue's idempotency
+ * key, so a resume that omits it computes the BRAIN version's key,
+ * misses an existing zero-engine job entirely, and its INSERT then
+ * collides with roamly_trip_generation_jobs_active_trip_idx — the
+ * advance endpoint's 503 for every engine job (ship defect #1,
+ * 2026-10-22). Forwarding the existing job's own version is the
+ * whole fix: the resume finds the job it was meant to resume.
+ * Terminal jobs (completed/cancelled) do not forward — a genuinely
+ * new job for a finished trip keeps the caller's default version,
+ * exactly the pre-engine behavior.
+ */
+async function existingJobGenerationVersion(params: {
+  admin: SupabaseClient;
+  tripId: string;
+  userId: string;
+}): Promise<string | null> {
+  const { data, error } = await params.admin
+    .from("roamly_trip_generation_jobs")
+    .select("generation_version,status")
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as { generation_version?: unknown; status?: unknown };
+  if (row.status === "completed" || row.status === "cancelled") return null;
+  return typeof row.generation_version === "string" && row.generation_version ? row.generation_version : null;
+}
+
+export async function ensureTripJob(params: {
   admin: SupabaseClient;
   tripId: string;
   userId?: string | null;
@@ -282,12 +320,18 @@ async function ensureTripJob(params: {
   if (!trip) return { ok: false as const, error: "Trip not found.", jobReady: false };
   if (generationTripIsTerminal(trip)) return { ok: false as const, error: "TRIP_TERMINAL", jobReady: false };
   const state = getStagedGenerationState(trip.metadata, params.tripId);
+  const generationVersion = await existingJobGenerationVersion({
+    admin: params.admin,
+    tripId: params.tripId,
+    userId: trip.user_id
+  });
   const result = await createOrResumeGenerationJob({
     supabase: params.admin,
     tripId: params.tripId,
     userId: trip.user_id,
     payload: state?.payload || null,
     priority: terminalStatus(state?.status) ? 1 : 10,
+    generationVersion: generationVersion || undefined,
     reason: "worker_trip_target"
   });
   if (!result.ok) return { ok: false as const, error: result.error, jobReady: false };

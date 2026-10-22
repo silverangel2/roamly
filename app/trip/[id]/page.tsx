@@ -50,6 +50,8 @@ import { amazonAffiliateDisclosure, type RoamlyPreTripEssential } from "@/lib/ro
 import { esimVerificationCopy } from "@/lib/roamly/esim";
 import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roamly/budget";
 import { buildBudgetPresentation } from "@/lib/roamly/budgetPresentation";
+import { BudgetVerdictCard } from "@/components/BudgetVerdictCard";
+import { readBudgetVerdictDisplay } from "@/lib/roamly/engine/budgetVerdictDisplay";
 import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerArea, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 import { rankChoicesForNotes, readTripNoteText, travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
 import { mapTravelerTripStatus } from "@/lib/roamly/tripStatusDisplay";
@@ -2273,6 +2275,12 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         unknownLineItemCount
       })
     : null;
+  // Ship defect #2: engine-generated itineraries carry the all-in
+  // budget verdict stamped at finalization; when present it is the
+  // budget story on this page (the legacy presentation is built
+  // from the composer breakdown, whose "comfortable" can contradict
+  // the judged verdict). Incumbent itineraries never carry it.
+  const budgetVerdictDisplay = full ? readBudgetVerdictDisplay(full) : null;
   const readinessBookingGroups = full
     ? (() => {
         const suggestions = bookingSuggestionsWithRecommendations(full, trip);
@@ -2399,11 +2407,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         : null;
   const showGenerationPanel = generationPanelVisible && (generationRunning || (!generationRequiresPayment && generationBusy));
   const showPaymentWall = Boolean(draftCommand);
-  const headerBudgetText = budgetPresentation?.status === "BUDGET_UNCERTAIN"
-    ? `${budgetPresentation.targetLabel === "Budget target not set" ? "Budget not set" : `Your budget ${budgetPresentation.targetLabel}`}. Some item prices are not available, and those are not $0.`
-    : budgetPresentation?.status === "OVER_BUDGET"
-      ? `${budgetPresentation.remainingLabel || "Over budget"} · priced and estimated amounts`
-      : headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain");
+  const headerBudgetText = budgetVerdictDisplay
+    ? `${budgetVerdictDisplay.headline} · ${budgetVerdictDisplay.totalLabel || budgetVerdictDisplay.coverageLabel}`
+    : budgetPresentation?.status === "BUDGET_UNCERTAIN"
+      ? `${budgetPresentation.targetLabel === "Budget target not set" ? "Budget not set" : `Your budget ${budgetPresentation.targetLabel}`}. Some item prices are not available, and those are not $0.`
+      : budgetPresentation?.status === "OVER_BUDGET"
+        ? `${budgetPresentation.remainingLabel || "Over budget"} · priced and estimated amounts`
+        : headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain");
 
   if (checkoutNeedsAttention) {
     await recordAppEvent(supabase, {
@@ -2755,13 +2765,17 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 <section id="budget" className="roamly-tab-panel roamly-panel-budget mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Budget" title="Budget" summary={readiness.primaryAction.id === "budget" ? readiness.urgentItems[0] || "Review the uncertainty in your trip costs." : "See what is committed, expected, and still uncertain."} />
                   {focusedBudget ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">This is the budget context behind your current trip action.</p> : null}
-                  <BudgetSummary
-                    trip={trip}
-                    itinerary={full}
-                    currency={currency}
-                    priceDiscovery={persistedPriceDiscovery}
-                    confirmedBookingCount={confirmedBookingSnapshot.length}
-                  />
+                  {budgetVerdictDisplay ? (
+                    <BudgetVerdictCard display={budgetVerdictDisplay} />
+                  ) : (
+                    <BudgetSummary
+                      trip={trip}
+                      itinerary={full}
+                      currency={currency}
+                      priceDiscovery={persistedPriceDiscovery}
+                      confirmedBookingCount={confirmedBookingSnapshot.length}
+                    />
+                  )}
                 </section>
 
                 <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">

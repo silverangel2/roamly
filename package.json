@@ -124,7 +124,8 @@
     "test:wiring-phase9": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase9-checks.mjs",
     "test:wiring-phase10": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase10-checks.mjs",
     "test:wiring-phase11": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-phase11-checks.mjs",
-    "test:wiring-ship": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-ship-checks.mjs"
+    "test:wiring-ship": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-ship-checks.mjs",
+    "test:wiring-fixes": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-fixes-checks.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
