@@ -238,6 +238,85 @@ export function wideOverpassQuery(bbox: BBox): string {
 out center;`;
 }
 
+/* ------------------------------------------------------------------ */
+/* Chunked queries (ship defect #4 hardening, 2026-10-22)              */
+/*                                                                     */
+/* The shipped pair above is ONE union query for the whole box: on    */
+/* a cold destination it exceeded the 120 s fetch timeout, its       */
+/* sibling drew HTTP 429 from overpass-api.de, and a single failed    */
+/* query failed the entire collection — the destination's pack        */
+/* build died and only the next hourly drain could heal it. The      */
+/* collection now runs the SAME union as five category chunks,       */
+/* fetched sequentially (never two heavy queries in flight against   */
+/* the same public endpoint), each with the standard endpoint         */
+/* rotation + bounded retries, under one overall deadline. A chunk    */
+/* that still fails degrades the collection to PARTIAL — recorded    */
+/* honestly in the evidence and the provenance label — instead of    */
+/* killing it; only a total failure (every chunk) throws.            */
+/* ------------------------------------------------------------------ */
+
+export interface OverpassChunk {
+  id: string;
+  query: string;
+}
+
+export function mainOverpassQueryChunks(bbox: BBox): OverpassChunk[] {
+  const b = bboxString(bbox);
+  const head = "[out:json][timeout:45];\n";
+  return [
+    {
+      id: "tourism",
+      query: `${head}(
+  node["tourism"~"attraction|museum|gallery|viewpoint|hotel|hostel|guest_house|apartment|motel"]["name"](${b});
+  way["tourism"~"attraction|museum|gallery"]["name"](${b});
+);
+out center;`
+    },
+    {
+      id: "historic-parks",
+      query: `${head}(
+  node["historic"]["name"](${b});
+  node["leisure"="park"]["name"](${b});
+  way["leisure"="park"]["name"](${b});
+  node["natural"="beach"]["name"](${b});
+);
+out center;`
+    },
+    {
+      id: "amenities",
+      query: `${head}(
+  node["amenity"~"marketplace|ferry_terminal|theatre|arts_centre"]["name"](${b});
+  way["amenity"~"marketplace|ferry_terminal|theatre|arts_centre"]["name"](${b});
+  node["railway"="station"]["name"](${b});
+  node["amenity"="bus_station"]["name"](${b});
+  node["man_made"="lighthouse"]["name"](${b});
+);
+out center;`
+    },
+    {
+      id: "food",
+      query: `${head}(
+  node["amenity"~"restaurant|cafe|fast_food|bakery"]["name"](${b});
+);
+out center;`
+    },
+    {
+      id: "markets",
+      query: `${head}(
+  node["shop"~"farm|greengrocer|food|deli"]["name"~"market",i](${b});
+  way["shop"~"farm|greengrocer|food|deli"]["name"~"market",i](${b});
+);
+out center;`
+    }
+  ];
+}
+
+/** Overall wall-clock budget for one destination's POI collection.
+ *  The pack-refresh function budget is 300 s; the collection must
+ *  hand time back, so the default deadline is 210 s — chunk fetches
+ *  stop starting once it passes and the collection goes partial. */
+export const DEFAULT_COLLECTION_DEADLINE_MS = 210_000;
+
 /** The shadow's wide box: ±0.38 lat / ±0.5 lon around the centre —
  *  far enough to catch the falls and lighthouses a day trip reaches. */
 export function wideBBox(centre: { lat: number; lon: number }): BBox {
@@ -300,7 +379,11 @@ export async function fetchOverpass(
 export interface PoiCollection {
   candidates: StoredCandidate[];
   /** Build provenance for the pack version: which endpoints served,
-   *  how many raw elements arrived, and the query fingerprint. */
+   *  how many raw elements arrived, and the query fingerprint.
+   *  Completeness is part of the evidence (defect #4): a PARTIAL
+   *  collection names the chunks that never arrived — the pack
+   *  built from it may be missing those place kinds, and its
+   *  provenance label says so. */
   evidence: {
     mainEndpoint: string;
     wideEndpoint: string;
@@ -308,6 +391,11 @@ export interface PoiCollection {
     wideElements: number;
     queryHash: string;
     fetchedAt: UtcInstant;
+    /** True when at least one chunk failed or was never attempted
+     *  (deadline) while at least one succeeded. */
+    partial: boolean;
+    succeededChunks: string[];
+    failedChunks: string[];
   };
 }
 
@@ -315,31 +403,97 @@ export async function collectPoiCandidates(
   fetcher: Fetcher,
   destination: DestinationDTO,
   policy: FetchPolicy = DEFAULT_FETCH_POLICY,
-  now: () => Date = () => new Date()
+  now: () => Date = () => new Date(),
+  deadlineMs: number = DEFAULT_COLLECTION_DEADLINE_MS
 ): Promise<PoiCollection> {
   if (!destination.bbox) {
     throw new Error(`destination ${destination.destinationId} has no bbox — registry row is incomplete`);
   }
-  const mainQ = mainOverpassQuery(destination.bbox);
-  const wideQ = wideOverpassQuery(wideBBox(destination.centre));
-  const [main, wide] = await Promise.all([
-    fetchOverpass(fetcher, mainQ, policy),
-    fetchOverpass(fetcher, wideQ, policy)
-  ]);
+  const chunks: OverpassChunk[] = [
+    ...mainOverpassQueryChunks(destination.bbox),
+    { id: "wide", query: wideOverpassQuery(wideBBox(destination.centre)) }
+  ];
+  const startedAt = now().getTime();
+  const elements: OsmElement[] = [];
+  const succeededChunks: string[] = [];
+  const failedChunks: string[] = [];
+  const chunkErrors: string[] = [];
+  let mainEndpoint = "";
+  let wideEndpoint = "";
+  let mainElements = 0;
+  let wideElements = 0;
+
+  // Sequential on purpose: the shipped pair fired two heavy queries
+  // at the same public endpoint at once and drew 429s; chunk-at-a-
+  // time keeps the pressure polite and lets the deadline speak.
+  for (const chunk of chunks) {
+    const remainingMs = deadlineMs - (now().getTime() - startedAt);
+    if (remainingMs <= 0) {
+      failedChunks.push(chunk.id);
+      chunkErrors.push(`${chunk.id}: collection deadline (${deadlineMs} ms) reached before this chunk started`);
+      continue;
+    }
+    const chunkPolicy: FetchPolicy = {
+      ...policy,
+      // Deadline-bounded ladder: ONE round over the three endpoints
+      // per chunk (mirror fallback preserved; six chunks give the
+      // collection more total attempts than the shipped pair ever
+      // had), each attempt capped at 45 s and at a third of the
+      // remaining budget — so a chunk whose attempts all hang can
+      // overrun the collection deadline by one bounded tail
+      // (~15 s), never by a full second ladder. Observed live
+      // 2026-10-22 without this bound: a 418 s all-fail collection
+      // against a 210 s deadline.
+      maxRounds: 1,
+      attemptTimeoutMs: Math.min(45_000, Math.max(5_000, Math.floor(remainingMs / 3))),
+      // Collection politeness floor: the public endpoint's failure
+      // mode is fast 429 rejections under load, and a 1.5 s backoff
+      // burns all rounds inside one closed rate window. A 4 s base
+      // spreads attempts so later ones can land after a window opens.
+      backoffBaseMs: Math.max(policy.backoffBaseMs, 4_000)
+    };
+    try {
+      const res = await fetchOverpass(fetcher, chunk.query, chunkPolicy);
+      succeededChunks.push(chunk.id);
+      elements.push(...res.elements);
+      if (chunk.id === "wide") {
+        wideEndpoint = res.endpoint;
+        wideElements = res.elements.length;
+      } else {
+        if (!mainEndpoint) mainEndpoint = res.endpoint;
+        mainElements += res.elements.length;
+      }
+    } catch (err) {
+      failedChunks.push(chunk.id);
+      chunkErrors.push(`${chunk.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (!succeededChunks.length) {
+    throw new Error(
+      `Overpass collection failed for every chunk (${chunks.map((c) => c.id).join(", ")}): ${chunkErrors.join(" | ")}`
+    );
+  }
+
   const all: StoredCandidate[] = [];
-  for (const e of [...main.elements, ...wide.elements]) {
+  for (const e of elements) {
     const kind = classifyElement(e);
     if (kind) all.push(toStoredCandidate(e, kind));
   }
   return {
     candidates: dedupeCandidates(all),
     evidence: {
-      mainEndpoint: main.endpoint,
-      wideEndpoint: wide.endpoint,
-      mainElements: main.elements.length,
-      wideElements: wide.elements.length,
-      queryHash: sha256Hex(`${PACK_QUERY_VERSION}|${mainQ}|${wideQ}`).slice(0, 16),
-      fetchedAt: toInstant(now())
+      mainEndpoint,
+      wideEndpoint,
+      mainElements,
+      wideElements,
+      queryHash: sha256Hex(
+        `${PACK_QUERY_VERSION}|${chunks.map((c) => `${c.id}:${c.query}`).join("|")}`
+      ).slice(0, 16),
+      fetchedAt: toInstant(now()),
+      partial: failedChunks.length > 0,
+      succeededChunks,
+      failedChunks
     }
   };
 }
@@ -398,13 +552,18 @@ export async function fetchWeatherDays(
 
 /** Provenance for a pack version built by the live collector path. */
 export function liveBuildProvenance(collection: PoiCollection, builtAt: UtcInstant): ProvenanceDTO {
+  const ev = collection.evidence;
+  const completeness = ev.partial
+    ? `; PARTIAL collection — chunks ${ev.succeededChunks.length}/${ev.succeededChunks.length + ev.failedChunks.length} arrived ` +
+      `(missing: ${ev.failedChunks.join(", ")}); this pack may be missing those place kinds`
+    : `; collection complete (${ev.succeededChunks.length} chunks)`;
   return {
     source: "openstreetmap-overpass",
-    sourceRef: `overpass-query:${collection.evidence.queryHash}`,
+    sourceRef: `overpass-query:${ev.queryHash}`,
     recordedAt: builtAt,
     label:
-      `OpenStreetMap via Overpass API (free, ODbL) — main + wide queries (${PACK_QUERY_VERSION}), ` +
-      `classifier ${PACK_CLASSIFIER_VERSION}; main ${collection.evidence.mainElements} elements via ${collection.evidence.mainEndpoint}, ` +
-      `wide ${collection.evidence.wideElements} via ${collection.evidence.wideEndpoint}`
+      `OpenStreetMap via Overpass API (free, ODbL) — chunked queries (${PACK_QUERY_VERSION}), ` +
+      `classifier ${PACK_CLASSIFIER_VERSION}; main ${ev.mainElements} elements via ${ev.mainEndpoint || "no main endpoint"}, ` +
+      `wide ${ev.wideElements} via ${ev.wideEndpoint || "no wide endpoint"}${completeness}`
   };
 }

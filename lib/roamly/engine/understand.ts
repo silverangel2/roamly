@@ -65,7 +65,67 @@ export interface ExtractedConstraints {
   budgetAmount?: number | null;
   maxWalkKm?: number;
   placeItems?: string[];
+  /** Must-see DESIRES stated in prose ("we would love a morning at
+   *  a local food market", "plus time in one museum") — asks shaped
+   *  as kinds of places, neither structured requirements nor
+   *  "include … please" place items. Ship defect #3 (2026-10-22):
+   *  the Paris E2E request stated its must-sees exactly this way
+   *  and they were silently dropped — extraction now finds them,
+   *  the solver matches them like any must-see, and an unmatched
+   *  desire is NAMED in the day words (namedMustSeeMiss), never
+   *  silently lost. */
+  mustSeeDesires?: string[];
   unresolved: string[];
+}
+
+/* Desire-phrased must-sees: tightly anchored on purpose. A bare
+ * "love" never fires ("a couple who love the mountains" is a
+ * self-description, not an ask — the golden pool contains exactly
+ * that sentence and must not grow a must-see). A segment only
+ * counts when it names a KIND of place or experience the engine
+ * can match against a pack. */
+const DESIRE_KIND_NOUN =
+  /museum|market|garden|park|beach|castle|falls|waterfall|lighthouse|ferry|tour|walk|viewpoint|gallery|theatre|theater|cinema|zoo|aquarium|palace|cathedral|bridge|tower|harbour|harbor|trail|springs|gondola|marketplace|river|winery|brewery|distillery|library|stadium|mosque|temple|church/;
+
+function desireSegments(chunk: string): string[] {
+  return chunk
+    .split(/\s*,\s*(?:plus\s+|and\s+)?|\s+and\s+|\s+plus\s+/)
+    .map((s) => s.trim().replace(/\.$/, ""))
+    .filter((s) => s.length >= 3 && DESIRE_KIND_NOUN.test(s.toLowerCase()));
+}
+
+/** Extract desire-phrased must-sees from a free-text request.
+ *  Returns the desire labels in statement order (dedupe against
+ *  place items / structured requirements happens in the caller's
+ *  shared must-see derivation). Unresolvable desire phrasing is
+ *  reported through `unresolved`, never guessed into a place. */
+export function extractMustSeeDesires(requestText: string, unresolved?: string[]): string[] {
+  const out: string[] = [];
+  const sentences = String(requestText || "").split(/(?<=[.!?])\s+/);
+  for (const rawSentence of sentences) {
+    const sentence = rawSentence.trim();
+    if (!sentence) continue;
+    const love = sentence.match(/(?:^|\b)(?:we\s+)?(?:would love|we'd love|love to have|love to visit|love to see|love to spend)\s+(.+)$/i);
+    if (love) {
+      const segments = desireSegments(love[1]);
+      if (segments.length) out.push(...segments);
+      else if (unresolved) unresolved.push(`must-see-desires: desire phrasing found but no place kind recognized in "${love[1].trim()}"`);
+      continue;
+    }
+    const plus = sentence.match(/^plus\s+(.+)$/i);
+    if (plus && DESIRE_KIND_NOUN.test(plus[1].toLowerCase())) out.push(...desireSegments(plus[1]));
+  }
+  return [...new Set(out.map((s) => s.trim()))].filter(Boolean).slice(0, 6);
+}
+
+/** The honest sentence the day words carry when a must-see (from
+ *  any source) could not be matched to a real place in the pack:
+ *  the miss is named, never silently dropped and never invented
+ *  around. Pure and deterministic — the composer appends it
+ *  verbatim. */
+export function namedMustSeeMiss(label: string, destination: string): string {
+  const clean = label.trim().replace(/^one\s+/i, "a ").replace(/\.$/, "");
+  return `One honest gap: you asked for ${clean}. The open place data for ${destination} has no verified match for it, so it is named here instead of being invented.`;
 }
 
 /** The injected persistence seam for unresolved cases (Phase 7's
@@ -113,6 +173,9 @@ export function extractConstraints(
       .filter(Boolean);
   } else unresolved.push('place-items: no "include … please" clause found');
 
+  const desires = extractMustSeeDesires(text, unresolved);
+  if (desires.length) c.mustSeeDesires = desires;
+
   if (sink) {
     for (const u of unresolved) {
       const kind = u.split(":")[0] || "unresolved";
@@ -135,6 +198,7 @@ export interface StructuredIntake {
   access?: string[];
   maxWalkKm?: number | null;
   placeItems?: string[];
+  mustSeeDesires?: string[];
 }
 
 /**
@@ -155,6 +219,7 @@ export function constraintsFromStructured(intake: StructuredIntake): ExtractedCo
   if (intake.budgetAmount != null) c.budgetAmount = intake.budgetAmount;
   if (intake.maxWalkKm != null) c.maxWalkKm = intake.maxWalkKm;
   if (intake.placeItems != null) c.placeItems = [...intake.placeItems];
+  if (intake.mustSeeDesires != null) c.mustSeeDesires = [...intake.mustSeeDesires];
   return c;
 }
 
