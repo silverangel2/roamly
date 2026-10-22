@@ -75,9 +75,10 @@ import { judgeTrip } from "@/lib/roamly/engine/judges";
 import { partyProfile } from "@/lib/roamly/engine/journey";
 import { auditTrip } from "@/lib/roamly/engine/emotion";
 import { buildPredictions, type PredictionRecord } from "@/lib/roamly/engine/predict";
+import { stampBudgetVerdictDisplay } from "@/lib/roamly/engine/budgetVerdictDisplay";
 import { priceEvidence } from "@/lib/roamly/engine/prices";
 import { solveTrip, type MustSeeSpec, type SolveResult } from "@/lib/roamly/engine/solver";
-import { extractConstraints, type ExtractedConstraints } from "@/lib/roamly/engine/understand";
+import { extractConstraints, namedMustSeeMiss, type ExtractedConstraints } from "@/lib/roamly/engine/understand";
 import { fmt, isoPlus, parseHhmm, type EngineDay, type EngineItem, type EnginePack } from "@/lib/roamly/engine/util";
 import { predictionId } from "@/lib/roamly/engine/ids";
 import { assemblePinnedEnginePack, readServingPack } from "@/lib/roamly/engine/packs/builder";
@@ -631,6 +632,11 @@ export function deriveMustSees(payload: TripPlannerPayload, extracted: Extracted
     if (req.type === "activity") push(req.request);
   }
   for (const item of extracted.placeItems || []) push(item);
+  // Desire-phrased must-sees (ship defect #3): "we would love a
+  // morning at a local food market" is an ask with the same force
+  // as an "include … please" item — it derives through the same
+  // push (same dedupe, same pattern ladder, same solver).
+  for (const desire of extracted.mustSeeDesires || []) push(desire);
   return out.slice(0, 12);
 }
 
@@ -785,6 +791,20 @@ export function runEnginePlan(params: {
     const withItems: EngineDay = { ...day, items };
     return { ...withItems, narrative: composeDay(withItems, composeCtx, composerState) };
   });
+
+  // Ship defect #3, second half: a must-see the solver could not
+  // match is NAMED in the day words — appended to the first day's
+  // narrative verbatim — never silently dropped. (A matched
+  // must-see needs no note: the place itself is in the plan.)
+  const unmetMustSees = plan.mustSeeResults.filter((r) => r.status === "unmet");
+  if (unmetMustSees.length && daysOut.length) {
+    const first = daysOut[0];
+    const base = Array.isArray(first.narrative) ? first.narrative : first.narrative ? [first.narrative] : [];
+    daysOut[0] = {
+      ...first,
+      narrative: [...base, ...unmetMustSees.map((r) => namedMustSeeMiss(r.label, pack.destination))]
+    };
+  }
 
   const judge = judgeTrip(daysOut, { earliestMin: ctx.earliestMin });
   const emotion = auditTrip(daysOut, { profile: partyProfile(null, payload.specialNotes || "") });
@@ -1608,7 +1628,7 @@ async function runFinalizationStage(params: {
   trip = await deps.store.persistState(trip, state, run);
 
   const sortedDays = Object.values(state.generatedDays).sort((a, b) => a.day_number - b.day_number);
-  const itinerary = assembleEngineItinerary({ state, generatedDays: sortedDays, final: true });
+  let itinerary = assembleEngineItinerary({ state, generatedDays: sortedDays, final: true });
   // Single validation pass. The incumbent retries through the repair
   // pass because model output is stochastic and repair fixes common
   // model omissions; engine output is deterministic, a re-run would
@@ -1687,6 +1707,13 @@ async function runFinalizationStage(params: {
       recordedAt: predictions.recordedAt,
       record: predictions
     });
+    // Ship defect #2: the prediction row is service-role-only — the
+    // traveler can never see the all-in verdict there. Stamp the
+    // traveler-facing display payload onto the saved itinerary
+    // document itself, so the trip page renders the verdict for
+    // engine trips (its absence remains the incumbent signature:
+    // no stamp, legacy budget display, untouched).
+    itinerary = stampBudgetVerdictDisplay(itinerary, predictions.budgetPosture);
   }
 
   const completed: StagedGenerationState = releaseLease({
