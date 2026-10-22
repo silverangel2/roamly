@@ -22,12 +22,17 @@
  * Repairs stay OFF (the worker's kill switch + the keeper's
  * ROAMLY_KEEPER_REPAIRS gate are untouched by this module).
  *
- * Auth: Bearer SOPHIE_COMMAND_KEY (per-site key, set by Junel in Vercel
- * env). Unset key = door disabled. Constant-time comparison. Fail-closed.
+ * Auth: Sophie's cryptogram pass first — a one-time Ed25519 signature
+ * verified by lib/verifySophiePass.ts against SOPHIE_PUBLIC_KEY — with
+ * the legacy Bearer SOPHIE_COMMAND_KEY (per-site key, set by Junel in
+ * Vercel env) accepted as a transition fallback. Deleting
+ * SOPHIE_COMMAND_KEY at cutover retires the old password for good.
+ * Constant-time comparison for the legacy key. Fail-closed.
  *
  * This module never throws to its routes; failures are values.
  */
 import { timingSafeEqual } from "crypto";
+import { verifySophiePass } from "@/lib/verifySophiePass";
 import {
   enqueueOperationsJob,
   listOperationsJobs,
@@ -65,8 +70,17 @@ function keyMatches(provided: string, expected: string): boolean {
 
 /** Returns an error message when the caller is not Sophie, else null. */
 export function sophieAuthError(request: Request): string | null {
+  // Cryptogram pass first: her one-time Ed25519 signature (see
+  // lib/verifySophiePass.ts). A verified pass authorizes the knock.
+  const pass = verifySophiePass(request.headers, "roamly");
+  if (pass.ok) return null;
+  // Legacy fallback: the per-site shared key, until cutover deletes it.
   const expected = process.env.SOPHIE_COMMAND_KEY;
-  if (!expected) return "Sophie command door is not configured.";
+  if (!expected) {
+    return pass.attempted
+      ? pass.error
+      : "Sophie command door is not configured.";
+  }
   const authorization = request.headers.get("authorization") || "";
   const provided = authorization.startsWith("Bearer ")
     ? authorization.slice("Bearer ".length).trim()
