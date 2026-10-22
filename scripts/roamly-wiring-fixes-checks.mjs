@@ -711,4 +711,201 @@ if (section(4)) {
   console.log(`Section 4 (fix #4 — Overpass hardening): ${count} assertions so far`);
 }
 
+/* ================================================================== */
+/* Section 5 — Fix #5: auto-registration for unregistered cities      */
+/* ================================================================== */
+
+if (section(5)) {
+  const { InMemoryPackStore } = await import("@/lib/roamly/engine/packs/store.ts");
+  const { SupabasePackStore } = await import("@/lib/roamly/engine/packs/supabaseStore.ts");
+  const { resolveDestinationId } = await import("@/lib/roamly/engine/generate.ts");
+  const { classifyGeocodeResults, geocodePlaceWithNominatim, buildAutoRegistration } = await import(
+    "@/lib/roamly/engine/geocode.ts"
+  );
+  const { destinationRegistryId, shadowBBox, PARIS_DESTINATION } = await import(
+    "@/lib/roamly/engine/packs/destinations.ts"
+  );
+
+  const LISBON_NOMINATIM = [
+    {
+      osm_type: "relation",
+      osm_id: 540084,
+      lat: "38.7223",
+      lon: "-9.1393",
+      class: "place",
+      type: "city",
+      importance: 0.72,
+      display_name: "Lisbon, Portugal",
+      address: { city: "Lisbon", country: "Portugal", country_code: "pt" }
+    }
+  ];
+  const lisbonPlace = {
+    canonicalName: "Lisbon",
+    country: "Portugal",
+    countryCode: "pt",
+    centre: { lat: 38.7223, lon: -9.1393 },
+    osmType: "relation",
+    osmId: 540084,
+    importance: 0.72,
+    displayName: "Lisbon, Portugal"
+  };
+  const lisbonId = destinationRegistryId("Portugal", "Lisbon", { lat: 38.7223, lon: -9.1393 });
+  const depsFor = (packStore, geocoder) => ({
+    store: {},
+    packStore,
+    geocoder,
+    timeZoneForCoords: async () => "Europe/Lisbon"
+  });
+
+  // Nominatim classification: found / not_found / ambiguous.
+  {
+    const found = classifyGeocodeResults(LISBON_NOMINATIM);
+    eq(found.kind, "found", "5: Lisbon geocodes to a found place");
+    eq(found.place.canonicalName, "Lisbon", "5: canonical name from the geocoder address");
+    eq(found.place.country, "Portugal", "5: canonical country");
+    eq(classifyGeocodeResults([]).kind, "not_found", "5: empty result set is not_found");
+    const ambiguous = classifyGeocodeResults([
+      { osm_type: "node", osm_id: 1, lat: "39.9", lon: "-89.6", class: "place", type: "city", importance: 0.55, display_name: "Springfield, Illinois, United States", address: { city: "Springfield", country: "United States", country_code: "us" } },
+      { osm_type: "node", osm_id: 2, lat: "49.2", lon: "-123.0", class: "place", type: "city", importance: 0.5, display_name: "Springfield, British Columbia, Canada", address: { city: "Springfield", country: "Canada", country_code: "ca" } }
+    ]);
+    eq(ambiguous.kind, "ambiguous", "5: cross-country near-tie is ambiguous, not a coin flip");
+    const viaHttp = await geocodePlaceWithNominatim(
+      async () => ({ ok: true, status: 200, text: async () => JSON.stringify(LISBON_NOMINATIM) }),
+      "Lisbon"
+    );
+    eq(viaHttp.kind, "found", "5: Nominatim HTTP path classifies a real payload");
+    const down = await geocodePlaceWithNominatim(
+      async () => ({ ok: false, status: 503, text: async () => "" }),
+      "Lisbon"
+    );
+    eq(down.kind, "unavailable", "5: geocoder 503 is unavailable (transient), never not_found");
+  }
+
+  // The registration row itself: registry identity + shadow bbox + provenance.
+  {
+    const dto = buildAutoRegistration(lisbonPlace, "Europe/Lisbon", new Date("2026-10-22T12:00:00.000Z"));
+    eq(dto.destinationId, lisbonId, "5: registration ID is the registry content ID");
+    eq(JSON.stringify(dto.bbox), JSON.stringify(shadowBBox(dto.centre, "city")), "5: bbox follows the registry shadow rule");
+    eq(dto.geocodeProvenance.source, "nominatim", "5: provenance names the geocoder");
+    eq(dto.geocodeProvenance.sourceRef, "nominatim:relation:540084", "5: provenance carries the OSM identity");
+  }
+
+  // End-to-end resolution: unknown city registers, then resolves;
+  // a spelling variant dedupes onto the same registration.
+  {
+    const store = new InMemoryPackStore(() => new Date());
+    let geocodeCalls = 0;
+    const geocoder = async () => {
+      geocodeCalls += 1;
+      return { kind: "found", place: lisbonPlace };
+    };
+    const id = await resolveDestinationId(depsFor(store, geocoder), { destination: "Lisbon", destinationCity: "Lisbon" });
+    eq(id, lisbonId, "5: unregistered Lisbon resolves to the new registration");
+    eq(geocodeCalls, 1, "5: exactly one geocode for a new destination");
+    const registered = await store.listDestinations();
+    eq(registered.length, 1, "5: one registry row was created");
+    eq(registered[0].timeZone, "Europe/Lisbon", "5: plan-time zone recorded on the row");
+    const again = await resolveDestinationId(depsFor(store, geocoder), { destination: "Lisboa", destinationCity: "Lisboa" });
+    eq(again, lisbonId, "5: spelling variant dedupes onto the same registration (OSM identity)");
+    eq((await store.listDestinations()).length, 1, "5: the variant did not fork the registry");
+  }
+
+  // A registry hit never geocodes.
+  {
+    const store = new InMemoryPackStore(() => new Date());
+    await store.registerDestination(PARIS_DESTINATION);
+    const geocoder = async () => {
+      throw new Error("geocoder must not be called for a registered destination");
+    };
+    const id = await resolveDestinationId(depsFor(store, geocoder), { destination: "Paris", destinationCity: "Paris" });
+    eq(id, PARIS_DESTINATION.destinationId, "5: registered Paris resolves from the registry, no geocode");
+  }
+
+  // Honest failures: unresolvable + ambiguous are permanent and
+  // coded distinctly; a geocoder outage is transient.
+  {
+    const store = new InMemoryPackStore(() => new Date());
+    const attempt = async (geocoder) => {
+      try {
+        await resolveDestinationId(depsFor(store, geocoder), { destination: "Nowheresville", destinationCity: "Nowheresville" });
+        return null;
+      } catch (err) {
+        return err;
+      }
+    };
+    const nf = await attempt(async () => ({ kind: "not_found" }));
+    eq(nf.code, "ZERO_ENGINE_DESTINATION_UNRESOLVABLE", "5: unresolvable name fails with its own code");
+    eq(nf.permanent, true, "5: unresolvable is permanent (no retry loop)");
+    ok(nf.message.includes("could not find"), "5: unresolvable wording is traveler-facing");
+    const amb = await attempt(async () => ({ kind: "ambiguous", candidates: ["Springfield, United States", "Springfield, Canada"] }));
+    eq(amb.code, "ZERO_ENGINE_DESTINATION_UNRESOLVABLE", "5: ambiguity shares the honest-failure code");
+    ok(amb.message.includes("Springfield, Canada"), "5: ambiguity names the candidate places");
+    const un = await attempt(async () => ({ kind: "unavailable", reason: "boom" }));
+    eq(un.code, "ZERO_ENGINE_GEOCODER_UNAVAILABLE", "5: geocoder outage has a distinct code");
+    eq(un.permanent, false, "5: geocoder outage is transient (job retries)");
+  }
+
+  // Durability: a registration written by one SupabasePackStore
+  // instance is visible to a NEW instance over the same settings
+  // table (the drain process is not the registering process).
+  {
+    const rows = new Map();
+    const fakeClient = {
+      from(table) {
+        if (table !== "roamly_admin_settings") throw new Error(`unexpected table ${table}`);
+        return {
+          select: () => ({
+            like: async (_col, pattern) => {
+              const prefix = String(pattern).replace(/%$/, "");
+              return {
+                data: [...rows.entries()].filter(([k]) => k.startsWith(prefix)).map(([, v]) => ({ value: v })),
+                error: null
+              };
+            }
+          }),
+          upsert: async (row) => {
+            rows.set(row.key, row.value);
+            return { error: null };
+          }
+        };
+      }
+    };
+    const dto = buildAutoRegistration(lisbonPlace, "Europe/Lisbon", new Date("2026-10-22T12:00:00.000Z"));
+    const writer = new SupabasePackStore(fakeClient, () => new Date());
+    await writer.registerDestination(dto);
+    const reader = new SupabasePackStore(fakeClient, () => new Date());
+    const listed = await reader.listDestinations();
+    ok(listed.some((d) => d.destinationId === lisbonId), "5: registration survives across store instances (drain can resolve it)");
+    const got = await reader.getDestination(lisbonId);
+    eq(got?.geocodeProvenance.sourceRef, "nominatim:relation:540084", "5: provenance survives the round trip");
+    let dupThrew = false;
+    try {
+      await reader.registerDestination(dto);
+    } catch (err) {
+      dupThrew = String(err.code || err.message).includes("DUPLICATE");
+    }
+    ok(dupThrew, "5: re-registering the same place is a duplicate, not a fork");
+
+    // A dead settings table degrades reads to the compiled-in
+    // registry — destination lookups never die with it.
+    const deadClient = {
+      from() {
+        return {
+          select: () => ({
+            like: async () => {
+              throw new Error("fetch failed");
+            }
+          }),
+          upsert: async () => ({ error: { message: "down" } })
+        };
+      }
+    };
+    const degraded = new SupabasePackStore(deadClient, () => new Date());
+    const served = await degraded.listDestinations();
+    ok(served.some((d) => d.displayName === "Paris"), "5: registry still serves seeds when the settings read fails");
+  }
+
+  console.log(`Section 5 (fix #5 — auto-registration): ${count} assertions so far`);
+}
+
 console.log(`roamly-wiring-fixes-checks: ${count} assertions PASS`);

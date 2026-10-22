@@ -44,10 +44,14 @@ import { PackStoreError, systemPackClock, toInstant, type PackClock } from "@/li
  *   - the destination REGISTRY is application state (M7: "the
  *     registry itself is application state, so there is deliberately
  *     no registry table"). The registry this store serves is the
- *     compiled-in seed registry (packs/destinations.ts) plus any
- *     destinations registered into this instance at runtime
- *     (registerDestination — process-lifetime, exactly the lifetime
- *     a seeding run needs; nothing in the serving path registers).
+ *     compiled-in seed registry (packs/destinations.ts) plus
+ *     runtime registrations. Since fix #5 (auto-registration,
+ *     2026-10-22) the serving path DOES register — a trip to an
+ *     unregistered city geocodes and registers it — so runtime
+ *     registrations are ALSO persisted to `roamly_admin_settings`
+ *     under `pack_destination:v1:<id>` (the pins' durability
+ *     mechanism, no new table): the drain process that builds the
+ *     pack is not the process that registered the destination.
  *   - generation PINS ride `roamly_admin_settings` under
  *     `pack_pin:v1:<generationRef>` — durable across processes,
  *     which is the property the generation seam actually needs (a
@@ -144,6 +148,7 @@ export class SupabasePackStore implements PackStore {
   private readonly client: SupabaseClient;
   private readonly clock: PackClock;
   private readonly registered = new Map<string, DestinationDTO>();
+  private durableLoaded = false;
 
   constructor(client: SupabaseClient, clock: PackClock = systemPackClock) {
     this.client = client;
@@ -161,20 +166,67 @@ export class SupabasePackStore implements PackStore {
 
   /* ------------------------------ registry ------------------------------ */
 
+  /** Auto-registered destinations (fix #5) must survive the
+   *  process: a registration is written by a generation worker,
+   *  but the pack BUILD runs later in the hourly drain process,
+   *  which resolves the destination through this same store. The
+   *  registry therefore rides the existing settings table under
+   *  `pack_destination:v1:<id>` — the same durability mechanism
+   *  pack pins already use; no new table, no migration. Seeded
+   *  destinations stay code-resident (they are in every build). */
+  private destinationKey(destinationId: string): string {
+    return `pack_destination:v1:${destinationId}`;
+  }
+
+  private async loadDurableDestinations(): Promise<void> {
+    if (this.durableLoaded) return;
+    this.durableLoaded = true;
+    // Failure-tolerant by design: the registry's core duty is
+    // serving the compiled-in destinations, and a settings-table
+    // hiccup must not take every destination lookup down with it.
+    // A failed load degrades to the in-memory registry for this
+    // instance; the registration WRITE path (registerDestination)
+    // still surfaces its own failure, so a lost registration is
+    // never silent where it happens.
+    let data: { value: DestinationDTO }[] | null = null;
+    try {
+      const res = await this.client
+        .from(SETTINGS_TABLE)
+        .select("value")
+        .like("key", "pack_destination:v1:%");
+      if (!res.error) data = res.data as { value: DestinationDTO }[] | null;
+    } catch {
+      data = null;
+    }
+    for (const row of data ?? []) {
+      const dto = row?.value;
+      if (dto && typeof dto.destinationId === "string" && !this.registered.has(dto.destinationId)) {
+        this.registered.set(dto.destinationId, clone(dto));
+      }
+    }
+  }
+
   async registerDestination(destination: DestinationDTO): Promise<DestinationDTO> {
+    await this.loadDurableDestinations();
     if (this.registered.has(destination.destinationId)) {
       throw new PackStoreError("DUPLICATE_DESTINATION", `destination already registered: ${destination.destinationId}`);
     }
     this.registered.set(destination.destinationId, clone(destination));
+    const { error } = await this.client
+      .from(SETTINGS_TABLE)
+      .upsert({ key: this.destinationKey(destination.destinationId), value: destination }, { onConflict: "key" });
+    if (error) throw dbFailure("register destination", error);
     return clone(destination);
   }
 
   async getDestination(destinationId: string): Promise<DestinationDTO | null> {
+    await this.loadDurableDestinations();
     const d = this.registered.get(destinationId);
     return d ? clone(d) : null;
   }
 
   async listDestinations(): Promise<DestinationDTO[]> {
+    await this.loadDurableDestinations();
     return [...this.registered.values()].map((d) => clone(d));
   }
 
