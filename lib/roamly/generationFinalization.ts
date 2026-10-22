@@ -41,6 +41,7 @@ type StoredFinalItinerary = {
   itineraryId: string | null;
   updatedAt: string | null;
   fullJson: Record<string, unknown> | null;
+  source: string | null;
 };
 
 type GenerationJobLookup = {
@@ -68,13 +69,18 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-export function isFinalStoredItinerary(value: unknown) {
+export function isFinalStoredItinerary(value: unknown, source?: string | null) {
   const record = getRecord(value);
-  return (
-    Array.isArray(record.daily_itinerary) &&
-    record.daily_itinerary.length > 0 &&
-    /generated through roamly staged ai generation/i.test(getString(record.generation_note))
-  );
+  if (!Array.isArray(record.daily_itinerary) || record.daily_itinerary.length === 0) return false;
+  const note = getString(record.generation_note);
+  if (/generated through roamly staged ai generation/i.test(note)) return true;
+  // M10 (Phase 5): a zero-engine final is accepted on EXPLICIT provenance —
+  // the itinerary row's source column names the engine AND the document's
+  // own note names it too. Both must agree: an engine row may never ride
+  // the staged-AI literal, and an honest note without the stamped source
+  // (e.g. the metadata fallback copy, which carries no source) is not
+  // enough. Content validation is untouched by this widening.
+  return source === "zero-engine" && /zero-engine/i.test(note);
 }
 
 function finalStoredItineraryFromMetadata(metadata: unknown) {
@@ -93,15 +99,21 @@ export function hasFinalStoredItineraryInMetadata(metadata: unknown) {
   return isFinalStoredItinerary(finalStoredItineraryFromMetadata(metadata));
 }
 
-function storedItinerarySummary(value: unknown, updatedAt: string | null, itineraryId: string | null): StoredFinalItinerary {
+function storedItinerarySummary(
+  value: unknown,
+  updatedAt: string | null,
+  itineraryId: string | null,
+  source: string | null = null
+): StoredFinalItinerary {
   const full = getRecord(value);
   const dayCount = Array.isArray(full.daily_itinerary) ? full.daily_itinerary.length : 0;
   return {
-    exists: dayCount > 0 && isFinalStoredItinerary(full),
+    exists: dayCount > 0 && isFinalStoredItinerary(full, source),
     dayCount,
     itineraryId,
     updatedAt,
-    fullJson: dayCount > 0 ? full : null
+    fullJson: dayCount > 0 ? full : null,
+    source
   };
 }
 
@@ -124,23 +136,52 @@ async function loadStoredFinalItinerary(params: {
   supabase: SupabaseClient;
   trip: FinalizationTrip;
 }): Promise<StoredFinalItinerary> {
-  const { data, error } = await params.supabase
+  // M10: the source column exists only once the Phase 5 migration is
+  // applied. Until then the select fails on the unknown column and we
+  // retry with the pre-M10 column set — behavior is then exactly the
+  // legacy behavior (source reads as null, staged-AI acceptance only).
+  type StoredItineraryRow = { id?: unknown; full_json?: unknown; updated_at?: unknown; source?: unknown };
+  let rows: StoredItineraryRow[] | null = null;
+  let loadError: { message: string } | null = null;
+  const withSource = await params.supabase
     .from("roamly_itineraries")
-    .select("id,full_json,updated_at")
+    .select("id,full_json,updated_at,source")
     .eq("trip_id", params.trip.id)
     .eq("user_id", params.trip.user_id)
     .not("full_json", "is", null)
     .order("updated_at", { ascending: false })
     .limit(5);
+  if (!withSource.error) {
+    rows = (withSource.data || []) as StoredItineraryRow[];
+  } else if (/source/i.test(withSource.error.message) && /does not exist|schema cache/i.test(withSource.error.message)) {
+    const legacy = await params.supabase
+      .from("roamly_itineraries")
+      .select("id,full_json,updated_at")
+      .eq("trip_id", params.trip.id)
+      .eq("user_id", params.trip.user_id)
+      .not("full_json", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(5);
+    if (!legacy.error) rows = (legacy.data || []) as StoredItineraryRow[];
+    else loadError = legacy.error;
+  } else {
+    loadError = withSource.error;
+  }
 
-  if (!error) {
-    const match = (data || []).find((row) => isFinalStoredItinerary((row as { full_json?: unknown }).full_json));
+  if (rows) {
+    const match = rows.find((row) =>
+      isFinalStoredItinerary(row.full_json, typeof row.source === "string" ? row.source : null)
+    );
     if (match) {
-      const row = match as { id?: unknown; full_json?: unknown; updated_at?: unknown };
-      return storedItinerarySummary(row.full_json, getString(row.updated_at) || null, getString(row.id) || null);
+      return storedItinerarySummary(
+        match.full_json,
+        getString(match.updated_at) || null,
+        getString(match.id) || null,
+        typeof match.source === "string" ? match.source : null
+      );
     }
-  } else if (!isMissingTableError(error.message)) {
-    throw new Error(error.message);
+  } else if (loadError && !isMissingTableError(loadError.message)) {
+    throw new Error(loadError.message);
   }
 
   return storedItinerarySummary(

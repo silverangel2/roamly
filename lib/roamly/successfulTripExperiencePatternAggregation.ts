@@ -3,6 +3,7 @@ import { aggregateSuccessfulTripExperiencePatterns, isPublishableSuccessfulTripP
 import type { SuccessfulTripExperienceContext } from "@/lib/roamly/successfulTripExperience";
 import { readItineraryLibraryExperienceRecords } from "@/lib/roamly/itineraryLibraryAggregation";
 import { readIngesterLibraryRecords } from "@/lib/roamly/itineraryIngester";
+import { readLibraryTripExperienceRecords } from "@/lib/roamly/libraryIngest";
 
 const PAGE_SIZE = 500;
 const MAX_PAGES = 100;
@@ -58,10 +59,17 @@ export async function runSuccessfulTripExperiencePatternAggregation(admin: Supab
   const ingesterRecords = await readIngesterLibraryRecords(admin);
   records.push(...ingesterRecords);
 
+  // Build 2 library lane (Phase 10): trips ingested by the post-trip
+  // loop (outstanding + verified as-lived, M9) enter the same patterns
+  // as weighted records, linked to their archived trips. Fail-soft:
+  // returns [] when the library table does not exist yet.
+  const libraryTripRecords = await readLibraryTripExperienceRecords(admin);
+  records.push(...libraryTripRecords);
+
   const patterns = aggregateSuccessfulTripExperiencePatterns(records)
     .filter((pattern) => isPublishableSuccessfulTripPattern(pattern));
   if (!patterns.length) {
-    return { ok: true as const, feedbackRowsRead: records.length, libraryRecordsRead: libraryRecords.length, qualifyingPatterns: 0, patternsWritten: 0 };
+    return { ok: true as const, feedbackRowsRead: records.length, libraryRecordsRead: libraryRecords.length, libraryTripRecordsRead: libraryTripRecords.length, qualifyingPatterns: 0, patternsWritten: 0 };
   }
 
   const baseRows = patterns.map((pattern) => ({
@@ -95,5 +103,5 @@ export async function runSuccessfulTripExperiencePatternAggregation(admin: Supab
     ({ error } = await admin.from("successful_trip_experience_patterns").upsert(baseRows, { onConflict: "pattern_key" }));
   }
   if (error) return { ok: false as const, error: error.message, feedbackRowsRead: records.length, patternsWritten: 0 };
-  return { ok: true as const, feedbackRowsRead: records.length, libraryRecordsRead: libraryRecords.length, qualifyingPatterns: patterns.length, patternsWritten: patterns.length };
+  return { ok: true as const, feedbackRowsRead: records.length, libraryRecordsRead: libraryRecords.length, libraryTripRecordsRead: libraryTripRecords.length, qualifyingPatterns: patterns.length, patternsWritten: patterns.length };
 }

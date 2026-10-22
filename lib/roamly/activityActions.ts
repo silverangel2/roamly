@@ -1,6 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
+import { build2CompanionEnabled } from "@/lib/roamly/build2Flags";
+import {
+  SupabaseCompanionLedgerStore,
+  appendCompanionLedgerAction,
+  panelActionProvenance
+} from "@/lib/roamly/companionLedger";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
 import { calculateDistanceMeters, isWithinRadius, type LocationInput } from "@/lib/roamly/location";
 import { createInAppNotification } from "@/lib/roamly/pushServer";
 import { getUpNextActivity, type TrackingActivity } from "@/lib/roamly/tripActivation";
@@ -15,6 +22,7 @@ type ActionTrip = {
   itinerary_status?: string | null;
   tracking_unlocked?: boolean | null;
   live_companion_unlocked?: boolean | null;
+  metadata?: unknown;
 };
 
 type DisplayActivity = {
@@ -66,7 +74,7 @@ const actionConfig = {
 async function getTripForAction(supabase: SupabaseClient, tripId: string, userId?: string | null) {
   let query = supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked,live_companion_unlocked")
+    .select("id,user_id,itinerary_locked,itinerary_status,tracking_unlocked,live_companion_unlocked,metadata")
     .eq("id", tripId);
   if (userId) query = query.eq("user_id", userId);
   const { data, error } = await query.maybeSingle();
@@ -349,6 +357,10 @@ export async function performActivityAction(
     source?: string;
     simulated?: boolean;
     requireNearbyForCheckIn?: boolean;
+    /** The action's TRUE time, when the caller knows it (an offline
+     *  panel tap flushing late). The M2 ledger records this time,
+     *  never the flush time. Defaults to now. */
+    occurredAt?: string | null;
   }
 ) {
   const tripResult = await getTripForAction(supabase, params.tripId, params.userId);
@@ -417,7 +429,8 @@ export async function performActivityAction(
       upNextActivity: upNext.activity,
       tripEventError: null,
       companionEventId: null,
-      companionEventError: null
+      companionEventError: null,
+      companionLedgerError: null
     };
   }
 
@@ -452,6 +465,41 @@ export async function performActivityAction(
     simulated: params.simulated
   });
 
+  // Build 2 (Phase 7): the append-only M2 ledger row behind this
+  // action — check-in and skip are lived evidence (BUILD2-SPEC
+  // §1.5); "complete" has no Phase 1 ledger classification (dwell is
+  // derived from the ledger + status in companionPanel). Additive
+  // and flag-gated: with the companion flag off, nothing here runs
+  // and behavior is byte-for-byte the pre-Phase-7 action. A ledger
+  // failure never fails the traveler's action — it is reported on
+  // the result, like the companion event above it.
+  let companionLedgerError: string | null = null;
+  if (
+    build2CompanionEnabled() &&
+    (params.action === "check_in" || params.action === "skip")
+  ) {
+    const now = new Date();
+    let occurredAt = now.toISOString();
+    if (params.occurredAt) {
+      const parsed = Date.parse(params.occurredAt);
+      if (Number.isFinite(parsed) && parsed <= now.getTime() + 60_000) {
+        occurredAt = new Date(parsed).toISOString();
+      }
+    }
+    const ledger = await appendCompanionLedgerAction(
+      new SupabaseCompanionLedgerStore(supabase),
+      {
+        tripId: params.tripId,
+        activityRef: current.trackingActivity?.id || current.displayActivity?.id || params.activityId,
+        classification: params.action === "check_in" ? "CHECKED_IN" : "SKIPPED",
+        at: occurredAt,
+        timezone: timezoneFromTripMetadata(tripResult.trip.metadata, "UTC"),
+        provenance: panelActionProvenance(occurredAt)
+      }
+    );
+    if (!ledger.ok) companionLedgerError = ledger.error;
+  }
+
   const upNext = await getUpNextActivity(supabase, params.tripId, params.location || undefined);
   return {
     ok: true as const,
@@ -464,7 +512,8 @@ export async function performActivityAction(
     upNextActivity: upNext.activity,
     tripEventError: tripEvent.error?.message || null,
     companionEventId: companion.eventId,
-    companionEventError: companion.error
+    companionEventError: companion.error,
+    companionLedgerError
   };
 }
 

@@ -24,6 +24,11 @@ import {
   type RoamlyGenerationJob
 } from "@/lib/roamly/generationQueue";
 import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
+import {
+  advanceEngineGeneration,
+  buildEngineRuntimeDeps,
+  zeroEngineEnabledForJob
+} from "@/lib/roamly/engine/generate";
 import { getPublicSupabaseHost, logGenerationDiagnostic } from "@/lib/roamly/generationDiagnostics";
 import { isMissingTableError } from "@/lib/trips";
 import { generationTripIsTerminal } from "@/lib/roamly/generationLifecycle";
@@ -635,11 +640,32 @@ async function processClaimedJob(params: {
         } satisfies RoamlyGenerationWorkerResult;
       }
 
-      const result = await advanceStagedItineraryGeneration({
-        supabase: params.admin,
-        tripId: params.job.trip_id,
-        requestId: params.requestId
-      });
+      // Phase 5 (DESIGN §2.3): a job whose queue row carries the
+      // zero-engine generation version advances through the engine
+      // adapter, which implements the same staged contract — same
+      // state document, lease discipline, watchdog and progress shape —
+      // so everything around this call is unchanged. The flag is
+      // re-checked on every wake: with the flag off (the default),
+      // zeroEngineEnabledForJob is false for every job and the
+      // incumbent driver below serves everything, byte-for-byte. If the
+      // flag is switched off mid-flight, the incumbent takes over the
+      // shared state document from the completed engine days
+      // (documented emergency rollback). If the flag is on but the
+      // engine runtime is not live in this deployment, the wake fails
+      // WITHOUT touching the state — never a silent fallback to model
+      // calls for an engine job.
+      const engineJob = zeroEngineEnabledForJob({ generationVersion: params.job.generation_version });
+      const engineDeps = engineJob ? buildEngineRuntimeDeps(params.admin) : null;
+      const result =
+        engineJob && !engineDeps
+          ? { ok: false, status: state.status, state, advanced: false, error: "ZERO_ENGINE_UNAVAILABLE" }
+          : engineDeps
+            ? await advanceEngineGeneration({ deps: engineDeps, tripId: params.job.trip_id, requestId: params.requestId })
+            : await advanceStagedItineraryGeneration({
+                supabase: params.admin,
+                tripId: params.job.trip_id,
+                requestId: params.requestId
+              });
       const resultProgress = generationProgressScalar(result.state, params.job.trip_id);
       logGenerationDiagnostic("generation_worker_stage_result", {
         requestId: params.requestId,

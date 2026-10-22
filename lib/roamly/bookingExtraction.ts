@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createTripBooking, type TripBookingInput } from "@/lib/roamly/bookingWallet";
 import { reconcileTripBookings } from "@/lib/roamly/brain/bookingReconciliation";
+import { build2ReconciliationLaneActive } from "@/lib/roamly/reconciliationLane";
 import type { EmailConnectionRecord } from "@/lib/roamly/emailConnections";
 import type { TravelEmailFilterResult, TravelEmailMetadata } from "@/lib/roamly/travelEmailFiltering";
 
@@ -781,8 +782,14 @@ export async function extractAndMatchTravelEmailBooking(params: {
   if (!params.filter.shouldProcess) return { attached: false, status: "ignored" as const };
   const writer = createSupabaseAdminClient() || params.supabase;
   const deterministic = deterministicBookingExtraction({ metadata: params.metadata, filter: params.filter });
+  // Build 2 lane (Phase 8): the deterministic extractor is the
+  // parser of record. In-lane the AI path is never consulted, so a
+  // fact the deterministic pass cannot resolve stays unresolved
+  // (the existing flow persists it for traveler review) instead of
+  // being AI-completed. Outside the lane, legacy behavior is exact.
+  const inBuild2Lane = build2ReconciliationLaneActive(params.connection.provider);
   const aiExtraction =
-    deterministic.overallConfidence < 0.45
+    !inBuild2Lane && deterministic.overallConfidence < 0.45
       ? await extractBookingWithAiStructuredOutput(params.metadata).catch(() => null)
       : null;
   const extraction = aiExtraction && aiExtraction.overallConfidence > deterministic.overallConfidence ? aiExtraction : deterministic;
