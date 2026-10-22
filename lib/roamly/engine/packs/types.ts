@@ -47,7 +47,7 @@ import type { LocalDate } from "@/lib/roamly/engine/time";
 export const PACK_CLASSIFIER_VERSION = "osm-classifier-1";
 
 /** Version stamp for the Overpass query pair (main + wide). */
-export const PACK_QUERY_VERSION = "overpass-queries-1";
+export const PACK_QUERY_VERSION = "overpass-queries-2";
 
 /** Default freshness window for stale-while-revalidate reads.
  *  A ready pack older than this still serves, but a read enqueues
