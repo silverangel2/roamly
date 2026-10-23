@@ -29,9 +29,20 @@ export async function POST(request: NextRequest) {
   if (!tripId) return NextResponse.json({ ok: false, error: "Trip is required." }, { status: 400 });
   if (!location) return NextResponse.json({ ok: false, error: "Valid latitude and longitude are required." }, { status: 400 });
 
+  // Optional simulation clock: lets a tester simulate being at the location at a
+  // specific time (e.g. a trip that starts in the future). Absent or invalid, the
+  // engine evaluates against real now, exactly as before.
+  const simulatedAtRaw = getString(body.simulatedAt);
+  let decisionNow: Date | undefined;
+  if (simulatedAtRaw) {
+    const parsed = new Date(simulatedAtRaw);
+    if (!Number.isNaN(parsed.getTime())) decisionNow = parsed;
+  }
+
   const activation = await activateTripIfNearby(auth.supabase, auth.user.id, location, tripId, {
     simulated: true,
-    source: "tester_location_simulator"
+    source: "tester_location_simulator",
+    ...(decisionNow ? { decisionNow } : {})
   });
 
   if (!activation.trip) {

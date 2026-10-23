@@ -351,19 +351,24 @@ async function shutdownCompletedTripIfNeeded(
   return true;
 }
 
-export async function getActiveOrUpcomingTrip(supabase: SupabaseClient, userId: string, tripId?: string) {
+export async function getActiveOrUpcomingTrip(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId?: string,
+  options?: { now?: string | Date }
+) {
   let query = supabase
     .from("roamly_trips")
     .select("*")
     .eq("user_id", userId)
     .eq("itinerary_locked", true)
     .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
-    .in("status", ["locked", "active", "planned"]);
+    .in("status", ["locked", "active", "planned", "generated"]);
   if (tripId) query = query.eq("id", tripId);
   const { data, error } = await query;
 
   if (error) return { trip: null, error: error.message };
-  const trip = selectActiveTrip((data || []) as TrackingTrip[]);
+  const trip = selectActiveTrip((data || []) as TrackingTrip[], options?.now ?? new Date());
   return { trip };
 }
 
@@ -512,7 +517,7 @@ export async function activateTripIfNearby(
     options?.simulated === true && options.decisionNow
       ? options.decisionNow
       : new Date();
-  const tripResult = await getActiveOrUpcomingTrip(supabase, userId, tripId);
+  const tripResult = await getActiveOrUpcomingTrip(supabase, userId, tripId, { now: processingNow });
   const trip = tripResult.trip;
 
   if (!trip) {
