@@ -232,6 +232,7 @@ export default async function LiveTripPage({
   const confirmedFlight = hasConfirmedFlightBooking(bookingRows);
   const locationRow = getRecord(locationSettingsResult.data);
   const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
+  const initialTrackingEnabled = (locationRow as Record<string, unknown> | null)?.location_tracking_enabled === true;
   const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
   const tripUpcoming = tripLifecycle === "upcoming";
   const tripDatesMissing = tripLifecycle === "missing_dates";
@@ -400,6 +401,7 @@ export default async function LiveTripPage({
           companionPausedUntil={preferences.liveCompanionPausedUntil}
           backgroundLocationEnabled={preferences.backgroundLocationEnabled}
           initialPermissionState={permissionState}
+          initialTrackingEnabled={initialTrackingEnabled}
           bookingDetails={bookingDetails}
           liveDemoEnabled={false}
           fieldTestMode
@@ -422,7 +424,7 @@ export default async function LiveTripPage({
           <div>
             <p className="text-[0.75rem] font-medium text-slate-500">{tripCompleted ? "Trip complete" : tripUpcoming ? "Coming up" : tripDatesMissing ? "Add trip dates" : "Active assistance"}</p>
             <h1 className="mt-1 text-[1.85rem] font-semibold tracking-[-0.03em] text-ink sm:text-4xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? (initialTrackingEnabled ? "Your companion is ready. Location is on — live assistance begins during your trip dates." : "Your companion is ready. Live assistance begins during your trip dates.") : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
@@ -455,6 +457,7 @@ export default async function LiveTripPage({
             companionPausedUntil={preferences.liveCompanionPausedUntil}
             backgroundLocationEnabled={preferences.backgroundLocationEnabled}
             initialPermissionState={permissionState}
+            initialTrackingEnabled={initialTrackingEnabled}
             bookingDetails={bookingDetails}
             liveDemoEnabled={false}
           />

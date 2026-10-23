@@ -511,12 +511,13 @@ assert("F2 the payload deep-links the activity and carries the existing check-in
   pushPayload.actionUrl === "/trip/trip-halifax-fixture/live?activity=citadel" &&
   pushPayload.checkInUrl.startsWith("/api/roamly/activities/check-in?") && pushPayload.checkInUrl.includes("activityId=citadel") &&
   pushPayload.skipUrl.startsWith("/api/roamly/activities/skip?"));
-assert("F3 PR #57 email discipline is the imported original: cap 3, collapse + trip-claim + cap all refuse",
+assert("F3 PR #57 email discipline as amended by the Defect 5 fix: a delivered email (emailSent) refuses forever, collapse + trip-claim + failed-attempt cap all refuse",
   MAX_COMPANION_EVENT_EMAIL_ATTEMPTS === 3 &&
-  companionEventEmailAllowed({ attempts: 3, collapsed: false, tripAlreadyEmailed: false }) === false &&
-  companionEventEmailAllowed({ attempts: 0, collapsed: true, tripAlreadyEmailed: false }) === false &&
-  companionEventEmailAllowed({ attempts: 0, collapsed: false, tripAlreadyEmailed: true }) === false &&
-  companionEventEmailAllowed({ attempts: 2, collapsed: false, tripAlreadyEmailed: false }) === true);
+  companionEventEmailAllowed({ attempts: 3, emailSent: false, collapsed: false, tripAlreadyEmailed: false }) === false &&
+  companionEventEmailAllowed({ attempts: 0, emailSent: false, collapsed: true, tripAlreadyEmailed: false }) === false &&
+  companionEventEmailAllowed({ attempts: 0, emailSent: false, collapsed: false, tripAlreadyEmailed: true }) === false &&
+  companionEventEmailAllowed({ attempts: 0, emailSent: true, collapsed: false, tripAlreadyEmailed: false }) === false &&
+  companionEventEmailAllowed({ attempts: 2, emailSent: false, collapsed: false, tripAlreadyEmailed: false }) === true);
 const pushSource = readTree("lib/roamly/companionPush.ts");
 assert("F4 the panel dispatches THROUGH pushServer (reuse) and never emails or pushes around it",
   pushSource.includes('from "./pushServer"') && pushSource.includes("createInAppNotification") &&

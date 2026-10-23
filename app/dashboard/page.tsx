@@ -158,8 +158,8 @@ export default async function DashboardPage() {
             {formatDate(primaryTrip.start_date, locale)} · {getTripDaysCount(primaryTrip) || "Flexible"} days
           </p>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <Button href={activeNow && activeNow.id === primaryTrip.id ? `/trip/${activeNow.id}/live` : `/trip/${primaryTrip.id}`}>
-              {activeNow && activeNow.id === primaryTrip.id ? "Open Live" : isTripLocked(primaryTrip) ? "Open plan" : "Continue trip"}
+            <Button href={`/trip/${primaryTrip.id}`}>
+              {isTripLocked(primaryTrip) ? "Open plan" : "Continue trip"}
             </Button>
             <Button href="/plan" tone="ghost">Plan another trip</Button>
           </div>

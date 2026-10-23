@@ -36,7 +36,7 @@ export function dashboardTripPresentation(trip: DashboardTripLike, now: string |
     terminal,
     companionUnlocked,
     liveNow,
-    href: liveNow ? `/trip/${trip.id}/live` : `/trip/${trip.id}`,
+    href: `/trip/${trip.id}`,
     eyebrow: lifecycle === "completed"
       ? "Completed trip"
       : lifecycle === "archived"
@@ -55,7 +55,7 @@ export function dashboardTripPresentation(trip: DashboardTripLike, now: string |
           : companionUnlocked
             ? "Unlocked"
             : "Draft",
-    action: lifecycle === "completed" ? "View history" : liveNow ? "Open Live" : companionUnlocked ? "Open companion" : "Open trip"
+    action: lifecycle === "completed" ? "View history" : companionUnlocked ? "Open trip" : "Open trip"
   } as const;
 }
 

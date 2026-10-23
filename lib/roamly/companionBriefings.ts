@@ -392,7 +392,7 @@ export async function scheduleCompanionBriefings() {
         actionLabel: finalDay
           ? "Review final day"
           : "Open today’s trip",
-        actionUrl: `/trip/${trip.id}/live`,
+        actionUrl: `/trip/${trip.id}`,
         metadata: {
           briefingDate: localDate,
           timezone,

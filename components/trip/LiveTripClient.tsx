@@ -133,6 +133,7 @@ type LiveTripClientProps = {
   companionPausedUntil?: string | null;
   backgroundLocationEnabled?: boolean;
   initialPermissionState?: LiveLocationPermission;
+  initialTrackingEnabled?: boolean;
   initialLocation?: LiveCoordinates | null;
   bookingDetails?: LiveCompanionBookingDetail[];
   liveDemoEnabled?: boolean;
@@ -481,6 +482,7 @@ export function LiveTripClient({
   companionPausedUntil = null,
   backgroundLocationEnabled = false,
   initialPermissionState = "prompt",
+  initialTrackingEnabled = false,
   initialLocation = null,
   bookingDetails = [],
   liveDemoEnabled = false,
@@ -491,6 +493,10 @@ export function LiveTripClient({
   const locallySkippedActivityIdsRef = useRef<Set<string>>(readPersistedSkippedActivityIds(tripId));
   const [items, setItems] = useState(() => mergeLiveActivityStatuses(activities, locallySkippedActivityIdsRef.current));
   const [permission, setPermission] = useState<LiveLocationPermission>(initialPermissionState);
+  // The persisted account setting is the ONE source of truth for whether
+  // location is "on". The browser permission below is only the live grant
+  // state for this browser — it must never re-decide the traveler's choice.
+  const [trackingEnabled, setTrackingEnabled] = useState<boolean>(Boolean(initialTrackingEnabled));
   const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
   const [pushReady, setPushReady] = useState(false);
   const [location, setLocation] = useState<LiveCoordinates | null>(initialLocation);
@@ -904,6 +910,29 @@ export function LiveTripClient({
     });
   }, [fieldTestMode, sendLocationUpdate, tripId]);
 
+  // Turning location on persists the traveler's choice FIRST (server-side
+  // setting + companion preference), so it stays on across pages and visits.
+  // The browser grant is only requested in context: inside the travel window,
+  // where sensing can actually begin.
+  const persistLocationOn = useCallback(() => {
+    setTrackingEnabled(true);
+    void fetch("/api/roamly/location/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locationTrackingEnabled: true, notificationEnabled: true })
+    }).catch(() => undefined);
+    void fetch(`/api/trips/${tripId}/companion/preferences`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ liveCompanionEnabled: true })
+    }).catch(() => undefined);
+  }, [tripId]);
+
+  const enableLocation = useCallback(() => {
+    persistLocationOn();
+    if (tripWindowActive) void startForegroundLocation();
+  }, [persistLocationOn, startForegroundLocation, tripWindowActive]);
+
   const liveTripUrl = typeof window !== "undefined" ? `${window.location.origin}/trip/${tripId}/live` : "";
   const canNativeShare = typeof navigator !== "undefined" && typeof (navigator as Navigator & { share?: unknown }).share === "function";
 
@@ -997,14 +1026,23 @@ export function LiveTripClient({
       }
       setNotificationPermission("granted");
       setPushReady(true);
-      await startForegroundLocation();
-      setNotice("Live Companion setup is continuing: allow location when your phone asks.");
+      // Persist the traveler's choice first — the persisted setting is the
+      // source of truth and keeps location "on" across pages. The browser
+      // grant is requested only inside the travel window, where sensing can
+      // actually begin; pre-trip setup never triggers the browser ask.
+      persistLocationOn();
+      if (tripWindowActive) {
+        await startForegroundLocation();
+        setNotice("Live Companion setup is continuing: allow location when your phone asks.");
+      } else {
+        setNotice("You're set — location is on, and Live Companion will start when your trip begins.");
+      }
     } catch (err) {
       setError(localizeCustomerError(locale, err));
     } finally {
       setBusy("");
     }
-  }, [fieldTestMode, locale, mobileRuntime, startForegroundLocation, tripId]);
+  }, [fieldTestMode, locale, mobileRuntime, persistLocationOn, startForegroundLocation, tripId, tripWindowActive]);
 
   const stopForegroundLocation = useCallback(() => {
     if (watchIdRef.current != null && navigator.geolocation) {
@@ -1520,6 +1558,9 @@ export function LiveTripClient({
 
   const suppressFlightFraming = shouldSuppressFlightFraming({ transportationPreference, hasConfirmedFlight });
   const locationOff = permission !== "granted";
+  const companionStartLabel = tripStartDate
+    ? new Date(`${tripStartDate}T12:00:00`).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })
+    : null;
   const nextTitleRaw = activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming, originLabel || "");
   const nextIsHollow = preTrip && !nextTitleRaw;
   const preTripNext = preTripPrepTitle(activeDestinationLabel, tripStartDate || "");
@@ -1550,28 +1591,61 @@ export function LiveTripClient({
           </div>
         </div>
 
-        {permission !== "granted" ? (
-          <div className="border-b border-cloud bg-amber-50 px-4 py-3" role="alert">
-            <p className="text-sm font-black text-amber-900">
-              {permission === "denied"
-                ? "Location is off — Live Companion can't track where you are."
-                : "Waiting for your location — Live Companion can't track where you are yet."}
-            </p>
-            <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-              {permission === "denied"
-                ? "Allow location for Roamly in your phone settings, then return here."
-                : "Tap below so Roamly can use your location while the trip is active."}
-            </p>
-            {permission !== "denied" ? (
+        {preTrip ? (
+          trackingEnabled ? (
+            <div className="border-b border-cloud bg-mist px-4 py-3">
+              <p className="text-sm font-semibold text-slate-600">
+                Location on — Live Companion starts {companionStartLabel || "when your trip starts"}.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
+              <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
+                Location is off. Turn it on once — Live Companion will be ready when your trip starts.
+              </p>
               <button
                 type="button"
-                onClick={() => void startForegroundLocation()}
-                className="mt-2 min-h-11 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+                onClick={() => enableLocation()}
+                className="min-h-11 shrink-0 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
               >
                 Turn on location
               </button>
-            ) : null}
-          </div>
+            </div>
+          )
+        ) : tripWindowActive ? (
+          !trackingEnabled ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
+              <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
+                Location is off — Live Companion can&apos;t follow along.
+              </p>
+              <button
+                type="button"
+                onClick={() => enableLocation()}
+                className="min-h-11 shrink-0 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+              >
+                Turn on location
+              </button>
+            </div>
+          ) : permission === "denied" ? (
+            <div className="border-b border-cloud bg-mist px-4 py-3">
+              <p className="text-sm font-semibold leading-6 text-slate-600">
+                Location is on, but your browser is blocking it. Allow location for Roamly in your browser settings, then return here.
+              </p>
+            </div>
+          ) : permission !== "granted" ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
+              <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
+                Location is on for this trip — your browser just needs a tap to share it while you travel.
+              </p>
+              <button
+                type="button"
+                onClick={() => void startForegroundLocation()}
+                className="min-h-11 shrink-0 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+              >
+                Share location
+              </button>
+            </div>
+          ) : null
         ) : null}
 
         <div className="grid gap-4 p-4 md:grid-cols-[1.15fr_0.85fr] md:p-6">
@@ -1582,7 +1656,9 @@ export function LiveTripClient({
             </h1>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
               {preTrip
-                ? "This trip has not started. Review the plan, confirm anything still suggested, and enable location before you travel."
+                ? trackingEnabled
+                  ? "This trip has not started. Review the plan and confirm anything still suggested — location is on, so Live Companion is ready when you are."
+                  : "This trip has not started. Review the plan, confirm anything still suggested, and enable location before you travel."
                 : tripCompleted
                   ? "Live Companion does not start again after the trip ends. The saved plan stays here to review."
                   : activityDisplayDescription(currentActivity, model.activationReason)}
@@ -1594,6 +1670,7 @@ export function LiveTripClient({
                 <p className="mt-1 text-sm font-semibold leading-5">{displayedNextTitle}</p>
                 {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
+              {!preTrip ? (
               <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
                 <p className="mt-1 text-sm font-black">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</p>
@@ -1603,6 +1680,7 @@ export function LiveTripClient({
                   {gpsStatus.copy}
                 </p>
               </div>
+              ) : null}
             </div>
 
             <div className="mt-5 rounded-2xl border border-cloud bg-mist px-4 py-3">
@@ -1758,15 +1836,6 @@ export function LiveTripClient({
 
           <div className="grid gap-3">
             <section className="rounded-2xl border border-cloud bg-mist p-4">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Next step</p>
-                <p className="text-xs font-black text-slate-500">{nextActivity ? `${nextTimingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(nextStart?.toISOString() || null, timezone, locale)}` : "Flexible time"}</p>
-              </div>
-              <p className="mt-3 text-lg font-semibold tracking-tight text-ink">{displayedNextTitle}</p>
-              <p className="mt-1 text-sm font-medium leading-6 text-slate-600">{nextIsHollow ? "Review the plan, confirm the drive or stay, and turn location on only when you want Live to follow you." : nextActivity ? displayedAddress : "Use it for rest, food, or your own plans."}</p>
-            </section>
-
-            <section className="rounded-2xl border border-cloud bg-mist p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
               {!mobileRuntime ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
@@ -1883,7 +1952,7 @@ export function LiveTripClient({
                 <>
                   <div className="mt-3 grid gap-2 text-sm font-black text-slate-700">
                     <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-slate-500">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
-                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-slate-500">{permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-slate-500">{trackingEnabled || permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
                     <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
                   </div>
                   <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
@@ -1892,9 +1961,8 @@ export function LiveTripClient({
                 </>
               ) : null}
               <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
-                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : backgroundLocationEnabled ? "Location access is ready for Live while Roamly is open." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : "Roamly will ask for permission when you continue."}
+                {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : backgroundLocationEnabled ? "Location access is ready for Live while Roamly is open." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : trackingEnabled ? "Location is on — Live Companion will follow along while Roamly is open." : "Your choices are saved to your account when you continue."}
               </p>
-              {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black leading-6 text-coral">{error}</p> : null}
             </section>
 
             {liveDemoEnabled ? (
