@@ -6,7 +6,7 @@ import { readGmailGateView } from "@/lib/roamly/gateService";
  * (owner design, 2026-10-23): three steps, each powering one flagship
  * feature, completed ONCE per account and remembered forever.
  *
- *   1. Gmail connected   -> Roamly watches your bookings (reconciliation)
+ *   1. Gmail connected   -> Booking Recon (booking emails matched to the trip)
  *   2. App installed     -> Roamly can reach you in the moment (push)
  *   3. Location granted  -> Companion goes live
  *

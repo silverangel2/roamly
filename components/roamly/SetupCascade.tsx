@@ -5,7 +5,7 @@
  * (owner design, 2026-10-23): a calm, cascading sequence in Settings,
  * reused as the gate at the "Your trip is ready" moment.
  *
- *   1. Gmail in          -> Roamly watches your bookings
+ *   1. Gmail in          -> Booking Recon (booking emails, matched to your trip)
  *   2. Download the app  -> Roamly can reach you in the moment
  *   3. Turn on location  -> Companion goes live
  *
@@ -266,17 +266,17 @@ export function SetupCascade({
         {stepShell(
           0,
           "Connect Gmail",
-          "Roamly watches your bookings",
+          "Booking Recon — your booking emails, matched to your trip",
           gmailDone ? (
             <div className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {setup.gmailConnected ? (
                 <p>
-                  Connected{setup.gmailEmail ? ` — ${setup.gmailEmail}` : ""}. Booking confirmations are
-                  watched and kept in step with your trips.
+                  Connected{setup.gmailEmail ? ` — ${setup.gmailEmail}` : ""}. Booking Recon is activated —
+                  confirmations are matched to your trips and kept in step.
                 </p>
               ) : (
                 <p>
-                  Connected once — currently disconnected, so bookings are not being watched.{" "}
+                  Connected once — currently disconnected, so Booking Recon is not activated.{" "}
                   <a className={quietLinkClass} href="/api/integrations/gmail/connect">
                     Reconnect Gmail
                   </a>
@@ -286,8 +286,9 @@ export function SetupCascade({
           ) : (
             <div>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                Connect the Gmail that receives your flight and hotel confirmations. Roamly reads those,
-                keeps your bookings in step, and notices when something changes.
+                Connect the Gmail that receives your flight and hotel confirmations. That turns on Booking
+                Recon: Roamly matches those confirmations to your trip, keeps them in step, and notices when
+                something changes.
               </p>
               <a className={actionClass} href="/api/integrations/gmail/connect">
                 Connect Gmail

@@ -156,8 +156,8 @@ export default async function TripEventPage({ params }: EventPageProps) {
         {place ? <p className="mt-3 text-sm font-bold text-slate-500">{place}</p> : null}
         {setupInvitation ? (
           <p className="mt-5 rounded-2xl bg-mist px-4 py-3 text-sm font-semibold leading-6 text-slate-600">
-            One last thing for today: finish setup so Roamly can watch your bookings, reach you in the
-            moment, and keep the companion live.{" "}
+            One last thing for today: finish setup so Booking Recon is activated, Roamly can reach you in
+            the moment, and the companion can go live.{" "}
             <a href="/account#setup" className="font-bold text-ocean underline underline-offset-2">
               Finish setup
             </a>
