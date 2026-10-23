@@ -1569,6 +1569,21 @@ export function LiveTripClient({
     ? preTripAddressCopy(locationOff)
     : primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming, originLabel || "");
 
+  // Declutter (2026-10-23): this phone's setup state is stated exactly
+  // once on the live view — the quiet line in the side card. The steps
+  // themselves live in the Settings cascade; the line only names the
+  // first unfinished one and points there. Location's on/off fact is
+  // owned by the rows under the header, never restated here.
+  const setupGap =
+    !fieldTestMode && !setupComplete && !watching && !tripCompleted
+      ? notificationPermission !== "granted" || !pushReady
+        ? { copy: "Notifications aren't on for Roamly on this phone yet.", href: "/account#setup-step-2" }
+        : permission !== "granted"
+          ? { copy: "Location isn't allowed for Roamly on this phone yet.", href: "/account#setup-step-3" }
+          : { copy: "Live Companion setup isn't finished on this phone.", href: "/account#setup" }
+      : null;
+  const showSetupCard = Boolean(!mobileRuntime || !isStandalone || fieldTestMode || tripCompleted || setupGap);
+
   return (
     <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-5 pb-28 md:pb-0">
       <section className="overflow-hidden rounded-[1.25rem] border border-cloud bg-white text-ink shadow-[0_18px_50px_rgba(16,32,51,0.12)]">
@@ -1658,9 +1673,7 @@ export function LiveTripClient({
             </h1>
             <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
               {preTrip
-                ? trackingEnabled
-                  ? "This trip has not started. Review the plan and confirm anything still suggested — location is on, so Live Companion is ready when you are."
-                  : "This trip has not started. Review the plan, confirm anything still suggested, and enable location before you travel."
+                ? "This trip has not started. Review the plan and confirm anything still suggested."
                 : tripCompleted
                   ? "Live Companion does not start again after the trip ends. The saved plan stays here to review."
                   : activityDisplayDescription(currentActivity, model.activationReason)}
@@ -1677,10 +1690,12 @@ export function LiveTripClient({
                 <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
                 <p className="mt-1 text-sm font-black">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</p>
                 {model.route.status === "verified" ? <p className="mt-1 text-xs font-bold text-slate-500">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">Travel time from your location is still uncertain</p> : null}
-                <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                  <span className={classNames("h-1.5 w-1.5 rounded-full", gpsStatus.ok ? "bg-emerald-500" : "bg-sun")} aria-hidden="true" />
-                  {gpsStatus.copy}
-                </p>
+                {permission === "granted" ? (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                    <span className={classNames("h-1.5 w-1.5 rounded-full", gpsStatus.ok ? "bg-emerald-500" : "bg-sun")} aria-hidden="true" />
+                    {gpsStatus.copy}
+                  </p>
+                ) : null}
               </div>
               ) : null}
             </div>
@@ -1837,6 +1852,7 @@ export function LiveTripClient({
           </div>
 
           <div className="grid gap-3">
+            {showSetupCard ? (
             <section className="rounded-2xl border border-cloud bg-mist p-4">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
               {!mobileRuntime ? (
@@ -1914,14 +1930,14 @@ export function LiveTripClient({
                     </button>
                   ) : null}
                 </div>
-              ) : setupComplete ? (
+              ) : fieldTestMode && setupComplete ? (
                 <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
                   <h3 className="text-xl font-black text-ocean">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
                   <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Roamly will help you stay on track during your trip.</p>
                 </div>
               ) : tripCompleted ? (
                 <p className="mt-3 text-sm font-bold leading-6 text-slate-600">This trip is complete. Live Companion stays off.</p>
-              ) : !watching ? (
+              ) : fieldTestMode && !watching ? (
                 <>
                   <div className="mt-3 grid gap-2 text-sm font-black text-slate-700">
                     <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-slate-500">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
@@ -1932,11 +1948,21 @@ export function LiveTripClient({
                     {busy === "setup" ? "Setting up…" : fieldTestMode ? permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
                   </button>
                 </>
+              ) : setupGap ? (
+                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
+                  {setupGap.copy}{" "}
+                  <a href={setupGap.href} className="font-black text-ocean underline underline-offset-2">
+                    Finish setup in Settings
+                  </a>
+                </p>
               ) : null}
+              {fieldTestMode ? (
               <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
                 {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : backgroundLocationEnabled ? "Location access is ready for Live while Roamly is open." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : trackingEnabled ? "Location is on — Live Companion will follow along while Roamly is open." : "Your choices are saved to your account when you continue."}
               </p>
+              ) : null}
             </section>
+            ) : null}
 
             {liveDemoEnabled ? (
               <section className="rounded-2xl border border-amber-200/30 bg-amber-200/10 p-4">
