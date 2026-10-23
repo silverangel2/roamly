@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { TripBookingsList } from "@/components/roamly/TripBookingsManager";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
@@ -9,7 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getTripDayFromDate, isCompanionEligibleActivity } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
-import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
+import { formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
@@ -38,16 +37,8 @@ import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { evaluateConfirmedBookingCost } from "@/lib/roamly/bookings";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
-import { CompanionControlCard } from "@/components/roamly/CompanionControlCard";
-import CompanionRepairCenter from "@/components/roamly/CompanionRepairCenter";
-import CompanionEventTimeline from "@/components/roamly/CompanionEventTimeline";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
-
-function formatMoney(cents: number | null, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
-  if (cents == null) return "Not set";
-  return formatRoamlyCurrency(cents / 100, (currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
-}
 
 /** Short "Sep 7" / "Sep 7 - Sep 9" range for nav headers; a single-day trip
  *  shows one date instead of the redundant "Sep 7 - Sep 7". */
@@ -65,14 +56,6 @@ function daysUntil(date: string | null) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.ceil((start.getTime() - today.getTime()) / 86400000);
-}
-
-function countdownCopy(value: number | null, currentDay: number) {
-  if (value == null) return "Trip date not set";
-  if (value > 1) return `${value} days until Day 1`;
-  if (value === 1) return "Tomorrow is Day 1";
-  if (value === 0) return "Trip activated today";
-  return `Current travel day ${currentDay}`;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -238,7 +221,6 @@ export default async function LiveTripPage({
   const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
   const tripUpcoming = tripLifecycle === "upcoming";
   const tripDatesMissing = tripLifecycle === "missing_dates";
-  const companionPageStatus = tripCompleted ? "Completed" : tripUpcoming ? "Upcoming" : tripDatesMissing ? "Dates needed" : "Live";
   function bookingTime(row: Record<string, unknown>, dateKey: string, timeKey: string) {
     const date = getRowString(row, dateKey);
     const time = getRowString(row, timeKey);
@@ -431,13 +413,11 @@ export default async function LiveTripPage({
           title={bundle.data.trip.title || destinationLabel}
           destination={destinationLabel}
           dates={formatShortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date, locale)}
-          status={companionPageStatus}
         />
         <section className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[0.75rem] font-medium text-slate-500">{tripCompleted ? "Trip complete" : tripUpcoming ? "Coming up" : tripDatesMissing ? "Add trip dates" : "Active assistance"}</p>
             <h1 className="mt-1 text-[1.85rem] font-semibold tracking-[-0.03em] text-ink sm:text-4xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? (initialTrackingEnabled ? "Your companion is ready. Location is on — live assistance begins during your trip dates." : "Your companion is ready. Live assistance begins during your trip dates.") : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
@@ -478,183 +458,4 @@ export default async function LiveTripPage({
       </div>
     );
   }
-
-  return (
-    <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <TripContextNav
-        tripId={id}
-        title={bundle.data.trip.title || destinationLabel}
-        destination={destinationLabel}
-        dates={formatShortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date, locale)}
-        status="Today"
-      />
-      <section className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <Badge>Live Trip Companion</Badge>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Today in {destinationLabel}</h1>
-          <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
-            Day {currentDay}. Roamly can remind you about packing, documents, check-in times, and what&apos;s up next during your trip.
-          </p>
-        </div>
-        <Button href={`/trip/${id}`} tone="secondary">Full itinerary</Button>
-      </section>
-
-      <section className="mb-6 grid gap-4 border-y border-[#e8dfd0] bg-[#fffdf8]/70 py-5 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-[#e8dfd0]">
-        <div className="sm:px-5 sm:first:pl-0">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip activated</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">{countdownCopy(tripCountdown, currentDay)}</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Current day: Day {currentDay}</p>
-        </div>
-        <div className="sm:px-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Up next activity</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">{tripCompleted ? "Historical itinerary" : nextActivity?.title || "Flexible time"}</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            {tripCompleted ? "Live actions are unavailable after trip completion." : nextActivity?.time_label || nearbyActivity?.title || "Roamly will surface the next useful stop."}
-          </p>
-        </div>
-        <div className="sm:px-5 sm:last:pr-0">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Budget remaining</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">
-            {tripCompleted ? "History retained" : committedBudgetUncertain ? "Budget uncertain" : formatMoney(remainingBudgetCents, budgetCurrency, locale)}
-          </h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-                  {tripCompleted ? "Confirmed bookings and itinerary details remain available." : `Booked items: ${committedBudgetCents == null ? "Amount unavailable" : formatMoney(committedBudgetCents, budgetCurrency, locale)}`}
-          </p>
-        </div>
-      </section>
-
-      <section className="mb-6 grid gap-5 border-b border-[#e8dfd0] pb-5 lg:grid-cols-[1fr_0.9fr]">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Next reminder</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">
-            {tripCompleted ? "No active reminder" : companion.nextEvent?.title || "No scheduled reminder yet"}
-          </h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            {tripCompleted ? "Historical companion events remain available below." : companion.nextEvent?.body || "Roamly will keep your in-app timeline ready. Phone reminders are optional."}
-          </p>
-        </div>
-        <details className="border-l-2 border-ocean/30 bg-mist/45 px-4 py-3">
-          <summary className="min-h-11 cursor-pointer text-sm font-black text-ocean">Phone alerts</summary>
-          <div className="mt-2">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Phone alerts</p>
-          <h2 className="mt-2 text-xl font-black text-ink">Live Companion setup</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Complete the one-time mobile setup in the Live Companion panel. Phone push is the primary alert channel.</p>
-          </div>
-        </details>
-      </section>
-
-      {!tripCompleted ? (
-        <section className="mb-5">
-          <CompanionControlCard tripId={id} />
-        </section>
-      ) : null}
-
-      {!tripCompleted ? <section
-        id="companion-repairs"
-        className="mb-5"
-      >
-        <CompanionRepairCenter tripId={id} />
-      </section> : null}
-
-      <section className="mb-5">
-        <CompanionEventTimeline tripId={id} />
-      </section>
-
-      <section className="mb-5">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Companion timeline</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {(companion.timeline || []).slice(0, 8).map((event) => (
-              <article key={event.id} className="rounded-2xl bg-mist px-4 py-3">
-                <p className="text-sm font-black text-ink">{event.title || event.event_type}</p>
-                <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
-                  {[event.status, event.scheduled_for ? formatRoamlyDate(event.scheduled_for, locale, { dateStyle: "medium", timeStyle: "short" }) : null]
-                    .filter(Boolean)
-                    .join(" - ")}
-                </p>
-              </article>
-            ))}
-            {!companion.timeline?.length ? (
-              <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-                No scheduled companion events yet.
-              </p>
-            ) : null}
-          </div>
-        </Card>
-      </section>
-
-      <section className="mb-5 grid gap-4 lg:grid-cols-3">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Country/city info</p>
-          <h2 className="mt-2 text-xl font-black text-ink">{countryInfo.title || "Travel notes"}</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            {countryInfo.summary ||
-              "Document requirements can change. Please verify official government, embassy, airline, and destination sources before travel."}
-          </p>
-          <div className="mt-3 grid gap-2">
-            {(countryInfo.reminders || []).slice(0, 3).map((item) => (
-              <p key={item} className="rounded-2xl bg-mist px-3 py-2 text-xs font-black text-slate-600">{item}</p>
-            ))}
-          </div>
-        </Card>
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Packing checklist</p>
-          <div className="mt-3 grid gap-2">
-            {packingItems.slice(0, 6).map((item) => (
-              <p key={item} className="rounded-2xl bg-mist px-3 py-2 text-xs font-black text-slate-600">{item}</p>
-            ))}
-          </div>
-        </Card>
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Documents</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Document requirements can change. Please verify official sources before travel.
-          </p>
-          <div className="mt-3 grid gap-2">
-            {documents.slice(0, 6).map((item) => (
-              <p key={item} className="rounded-2xl bg-mist px-3 py-2 text-xs font-black text-slate-600">{item}</p>
-            ))}
-          </div>
-        </Card>
-      </section>
-
-      <section className="mb-5">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Booked items timeline</p>
-          <div className="mt-4">
-            <TripBookingsList tripId={id} bookings={bookingsResult.data || []} />
-          </div>
-        </Card>
-      </section>
-
-      {tripCompleted ? (
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip complete</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">Live Companion is closed for this trip</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
-        </Card>
-      ) : (
-        <LiveTripClient
-          tripId={id}
-          activities={dayActivities}
-          checklist={bundle.data.checklist}
-          canSimulateLocation={false}
-          destinationLabel={destinationLabel}
-          originLabel={getTripOriginLabel(bundle.data.trip)}
-          simulatorPlaces={simulatorPlaces}
-          tripStartDate={bundle.data.trip.start_date}
-          tripEndDate={bundle.data.trip.end_date}
-          transportationPreference={bundle.data.trip.transportation_preference}
-          hasConfirmedFlight={confirmedFlight}
-          timezone={tripTimezone}
-          companionEnabled={preferences.liveCompanionEnabled}
-          companionPausedUntil={preferences.liveCompanionPausedUntil}
-          backgroundLocationEnabled={preferences.backgroundLocationEnabled}
-          initialPermissionState={permissionState}
-          bookingDetails={bookingDetails}
-          liveDemoEnabled={false}
-        />
-      )}
-    </div>
-  );
 }
