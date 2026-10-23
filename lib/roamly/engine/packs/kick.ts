@@ -1,4 +1,4 @@
-import { drainQueuedBuilds, liveCollector, runBuildJob, type PackCollector } from "@/lib/roamly/engine/packs/builder";
+import { drainQueuedBuilds, KICK_BUILD_BUDGET_MS, liveCollector, type PackCollector } from "@/lib/roamly/engine/packs/builder";
 import type { PackStore } from "@/lib/roamly/engine/packs/store";
 
 /*
@@ -28,11 +28,17 @@ import type { PackStore } from "@/lib/roamly/engine/packs/store";
  *     (stale-pack refreshes stay the cron's job — a stale pack
  *     still serves, so no traveler is waiting on them).
  *   - No kick when a build is already claimed under a live lease.
- *     A "building" job whose lease has EXPIRED is kickable: its
- *     holder is gone, and the kick routes that one job straight to
- *     runBuildJob (the drain's own per-job unit — the drain's queue
- *     scan feeds it only "queued" jobs), whose claim steals it
- *     under the store's fencing rules.
+ *   - The kick NEVER steals a held job (2026-10-22/23 kill-loop
+ *     fix): a "building" job whose lease has EXPIRED is RECYCLED
+ *     to "queued" under the store's release fencing — never
+ *     built on — and the ordinary queued drain then starts it
+ *     fresh inside the kick budget. The steal is what re-armed
+ *     the kill loop, so it is gone from kick context entirely.
+ *   - Every kick build runs inside KICK_BUILD_BUDGET_MS (45 s):
+ *     when the collector outlasts the budget the job is released
+ *     back to "queued" (no failure recorded) instead of being
+ *     hard-killed mid-claim; the 300 s hourly cron does the real
+ *     build.
  *   - Stampede safety is the store's claim, not a lock here: the
  *     Supabase claim is a conditional UPDATE guarded by the job's
  *     current status (and, for a steal, its current lease_id +
@@ -63,10 +69,15 @@ export interface PackKickDecision {
   reason: PackKickReason;
   jobId: string | null;
   /** The live job's status when the decision was made. "building"
-   *  reaches the kick only with an expired lease (see decidePackKick)
-   *  and routes to a direct runBuildJob steal attempt: the drain's
-   *  queue scan feeds it only "queued" jobs by design. */
+   *  reaches the kick only with an expired lease (see decidePackKick):
+   *  runPackKick recycles it to "queued" via releaseBuild (never a
+   *  steal) and then runs the ordinary queued drain inside the kick
+   *  budget. */
   jobStatus: "queued" | "building" | null;
+  /** The job's current lease fencing token (set only when
+   *  jobStatus is "building"): runPackKick presents it to
+   *  releaseBuild. */
+  leaseId: string | null;
 }
 
 export interface PackKickResult {
@@ -84,32 +95,38 @@ export async function decidePackKick(
   now: Date = new Date()
 ): Promise<PackKickDecision> {
   const ready = await store.getReadyVersion(destinationId);
-  if (ready) return { kick: false, reason: "pack-ready", jobId: null, jobStatus: null };
+  if (ready) return { kick: false, reason: "pack-ready", jobId: null, jobStatus: null, leaseId: null };
   const jobs = await store.listBuildJobs(destinationId);
   // Enqueue coalescing guarantees at most one live job per
   // destination; the find is over that single candidate.
   const live = jobs.find((j) => j.status === "queued" || j.status === "building");
-  if (!live) return { kick: false, reason: "no-queued-build", jobId: null, jobStatus: null };
+  if (!live) return { kick: false, reason: "no-queued-build", jobId: null, jobStatus: null, leaseId: null };
   if (live.status === "building") {
     const leaseLive = live.lease !== null && new Date(live.lease.expiresAt).getTime() > now.getTime();
-    if (leaseLive) return { kick: false, reason: "build-in-flight", jobId: live.jobId, jobStatus: "building" };
-    // Expired lease: the holder stopped heartbeating and is gone.
-    // The job is claimable again — by steal, under fencing — so it
-    // is exactly as kickable as a queued one.
-    return { kick: true, reason: "queued-build-waiting", jobId: live.jobId, jobStatus: "building" };
+    if (leaseLive) return { kick: false, reason: "build-in-flight", jobId: live.jobId, jobStatus: "building", leaseId: null };
+    // Expired lease: the holder is gone. The kick recycles the
+    // job to "queued" (releaseBuild, fencing-guarded) instead of
+    // stealing it — see runPackKick. It is exactly as kickable as
+    // a queued one, with none of the steal's kill-loop risk.
+    return { kick: true, reason: "queued-build-waiting", jobId: live.jobId, jobStatus: "building", leaseId: live.lease ? live.lease.leaseId : null };
   }
-  return { kick: true, reason: "queued-build-waiting", jobId: live.jobId, jobStatus: "queued" };
+  return { kick: true, reason: "queued-build-waiting", jobId: live.jobId, jobStatus: "queued", leaseId: null };
 }
 
 export interface RunPackKickOptions {
   collectorFor?: (destinationId: string) => PackCollector;
   workerId?: string;
+  /** Override for the kick-scoped build budget (default
+   *  KICK_BUILD_BUDGET_MS); tests use short budgets. */
+  kickBudgetMs?: number;
 }
 
 /** Decide, and when the decision is to kick, drain this
  *  destination's queued build through the same drain the cron
- *  calls. Never throws: a failed drain is a returned error, and
- *  the caller's trip stays honestly waiting either way. */
+ *  calls — with the kick budget so a metro-scale build can never
+ *  be hard-killed mid-claim. Never throws: a failed drain is a
+ *  returned error, and the caller's trip stays honestly waiting
+ *  either way. */
 export async function runPackKick(
   store: PackStore,
   destinationId: string,
@@ -119,16 +136,23 @@ export async function runPackKick(
   if (!decision.kick || !decision.jobId) return { decision, publishedPackVersionIds: [], error: null };
   const collectorFor = options.collectorFor ?? (() => liveCollector());
   const workerId = options.workerId ?? "pack-kick";
+  const kickBudgetMs = options.kickBudgetMs ?? KICK_BUILD_BUDGET_MS;
   try {
     if (decision.jobStatus === "building") {
-      // Expired-lease steal: runBuildJob's claim is the arbiter — it
-      // steals under fencing, or returns null if a fresh claim raced
-      // in first (published nothing, no error: someone else owns
-      // the build now, which is the honest outcome).
-      const done = await runBuildJob(store, decision.jobId, collectorFor(destinationId), { workerId });
-      return { decision, publishedPackVersionIds: done ? [done.dto.packVersionId] : [], error: null };
+      // Expired-lease recycle (kill-loop fix): yield the dead job
+      // back to "queued" under release fencing instead of stealing
+      // the build. A lost race (null) means someone else recycled
+      // it first — the honest outcome either way is "the queue
+      // owns the job", so continue to the ordinary queued drain.
+      if (decision.leaseId) {
+        await store.releaseBuild(decision.jobId, decision.leaseId);
+      }
     }
-    const published = await drainQueuedBuilds(store, collectorFor, { workerId, onlyDestinationId: destinationId });
+    const published = await drainQueuedBuilds(store, collectorFor, {
+      workerId,
+      onlyDestinationId: destinationId,
+      kickBudgetMs
+    });
     return { decision, publishedPackVersionIds: published.map((v) => v.dto.packVersionId), error: null };
   } catch (err) {
     return { decision, publishedPackVersionIds: [], error: err instanceof Error ? err.message : String(err) };

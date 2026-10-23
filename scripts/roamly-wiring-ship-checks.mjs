@@ -27,7 +27,6 @@
 // constraints (including the builds live-job partial index), and
 // trigger-maintained updated_at on the tables that carry one.
 
-import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 let passed = 0;
@@ -568,6 +567,27 @@ async function packScenario(store, clock, builder) {
   const v3 = await store.beginVersion(fvJob.job.jobId, fvLease.leaseId, "cls-1", 1);
   push("failVersion", projVersion(await store.failVersion(v3.dto.packVersionId, fvJob.job.jobId, fvLease.leaseId, "bad collect")));
   push("failVersion-job", projJob(await store.getBuildJob(fvJob.job.jobId)));
+
+  // releaseBuild paths (kill-loop fix, 2026-10-22/23): a claimed
+  // job yields back to "queued" with no failure recorded. Release
+  // of a non-held job is a quiet null (claimBuild's style), and an
+  // unknown job throws JOB_NOT_FOUND.
+  const relJob = await store.enqueueBuild(TESTVILLE.destinationId, "release-probe");
+  const relLease = await store.claimBuild(relJob.job.jobId, "worker-a", 60000);
+  push("release-not-held", await store.releaseBuild(relJob.job.jobId, "packlease-wrong"));
+  push("release-yield", projJob(await store.releaseBuild(relJob.job.jobId, relLease.leaseId)));
+  // A released job is claimable again and — crucially for the
+  // kill-loop fix — visible to the queued-only drain (the cron's
+  // reclaim path): release the re-claim too, then drain it through
+  // the real builder.
+  const relLease2 = await store.claimBuild(relJob.job.jobId, "worker-b", 60000);
+  push("release-then-claimable", relLease2 !== null);
+  push("release-again", projJob(await store.releaseBuild(relJob.job.jobId, relLease2.leaseId)));
+  await throwsCode(() => store.releaseBuild("packjob-missing", "packlease-x"), "JOB_NOT_FOUND", "release missing job");
+  const reclaimed = await builder.drainQueuedBuilds(store, () => async () => ({ candidates: [CANDS[0]], provenance: PROVENANCE }), {
+    workerId: "scenario-reclaim"
+  });
+  push("release-reclaimed-by-drain", reclaimed.map((v) => ({ destinationId: v.dto.destinationId, version: v.version })));
 
   // Weather layer.
   const wx = {
