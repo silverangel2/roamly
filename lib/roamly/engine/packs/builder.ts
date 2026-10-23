@@ -245,6 +245,13 @@ export interface RunBuildOptions {
   /** Heartbeat cadence is the caller's concern in production (the
    *  cron drains short builds); the service claims once and the
    *  collector is expected to finish inside the lease. */
+  /** Drain filter (pack-kick, 2026-10-22): when set, drainQueuedBuilds
+   *  runs only this destination's queued jobs. The cron calls the
+   *  drain unfiltered (every queued destination, oldest first —
+   *  unchanged); the in-process kick calls it filtered, so one
+   *  waiting trip starts ONE bounded build instead of re-draining
+   *  the whole queue inside a traveler's request lifecycle. */
+  onlyDestinationId?: string;
 }
 
 /**
@@ -305,6 +312,7 @@ export async function drainQueuedBuilds(
   const published: PackVersionRecord[] = [];
   for (const job of jobs) {
     if (job.status !== "queued") continue;
+    if (options.onlyDestinationId && job.destinationId !== options.onlyDestinationId) continue;
     const done = await runBuildJob(store, job.jobId, collectorFor(job.destinationId), options);
     if (done) published.push(done);
   }

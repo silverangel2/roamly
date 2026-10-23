@@ -81,7 +81,8 @@ import { solveTrip, type MustSeeSpec, type SolveResult } from "@/lib/roamly/engi
 import { extractConstraints, namedMustSeeMiss, type ExtractedConstraints } from "@/lib/roamly/engine/understand";
 import { fmt, isoPlus, parseHhmm, type EngineDay, type EngineItem, type EnginePack } from "@/lib/roamly/engine/util";
 import { predictionId } from "@/lib/roamly/engine/ids";
-import { assemblePinnedEnginePack, readServingPack } from "@/lib/roamly/engine/packs/builder";
+import { assemblePinnedEnginePack, readServingPack, type PackCollector } from "@/lib/roamly/engine/packs/builder";
+import { runPackKick } from "@/lib/roamly/engine/packs/kick";
 import { destinationRegistryId } from "@/lib/roamly/engine/packs/destinations";
 import { PackStoreError } from "@/lib/roamly/engine/packs/types";
 import {
@@ -492,6 +493,33 @@ export interface EngineRuntimeDeps {
   store: EngineGenerationStore;
   packStore: PackStore;
   placesService: PlacesEnrichmentService | null;
+  /** Post-response scheduler for the pack-build kick (see
+   *  EngineAdvanceDeps.packKickScheduler). Production wires it to
+   *  Next's after() below. */
+  packKickScheduler?: (task: () => Promise<void>) => void;
+}
+
+/** The production pack-kick scheduler: the drain runs as
+ *  post-response work via Next's after(), so a waiting trip's wake
+ *  returns immediately while its destination's build starts in the
+ *  same function invocation's tail. The dynamic import keeps this
+ *  module free of a static next/server dependency (the check
+ *  harnesses load it under plain node); outside a Next request
+ *  scope — never in production routing — the kick degrades to a
+ *  detached task rather than being dropped: the drain is
+ *  claim-guarded, so a duplicate attempt is harmless, and the
+ *  hourly pack-refresh cron remains the backstop either way. */
+function schedulePackKickAfterResponse(task: () => Promise<void>): void {
+  void (async () => {
+    try {
+      const { after } = await import("next/server");
+      after(async () => {
+        await task();
+      });
+    } catch {
+      await task();
+    }
+  })();
 }
 
 export function buildEngineRuntimeDeps(supabase: SupabaseClient): EngineRuntimeDeps | null {
@@ -508,7 +536,12 @@ export function buildEngineRuntimeDeps(supabase: SupabaseClient): EngineRuntimeD
     scope: PLACES_LEDGER_PRODUCTION_SCOPE,
     caps: capsFromEnv(process.env)
   });
-  return { store: createSupabaseEngineGenerationStore(supabase), packStore, placesService };
+  return {
+    store: createSupabaseEngineGenerationStore(supabase),
+    packStore,
+    placesService,
+    packKickScheduler: schedulePackKickAfterResponse
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1278,6 +1311,18 @@ export interface EngineAdvanceDeps {
    *  Optional: production asks Open-Meteo (timezone=auto) and
    *  degrades to UTC; checks inject a fixed zone. */
   timeZoneForCoords?: (centre: { lat: number; lon: number }) => Promise<string>;
+  /** Pack-build kick scheduler (2026-10-22): when the outline
+   *  stage leaves a trip waiting on a queued pack build, the kick
+   *  drain is handed to this scheduler so it runs as post-response
+   *  work and never blocks the traveler's wake. Optional:
+   *  production's deps factory injects Next's after(); checks
+   *  inject a recorder; ABSENT means no kick — the pre-kick
+   *  behavior, where only the hourly cron drains the queue. */
+  packKickScheduler?: (task: () => Promise<void>) => void;
+  /** Collector factory for kicked drains. Optional: production
+   *  uses runPackKick's default (the live Overpass collector);
+   *  checks inject a fake. */
+  packCollectorFor?: (destinationId: string) => PackCollector;
 }
 
 export type EngineAdvanceResult = {
@@ -1398,6 +1443,51 @@ export async function autoRegisterDestination(deps: EngineAdvanceDeps, payload: 
 
 /* ------------------------- outline stage ------------------------- */
 
+/** Pack-build kick (2026-10-22): the outline stage is about to
+ *  leave this trip waiting on a queued pack build — hand the
+ *  destination's drain to the post-response scheduler so the
+ *  build STARTS now instead of at the next hourly cron tick. This
+ *  one seam covers both the enqueue wake (the serving read just
+ *  created the job) and every later wake of the still-waiting
+ *  trip (the read coalesces onto the same job; decidePackKick
+ *  inside runPackKick suppresses the kick when the build is
+ *  already claimed or a pack has since published). Scheduling is
+ *  fire-and-forget by construction and can never fail the wake:
+ *  no scheduler injected ⇒ no kick (the pre-kick behavior); a
+ *  throwing scheduler is caught and logged, and the drain's own
+ *  failures ride runPackKick's result, never an exception. The
+ *  outcome line is the runtime-log evidence of the attempt. */
+function schedulePackBuildKick(deps: EngineAdvanceDeps, destinationId: string, tripId: string): void {
+  const schedule = deps.packKickScheduler;
+  if (!schedule) return;
+  try {
+    schedule(async () => {
+      const result = await runPackKick(deps.packStore, destinationId, { collectorFor: deps.packCollectorFor });
+      console.log(
+        JSON.stringify({
+          event: "roamly_pack_kick",
+          tripId,
+          destinationId,
+          kick: result.decision.kick,
+          reason: result.decision.reason,
+          jobId: result.decision.jobId,
+          published: result.publishedPackVersionIds,
+          error: result.error
+        })
+      );
+    });
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "roamly_pack_kick_schedule_failed",
+        tripId,
+        destinationId,
+        error: err instanceof Error ? err.message : String(err)
+      })
+    );
+  }
+}
+
 async function runOutlineStage(params: {
   deps: EngineAdvanceDeps;
   trip: EngineTripRow;
@@ -1422,9 +1512,13 @@ async function runOutlineStage(params: {
     // Cold destination: a build is enqueued by the read itself; the
     // job waits (the worker releases it) and a later wake retries —
     // a customer request never blocks on a pack build (DESIGN §2.2).
+    // The kick (above) starts that enqueued build as post-response
+    // work, so the wait is the build's own duration, not the time
+    // until the hourly drain happens to tick.
     run = { ...run, destinationId, packWaitCount: run.packWaitCount + 1 };
     const waiting = releaseLease({ ...state, status: "queued", currentStage: "generating_outline", updatedAt: nowIso() });
     await deps.store.persistState(trip, waiting, run);
+    schedulePackBuildKick(deps, destinationId, state.tripId);
     return { ok: true, status: waiting.status, state: waiting, advanced: false, busy: true, waitingForPack: true, stage: "outline" };
   }
 
