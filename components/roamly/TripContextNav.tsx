@@ -138,10 +138,10 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
       {showContext ? (
         <div className="flex min-w-0 items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-ink">{title}</p>
-            <p className="truncate text-xs font-medium text-slate-500">{destination} · {dates}</p>
+            <p className="truncate text-sm font-semibold text-chead">{title}</p>
+            <p className="truncate text-xs font-normal text-cgray">{destination} · {dates}</p>
           </div>
-          {status ? <span className="hidden shrink-0 rounded-full bg-mist px-3 py-1 text-xs font-bold text-slate-600 sm:inline-flex">{status}</span> : null}
+          {status ? <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-cgray sm:inline-flex"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-chead" />{status}</span> : null}
         </div>
       ) : null}
       <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}roamly-trip-tabs min-w-0`}>
@@ -170,10 +170,10 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
                 }
               }}
               aria-current={selected ? "page" : undefined}
-              className={`roamly-press inline-flex min-h-11 shrink-0 snap-start items-center justify-center rounded-full px-3.5 py-2 text-center text-sm font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 ${
+              className={`roamly-press inline-flex min-h-11 shrink-0 snap-start items-center justify-center rounded-full px-3.5 py-2 text-center text-sm font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
                 selected
-                  ? "bg-ink text-white"
-                  : "text-slate-500 hover:bg-white/80 hover:text-ink"
+                  ? "bg-chead text-white"
+                  : "text-cgray hover:bg-white/80 hover:text-chead"
               }`}
             >
               {destinationItem.label}

@@ -29,9 +29,9 @@ export default async function NotificationsPage() {
 
   if (!current.configured || !current.user) {
     return (
-      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="calm-bleed safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
-          <h1 className="text-3xl font-black text-ink">Notifications need an account.</h1>
+          <h1 className="text-[26px] font-bold tracking-[-0.018em] text-chead">Notifications need an account.</h1>
           <div className="mt-5">
             <Button href="/login?next=/notifications">Log in</Button>
           </div>
@@ -128,14 +128,14 @@ export default async function NotificationsPage() {
 
   if (!trip) {
     return (
-      <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      <div className="calm-bleed safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
         <NotificationShellStateBridge activeTripId="" unreadCount={unreadNotifications.count || 0} />
         <section className="mb-6">
           <NotificationTimelineCard initialItems={notificationItems} />
         </section>
         <Card>
-          <h1 className="text-3xl font-black text-ink">No current trip to show.</h1>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+          <h1 className="text-[26px] font-bold tracking-[-0.018em] text-chead">No current trip to show.</h1>
+          <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Reminders and check-ins stay with the trip they belong to. Open a trip to see its own updates.
           </p>
           <div className="mt-5">
@@ -206,10 +206,10 @@ export default async function NotificationsPage() {
     : null;
 
   return (
-    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 pb-28 sm:px-6">
+    <div className="calm-bleed safe-bottom mx-auto w-full max-w-6xl px-4 py-8 pb-28 sm:px-6">
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
       {companionOn ? <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} tripStarted={tripStarted} presentation={presentation} /> : null}
-      <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">
+      <p className="mt-4 text-[15px] font-normal leading-[1.45] text-cgray">
         {companionOn
           ? "Live Companion is unlocked on this trip. These reminders and check-ins are for this trip only."
           : "Live Companion is not unlocked on this trip. These reminders belong to this trip only."}
@@ -226,8 +226,8 @@ export default async function NotificationsPage() {
       </section>
       ) : (
         <Card className="mt-6">
-          <h1 className="text-2xl font-black text-ink">Reminders stay with this trip.</h1>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+          <h1 className="text-[22px] font-bold tracking-[-0.018em] text-chead">Reminders stay with this trip.</h1>
+          <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Check-ins and Live Companion tools appear here after Live Companion is unlocked for this trip. Nothing on this page comes from another trip.
           </p>
         </Card>
@@ -249,24 +249,22 @@ export default async function NotificationsPage() {
       </section>
       ) : null}
 
-      <section className="mt-5">
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{companionOn ? "Live Companion updates" : "Trip updates"}</p>
-          <div className="mt-4 grid gap-3">
-            {(events.data || []).length ? (
-              (events.data || []).map((event) => (
-                <div key={event.id} className="rounded-2xl bg-mist px-4 py-3">
-                  <p className="text-sm font-black text-ink">{event.event_title || event.event_type}</p>
-                  <p className="mt-1 text-sm font-bold text-slate-500">{event.event_body}</p>
-                </div>
-              ))
-            ) : (
-              <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-                No trip events yet.
-              </p>
-            )}
-          </div>
-        </Card>
+      <section className="mt-6">
+        <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{companionOn ? "Live Companion updates" : "Trip updates"}</p>
+        <div className="divide-y divide-chair overflow-hidden rounded-[14px] bg-white shadow-calm">
+          {(events.data || []).length ? (
+            (events.data || []).map((event) => (
+              <div key={event.id} className="px-4 py-3">
+                <p className="text-[16.5px] font-semibold leading-[1.3] text-chead">{event.event_title || event.event_type}</p>
+                <p className="mt-0.5 text-[14.5px] font-normal leading-[1.35] text-cgray">{event.event_body}</p>
+              </div>
+            ))
+          ) : (
+            <p className="px-4 py-3 text-[15px] font-normal text-cgray">
+              No trip events yet.
+            </p>
+          )}
+        </div>
       </section>
     </div>
   );

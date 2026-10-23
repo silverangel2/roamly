@@ -18,27 +18,25 @@ type NotificationItem = {
   delivery_channel?: string | null;
 };
 
+/* Delivery state in the calm language: a small dot + word, never a
+   colored pill. The dot carries the semantics (green sent, blue
+   sending, amber waiting, red issue, gray in-app only). */
 function deliveryLabel(status: string | null | undefined, channel: string | null | undefined, t: (key: string, fallback?: string) => string) {
   if (!status) {
-    return {
-      label: t("ui.status.inAppOnly"),
-      className: "bg-white text-slate-500 ring-1 ring-cloud"
-    };
+    return { label: t("ui.status.inAppOnly"), dot: "bg-cgray2" };
   }
 
   if (["sent", "delivered", "captured"].includes(status)) {
     return {
       label: channel === "push" ? t("ui.status.pushSent", "Push delivered") : t("ui.status.emailSent"),
-      className:
-        "bg-emerald-100 text-emerald-800"
+      dot: "bg-cgreen"
     };
   }
 
   if (status === "sending") {
     return {
       label: channel === "push" ? t("ui.status.sendingPush", "Sending push") : t("ui.status.sendingEmail"),
-      className:
-        "bg-sky-100 text-sky-800"
+      dot: "bg-cblue"
     };
   }
 
@@ -48,24 +46,15 @@ function deliveryLabel(status: string | null | undefined, channel: string | null
         status === "retrying"
           ? channel === "push" ? t("ui.status.retryingPush", "Retrying push") : t("ui.status.retryingEmail")
           : channel === "push" ? t("ui.status.pushQueued", "Push queued") : t("ui.status.emailQueued"),
-      className:
-        "bg-amber-100 text-amber-800"
+      dot: "bg-[#FF9500]"
     };
   }
 
   if (["failed", "suppressed"].includes(status)) {
-    return {
-      label: t("ui.status.deliveryIssue"),
-      className:
-        "bg-coral/10 text-coral"
-    };
+    return { label: t("ui.status.deliveryIssue"), dot: "bg-cred" };
   }
 
-  return {
-    label: t("ui.status.inAppAvailable"),
-    className:
-      "bg-white text-slate-500 ring-1 ring-cloud"
-  };
+  return { label: t("ui.status.inAppAvailable"), dot: "bg-cgray2" };
 }
 
 function notificationTypeLabel(type: string) {
@@ -74,6 +63,26 @@ function notificationTypeLabel(type: string) {
     .replace(/\b\w/g, (letter) =>
       letter.toUpperCase()
     );
+}
+
+/* Row time in the mock's register: a clock time today, "Yesterday",
+   then a short date. Presentation only — the row's data is unchanged. */
+function rowTime(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  }
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
+}
+
+function isTodayItem(iso: string) {
+  const date = new Date(iso);
+  return !Number.isNaN(date.getTime()) && date.toDateString() === new Date().toDateString();
 }
 
 /** Info reminders carry their whole message in the card's title + body — the
@@ -151,125 +160,126 @@ export function NotificationTimelineCard({
     }
   }
 
+  const todayRows = items.filter((item) => isTodayItem(item.created_at));
+  const earlierRows = items.filter((item) => !isTodayItem(item.created_at));
+  const groups: Array<{ key: string; label: string | null; rows: NotificationItem[] }> = [];
+  if (todayRows.length) {
+    groups.push({ key: "today", label: earlierRows.length ? t("ui.notifications.today", "Today") : null, rows: todayRows });
+  }
+  if (earlierRows.length) {
+    groups.push({ key: "earlier", label: todayRows.length ? t("ui.notifications.earlier", "Earlier") : null, rows: earlierRows });
+  }
+
+  const actionLinkClass = "text-sm font-semibold text-cblue";
+
+  function renderRow(item: NotificationItem) {
+    const delivery = deliveryLabel(item.delivery_status, item.delivery_channel, t);
+    const unread = item.status !== "read";
+    return (
+      <article key={item.id} className="px-4 py-3">
+        <div className="flex items-start gap-2.5">
+          <span
+            aria-hidden
+            className={`mt-[7px] h-[9px] w-[9px] shrink-0 rounded-full ${unread ? "bg-chead" : "bg-transparent"}`}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-3">
+              <h3
+                className={`min-w-0 flex-1 text-[16.5px] leading-[1.3] ${
+                  unread ? "font-semibold text-chead" : "font-normal text-cink"
+                }`}
+              >
+                {item.title}
+              </h3>
+              <span className="shrink-0 text-[13.5px] font-normal text-cgray2">{rowTime(item.created_at)}</span>
+            </div>
+
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] font-normal text-cgray">
+              <span className="uppercase tracking-[0.04em]">{notificationTypeLabel(item.type)}</span>
+              <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${delivery.dot}`} />
+              <span>{delivery.label}</span>
+            </p>
+
+            {item.body ? (
+              <p
+                className={`mt-1 text-[14.5px] font-normal leading-[1.35] text-cgray ${
+                  isInfoNotification(item) && !expandedIds.has(item.id) ? "line-clamp-3" : ""
+                }`}
+              >
+                {item.body}
+              </p>
+            ) : null}
+
+            {item.delivery_channel === "email" && ["failed", "suppressed"].includes(item.delivery_status || "") ? (
+              <p className="mt-2 rounded-xl bg-cred/10 px-3 py-2 text-xs font-normal leading-5 text-cink">
+                {t("ui.status.alertEmailUnavailable")}
+              </p>
+            ) : null}
+            {item.delivery_channel === "push" && ["failed", "suppressed"].includes(item.delivery_status || "") ? (
+              <p className="mt-2 rounded-xl bg-cred/10 px-3 py-2 text-xs font-normal leading-5 text-cink">
+                {t("ui.status.alertPushUnavailable", "This push notification could not be delivered. You can still read it here.")}
+              </p>
+            ) : null}
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+              {isInfoNotification(item) && item.trip_id && item.event_id ? (
+                <a
+                  href={`/trip/${item.trip_id}/event/${item.event_id}`}
+                  onClick={() => {
+                    if (item.status !== "read") void markRead(item.id);
+                  }}
+                  className={actionLinkClass}
+                >
+                  {t("ui.actions.open")}
+                </a>
+              ) : isInfoNotification(item) ? (
+                <button type="button" onClick={() => toggleExpanded(item)} className={actionLinkClass}>
+                  {expandedIds.has(item.id) ? t("ui.actions.close", "Close") : t("ui.actions.open")}
+                </button>
+              ) : item.action_url && item.action_state !== "history" && item.action_state !== "unavailable" ? (
+                <a href={item.action_url} className={actionLinkClass}>
+                  {t("ui.actions.open")}
+                </a>
+              ) : null}
+
+              {!isInfoNotification(item) && item.action_state === "history" ? (
+                <span className="text-sm font-normal text-cgray2">History only</span>
+              ) : null}
+
+              {unread ? (
+                <button type="button" onClick={() => void markRead(item.id)} className={actionLinkClass}>
+                  {t("ui.actions.markRead")}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
-    <div className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+    <div>
+      <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">
         {t("ui.status.notificationTimeline")}
       </p>
 
-      <div className="mt-4 grid gap-3">
-        {items.length ? (
-          items.map((item) => {
-            const delivery =
-              deliveryLabel(item.delivery_status, item.delivery_channel, t);
-
-            return (
-              <article
-                key={item.id}
-                className="rounded-2xl bg-mist p-4"
-              >
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                        {notificationTypeLabel(
-                          item.type
-                        )}
-                      </span>
-
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-black ${delivery.className}`}
-                      >
-                        {delivery.label}
-                      </span>
-
-                      {item.status !== "read" ? (
-                        <span className="rounded-full bg-ocean/10 px-2.5 py-1 text-[11px] font-black text-ocean">
-                          {t("ui.status.unread")}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <h3 className="mt-2 text-lg font-black text-ink">
-                      {item.title}
-                    </h3>
-
-                    {item.body ? (
-                      <p className={`mt-1 text-sm font-bold leading-6 text-slate-600 ${isInfoNotification(item) && !expandedIds.has(item.id) ? "line-clamp-3" : ""}`}>
-                        {item.body}
-                      </p>
-                    ) : null}
-
-                    {item.delivery_channel === "email" && ["failed", "suppressed"].includes(
-                      item.delivery_status || ""
-                    ) ? (
-                      <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-600 ring-1 ring-cloud">
-                        {t("ui.status.alertEmailUnavailable")}
-                      </p>
-                    ) : null}
-                    {item.delivery_channel === "push" && ["failed", "suppressed"].includes(item.delivery_status || "") ? (
-                      <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-600 ring-1 ring-cloud">
-                        {t("ui.status.alertPushUnavailable", "This push notification could not be delivered. You can still read it here.")}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {isInfoNotification(item) && item.trip_id && item.event_id ? (
-                      <a
-                        href={`/trip/${item.trip_id}/event/${item.event_id}`}
-                        onClick={() => {
-                          if (item.status !== "read") void markRead(item.id);
-                        }}
-                        className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
-                      >
-                        {t("ui.actions.open")}
-                      </a>
-                    ) : isInfoNotification(item) ? (
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(item)}
-                        className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
-                      >
-                        {expandedIds.has(item.id) ? t("ui.actions.close", "Close") : t("ui.actions.open")}
-                      </button>
-                    ) : item.action_url && item.action_state !== "history" && item.action_state !== "unavailable" ? (
-                      <a
-                        href={item.action_url}
-                        className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
-                      >
-                        {t("ui.actions.open")}
-                      </a>
-                    ) : null}
-
-                    {!isInfoNotification(item) && item.action_state === "history" ? (
-                      <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">
-                        History only
-                      </span>
-                    ) : null}
-
-                    {item.status !== "read" ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void markRead(item.id)
-                        }
-                        className="rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 px-3 py-2 text-xs font-black text-white shadow-lg shadow-cyan-500/20"
-                      >
-                        {t("ui.actions.markRead")}
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            );
-          })
-        ) : (
-          <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
-            {t("ui.status.noNotifications")}
-          </p>
-        )}
-      </div>
+      {items.length ? (
+        groups.map((group) => (
+          <div key={group.key} className="mb-5 last:mb-0">
+            {group.label ? (
+              <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{group.label}</p>
+            ) : null}
+            <div className="divide-y divide-chair overflow-hidden rounded-[14px] bg-white shadow-calm">
+              {group.rows.map(renderRow)}
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
+          <p className="px-4 py-3 text-[15px] font-normal text-cgray">{t("ui.status.noNotifications")}</p>
+        </div>
+      )}
     </div>
   );
 }

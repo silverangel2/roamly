@@ -1590,22 +1590,22 @@ export function LiveTripClient({
   const showSetupCard = Boolean(!mobileRuntime || !isStandalone || fieldTestMode || tripCompleted || setupGap);
 
   return (
-    <div className="roamly-enter mx-auto grid w-full max-w-5xl gap-5 pb-28 md:pb-0">
-      <section className="overflow-hidden rounded-[1.25rem] border border-cloud bg-white text-ink shadow-[0_18px_50px_rgba(16,32,51,0.12)]">
-        <div className="border-b border-cloud px-4 py-3">
+    <div className="calm-enter mx-auto grid w-full max-w-5xl gap-5 pb-28 md:pb-0">
+      <section className="text-cink">
+        <div className="px-1 pb-1 pt-1">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-slate-500">{t("ui.status.liveCompanion")}</p>
-              <p className="mt-1 text-sm font-black">{activeDestinationLabel || t("ui.nav.trips")}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.liveCompanion")}</p>
+              <p className="mt-1 text-[15px] font-semibold text-chead">{activeDestinationLabel || t("ui.nav.trips")}</p>
             </div>
-            <span
-              className={classNames(
-                "rounded-full border px-3 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.1em]",
-                model.activationStatus === "active"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-cloud bg-mist text-slate-600"
-              )}
-            >
+            <span className="flex shrink-0 items-center gap-1.5 text-[13.5px] font-normal text-cgray">
+              <span
+                aria-hidden
+                className={classNames(
+                  "calm-dot h-2 w-2 rounded-full",
+                  model.activationStatus === "active" ? "bg-cgreen" : "bg-cgray2"
+                )}
+              />
               {statusLabel(model.activationStatus)}
             </span>
           </div>
@@ -1613,20 +1613,20 @@ export function LiveTripClient({
 
         {preTrip ? (
           trackingEnabled ? (
-            <div className="border-b border-cloud bg-mist px-4 py-3">
-              <p className="text-sm font-semibold text-slate-600">
+            <div className="mt-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
+              <p className="text-sm font-normal text-cink">
                 Location on — Live Companion starts {companionStartLabel || "when your trip starts"}.
               </p>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
-              <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
+              <p className="min-w-0 text-sm font-normal leading-6 text-cink">
                 Location is off. Turn it on once — Live Companion will be ready when your trip starts.
               </p>
               <button
                 type="button"
                 onClick={() => enableLocation()}
-                className="min-h-11 shrink-0 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+                className="min-h-11 shrink-0 rounded-xl bg-cblue px-4 py-2.5 text-sm font-semibold text-white"
               >
                 Turn on location
               </button>
@@ -1634,27 +1634,27 @@ export function LiveTripClient({
           )
         ) : tripWindowActive ? (
           !trackingEnabled ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
-              <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
+              <p className="min-w-0 text-sm font-normal leading-6 text-cink">
                 Location is off — Live Companion can&apos;t follow along.
               </p>
               <button
                 type="button"
                 onClick={() => enableLocation()}
-                className="min-h-11 shrink-0 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+                className="min-h-11 shrink-0 rounded-xl bg-cblue px-4 py-2.5 text-sm font-semibold text-white"
               >
                 Turn on location
               </button>
             </div>
           ) : permission === "denied" ? (
-            <div className="border-b border-cloud bg-mist px-4 py-3">
-              <p className="text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
+              <p className="text-sm font-normal leading-6 text-cink">
                 Location is on, but your browser is blocking it. Allow location for Roamly in your browser settings, then return here.
               </p>
             </div>
           ) : permission !== "granted" ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
-              <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
+              <p className="min-w-0 text-sm font-normal leading-6 text-cink">
                 Location is on for this trip — this browser still needs to allow it.
               </p>
               {/* The grant ask lives in one place only — the Settings
@@ -1662,7 +1662,7 @@ export function LiveTripClient({
                   shows the state and points there. */}
               <a
                 href="/account#setup-step-3"
-                className="inline-flex min-h-11 shrink-0 items-center rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+                className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-cblue px-4 py-2.5 text-sm font-semibold text-white"
               >
                 Turn on in Settings
               </a>
@@ -1670,13 +1670,13 @@ export function LiveTripClient({
           ) : null
         ) : null}
 
-        <div className="grid gap-4 p-4 md:grid-cols-[1.15fr_0.85fr] md:p-6">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-lagoon">{preTrip ? "Get ready" : tripCompleted ? "Completed" : t("ui.status.now", "Now")}</p>
-            <h1 className="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-5xl">
+        <div className="mt-4 grid items-start gap-4 md:grid-cols-[1.15fr_0.85fr]">
+          <div className="min-w-0 rounded-[14px] bg-white p-4 shadow-calm sm:p-5">
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{preTrip ? "Get ready" : tripCompleted ? "Completed" : t("ui.status.now", "Now")}</p>
+            <h1 className="mt-1.5 text-[30px] font-bold leading-[1.12] tracking-[-0.022em] text-chead sm:text-4xl">
               {preTrip ? timingCopy(model.countdownMinutes, nextStart, timezone, locale) : tripCompleted ? "This trip is complete" : activityDisplayTitle(currentActivity, "Your next stop is not confirmed yet", activeDestinationLabel, suppressFlightFraming, originLabel || "")}
             </h1>
-            <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+            <p className="mt-3 text-[15px] font-normal leading-[1.45] text-cink">
               {preTrip
                 ? "This trip has not started. Review the plan and confirm anything still suggested."
                 : tripCompleted
@@ -1685,18 +1685,18 @@ export function LiveTripClient({
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Next</p>
-                <p className="mt-1 text-sm font-semibold leading-5">{displayedNextTitle}</p>
-                {nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
+              <div className="rounded-xl bg-cbg px-3 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-cgray">Next</p>
+                <p className="mt-1 text-sm font-semibold leading-5 text-chead">{displayedNextTitle}</p>
+                {nextActivity ? <p className="mt-1 text-xs font-normal text-cgray">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               {!preTrip ? (
-              <div className="rounded-2xl border border-cloud bg-mist px-3 py-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">Timing</p>
-                <p className="mt-1 text-sm font-black">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</p>
-                {model.route.status === "verified" ? <p className="mt-1 text-xs font-bold text-slate-500">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-bold text-slate-500">Travel time from your location is still uncertain</p> : null}
+              <div className="rounded-xl bg-cbg px-3 py-3">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-cgray">Timing</p>
+                <p className="mt-1 text-sm font-semibold text-chead">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</p>
+                {model.route.status === "verified" ? <p className="mt-1 text-xs font-normal text-cgray">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-normal text-cgray">Travel time from your location is still uncertain</p> : null}
                 {permission === "granted" ? (
-                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-slate-500">
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-normal text-cgray">
                     <span className={classNames("h-1.5 w-1.5 rounded-full", gpsStatus.ok ? "bg-emerald-500" : "bg-sun")} aria-hidden="true" />
                     {gpsStatus.copy}
                   </p>
@@ -1705,18 +1705,18 @@ export function LiveTripClient({
               ) : null}
             </div>
 
-            <div className="mt-5 rounded-2xl border border-cloud bg-mist px-4 py-3">
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-500">{t("ui.booking.address")}</p>
-              <p className="mt-1 text-sm font-semibold leading-5">{displayedAddress}</p>
+            <div className="mt-4 rounded-xl bg-cbg px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-cgray">{t("ui.booking.address")}</p>
+              <p className="mt-1 text-sm font-normal leading-5 text-cink">{displayedAddress}</p>
               {nextActivity?.openingHours ? (
-                <p className="mt-2 text-xs font-bold text-slate-500">{t("ui.status.hours")}: {nextActivity.openingHours}</p>
+                <p className="mt-2 text-xs font-normal text-cgray">{t("ui.status.hours")}: {nextActivity.openingHours}</p>
               ) : null}
             </div>
 
             {(nextActivity?.booking?.reference || nextActivity?.booking?.provider || nextActivity?.booking?.gate || nextActivity?.booking?.terminal) ? (
-              <details className="mt-3 rounded-2xl border border-cloud bg-mist px-4 py-3">
-                <summary className="cursor-pointer text-sm font-black text-ink">{t("ui.status.details")}</summary>
-                <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-600">
+              <details className="mt-3 rounded-xl bg-cbg px-4 py-3">
+                <summary className="cursor-pointer text-sm font-semibold text-chead">{t("ui.status.details")}</summary>
+                <div className="mt-3 grid gap-2 text-sm font-normal text-cink">
                   {[
                     [t("ui.status.provider"), nextActivity.booking?.provider],
                     [t("ui.status.reference"), nextActivity.booking?.reference],
@@ -1726,7 +1726,7 @@ export function LiveTripClient({
                     .filter((row): row is [string, string] => Boolean(row[1]))
                     .map(([label, value]) => (
                       <p key={label} className="rounded-xl bg-white px-3 py-2">
-                        <span className="text-slate-500">{label}: </span>
+                        <span className="text-cgray">{label}: </span>
                         {value}
                       </p>
                     ))}
@@ -1740,7 +1740,7 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => void runAction(currentActivity.id, "check-in", location)}
                   disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
-                  className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-45"
+                  className="min-h-[50px] rounded-xl bg-cblue px-5 py-3 text-[15px] font-semibold text-white disabled:opacity-45"
                 >
                   {t("ui.actions.checkIn")}
                 </button>
@@ -1748,7 +1748,7 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => void runAction(currentActivity.id, "complete")}
                   disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                  className="min-h-12 rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white disabled:opacity-45"
+                  className="min-h-[50px] rounded-xl bg-cbg px-5 py-3 text-[15px] font-semibold text-chead disabled:opacity-45"
                 >
                   Complete
                 </button>
@@ -1756,32 +1756,32 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => void runAction(currentActivity.id, "skip")}
                   disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                  className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 disabled:opacity-45"
+                  className="min-h-[50px] rounded-xl bg-cbg px-5 py-3 text-[15px] font-semibold text-cgray disabled:opacity-45"
                 >
                   Skip this activity
                 </button>
               </div>
             ) : null}
             {currentActivity && !tripCompleted ? (
-              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Skip or complete this stop. The rest of today keeps its scheduled times.</p>
+              <p className="mt-2 text-xs font-normal leading-5 text-cgray">Skip or complete this stop. The rest of today keeps its scheduled times.</p>
             ) : null}
             {notice ? (
-              <p role="status" aria-live="polite" className="mt-3 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
+              <p role="status" aria-live="polite" className="calm-alert-in mt-3 rounded-xl bg-cblue/10 px-4 py-3 text-sm font-medium text-cink">
                 {notice}
               </p>
             ) : null}
             {todayActivities.length ? (
-              <ul className="mt-4 grid gap-1.5" aria-label="Today">
+              <ul className="mt-4 grid gap-1.5 border-t border-chair pt-3" aria-label="Today">
                 {todayActivities.map((activity) => {
                   const terminal = ["completed", "skipped", "checked_in", "missed"].includes(String(activity.status));
                   const progress = activity.id === currentActivity?.id && !terminal ? "Now" : activityProgressLabel(activity.status);
                   return (
                     <li key={activity.id} className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="min-w-0 truncate font-bold text-slate-600">
-                        <span className="mr-2 font-black text-slate-400">{activity.timeLabel || "Flexible"}</span>
+                      <span className="min-w-0 truncate font-normal text-cink">
+                        <span className="mr-2 font-medium text-cgray2">{activity.timeLabel || "Flexible"}</span>
                         {timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}
                       </span>
-                      <span className={classNames("shrink-0 text-xs font-black uppercase tracking-[0.08em]", terminal ? "text-ocean" : "text-slate-400")}>
+                      <span className={classNames("shrink-0 text-xs font-semibold uppercase tracking-[0.08em]", terminal ? "text-chead" : "text-cgray2")}>
                         {progress}
                       </span>
                     </li>
@@ -1791,10 +1791,10 @@ export function LiveTripClient({
             ) : null}
 
             {hasDirectionLinks ? (
-              <div id="live-directions" className="mt-5 scroll-mt-24 rounded-2xl border border-cloud bg-white p-3">
+              <div id="live-directions" className="mt-5 scroll-mt-24 border-t border-chair pt-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Directions</p>
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-mist p-1" role="group" aria-label="Travel mode">
+                  <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Directions</p>
+                  <div className="grid grid-cols-3 gap-1 rounded-[10px] bg-cbg p-0.5" role="group" aria-label="Travel mode">
                     {(
                       [
                         { mode: "walking", label: "Walk" },
@@ -1808,8 +1808,8 @@ export function LiveTripClient({
                         onClick={() => updateDirectionMode(option.mode)}
                         aria-pressed={directionMode === option.mode}
                         className={classNames(
-                          "min-h-11 rounded-lg px-3 text-xs font-black transition-colors",
-                          directionMode === option.mode ? "bg-ink text-white shadow" : "text-slate-500"
+                          "min-h-11 rounded-lg px-3 text-xs font-semibold transition-colors",
+                          directionMode === option.mode ? "bg-white text-chead shadow-calm" : "text-cgray"
                         )}
                       >
                         {option.label}
@@ -1823,7 +1823,7 @@ export function LiveTripClient({
                       href={directionLinks.google}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex min-h-11 items-center justify-center rounded-xl bg-ocean px-2 py-2 text-center text-xs font-black text-white"
+                      className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-2 py-2 text-center text-xs font-semibold text-chead"
                     >
                       Google Maps
                     </a>
@@ -1833,7 +1833,7 @@ export function LiveTripClient({
                       href={directionLinks.apple}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex min-h-11 items-center justify-center rounded-xl bg-ink px-2 py-2 text-center text-xs font-black text-white"
+                      className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-2 py-2 text-center text-xs font-semibold text-chead"
                     >
                       Apple Maps
                     </a>
@@ -1843,13 +1843,13 @@ export function LiveTripClient({
                       href={directionLinks.citymapper}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex min-h-11 items-center justify-center rounded-xl bg-sun px-2 py-2 text-center text-xs font-black text-ink"
+                      className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-2 py-2 text-center text-xs font-semibold text-chead"
                     >
                       Citymapper
                     </a>
                   ) : null}
                 </div>
-                <p className="mt-2 text-[11px] font-semibold leading-4 text-slate-400">
+                <p className="mt-2 text-[11px] font-normal leading-4 text-cgray2">
                   Citymapper is best for walking and public transport; Google and Apple follow your travel mode.
                 </p>
               </div>
@@ -1858,22 +1858,22 @@ export function LiveTripClient({
 
           <div className="grid gap-3">
             {showSetupCard ? (
-            <section className="rounded-2xl border border-cloud bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
+            <section className="rounded-[14px] bg-white p-4 shadow-calm sm:p-5">
+              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
               {!mobileRuntime ? (
-                <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-lg font-black text-amber-900">Continue on your phone</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Live Companion runs on your phone. Scan the code with your phone&apos;s camera to open this trip there.</p>
+                <div className="mt-3 rounded-xl bg-cbg p-4">
+                  <h3 className="text-[17px] font-semibold text-chead">Continue on your phone</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Live Companion runs on your phone. Scan the code with your phone&apos;s camera to open this trip there.</p>
                   {liveTripUrl ? (
                     <div className="mt-4 flex flex-col items-center">
-                      <div className="rounded-2xl bg-white p-3 shadow-soft">
+                      <div className="rounded-xl bg-white p-3 shadow-calm">
                         <QRCodeSVG value={liveTripUrl} size={168} />
                       </div>
                       <div className="mt-4 grid w-full gap-2 sm:grid-cols-2">
                         <button
                           type="button"
                           onClick={() => void copyTripLink()}
-                          className="min-h-12 rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink"
+                          className="min-h-12 rounded-xl border border-chair bg-white px-4 py-3 text-sm font-semibold text-chead"
                         >
                           {tripLinkCopied ? "Link copied ✓" : "Copy trip link"}
                         </button>
@@ -1881,7 +1881,7 @@ export function LiveTripClient({
                           <button
                             type="button"
                             onClick={() => void shareTripLink()}
-                            className="min-h-12 rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white"
+                            className="min-h-12 rounded-xl bg-cblue px-4 py-3 text-sm font-semibold text-white"
                           >
                             Send to my phone
                           </button>
@@ -1891,78 +1891,78 @@ export function LiveTripClient({
                   ) : null}
                 </div>
               ) : !isStandalone ? (
-                <div className="mt-3 rounded-2xl bg-white p-4">
-                  <h3 className="text-lg font-black text-ink">Roamly reaches you through the app</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
+                <div className="mt-3 rounded-xl bg-cbg p-4">
+                  <h3 className="text-[17px] font-semibold text-chead">Roamly reaches you through the app</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">
                     Without the app, Roamly can&apos;t reach you in the moment — this trip still follows its
                     schedule here. Adding the app is step 2 of setup, done once, in Settings.
                   </p>
                   <a
                     href="/account#setup-step-2"
-                    className="mt-3 inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white"
+                    className="mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[15px] font-semibold text-white"
                   >
                     Finish setup in Settings
                   </a>
                 </div>
               ) : fieldTestMode && notificationPermission === "default" ? (
-                <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-900">Notifications need your permission</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Allow notifications so this phone can receive the field-test alert.</p>
-                  <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
+                  <h3 className="text-xl font-semibold text-amber-900">Notifications need your permission</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Allow notifications so this phone can receive the field-test alert.</p>
+                  <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
                     {busy === "notifications" ? "Enabling…" : "Enable notifications"}
                   </button>
                 </div>
               ) : fieldTestMode && notificationPermission === "denied" ? (
-                <div className="mt-3 rounded-2xl bg-coral/20 p-4">
-                  <h3 className="text-xl font-black text-coral">Notifications are blocked</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">In iPhone Settings, allow notifications for Roamly, then return to this field test. Roamly will not ask again here.</p>
+                <div className="mt-3 rounded-xl bg-coral/20 p-4">
+                  <h3 className="text-xl font-semibold text-coral">Notifications are blocked</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">In iPhone Settings, allow notifications for Roamly, then return to this field test. Roamly will not ask again here.</p>
                 </div>
               ) : fieldTestMode && notificationPermission === "granted" && !pushReady ? (
-                <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-900">Register this phone</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Permission is granted, but the phone is not registered with Roamly yet.</p>
-                  <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
+                  <h3 className="text-xl font-semibold text-amber-900">Register this phone</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Permission is granted, but the phone is not registered with Roamly yet.</p>
+                  <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
                     {busy === "notifications" ? "Registering…" : "Retry registration"}
                   </button>
                 </div>
               ) : fieldTestMode && pushReady && !setupComplete ? (
-                <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
-                  <h3 className="text-xl font-black text-ocean">Notifications ready</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">This phone is registered. Continue with location setup for the field test.</p>
+                <div className="mt-3 rounded-xl bg-ocean/20 p-4">
+                  <h3 className="text-xl font-semibold text-chead">Notifications ready</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">This phone is registered. Continue with location setup for the field test.</p>
                   {!watching ? (
-                    <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                    <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
                       {busy === "setup" ? "Setting up…" : permission !== "granted" ? "Allow location" : "Open Live Companion"}
                     </button>
                   ) : null}
                 </div>
               ) : fieldTestMode && setupComplete ? (
-                <div className="mt-3 rounded-2xl bg-ocean/20 p-4">
-                  <h3 className="text-xl font-black text-ocean">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
-                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">Roamly will help you stay on track during your trip.</p>
+                <div className="mt-3 rounded-xl bg-ocean/20 p-4">
+                  <h3 className="text-xl font-semibold text-chead">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
+                  <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Roamly will help you stay on track during your trip.</p>
                 </div>
               ) : tripCompleted ? (
-                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">This trip is complete. Live Companion stays off.</p>
+                <p className="mt-3 text-sm font-normal leading-[1.45] text-cink">This trip is complete. Live Companion stays off.</p>
               ) : fieldTestMode && !watching ? (
                 <>
-                  <div className="mt-3 grid gap-2 text-sm font-black text-slate-700">
-                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right text-slate-500">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
-                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right text-slate-500">{trackingEnabled || permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                  <div className="mt-3 grid gap-2 text-sm font-semibold text-cink">
+                    <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right font-normal text-cgray">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
+                    <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right font-normal text-cgray">{trackingEnabled || permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
                     <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
                   </div>
-                  <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink disabled:opacity-50">
+                  <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
                     {busy === "setup" ? "Setting up…" : fieldTestMode ? permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
                   </button>
                 </>
               ) : setupGap ? (
-                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
+                <p className="mt-3 text-sm font-normal leading-[1.45] text-cink">
                   {setupGap.copy}{" "}
-                  <a href={setupGap.href} className="font-black text-ocean underline underline-offset-2">
+                  <a href={setupGap.href} className="font-semibold text-cblue">
                     Finish setup in Settings
                   </a>
                 </p>
               ) : null}
               {fieldTestMode ? (
-              <p className="mt-2 text-xs font-bold leading-5 text-slate-500">
+              <p className="mt-2 text-xs font-normal leading-5 text-cgray">
                 {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : backgroundLocationEnabled ? "Location access is ready for Live while Roamly is open." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : trackingEnabled ? "Location is on — Live Companion will follow along while Roamly is open." : "Your choices are saved to your account when you continue."}
               </p>
               ) : null}
@@ -1981,7 +1981,7 @@ export function LiveTripClient({
                     onClick={() => (demoState ? stopLiveDemo() : void startLiveDemo())}
                     disabled={Boolean(demoBusy)}
                     className={classNames(
-                      "min-h-11 rounded-2xl px-3 py-2 text-xs font-black disabled:opacity-50",
+                      "min-h-11 rounded-xl px-3 py-2 text-xs font-semibold disabled:opacity-50",
                       demoState ? "border border-cloud bg-white text-ink" : "bg-amber-300 text-ink"
                     )}
                   >
@@ -1992,9 +1992,9 @@ export function LiveTripClient({
                 {demoState ? (
                   <div className="mt-3 grid gap-2">
                     {demoRows.map(([label, value]) => (
-                      <div key={label} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 rounded-xl border border-cloud bg-white px-3 py-2">
-                        <p className="text-[0.68rem] font-black uppercase tracking-[0.1em] text-slate-500">{label}</p>
-                        <p className="min-w-0 break-words text-xs font-black text-slate-700">{value}</p>
+                      <div key={label} className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-2 rounded-xl border border-chair bg-white px-3 py-2">
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-cgray">{label}</p>
+                        <p className="min-w-0 break-words text-xs font-semibold text-cink">{value}</p>
                       </div>
                     ))}
                   </div>
@@ -2011,38 +2011,38 @@ export function LiveTripClient({
       {feedAlerts.length || error || notice ? (
         <section className="grid gap-2">
           {feedAlerts.slice(0, 2).map((alert) => (
-            <p key={alert} className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-black leading-6 text-amber-900">
+            <p key={alert} className="calm-alert-in rounded-xl bg-cred/10 px-4 py-3 text-sm font-medium leading-[1.35] text-cink">
               {alert}
             </p>
           ))}
-          {error ? <p role="alert" className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+          {error ? <p role="alert" className="calm-alert-in rounded-xl bg-cred/10 px-4 py-3 text-sm font-semibold leading-[1.35] text-cred">{error}</p> : null}
         </section>
       ) : null}
 
       {!tripCompleted ? <section className="grid gap-3 pb-2 md:grid-cols-[1fr_0.75fr]">
-        <article className="rounded-[1.25rem] border border-cloud bg-white p-4 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Controls</p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+        <article className="rounded-[14px] bg-white p-4 shadow-calm sm:p-5">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Controls</p>
+          <div className="mt-2 divide-y divide-chair">
             <button
               type="button"
               onClick={() => void pauseCompanion()}
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700"
+              className="flex min-h-11 w-full items-center px-1 py-2 text-left text-[15px] font-normal text-cink"
             >
               Pause
             </button>
             <button
               type="button"
               onClick={() => void resumeCompanion()}
-              className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean"
+              className="flex min-h-11 w-full items-center px-1 py-2 text-left text-[15px] font-normal text-cink"
             >
               Resume
             </button>
           </div>
-          <details className="mt-3 scroll-mb-[calc(14rem+env(safe-area-inset-bottom))] rounded-2xl bg-mist px-3 py-3">
-            <summary className="cursor-pointer text-sm font-black text-ink">Essentials</summary>
+          <details className="mt-2 scroll-mb-[calc(14rem+env(safe-area-inset-bottom))] rounded-xl bg-cbg px-3 py-3">
+            <summary className="cursor-pointer text-sm font-semibold text-chead">Essentials</summary>
             <div className="mt-3 grid gap-2">
               {checklist.slice(0, 5).map((item) => (
-                <p key={item.id} className="text-sm font-bold text-slate-600">
+                <p key={item.id} className="text-sm font-normal text-cink">
                   {item.is_done ? "Done: " : ""}{item.item}
                 </p>
               ))}
@@ -2064,37 +2064,37 @@ export function LiveTripClient({
             id={`live-activity-${activity.id}`}
             tabIndex={deepLinkedActivityId === activity.id ? -1 : undefined}
             className={classNames(
-              "rounded-[1.15rem] border bg-white p-4 shadow-[0_10px_28px_rgba(16,32,51,0.05)] transition-shadow",
+              "rounded-[14px] border bg-white p-4 shadow-calm transition-shadow",
               deepLinkedActivityId === activity.id
-                ? "border-ocean bg-ocean/5 shadow-[0_0_0_3px_rgba(20,132,184,0.18),0_12px_32px_rgba(20,132,184,0.12)]"
-                : activity.id === currentActivity?.id ? "border-ocean/35" : "border-cloud"
+                ? "border-cblue/40 bg-cblue/5 shadow-[0_0_0_3px_rgba(0,122,255,0.15)]"
+                : activity.id === currentActivity?.id ? "border-cblue/40" : "border-chair"
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-cgray">
                   {activity.timeLabel || "Flexible"} · {activity.id === currentActivity?.id ? "Now" : activity.id === nextActivity?.id ? "Next" : activity.status || "Planned"}
                 </p>
-                <h3 className="mt-1 text-lg font-black text-ink">{timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
-                <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-600">{activity.shortDescription}</p>
+                <h3 className="mt-1 text-[17px] font-semibold text-chead">{timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
+                <p className="mt-1 line-clamp-2 text-sm font-normal leading-[1.45] text-cink">{activity.shortDescription}</p>
               </div>
               <button
                 type="button"
                 onClick={() => void runAction(activity.id, "check-in")}
                 disabled={Boolean(busy) || activity.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activity.status))}
-                className="min-h-11 shrink-0 rounded-2xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-45"
+                className="min-h-11 shrink-0 rounded-xl bg-cblue px-3 py-2 text-xs font-semibold text-white disabled:opacity-45"
               >
                 {t("ui.actions.checkIn")}
               </button>
             </div>
-            <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
-              <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">More</summary>
+            <details className="mt-3 rounded-xl bg-cbg px-3 py-3">
+              <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">More</summary>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => void runAction(activity.id, "complete")}
                   disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
-                  className="min-h-11 rounded-2xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-45"
+                  className="min-h-11 rounded-xl bg-cblue px-3 py-2 text-xs font-semibold text-white disabled:opacity-45"
                 >
                   {t("ui.actions.markDone")}
                 </button>
@@ -2102,7 +2102,7 @@ export function LiveTripClient({
                   type="button"
                   onClick={() => void runAction(activity.id, "skip")}
                   disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
-                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-45"
+                  className="min-h-11 rounded-xl border border-chair bg-white px-3 py-2 text-xs font-semibold text-cink disabled:opacity-45"
                 >
                   {t("ui.actions.skip")}
                 </button>
@@ -2113,13 +2113,13 @@ export function LiveTripClient({
       </section>
 
       {canSimulateLocation ? (
-        <details className="rounded-[1.25rem] border border-ocean/20 bg-white p-4 shadow-soft">
-          <summary className="cursor-pointer text-sm font-black text-ocean">Tester location tools</summary>
+        <details className="rounded-[14px] border border-chair bg-white p-4 shadow-calm">
+          <summary className="cursor-pointer text-sm font-semibold text-chead">Tester location tools</summary>
           <div className="mt-4 grid gap-3">
             <select
               value={selectedPlaceId}
               onChange={(event) => setSelectedPlaceId(event.target.value)}
-              className="min-h-11 w-full rounded-2xl border border-cloud bg-white px-3 py-2 text-sm font-black text-ink"
+              className="min-h-11 w-full rounded-xl border border-chair bg-white px-3 py-2 text-sm font-semibold text-chead"
             >
               {placeOptions.map((place) => (
                 <option key={place.id} value={place.id}>{place.title}</option>
@@ -2135,7 +2135,7 @@ export function LiveTripClient({
                     const coords = action.custom ? action.custom() : resolvePlace(action.place, action.label);
                     void activateSimulatedLocation({ latitude: coords.latitude, longitude: coords.longitude, label: coords.label || action.label, target: coords.target });
                   }}
-                  className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/5 px-3 py-2 text-xs font-black text-ocean disabled:opacity-60"
+                  className="min-h-11 rounded-xl border border-chair bg-cbg px-3 py-2 text-xs font-semibold text-chead disabled:opacity-60"
                 >
                   {qaBusy === action.label ? "Running" : action.label}
                 </button>
@@ -2148,13 +2148,13 @@ export function LiveTripClient({
       {activeStep ? <div className="h-36 md:hidden" aria-hidden="true" /> : null}
 
       {activeStep ? (
-        <section className="roamly-live-dock fixed inset-x-3 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-30 rounded-[1.2rem] border border-black/5 bg-white/92 p-1.5 shadow-[0_8px_28px_rgba(16,32,51,0.12)] backdrop-blur-xl md:hidden">
+        <section className="roamly-live-dock fixed inset-x-3 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-30 rounded-2xl border border-chair bg-white/95 p-1.5 shadow-calm backdrop-blur-xl md:hidden">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <button
               type="button"
               onClick={() => void runAction(activeStep.id, "check-in")}
               disabled={Boolean(busy) || activeStep.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activeStep.status))}
-              className="min-h-12 rounded-2xl bg-ocean px-3 py-2 text-sm font-black text-white disabled:opacity-45"
+              className="min-h-12 rounded-xl bg-cblue px-3 py-2 text-sm font-semibold text-white disabled:opacity-45"
             >
               {t("ui.actions.checkIn")}
             </button>
@@ -2162,7 +2162,7 @@ export function LiveTripClient({
               <button
                 type="button"
                 onClick={scrollToDirections}
-                className="flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-4 py-2 text-sm font-black text-white"
+                className="flex min-h-12 items-center justify-center rounded-xl bg-cblue px-4 py-2 text-sm font-semibold text-white"
               >
                 Directions
               </button>

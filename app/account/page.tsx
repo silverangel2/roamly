@@ -76,81 +76,77 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const access = getRoamlyAccessForUser(current.user.email);
 
   return (
-    <div className="safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="calm-bleed safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <section className="space-y-4">
-          <Badge>Account</Badge>
-          {access.hasQaAccess ? <Badge tone="ocean">Tester access</Badge> : null}
-          <h1 className="text-4xl font-black tracking-tight text-ink sm:text-6xl">Your Roamly profile.</h1>
-          <p className="text-base font-semibold leading-7 text-slate-600">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">Account</p>
+          {access.hasQaAccess ? <p className="flex items-center gap-1.5 text-[13.5px] font-normal text-cgray"><span aria-hidden className="calm-dot h-2 w-2 rounded-full bg-chead" />Tester access</p> : null}
+          <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">Your Roamly profile.</h1>
+          <p className="text-base font-normal leading-[1.45] text-cink">
             Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.
           </p>
           <div className="grid gap-3">
-            <Card className="p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Account type</p>
-              <p className="mt-2 text-2xl font-black text-ink">{access.hasQaAccess ? "Tester access" : "Free user"}</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">
+            <div className="rounded-[14px] bg-white p-4 shadow-calm">
+              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Account type</p>
+              <p className="mt-1.5 text-[22px] font-bold text-chead">{access.hasQaAccess ? "Tester access" : "Free user"}</p>
+              <p className="mt-1 text-sm font-normal leading-[1.45] text-cgray">
                 {access.hasQaAccess
                   ? "Tester access unlocks paid feature checks without creating Stripe revenue."
                   : "Payments unlock one itinerary or Live Trip Companion for one trip."}
               </p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Free itinerary</p>
-              <p className="mt-2 text-2xl font-black text-ink">{access.hasQaAccess ? "Tester override" : free.used ? "Used" : "Available"}</p>
-              <p className="mt-1 text-sm font-bold text-slate-500">You get 1 free itinerary per account.</p>
-            </Card>
+            </div>
+            <div className="rounded-[14px] bg-white p-4 shadow-calm">
+              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Free itinerary</p>
+              <p className="mt-1.5 text-[22px] font-bold text-chead">{access.hasQaAccess ? "Tester override" : free.used ? "Used" : "Available"}</p>
+              <p className="mt-1 text-sm font-normal leading-[1.45] text-cgray">You get 1 free itinerary per account.</p>
+            </div>
           </div>
         </section>
 
         <section className="space-y-4">
           {setupState ? (
             <div id="setup" className="scroll-mt-24">
-              <Card>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Setup</p>
-                <h2 className="mt-2 text-2xl font-black text-ink">Three steps, once</h2>
-                <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
-                  Each step powers one thing. Done once, remembered forever.
-                </p>
-                <div className="mt-3">
-                  <SetupCascade initialState={setupState} />
-                </div>
-              </Card>
+              <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Finish setup — once</p>
+              <h2 className="sr-only">Three steps, once</h2>
+              <SetupCascade initialState={setupState} />
+              <p className="ml-4 mt-2 text-[13.5px] font-normal leading-[1.4] text-cgray">
+                Each step powers one thing. Done once, remembered forever.
+              </p>
             </div>
           ) : null}
 
-          <Card>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Profile basics</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Name and access</h2>
+          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
+            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h2>
             <div className="mt-5">
               <AccountProfileForm initialName={profileName} email={current.user.email || ""} />
             </div>
-          </Card>
+          </div>
 
-          <Card>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Privacy controls</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Trip privacy and reminders</h2>
+          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Privacy controls</p>
+            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Trip privacy and reminders</h2>
             <div className="mt-5">
               <LocationTrackingSettings />
             </div>
-          </Card>
+          </div>
 
-          <Card>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Email import</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Travel confirmations</h2>
+          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
+            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h2>
             <div className="mt-5">
               <EmailConnectionSettings />
             </div>
-          </Card>
+          </div>
 
           <div id="traveler-memory" className="scroll-mt-24">
-          <Card>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Traveler memory</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Preferences Roamly can use</h2>
+          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Traveler memory</p>
+            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Preferences Roamly can use</h2>
             <div className="mt-5">
               <TravelerMemorySettings countryOptions={listCountryOptions()} returnTo={returnTo} />
             </div>
-          </Card>
+          </div>
           </div>
 
           {profileResult.error ? (

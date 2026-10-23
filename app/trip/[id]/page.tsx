@@ -10,6 +10,7 @@ import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { EntryGate } from "@/components/roamly/EntryGate";
 import { HandoffBlock } from "@/components/roamly/HandoffBlock";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
+import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
 import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
@@ -365,7 +366,7 @@ function BudgetSummary({
 
   return (
     <div className="grid gap-4">
-      <section className="border-y border-[#e8dfd0] bg-[#fffdf8]/70 py-4 sm:py-5">
+      <section className="border-y border-chair bg-white/70 py-4 sm:py-5">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">How am I doing?</p>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -394,13 +395,13 @@ function BudgetSummary({
       {presentation.committedCount || presentation.uncertainty.length ? (
         <section className="grid gap-3 sm:grid-cols-2">
           {presentation.committedCount ? (
-            <div className="border-b border-[#e8dfd0] pb-3">
+            <div className="border-b border-chair pb-3">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Already committed</p>
               <p className="mt-1 text-sm font-bold text-slate-700">{presentation.committedCount} confirmed {presentation.committedCount === 1 ? "booking" : "bookings"} stay protected.</p>
             </div>
           ) : null}
           {presentation.uncertainty.length ? (
-            <div className="border-b border-[#e8dfd0] pb-3">
+            <div className="border-b border-chair pb-3">
               <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Not priced yet</p>
               {presentation.uncertainty.map((item) => <p key={item} className="mt-1 text-sm font-bold text-slate-700">{item}</p>)}
             </div>
@@ -408,9 +409,9 @@ function BudgetSummary({
         </section>
       ) : null}
 
-      <details className="border-y border-[#e8dfd0] py-3">
+      <details className="border-y border-chair py-3">
         <summary className="min-h-11 cursor-pointer text-base font-black text-ocean">See cost drivers</summary>
-        <div className="mt-3 divide-y divide-[#e8dfd0]">
+        <div className="mt-3 divide-y divide-chair">
           {presentation.costDrivers.map((row) => (
             <div key={row.label} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">
@@ -1205,7 +1206,7 @@ function BookingRecommendationCard({
   const visibleHotelPartners = guardedHotelAction ? hotelPartners.filter((partner) => partner.id !== "booking") : hotelPartners;
 
   return (
-    <article className="rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
+    <article className="rounded-[1.35rem] bg-white px-5 py-5 shadow-calm">
       {category === "hotel" && suggestion.photo_urls?.[0] ? (
         <div className="relative mb-4 h-52 overflow-hidden rounded-xl bg-[#f3f5f1] sm:h-64">
           <Image src={suggestion.photo_urls[0]} alt={`${title} property photo`} fill unoptimized sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
@@ -1506,7 +1507,7 @@ function BookingSearchFallbackCard({
   const hasAffiliateUrl = isAffiliateBookingHref(href);
   const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : "Google search");
   return (
-    <article className="rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
+    <article className="rounded-[1.35rem] bg-white px-5 py-5 shadow-calm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold leading-6 tracking-tight text-ink">{title}</h3>
@@ -1559,7 +1560,7 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppre
   return (
     <section className="roamly-print-section">
       <h3 className="text-lg font-black text-ink">Recommended transport</h3>
-      <article className="mt-3 rounded-[1rem] border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+      <article className="mt-3 rounded-[1rem] border border-chair bg-white px-4 py-4 shadow-calm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
@@ -1683,7 +1684,7 @@ function PreTripEssentialCard({
   const hasAffiliateUrl = Boolean(item.has_affiliate_url || (href && href.includes("tag=")));
 
   return (
-    <article className="roamly-print-section rounded-2xl border border-[#e8dfd0] bg-white px-4 py-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+    <article className="roamly-print-section rounded-2xl border border-chair bg-white px-4 py-4 shadow-calm">
       <div className="flex h-full flex-col gap-4">
         <div className="flex grow gap-3">
           <span className="mt-1 grid h-4 w-4 shrink-0 place-items-center rounded border border-ocean/30 bg-ocean/5" />
@@ -1769,7 +1770,7 @@ function PackageStays({
   if (!suggestions.length && !areaPartners.length) return null;
 
   return (
-    <section aria-label="Your stay" className="rounded-[1.5rem] bg-white px-5 py-6 shadow-[0_10px_30px_rgba(16,32,51,0.04)] sm:px-6 sm:py-7">
+    <section aria-label="Your stay" className="rounded-[1.5rem] bg-white px-5 py-6 shadow-calm sm:px-6 sm:py-7">
       <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-ink">Stay options in this package</h2>
       <p className="mt-1.5 max-w-md text-[0.9375rem] leading-6 text-slate-500">Partner searches for your dates. A price is shown only when a partner returns one.</p>
       <div className="mt-5 divide-y divide-[#efe7da]">
@@ -1813,7 +1814,7 @@ function PackageStays({
 
 function BookingSummaryList({ bookings }: { bookings: Array<Record<string, unknown>> }) {
   if (!bookings.length) {
-    return <p className="rounded-2xl border border-dashed border-[#e8dfd0] bg-white px-4 py-3 text-sm font-black text-slate-500">No confirmed bookings saved yet.</p>;
+    return <p className="rounded-2xl border border-dashed border-chair bg-white px-4 py-3 text-sm font-black text-slate-500">No confirmed bookings saved yet.</p>;
   }
 
   return (
@@ -2033,7 +2034,7 @@ function ChecklistGroup({ title, items }: { title: string; items: string[] }) {
   if (!items.length) return null;
 
   return (
-    <article className="roamly-print-section rounded-[1.15rem] border border-[#e8dfd0] bg-white p-4 shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+    <article className="roamly-print-section rounded-[1.15rem] border border-chair bg-white p-4 shadow-calm">
       <h3 className="text-lg font-black text-ink">{title}</h3>
       <div className="mt-3 grid gap-2">
         {items.map((item) => (
@@ -2454,27 +2455,50 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     return <SetupGateScreen initialState={setupState} tripName={destinationLabel} />;
   }
 
+  // Destination photo (owner design, 2026-10-23): a real photo of the
+  // destination from Wikimedia/Wikidata, cached per destination so later
+  // trips reuse it. When none resolves, the header stays bare by design.
+  const photoPlanning = getTripPlanningMetadata(trip.metadata);
+  const destinationPhoto = await getDestinationPhoto({
+    label: destinationLabel,
+    country: getString(photoPlanning.destinationCountry) || trip.destination_country || null,
+    latitude: typeof photoPlanning.destinationLatitude === "number" ? photoPlanning.destinationLatitude : null,
+    longitude: typeof photoPlanning.destinationLongitude === "number" ? photoPlanning.destinationLongitude : null
+  }).catch(() => null);
+
   return (
-    <div className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-28 pt-5 text-ink sm:px-6 sm:py-8">
+    <div className="safe-bottom roamly-print-document w-full bg-cbg px-4 pb-28 pt-5 text-cink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <GenerationNavigationRefresh active={one(search.generating) === "1" && !generationPanelVisible && !canShowFull} />
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
         <section className="bg-transparent pb-1 pt-1 sm:pb-2">
+          {destinationPhoto ? (
+            <figure className="mb-5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={destinationPhoto.imageUrl} alt={destinationLabel} className="h-[188px] w-full rounded-2xl object-cover" loading="lazy" />
+              {destinationPhoto.credit ? (
+                <figcaption className="mt-1.5 text-right text-[11px] leading-4 text-cgray2">
+                  Photo: {destinationPhoto.pageUrl ? <a href={destinationPhoto.pageUrl} target="_blank" rel="noreferrer" className="underline decoration-chair underline-offset-2">{destinationPhoto.credit}</a> : destinationPhoto.credit}
+                </figcaption>
+              ) : null}
+            </figure>
+          ) : null}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-[1.85rem] font-semibold leading-[1.15] tracking-[-0.035em] text-ink sm:text-4xl">{tripTitle}</h1>
-              <p className="mt-1.5 text-[0.95rem] leading-6 text-slate-500">{destinationLabel} · {formatDateRange(trip, locale)} · {formatDayCount(dayCount)} · {travelerLabel}</p>
+              <h1 className="text-[1.85rem] font-bold leading-[1.15] tracking-[-0.035em] text-chead sm:text-4xl">{tripTitle}</h1>
+              <p className="mt-1.5 text-[0.95rem] leading-6 text-cgray">{destinationLabel} · {formatDateRange(trip, locale)} · {formatDayCount(dayCount)} · {travelerLabel}</p>
               {(full?.destination_summary || preview?.destination_summary) ? (
                 <details className="mt-2 max-w-2xl">
-                  <summary className="min-h-8 cursor-pointer text-sm font-medium text-slate-500">Trip context</summary>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">{compact(full?.destination_summary || preview?.destination_summary, "", 150)}</p>
+                  <summary className="min-h-8 cursor-pointer text-sm font-medium text-cgray">Trip context</summary>
+                  <p className="mt-1 text-sm leading-6 text-cink">{compact(full?.destination_summary || preview?.destination_summary, "", 150)}</p>
                 </details>
               ) : null}
             </div>
-            <Badge tone={travelerStatus.tone === "sun" ? "sun" : travelerStatus.tone === "coral" ? "coral" : travelerStatus.tone === "ink" ? "ink" : "ocean"}>
+            <span className="inline-flex shrink-0 items-center gap-1.5 pt-2 text-[13.5px] text-cgray">
+              <span className="calm-dot h-2 w-2 rounded-full bg-chead" aria-hidden="true" />
               {travelerStatus.badge}
-            </Badge>
+            </span>
           </div>
 
           {/* Phase 6 (DESIGN §2.4): Build 2 entry gates — mobile-only
@@ -2487,19 +2511,19 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           {build2GatesEnabled() && canShowFull ? <HandoffBlock tripId={id} /> : null}
 
           {!draftCommand && commandNextTitle ? (
-            <div className="roamly-now-next mt-6 rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
-              <p className="text-[0.8125rem] font-medium text-slate-500">What matters now</p>
-              <p className="mt-1 text-[1.15rem] font-semibold leading-6 tracking-[-0.02em] text-ink">{commandNextTitle}</p>
-              {commandNextMeta ? <p className="mt-1 text-sm text-slate-500">{commandNextMeta}</p> : null}
-              <a href={readiness.primaryAction.href} className="mt-4 inline-flex min-h-11 items-center rounded-full bg-ocean px-4 text-sm font-semibold text-white">{readiness.primaryAction.label}</a>
+            <div className="roamly-now-next mt-6 rounded-2xl bg-white px-5 py-5 shadow-calm">
+              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">What matters now</p>
+              <p className="mt-1 text-[1.15rem] font-semibold leading-6 tracking-[-0.02em] text-chead">{commandNextTitle}</p>
+              {commandNextMeta ? <p className="mt-1 text-sm text-cgray">{commandNextMeta}</p> : null}
+              <a href={readiness.primaryAction.href} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 text-sm font-semibold text-white">{readiness.primaryAction.label}</a>
             </div>
           ) : null}
 
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">{headerBudgetText}</p>
-          {canShowFull ? <a href="#budget" className="inline-flex min-h-11 items-center text-sm font-medium text-ocean">Review the budget</a> : null}
+          <p className="mt-4 max-w-xl text-sm leading-6 text-cgray">{headerBudgetText}</p>
+          {canShowFull ? <a href="#budget" className="inline-flex min-h-11 items-center text-sm font-medium text-cblue">Review the budget</a> : null}
           {confirmedBookingSnapshot.length ? (
             <p className="mt-1 flex flex-wrap gap-x-4 text-sm">
-              <a href="#bookings" className="font-medium text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed</a>
+              <a href="#bookings" className="font-medium text-chead">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed</a>
             </p>
           ) : null}
               
@@ -2592,17 +2616,17 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         ) : null}
 
         {!canShowFull && !showGenerationPanel ? (
-          <section id="day-by-day" className="roamly-enter mt-4 scroll-mt-32 rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-8 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-8">
-            <p className="roamly-eyebrow">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">
+          <section id="day-by-day" className="calm-enter mt-4 scroll-mt-32 rounded-[14px] bg-white px-5 py-8 text-center shadow-calm sm:px-8">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-chead">
               {completedTrip ? "This trip has no saved day-by-day plan" : showPaymentWall ? "Unlock this trip" : "Your itinerary isn't ready yet"}
             </h2>
             {showPaymentWall ? (
-              <p id="unlock" className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+              <p id="unlock" className="mx-auto mt-2 max-w-md text-sm font-normal leading-6 text-cink">
                 This draft is saved. Roamly is not preparing it yet. You see the price before you pay.
               </p>
             ) : (
-              <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+              <p className="mx-auto mt-2 max-w-md text-sm font-normal leading-6 text-cink">
                 {completedTrip
                   ? "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here."
                   : "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here."}
@@ -2650,11 +2674,11 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 #roamly-tab-bookings:checked ~ .roamly-tab-nav label[for="roamly-tab-bookings"],
                 #roamly-tab-requirements:checked ~ .roamly-tab-nav label[for="roamly-tab-requirements"],
                 #roamly-tab-essentials:checked ~ .roamly-tab-nav label[for="roamly-tab-essentials"],
-                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#102033;color:white;border-color:#102033}
+                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#1F2D4D;color:white;border-color:#1F2D4D}
                 .roamly-day-input{position:absolute;opacity:0;pointer-events:none}
                 .roamly-day-panel{display:none}
                 ${dayNumbersToRender.map((dayNumber) => `
-                  #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"]{background:#102033;color:white;border-color:#102033}
+                  #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"]{background:#1F2D4D;color:white;border-color:#1F2D4D}
                   #roamly-day-${dayNumber}:checked ~ .roamly-day-nav label[for="roamly-day-${dayNumber}"] span{color:white}
                   #roamly-day-${dayNumber}:checked ~ .roamly-day-panels .roamly-day-panel-${dayNumber}{display:block}
                 `).join("\n")}
@@ -2670,7 +2694,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     <label
                       key={tabId}
                       htmlFor={tabId}
-                      className="inline-flex min-h-11 cursor-pointer items-center rounded-full bg-white px-3.5 py-2 text-sm font-medium text-slate-500 shadow-[0_6px_18px_rgba(16,32,51,0.04)] transition hover:text-ink"
+                      className="inline-flex min-h-11 cursor-pointer items-center rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-cgray shadow-calm transition hover:text-chead"
                     >
                       {label}
                     </label>
@@ -2695,19 +2719,19 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               <div className="roamly-tab-panels">
                 <section className="roamly-home-panel mt-5 scroll-mt-28" aria-label="Trip home">
                   <div className="grid gap-4">
-                    <p className="px-1 text-[0.95rem] leading-6 text-slate-600">{suppressFlightFraming ? (isDriveMode(transportPreference) ? "Drive. No flight is booked." : "Mixed travel. No flight is booked.") : transportPreference ? transportPreference : "How you’ll get there is still to confirm."}</p>
+                    <p className="px-1 text-[0.95rem] leading-6 text-cink">{suppressFlightFraming ? (isDriveMode(transportPreference) ? "Drive. No flight is booked." : "Mixed travel. No flight is booked.") : transportPreference ? transportPreference : "How you’ll get there is still to confirm."}</p>
                     <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
                   </div>
                   {noteDisplay.text ? (
-                    <div className="mt-4 rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
-                      <p className="text-[0.8125rem] font-medium text-slate-500">Your notes</p>
+                    <div className="mt-4 rounded-2xl bg-white px-5 py-5 shadow-calm">
+                      <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Your notes</p>
                       <ul className="mt-2 grid gap-1.5">
-                        {noteDisplay.constraints.map((line) => <li key={line} className="text-sm leading-6 text-slate-700">{line}</li>)}
+                        {noteDisplay.constraints.map((line) => <li key={line} className="text-sm leading-6 text-cink">{line}</li>)}
                       </ul>
-                      {noteDisplay.hotel ? <p className="mt-3 text-sm leading-6 text-slate-700">{noteDisplay.hotel}</p> : null}
-                      {noteDisplay.flight ? <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.flight}</p> : null}
-                      {noteDisplay.activity ? <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.activity}</p> : null}
-                      {noteDisplay.gaps.length ? <p className="mt-3 text-xs leading-5 text-slate-500">{noteDisplay.gaps.join(" ")}</p> : null}
+                      {noteDisplay.hotel ? <p className="mt-3 text-sm leading-6 text-cink">{noteDisplay.hotel}</p> : null}
+                      {noteDisplay.flight ? <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.flight}</p> : null}
+                      {noteDisplay.activity ? <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.activity}</p> : null}
+                      {noteDisplay.gaps.length ? <p className="mt-3 text-xs leading-5 text-cgray">{noteDisplay.gaps.join(" ")}</p> : null}
                     </div>
                   ) : null}
                 </section>
@@ -2738,13 +2762,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                           <label
                             key={dayNumber}
                             htmlFor={`roamly-day-${dayNumber}`}
-                            className="flex min-h-12 min-w-[5.25rem] cursor-pointer flex-col justify-center rounded-2xl bg-white px-3.5 py-2 text-left text-xs font-medium text-slate-500 shadow-[0_6px_18px_rgba(16,32,51,0.04)] transition hover:text-ink sm:min-w-[6.5rem]"
+                            className="flex min-h-12 min-w-[5.25rem] cursor-pointer flex-col justify-center rounded-xl bg-white px-3.5 py-2 text-left text-xs font-medium text-cgray shadow-calm transition hover:text-chead sm:min-w-[6.5rem]"
                           >
-                            <span className="text-[10px] uppercase tracking-[0.12em] text-slate-400">Day {dayNumber}</span>
-                            <span className="mt-0.5 truncate text-sm text-ink">
+                            <span className="text-[10px] uppercase tracking-[0.12em] text-cgray2">Day {dayNumber}</span>
+                            <span className="mt-0.5 truncate text-sm text-chead">
                               {canonicalDayByNumber.get(dayNumber)?.date ? formatTripDate(canonicalDayByNumber.get(dayNumber)?.date, locale).replace(/, \d{4}$/, "") : generationDayProgress.find((item) => item.dayNumber === dayNumber)?.date ? formatTripDate(generationDayProgress.find((item) => item.dayNumber === dayNumber)?.date, locale).replace(/, \d{4}$/, "") : "Planning"}
                             </span>
-                            <span className="truncate text-[10px] font-bold text-slate-400">
+                            <span className="truncate text-[10px] font-medium text-cgray2">
                               {presentTravelerArea(canonicalDayByNumber.get(dayNumber)?.city, suppressFlightFraming) || (!canonicalDayByNumber.has(dayNumber) ? generationFailed ? "Needs attention" : "Building" : "")}
                             </span>
                           </label>
@@ -2776,7 +2800,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 <section id="overview" className="roamly-tab-panel roamly-panel-overview mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Snapshot" title="Trip at a glance" summary="The key context for this trip, with the next decision kept above." />
                   <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                    <div className="rounded-[1.35rem] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
+                    <div className="rounded-[1.35rem] bg-white px-5 py-5 shadow-calm">
                       <p className="text-[0.8125rem] font-medium text-slate-500">Trip status</p>
                       <p className="mt-1 text-[1.05rem] font-semibold leading-6 tracking-tight text-ink">
                         {attentionText || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
@@ -2812,8 +2836,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     <div className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
                       <p className="text-[0.75rem] font-medium text-slate-500">Your notes shape these choices</p>
                       <p className="mt-2 text-sm leading-6 text-slate-700">{noteDisplay.hotel}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.flight}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-700">{noteDisplay.activity}</p>
+                      <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.flight}</p>
+                      <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.activity}</p>
                     </div>
                   ) : null}
                   {focusedBookingLabel ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">Start with your {focusedBookingLabel} details below.</p> : null}
@@ -2825,7 +2849,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                   </div>
                   <HotelProductOptions presentation={hotelProductPresentation} tripId={id} pendingChoice={pendingHotelProductChoice} />
                   <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={currentImportedBookings as Array<Record<string, unknown>>} suppressFlightFraming={suppressFlightFraming} />
-                  <details className="roamly-no-print mt-5 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
+                  <details className="roamly-no-print mt-5 rounded-2xl border border-chair bg-white px-4 py-3">
                     <summary className="cursor-pointer text-sm font-black text-ocean">Confirmed bookings and imports</summary>
                     <div className="mt-4 grid gap-4">
                       <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} />
@@ -2855,7 +2879,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                       <ChecklistGroup title="Local tips" items={localTipItems} />
                     </div>
                     {[safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0) ? (
-                      <details className="mt-4 rounded-2xl border border-[#e8dfd0] bg-white px-4 py-3">
+                      <details className="mt-4 rounded-2xl border border-chair bg-white px-4 py-3">
                         <summary className="min-h-11 cursor-pointer text-sm font-black text-ocean">More practical notes</summary>
                         <div className="mt-4 grid gap-4 md:grid-cols-2">
                           <ChecklistGroup title="Safety" items={safetyItems} />
@@ -2871,7 +2895,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
             </div>
 
-            <footer className="mt-10 border-t border-[#e8dfd0] py-6 text-sm font-bold text-slate-500">
+            <footer className="mt-10 border-t border-chair py-6 text-sm font-medium text-cgray">
               Generated by Roamly
             </footer>
           </>
