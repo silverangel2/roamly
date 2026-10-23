@@ -512,6 +512,27 @@ export async function syncGeneratedItinerary(
   const dayIdByNumber = new Map(
     ((trackingDays.data || []) as Array<{ id: string; day_number: number }>).map((day) => [day.day_number, day.id])
   );
+  // The Live Companion reads roamly_activities.latitude/longitude, so the
+  // tracking rows must carry the coordinates the itinerary item already
+  // holds (canonical seed shape { latitude, longitude }; the engine's
+  // { lat, lon } spelling is accepted defensively). Finite numbers only,
+  // and both-or-null: a half-coordinate is useless to distance math.
+  const trackingCoordinatesFor = (
+    activity: (typeof itinerary.daily_itinerary)[number]["live_timeline"][number]
+  ): { latitude: number | null; longitude: number | null } => {
+    const coordinates =
+      activity.coordinates && typeof activity.coordinates === "object" && !Array.isArray(activity.coordinates)
+        ? (activity.coordinates as Record<string, unknown>)
+        : null;
+    if (!coordinates) return { latitude: null, longitude: null };
+    const finite = (value: unknown): number | null =>
+      typeof value === "number" && Number.isFinite(value) ? value : null;
+    const latitude = finite(coordinates.latitude) ?? finite(coordinates.lat);
+    const longitude = finite(coordinates.longitude) ?? finite(coordinates.lon);
+    return latitude !== null && longitude !== null
+      ? { latitude, longitude }
+      : { latitude: null, longitude: null };
+  };
   const trackingActivities = itinerary.daily_itinerary.flatMap((day) =>
     day.live_timeline.map((activity, index) => ({
       trip_id: params.tripId,
@@ -523,8 +544,8 @@ export async function syncGeneratedItinerary(
       city: day.city || null,
       region: null,
       country: null,
-      latitude: null,
-      longitude: null,
+      latitude: trackingCoordinatesFor(activity).latitude,
+      longitude: trackingCoordinatesFor(activity).longitude,
       radius_meters: 250,
       scheduled_start: null,
       scheduled_end: null,
