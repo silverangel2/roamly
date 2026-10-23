@@ -5,7 +5,7 @@
  * design, 2026-10-23): two quiet text lines that keep each flagship
  * feature's state visible, never a silent absence.
  *
- *   Bookings: watched by Roamly / not watched — connect Gmail
+ *   Booking Recon: activated / not activated — connect Gmail
  *   Companion: live / ready / not live yet — <the missing step>
  *
  * A dead flagship is always named, with the way back pointing into
@@ -75,12 +75,12 @@ export function TripStateLines({
   return (
     <div className="mt-4 space-y-1 px-1 text-sm font-semibold leading-6 text-slate-500">
       <p>
-        Bookings:{" "}
+        Booking Recon:{" "}
         {gmailConnected ? (
-          "watched by Roamly"
+          "activated"
         ) : (
           <>
-            not watched —{" "}
+            not activated —{" "}
             <a className={linkClass} href="/account#setup-step-1">
               connect Gmail
             </a>
