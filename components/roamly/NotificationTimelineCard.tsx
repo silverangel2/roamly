@@ -9,6 +9,8 @@ type NotificationItem = {
   body?: string | null;
   type: string;
   status: string;
+  trip_id?: string | null;
+  event_id?: string | null;
   action_url?: string | null;
   action_state?: "available" | "history" | "unavailable";
   created_at: string;
@@ -213,7 +215,17 @@ export function NotificationTimelineCard({
                   </div>
 
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    {isInfoNotification(item) ? (
+                    {isInfoNotification(item) && item.trip_id && item.event_id ? (
+                      <a
+                        href={`/trip/${item.trip_id}/event/${item.event_id}`}
+                        onClick={() => {
+                          if (item.status !== "read") void markRead(item.id);
+                        }}
+                        className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
+                      >
+                        {t("ui.actions.open")}
+                      </a>
+                    ) : isInfoNotification(item) ? (
                       <button
                         type="button"
                         onClick={() => toggleExpanded(item)}

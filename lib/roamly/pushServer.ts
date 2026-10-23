@@ -576,7 +576,9 @@ export async function sendScheduledTripNotifications() {
       delivery = await sendPushNotification(supabase, event.user_id, {
       title: event.title || "Roamly reminder",
       body: event.body,
-      actionUrl: "/notifications",
+      // A tap lands on the single-event view — that one event, its
+      // details, nothing else (owner alert model, 2026-10-23).
+      actionUrl: event.trip_id ? `/trip/${event.trip_id}/event/${event.id}` : "/notifications",
       type: event.event_type,
       tripId: event.trip_id,
       eventId: event.id

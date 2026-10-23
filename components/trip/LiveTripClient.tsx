@@ -1635,15 +1635,17 @@ export function LiveTripClient({
           ) : permission !== "granted" ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cloud bg-white px-4 py-3">
               <p className="min-w-0 text-sm font-semibold leading-6 text-slate-600">
-                Location is on for this trip — your browser just needs a tap to share it while you travel.
+                Location is on for this trip — this browser still needs to allow it.
               </p>
-              <button
-                type="button"
-                onClick={() => void startForegroundLocation()}
-                className="min-h-11 shrink-0 rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
+              {/* The grant ask lives in one place only — the Settings
+                  cascade, step 3 (owner design, 2026-10-23). This row
+                  shows the state and points there. */}
+              <a
+                href="/account#setup-step-3"
+                className="inline-flex min-h-11 shrink-0 items-center rounded-2xl bg-ink px-4 py-2.5 text-sm font-black text-white"
               >
-                Share location
-              </button>
+                Turn on in Settings
+              </a>
             </div>
           ) : null
         ) : null}
@@ -1868,47 +1870,18 @@ export function LiveTripClient({
                   ) : null}
                 </div>
               ) : !isStandalone ? (
-                <div className="mt-3 rounded-2xl border border-amber-200/30 bg-amber-200/15 p-4">
-                  <h3 className="text-xl font-black text-amber-900">Add Roamly to your Home Screen</h3>
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">The Home Screen app opens Roamly&apos;s homepage — open your trip from there to finish setup and get live alerts.</p>
-                  <button type="button" onClick={() => void startInstall()} className="mt-4 min-h-12 w-full rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink">
-                    {deferredInstallPrompt ? "Add to Home Screen" : "Show me how"}
-                  </button>
-                  {installGuideOpen ? (
-                    <div className="mt-4 rounded-2xl bg-white p-4 text-ink">
-                      <h4 className="text-lg font-black">Add Roamly to your Home Screen</h4>
-                      {guideVariant === "ios" ? (
-                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
-                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the Share button at the bottom of Safari.</li>
-                          <li><span className="mr-2 font-black text-ocean">2.</span>Scroll down and tap <span className="text-ink">Add to Home Screen</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Add</span> at the top.</li>
-                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
-                        </ol>
-                      ) : guideVariant === "samsung" ? (
-                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
-                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the <span className="text-ink">☰ menu</span> at the bottom of Samsung Internet.</li>
-                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap <span className="text-ink">Add page to</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Home screen</span>, then <span className="text-ink">Add</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
-                        </ol>
-                      ) : guideVariant === "firefox" ? (
-                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
-                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the <span className="text-ink">⋮ menu</span> in Firefox.</li>
-                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap <span className="text-ink">Add to Home screen</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Add</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
-                        </ol>
-                      ) : (
-                        <ol className="mt-3 grid gap-2 text-sm font-bold leading-6 text-slate-600">
-                          <li><span className="mr-2 font-black text-ocean">1.</span>Tap the <span className="text-ink">⋮ menu</span> in the top-right corner of Chrome.</li>
-                          <li><span className="mr-2 font-black text-ocean">2.</span>Tap <span className="text-ink">Add to Home screen</span> (or <span className="text-ink">Install app</span>).</li>
-                          <li><span className="mr-2 font-black text-ocean">3.</span>Tap <span className="text-ink">Add</span> / <span className="text-ink">Install</span>.</li>
-                          <li><span className="mr-2 font-black text-ocean">4.</span>Open Roamly from the new Home Screen icon, then open your trip.</li>
-                        </ol>
-                      )}
-                      <button type="button" onClick={() => setInstallGuideOpen(false)} className="mt-4 min-h-11 w-full rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white">Got it</button>
-                    </div>
-                  ) : null}
+                <div className="mt-3 rounded-2xl bg-white p-4">
+                  <h3 className="text-lg font-black text-ink">Roamly reaches you through the app</h3>
+                  <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
+                    Without the app, Roamly can&apos;t reach you in the moment — this trip still follows its
+                    schedule here. Adding the app is step 2 of setup, done once, in Settings.
+                  </p>
+                  <a
+                    href="/account#setup-step-2"
+                    className="mt-3 inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white"
+                  >
+                    Finish setup in Settings
+                  </a>
                 </div>
               ) : fieldTestMode && notificationPermission === "default" ? (
                 <div className="mt-3 rounded-2xl bg-amber-200/15 p-4">

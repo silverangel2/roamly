@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { TripBookingsList } from "@/components/roamly/TripBookingsManager";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
+import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
+import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -408,6 +410,17 @@ export default async function LiveTripPage({
         />
       </div>
     );
+  }
+
+  // The setup gate (owner design, 2026-10-23): the companion's home
+  // sits behind the same one-time setup as the trip — a traveler whose
+  // steps were never completed meets the cascade, not a half-live
+  // companion. Field-test mode is an internal lane and skips it.
+  if (!fieldTestMode) {
+    const setupState = await getRoamlySetupState(supabase, current.user).catch(() => null);
+    if (setupState && !setupState.complete) {
+      return <SetupGateScreen initialState={setupState} tripName={bundle.data.trip.title || destinationLabel} />;
+    }
   }
 
   if (!fieldTestMode) {

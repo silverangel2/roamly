@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
-import { CompanionInstallStep } from "@/components/roamly/CompanionInstallStep";
+import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
+import { TripStateLines } from "@/components/roamly/TripStateLines";
+import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { EntryGate } from "@/components/roamly/EntryGate";
 import { HandoffBlock } from "@/components/roamly/HandoffBlock";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
@@ -2442,6 +2444,16 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     ...(full ? summarizeItineraryShape(full) : {})
   });
 
+  // The setup gate (owner design, 2026-10-23): a traveler whose
+  // three setup steps were never completed meets the cascade here —
+  // the "Your trip is ready" moment — instead of the itinerary. The
+  // gate keys on the account's persisted state, never on this trip;
+  // completed once, it never renders again.
+  const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
+  if (setupState && !setupState.complete) {
+    return <SetupGateScreen initialState={setupState} tripName={destinationLabel} />;
+  }
+
   return (
     <div className="safe-bottom roamly-print-document w-full bg-[#fbf8ef] px-4 pb-28 pt-5 text-ink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
@@ -2464,8 +2476,6 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               {travelerStatus.badge}
             </Badge>
           </div>
-
-          {justPurchased ? <CompanionInstallStep /> : null}
 
           {/* Phase 6 (DESIGN §2.4): Build 2 entry gates — mobile-only
               pre-generation gate on the phone; the desktop handoff
@@ -2668,20 +2678,18 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 </div>
               </nav>
 
-              {trackingUnlocked && !completedTrip ? (
-                <section aria-label="Live Companion" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] bg-white px-5 py-4 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
-                  <div className="min-w-0">
-                    <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-slate-500">Live Companion</p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                      {tripLifecycle === "active"
-                        ? "Active today — it follows along while you move. Your plan is right below."
-                        : `Ready — starts ${companionStartLabel}. Your plan is right below.`}
-                    </p>
-                  </div>
-                  <a href={`/trip/${id}/live`} className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white">
-                    {tripLifecycle === "active" ? "Open Live" : "Companion"}
-                  </a>
-                </section>
+              {/* No alert furniture on the itinerary page (owner alert
+                  model, 2026-10-23): alerts are temporary and live with
+                  the companion. What stays is state — two quiet lines
+                  naming how each flagship feature stands. */}
+              {setupState ? (
+                <TripStateLines
+                  gmailConnected={setupState.gmailConnected}
+                  locationGranted={setupState.locationGranted}
+                  locationEnabled={setupState.locationEnabled}
+                  companionUnlocked={trackingUnlocked && !completedTrip}
+                  tripActive={tripLifecycle === "active"}
+                />
               ) : null}
 
               <div className="roamly-tab-panels">
