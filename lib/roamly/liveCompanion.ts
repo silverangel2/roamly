@@ -295,7 +295,7 @@ export function selectActiveTrip<T extends ActiveTripSelectionCandidate>(
 ) {
   return candidates
     .filter((candidate) =>
-      ["locked", "active", "planned"].includes(String(candidate.status || "")) &&
+      ["locked", "active", "planned", "generated"].includes(String(candidate.status || "")) &&
       Boolean(candidate.itinerary_locked || candidate.itinerary_status === "locked" || candidate.itinerary_generated_at) &&
       Boolean(candidate.tracking_unlocked || candidate.live_companion_unlocked) &&
       isTodayWithinTripDates({
