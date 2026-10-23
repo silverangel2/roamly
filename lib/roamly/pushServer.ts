@@ -352,6 +352,7 @@ export async function sendScheduledTripNotifications() {
 
   if (error) return { ok: false, error: error.message };
   let sent = 0;
+  let claimFailures = 0;
   const emailedTrips = new Set<string>();
   for (const event of events || []) {
     const claimed = await supabase
@@ -362,7 +363,19 @@ export async function sendScheduledTripNotifications() {
       .select("id")
       .maybeSingle();
 
-    if (claimed.error || !claimed.data) continue;
+    if (claimed.error || !claimed.data) {
+      if (claimed.error) {
+        // A failed claim (e.g. a status CHECK violation) must never be
+        // invisible again: log it and count it in the run summary. A
+        // claim that simply matched no row (another run claimed the
+        // event first) carries no error and stays a quiet skip.
+        claimFailures += 1;
+        console.error(
+          `[roamly-notifications] Failed to claim companion event ${event.id}: [${claimed.error.code || "unknown"}] ${claimed.error.message || "Unknown claim error."}`
+        );
+      }
+      continue;
+    }
 
     const tripResult = event.trip_id
       ? await supabase
@@ -585,5 +598,5 @@ export async function sendScheduledTripNotifications() {
         .eq("status", "processing");
     }
   }
-  return { ok: true, processed: (events || []).length, sent };
+  return { ok: true, processed: (events || []).length, sent, claimFailures };
 }
