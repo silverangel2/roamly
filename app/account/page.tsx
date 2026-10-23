@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { SetupCascade } from "@/components/roamly/SetupCascade";
+import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { AccountProfileForm } from "@/components/account/AccountProfileForm";
 import { EmailConnectionSettings } from "@/components/account/EmailConnectionSettings";
 import { LocationTrackingSettings } from "@/components/account/LocationTrackingSettings";
@@ -63,6 +65,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     supabase ? ensureRoamlyProfileBestEffort(current.user, {}, supabase, "account_page") : Promise.resolve({ profile: null, error: "" }),
     supabase ? hasUsedFreeItinerary(supabase, current.user.id) : Promise.resolve({ used: false, entitlement: null, error: null })
   ]);
+  const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
   const metadataName =
     typeof current.user.user_metadata?.full_name === "string"
       ? current.user.user_metadata.full_name
@@ -101,6 +104,21 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         </section>
 
         <section className="space-y-4">
+          {setupState ? (
+            <div id="setup" className="scroll-mt-24">
+              <Card>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Setup</p>
+                <h2 className="mt-2 text-2xl font-black text-ink">Three steps, once</h2>
+                <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+                  Each step powers one thing. Done once, remembered forever.
+                </p>
+                <div className="mt-3">
+                  <SetupCascade initialState={setupState} />
+                </div>
+              </Card>
+            </div>
+          ) : null}
+
           <Card>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Profile basics</p>
             <h2 className="mt-2 text-2xl font-black text-ink">Name and access</h2>

@@ -48,7 +48,7 @@ export default async function NotificationsPage() {
       supabase.from("roamly_trips").select("*").eq("user_id", current.user.id).order("start_date", { ascending: false }).limit(40),
       supabase
         .from("roamly_notifications")
-        .select("id,trip_id,title,body,type,status,action_url,created_at,scheduled_for")
+        .select("id,trip_id,event_id,title,body,type,status,action_url,created_at,scheduled_for")
         .eq("user_id", current.user.id)
         .order("created_at", { ascending: false })
         .limit(20),
