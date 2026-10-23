@@ -864,8 +864,13 @@ export function buildLiveCompanionState(params: {
     activity: selection.now || selection.next,
     radiusMeters: settings.arrivalRadiusMeters
   });
+  // The alerts feed carries trip events only (the late adjustment below).
+  // Setup/permission state is never minted here: location permission and
+  // location availability are owned by the trip's state lines and the
+  // Settings cascade (2026-10-23). The reason still travels on
+  // activationReason above for those surfaces; activation logic is unchanged.
   const alerts = [
-    activation.active ? "" : activation.reason,
+    activation.active || activation.status === "permission_required" || activation.status === "location_unavailable" ? "" : activation.reason,
     late.late ? late.adjustment : ""
   ].filter(Boolean);
 
