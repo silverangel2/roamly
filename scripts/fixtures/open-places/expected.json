@@ -1,0 +1,4583 @@
+{
+ "quebec-city": {
+  "radiusMi": 6,
+  "dataRelease": "2026-10-21.0",
+  "browsedRecords": 450,
+  "collectedUnique": 450,
+  "droppedOutOfBbox": 4,
+  "unclassified": 0,
+  "dedupedNameKind": 54,
+  "totalCandidates": 392,
+  "byKind": {
+   "market": 11,
+   "falls": 0,
+   "lighthouse": 0,
+   "museum": 47,
+   "gallery": 44,
+   "attraction": 44,
+   "viewpoint": 0,
+   "stay": 50,
+   "park": 47,
+   "ferry": 1,
+   "station": 15,
+   "venue": 44,
+   "food": 29,
+   "historic": 60
+  },
+  "listing": [
+   {
+    "candidateKey": "overture:2598238b-3b45-4293-9d73-7a1e40a60949",
+    "name": "L'Anglicane",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:82dc8910-4bb6-422d-9da0-ceaba6652922",
+    "name": "Le Confessionnal",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:0f01bee1-d060-4028-a3f1-68638ade6e54",
+    "name": "Galerie Perreault",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:bcaa0ace-5f0f-4351-9609-1f65896c12c9",
+    "name": "École de cirque de Québec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:aae06c93-794c-4e51-84ea-980d19b33306",
+    "name": "Cinema Cartier",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:af03fac4-5c4b-4a35-8c3e-c222dc5df834",
+    "name": "The Fort Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:a6b20c19-498f-4cea-8a06-a744053ab85e",
+    "name": "Royal 22nd Regiment Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:448f1aaa-34c8-4827-af62-736ebbe51bed",
+    "name": "Moulin des Jésuites",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:ab414da9-b289-4e32-8ef8-887774d0506c",
+    "name": "Musée national des beaux-arts du Québec (MNBAQ)",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:bbbe9b3a-5935-4864-9bc8-c25765cd11d4",
+    "name": "Theatre Capitole",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:119a69c6-7371-4164-808d-6159d4eedb14",
+    "name": "La Pyramide",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:86fbb34a-7d3d-4231-9bf5-d9e86f548db1",
+    "name": "Galerie Quebec Art",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:72c999f4-0d12-4749-b8f0-91c1ca7e84c5",
+    "name": "Galerie Douce Passion",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:b12bb14a-6cb1-473e-bf7e-fc9257f95ce7",
+    "name": "iSaute Quebec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:5a3a50ae-94ff-463e-b0af-a49400899cec",
+    "name": "Theatre Petit Champlain",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ae659670-755e-4595-9b51-589e9e593ad2",
+    "name": "Galerie d'art internationale",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:5eb1e7cf-6477-4aef-b4f6-0765d8b3c9eb",
+    "name": "La Fresque du Petit-Champlain",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:471a7c2e-1312-4f03-8f2a-e4f8875074ed",
+    "name": "Engramme",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d6faa9ac-da23-4ab3-bc9d-19816e6af51d",
+    "name": "Le Lieu",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:34eca8ef-7f88-4422-a489-2d5035eafa0e",
+    "name": "Le Bunker Center Science",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:8e9f03ea-de0e-44ee-b74e-03dbaff2e385",
+    "name": "Art Inuit Brousseau-Brousseau",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:b5d9d554-483b-459c-89c2-eae3a891511b",
+    "name": "Cinema Le Clap Place Ste-Foy",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e0113a2a-6608-4044-9a8b-d5396f4a369b",
+    "name": "Musée de la civilisation",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:b9f79e12-5c9e-4c67-b442-5213a008405d",
+    "name": "The Plains of Abraham Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:f823358a-99f2-4ba6-9bd3-1fdbcf1f2aeb",
+    "name": "Galerie Louise Carrier",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d06dc927-177c-438d-bb59-2e9d0d99d672",
+    "name": "Galerie Porte Rouge",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:c8c10b5a-c95e-4dd5-9d89-b888de5f9d9b",
+    "name": "Musée des Ursulines du Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:f327680f-5f0f-4c95-832a-3411cd59ad3a",
+    "name": "Galerie Lacroix A C",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:80dfb6f2-fa35-4360-b623-0dd5684a7b55",
+    "name": "L'îlot des Palais",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:b4d3f332-b9b3-446c-8534-30315c5fc804",
+    "name": "Cinema Lido Levis",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:70981d70-c59b-4961-85d9-71c84d76ce4f",
+    "name": "Cinéma Beaumont",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:edab8566-354e-47f4-a863-2f8c9abd6b79",
+    "name": "L'Oeil De Poisson",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:9ae87ab8-f468-4478-ac68-42398919cecd",
+    "name": "Centre Materia",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:ed418f26-de6f-4623-b332-ade1780bfc1b",
+    "name": "Aréna André Lacroix",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:5c8bac93-71ab-4b9c-b4bf-26124630e2a4",
+    "name": "Manif d'art - La Biennale de Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:b371cf74-6714-443e-8c67-8edd87c285a6",
+    "name": "Atelier De La Mezzanine",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:e58511c2-bd8a-4d45-9a6c-d4a700157b76",
+    "name": "Galerie Lewis",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:9f66c31c-be0a-48e2-8158-6e45a13b0b44",
+    "name": "Renc'Art",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:c65912b3-6d64-4286-b57d-18c9a1eec28e",
+    "name": "Marcel-Bédard Arena",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:6f0ad34c-c4ae-4d81-8c35-48844ca9efb5",
+    "name": "La Chambre Blanche Inc",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:4ecc8c9a-940b-480b-873c-9b149fc86a5e",
+    "name": "Maison Alphonse-Desjardins",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:f76e0dcf-b499-4361-b417-b10d022403e2",
+    "name": "Galerie Le Chien d'Or",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:8a57feaf-90ff-4397-a45d-6ecbab9526a3",
+    "name": "Galerie Linda Verge",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:f7c3c651-e212-4978-93c8-7aee9acff026",
+    "name": "Dugal",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:b8bc0f91-e774-46d2-b7f4-2845030eef6c",
+    "name": "Societe Artistique Charlebourg",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d453b77e-94d9-4a02-a7b6-30e668cadfb3",
+    "name": "Festival de cinéma en famille de Québec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:73ec0f7a-3eab-45ce-8cb3-06fc64eddb14",
+    "name": "Agora du Vieux-Port",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:b7e2f54e-fc86-4ace-9d00-27e67807e420",
+    "name": "Centre Vidéotron",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:67556375-7588-42a3-b799-b906c5e91219",
+    "name": "Regart Centre D'Artistes en Art Actuel",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:735f71a1-f6e2-4806-a987-1431e65753be",
+    "name": "La Belle Galerie",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d93be895-fb74-49f2-ab49-eab0909d3d17",
+    "name": "Pavillon de la Jeunesse",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:cc10518d-549b-4102-ada5-5d82f1180706",
+    "name": "Le Théâtre du Trident",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:23b4b74f-74c0-48f0-a5e8-a8374c34e9ce",
+    "name": "Aréna de Lévis",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:0cfe679f-1421-4a43-b51e-30182d1db168",
+    "name": "Trafiquants d'Art",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d8600f81-6f8b-4d0b-9980-229b4222094f",
+    "name": "Galerie Claude Belley",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:27f6d867-62bb-4077-80c4-3a12711717d2",
+    "name": "La Société d'Histoire de Lévis",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:9674a42b-d353-4e1c-97e9-2c5b3d473a39",
+    "name": "Espace-Temps Culturel",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:aeca6c64-60aa-4f5e-9c8e-5b50fe336064",
+    "name": "Naval Museum of Quebec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:69e0c7b4-eda7-45d9-9313-0c2246ef786d",
+    "name": "Galerie Art'chipel",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:8c577c69-84ac-4e98-b46e-7305d54ceae0",
+    "name": "Galerie d'Art Chez l'Artiste",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:658d4509-f93c-494d-9417-f0f9c6fa32a2",
+    "name": "Stade Canac",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:3d1ff28c-ed4c-4bd5-8b85-96198d8bfb24",
+    "name": "Immersion Quebec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:cba6b081-7703-43be-a71d-9b9f4136d3d8",
+    "name": "Capitol Theatre",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:cfd92ffa-c4f5-4785-a434-09314b891848",
+    "name": "Les Trois Corbeaux/Three Crow Glass Studio",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:93b28997-f392-4cfc-909a-0b3d9a6f1c3c",
+    "name": "Conservatoire de musique et d'art dramatique du Quebec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e949ce48-7174-4b38-97e1-d83f8cdc59d3",
+    "name": "Girardin House",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:c1fbed6d-d6b4-4722-8a2c-c3a64381bf3b",
+    "name": "Maison Hamel-Bruneau",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:e3f94f0f-7cb2-400a-8266-d17fe698b349",
+    "name": "Galerie d'art l'Esprit Creatif",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:e6f4c2a7-251f-4812-8fdb-193a25bc6397",
+    "name": "Chiguer art contemporain",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:6c435cef-d72c-467a-81f4-8a4abb2c460c",
+    "name": "Parc du Bois-de-Coulonge",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:9e08dfb3-8299-415c-90c3-885be5834dea",
+    "name": "Galerie d'art uNo",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:38dd2e63-a631-4329-9e85-1b4cacaebfc7",
+    "name": "Centre d'artistes Ahkwayaonhkeh",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:b1bb8875-f2ec-4f50-b4d4-51f588ab3f80",
+    "name": "ArtKela",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:e560340b-1dc5-4fa4-9930-9635f466fe5d",
+    "name": "Galerie Beauchamp Contemporain",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:1482a1be-5e83-4d31-8dde-3056d9ae5994",
+    "name": "Village Nordik",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:13292d98-7ff2-4975-b728-87b82b21340b",
+    "name": "VU Broadcast and Production Center of Photography",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:2442d331-51fd-4df7-b446-4a32d722aba5",
+    "name": "Centro histórico de Quebec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:73f52503-acc3-4adb-925b-bf21951763d3",
+    "name": "Squeeze Animation Studios",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:be641ccf-5da3-415f-8466-be9862cf2858",
+    "name": "Salle La Firme",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:f204500f-8256-4b02-a4f7-d98253fb3f14",
+    "name": "Maison Éphraïm-Bédard",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:8862927d-62df-4baa-80e2-d7df44922c2b",
+    "name": "Chevaliers de Colomb, Centre leTrait- Carré",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:84430ee7-1efc-4deb-94ea-095041728ce6",
+    "name": "L'Etabli",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:ec15ef95-3262-4d1e-b302-a090fd2bf889",
+    "name": "Maison Francois-Xavier Garneau",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:313a32e9-49b8-4fa9-ba15-ccda2565e946",
+    "name": "Avatar",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:581ba962-e661-4628-9180-79b5143d9b63",
+    "name": "La Fresque BMO de la Capitale Nationale du Québec",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:511b5601-8a2d-459a-88d6-04d8293e4399",
+    "name": "Fondation du Musée National des Beaux-Arts du Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:1f88cd54-365b-4baa-be72-5e388e958a95",
+    "name": "René-Bureau Museum of Geology",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:eed7ca5a-241c-471a-9bd0-280f94c80403",
+    "name": "Antitube",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ebd27c48-c26e-4901-95f6-ea7b6d534730",
+    "name": "Stade Des Elans",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:52f3dddd-95b7-4482-bab8-256f30ff504f",
+    "name": "Musee Regiment de la Chaudiere",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:fe2592dc-2477-418d-8936-f6d6f9e0830f",
+    "name": "Centre de Démonstration en Sciences Physiques",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:255084bf-7b07-4a6c-b556-693d1f377051",
+    "name": "Plein Art 2011",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:4b13ab9e-dd95-4e5d-8624-f680689fb7b9",
+    "name": "Atelier Galerie d'art Yann Lemieux",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:72cb2532-c211-4b7f-a6ff-78548c231f92",
+    "name": "Galerie Saint-Paul",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:4934d5fd-896c-4de1-9b35-7d5b8ace0e22",
+    "name": "Galerie d'Art Bel Art & Associes",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:587ba119-61bf-4531-9e1f-5440fbb749b9",
+    "name": "Maison de la découverte des plaines d'Abraham",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2a675bb1-0708-43d4-8570-2b99e93b38df",
+    "name": "Pavillon de l'éducation Physique et des Sports",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:cc360e8c-6e3f-4823-a35b-acce5baad7b8",
+    "name": "FLIP Fabrique",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:e990ad8f-a8be-488b-98bf-42b7dcd2a3e4",
+    "name": "Maison Des Jesuites",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:929c4a0c-3b6b-44c5-bd12-1cd5fd2342a3",
+    "name": "Lower Vieux Quebec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:c7e72ec1-0a90-4d98-9d3c-283b1dea6ff7",
+    "name": "Cinéma le Clap",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:d42b5c20-a646-436c-ad32-68e95af38d0f",
+    "name": "Place publique l'Île",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f14efdc4-89e2-4b9b-9825-46e1363ca81c",
+    "name": "Bergeron Gagnon inc.",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:1e6cacf9-27ea-4f3c-aec5-21f2a797bf46",
+    "name": "Les Violons du Roy",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e46ab119-ef85-46f4-a831-38473945c57e",
+    "name": "QuebecScooters",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:e50fde71-04c8-4777-a999-ff5e59d6da95",
+    "name": "Rack Evasion - Québec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:d04bd0bc-bf3a-4b66-b0a3-c114a4cd001b",
+    "name": "Le Peuple Lotbinière",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:82758add-19c7-48e7-b74e-5ce05287ead1",
+    "name": "Pottery Terre Et Biscuit",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:d3ba4cdb-5a20-498f-891d-361b554c5605",
+    "name": "Société d'Art et d'Histoire de Beauport",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:d4d1e18e-ac32-4560-92fd-0c6cce329347",
+    "name": "Anton Knight Portfolio",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:615c48f4-9f35-482d-83b4-40c6abd0d6a5",
+    "name": "ComediHa! - Siège social à Québec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f0fa7f17-32f7-43b8-9211-9d42edff167d",
+    "name": "Eros Et Compagnie",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:996d6019-35b5-47f3-a82b-666aa5837990",
+    "name": "Les productions Rhéaumer",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:1785454c-2bef-4f84-bfa8-75a79197e4f6",
+    "name": "Lucid Dreams by Dufour",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f9841f22-dc1d-43e3-83d9-00142e81a159",
+    "name": "Montcalm - Quartier des arts de Québec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:d0baee1c-fae1-4d9f-b3c9-229bbc224f12",
+    "name": "Brisebois Renald",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:e6958e58-f2f1-472b-8b4e-6f0beeda8160",
+    "name": "Ateliertrace",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:8270cb58-cb20-4548-857b-cf567cb0d68f",
+    "name": "Maison historique Chevalier",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:c918c0c7-bc95-4848-a887-39b3c593d2a9",
+    "name": "ÉGI: La Galerie",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:3d0c03dc-678c-44a4-8706-3e62932eeb15",
+    "name": "Lieu historique national du chantier A.C. Davie",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:c7d0ad54-3a52-4640-ae14-f98706d4f49f",
+    "name": "Old Quebec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:a81f32d6-7233-41ba-ba01-d5834967aeeb",
+    "name": "Le Club d'impro",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:1e22f98b-b462-4486-a402-054f3ec6d0cb",
+    "name": "Statue De Samuel De Champlain",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:d338383c-88d3-4787-ae35-6fbc7f7ef1c7",
+    "name": "La Caserne - scène jeune public",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:a3a14209-6440-49e1-a68f-f33bada47c23",
+    "name": "Moulin à images",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f875181e-f4c4-45f4-8550-f611aba7d9fe",
+    "name": "Quebec Arena",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:4b5d8f35-094f-4c89-be1d-7b03f81ff9fe",
+    "name": "Stade Georges-Maranda",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:9960d488-0964-46b7-b206-26ed2e47ba93",
+    "name": "La Boîte ateliers créatifs",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:ae236cb7-7222-4fcf-bab6-de09d05c8674",
+    "name": "Jean Castor",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:9fb4f749-db31-4530-8499-955ecf0d45ba",
+    "name": "La Fresque Desjardins de Beauport",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:959fcf3c-23c1-4738-8b16-79ebe5530b49",
+    "name": "魁北克老城",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:a864e75b-30cd-4864-8aba-e762391ffdae",
+    "name": "Cine-detente.ca",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:822f6687-e1b9-4e46-8bc5-219713a1bd92",
+    "name": "Observatory, Quebec City",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:4a54c6c7-ef26-4ecc-bbd0-1df6bb0de058",
+    "name": "La LIPRA",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:5b4321cb-a514-4aa1-b8f0-b3b322af3663",
+    "name": "Amphitheatre Gymnase Desjardins Universite Laval",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:b0ec3e9a-d586-4fdb-8445-7d5972a9f5d4",
+    "name": "C3 Design",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:546e97ec-73b2-4723-99a2-d908e83b755f",
+    "name": "Calèches Québec",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:70594d15-fd39-481b-a663-7915fdef330d",
+    "name": "Caricature Pierre Drysdale",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:86dfc9d3-abd1-40a7-968c-5c4fc88f703e",
+    "name": "Caserne Dalhousie",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:b0da5388-2310-4a4f-89d0-d2caeedd96e1",
+    "name": "Centre Durocher",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:a41294ed-6e06-452d-8414-55cc5cf86116",
+    "name": "Cineplex Odeon Place Charest",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:9b8008be-a01e-4a3c-82a7-e0fa09d3b811",
+    "name": "Les Gros Becs",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:b897f398-de05-42f3-a3d0-6918a2399a23",
+    "name": "Maison Chevalier, Centre d'interprétation de la vie urbaine de la ville de Québec (CIVU)",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:8aa2008e-a73b-408a-b1ca-ece5f1a3ac5e",
+    "name": "Societe Economusee du Quebec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:7cc08de4-9aed-43a4-b58d-0e0d658f3fde",
+    "name": "Société du Patrimoine Urbain de Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2c4470a7-878d-4566-8931-ba43bf2e03a0",
+    "name": "Maison Jean-Baptiste-Chevalier",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:9f3b0674-b09e-4e6f-a723-1a769cf87e44",
+    "name": "Conservatoire de musique et d'art dramatique du Québec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:63d5bb8d-c9a9-452e-ad74-556fd4a7ca12",
+    "name": "Tour Martello no 4",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:3cd9bd1a-605a-4b7e-ae75-8932c49c64e1",
+    "name": "Copper Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:5c6c9654-07e2-4236-8d59-5695c216b6ee",
+    "name": "Le Studio Z",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:07f48a8c-f3ac-4bac-819a-796c72deb8cc",
+    "name": "Petit-Champlain District & Place Royale",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:0b9134fe-e450-425f-b24d-cbd75164c404",
+    "name": "Conservatoire d'Art Dramatique de Québec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:d2e17c11-8cad-4871-90ae-9f5e523e01dd",
+    "name": "도깨비 Quebec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:a6099b21-6bb9-499d-b432-2c748066f0d3",
+    "name": "Charles Baillairgé Pavilion",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:b952329f-613d-4586-b6cf-7ebd0a19a3ce",
+    "name": "Orchestre symphonique de Québec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:5146bb9d-9e36-4105-81af-db21e69c07c2",
+    "name": "Québec Mines Énergie",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:0c57320e-e869-4679-b441-847a5a197f92",
+    "name": "Musée de l'Enfance ",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:79982933-771b-4afb-ba7d-ff440bbe0edd",
+    "name": "Centre d'interprétation de la vie urbaine",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:fc139d5d-1edb-4874-98c1-a469899d8167",
+    "name": "Copper penny 1943",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:025a35d2-84f3-4b74-a356-5dfa0e48c575",
+    "name": "Centre d'Interprétation de la Vie Urbaine de la Ville de Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:41605fff-437d-4b40-ac0b-80aefabb9699",
+    "name": "L'international de l'auto de Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:c5a05228-5ab7-4424-a290-49180850aded",
+    "name": "NAT Musée national de l’histoire du Québec",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:054251a8-87d6-433e-82f6-a074b4f805f8",
+    "name": "London Calling",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:63d6a32b-9656-4e77-8fe8-350b65124dad",
+    "name": "Morrin Centre",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:cd4efe26-9622-4e48-9619-8500aeb949e8",
+    "name": "Observatoire de la Capitale",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3c87e97a-dcbd-4397-9f29-b9e9b6ca9463",
+    "name": "La Kle",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:cf8ea0dd-24f4-4617-a008-0a3201398ab7",
+    "name": "Tour Fresk",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:66263682-efea-4280-9509-c259e819e370",
+    "name": "Quartier Petit Champlain",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:8be8b558-9f19-4758-a625-3de1e0a4946e",
+    "name": "Fort Numéro 1",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:15d83549-81d4-4871-a649-c9d95ec8d869",
+    "name": "Le Vitrail",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:80cc06ef-abcc-4ebf-bb57-803096982d4f",
+    "name": "Le Watson",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:d9c81211-a5be-48d3-a805-a8b97696f706",
+    "name": "Centre de la francophonie des Amériques",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:b1ce7e3b-f99d-4e1e-88cb-9441ee907fc3",
+    "name": "Parc de l'Artillerie",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:65a3fad6-497a-4de0-9a1f-ac2200486a14",
+    "name": "Montmorency Park National Historic Site",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3b2173c1-80a0-4d36-b947-fb06e434b474",
+    "name": "Place Royale",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:53332eda-1dab-43b9-ad78-fde18da00faf",
+    "name": "Condos St.Moritz",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:cda41b58-8937-42db-a34e-092668637761",
+    "name": "Complexe d'habitation pour retraités Les Quartiers des Rivières",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:c60a824b-e001-4fe6-9f89-07d1bea3f2dc",
+    "name": "Maison Louis-Fréchette",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:14a41052-703e-4f8e-8412-1ecf15565c50",
+    "name": "Quartier Saint-Jean-Baptiste",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:c1b994e0-4b91-42d7-ade7-aa63eb6a3d08",
+    "name": "Méduse",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:fc7d30a8-814e-468e-8b53-1fc55f79e314",
+    "name": "Immeubles Laurentien Inc",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:7d69cc35-7800-473c-8962-402985941a77",
+    "name": "Les Condos Locatifs Quebec Viridi",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:0a0f4029-11a8-436e-b47f-d42267022a27",
+    "name": "La Fresque des Québécois",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:8a4034fb-68f2-4d56-b636-e4143554c729",
+    "name": "Place Chamonix",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:b81e55a3-31bb-4331-9108-8a3cd064f2dd",
+    "name": "Lévis Forts",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:cf969c4a-aafe-4f0e-ad64-6f9623b6a7ed",
+    "name": "Ilot des Capucins",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:718cb0cc-65ba-4f82-b341-d0b403e42c45",
+    "name": "Monument Marie Catherine de Saint Augustin",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:b7be4a1c-7d0f-4ab4-97e2-b8f9d74c1cae",
+    "name": "La Sentinelle",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:13edebd5-e5d4-45ff-9ae6-ac77d28c4d21",
+    "name": "Jardin Jeanne-d'Arc",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:401a8648-3ef1-4ff1-bca7-002d10415363",
+    "name": "Le Promontoire",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:46ae6c7e-c0a2-4d5d-bf1c-86cbdf5f88c3",
+    "name": "Residence Le long des Berges",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:363626a1-45ce-41f9-a135-22cbb3b49a23",
+    "name": "Boisé des Augustines",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:58ed2c66-e6ac-4b89-86b5-68c74c61b8aa",
+    "name": "Place du Parc",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:c2458d9a-537b-404a-95bf-82098f2ea2ee",
+    "name": "Jardins Merici",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:f7fbe926-a99c-4154-af56-182313b14e7b",
+    "name": "Escalier Casse-Cou",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:09ca873e-c8ab-4e8a-a7b3-dcd1933ed599",
+    "name": "Le Vert Mezzanine",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:aa291881-3e9b-454a-92fa-74dabbce8264",
+    "name": "Le Proxi",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:dc5b222d-13f5-4653-b85f-422c8a08a5b0",
+    "name": "Les visites fantômes de Québec",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:ccc09bbc-d543-4e23-af28-466d677d0c8d",
+    "name": "Les Lofts de la Couronne",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:5911794d-6be1-429c-934c-3847f14b29f8",
+    "name": "Le Reuleaux",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:dedfbb48-f0b8-4fc9-acde-ae4ab022aaa1",
+    "name": "St. John Gate",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:109faf0e-9e92-42d4-8995-92208f0d657a",
+    "name": "Espace St Louis",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:58ecb6db-9569-448c-84fd-53b8e1993d43",
+    "name": "The Battlefields Park",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:a6e5318a-da55-4c42-9200-dfb4b08e746d",
+    "name": "Séminaire de Québec",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3639ed94-4238-46ea-95d8-1288c587aeaa",
+    "name": "Centre Culturel Trimar Inc",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:eea39a01-cf4e-4570-9cd0-a2e90d2cf8b5",
+    "name": "Le Centre: Hub Créatif",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e5175d73-8a98-4f3f-8b84-2c6fce811ca7",
+    "name": "Centre Alyne-Lebel",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:8bb04d8b-be4c-4e4a-b535-c6193a45fdd7",
+    "name": "950 Lienard",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:dcb3339e-caac-4e6c-b035-9de7b2f30bac",
+    "name": "Porte Kent",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:e12b439e-ee27-4e25-874b-ab8ba93f71b4",
+    "name": "Parc des gouverneurs",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:298484b6-ab32-420d-a012-97e377c9c476",
+    "name": "Old Port Quebec",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:869620fe-8082-47f0-aced-2e96f3373d95",
+    "name": "Porte St-Louis",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:00214c6c-2fba-48d2-bf47-5b3be978f21c",
+    "name": "Fleur de Lys - Condos Locatifs",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:c5541b9f-235d-496e-8b4d-7fc2607cf248",
+    "name": "Galerie d'Art Magella-Paradis",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:64126b51-a630-44bb-af08-f9e8dd099032",
+    "name": "Tours Martello",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:d00c6394-6bfb-4f29-8969-74ed0c7fda35",
+    "name": "La Rotonde",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:abf05a39-7deb-41d5-a841-f780ef351d2b",
+    "name": "Artillery Park",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:8795604d-49bb-4956-ab07-e5fc945245d4",
+    "name": "Les Residences de la Capitale",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:38ed81ae-0bf7-4f25-9b25-3a36b362126c",
+    "name": "Dufferin Terrace",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:469ac9ad-5f38-4cdc-851d-2572cf1cf918",
+    "name": "Copropriete Louisbourg",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:d37b74c0-ccb1-4456-919f-9b131394ca85",
+    "name": "La Passerelle",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:e13f4ac2-57f4-42b8-aa62-0c1f5787d8dc",
+    "name": "Maillou House",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:459f0ac8-bbb7-46a5-a475-3c96e5821f50",
+    "name": "Place Canardière",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:42b130fc-5de7-447f-828c-b0146d62f5b1",
+    "name": "Centre culture et environnement Frédéric Back",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:5c16bbfd-98a8-4006-b63d-e6b1beb18fb3",
+    "name": "Le BAL",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:a5318587-b4a5-4ea6-b1d6-ef8602c0cd6f",
+    "name": "Place Evangeline",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:d903ff10-42ae-40af-89a3-ed54cd8c7608",
+    "name": "Terra condos locatifs - Phase 3",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:c8360ea0-01c2-4017-a448-ac56f9abea15",
+    "name": "Villa Bagatelle",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:4c1dd5d8-1ce8-4239-a49c-96ae4d89f3af",
+    "name": "Édifice Price",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:123f2103-635a-4ca9-973f-34465b595f69",
+    "name": "L'Unique Espaces Condos",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:a13d3d26-0441-4f4b-85c4-c64750ca2a5a",
+    "name": "OSE par Culture Capitale-Nationale et Chaudière-Appalaches",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:c2826b49-8b1b-48ab-acf5-353cab0e4e50",
+    "name": "Promenade Champlain",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:67d28a45-e066-4a10-8572-024b90acc430",
+    "name": "Centrale Alternative",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:0b366e56-5aa2-41de-80fe-51720464b2d4",
+    "name": "Le Charles Huot, condos locatifs par Les Immeubles Logicom",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:9052427d-6fe4-4c20-86d2-b692c3c496f8",
+    "name": "Saint François de Laval Monument",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:de66897a-7f30-4d82-b722-2de04a6aa16b",
+    "name": "La Remise culturelle",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:d0e42277-4464-42de-971b-006fdef719cb",
+    "name": "Centre culturel de Lévis et Piscine Pierre Létourneau",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:2d091e1c-7de3-45c2-a4b3-bee59a16b005",
+    "name": "Espace culturel de Repentigny",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:193f5c61-5ea2-48e1-8dfc-81553ace3fef",
+    "name": "Sgi Canada Centre De Québec",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e22e2e12-8aad-4c3b-85aa-cc7c1736d377",
+    "name": "Ben & Florentine",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:c61284e5-6fd1-49cb-9395-97ed5c39e7f6",
+    "name": "Bâton Rouge Grillhouse & Bar",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:78f54bb4-8b92-41a6-ae77-2e8dbaf74645",
+    "name": "Casa Grecque",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:1087b552-ad4b-44f2-8820-d72d9eea1914",
+    "name": "Cora Déjeuners et dîners",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:cf9abef3-4df3-4e84-8950-527fe40ac4a0",
+    "name": "Pizza Pizza",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:6532f001-2a46-499f-9fbf-82af6318d0bf",
+    "name": "Rôtisserie Scores",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:411977f6-784c-4f83-8d61-c168f859cca9",
+    "name": "Sushi Shop",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:250b3358-5d5d-487a-88ed-1109ea052bd8",
+    "name": "Thaïzone",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:11556b1e-a265-4fdd-8f19-a0772be26070",
+    "name": "Toujours Mikes",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:edc54520-b24e-4b28-8a6f-d2910ccd659d",
+    "name": "Tutti Frutti déjeuner et diner",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:6b25920c-d431-47d5-a1c7-d4c70b98088a",
+    "name": "Valentine",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:fd2ab77e-df17-4ff6-915a-395cf0ab340b",
+    "name": "Yuzu sushi",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:a404bf51-4b29-4037-b0bd-3ba05b2c9c4e",
+    "name": "Yuzu sushi Express",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:b7454703-d39f-47e8-bb02-4cf480b5ccbe",
+    "name": "Ste-Foy",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:9a36993b-cc91-4c59-b0f6-9b72b02d2d60",
+    "name": "Café Dépôt",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:8a0da28d-8cbb-481b-92bb-88fa156b522f",
+    "name": "Café Van Houtte",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:c96b7430-9376-459f-b31d-c3477507ca21",
+    "name": "La Crémière",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:556d355d-8cdb-4ae4-a59f-70746c8fcedc",
+    "name": "La Diperie",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:5cee3d92-2249-4d76-94d7-f7256e5a5fdc",
+    "name": "La Diperie La Canardière",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:a81ea05f-7b0f-4c9f-87a9-2a8231afd9af",
+    "name": "Wetzel's Pretzels",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:f9c70fc8-edc4-4454-b57b-6256487961e6",
+    "name": "Le Croquembouche Pâtissier et traiteur",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:288f2aa1-6dd6-4f65-b30f-7c4a4191bdc5",
+    "name": "La Boîte à Pain",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:eee161c0-aa6f-4dc3-a60c-fbce6cfb02dd",
+    "name": "Boite a Pain Cafe Napoli",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:de2a2d89-4ad9-4e79-b0f7-9ae3fbc23e5b",
+    "name": "Boulangerie artisanale Epi Fanny",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:e1ff4f73-8599-4aff-8367-14e5aa861372",
+    "name": "Première Moisson",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:883892e6-fbc1-4438-8583-f0c0cb3ed4a9",
+    "name": "La Boule-Miche",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:2ee02d05-7b8c-427f-af93-2532f1a63635",
+    "name": "Paillard",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:c8703340-aca3-44ec-a7d9-be00a468b049",
+    "name": "Boulangerie Artisanale Paul",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:47957700-ece4-4592-8f1e-3760bc8cb8ee",
+    "name": "Subway",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:921547dd-9553-405f-b18a-6378c4c38695",
+    "name": "Hilton Quebec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:72abad47-6e28-49ea-a020-c123501bcbd5",
+    "name": "Monsieur Jean Hotel Particulier",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:cdaaacf1-737a-4bf1-a402-fa6069036218",
+    "name": "Marriott",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:4c3cefcc-16bc-4f27-9d20-9f7219fbaec3",
+    "name": "Courtyard By Marriott",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:6b332595-acf1-468c-8d14-a67b6a2b91d4",
+    "name": "Delta Hotels",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:9877c1d5-7ced-4035-9d70-6c3f7d97d966",
+    "name": "Four Points By Sheraton",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e4d95cb2-0bde-40f2-ac3d-47b618eec9f3",
+    "name": "Hôtel Palace Royal",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:75f5ff35-e5e1-4b77-8542-a6e0fdb99472",
+    "name": "Hôtel Château Laurier",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:6c2c980f-07dd-4732-88dd-bf6e4906cacd",
+    "name": "Fairmont Le Château Frontenac",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:9cef8047-cfe9-48e4-b939-d4d7a2f59ea1",
+    "name": "Hotel Royal William",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:fb02671b-d0b6-4fac-8cd4-0b001194910a",
+    "name": "Le Capitole Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:4ee65060-70d9-4550-85bb-d8e5bc36569a",
+    "name": "Hôtel Le Germain Quebec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:ff21a1d9-6f99-4208-b700-bc0e73e1d3a1",
+    "name": "Tribute Portfolio",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:31729149-9c6e-47a0-8c77-640a876be22d",
+    "name": "Hotel 71",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:c87de782-6509-42c4-b0df-7b9cc84b306a",
+    "name": "Hôtel Champlain",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:aab3d4aa-1e8f-4e85-a80e-3252916977dc",
+    "name": "Hôtel Manoir Vieux-Québec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:f8e62abd-1794-4781-a706-fa4a1bb77d16",
+    "name": "Hotel Chateau Bellevue",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:912b3113-995f-42c9-ad32-fbd144f4ffe0",
+    "name": "Hôtel du Vieux-Québec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:566f2d9c-3542-4c20-aa5c-dcd45016d179",
+    "name": "Quality Inn & Suites",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:b6e955d3-9466-47e9-8bf1-c71fe55d7ea1",
+    "name": "Auberge Place d'Armes",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:eff23eb0-1202-4a1d-be39-b6d732c87962",
+    "name": "Hôtel Ambassadeur",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:59bcd38d-5dac-40ef-b5b9-ed398685dcb8",
+    "name": "Hotel Manoir Victoria",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e089bba4-debd-46a2-9094-8768c3957d50",
+    "name": "Hôtel Port-Royal",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:3f7ca60d-8abb-4d38-9cc4-8627667a6915",
+    "name": "Hôtel Le Château de Pierre",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:3f63b8d6-9335-4fa3-92b1-a9611cd4431c",
+    "name": "Hotel-Motel Le Régent",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:18c6d16b-2535-4d4b-90e0-42692dd02eb8",
+    "name": "Hôtel du Nord",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e261b717-bc3c-4ca1-a135-16d33bc213c7",
+    "name": "Hotel Manoir d'Auteuil",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:53c80346-2af7-425b-8a2e-a3fdb4bbfaac",
+    "name": "Hôtel Relais Charles-Alexandre Québec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:3c4c30f6-c753-4951-aa81-3d18e4bb464d",
+    "name": "Castel d'Amérique Française",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:6c0b85b6-a017-46b3-a5bb-8f8de112d483",
+    "name": "Hotel L'Ermitage",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:c4b1dc2e-5bd9-4bbb-b95b-9e9c3ccdded7",
+    "name": "Auberge Saint-Antoine",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:12216d3a-086d-4d89-b8a3-7f109910f5d5",
+    "name": "B & B St-Louis",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:8dce03db-b70d-419b-bc12-81c274be9fae",
+    "name": "Maison Henry-Stuart",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e6e98606-8de2-48a0-960b-6857954cf12e",
+    "name": "Hôtel Louisbourg",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:582fcfe4-b01c-4b44-a6df-61417283dde6",
+    "name": "Auberge Internationale de Quebec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:1d9d9d68-1dbd-4cf5-b0a3-775626d884e1",
+    "name": "Hotel L'Oie des Neiges",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:7db9cd81-ff37-45c2-9095-c937503e2ebc",
+    "name": "Hotel La Maison Demers",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:8e2e7dfa-2650-48e3-b259-9ff9d1bd9a51",
+    "name": "Hotel Universel Quebec",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:8f30b573-6658-461d-8818-606ca67c733c",
+    "name": "Hôtel Le Priori",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:4b8066ba-bdd4-429e-be8a-03ce81f240c0",
+    "name": "Le Havre du Trait-Carré",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:0c50d051-25a3-40d7-96f9-5d6de2fd58c2",
+    "name": "Hotel des Coutellier",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:ee4e47da-4a32-4c2d-9b9e-1e066e403f6c",
+    "name": "Hotel Motel Le Chateauguay",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:eda747ce-366d-4cd9-87c8-da7ae4ccfa4b",
+    "name": "Hotel Manoir de la Tour",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:2b9fc671-e008-4353-8921-39ca56ad750f",
+    "name": "N Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:d3b36cc3-dc55-47e1-81c8-191d98601822",
+    "name": "Hôtel & Suites Le Dauphin",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:9e8de274-1b8f-4f86-9a4c-96529016642d",
+    "name": "Le Widor",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:4cfccea0-76d7-4f03-a431-f7f511baf822",
+    "name": "Auberge Aux deux Lions",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:93b7473b-49d3-4ee6-b6eb-d84140346e6a",
+    "name": "Au Petit Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:82cc2fe9-6052-4ad0-b5ae-3af7a9c6c269",
+    "name": "Les Lofts 1048",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:80fcbafd-8d9b-4331-8f99-3d1d7a075a75",
+    "name": "Hôtel Le Clos Saint-Louis",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:a9e2edac-5fbb-423f-bfb9-756810101a26",
+    "name": "Domaine de Maizerets",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:23a48ab8-ca45-4144-8d8e-b92744d52e46",
+    "name": "Parc de l'Esplanade",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:8aee785b-79be-40e4-b17b-9dd487fb3e6c",
+    "name": "Terrasse du Chevalier-de-Lévis",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:de2cc9d9-fced-4362-ab15-22fcb5734187",
+    "name": "Parc de l'UNESCO",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:fb1698c1-0e28-4c53-b13a-9e8702bf4031",
+    "name": "Parc Anse-à-Cartier",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:1e372184-b16f-444b-a8ba-87a8d442e3c9",
+    "name": "Parc Félix-Leclerc",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:4ced4b6d-3ef5-4e8d-b87b-9dfed154ca8a",
+    "name": "Parc Karim Ouellet",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:15c6e9e8-cf48-403d-9ae0-8018934856fd",
+    "name": "Parc Saint-Laurent",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:c2180bc6-d73a-4596-97b2-cc3acc0a55f7",
+    "name": "Parc Samuel Holland",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:8e1c8067-6c64-4bde-b99c-a4f4ab914f44",
+    "name": "Parc de la Francophonie",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:91001cc1-866b-44be-acbb-279fc0f8fbf4",
+    "name": "Etienne-Parent Park",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:c5553a1f-c3c9-4320-afe6-657f9b33f279",
+    "name": "Parc de l'Anse Tibbits",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:da3d81d1-8c8c-4434-a35c-06842adb0f11",
+    "name": "Parc Cartier-Brebeuf",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:e30ad074-4def-4127-9469-77c8e7a690a2",
+    "name": "Parc pour enfants",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:22a8b100-536c-4d17-856b-d2af7017b675",
+    "name": "Parc de la Rivière Beauport Sud",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:db60aea3-365d-4f0b-a740-fd03edfa0e14",
+    "name": "Parc du Bastion-de-la-Reine",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:68f22163-d978-46b5-ba3d-6c81e0c775f1",
+    "name": "Bois-de-Coulonge",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:e7117792-5601-44d8-8e49-a33cf9783d7f",
+    "name": "Parc Linéaire De La Rivière Saint-Charles",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:fa359781-f41e-4ba9-8c4c-20fe9357f60a",
+    "name": "Chutes De Montmorency",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:d783c91b-7dd8-4260-a198-5e75a05b868a",
+    "name": "Parc des Franciscains",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:cf27ef88-15c9-4290-b9b6-d66c1b11d48e",
+    "name": "Parc canin de la Pente Douce",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:b4f0012a-6213-4155-8c1f-5cc3609d0df8",
+    "name": "Montmorency Falls Park",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:7ed08419-2e9f-4ef9-ba61-89c7fffdc98c",
+    "name": "St. Charles River Linear Park",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:04277c58-fe9a-4857-9793-af0cb4199253",
+    "name": "Vallée De La Jacques Cartier",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:ddb65dc4-1005-4fbe-a039-a53a07ee45d6",
+    "name": "Dollard des Ormeaux Park",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:e68cb375-2a20-479b-bc10-7f8f441f0411",
+    "name": "Parc Gilles-Lamontagne",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:299f9f1b-c941-4144-90b6-0ea8463ec9ec",
+    "name": "Parc Victorin Beaucage",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:9ff59a3f-2981-416c-a900-3698c00f20dd",
+    "name": "Parc Armand-Grenier",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:f48a731c-6ce5-47e1-804a-e76ecb49bf78",
+    "name": "Parc de la Commune",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:4183d0c8-7535-4f2f-afb9-14bf21002edb",
+    "name": "Parc Durocher",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:c9a3962d-11a7-4ee7-a7b2-3296528fb426",
+    "name": "Parc Lucien-Borne",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:8663dd95-f3b7-4c2d-9112-1afb0156b55c",
+    "name": "Parc Maurice-Dorion",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:d22a1f08-722b-4d63-a05c-56c86d97092e",
+    "name": "Parc du Musée des Beaux-Arts",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:904a1399-8a6c-43d3-b517-7fc8fb3ff324",
+    "name": "Moulin Cavalier Park",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:691483a1-fe9f-4ffc-80da-fbc9d093f254",
+    "name": "Parc Lockwell",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:91d7819c-c37e-4857-97a5-fc87520089af",
+    "name": "Parc des Braves",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:db058bf5-1ec8-48bc-8953-28b552373685",
+    "name": "Arboretum of Domaine Maizerets",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:ba4d3373-cdea-46c0-baaf-adcf96fabc7d",
+    "name": "Mural de Parc de la Cetière",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:a32dfb04-3164-4a08-ace7-6cff95fdf9de",
+    "name": "Place Richard-Garneau",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:46caf608-7b4c-42dc-b1a4-d569e14cec3f",
+    "name": "Plaine d'Abraham",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:5795a1d4-0ed5-4d0e-8f62-cc6cfc6e6517",
+    "name": "Parc de la Paix",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:99267994-eb5d-4c16-907c-739f665f9dd2",
+    "name": "Parc de la paix de Levis",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:1ef6148c-7bb1-4fbf-b451-8e5816fc264f",
+    "name": "Parc de l'Amérique-Latine",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:f15a23da-7b94-465e-9c48-c2fe67cb175c",
+    "name": "Place George-V",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:7041dc20-3406-4b93-988c-42e1b2a04e23",
+    "name": "Parc Maurice-Lortie",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:e07396da-2bce-4043-aae4-de481f071f7e",
+    "name": "Parc de la Jetée d'Ultramar",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:fc028a2f-0d6a-4a1d-b099-79d2fcb1b6cd",
+    "name": "Paquet Pier",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:c2609b9d-9060-4896-a97d-215596c92ac8",
+    "name": "Réseau de transport de la Capitale-RTC",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:b8591dd8-8174-49b6-829e-c75f8d77a38d",
+    "name": "Centre Administratif (RTC)",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:6d835b30-40d6-43be-a801-b66065f87d2f",
+    "name": "Quebec City Train Station",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:e2d57688-ec97-4748-b7df-71c4de30440a",
+    "name": "Gare du Palais",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:cea8c00a-9dc9-473a-874a-d3607fe4b20d",
+    "name": "VIA Rail-Québec",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c1953321-5da7-444c-ac1b-fc0bea632fe2",
+    "name": "Orléans Express",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c2fe15b6-c6db-4dbe-880d-26c56a3cbaed",
+    "name": "Terminus d'autobus de la Gare du Palais",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:e9df91b7-a85c-4747-951f-1ac67883bdbc",
+    "name": "Circuits St-Laurent",
+    "kind": "ferry"
+   },
+   {
+    "candidateKey": "overture:a37503cb-ad86-4e35-b5bb-4afa135b5fd0",
+    "name": "Valero Terminal",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:5411d0d2-52f5-44d7-9631-8ef023347447",
+    "name": "Station Belvedere",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f5a9b65f-f221-4b38-9c9e-a6365a98aacd",
+    "name": "Gare du Palais, Via Rail Canada",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:1ef70dd4-2ead-42eb-9d45-ab2aa7f750f6",
+    "name": "Gare autobus Orléans Express Québec",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:7cc67b6d-9141-4840-9040-a2318e29c913",
+    "name": "Terminus Place Jacques-Cartier - RTC",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:7d2524fc-5394-478d-895b-135bb259ea9f",
+    "name": "Métrobus / Station des Peupliers",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f40a2491-0791-48f2-8c15-d686d0f40d4a",
+    "name": "Station 1324/RTC",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:e12947a8-619a-4ae2-919f-691e63164bed",
+    "name": "RTC station SSQ",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:23db46b7-6b54-4cb8-b35f-22e29bc0e78c",
+    "name": "Le Grand Marché de Québec",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:99c47fa3-4194-464f-95e0-1fce42802bc9",
+    "name": "Marché de Proximité",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:8c17d4c6-945d-4257-9df8-1c7dbac36f12",
+    "name": "La Fromagère du Marché du Vieux-Port",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:d86dac9b-18d1-4661-b355-dc26e8444ebb",
+    "name": "Marche des Artisans et Distributeurs",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:79091c13-b3a9-474b-8afa-5c794c4ecbca",
+    "name": "Marché Saint-Sauveur",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:59df6c38-e2b7-4feb-b283-626f55006ee2",
+    "name": "Marché fermier Ostara du Vieux Lévis",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:c00d8be8-00d1-4ee0-a6a9-76e6a9772658",
+    "name": "Marché Limoilou",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:7396393a-10ce-41cf-ad89-dd1df3c040ec",
+    "name": "Le Jardin Mobile",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:a42d750d-e427-411f-a7a4-d95bd9048fe5",
+    "name": "Marché Plein l'panier",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:e434f390-8971-406d-b296-bc28a9937870",
+    "name": "Union Paysanne",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:6cc9682e-95c6-4fd2-88fc-f5be3f1f57f7",
+    "name": "Marché Local ULaval",
+    "kind": "market"
+   }
+  ]
+ },
+ "lisbon": {
+  "radiusMi": 6,
+  "dataRelease": "2026-10-21.0",
+  "browsedRecords": 543,
+  "collectedUnique": 543,
+  "droppedOutOfBbox": 2,
+  "unclassified": 0,
+  "dedupedNameKind": 28,
+  "totalCandidates": 513,
+  "byKind": {
+   "market": 20,
+   "falls": 0,
+   "lighthouse": 1,
+   "museum": 60,
+   "gallery": 45,
+   "attraction": 45,
+   "viewpoint": 0,
+   "stay": 50,
+   "park": 44,
+   "ferry": 0,
+   "station": 97,
+   "venue": 45,
+   "food": 46,
+   "historic": 60
+  },
+  "listing": [
+   {
+    "candidateKey": "overture:fe108120-c9b5-44c3-8921-3c32dc90459a",
+    "name": "UCI Cinemas",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:60ac3517-005d-4bff-ba26-5b44cabdcedb",
+    "name": "São Luiz Teatro Municipal",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:bc255131-5cd1-4cac-91df-798a30a7e62b",
+    "name": "Museu Nacional dos Coches",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:3402070b-c36f-49c4-98a1-d9b0e1aeca08",
+    "name": "Museum of Lisbon",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:1dc79496-2683-4051-82c6-81cab1b6fe96",
+    "name": "Teatro da Trindade",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:393e1b25-e4c0-4b11-82a9-17fc58ea9ba2",
+    "name": "Museu da Cerveja",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:dc7bf61d-8d07-455e-85ef-36f1b98d5c1c",
+    "name": "Teatro Meridional",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:4a5e7200-522b-4aca-8635-cddfdfae020c",
+    "name": "Lisboa Story Centre",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:bfdd27ad-d7db-4f71-a8c7-a4c83a5f4c33",
+    "name": "Teatro do Bairro",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:2e342065-7d29-41d1-869a-fa2956a4b17b",
+    "name": "Museu da Farmácia",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:1ccd6c94-105e-4073-8ca8-2c6fb5adfcfe",
+    "name": "Museu Nacional do Azulejo",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:35933e40-eb04-4057-85ab-a433e8094360",
+    "name": "Cinema Ideal",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:9b6f2403-006f-415b-b625-0fdf220e7d5c",
+    "name": "Museu Benfica - Cosme Damião",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:dbcfafec-89e1-4891-b31d-9e418aa5aa98",
+    "name": "Museu Arpad Szenes - Vieira da Silva",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:48c46e3f-0025-40cd-8446-5bf07e50e0d6",
+    "name": "Museu da Carris",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:0dfece46-ca61-4c94-9aea-31261759b90d",
+    "name": "Teatro Camões",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:1550319b-98fe-4821-9cff-e35f26fb5262",
+    "name": "Atelier-Museum Júlio Pomar",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:44935c3c-c5ba-4e82-8e36-e580b5092868",
+    "name": "Teatro Bocage",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:348e898f-2e51-4934-975a-36429466faff",
+    "name": "Nova Banca Galeria",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:70c5f367-e70b-4115-b381-6b0084ff266d",
+    "name": "Museu da Marinha",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:3ac02054-0ba2-44fd-87c4-7af0bc062896",
+    "name": "Museu da Água",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:442e0013-6ae0-4053-afb5-3e66bea44323",
+    "name": "Museu da Marioneta",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:74ad405d-a213-48bf-b327-5e83644c7915",
+    "name": "A Barraca II",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:da161a09-5470-463d-b23b-a0cdfbc9b123",
+    "name": "Galeria Filomena Soares",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:05d12390-4c01-4c93-a66b-87106140721d",
+    "name": "Teatro Tivoli",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:aba7a15a-2680-43e4-bef5-e74065375117",
+    "name": "Cordoaria Nacional",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:790a1c81-e633-4934-837b-0a2f9d02f17d",
+    "name": "Museu Nacional de Arqueologia",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:cfdb3fc6-1ac4-432e-b36f-ba63d69e5119",
+    "name": "Museu Maçónico Português",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:3afb32ff-c69c-41d1-aed3-cbcaa9e2e402",
+    "name": "Ponto Lx",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:dc3da44d-14fa-45ec-94d9-12b0f55a2481",
+    "name": "Illuminati Escape Rossio",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:681b00f5-1041-4e9c-923a-f5575942c0e5",
+    "name": "Casa Fernando Pessoa",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:c701c016-3074-4de1-a9f2-bad8bf266b79",
+    "name": "Museu do Aljube",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:775b97d6-3a43-422d-89d4-df8826379fa1",
+    "name": "Teatro Politeama",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:6c60a74c-d5c2-4553-8d81-88ed7fdb8b6c",
+    "name": "Teatro Maria Matos",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:f60f7435-b7c7-4319-8e23-db419aeb6d13",
+    "name": "Galeria Bruno Múrias",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:17f14774-5be6-468f-b485-60baab4f2231",
+    "name": "Museu da Presidência da República",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:8a2f421f-690a-4d57-a402-3790194b215d",
+    "name": "Oficina Marques",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:db2e0ffd-a9af-45a4-a615-4b07008bdc2d",
+    "name": "Maria Vitória Theater",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:fb251095-dee7-4829-bec1-6a60691bc001",
+    "name": "Galeria Vera Cortês",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:e37ad464-1f5b-4072-b1a0-7ef0e24d5a37",
+    "name": "Museum of the Orient",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2930c63a-1f1c-4692-a730-7cfbf52db706",
+    "name": "Apaixonarte",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:35e98b1e-af77-4bb2-aeba-5bd510987e49",
+    "name": "Teatro Municipal Joaquim Benite",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:3cd5e5d9-f1bd-4b5f-a22a-b35eeecf7f49",
+    "name": "Museu do Dinheiro",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:0cb745ba-c6d0-43d1-b7ac-8b22d3782303",
+    "name": "Quake - Lisbon Earthquake Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:32847dc2-2af7-4a0a-a9f1-3f3b2a500581",
+    "name": "Parque da Paz",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:c52a32a5-d78e-4055-99b6-098e5021b3ac",
+    "name": "Pavilhao do Conhecimento - Ciencia Viva",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:5d7a11bf-fb89-4c26-a9c1-3d2248937518",
+    "name": "Teatro Nacional de São Carlos",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:d4c08826-aa69-4026-96f3-59f78596eb21",
+    "name": "Museu Nacional de Etnologia",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:6168d32b-6fdc-46f9-bc60-c05eaf539e28",
+    "name": "Arquivo Municipal de Lisboa - Fotográfico",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:c8421095-b89a-4a28-ad1c-59361b216265",
+    "name": "Museu Mundo Sporting",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:e36f4fc0-460f-437c-8fb3-13b2e476c8a7",
+    "name": "Núcleo Arqueológico da Rua dos Correeiros",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2522c6de-142b-4fa1-8167-6c49fcc9873a",
+    "name": "Casa-Museu Dr. Anastácio Gonçalves",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:38aba0de-84eb-48b1-ac67-76021a24b4d2",
+    "name": "Galeria Francisco Fino",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:2008ce77-9824-422d-8080-0cf4c5b1f7ea",
+    "name": "Roca Lisboa Gallery",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:8b42a674-bbd2-4641-9597-1b8ece299db0",
+    "name": "Hello Park",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:c4ef456d-c583-453f-beee-d24dbf60c384",
+    "name": "Medeiros & Almeida Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:73cb5130-6d6d-4e55-8615-824fb399f6f0",
+    "name": "Museu da Cidade de Almada",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:6cff5a9b-897b-4bb9-b819-259b58ae174c",
+    "name": "Museu Bordalo Pinheiro",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:481c4336-e078-41b3-8a6f-6eca348f1689",
+    "name": "Estádio do Sport Lisboa e Benfica",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:1b0b9535-5ba0-47e0-9748-b14d273fb1f1",
+    "name": "Teatro Aberto",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ec34a172-6bf9-4f0d-ba67-30276bef4fd7",
+    "name": "Cinemateca Portuguesa",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:e7651732-d259-4b9e-a500-a1acdd8c4c67",
+    "name": "Frigate Dom Fernando II e Glória",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:46990b1c-936f-4615-85fd-94454450586f",
+    "name": "Teatro do Bairro Alto",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:02cf58e7-ad20-4c30-af95-01125cf3651f",
+    "name": "Cinema City Alvalade",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:f4596759-0ea1-4374-8d87-b3c2b146c540",
+    "name": "Cinema São Jorge",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:d84d2cc7-caeb-4a3a-b15d-1e85ce08a856",
+    "name": "Galeria São Mamede",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:94fbd432-b490-4161-9fd3-96bb1c3ac7d7",
+    "name": "Galeria Monumental",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:184524e9-27a7-4ea8-be3d-dbdc86e2567d",
+    "name": "Culturgest - Fundação CGD",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:695de7ec-bc4f-4fb9-a43e-74e651f2572e",
+    "name": "Teatro Dom Luiz Filipe",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ae916e37-2b7b-4b6b-922c-c363143103fd",
+    "name": "Museu Geológico",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:1b71d659-8017-4e56-bf6e-b25eb90fce1f",
+    "name": "MUDE",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:b66de0ab-ebf1-423d-a088-c27dad3581d6",
+    "name": "MAAT - Museu de Arte, Arquitetura e Tecnologia",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:acb3ddcd-8cf8-4f82-9148-256e7247d0a0",
+    "name": "Complexo Municipal de Desportos Cidade de Almada",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:63795986-55c9-46a8-bd0a-3dd3aef85755",
+    "name": "Museu Das Comunicações",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:a235219b-d29a-4745-959f-4e733ef7f578",
+    "name": "Escola Portuguesa de Arte Equestre",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:8e70bda2-2ce0-4bb1-b010-45a53894bf62",
+    "name": "Aqueduto das Águas Livres",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2c1aae9c-99ec-49e9-8f3d-b14d050a8bef",
+    "name": "Balcony Contemporary Art Gallery",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:f76f21b3-e5b0-45cc-8152-a1b620607f02",
+    "name": "Suspenso",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:ae3727ae-252a-4527-9c06-2fe90389a2a9",
+    "name": "Teatro Armando Cortez",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ce16f23d-c0d0-4d1e-a432-eba60084cecb",
+    "name": "Centro Interpretativo da História do Bacalhau",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:36ca3e24-314c-472b-8e70-32f3b699ea50",
+    "name": "Galeria de Arte Livre",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d05cec2f-a900-40f3-8392-c8c64c5719ce",
+    "name": "LU.CA - Teatro Luís de Camões",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:f22e1fe7-bd23-42a3-95f2-004ee17057a3",
+    "name": "Cinema City Campo Pequeno",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e0ea1592-b51a-4d9a-a013-9aa056a8d92a",
+    "name": "Galeria Arte Graça",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:ebca18cf-f21e-4d9e-9c4f-884c8e1abc81",
+    "name": "Medeia Filmes",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:5294e460-6424-405e-b20f-47bfa332d59e",
+    "name": "A Pequena Galeria",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:df9300cf-cd1c-4c13-9258-3a2c6625d6de",
+    "name": "Teatro Extremo",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:af70d9be-0d25-44ac-b67b-efa6cffa21af",
+    "name": "Hangar",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:61a83104-ccbc-4ad9-ba3f-e9d241caba59",
+    "name": "Saúde Museum",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:f7a62971-2b83-4c04-b78e-4d9beea9e9da",
+    "name": "Cinemas NOS",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:3d97be83-f236-4e74-a57b-753f84e38277",
+    "name": "Sociedade Nacional de Belas Artes",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:912a48a2-950d-4c5d-8115-442d264fd287",
+    "name": "Lisboa Memória da Cidade",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:63ab15fe-dedf-46ee-8104-823e88a09bb8",
+    "name": "Cristina Guerra Contemporary Art",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:1d0c55c4-dc69-4b01-8090-f51bcecb701e",
+    "name": "Galeria Reverso",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:6b25deb0-6bc2-475f-ae11-f1eb66c856ea",
+    "name": "Espaço Exibicionista",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:afd51e96-d7ed-46af-bc64-b2e4a47d98b4",
+    "name": "Casa América Latina",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:6a57d62c-2fc9-4296-9bdf-cfdc3ef99156",
+    "name": "Fundação Portuguesa das Comunicações",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:b1657f09-e410-438b-b2a7-5557b26c592b",
+    "name": "Brisa Galeria",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:f7834eec-befe-4693-9c94-d61249130b7f",
+    "name": "Museu Arqueológico do Carmo",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:43ec04ee-34df-4b5f-a3b2-16505b507bc6",
+    "name": "Galeria Pedro Cera",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:ea5a6c3e-15fb-44ac-be08-a14328e4d312",
+    "name": "Jardim da Alameda",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:973da086-2306-4b06-8c6c-5bff0b965ffa",
+    "name": "Villaret",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:3e87789c-94df-4233-8803-282fa2c42779",
+    "name": "Museu Nacional de Arte Antiga",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:f4199b2e-70a3-4220-8fce-2b6450c6ac4a",
+    "name": "Galeria Foco",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:970e2e82-377e-4fc1-8901-cb6a324470c4",
+    "name": "Art Room",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:ff172850-5707-42a0-8c47-411d9bf4c85f",
+    "name": "Espaço Santa Catarina",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:bb69ba09-e500-4914-9b24-0d51702b48de",
+    "name": "Underdogs Gallery",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:331fcabd-dfd2-4f9a-92f4-0e640cd54248",
+    "name": "Cinema Nimas",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:27957451-c2b2-4abe-bd6d-d828255e32f5",
+    "name": "Espaço 62",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:800e4407-a69f-451f-9a06-19d2aada92ed",
+    "name": "Museu Colecção Berardo",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:952c14d0-671a-4fbc-9dac-149dbf57268d",
+    "name": "Academia De Santo Amaro",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:eaa5886d-9ed4-4eaa-8461-8ffbd3491e24",
+    "name": "Museu de Arte Popular",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:e5f2d96e-912a-49af-85c8-7d75f3090d91",
+    "name": "Museu Nacional da Música",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:dfb5c1c5-2938-4686-b222-bf8ce8b7ce93",
+    "name": "Casa da Cerca",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2aac8aa4-4596-4ad2-9bb1-e990339317d9",
+    "name": "Espaço Cultural Mercês",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:d13c3d8c-edf5-45ee-8c3e-02b32b632e87",
+    "name": "Zaratan",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:999d849a-59c0-4952-8c8f-e14fd7b43dd9",
+    "name": "Casa dos Bicos",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:ae56ba97-1c74-4f9b-a534-77106c445095",
+    "name": "Biblioteca-Museu República e Resistência",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:48a81fe7-4e3d-4f79-989f-a96bc529f525",
+    "name": "Museu Antoniano",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:bf0c785f-be72-4b88-a4b3-2922e7439111",
+    "name": "Galeria Malapata",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:881bdaf2-1f4a-4e80-8238-a1fab806476c",
+    "name": "CPS Centro Português de Serigrafia",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:784bce7a-a385-4f00-aafa-18bc56e24e8c",
+    "name": "Penhasco",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:315f9495-42c4-4ee2-b71d-dba6438a39e4",
+    "name": "Galeria Belo-Galsterer",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:7ae8ab62-5f57-43d7-acda-091fa04f27a3",
+    "name": "PadelCIF",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f83efc35-056c-4010-8974-4f597c51c930",
+    "name": "Museum of Contemporary Art",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:58c5d918-c051-4c42-b4be-5cfb5458548d",
+    "name": "Museu do CNE",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:345299e0-a3aa-460f-aaa9-ef51f8e4e13d",
+    "name": "Galeria 111",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:8aedf6f3-3ee4-4746-8f92-908e7c8a4dab",
+    "name": "Convento do Beato",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:9e6ff873-4826-43d4-adff-fe22bbcbc90e",
+    "name": "Galeria Miguel Nabinho",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:48b96553-adb8-4c1b-8246-8be84b49ecb8",
+    "name": "Museu Industrial Baía do Tejo",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:abdaeb87-ee2d-4664-a2cb-be0552ad1922",
+    "name": "Museu do Fado",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:d032b194-2221-4254-9a54-cda2034945b3",
+    "name": "Arca Gallery Portugal",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:5fa00582-71e3-4d3e-a045-a1c9d9b35ff9",
+    "name": "MILL - Makers In Little Lisbon",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:b652ccc2-ea1d-49d0-bffe-26b54ed93117",
+    "name": "Cerâmica Bairro Alto",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:6cf8933c-b76f-4268-bde2-a5db33924d1d",
+    "name": "CAMB",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:899a9d12-ced2-41bc-b045-711e1769db0a",
+    "name": "Teatro Taborda",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:5882a736-6e40-4e35-bc4e-bbc991a3306f",
+    "name": "3+1 Arte Contemporanea",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:9e8c929f-6259-445a-9789-42d630b84ce6",
+    "name": "Marvila Art District",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:4780f2c1-254e-4550-8f46-470dd0ca666b",
+    "name": "Loja & Livraria do Museu de Marinha",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:3921ae66-6ba9-4219-8353-d4989e4869d3",
+    "name": "Museo do azuleros",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:aa3c4f8f-6403-4961-aff4-605d8ea2044a",
+    "name": "TIL - Teatro Infantil de Lisboa",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:4d280229-82d5-4eca-b6f2-174b5b5b336f",
+    "name": "Reservatório da Mãe d'Água das Amoreiras",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:651ce3ad-ab37-4626-bdff-644eabf86e58",
+    "name": "Galeria NAVE",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:9ff5b4d8-476c-451a-8cbd-a4e4a51838aa",
+    "name": "Museu de Lisboa Torreão Poente",
+    "kind": "museum"
+   },
+   {
+    "candidateKey": "overture:2f1c4507-1fc8-4e5f-a1eb-4b416541fc10",
+    "name": "Pavilhão Fidelidade",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:804181ab-ea6e-48ec-b277-5bf0b97a798e",
+    "name": "Teatro Ibérico",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:25858d59-63eb-4b8e-b67f-5f341ccf75a7",
+    "name": "Estádio José Alvalade",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:101be174-80f4-42cf-8eb7-a6a208b28fb3",
+    "name": "Galeria António Prates",
+    "kind": "gallery"
+   },
+   {
+    "candidateKey": "overture:cf37d976-5040-4610-958b-c947a3bfee9e",
+    "name": "Cine-Teatro Turim",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:f58d410c-8e4b-4df4-ad4c-26f7f0f005f5",
+    "name": "Xuventude de Galicia - Centro Galego de Lisboa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:3a1f7ceb-e14c-425b-957e-34349fc097f8",
+    "name": "Parque de Merendas do Alvito",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:524d2737-4ace-405c-aee2-1e674bb10310",
+    "name": "SandCastle – Drop-Off Playground & Work Café",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:646be252-be8f-466a-b637-ab368a50a2c7",
+    "name": "Baia dos Golfinhos",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:769f5cc2-0ac6-4beb-90a6-bc0b29ba1e21",
+    "name": "Yupik Outdoor Store",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:470f4aca-6972-46c2-b021-c925bd7b46fc",
+    "name": "Miradouro de Santa Catarina",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f7d8d049-bc6a-4ad2-81e0-b860244dc9b5",
+    "name": "EDSAE - Escola de Dança e Teatro Musical",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:987b670e-0b2f-4b96-beb3-2d6d34b92ee0",
+    "name": "Praça das Flores, Produção de Espectáculos, Lda",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:6e3cd160-290c-42be-934f-dbbbc2a5af44",
+    "name": "Jardim Fernando Pessa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:33dd8f4f-d816-40a5-879f-90ebd1b9074d",
+    "name": "Estádio da Luz",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:de23330e-5873-4f01-a3fd-c2a73f196d20",
+    "name": "Engenheiro Carlos Salema Stadium",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:de6ade33-95be-4212-a108-a04430795c02",
+    "name": "Another World Lisboa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:489e6631-d0ad-41fc-929a-c02044363577",
+    "name": "Estádio do Restelo",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:df739504-3c3d-4dc1-9e97-282a4101d8f8",
+    "name": "Castillo de San Jorge de Lisboa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:51d30142-dcff-4d6a-a7a5-e8b8e0ba4523",
+    "name": "Parque Infantil de Bicicletas",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f6f4ffdb-c64d-4eb7-8c84-2cde9bd86947",
+    "name": "Jardim do Alto de Santo Amaro",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:80f5a0b0-4ceb-4955-a562-8d6120512580",
+    "name": "Estádio Municipal José Martins Vieira",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:de574e74-5c04-4824-b28f-af8f198fb5a0",
+    "name": "Centro Cultural Franciscano",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:da73614e-c347-4bde-8194-cbdb03e66d3f",
+    "name": "Jardim das Oliveiras",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:f9bda7d2-7ec0-4cf0-b9b4-f3086d1aba01",
+    "name": "Heden Lisboa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:cc38c2a0-65f4-4cd2-8cbf-0d068f155063",
+    "name": "Jardim António Nobre",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:4db752ed-1d07-4b5c-a603-e9242f9825cf",
+    "name": "Jardim De Arroios",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:3caa983a-171b-44f7-a0d6-1e0b8d26d75c",
+    "name": "Belém Clube",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:53859875-015c-40a2-b915-32646d47db73",
+    "name": "Paris Saint-Germain Academy Portugal",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:0cfc74ff-5bd6-41ec-a542-c0c95610e917",
+    "name": "Jardim Amália Rodrigues",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:ed6cd592-8f78-40cc-a0a3-c520dda9b2fd",
+    "name": "Praça Da Estrela - Lisboa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:447c13c7-8c44-4d17-bea3-1bb12590d13c",
+    "name": "Almada 8ª colina de Lisboa",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:a1f5a5f1-7049-4497-b1b3-6386cb8cfdb8",
+    "name": "Chapito",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:4f7b62b9-d385-47e1-aeaa-7474e60e8e56",
+    "name": "Pavilhão Desportivo da Ajuda",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:00c1826f-ae6b-41d4-a298-c058aaabc7c6",
+    "name": "Parque Infantil Serafina",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:97d1e5e6-8d43-46f3-87b1-fdcae24abc82",
+    "name": "Sport Lisboa e Olivais",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:b8dd7738-7ce1-4cb1-ae00-55d4f0c64a00",
+    "name": "Santo Amaro De Oeiras",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:c97832e6-ce66-4995-8806-f60687981729",
+    "name": "Campo de Ourique XXI",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:6a33d6f7-f99f-4eb1-ad81-b540b51caa45",
+    "name": "Sporting Clube da Penha",
+    "kind": "attraction"
+   },
+   {
+    "candidateKey": "overture:8015ef2f-bafa-45e9-ae65-8ec9f1668ffc",
+    "name": "Fábrica Braço de Prata",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:7c00f53f-ef6a-48a9-b7e6-80f1ac96bc9d",
+    "name": "Carpintarias de São Lázaro",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:5d79ca50-a386-4b55-8e95-f6afa1872f03",
+    "name": "Centro Nacional de Cultura",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:e2ca91bb-e8c2-4af5-a351-8d3cd3323195",
+    "name": "Romeu Correia Municipal Forum",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:f6e95405-b776-4af5-8938-c4a14cbe568e",
+    "name": "Teatro Nacional D. Maria II",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:32dc611c-4ae7-428c-a6c4-9d86d0d3dad4",
+    "name": "Castelo de São Jorge",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:053c1771-625b-4a53-93ca-69140a87889d",
+    "name": "Palácio Nacional da Ajuda",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:87607e63-a420-4908-9c91-5a4e2b932eac",
+    "name": "Centro Cultural de Belém",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:d6e58c37-09f4-4f4a-af51-0c04c0f2a204",
+    "name": "Chafariz d'El-Rei",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3ff94be3-2221-4164-9b6a-55bfa60e33ae",
+    "name": "Miradouro do Padrão dos Descobrimentos",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:dc8bae4c-af40-4596-84be-30382b68d40c",
+    "name": "Casas de São Bento",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:6550f8e3-f32c-4b09-8c17-e556776d5cee",
+    "name": "Zé dos Bois gallery",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ab4f4ed3-a6c9-4154-a72f-41135e90c1b2",
+    "name": "Palacio dos Marqueses de Fronteira",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:75ac58e5-0528-4589-8b62-e440a9a80771",
+    "name": "Escultura de Fernando Pessoa",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:5e7fb1c5-006d-4e73-952e-d488b43df129",
+    "name": "Jewish Cultural Center Rua da Judiaria",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:1c75897a-b85f-4c9c-997e-55730a7a0a88",
+    "name": "Igreja da Memória",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:4e30c77f-c0fd-462b-b08d-6fb51eda8a6c",
+    "name": "Estátua Do Eusébio",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:bf06cd5c-8920-440d-ba08-6982995aedca",
+    "name": "Viewpoint of Monte Agudo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:b3e55d40-2f70-4bd8-91b5-8532671a157d",
+    "name": "Desterro",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:0b43e83e-6386-4c56-a587-1a26efa9041b",
+    "name": "Cosmos Campolide",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:fa46dd42-2ea4-47e0-9848-ff6af1bb39dc",
+    "name": "Anjos70",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:a189099a-c0eb-4b25-a19d-24edb18b7cfb",
+    "name": "Palácio Baldaya",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:0e948a82-d82a-481f-a38c-4022f54e059b",
+    "name": "Miradouro de Santo Amaro",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:0acd1406-4b2f-4465-bf61-d2aabc8ec2f1",
+    "name": "Convento dos Caetanos",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:21c237ed-6f1c-45af-b7a7-4bee26fd66b8",
+    "name": "Ascensor da Bica",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:e59feb58-c4d0-463a-9a20-b2c7a4e041f6",
+    "name": "Regueirão dos Anjos",
+    "kind": "venue"
+   },
+   {
+    "candidateKey": "overture:ed9c36be-3dce-4a99-b83b-6b012e1f2864",
+    "name": "Praça do Rossio",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:57e51188-a3a7-4e56-bc8e-8d63eb703ef4",
+    "name": "Capela de Santo Amaro",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:7cf2801c-a9e2-4dd0-a0b5-65bf713c86e4",
+    "name": "Ateneu Comercial de Lisboa",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:1f821cbf-ec35-4c79-874f-dcb3b67bdace",
+    "name": "Palácio dos Condes de Óbidos",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:80361ad9-bddd-4b21-9e80-a5262c9a142f",
+    "name": "Pátio de Dom Fradique",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3d3b2119-d302-4de9-92f0-f1300a1fed06",
+    "name": "Cais das Colunas",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:97e96650-4bd7-4252-b68c-ae0553f741a2",
+    "name": "Jardim Vasco da Gama",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:f644e75f-bad6-4832-b53f-a365a07562e4",
+    "name": "Chafariz da Fonte Santa",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:6e9ff946-cde6-4d63-9e13-0c5e3d9173da",
+    "name": "Castel De San Jorge",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:144f9524-7e24-4e38-88ad-17754f357d49",
+    "name": "Arco Triunfal Da Praça Do Comércio",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:245e7a75-8d85-4420-a8ef-b05caaf6cc24",
+    "name": "Praça Do Carmo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:4017f2cd-79dc-4f3a-9b68-4b34ac4d2d31",
+    "name": "Fundacao Jose Saramago",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:eff2d662-9e75-478f-a84c-c55c3248b270",
+    "name": "Miradouro do Jardim do Castelo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:685061a7-4283-48b5-b153-b954e183612e",
+    "name": "Largo do Carmo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:fb67d2e1-40eb-4d16-b47e-bc1f5df07789",
+    "name": "Núcleo Arqueológico do Castelo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:eeffc0a0-de60-4612-b49c-9eb69dcc6b92",
+    "name": "Sophia de Mello Breyner Andressen Bust",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:f12d1f33-4397-4bb5-8f7a-caee060daf93",
+    "name": "Miradouro de São Pedro de Alcântara",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:a035a668-720e-44f3-afbe-981c5c0ebc02",
+    "name": "Calçada São Lourenço, 8",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:7d80ec82-ad37-482c-bcc1-aa2b9669ab82",
+    "name": "Antigo Convento de Nossa Senhora da Boa Hora",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:67e3f96e-b6d2-4c6f-a5dd-096c98fa48aa",
+    "name": "Lisbon Santa Maria De Belém",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:bd57b5f6-0c54-443d-a10b-ba14a59d39d2",
+    "name": "Palacete dos Marqueses de Pombal",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:68389e45-cea6-436a-b01b-64fea6b05115",
+    "name": "Baixa Pombalina",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:532e014c-7f1e-4e56-941f-462ec7a208b6",
+    "name": "Penha de França",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:670b76a4-5008-4e69-be54-9d4cb22303e7",
+    "name": "Sociedade Musical Instrução Libertada",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3efca785-d08a-4409-8563-9e4f848c9123",
+    "name": "Palácio do Beau Séjour",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:f5f85d13-eddb-4cda-89af-ec56cf911572",
+    "name": "CSP São João Evangelista",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:f342d1b8-fda5-4e14-9439-b7484e2b1b85",
+    "name": "Miradouro Panorâmico de Monsanto",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:62012824-0ed6-415f-936e-a349536aee85",
+    "name": "Arco da Rua Augusta",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:d458fffa-354a-4e1a-b0d7-f7d7c1a26ff4",
+    "name": "Belvedere of Our Lady of the Hill",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:ef6c662a-bc71-48c3-9404-6c839a114481",
+    "name": "Convento de São Francisco da Cidade em Lisboa",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:e5685ac7-f4a7-44d7-b271-ab4794b69b6a",
+    "name": "Estátua de Dom José I",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3d68b12c-995b-4965-92a8-a0261c758b45",
+    "name": "Pavilhão Tailandês",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:fcca2a82-97f8-4fdb-b890-6a25c551c2a1",
+    "name": "Palácio Sinel de Cordes",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:7e96e9fe-5660-41f7-b431-444837c4f76e",
+    "name": "Calçada Do Monte",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:46ad8ccb-2dfb-4082-b6b5-f0dedab89f12",
+    "name": "Monte da caparica",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:c547abda-49dc-489a-9b34-3fd8598999b5",
+    "name": "Chelas zona I",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:f19f7b37-4d3c-4363-9ba3-370e368a7172",
+    "name": "Portas De Benfica",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:75d1cd4a-0481-49c6-b901-6666989408a9",
+    "name": "Estrada das Laranjeiras",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:6c7f8b49-f195-4d2d-a9e7-a86c7f23a541",
+    "name": "Estrada das Laranjr",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:914694d6-6186-495e-ab35-eb7bd59c6b7a",
+    "name": "Belém Tower",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:2f3c832b-6047-4619-ac7f-dcb79def30ff",
+    "name": "Praça de São Paulo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:41dfc62d-18a2-44c3-ac04-927ebf8af94a",
+    "name": "Avenida Infante Santo",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:93c4a225-d01c-455b-b1e4-172dbe84292b",
+    "name": "Casa do Ferreira das Tabuletas",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:1eb63e0e-3dcf-476f-9a1f-db5931545dc8",
+    "name": "Convento De Santa Cruz Do Bussaco",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:93f45554-5c6a-44d0-8119-bf37d0d953c6",
+    "name": "San Jorge Castle",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:519ec592-7e90-40b5-ab25-3aa337843313",
+    "name": "Jardim de São Bento",
+    "kind": "historic"
+   },
+   {
+    "candidateKey": "overture:3c80263e-4eb0-42d4-98f6-454d62c18903",
+    "name": "Jesus Cristo",
+    "kind": "lighthouse"
+   },
+   {
+    "candidateKey": "overture:f652a28b-ab68-499a-af5a-cf5ad1cf3abf",
+    "name": "ZAHIR",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:5c27fb1d-81d0-49a7-861a-331f29c51f11",
+    "name": "Zahir Kebab",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:cb79890b-a8dc-45da-8a67-c79c31cb5b37",
+    "name": "Zahir Kebab (Restauradores)",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:d6206c8f-cd9f-47af-b2c8-03a2d9d50fcf",
+    "name": "RIB Beef and Wine",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:b1222394-75f1-4321-bfab-bb0620811115",
+    "name": "Valle Flôr",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:51f14199-3a94-44a4-95a7-b19855acb033",
+    "name": "Restaurante Capricciosa",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:bd0caa42-96f7-415e-8b0d-c688374a2576",
+    "name": "Zenith Brunch & Cocktails",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:8598115b-761d-4552-a11f-98d39b229052",
+    "name": "Sala de Corte",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:2db1031f-cc84-4e69-a445-d7a6d430a3de",
+    "name": "Meating Steakhouse",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:e5e86d2a-5d85-4e6f-998a-cbeb3d2b0f6d",
+    "name": "Rocco Ristorante",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:edf120db-917b-40f3-83c6-20b1a5e3004a",
+    "name": "Jardim das Cerejas",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:109716f3-f6b1-415c-8435-68630e227215",
+    "name": "Restaurante Pica-Pau",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:eed64d23-21fa-45bf-84cb-99b44097915b",
+    "name": "Portugália Cervejaria",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:faad14c0-558b-4af2-bb24-50e27e67be17",
+    "name": "ZeroZero",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:8c9059fe-44a0-4aa4-8b22-f4041836ed0e",
+    "name": "A Severa Restaurant",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:d3bce14e-ca2b-49e7-8c77-83776f88d7aa",
+    "name": "Doca de Santo",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:d862fd7b-e5bd-4c2c-8184-7d9d5457c643",
+    "name": "Gurkha Restaurant and Bar",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:0d4a8cf1-c91a-4e8c-8493-8570625fed1c",
+    "name": "A Bicicleta",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:2d605fe4-095f-46fd-b175-25a08c499a6c",
+    "name": "Poké house",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:ca600c27-d9c3-4135-aa6e-490fd0a03005",
+    "name": "Casa Portuguesa do Pastel de Bacalhau",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:d9a95948-75e1-4a89-83c7-dedc8a3b950a",
+    "name": "Pizzaria Luzzo",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:bbfa028b-769f-41c5-a9db-fd45da145803",
+    "name": "Grapes & Bites",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:54db02af-c3f3-47cf-8ed1-002f96261b3c",
+    "name": "La Brasserie de l'Entrecôte",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:e6be509f-f52a-4637-b762-c02d0f4f48e8",
+    "name": "Krua Thai",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:52206af9-7ca8-4c9b-b3ad-028a8f4a3ea2",
+    "name": "Hamburgueria do Bairro",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:bbc0d59c-78bc-41ae-8dab-c5271c89c3c4",
+    "name": "Copélia",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:e118887c-a350-4812-adf1-b199c0cc3c7f",
+    "name": "Coyo Taco",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:b888a993-adad-406f-8edf-f69846ff8305",
+    "name": "Pizzeria Mezzogiorno",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:840e2607-8f82-4c37-8b1a-dec9d8419908",
+    "name": "Espressolab",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:81ef2d78-9115-4ee9-a1d4-21b0f93f6864",
+    "name": "McCafé",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:99d9c6d9-872d-4e08-81dc-903805803e95",
+    "name": "Starbucks",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:5d6a80c6-bd8d-4cc3-bc6f-ac72c0da2c5a",
+    "name": "Burger King",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:33569458-e846-4f7c-87e7-2a9564e17db9",
+    "name": "Burger Ranch Alcântara",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:08cd91bc-1eef-406d-bfef-0123b89353ae",
+    "name": "Subway",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:a80f5ea0-925e-4fc2-ac54-ea494b4092ed",
+    "name": "McDonald's Belém",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:92b5876d-9319-49c2-9780-358cb492169d",
+    "name": "McDonald's",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:4623eec8-d1c9-4908-b608-ea1833c27fa4",
+    "name": "Nannarella",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:e7fe3dda-b359-4646-8a4f-3d67c5977a52",
+    "name": "Amorino Gelato",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:88471f08-32a9-4d77-88fd-3e225713bffc",
+    "name": "Loja das Conservas Petiscos",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:b926b3fb-9609-453a-9a39-89ab260211c9",
+    "name": "PAUL",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:2fcae787-22ae-4487-b57a-b9d4068da4ad",
+    "name": "Califa",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:ee58ccfe-33f6-4e78-9e7c-408366a76719",
+    "name": "A Padaria Portuguesa",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:68a13976-41e3-4e1d-897b-ffaa4e086f51",
+    "name": "Rice Me Deli",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:4331061b-6e52-4b1e-9120-1e3201eaf2f8",
+    "name": "Pão Doce",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:c69b9217-8b25-4a9c-893b-d6a0d534cd5b",
+    "name": "Vitta Roma Pastelaria",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:6346c16b-a4b4-49a6-be42-d88c3477bb8c",
+    "name": "Pastry Cinderella Lda",
+    "kind": "food"
+   },
+   {
+    "candidateKey": "overture:a549f02e-d267-4815-928d-9d824e451322",
+    "name": "Pousada de Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:020a7fe0-77e3-401d-b2bb-faa24b8bff2d",
+    "name": "DoubleTree by Hilton Lisbon - Fontana Park",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:4e6daebc-0e33-4faa-954c-76d10916742e",
+    "name": "easyHotel Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:c86f5a4f-7cac-41b5-a2a6-2ef51a32a715",
+    "name": "The Vintage Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:25753999-7d0e-4d41-baf6-33c1f2cdcc3e",
+    "name": "DUO Hotel Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:c599ba32-0807-408c-8f47-421839696312",
+    "name": "Holiday Inn Lisbon - Continental",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:78306d1e-e7cb-45f8-8a78-53070ef41a97",
+    "name": "ibis Lisboa Centro Saldanha",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:7ccfcf88-4a98-4f05-b8ec-ecf360a28b75",
+    "name": "Radisson Blu Hotel, Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:8ac25a4c-69a0-4dba-9d7c-40eea340a0f5",
+    "name": "Holiday Inn Express Lisbon - Ave. Liberdade",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:b5e83a1d-2ebc-46c9-baa3-00ec211f6ee7",
+    "name": "Holiday Inn Express Lisbon - Plaza Saldanha",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:95bf69a5-143c-425b-95ab-fda70981d8e8",
+    "name": "Pestana Lisboa Vintage",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:768b2682-7082-45b2-8ba7-de530625abae",
+    "name": "Sofitel Lisbon Liberdade",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:0b2ddfff-179e-459c-87b9-f37ab0632fc2",
+    "name": "Mercure Lisboa Almada",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:3e18d55b-d4d3-4c63-be09-eea0e6ce0ec1",
+    "name": "ibis Lisboa Centro Liberdade",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:b14a3c96-7812-44dc-b72a-3dd466443d96",
+    "name": "Moxy Lisbon City",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:071161fb-62c5-4d92-96f2-722c1d517d53",
+    "name": "Holiday Inn Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:614a8df1-51ca-4821-8f66-947298befb3e",
+    "name": "Mama Shelter Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:d170f575-3678-428e-9491-00a66169add2",
+    "name": "Altis Belem Hotel e Spa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:8821038f-d658-4890-8945-00d4047c96be",
+    "name": "Memmo Príncipe Real, Lisbon, a Member of Design Hotels™",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:ebac139f-ce32-442f-8e46-62494dbbec03",
+    "name": "InterContinental Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:8ac5e4db-9bc4-4a68-ac6d-b910c8872884",
+    "name": "Novotel Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:3b29d9d3-205e-4079-804e-78a740bafe92",
+    "name": "The Emerald House Lisbon, Curio Collection by Hilton",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e3f7b932-1481-4857-a73b-5b37203d1d89",
+    "name": "Dom Pedro Lisboa Hotel, a member of Radisson Individuals",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:737c561a-0618-484c-8c96-07b913d9c062",
+    "name": "Olissippo Lapa Palace",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:53ee097a-e68d-4cca-b37f-99a4c9e69799",
+    "name": "Sheraton Lisboa Hotel and Spa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:a43f49fa-a98f-4dc6-91ab-cbd370520ef8",
+    "name": "ibis Lisboa Jose Malhoa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:b232a91f-f33a-4084-95b8-4e34b8c9705d",
+    "name": "ibis Lisboa Alfragide",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:f6a0589e-3899-4367-a3fa-1e7a2044bfa1",
+    "name": "Memmo Alfama Hotel Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:79f1f958-62d1-4148-b269-f5e5269ba66a",
+    "name": "The One Palácio da Anunciada",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:552e96b5-4f8c-4856-afba-0c0a60899b2f",
+    "name": "Four Seasons Hotel Ritz Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:9322c7d2-b40d-4591-a63f-84ffcb72edb8",
+    "name": "H10 Duque de Loulé",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:81178517-4518-4c29-81dd-7eaaddb49ee1",
+    "name": "Ramada by Wyndham Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:b63eef0c-3684-4fa8-9107-7616f54f4f4a",
+    "name": "Corpo Santo Lisbon Historical Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:866e6498-89f1-4789-86f3-e60cf9ae8fa8",
+    "name": "Pousada Alfama",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:d12f3376-f2ae-4cb5-aa9d-7861561c81bd",
+    "name": "Ibis Styles Lisboa Centro Marquês de Pombal",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:0e5dc488-2412-4813-8c19-32b7d22512e8",
+    "name": "1908 Lisboa Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:a3028db9-997b-4728-9d6b-7de15a380069",
+    "name": "Tivoli Avenida Liberdade Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:a44d21b0-ae24-482b-8846-2fffd5489588",
+    "name": "ibis Styles Lisboa Centro Liberdade NE",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e6ad9610-cfa8-4ba2-8621-d5382e2b4f3e",
+    "name": "This is Lisbon Hostel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:a664ee85-3e4f-4b7f-987c-949f946d9973",
+    "name": "Convent Square Lisbon",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:0411bf21-59b3-4245-b727-db2bd5b5ce0e",
+    "name": "Dinya Lisbon Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:d3789773-5160-411f-ba25-cc50bb76f4e0",
+    "name": "Rossio Hostel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:e9520624-2948-466f-b826-da6d37503403",
+    "name": "Hotel A.S. Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:07950aac-a24d-44c4-b5b2-0e494c4ff5cc",
+    "name": "Czar Lisbon Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:80643af9-606a-4a25-abf2-141ac4da395c",
+    "name": "Iberostar Selection Lisboa",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:2b9caed4-8e50-42f7-89d9-69cdc3ee4ce9",
+    "name": "Hotel Florida",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:d75845f6-0b97-4e67-9e06-27a50fe098b7",
+    "name": "Mercure Lisboa Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:eb5b6e88-73ce-4814-b58c-058b45cd2ec6",
+    "name": "Olissippo Castelo Hotel",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:57c4f4d5-6b01-4219-9496-bf119ac1e264",
+    "name": "NH Lisboa Campo Grande",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:c12a524e-82d3-4f71-9a81-8366a361d0f3",
+    "name": "Altis Avenida Hotel, member of Preferred Hotels & Resorts",
+    "kind": "stay"
+   },
+   {
+    "candidateKey": "overture:7c2dd3e5-de82-408a-844a-3dbfc9c190ad",
+    "name": "Jardim do Campo Grande",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:88e50b90-33a0-4cb2-8f4c-1677a3a639c2",
+    "name": "Tapada das Necessidades",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:fbb063a4-9621-4f07-9aea-1e49e73cd877",
+    "name": "Parque Eduardo VII",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:1557d386-2d25-407a-8b64-b050fb904666",
+    "name": "Parque Bensaúde",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:90ed4eb2-ec63-4a53-bcfc-ab1e03457273",
+    "name": "Parque Jose Gomes Ferreira",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:8e653dcf-c0e5-4fae-9096-3eb09c028bc4",
+    "name": "Parque Da Bela Vista",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:b68c9034-73dc-426e-9192-7983162c37a7",
+    "name": "Jardim das Amoreiras",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:ed52f37f-20c3-4313-a22c-7f46d85cd7d9",
+    "name": "Parque Infantil do Jardim da Cerca de Graça",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:da565c53-77d3-43eb-97ef-e93d942876f8",
+    "name": "Praça Júlio de Castilho",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:a6371a32-0f86-417a-b11c-e5483259f565",
+    "name": "Quiosque do Jardim Palácio Galveias",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:296f7957-5134-4dd9-8903-6a40387d76d0",
+    "name": "Jardim de São Pedro de Alcântara",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:888a536d-15b6-4684-a6e4-d64f93ced347",
+    "name": "Parque Urbano Quinta da Montanha",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:ffc2441f-4d0d-4f7b-87d5-8eb3ff701b3b",
+    "name": "Jardim do Campo Martires da Patria",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:52065611-f1ed-402a-87e2-e2f310ffe540",
+    "name": "Jardim do Torel",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:6c02f86d-2676-4137-be64-3d27937628d7",
+    "name": "Saba",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:7c85d85b-710b-4974-89ef-6266f539c55c",
+    "name": "Parque dos Moinhos de Santana",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:02d9daaa-220e-4728-be6c-f40e2152e849",
+    "name": "WOOP Barreiro",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:43128cd4-f2d1-4a34-99a4-af4c11108ad3",
+    "name": "Jardim Marcelino Mesquita",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:8d9a9c3e-c205-4328-be05-e1854bbf1477",
+    "name": "Parque Canino do Jardim Botto Machado",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:d7928a9f-8cea-4611-a54a-6cef7634db32",
+    "name": "Monsanto, Parque do Calhau",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:1eb8264d-8ae1-45a2-9589-ed06f71b78b1",
+    "name": "Jardim do Arco do Cego",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:7b5d13b5-0b0d-48bc-b013-cf7f8bf75030",
+    "name": "Jardim da Parada",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:94bb9ac5-3ef2-4b5f-866b-2860e770fc90",
+    "name": "Jardins do Bombarda",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:858436e4-9f48-447e-922f-c8155739ad31",
+    "name": "Parque José Gomes Ferreira",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:f6f033f4-b376-4157-aac6-c7895ab04219",
+    "name": "Anfiteatro Keil do Amaral",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:e909906b-cd32-4540-a5ad-4b34f48d5100",
+    "name": "Parque Florestal de Monsanto",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:17a2c68f-a3a3-44be-98a1-3d79316100f0",
+    "name": "Parque Infantil do Jardim da Amnistia Internacional",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:b45c6bcb-d5a3-485f-81d7-108e2d3d68a3",
+    "name": "Jardim Professor Francisco Caldeira Cabral em Lisboa",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:655a4794-6712-4670-8f18-b963e4a3719d",
+    "name": "Jardim Cesário Verde",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:03cf9400-9309-4ad4-868b-9d7e9dbc3d9a",
+    "name": "Jardim Constantino",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:c6f89b52-ee83-4426-bda9-03d9ed8d997f",
+    "name": "Atlas Ocean",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:f0c175c6-d79d-42a2-a718-c35dfd65c878",
+    "name": "Parque Mayer - Teatro Maria Vitória",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:d6c0c380-0df5-4a14-8305-271d27d5d0af",
+    "name": "Jardim Gulbenkian",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:ecace9ed-0428-4d99-b722-96e26b950952",
+    "name": "Jardim do Caracol da Penha",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:4e505c1b-3579-4eb1-b7c4-42a17b950934",
+    "name": "Jardim Olavo Bilac",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:2065a825-9cfe-4304-b83f-7e00656e777a",
+    "name": "Castelo Da Pena Sintra",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:70f11ac5-0810-4725-8a52-659f1bf78b26",
+    "name": "Parque da Segueteira - Maceira",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:9ac1f075-91ee-4395-ac4a-8f51942c0e62",
+    "name": "Praia Costa Da Caparica",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:ea9154fd-a943-41f2-9658-3f8fa21162d4",
+    "name": "Praia,Cabo Verde",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:c30054dd-61c1-4c66-9ada-677bbfa92087",
+    "name": "Praia Do Norte, Barreiro",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:63a57487-06ba-4ae4-8c13-47ab48e469c8",
+    "name": "Moinhos de Alburrica",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:54a4df38-7582-4ad2-a42d-69513e6a6b58",
+    "name": "Praia de Alburrica",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:9d796f87-8b32-4db3-bd2c-b317d9edeeb5",
+    "name": "Copacabana Beach",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:6bbe0c5b-e51b-4d13-9311-61318af609cc",
+    "name": "Praia de Albarquel Setubal",
+    "kind": "park"
+   },
+   {
+    "candidateKey": "overture:1d13f9dd-ccb6-4ed6-998d-4b5aa9c88460",
+    "name": "Estacao Ferroviaria do Pragal",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:9a942cc9-7293-4da4-b734-07698cdbdee8",
+    "name": "Terminal Rodoviario de Sete Rios",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:ec044a96-7928-42e4-ac75-1d713688a50b",
+    "name": "Metro - Olaias",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c0969a0a-af7c-4e40-a9bd-6961f24c65b2",
+    "name": "Metro-Marquês de Pombal",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:86a7971f-d574-45b8-b26a-87ad648ada3c",
+    "name": "Metro Baixa-Chiado [AZ,VD]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c8bc4a92-18a6-49a8-978e-6eaf80ae6921",
+    "name": "Metro Campo Grande",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:a73a9522-3249-4c2a-b1f1-7c2f979a3ebb",
+    "name": "Rossio Train Station",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:653b1902-947d-483a-be25-d9fa3c2d9dec",
+    "name": "Alcantara Terra",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:9dd69b15-17cc-4386-b673-c10f0d11ee50",
+    "name": "Terminal TST - Areeiro",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:6326686c-1ddb-40e9-81c2-7c912a07837e",
+    "name": "Estação Ferroviária de Lisboa-Santa Apolónia",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:4192f80c-c8f8-4477-9f27-a122f283686e",
+    "name": "Comboio Linha de Cascais",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:8f511d12-d6d8-4f38-91bd-8576d77fbfb3",
+    "name": "Estação Ferroviária de Sete Rios",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:1e0707e8-915a-45c9-a793-3fe2abbcf29c",
+    "name": "Estação Ferroviária de Braço de Prata",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:203ef415-8976-430d-850e-a31475c85a92",
+    "name": "Estação Ferroviária de Campolide",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:be6ed0e6-0bc4-4dd3-915f-a1386dcce535",
+    "name": "Estação Ferroviária de Roma-Areeiro",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:805c8394-688a-4240-ba17-23e4d9a64049",
+    "name": "Estação Ferroviária de Entrecampos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:83fe72ef-a32a-46e0-a2f6-150a33f781ff",
+    "name": "Estação Ferroviária de Benfica",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:8f54d21b-44aa-4a20-863d-f121975f6c24",
+    "name": "Terminal de Cruzeiros de Lisboa",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0dee095e-7058-4557-8cc1-1eefe9c3c0bd",
+    "name": "Estação Ferroviária do Cais do Sodré",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:fda81905-f8d2-4100-b136-abb8b05d753b",
+    "name": "Estação Ferroviária do Barreiro",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f54c2b1e-95b6-47ae-a3f6-6a95af7c1c46",
+    "name": "Estação Ferroviária de Marvila",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:86a3b00c-f2c1-4c45-b003-79a58369a88a",
+    "name": "Estação Ferroviária de Alcântara-Mar",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:eb5c940f-b115-4a31-9ded-e92f200ae402",
+    "name": "Metro Colégio Militar / Luz [AZ]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:e4628fef-975f-4189-8abf-c56822598191",
+    "name": "Telheiras (Metropolitano de Lisboa)",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:24aaad70-5446-46d2-9b8a-63a2df347419",
+    "name": "Antiga Estação CP, Barreiro",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:cdaf5916-58d5-43b0-ba72-1eaffd40a2b7",
+    "name": "Elevador da Bica",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:8dc4bc8a-24a4-44d0-88ff-cff9437f148f",
+    "name": "Estación de Santos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:dd95c79a-cd98-4fab-8103-62ef0da11236",
+    "name": "Metro De Lisboa",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:ff65350c-3bc1-49ea-92b3-358a0fadf46b",
+    "name": "Lisboa Santa Apolonia Station",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c8b79c74-8acf-4bc1-af73-e7b97652951f",
+    "name": "Metro - Santa Apolónia",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:eeb8e459-0fce-4f92-8741-358adcb431d4",
+    "name": "Metro Lisboa",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f4290553-a527-49c6-a577-71d85e57ed29",
+    "name": "Metropolitano Lisboa",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:730ecf9e-9c6d-4881-8113-29f8fcf5d9e8",
+    "name": "Metro - Entre Campos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:8dd727c5-80bc-4532-8fe7-ec3b42631378",
+    "name": "Estacao Fluvial Terreiro Do Paco",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c6714519-5b38-4f0a-a914-60c1d9e3bbeb",
+    "name": "Estação De Comboios da Alcântara-Terra",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:cba8ad81-ba0d-41bc-9a61-2c6f683d578a",
+    "name": "Santo Amaro",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0c20ca58-f22a-47e5-b30a-c3ae7ca3398d",
+    "name": "Metro Colegio Militar",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:7fe9f2a1-fbf3-4faa-b547-7676a8e5e056",
+    "name": "Rossio Central Station",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:5ee60fbe-9ab5-4f81-955f-94de460db5b3",
+    "name": "Lisboa Sta. Apolonia",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:307904eb-20c3-4fb5-bd7f-ba5d1794cfa5",
+    "name": "DeLuxe VIP Lisboa Táxis",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:a2a207eb-a7ce-4a2f-be0f-d73560b1e3f2",
+    "name": "Análises Clínicas Affidea Laboratórios - Laranjeiras",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:6533fa67-bd9a-42a6-93f0-4e3007eb49c1",
+    "name": "Pteam - Operador Turítico, SA",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:8a66c2bf-a018-4128-bdaf-ae1042866fda",
+    "name": "WELLS FRANCISCO METRASS",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:ed83f5a8-7450-4599-b714-cad16eb75866",
+    "name": "Estação Entre Campos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0a63fc20-e9df-44a7-89f4-7981b1bca266",
+    "name": "Estação Alto dos Moinhos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:a8494570-e2e6-4c37-85c9-9d5acacff433",
+    "name": "Estação Baixa-Chiado",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0589e2fa-5c46-45e6-8c95-6127b42eb627",
+    "name": "Alcântara-Mar",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:1a18a893-eda3-4e47-969c-b2feb9bb82ec",
+    "name": "Estação Colégio Militar/Luz",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:482c510f-8e65-46b1-9d0f-4639b355629c",
+    "name": "Estação Olaias",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:d4f7df7a-50fb-4f7c-8716-9c5e87f263ac",
+    "name": "Estação Alfornelos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:bc9d165a-8525-41ae-a7b4-39fda8e92766",
+    "name": "Estação Chelas",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:88ca3c44-3717-4831-ac29-39d3d0d27913",
+    "name": "Terminal Rodoviário da Pontinha",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:3102b1c6-c645-4357-9612-d43180614519",
+    "name": "Estação Bela Vista",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:95cbd82d-e0f2-483e-8e10-6ab423793ccc",
+    "name": "Estação Cidade Universitária",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:631c19a3-346c-4940-a2ba-0a4b1f703b01",
+    "name": "Estação Jardim Zoológico",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:846097e7-c318-4c55-8ed1-84f0e203d4fd",
+    "name": "Apeadeiro de Barreiro-A",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:2394c2ea-c501-4aa6-9a10-c81cc704b7cb",
+    "name": "Estação Areeiro",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:d1fc8704-c0da-4749-b9e0-b3e1fe758422",
+    "name": "Santa Apolónia railway station",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f0e3a2f9-be3e-41e9-8a27-ce156fb2c9ab",
+    "name": "Estação Ferroviária do Barreiro (Sul do Tejo)",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:b785b8d0-e666-4e90-82ff-9fe9eb3a8e90",
+    "name": "Saldanha Metro Station",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c430a015-f69f-4955-9237-a74d15cfc368",
+    "name": "Estação Parque",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:d0fc7e0d-3a17-47c5-a26d-ffbcc59e2328",
+    "name": "Estação Laranjeiras",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f9023e24-a1ab-4e46-974f-ad0ffe45cc8b",
+    "name": "Estação Anjos",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0c50316c-0455-4590-986e-a3657d6743f2",
+    "name": "Bela Vista (Lisbon Metro)",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f5af718a-5dd3-4e34-bdaf-49182ae3c545",
+    "name": "Estação Carnide",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f06a8d2a-f224-4bb5-9ec1-d02c59b7ac4a",
+    "name": "Estação Intendente",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f0e7f8f9-e0c1-4e38-a6b6-3b907303aba4",
+    "name": "Apeadeiro de Santa Cruz de Benfica",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:baf6623a-befd-446c-ba55-01fce6bad4ab",
+    "name": "Alfornelos (Metro de Lisboa)",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:87c22300-edfd-4227-b330-1f859495c6dc",
+    "name": "Bahnhof Lissabon Belém",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:70816f32-641e-4ff1-b42f-ce9348ad4dea",
+    "name": "Bahnhof Lissabon Benfica",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:74564389-8caf-481e-acc0-2442c5a0b6f7",
+    "name": "Estação Ferroviária de Águas de Moura",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:35c7507e-8321-4d09-9d25-b8dda2eb2f9d",
+    "name": "Estação Olivais",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:285871e4-9541-4023-bdc4-30e16004954c",
+    "name": "Saldanha",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:c452d911-29f3-4ed8-a3f7-b6d878b8b3b7",
+    "name": "Estação Cabo Ruivo",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:a8610877-65a9-4940-96a3-15f5cf538e1d",
+    "name": "Martim Moniz",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:88635c29-04f3-464f-9ce6-d25c8a8c55e5",
+    "name": "Cais do sodré",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:61c65753-8459-4f00-849e-203d99d7ace2",
+    "name": "Apeadero de Barreiro-Terra",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0ae406ba-14c7-40d3-8077-fbc3e331589e",
+    "name": "Estação Pontinha",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:1bd42644-7ec4-4727-ac2c-269db517a62c",
+    "name": "Apeadeiro de Chelas",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:0abc31ae-b51b-421a-b256-c9e59db50981",
+    "name": "Estação Ferroviária de Belém",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:7666e4d3-7d9a-49cb-b99a-8468ccdc4133",
+    "name": "MTS Cacilhas [1,3]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:359a4787-da1d-4d25-be83-d8242652df22",
+    "name": "Metro Alfornelos [AZ]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:34659284-79c0-4640-ae2d-33abbce57c5b",
+    "name": "Metro Alto dos Moinhos [AZ]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:aeb880da-bba3-4641-9287-f4f177d7d98f",
+    "name": "Metro Avenida [AZ]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:2490b0ef-7180-4afe-b089-ebd80d73d436",
+    "name": "Metro Campo Pequeno [AM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:7b5642bf-9b1e-4823-988c-b0e1b9b58e4d",
+    "name": "Metro Carnide [AZ]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:cafbcbf8-5e8e-4ae9-a2b9-e20f123cd0b6",
+    "name": "Metro Chelas [VM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:357f0de8-e78c-4102-a241-cf8874f10ca3",
+    "name": "Metro Cidade Universitária [AM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:f20acad3-d8c6-46d1-ab83-20edbb3dc197",
+    "name": "Metro Entrecampos [AM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:5a4f15cb-13fc-402b-a8e9-35a26551c2ca",
+    "name": "Metro Martim Moniz [VD]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:1eb6c6a4-5b23-4aa5-8ee4-36459f260221",
+    "name": "Metro Olivais [VM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:e892769a-cddb-4c9e-9da9-ea3e64f2fa00",
+    "name": "Metro Praça de Espanha [AZ]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:65c9034f-562e-4a82-8a07-cf722aecb60a",
+    "name": "Metro Rato [AM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:43b752d1-2e91-4972-832d-ae3255635557",
+    "name": "Metro Saldanha [AM,VM]",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:62c661cf-7174-4f98-a722-9e7897f8eeab",
+    "name": "Terminal Rodoviário do Cais do Sodré",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:733c74b0-8aaf-4ec4-9d55-f32bc0035f99",
+    "name": "Terminal TST - Praça de Espanha",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:8c542f87-bdc9-4165-b3e1-25b8482ba419",
+    "name": "Terminal de Cruzeiros de Santa Apolónia",
+    "kind": "station"
+   },
+   {
+    "candidateKey": "overture:2f18d347-1377-466d-961f-ecdef6198cd4",
+    "name": "Mercado de Benfica",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:740d4195-3b14-422d-bd90-ae1298a99911",
+    "name": "Mercado de Arroios",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:13489996-f26a-4e20-8688-b8f10d203761",
+    "name": "Almada Municipal Market",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:c2f82fcc-817c-413c-90e0-7ea50f5047df",
+    "name": "Mercado Biologico Agrobio",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:5689e060-133e-467f-9949-c98932a73bac",
+    "name": "Mercado Municipal de Benfica",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:3fa20af0-ea52-4ca6-9cb3-6f3145a33eac",
+    "name": "Feira do Relógio",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:7cbcbfa0-a006-48d7-a0bd-b2d23ddbe4a2",
+    "name": "Mercado Municipal do Rego",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:d0602877-88cd-4eb7-8446-eb483377f499",
+    "name": "Mercado Biológico Campo Pequeno",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:1fbb3c7e-db92-4c6f-a86e-9d9dd8d32b3b",
+    "name": "Minipreco",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:a62dbff8-db80-4810-a797-fd6859c2a8e2",
+    "name": "Mercado do Arco do Cego",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:200002b1-3466-4cfc-828c-c7a2eb5425db",
+    "name": "Lugar dos Frutos Secos",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:7c93c866-30fe-410c-8ea3-767ab4362620",
+    "name": "Frutas Monte Cristo",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:7d3ef393-0239-4e77-9c60-d1250e07a09b",
+    "name": "Mercado do Bairro Alto",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:14974fc7-dfd2-4ada-8309-98251adf1465",
+    "name": "A Banca da Edna e do Nilson",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:489f851a-8830-45e5-9b3c-28ac40ad0b0d",
+    "name": "Mercado Rosa Agulhas",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:fc53c48d-f101-4775-a38e-e3a015116e73",
+    "name": "Mercado Biológico de Telheiras",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:ce41cb67-d4b1-4cd0-888b-f41bc22001bd",
+    "name": "Lojinha das kokedamas",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:c3883c4f-72fc-4f37-9dca-197b31548b81",
+    "name": "Liscampo",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:6d0837b3-bdfd-41f7-aab8-eff1ca00e9ae",
+    "name": "Nature & Découvertes",
+    "kind": "market"
+   },
+   {
+    "candidateKey": "overture:50a20c21-1a24-4fef-aed8-08c9dbb95449",
+    "name": "Clínica Lev Lisboa — Amoreiras",
+    "kind": "market"
+   }
+  ]
+ }
+}

@@ -65,13 +65,23 @@ export interface PackStore {
    *  builtAt + contentHash, flips it to "ready", supersedes the
    *  previous ready version (the ONLY mutation an old version ever
    *  sees), and completes the job. Refused (LEASE_LOST) when the
-   *  job's lease was stolen after beginVersion. */
+   *  job's lease was stolen after beginVersion.
+   *  classifierVersionRestamp (optional): beginVersion stamps the
+   *  default classifier version before collection runs, because
+   *  the lease/fencing flow needs the version row to exist; which
+   *  lane actually served the build is only known afterwards.
+   *  When the caller passes a restamp, the published DTO's
+   *  classifierVersion is corrected to it (the Open Places
+   *  fallback lane passes OPEN_PLACES_CLASSIFIER_VERSION). The
+   *  packVersionId is NOT recomputed — it is the opaque id minted
+   *  at beginVersion. Omitted = the stamped version stands. */
   publishVersion(
     packVersionId: string,
     jobId: string,
     leaseId: string,
     candidates: StoredCandidate[],
-    provenance: PackVersionRecord["dto"]["provenance"]
+    provenance: PackVersionRecord["dto"]["provenance"],
+    classifierVersionRestamp?: string
   ): Promise<PackVersionRecord>;
   failVersion(packVersionId: string, jobId: string, leaseId: string, error: string): Promise<PackVersionRecord>;
   getVersion(packVersionId: string): Promise<PackVersionRecord | null>;
@@ -347,7 +357,8 @@ export class InMemoryPackStore implements PackStore {
     jobId: string,
     leaseId: string,
     candidates: StoredCandidate[],
-    provenance: PackVersionRecord["dto"]["provenance"]
+    provenance: PackVersionRecord["dto"]["provenance"],
+    classifierVersionRestamp?: string
   ): Promise<PackVersionRecord> {
     // The fencing check comes FIRST: a stolen lease refuses the
     // publish no matter what state the version row is in (I3).
@@ -372,7 +383,8 @@ export class InMemoryPackStore implements PackStore {
       status: "ready",
       builtAt: this.nowInstant(),
       counts: { candidates: stored.length, byKind },
-      provenance: clone(provenance)
+      provenance: clone(provenance),
+      ...(classifierVersionRestamp ? { classifierVersion: classifierVersionRestamp } : {})
     };
     record.contentHash = candidateContentHash(stored);
     record.supersedesPackVersionId = previousReady ? previousReady.dto.packVersionId : null;

@@ -49,6 +49,23 @@ export const PACK_CLASSIFIER_VERSION = "osm-classifier-1";
 /** Version stamp for the Overpass query pair (main + wide). */
 export const PACK_QUERY_VERSION = "overpass-queries-2";
 
+/** Version stamp for the Open Places (Overture) classification
+ *  logic in packs/openPlaces.ts — a SEPARATE classifier from the
+ *  OSM one above: an Overture-built pack version is a different
+ *  artifact from an OSM-built one and its provenance says so
+ *  (source "overture-open-places", label carrying this stamp).
+ *  The DTO field itself is corrected at publish time: beginVersion
+ *  stamps PACK_CLASSIFIER_VERSION before collection (the lease/
+ *  fencing flow needs the version row first), so runBuildJob
+ *  restamps this value through publishVersion whenever the
+ *  fallback lane served the build. The packVersionId keeps the
+ *  id minted at beginVersion — ids are opaque; the DTO field is
+ *  the truthful record of which classifier built the pack. */
+export const OPEN_PLACES_CLASSIFIER_VERSION = "overture-classifier-1";
+
+/** Version stamp for the Open Places browse plan (roots + paging). */
+export const OPEN_PLACES_QUERY_VERSION = "open-places-browse-1";
+
 /** Default freshness window for stale-while-revalidate reads.
  *  A ready pack older than this still serves, but a read enqueues
  *  a coalesced refresh. Policy constant, not a per-call choice. */

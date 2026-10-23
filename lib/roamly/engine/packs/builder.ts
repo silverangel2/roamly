@@ -18,6 +18,7 @@ import type {
   WeatherSnapshotRecord
 } from "@/lib/roamly/engine/packs/types";
 import {
+  OPEN_PLACES_CLASSIFIER_VERSION,
   PACK_CLASSIFIER_VERSION,
   PACK_FRESHNESS_MS,
   PACK_LEASE_TTL_MS,
@@ -31,9 +32,15 @@ import {
   liveBuildProvenance,
   systemFetcher,
   type FetchPolicy,
-  type Fetcher
+  type Fetcher,
+  type PoiCollection
 } from "@/lib/roamly/engine/packs/collectors";
 import { DEFAULT_FETCH_POLICY } from "@/lib/roamly/engine/packs/collectors";
+import {
+  collectPoiCandidatesFromOpenPlaces,
+  openPlacesBuildProvenance,
+  type OpenPlacesOptions
+} from "@/lib/roamly/engine/packs/openPlaces";
 
 /*
  * Pack builder service — the application layer of the data plane
@@ -125,6 +132,10 @@ export function enrichmentToDTO(enrichment: StoredEnrichment | null, builtAt: Ut
 }
 
 export function candidateRowToDTO(row: StoredCandidate, builtAt: UtcInstant | null): CandidateDTO {
+  // The row's provenance source is its candidateKey's source prefix:
+  // "osm" for every row the OSM lane and the recorded seeds produce
+  // (unchanged), "overture" for Open Places fallback rows.
+  const source = row.candidateKey.split(":", 1)[0] || "osm";
   return {
     candidateKey: row.candidateKey,
     kind: row.kind,
@@ -132,7 +143,12 @@ export function candidateRowToDTO(row: StoredCandidate, builtAt: UtcInstant | nu
     pos: row.pos,
     hours: { status: row.hoursRaw ? "known" : "unknown", raw: row.hoursRaw },
     enrichment: enrichmentToDTO(row.enrichment, builtAt),
-    provenance: { source: "osm", sourceRef: row.candidateKey, recordedAt: builtAt, label: "OpenStreetMap element" }
+    provenance: {
+      source,
+      sourceRef: row.candidateKey,
+      recordedAt: builtAt,
+      label: source === "overture" ? "Overture place (via Open Places API)" : "OpenStreetMap element"
+    }
   };
 }
 
@@ -276,7 +292,21 @@ export async function runBuildJob(
   const version = await store.beginVersion(jobId, lease.leaseId, PACK_CLASSIFIER_VERSION, PACK_SCHEMA_VERSION);
   try {
     const collected = await collector(destination);
-    return await store.publishVersion(version.dto.packVersionId, jobId, lease.leaseId, collected.candidates, collected.provenance);
+    // beginVersion stamped the default (OSM) classifier version
+    // before collection — the version row has to exist for the
+    // lease/fencing flow. When the Open Places fallback lane is
+    // the one that served this build, restamp the DTO's
+    // classifierVersion truthfully at publish (see publishVersion).
+    const classifierVersionRestamp =
+      collected.provenance.source === "overture-open-places" ? OPEN_PLACES_CLASSIFIER_VERSION : undefined;
+    return await store.publishVersion(
+      version.dto.packVersionId,
+      jobId,
+      lease.leaseId,
+      collected.candidates,
+      collected.provenance,
+      classifierVersionRestamp
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     try {
@@ -319,14 +349,82 @@ export async function drainQueuedBuilds(
   return published;
 }
 
-/** The live collector: Overpass POI collection through the real
- *  provider services, provenance stamped from the fetch evidence. */
-export function liveCollector(fetcher: Fetcher = systemFetcher, policy: FetchPolicy = DEFAULT_FETCH_POLICY): PackCollector {
+export interface LiveCollectorOptions {
+  /** Open Places fallback API key. Undefined (the default) reads
+   *  process.env.OPEN_PLACES_API_KEY; an explicit null disables the
+   *  fallback even if the env carries a key (proofs pin the
+   *  pre-adapter behavior with it). */
+  openPlacesApiKey?: string | null;
+  /** Open Places collection options (deadline/sleep/clock) — proofs
+   *  inject these; production takes the defaults. */
+  openPlaces?: OpenPlacesOptions;
+}
+
+/** The live collector: the Overpass ladder first (chunked queries,
+ *  endpoint rotation, partial acceptance — the shipped lane,
+ *  unchanged), then — ONLY when the whole OSM lane failed outright
+ *  or yielded zero candidates, and ONLY when an Open Places API key
+ *  is configured — the Open Places fallback adapter (packs/
+ *  openPlaces.ts): an independent dataset (Overture) behind an
+ *  independent API, whole-pack, never merged into an OSM pack.
+ *  With no key configured, the behavior is exactly the pre-adapter
+ *  behavior: OSM success returns as before, OSM failure throws as
+ *  before, an empty OSM collection returns empty as before. */
+export function liveCollector(
+  fetcher: Fetcher = systemFetcher,
+  policy: FetchPolicy = DEFAULT_FETCH_POLICY,
+  options: LiveCollectorOptions = {}
+): PackCollector {
+  const openPlacesApiKey =
+    options.openPlacesApiKey !== undefined
+      ? options.openPlacesApiKey
+      : (process.env.OPEN_PLACES_API_KEY || "").trim() || null;
   return async (destination) => {
-    const collection = await collectPoiCandidates(fetcher, destination, policy);
+    let collection: PoiCollection | null = null;
+    let osmError: Error | null = null;
+    try {
+      collection = await collectPoiCandidates(fetcher, destination, policy);
+    } catch (err) {
+      osmError = err instanceof Error ? err : new Error(String(err));
+    }
+    if (collection && collection.candidates.length > 0) {
+      return {
+        candidates: collection.candidates,
+        provenance: liveBuildProvenance(collection, collection.evidence.fetchedAt)
+      };
+    }
+    if (!openPlacesApiKey) {
+      if (osmError) throw osmError;
+      const empty = collection as PoiCollection;
+      return {
+        candidates: empty.candidates,
+        provenance: liveBuildProvenance(empty, empty.evidence.fetchedAt)
+      };
+    }
+    let fallback;
+    try {
+      fallback = await collectPoiCandidatesFromOpenPlaces(fetcher, destination, policy, openPlacesApiKey, options.openPlaces);
+    } catch (err) {
+      const fallbackError = err instanceof Error ? err : new Error(String(err));
+      throw new Error(
+        osmError
+          ? `Overpass collection failed (${osmError.message}); Open Places fallback also failed (${fallbackError.message})`
+          : `Open Places fallback failed (${fallbackError.message})`
+      );
+    }
+    if (fallback.candidates.length === 0) {
+      // The fallback found nothing either: preserve the OSM lane's
+      // own outcome exactly (its error, or its honest empty result).
+      if (osmError) throw osmError;
+      const empty = collection as PoiCollection;
+      return {
+        candidates: empty.candidates,
+        provenance: liveBuildProvenance(empty, empty.evidence.fetchedAt)
+      };
+    }
     return {
-      candidates: collection.candidates,
-      provenance: liveBuildProvenance(collection, collection.evidence.fetchedAt)
+      candidates: fallback.candidates,
+      provenance: openPlacesBuildProvenance(fallback, fallback.evidence.fetchedAt)
     };
   };
 }

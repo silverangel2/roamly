@@ -587,7 +587,8 @@ export class SupabasePackStore implements PackStore {
     jobId: string,
     leaseId: string,
     candidates: StoredCandidate[],
-    provenance: PackVersionRecord["dto"]["provenance"]
+    provenance: PackVersionRecord["dto"]["provenance"],
+    classifierVersionRestamp?: string
   ): Promise<PackVersionRecord> {
     // The fencing check comes FIRST: a stolen lease refuses the
     // publish no matter what state the version row is in (I3).
@@ -650,7 +651,8 @@ export class SupabasePackStore implements PackStore {
         counts_by_kind: byKind,
         content_hash: candidateContentHash(stored),
         supersedes_pack_version_id: previousReady ? previousReady.pack_version_id : null,
-        provenance
+        provenance,
+        ...(classifierVersionRestamp ? { classifier_version: classifierVersionRestamp } : {})
       })
       .eq("pack_version_id", packVersionId)
       .eq("status", "building")
