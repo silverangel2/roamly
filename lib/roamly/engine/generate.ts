@@ -909,6 +909,10 @@ export interface DayConversionContext {
   anchorName: string;
   anchorKey: string | null;
   anchorBooked: boolean;
+  /** The stay anchor's solver position (EngineSolveContext.anchorPos):
+   *  stay seeds carry it as itinerary coordinates so the saved
+   *  activities keep the coordinates the Live Companion reads. */
+  anchorPos: { lat: number; lon: number };
   totalDayCount: number;
   /** Candidate keys the solver scheduled as must-sees (from
    *  SolveResult.mustSeeResults itemKeys) — they convert as must-do. */
@@ -942,6 +946,9 @@ export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionConte
     category: "Hotel",
     map_query: ctx.anchorName,
     item_type: "hotel",
+    ...(ctx.anchorPos && Number.isFinite(ctx.anchorPos.lat) && Number.isFinite(ctx.anchorPos.lon)
+      ? { coordinates: { latitude: ctx.anchorPos.lat, longitude: ctx.anchorPos.lon } }
+      : {}),
     ...(ctx.anchorKey ? { candidateId: ctx.anchorKey } : {}),
     factualStatus: ctx.anchorBooked ? "verified" : "search_ready",
     cost_status: "UNKNOWN",
@@ -1080,6 +1087,9 @@ function engineItemToSeed(item: EngineItem, day: EngineDay, mustDo: boolean): Ro
     category,
     map_query: item.name || item.title || "",
     item_type: isMeal ? "meal" : isRest ? "rest" : "activity",
+    ...(item.pos && Number.isFinite(item.pos.lat) && Number.isFinite(item.pos.lon)
+      ? { coordinates: { latitude: item.pos.lat, longitude: item.pos.lon } }
+      : {}),
     ...(item.key ? { candidateId: item.key } : {}),
     source: item.key ? "openstreetmap" : undefined,
     factualStatus: item.key ? "search_ready" : "estimated",
@@ -1679,6 +1689,7 @@ async function runDayBatchStage(params: {
     anchorName: planRun.ctx.anchorName,
     anchorKey: planRun.ctx.anchorKey,
     anchorBooked: planRun.ctx.anchorSource === "booked",
+    anchorPos: planRun.ctx.anchorPos,
     totalDayCount: state.totalDayCount,
     mustSeeKeys,
     originLabel:
