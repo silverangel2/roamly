@@ -74,6 +74,30 @@ function notificationTypeLabel(type: string) {
     );
 }
 
+/** Info reminders carry their whole message in the card's title + body — the
+ *  note IS the destination, so these open in place instead of navigating to a
+ *  generic page. Only action notifications (check-in, nearby, booking, …),
+ *  whose action genuinely lives elsewhere, keep their deep link. */
+const INFO_NOTIFICATION_TYPES = new Set([
+  "country_info",
+  "document_check",
+  "one_week_before",
+  "packing_check",
+  "one_day_before",
+  "countdown_24h",
+  "travel_day_started",
+  "trip_predeparture_7d",
+  "trip_predeparture_1d",
+  "travel_day",
+  "daily_trip_briefing",
+  "daily_briefing",
+  "final_day_briefing"
+]);
+
+function isInfoNotification(item: NotificationItem) {
+  return INFO_NOTIFICATION_TYPES.has(item.type);
+}
+
 export function NotificationTimelineCard({
   initialItems
 }: {
@@ -82,6 +106,18 @@ export function NotificationTimelineCard({
   const { t } = useI18n();
   const [items, setItems] =
     useState(initialItems);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(item: NotificationItem) {
+    const opening = !expandedIds.has(item.id);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (opening) next.add(item.id);
+      else next.delete(item.id);
+      return next;
+    });
+    if (opening && item.status !== "read") void markRead(item.id);
+  }
 
   async function markRead(id: string) {
     setItems((current) =>
@@ -157,7 +193,7 @@ export function NotificationTimelineCard({
                     </h3>
 
                     {item.body ? (
-                      <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
+                      <p className={`mt-1 text-sm font-bold leading-6 text-slate-600 ${isInfoNotification(item) && !expandedIds.has(item.id) ? "line-clamp-3" : ""}`}>
                         {item.body}
                       </p>
                     ) : null}
@@ -177,7 +213,15 @@ export function NotificationTimelineCard({
                   </div>
 
                   <div className="flex shrink-0 flex-wrap gap-2">
-                    {item.action_url && item.action_state !== "history" && item.action_state !== "unavailable" ? (
+                    {isInfoNotification(item) ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(item)}
+                        className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
+                      >
+                        {expandedIds.has(item.id) ? t("ui.actions.close", "Close") : t("ui.actions.open")}
+                      </button>
+                    ) : item.action_url && item.action_state !== "history" && item.action_state !== "unavailable" ? (
                       <a
                         href={item.action_url}
                         className="rounded-full bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud"
@@ -186,7 +230,7 @@ export function NotificationTimelineCard({
                       </a>
                     ) : null}
 
-                    {item.action_state === "history" ? (
+                    {!isInfoNotification(item) && item.action_state === "history" ? (
                       <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-600">
                         History only
                       </span>

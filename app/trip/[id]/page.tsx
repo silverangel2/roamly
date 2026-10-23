@@ -2404,7 +2404,12 @@ async function TripPage({ params, searchParams }: TripPageProps) {
       ? "roamly-tab-budget"
       : typeof actionFocus === "string" && actionFocus.startsWith("day-")
         ? "roamly-tab-day-by-day"
-        : null;
+        : canShowFull
+          ? "roamly-tab-day-by-day"
+          : null;
+  const companionStartLabel = trip.start_date
+    ? new Date(`${trip.start_date}T12:00:00`).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })
+    : "soon";
   const showGenerationPanel = generationPanelVisible && (generationRunning || (!generationRequiresPayment && generationBusy));
   const showPaymentWall = Boolean(draftCommand);
   const headerBudgetText = budgetVerdictDisplay
@@ -2482,10 +2487,9 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
           <p className="mt-4 max-w-xl text-sm leading-6 text-slate-500">{headerBudgetText}</p>
           {canShowFull ? <a href="#budget" className="inline-flex min-h-11 items-center text-sm font-medium text-ocean">Review the budget</a> : null}
-          {confirmedBookingSnapshot.length || (trackingUnlocked && !completedTrip) ? (
+          {confirmedBookingSnapshot.length ? (
             <p className="mt-1 flex flex-wrap gap-x-4 text-sm">
-              {confirmedBookingSnapshot.length ? <a href="#bookings" className="font-medium text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed</a> : null}
-              {trackingUnlocked && !completedTrip ? <span className="text-slate-500">Live Companion available</span> : null}
+              <a href="#bookings" className="font-medium text-ocean">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed</a>
             </p>
           ) : null}
               
@@ -2663,6 +2667,22 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                   ))}
                 </div>
               </nav>
+
+              {trackingUnlocked && !completedTrip ? (
+                <section aria-label="Live Companion" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.35rem] bg-white px-5 py-4 shadow-[0_10px_30px_rgba(16,32,51,0.04)]">
+                  <div className="min-w-0">
+                    <p className="text-[0.68rem] font-black uppercase tracking-[0.16em] text-slate-500">Live Companion</p>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                      {tripLifecycle === "active"
+                        ? "Active today — it follows along while you move. Your plan is right below."
+                        : `Ready — starts ${companionStartLabel}. Your plan is right below.`}
+                    </p>
+                  </div>
+                  <a href={`/trip/${id}/live`} className="inline-flex min-h-11 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-semibold text-white">
+                    {tripLifecycle === "active" ? "Open Live" : "Companion"}
+                  </a>
+                </section>
+              ) : null}
 
               <div className="roamly-tab-panels">
                 <section className="roamly-home-panel mt-5 scroll-mt-28" aria-label="Trip home">

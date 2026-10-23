@@ -96,22 +96,28 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
   const rowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const updateHash = () => {
+    const updateHash = (initial = false) => {
       const fromWindow = window.location.hash;
       const nextHash = fromWindow && fromWindow !== "#" ? fromWindow : focusAnchor ? `#${focusAnchor}` : "";
       setHash(nextHash);
-      if (!nextHash) clearTripPanels();
+      // On mount the server-rendered default tab stands — the trip opens on
+      // its itinerary. Panel clearing is only for explicit navigation back
+      // to a hash-less state, which returns to the home panel as before.
+      if (!nextHash) {
+        if (!initial) clearTripPanels();
+      }
       else {
         activateTabForSuffix(nextHash);
         scrollToHash(nextHash);
       }
     };
-    updateHash();
-    window.addEventListener("hashchange", updateHash);
-    window.addEventListener("popstate", updateHash);
+    updateHash(true);
+    const onNavigate = () => updateHash(false);
+    window.addEventListener("hashchange", onNavigate);
+    window.addEventListener("popstate", onNavigate);
     return () => {
-      window.removeEventListener("hashchange", updateHash);
-      window.removeEventListener("popstate", updateHash);
+      window.removeEventListener("hashchange", onNavigate);
+      window.removeEventListener("popstate", onNavigate);
     };
   }, [pathname, focusAnchor]);
 

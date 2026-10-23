@@ -11,14 +11,19 @@ import { normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
 import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
 import { localizeActivityNotification } from "@/lib/roamly/briefingMessages.mjs";
 
-// Email discipline for scheduled companion events. A single event may trigger
-// at most MAX_COMPANION_EVENT_EMAIL_ATTEMPTS emails (the first send plus two
-// reminders); after that the event keeps retrying for push/in-app delivery but
-// never emails again. Due stage events for the same trip also collapse: only
-// the first event that actually emails for a trip in a dispatcher run claims
-// the trip's email slot, and any sibling event that was passed over because of
-// that collapse is marked (metadata.emailCollapsed) so it never bursts its own
-// email on a later retry either. Push behavior is unchanged in all cases.
+// Email discipline for scheduled companion events (Defect 5 — owner verdict
+// 2026-10-23: one reminder = one email). A single event delivers AT MOST ONE
+// email, ever: the first successful send stamps metadata.emailSentAt, and no
+// later dispatcher run may email that event again — its retries are for
+// push/in-app delivery only. A send that FAILS (nothing was delivered) may
+// be retried on later runs, bounded by MAX_COMPANION_EVENT_EMAIL_ATTEMPTS
+// total attempts; the cap bounds failed attempts, it never licenses a
+// second delivered email. Due stage events for the same trip also collapse:
+// only the first event that actually emails for a trip in a dispatcher run
+// claims the trip's email slot, and any sibling event that was passed over
+// because of that collapse is marked (metadata.emailCollapsed) so it never
+// bursts its own email on a later retry either. Push behavior is unchanged
+// in all cases.
 export const MAX_COMPANION_EVENT_EMAIL_ATTEMPTS = 3;
 
 export function companionEventEmailAttempts(metadata: unknown): number {
@@ -27,12 +32,20 @@ export function companionEventEmailAttempts(metadata: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
+export function companionEventEmailSent(metadata: unknown): boolean {
+  if (!metadata || typeof metadata !== "object") return false;
+  const value = (metadata as Record<string, unknown>).emailSentAt;
+  return typeof value === "string" && value.length > 0;
+}
+
 export function companionEventEmailAllowed(params: {
   attempts: number;
+  emailSent: boolean;
   collapsed: boolean;
   tripAlreadyEmailed: boolean;
 }): boolean {
   return (
+    !params.emailSent &&
     !params.collapsed &&
     !params.tripAlreadyEmailed &&
     params.attempts < MAX_COMPANION_EVENT_EMAIL_ATTEMPTS
@@ -500,6 +513,7 @@ export async function sendScheduledTripNotifications() {
         ? eventMetadata.activity_id
         : null;
     const priorEmailAttempts = companionEventEmailAttempts(eventMetadata);
+    const emailAlreadySent = companionEventEmailSent(eventMetadata);
     const emailCollapsed = eventMetadata.emailCollapsed === true;
     const tripEmailKey = event.trip_id ? `${event.user_id}:${event.trip_id}` : null;
     let emailSuppressedByCollapse = false;
@@ -555,13 +569,14 @@ export async function sendScheduledTripNotifications() {
       emailSuppressedByCollapse = tripAlreadyEmailed;
       const emailAllowed = companionEventEmailAllowed({
         attempts: priorEmailAttempts,
+        emailSent: emailAlreadySent,
         collapsed: emailCollapsed,
         tripAlreadyEmailed
       });
       delivery = await sendPushNotification(supabase, event.user_id, {
       title: event.title || "Roamly reminder",
       body: event.body,
-      actionUrl: event.trip_id ? `/trip/${event.trip_id}/live` : "/notifications",
+      actionUrl: "/notifications",
       type: event.event_type,
       tripId: event.trip_id,
       eventId: event.id
@@ -581,9 +596,17 @@ export async function sendScheduledTripNotifications() {
         .eq("id", event.id)
         .eq("status", "processing");
     } else {
-      const emailAttempted = "emailResult" in delivery ? Boolean(delivery.emailResult) : false;
+      const emailResult = "emailResult" in delivery ? delivery.emailResult : null;
+      const emailAttempted = Boolean(emailResult);
+      const emailDelivered = Boolean(
+        emailResult && typeof emailResult === "object" && "ok" in emailResult && emailResult.ok === true
+      );
       const nextMetadata = emailAttempted
-        ? { ...eventMetadata, emailAttempts: priorEmailAttempts + 1 }
+        ? {
+            ...eventMetadata,
+            emailAttempts: priorEmailAttempts + 1,
+            ...(emailDelivered ? { emailSentAt: new Date().toISOString() } : {})
+          }
         : emailSuppressedByCollapse && !emailCollapsed
           ? { ...eventMetadata, emailCollapsed: true }
           : null;

@@ -274,7 +274,7 @@ export function buildPreTripReminderContent(params: {
       gaps.length ? reminderCopy(locale, "gap", { gaps: gaps.join(", ") }) : ""
     ].filter(Boolean).join(" "),
     actionLabel: reminderCopy(locale, "review"),
-    actionUrl: `/trip/${params.trip.id}/live`
+    actionUrl: `/trip/${params.trip.id}`
   };
 }
 

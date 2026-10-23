@@ -77,11 +77,13 @@ function hasActiveSimulatedLocation(pathname: string) {
 }
 
 function isLocationPromptPath(pathname: string, activeTripId?: string | null) {
-  if (pathname.startsWith("/admin")) return false;
-  if (pathname === "/plan" || pathname.startsWith("/login") || pathname.startsWith("/signup")) return false;
-  if (activeTripId && pathname.includes(`/trip/${activeTripId}/live`)) return true;
-  if (activeTripId && pathname.includes(`/trip/${activeTripId}/companion`)) return true;
-  return pathname === "/dashboard" || pathname === "/notifications";
+  // The location ask lives in exactly one place now: the live view itself.
+  // LiveTripClient reads the persisted setting and shows one calm inline
+  // row/prompt in context. The global tracker never prompts anywhere — it
+  // only tracks silently when the traveler already granted location.
+  void pathname;
+  void activeTripId;
+  return false;
 }
 
 export function RoamlyLocationTracker() {
