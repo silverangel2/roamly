@@ -221,54 +221,51 @@ export function SetupCascade({
     const done = dones[index];
     const locked = currentIndex !== -1 && index > currentIndex;
     return (
-      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 py-5 first:pt-1 last:pb-1">
-        <div className="flex items-start gap-3.5">
+      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 px-4 py-4 sm:px-5">
+        <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black ${
-              done
-                ? "bg-ocean text-white"
-                : locked
-                  ? "bg-slate-100 text-slate-400"
-                  : "bg-ink text-white"
+            className={`mt-0.5 w-5 shrink-0 text-center text-[15px] font-semibold leading-6 ${
+              done ? "text-cgreen" : locked ? "text-cgray2" : "text-chead"
             }`}
           >
             {done ? "✓" : index + 1}
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-black text-ink">{title}</h3>
-            <p className="mt-0.5 text-sm font-bold text-slate-500">{feature}</p>
+            <h3 className={`text-[17px] font-semibold leading-tight ${locked ? "text-cgray" : "text-chead"}`}>{title}</h3>
+            <p className={`mt-0.5 text-[14.5px] font-normal leading-snug ${locked ? "text-cgray2" : "text-cgray"}`}>{feature}</p>
             {locked ? (
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+              <p className="mt-1.5 text-[13.5px] font-normal leading-5 text-cgray2">
                 Finish step {currentIndex + 1} first — this one unlocks next.
               </p>
             ) : (
               children
             )}
           </div>
+          {locked ? <span className="shrink-0 text-[15px] font-normal text-cgray2">Locked</span> : null}
         </div>
       </section>
     );
   };
 
   const actionClass =
-    "mt-3 inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-white disabled:opacity-50";
-  const quietLinkClass = "font-bold text-ocean underline underline-offset-2";
+    "mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-50 sm:w-auto sm:min-w-60";
+  const quietLinkClass = "font-semibold text-cblue";
 
   return (
-    <div>
+    <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
       {setup.complete ? (
-        <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-bold leading-6 text-slate-600">
+        <p className="border-b border-chair px-4 py-3 text-sm font-normal leading-6 text-cink sm:px-5">
           All set — everything works. These steps stay here if you ever need them again.
         </p>
       ) : null}
-      <div className="divide-y divide-slate-100">
+      <div className="divide-y divide-chair">
         {stepShell(
           0,
           "Connect Gmail",
           "Booking Recon — your booking emails, matched to your trip",
           gmailDone ? (
-            <div className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
               {setup.gmailConnected ? (
                 <p>
                   Connected{setup.gmailEmail ? ` — ${setup.gmailEmail}` : ""}. Booking Recon is activated —
@@ -285,7 +282,7 @@ export function SetupCascade({
             </div>
           ) : (
             <div>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
                 Connect the Gmail that receives your flight and hotel confirmations. That turns on Booking
                 Recon: Roamly matches those confirmations to your trip, keeps them in step, and notices when
                 something changes.
@@ -302,7 +299,7 @@ export function SetupCascade({
           "Download the app",
           "Roamly can reach you in the moment",
           appDone ? (
-            <div className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
               <p>Installed. When something matters on your trip, Roamly can reach you right away.</p>
               {standalone && alertsPermission === "default" ? (
                 <button type="button" className={actionClass} disabled={busy === "alerts"} onClick={() => void turnOnAlerts()}>
@@ -312,7 +309,7 @@ export function SetupCascade({
             </div>
           ) : (
             <div>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
                 {isIOS
                   ? "On iPhone: tap the Share button, then “Add to Home Screen”. Then open Roamly from your home screen — this step finishes itself when you do."
                   : "Install Roamly to your home screen — no app store needed. Then open Roamly from the installed app; this step finishes itself when you do."}
@@ -331,7 +328,7 @@ export function SetupCascade({
           "Turn on location",
           "Companion goes live",
           locationDone ? (
-            <div className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
               {setup.locationGranted ? (
                 setup.locationEnabled ? (
                   <p>On. During your trip days, Live Companion follows along and speaks up only when it matters.</p>
@@ -350,7 +347,7 @@ export function SetupCascade({
                     {busy === "location" ? "Turning on…" : "Turn on location"}
                   </button>
                   {locationError ? (
-                    <p role="alert" className="mt-3 rounded-xl bg-mist px-3 py-2 text-xs font-bold leading-5 text-slate-600">
+                    <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
                       {locationError}
                     </p>
                   ) : null}
@@ -359,7 +356,7 @@ export function SetupCascade({
             </div>
           ) : (
             <div>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
                 One grant, remembered. Roamly follows along only during your trip days, and you can switch
                 it off any time — the grant stays yours.
               </p>
@@ -367,7 +364,7 @@ export function SetupCascade({
                 {busy === "location" ? "Turning on…" : "Turn on location"}
               </button>
               {locationError ? (
-                <p role="alert" className="mt-3 rounded-xl bg-mist px-3 py-2 text-xs font-bold leading-5 text-slate-600">
+                <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
                   {locationError}
                 </p>
               ) : null}

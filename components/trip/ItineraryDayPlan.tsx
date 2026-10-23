@@ -163,10 +163,10 @@ export function SectionHeading({
   return (
     <div className="mb-5 flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <p className="text-[0.8125rem] font-medium text-slate-500">{eyebrow}</p>
-        <h2 className="mt-0.5 text-[1.65rem] font-semibold tracking-[-0.03em] text-ink">{title}</h2>
+        <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{eyebrow}</p>
+        <h2 className="mt-0.5 text-[1.65rem] font-bold tracking-[-0.03em] text-chead">{title}</h2>
       </div>
-      {summary ? <p className="max-w-xl text-sm leading-6 text-slate-500">{summary}</p> : null}
+      {summary ? <p className="max-w-xl text-sm leading-6 text-cink">{summary}</p> : null}
     </div>
   );
 }
@@ -187,7 +187,7 @@ export function NavigationChipList({ query }: { query: string }) {
           href={link.href}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex min-h-9 items-center text-[0.8125rem] font-medium text-slate-500 underline decoration-slate-300 underline-offset-4 transition hover:text-ink"
+          className="inline-flex min-h-9 items-center text-[0.8125rem] font-medium text-cgray underline decoration-chair underline-offset-4 transition hover:text-chead"
         >
           {labels[link.provider] || link.label}
         </a>
@@ -516,22 +516,19 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
   ].filter(Boolean);
   const isQuiet = item.authority === "flexible";
   const isConfirmed = item.authority === "confirmed";
-  const marker = isConfirmed ? "bg-ocean" : item.authority === "must_do" ? "bg-coral" : isQuiet ? "bg-slate-300" : "bg-lagoon";
 
   return (
-    <article className={`relative rounded-2xl py-4 pl-5 pr-1 sm:pl-7 ${isConfirmed ? "bg-ocean/[0.045]" : ""}`}>
-      <span className={`absolute left-0 top-5 h-2.5 w-2.5 rounded-full ring-4 ${isConfirmed ? "ring-ocean/10" : "ring-white"} ${marker}`} />
-      <span className={`absolute bottom-4 left-[0.28rem] top-9 w-px ${isQuiet ? "bg-slate-200" : "bg-[#efe7da]"}`} aria-hidden="true" />
+    <article className="relative py-4 first:pt-1">
       <div className="grid gap-1.5 sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-4">
         <div className="flex items-baseline gap-2 sm:block">
-          <p className={`text-[0.95rem] font-semibold leading-6 ${item.time === "Flexible" ? "text-slate-400" : "text-ocean"}`}>{item.time}</p>
+          <p className={`text-[0.95rem] font-semibold leading-6 ${item.time === "Flexible" ? "text-cgray2" : "text-cgray"}`}>{item.time}</p>
           {item.timeFromBooking ? (
-            <p className="mt-0.5 inline-flex items-center rounded-full bg-ocean/10 px-2 py-0.5 text-[10px] font-semibold text-ocean">Booking time</p>
+            <p className="mt-0.5 inline-flex items-center rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-[10px] font-semibold text-chead">Booking time</p>
           ) : (
-            <p className="text-[0.75rem] font-medium text-slate-400">{item.category.replaceAll("_", " ")}</p>
+            <p className="text-[0.75rem] font-medium text-cgray2">{item.category.replaceAll("_", " ")}</p>
           )}
           {item.timeRetimed ? (
-            <p className="mt-0.5 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+            <p className="mt-0.5 inline-flex items-center rounded-md bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
               Re-timed{item.retimedMinutes ? ` ${item.retimedMinutes > 0 ? "+" : ""}${item.retimedMinutes} min` : ""}
             </p>
           ) : null}
@@ -539,14 +536,14 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h4 className={`text-lg font-semibold leading-6 tracking-tight ${isQuiet ? "text-slate-700" : "text-ink"} sm:text-xl`}>{item.title}</h4>
-            {isConfirmed ? <span className="rounded-full bg-ocean px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-white">Confirmed booking</span> : null}
-            {item.authority === "must_do" ? <span className="rounded-full bg-coral/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-coral">Must-do</span> : null}
-            {item.authority === "supporting" ? <span className="rounded-full bg-lagoon/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#0b6e64]">Suggested</span> : null}
+            <h4 className={`text-lg font-semibold leading-6 tracking-tight ${isQuiet ? "text-cink" : "text-chead"} sm:text-xl`}>{item.title}</h4>
+            {isConfirmed ? <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-chead">Confirmed booking</span> : null}
+            {item.authority === "must_do" ? <span className="rounded-md bg-cred/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-cred">Must-do</span> : null}
+            {item.authority === "supporting" ? <span className="rounded-md bg-cbg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-cgray">Suggested</span> : null}
           </div>
-          {item.timeFromBooking ? <p className="mt-0.5 text-[0.75rem] font-medium text-slate-400">{item.category.replaceAll("_", " ")}</p> : null}
-          {meta.length ? <p className="mt-1 text-sm leading-5 text-slate-500">{meta.join(" · ")}</p> : null}
-          {item.statusText ? <p className="mt-1 text-sm leading-5 text-slate-500">{item.statusText}</p> : null}
+          {item.timeFromBooking ? <p className="mt-0.5 text-[0.75rem] font-medium text-cgray2">{item.category.replaceAll("_", " ")}</p> : null}
+          {meta.length ? <p className="mt-1 text-sm leading-5 text-cgray">{meta.join(" · ")}</p> : null}
+          {item.statusText ? <p className="mt-1 text-sm leading-5 text-cgray">{item.statusText}</p> : null}
           {stayPartners.length ? (
             <HotelPartnerChoices
               partners={stayPartners}
@@ -555,7 +552,7 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
               priceNote={item.statusText === "Price not available" ? null : "Price not available"}
             />
           ) : null}
-          {item.warning ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{item.warning}</p> : null}
+          {item.warning ? <p className="mt-2 text-xs font-semibold leading-5 text-cred">{item.warning}</p> : null}
           {item.authority === "flexible" && item.itemType === "activity" && dayId && item.itemId ? (
             <>
               <CustomerActivityRemoval tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
@@ -564,11 +561,11 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
           ) : null}
           {item.why || secondary.length ? (
             <details className="mt-3">
-              <summary className="min-h-8 cursor-pointer text-sm font-medium text-slate-500">{item.why ? "Why this & details" : "Details"}</summary>
+              <summary className="min-h-8 cursor-pointer text-sm font-medium text-cgray">{item.why ? "Why this & details" : "Details"}</summary>
               <div className="mt-2 grid gap-1">
-                {item.why ? <p className="text-sm font-semibold leading-6 text-slate-600"><span className="font-black text-ink">Why this:</span> {item.why}</p> : null}
+                {item.why ? <p className="text-sm font-normal leading-6 text-cink"><span className="font-semibold text-chead">Why this:</span> {item.why}</p> : null}
                 {secondary.map((line) => (
-                  <p key={line} className="text-sm font-semibold leading-6 text-slate-600">{line}</p>
+                  <p key={line} className="text-sm font-normal leading-6 text-cink">{line}</p>
                 ))}
               </div>
             </details>
@@ -631,64 +628,64 @@ export function DayTimelineCard({
   return (
     <section
       id={`day-${day.day_number}`}
-      className="roamly-day-print roamly-enter roamly-lift scroll-mt-40 rounded-[1.5rem] bg-white px-5 py-6 shadow-[0_10px_30px_rgba(16,32,51,0.04)] sm:px-7 sm:py-7"
+      className="roamly-day-print scroll-mt-40 rounded-[14px] bg-white px-5 py-6 shadow-calm sm:px-7 sm:py-7"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-500">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">
             Day {day.day_number}
             {day.date ? ` · ${weekday ? `${weekday}, ` : ""}${formatTripDate(day.date, locale)}` : ""}
           </p>
-          <h3 className="mt-1 text-[1.65rem] font-semibold leading-8 tracking-[-0.03em] text-ink">{dayTitle}</h3>
-          {dayCity ? <p className="mt-1 text-sm text-slate-500">{dayCity}</p> : null}
+          <h3 className="mt-1 text-[22px] font-bold leading-7 tracking-[-0.03em] text-chead">{dayTitle}</h3>
+          {dayCity ? <p className="mt-1 text-sm text-cgray">{dayCity}</p> : null}
         </div>
         {typeof day.estimated_cost === "number" && day.estimated_cost > 0 ? (
-          <span className="w-fit shrink-0 rounded-full bg-mist px-3 py-1.5 text-xs font-medium text-slate-600">Day estimate · {formatMoney(day.estimated_cost, currency)}</span>
+          <span className="w-fit shrink-0 rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-1 text-xs font-medium text-chead">Day estimate · {formatMoney(day.estimated_cost, currency)}</span>
         ) : null}
       </div>
 
       {consolidatedCount ? (
-        <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-ocean/[0.07] px-3 py-1.5 text-xs font-black text-ocean">
+        <p className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cbg px-3 py-2 text-xs font-semibold text-chead">
           <span aria-hidden="true">✓</span> Schedule set from your confirmed {consolidatedCount === 1 ? "booking" : `${consolidatedCount} bookings`} — exact times below
         </p>
       ) : null}
 
-      <p className="mt-4 max-w-2xl text-[1.02rem] leading-7 text-slate-600">{daySummary}</p>
+      <p className="mt-4 max-w-2xl text-[1.02rem] leading-7 text-cink">{daySummary}</p>
 
       {firstAction ? (
-        <p className="mt-4 text-sm leading-6 text-slate-500">
-          <span className="font-medium text-ink">Up next. </span>
+        <p className="mt-4 text-sm leading-6 text-cgray">
+          <span className="font-medium text-chead">Up next. </span>
           {firstAction.time !== "Flexible" ? `${firstAction.time} · ` : ""}{firstAction.title}
         </p>
       ) : null}
-      {hasUncertainty ? <p className="mt-2 text-xs font-bold text-slate-500">Some details still need confirmation.</p> : null}
+      {hasUncertainty ? <p className="mt-2 text-xs font-medium text-cgray">Some details still need confirmation.</p> : null}
 
       <div className="mt-6">
         {repairCandidate ? <PlanningConflictRepair tripId={tripId} conflictId={repairCandidate.target.conflictId} dayId={day.day_id!} targetItemId={repairCandidate.target.itemId} targetTitle={repairCandidate.target.title} protectedTitles={timelineItems.filter((item) => item.authority === "confirmed" || item.authority === "must_do").map((item) => item.title)} /> : null}
-        <div className="grid gap-2">
+        <div className="divide-y divide-chair">
           {timelineItems.length ? (
             timelineItems.map((item, index) => (
               <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} staySearch={staySearch} />
             ))
           ) : (
-            <div className="rounded-2xl bg-mist px-4 py-5 text-sm font-semibold leading-6 text-slate-600">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
+            <div className="rounded-xl bg-cbg px-4 py-5 text-sm font-normal leading-6 text-cink">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
           )}
         </div>
 
         {day.alternatives?.length || day.uncertainty?.length ? (
-          <details className="mt-4 rounded-2xl bg-mist px-4 py-3">
-            <summary className="min-h-8 cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Planning notes</summary>
+          <details className="mt-4 rounded-xl bg-cbg px-4 py-3">
+            <summary className="min-h-8 cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">Planning notes</summary>
             <div className="mt-2 grid gap-3">
               {day.alternatives?.length ? (
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Alternatives</p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{day.alternatives.slice(0, 3).join(" · ")}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.06em] text-cgray2">Alternatives</p>
+                  <p className="mt-1 text-sm font-normal leading-6 text-cink">{day.alternatives.slice(0, 3).join(" · ")}</p>
                 </div>
               ) : null}
               {day.uncertainty?.length ? (
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Still to confirm</p>
-                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{day.uncertainty.slice(0, 3).join(" · ")}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.06em] text-cgray2">Still to confirm</p>
+                  <p className="mt-1 text-sm font-normal leading-6 text-cink">{day.uncertainty.slice(0, 3).join(" · ")}</p>
                 </div>
               ) : null}
             </div>
@@ -696,19 +693,19 @@ export function DayTimelineCard({
         ) : null}
 
         {day.food.length ? (
-          <details className="mt-3 rounded-2xl bg-mist px-4 py-3">
-            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Food ideas</summary>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{day.food.slice(0, 3).join(" · ")}</p>
+          <details className="mt-3 rounded-xl bg-cbg px-4 py-3">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">Food ideas</summary>
+            <p className="mt-2 text-sm font-normal leading-6 text-cink">{day.food.slice(0, 3).join(" · ")}</p>
           </details>
         ) : null}
 
         {places.length ? (
-          <details className="mt-3 rounded-2xl border border-cloud bg-white px-4 py-3">
-            <summary className="cursor-pointer text-xs font-black uppercase tracking-[0.12em] text-slate-500">Map details</summary>
+          <details className="mt-3 rounded-xl border border-chair bg-white px-4 py-3">
+            <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">Map details</summary>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               {places.map((query) => (
-                <div key={query} className="rounded-xl border border-cloud bg-mist/60 px-3 py-3">
-                  <p className="text-sm font-black leading-5 text-ink">{query}</p>
+                <div key={query} className="rounded-xl border border-chair bg-cbg px-3 py-3">
+                  <p className="text-sm font-semibold leading-5 text-chead">{query}</p>
                   <NavigationChipList query={query} />
                 </div>
               ))}
@@ -732,16 +729,16 @@ export function BuildingDayCard({
   return (
     <section
       id={`day-${dayNumber}`}
-      className="roamly-day-print scroll-mt-36 rounded-[1.75rem] border border-dashed border-cloud bg-white/80 px-5 py-6 sm:px-8"
+      className="roamly-day-print scroll-mt-36 rounded-[14px] border border-dashed border-chair bg-white px-5 py-6 shadow-calm sm:px-8"
     >
-      <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-ocean">
-        <span className="rounded-full bg-mist px-2.5 py-1 text-[10px] tracking-[0.14em] text-slate-500">Day {dayNumber}</span>
+      <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-cgray">
+        <span className="rounded-md bg-cbg px-2 py-0.5 text-[10px] tracking-[0.06em] text-cgray">Day {dayNumber}</span>
         {date ? <span>{formatTripDate(date)}</span> : null}
       </p>
-      <h3 className="mt-2 text-xl font-black leading-7 tracking-tight text-ink">
+      <h3 className="mt-2 text-xl font-bold leading-7 tracking-tight text-chead">
         {status === "failed" ? "Needs attention" : "Building your day..."}
       </h3>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+      <p className="mt-2 text-sm font-normal leading-6 text-cink">
         {status === "failed" ? "This day needs attention. Completed days remain available." : "Roamly is still building this day."}
       </p>
     </section>

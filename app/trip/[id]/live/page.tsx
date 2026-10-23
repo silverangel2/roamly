@@ -103,7 +103,7 @@ export default async function LiveTripPage({
       <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <Badge tone="sun">Setup</Badge>
-          <h1 className="mt-4 text-3xl font-black text-ink">Connect Supabase to use Live Trip Companion.</h1>
+          <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Connect Supabase to use Live Trip Companion.</h1>
         </Card>
       </div>
     );
@@ -407,7 +407,7 @@ export default async function LiveTripPage({
 
   if (!fieldTestMode) {
     return (
-      <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+      <div className="calm-bleed safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
         <TripContextNav
           tripId={id}
           title={bundle.data.trip.title || destinationLabel}
@@ -416,8 +416,8 @@ export default async function LiveTripPage({
         />
         <section className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <h1 className="mt-1 text-[1.85rem] font-semibold tracking-[-0.03em] text-ink sm:text-4xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
+            <h1 className="mt-1 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
+            <p className="mt-2 max-w-2xl text-[15px] font-normal leading-[1.45] text-cgray">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
           </div>
           <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
         </section>
@@ -428,9 +428,9 @@ export default async function LiveTripPage({
         ) : null}
         {tripCompleted ? (
           <Card>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Trip complete</p>
-            <h2 className="mt-2 text-2xl font-black text-ink">Live Companion is closed for this trip</h2>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Trip complete</p>
+            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Live Companion is closed for this trip</h2>
+            <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
           </Card>
         ) : (
           <LiveTripClient

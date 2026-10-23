@@ -18,18 +18,15 @@ export function TripActivationBanner({
       ? "Live Trip Companion ready"
       : "Trip has not started";
   return (
-    <section className="overflow-hidden rounded-[2rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_56%,#fff7ed_100%)] p-5 text-ink shadow-soft sm:p-6">
-      <div className="absolute -right-14 -top-14 h-40 w-40 rounded-full bg-cyan-300/30 blur-3xl" />
-      <div className="relative">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Roamly notification</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">
-          {title}
-        </h1>
-        <p className="mt-3 text-lg font-black text-orange-600">{tripStarted ? `Day ${dayNumber || 1}` : "Not started"}</p>
-        <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-slate-600">
-          {notificationProximityCopy(notification?.body, tripStarted)}
-        </p>
-      </div>
+    <section className="rounded-[14px] bg-white p-5 shadow-calm sm:p-6">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">Roamly notification</p>
+      <h1 className="mt-1.5 text-[30px] font-bold leading-[1.12] tracking-[-0.022em] text-chead">
+        {title}
+      </h1>
+      <p className="mt-2 text-[15px] font-semibold text-chead">{tripStarted ? `Day ${dayNumber || 1}` : "Not started"}</p>
+      <p className="mt-2 max-w-2xl text-[15px] font-normal leading-[1.45] text-cink">
+        {notificationProximityCopy(notification?.body, tripStarted)}
+      </p>
     </section>
   );
 }

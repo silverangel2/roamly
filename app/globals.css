@@ -124,6 +124,104 @@ select {
   background: var(--roamly-page);
 }
 
+/* ------------------------------------------------------------------ */
+/* Calm design system (owner-approved, 2026-10-23)                     */
+/* Quiet iOS language for the traveler surfaces: grouped ground,      */
+/* hairlines instead of boxes-in-boxes, one accent, fast quiet motion */
+/* (cubic-bezier(0.32, 0.72, 0, 1) everywhere; nothing bouncy).       */
+/* ------------------------------------------------------------------ */
+
+/* Full-bleed grouped ground for a centered page column: the shadow
+   spreads the surface color past the column's own box, top and
+   bottom included, so the shell's cream never bands around it. */
+.calm-bleed {
+  background: #eff2f7;
+  box-shadow: 0 0 0 100vmax #eff2f7;
+}
+
+/* Screen change: content fades in as one + 8px rise, ~300ms. */
+@keyframes calm-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calm-enter {
+  animation: calm-enter 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* The gate lifts: a plain crossfade, ~350ms — the trip was there all
+   along, only the cover lifts. */
+@keyframes calm-crossfade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.calm-crossfade {
+  animation: calm-crossfade 350ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* The single-event view presents as a sheet: rises 12px + fades. */
+@keyframes calm-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calm-sheet {
+  animation: calm-sheet-in 320ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* A trip alert surfaces on its row: fade + small slide, ~250ms.
+   Alerts are guests — the same motion, reversed by unmount, lets
+   them leave quietly. */
+@keyframes calm-alert-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calm-alert-in {
+  animation: calm-alert-in 250ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Location flips on: the status dot crossfades, no layout jump. */
+.calm-dot {
+  transition: background-color 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .calm-enter,
+  .calm-crossfade,
+  .calm-sheet,
+  .calm-alert-in {
+    animation: none !important;
+  }
+
+  .calm-dot {
+    transition: none !important;
+  }
+}
+
 .roamly-surface {
   background: var(--roamly-surface);
   border: 1px solid var(--roamly-line);

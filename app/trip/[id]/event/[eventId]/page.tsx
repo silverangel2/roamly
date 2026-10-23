@@ -96,20 +96,33 @@ export default async function TripEventPage({ params }: EventPageProps) {
     .then(() => undefined, () => undefined);
 
   const itineraryLink = (
-    <a href={`/trip/${id}`} className="text-sm font-bold text-ocean underline underline-offset-2">
+    <a
+      href={`/trip/${id}`}
+      className="mt-6 flex min-h-12 items-center gap-2.5 rounded-xl bg-cbg px-4 text-[16.5px] font-medium text-chead"
+    >
       See the full itinerary
+      <span aria-hidden className="ml-auto text-xl leading-none text-cchev">
+        ›
+      </span>
     </a>
+  );
+
+  const sheetClass =
+    "calm-sheet w-full rounded-t-[20px] bg-white px-5 pb-10 pt-2.5 shadow-sheet sm:mt-16 sm:rounded-[20px]";
+  const grabHandle = (
+    <span aria-hidden className="mx-auto mb-4 block h-[5px] w-9 rounded-full bg-chair" />
   );
 
   if (!event) {
     return (
-      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl items-start px-4 py-10 sm:px-6">
-        <section className="w-full rounded-[1.75rem] border border-cloud bg-white/90 p-6 shadow-soft sm:p-8">
-          <h1 className="text-2xl font-black tracking-tight text-ink">This update is no longer here.</h1>
-          <p className="mt-3 text-base font-semibold leading-7 text-slate-600">
+      <div className="calm-bleed safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl items-end px-0 sm:items-start sm:px-6">
+        <section className={sheetClass}>
+          {grabHandle}
+          <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">This update is no longer here.</h1>
+          <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">
             It was for a moment that has passed — your itinerary holds everything that still matters.
           </p>
-          <p className="mt-5">{itineraryLink}</p>
+          {itineraryLink}
         </section>
       </div>
     );
@@ -134,36 +147,37 @@ export default async function TripEventPage({ params }: EventPageProps) {
   }
 
   return (
-    <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl items-start px-4 py-10 sm:px-6">
-      <section className="w-full rounded-[1.75rem] border border-cloud bg-white/90 p-6 shadow-soft sm:p-8">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+    <div className="calm-bleed safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl items-end px-0 sm:items-start sm:px-6">
+      <section className={sheetClass}>
+        {grabHandle}
+        <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">
           {typeLabel(event.event_type)}
         </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight text-ink">
+        <h1 className="mt-1.5 text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">
           {event.title || "Roamly update"}
         </h1>
         {when ? (
-          <p className="mt-2 text-sm font-bold text-slate-500">
+          <p className="mt-1.5 text-[15px] font-normal text-cgray">
             {when}
             {trip.destination ? ` · ${trip.destination}` : ""}
           </p>
         ) : null}
         {event.body ? (
-          <p className="mt-4 whitespace-pre-line text-base font-semibold leading-7 text-slate-600">
+          <p className="mt-3.5 whitespace-pre-line text-[16.5px] font-normal leading-[1.5] text-cink">
             {event.body}
           </p>
         ) : null}
-        {place ? <p className="mt-3 text-sm font-bold text-slate-500">{place}</p> : null}
+        {place ? <p className="mt-3 text-[15px] font-normal text-cgray">{place}</p> : null}
         {setupInvitation ? (
-          <p className="mt-5 rounded-2xl bg-mist px-4 py-3 text-sm font-semibold leading-6 text-slate-600">
+          <p className="mt-5 border-t border-chair pt-4 text-[15px] font-normal leading-[1.5] text-cgray">
             One last thing for today: finish setup so Booking Recon is activated, Roamly can reach you in
             the moment, and the companion can go live.{" "}
-            <a href="/account#setup" className="font-bold text-ocean underline underline-offset-2">
+            <a href="/account#setup" className="font-semibold text-cblue">
               Finish setup
             </a>
           </p>
         ) : null}
-        <p className="mt-6 border-t border-slate-100 pt-4">{itineraryLink}</p>
+        {itineraryLink}
       </section>
     </div>
   );

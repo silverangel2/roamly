@@ -23,6 +23,87 @@ function isActive(pathname: string, href: string, hrefs: readonly string[]) {
   return primaryNavActiveHref(pathname, hrefs) === href;
 }
 
+/* Tab-bar glyphs in the calm language (owner design, 2026-10-23):
+   one 25px stroke style for every destination, color inherited from
+   the tab (navy-slate when active, blue-shifted gray when not). */
+function NavIcon({ href }: { href: string }) {
+  const common = {
+    width: 25,
+    height: 25,
+    viewBox: "0 0 25 25",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true
+  } as const;
+  if (href.startsWith("/trip/") || href === "/dashboard") {
+    return (
+      <svg {...common}>
+        <circle cx="5" cy="6.5" r="1.15" fill="currentColor" stroke="none" />
+        <circle cx="5" cy="12.5" r="1.15" fill="currentColor" stroke="none" />
+        <circle cx="5" cy="18.5" r="1.15" fill="currentColor" stroke="none" />
+        <path d="M9.5 6.5h10M9.5 12.5h10M9.5 18.5h10" />
+      </svg>
+    );
+  }
+  if (href === "/plan") {
+    return (
+      <svg {...common}>
+        <circle cx="12.5" cy="12.5" r="8" />
+        <path d="M12.5 8.5v8M8.5 12.5h8" />
+      </svg>
+    );
+  }
+  if (href === "/finds") {
+    return (
+      <svg {...common}>
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.5 4.5" />
+      </svg>
+    );
+  }
+  if (href === "/notifications") {
+    return (
+      <svg {...common}>
+        <path d="M12.5 3.5a5.5 5.5 0 0 1 5.5 5.5c0 4 1.2 5.4 2 6.5H5c.8-1.1 2-2.5 2-6.5a5.5 5.5 0 0 1 5.5-5.5" />
+        <path d="M10.3 19.5a2.3 2.3 0 0 0 4.4 0" />
+      </svg>
+    );
+  }
+  if (href === "/account" || href === "/login") {
+    return (
+      <svg {...common}>
+        <circle cx="12.5" cy="8.5" r="3.6" />
+        <path d="M5.5 20a7.2 7.2 0 0 1 14 0" />
+      </svg>
+    );
+  }
+  if (href === "/pricing") {
+    return (
+      <svg {...common}>
+        <path d="M4 4h7l9 9-7 7-9-9V4z" />
+        <circle cx="8.5" cy="8.5" r="1.4" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (href.startsWith("/#")) {
+    return (
+      <svg {...common}>
+        <circle cx="12.5" cy="12.5" r="8" />
+        <path d="M15.5 9.5l-2 5-5 2 2-5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M5 11.5L12.5 4.5L20 11.5" />
+      <path d="M7 10v9.5h11V10" />
+    </svg>
+  );
+}
+
 function routeHidesBottomNav(pathname: string) {
   return pathname === "/plan";
 }
@@ -293,7 +374,7 @@ function AppShellContent({
           aria-label="Mobile navigation"
           aria-hidden={bottomNavHidden || undefined}
           inert={bottomNavHidden ? true : undefined}
-          className={`roamly-bottom-nav fixed inset-x-3 bottom-[max(0.55rem,env(safe-area-inset-bottom))] z-40 grid min-w-0 gap-0.5 overflow-hidden rounded-[1.4rem] border border-black/5 bg-white/88 p-1 shadow-[0_8px_28px_rgba(16,32,51,0.1)] backdrop-blur-xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:hidden ${
+          className={`roamly-bottom-nav fixed inset-x-0 bottom-0 z-40 grid min-w-0 border-t border-[rgba(61,78,109,0.28)] bg-white/95 px-2.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] backdrop-blur-[18px] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:hidden ${
             bottomNavHidden ? "pointer-events-none translate-y-[calc(100%+max(1rem,env(safe-area-inset-bottom)))]" : "translate-y-0"
           } ${authenticated ? "grid-cols-5" : "grid-cols-6"}`}
         >
@@ -302,15 +383,16 @@ function AppShellContent({
               key={route.href}
               href={route.href}
               aria-current={isActive(pathname, route.href, mobileRoutes.map((item) => item.href)) ? "page" : undefined}
-              className={`relative min-h-11 min-w-0 rounded-[1rem] px-1 py-2 text-center text-[0.68rem] font-semibold leading-tight transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 ${
+              className={`relative flex min-h-11 min-w-0 flex-col items-center gap-[3px] px-1 py-1 text-center text-[0.66rem] font-medium leading-tight transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
                 isActive(pathname, route.href, mobileRoutes.map((item) => item.href))
-                  ? "bg-ink text-white"
-                  : "text-slate-500"
+                  ? "text-chead"
+                  : "text-cgray2"
               }`}
             >
+              <NavIcon href={route.href} />
               {route.label}
               {"count" in route && route.count ? (
-                <span className="absolute right-1 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-coral px-1 text-[0.62rem] font-black text-white">
+                <span className="absolute right-1 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-chead px-1 text-[0.62rem] font-bold text-white">
                   {route.count > 9 ? "9+" : route.count}
                 </span>
               ) : null}

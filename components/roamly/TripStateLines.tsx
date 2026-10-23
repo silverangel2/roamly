@@ -69,51 +69,65 @@ export function TripStateLines({
     }
   }
 
-  const linkClass = "font-bold text-ocean underline underline-offset-2";
+  const linkClass = "font-semibold text-cblue";
   const grantMissing = !locationGranted || grantRevoked;
 
   return (
-    <div className="mt-4 space-y-1 px-1 text-sm font-semibold leading-6 text-slate-500">
-      <p>
-        Booking Recon:{" "}
-        {gmailConnected ? (
-          "activated"
-        ) : (
-          <>
-            not activated —{" "}
-            <a className={linkClass} href="/account#setup-step-1">
-              connect Gmail
-            </a>
-          </>
-        )}
-      </p>
-      {companionUnlocked ? (
-        <p>
-          Companion:{" "}
-          {grantMissing ? (
+    <div className="mt-4 space-y-1.5 px-1 text-[13.5px] font-normal leading-6 text-cgray">
+      <p className="flex items-start gap-1.5">
+        <span
+          aria-hidden
+          className={`calm-dot mt-[7px] h-2 w-2 shrink-0 rounded-full ${gmailConnected ? "bg-cgreen" : "bg-cgray2"}`}
+        />
+        <span>
+          Booking Recon:{" "}
+          {gmailConnected ? (
+            "activated"
+          ) : (
             <>
-              not live yet —{" "}
-              <a className={linkClass} href="/account#setup-step-3">
-                turn on location
+              not activated —{" "}
+              <a className={linkClass} href="/account#setup-step-1">
+                connect Gmail
               </a>
             </>
-          ) : !enabled ? (
-            <>
-              not live yet — location is off{" "}
-              <button
-                type="button"
-                onClick={() => void turnOn()}
-                disabled={busy}
-                className="ml-1 inline-flex min-h-8 items-center rounded-full bg-ink px-3 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                {busy ? "Turning on…" : "Turn on"}
-              </button>
-            </>
-          ) : tripActive ? (
-            "live"
-          ) : (
-            "ready"
           )}
+        </span>
+      </p>
+      {companionUnlocked ? (
+        <p className="flex items-start gap-1.5">
+          <span
+            aria-hidden
+            className={`calm-dot mt-[7px] h-2 w-2 shrink-0 rounded-full ${
+              !grantMissing && enabled && tripActive ? "bg-cgreen" : "bg-cgray2"
+            }`}
+          />
+          <span>
+            Companion:{" "}
+            {grantMissing ? (
+              <>
+                not live yet —{" "}
+                <a className={linkClass} href="/account#setup-step-3">
+                  turn on location
+                </a>
+              </>
+            ) : !enabled ? (
+              <>
+                not live yet — location is off{" "}
+                <button
+                  type="button"
+                  onClick={() => void turnOn()}
+                  disabled={busy}
+                  className="ml-1 inline-flex min-h-8 items-center font-semibold text-cblue disabled:opacity-50"
+                >
+                  {busy ? "Turning on…" : "Turn on"}
+                </button>
+              </>
+            ) : tripActive ? (
+              "live"
+            ) : (
+              "ready"
+            )}
+          </span>
         </p>
       ) : null}
     </div>
