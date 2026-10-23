@@ -1569,6 +1569,11 @@ export function LiveTripClient({
     ? preTripAddressCopy(locationOff)
     : primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming, originLabel || "");
 
+  // The alerts feed is a trip-day surface only (2026-10-23): outside the
+  // active trip window none of it renders. Pre-trip the page is the plan
+  // plus the state lines; a completed trip carries no live feed.
+  const feedAlerts = tripWindowActive ? model.alerts : [];
+
   // Declutter (2026-10-23): this phone's setup state is stated exactly
   // once on the live view — the quiet line in the side card. The steps
   // themselves live in the Settings cascade; the line only names the
@@ -2003,9 +2008,9 @@ export function LiveTripClient({
         </div>
       </section>
 
-      {model.alerts.length || error || notice ? (
+      {feedAlerts.length || error || notice ? (
         <section className="grid gap-2">
-          {model.alerts.slice(0, 2).map((alert) => (
+          {feedAlerts.slice(0, 2).map((alert) => (
             <p key={alert} className="rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-black leading-6 text-amber-900">
               {alert}
             </p>
