@@ -539,6 +539,31 @@ export class SupabasePackStore implements PackStore {
     return this.mapJob(rows[0]);
   }
 
+  async releaseBuild(jobId: string, leaseId: string): Promise<BuildJobRecord | null> {
+    const existing = await this.rawJob(jobId);
+    if (!existing) throw new PackStoreError("JOB_NOT_FOUND", `no build job ${jobId}`);
+    // The fencing token is the lease_id itself: the update matches
+    // only the job's CURRENT holder, so a concurrent steal or
+    // release loses with zero matched rows (null, not a throw) —
+    // the same conditional-UPDATE discipline as claimBuild.
+    const { data, error } = await this.client
+      .from(BUILDS_TABLE)
+      .update({
+        status: "queued",
+        lease_worker_id: null,
+        lease_id: null,
+        lease_epoch: null,
+        lease_expires_at: null
+      })
+      .eq("job_id", jobId)
+      .eq("status", "building")
+      .eq("lease_id", leaseId)
+      .select("*");
+    if (error) throw dbFailure("release build job", error);
+    const rows = (data as BuildRow[] | null) ?? [];
+    return rows[0] ? this.mapJob(rows[0]) : null;
+  }
+
   /* ------------------------------ versions ------------------------------ */
 
   async beginVersion(

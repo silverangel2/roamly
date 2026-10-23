@@ -56,6 +56,23 @@ export interface PackStore {
    *  holds it (stolen or expired-and-stolen). */
   heartbeatBuild(jobId: string, leaseId: string, leaseTtlMs: number): Promise<BuildLease>;
   failBuild(jobId: string, leaseId: string, error: string): Promise<BuildJobRecord>;
+  /** Release a claimed job back to "queued" under its lease fencing
+   *  token, WITHOUT recording a failure. The distinct honest outcome
+   *  for "the holder yielded": the job is live and re-drainable,
+   *  the lease is cleared, and the cron's drain (which only feeds
+   *  queued jobs) can reclaim it. Returns null when the job is not
+   *  building under the presented lease (claimed under us), and
+   *  throws JOB_NOT_FOUND for an unknown job.
+   *
+   *  Two callers: (a) the kick-scoped build budget — runBuildJob
+   *  releases its own still-live lease when the collector outlasts
+   *  the kick's function budget, so a metro-scale build can never
+   *  be hard-killed mid-claim (the 2026-10-22/23 Lisbon kill loop);
+   *  (b) the kick's expired-lease recycle — a "building" job whose
+   *  lease expired is yielded back to the queue instead of being
+   *  stolen, so dead jobs never need a steal to become visible to
+   *  the drain again. */
+  releaseBuild(jobId: string, leaseId: string): Promise<BuildJobRecord | null>;
 
   /* Versions (I1) */
   /** Create the next version row in status "building", bound to a
@@ -315,6 +332,26 @@ export class InMemoryPackStore implements PackStore {
     job.status = "failed";
     job.error = error;
     job.finishedAt = this.nowInstant();
+    job.lease = null;
+    return clone(job);
+  }
+
+  async releaseBuild(jobId: string, leaseId: string): Promise<BuildJobRecord | null> {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new PackStoreError("JOB_NOT_FOUND", `no build job ${jobId}`);
+    if (job.status !== "building" || !job.lease || job.lease.leaseId !== leaseId) {
+      // Not building under this lease (released, stolen, or done
+      // under us): the caller yields, nothing to do.
+      return null;
+    }
+    // The holder yields voluntarily (kick budget) or the kick
+    // recycles a dead holder's job (expired lease, see kick.ts):
+    // the job goes back to "queued" with no failure recorded, the
+    // lease is cleared, and the drain can reclaim it. The
+    // "building"-status version row (if beginVersion ran) stays
+    // abandoned exactly as today's steal path leaves it — the
+    // next claim begins a fresh version.
+    job.status = "queued";
     job.lease = null;
     return clone(job);
   }

@@ -255,9 +255,30 @@ export interface CollectedBuild {
 
 export type PackCollector = (destination: DestinationDTO) => Promise<CollectedBuild>;
 
+/**
+ * The kick-scoped collection budget (pack-kick kill-loop fix,
+ * 2026-10-22/23): the kick runs inside function contexts whose
+ * hard lifetime is shorter than a metro-scale build (the manual
+ * advance route's maxDuration = 90 s; the batch-cron tail even
+ * less). When the collector outlasts this budget, runBuildJob
+ * RELEASES the job back to "queued" (no failure recorded) instead
+ * of being hard-killed mid-claim — the 300 s hourly cron then does
+ * the real build. Well inside the advance tail (90 s) with margin
+ * for the release write; small-city builds (tens of seconds) still
+ * complete in the tail exactly as before.
+ */
+export const KICK_BUILD_BUDGET_MS = 45_000;
+
 export interface RunBuildOptions {
   workerId: string;
   leaseTtlMs?: number;
+  /** Kick-scoped overall budget in ms (see KICK_BUILD_BUDGET_MS).
+   *  When set, runBuildJob races the collector against it; on
+   *  expiry it releases the job back to "queued" (honest yield,
+   *  never a failure) and returns null. The cron drain calls
+   *  without it (its 300 s box owns the full 210 s collector
+   *  deadline). Omit for the pre-kick behavior byte for byte. */
+  kickBudgetMs?: number;
   /** Heartbeat cadence is the caller's concern in production (the
    *  cron drains short builds); the service claims once and the
    *  collector is expected to finish inside the lease. */
@@ -276,6 +297,18 @@ export interface RunBuildOptions {
  * done, or failed). Collector failures fail the version AND the
  * job, with the error recorded — a failed build never publishes
  * a partial pack and never disturbs the serving version.
+ *
+ * When `options.kickBudgetMs` is set (the kick's short-lived
+ * function context), the collector is raced against the budget:
+ * on expiry the job is RELEASED back to "queued" (lease cleared,
+ * no failure recorded) and null is returned — the trip keeps
+ * waiting honestly and the 300 s hourly cron reclaims the job.
+ * This is the kill-loop fix: a hard-killed function takes
+ * neither the publish nor the fail path and leaves the job
+ * "building" under a live lease, which suppresses every later
+ * kick AND locks out the cron's queued-only drain. The budget
+ * release happens while the function is still alive, so the job
+ * can never be stranded by a mid-claim kill.
  */
 export async function runBuildJob(
   store: PackStore,
@@ -290,8 +323,7 @@ export async function runBuildJob(
   const destination = await store.getDestination(job.destinationId);
   if (!destination) throw new PackStoreError("UNKNOWN_DESTINATION", `job ${jobId} targets unregistered destination`);
   const version = await store.beginVersion(jobId, lease.leaseId, PACK_CLASSIFIER_VERSION, PACK_SCHEMA_VERSION);
-  try {
-    const collected = await collector(destination);
+  const publish = (collected: CollectedBuild): Promise<PackVersionRecord> => {
     // beginVersion stamped the default (OSM) classifier version
     // before collection — the version row has to exist for the
     // lease/fencing flow. When the Open Places fallback lane is
@@ -299,7 +331,7 @@ export async function runBuildJob(
     // classifierVersion truthfully at publish (see publishVersion).
     const classifierVersionRestamp =
       collected.provenance.source === "overture-open-places" ? OPEN_PLACES_CLASSIFIER_VERSION : undefined;
-    return await store.publishVersion(
+    return store.publishVersion(
       version.dto.packVersionId,
       jobId,
       lease.leaseId,
@@ -307,7 +339,8 @@ export async function runBuildJob(
       collected.provenance,
       classifierVersionRestamp
     );
-  } catch (err) {
+  };
+  const recordFailure = async (err: unknown): Promise<never> => {
     const message = err instanceof Error ? err.message : String(err);
     try {
       await store.failVersion(version.dto.packVersionId, jobId, lease.leaseId, message);
@@ -315,6 +348,60 @@ export async function runBuildJob(
       /* lease already lost — the job's fate belongs to its new holder */
     }
     throw err;
+  };
+  const budgetMs = options.kickBudgetMs;
+  if (budgetMs === undefined) {
+    try {
+      return await publish(await collector(destination));
+    } catch (err) {
+      return recordFailure(err);
+    }
+  }
+  // Kick-scoped run: the collector may outlast the function's own
+  // lifetime — release the job before the box kills us.
+  const collectPromise = collector(destination);
+  type RaceWinner =
+    | { type: "collected"; collected: CollectedBuild }
+    | { type: "failed"; err: unknown }
+    | { type: "budget" };
+  const winner: RaceWinner = await Promise.race([
+    collectPromise.then(
+      (collected): RaceWinner => ({ type: "collected", collected }),
+      (err: unknown): RaceWinner => ({ type: "failed", err })
+    ),
+    new Promise<RaceWinner>((resolve) => {
+      const timer = setTimeout(() => resolve({ type: "budget" }), budgetMs);
+      // An un-won timer must not keep the process alive on its own.
+      (timer as unknown as { unref?: () => void }).unref?.();
+    })
+  ]);
+  if (winner.type === "budget") {
+    // Budget expired: yield the job back to "queued" under our own
+    // still-live lease (fencing makes this ours to release) — no
+    // failure recorded, so the 300 s hourly cron reclaims the job.
+    // The collector's late outcome is discarded: consume it so it
+    // can never surface as an unhandled rejection.
+    collectPromise.then(
+      () => undefined,
+      () => undefined
+    );
+    try {
+      await store.releaseBuild(jobId, lease.leaseId);
+    } catch {
+      /* released under us — same outcome */
+    }
+    return null;
+  }
+  if (winner.type === "failed") {
+    // The collector failed BEFORE the budget: fail the job exactly
+    // as the unbounded path does (recorded failure, a fresh job on
+    // the next read) — never a silent release.
+    return recordFailure(winner.err);
+  }
+  try {
+    return await publish(winner.collected);
+  } catch (err) {
+    return recordFailure(err);
   }
 }
 
