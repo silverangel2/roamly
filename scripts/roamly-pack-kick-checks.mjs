@@ -1,4 +1,6 @@
-// Roamly pack-kick checks (2026-10-22, immediate pack-build kick):
+// Roamly pack-kick checks (2026-10-22, immediate pack-build kick;
+// 2026-10-22/23 kill-loop fix: the kick never builds in a box that
+// cannot finish it):
 //
 //   The outline stage leaves a trip waiting on a queued pack build;
 //   the kick drains that build as post-response work instead of
@@ -12,7 +14,9 @@
 //     5. A failing collector: runPackKick reports the error, the
 //        job records it, nothing publishes, and the serving read
 //        re-enqueues a fresh job — the trip stays honestly waiting.
-//     6. A "building" job whose lease expired is kickable (steal).
+//     6. A "building" job whose lease expired is RECYCLED to
+//        "queued" (never stolen) and then built inside the kick
+//        budget — the kick never builds on a held job.
 //     7. drainQueuedBuilds' onlyDestinationId filter builds only
 //        the target; the unfiltered drain (the cron's call) is
 //        unchanged.
@@ -22,6 +26,20 @@
 //        two wakes scheduled two tasks; the next wake proceeds
 //        past the outline. Without an injected scheduler there is
 //        no kick at all (pre-kick behavior preserved).
+//     9. Kick budget respected: a collector that outlasts the kick
+//        budget releases the job back to "queued" (lease cleared,
+//        NO failure recorded) and returns null — the trip waits
+//        honestly, nothing publishes, and the failure-recording
+//        path (§5) is untouched for pre-budget failures.
+//    10. Release-then-cron-reclaim: after a budget release, an
+//        unfiltered drain WITHOUT the budget (the cron's call)
+//        claims the job again and publishes — the loop cannot
+//        strand the job, and decidePackKick no longer suppresses
+//        the wake after a release ("build-in-flight" lockout gone).
+//    11. Big-city live-shaped run: the REAL collector against
+//        slow stubbed fetches (Lisbon-class fan-out latency) inside
+//        a short-lived harness — proves the release path against
+//        the real collection shape, not a mocked one.
 //
 // Run: npm run test:pack-kick
 
@@ -29,7 +47,7 @@ import assert from "node:assert/strict";
 
 import { advanceEngineGeneration, startEngineGeneration, ZERO_ENGINE_SOURCE } from "@/lib/roamly/engine/generate.ts";
 import { InMemoryPackStore } from "@/lib/roamly/engine/packs/store.ts";
-import { drainQueuedBuilds, readServingPack } from "@/lib/roamly/engine/packs/builder.ts";
+import { drainQueuedBuilds, liveCollector, readServingPack } from "@/lib/roamly/engine/packs/builder.ts";
 import { decidePackKick, runPackKick } from "@/lib/roamly/engine/packs/kick.ts";
 
 let count = 0;
@@ -176,7 +194,7 @@ function countingCollector(calls, { delayMs = 0, failWith = null } = {}) {
   ok(serving.job && serving.job.jobId !== job.jobId, "§5 a FRESH job is enqueued for the retry (cron/next wake)");
 }
 
-/* ---------------- §6 — expired-lease build is kickable (steal) ---------------- */
+/* ---------------- §6 — expired-lease build is recycled, never stolen ---------------- */
 {
   const store = new InMemoryPackStore();
   const dest = testDestination();
@@ -187,10 +205,15 @@ function countingCollector(calls, { delayMs = 0, failWith = null } = {}) {
   await sleep(15);
   const decision = await decidePackKick(store, dest.destinationId);
   eq(decision.kick, true, "§6 an expired-lease build is kickable");
+  eq(decision.jobStatus, "building", "§6 the decision names the expired-lease building job");
+  ok(decision.leaseId, "§6 the decision carries the fencing token for the release");
   const calls = { count: 0 };
-  const result = await runPackKick(store, dest.destinationId, { collectorFor: countingCollector(calls) });
-  eq(calls.count, 1, "§6 the kick steals and builds");
-  eq(result.publishedPackVersionIds.length, 1, "§6 the stolen build publishes");
+  const result = await runPackKick(store, dest.destinationId, { collectorFor: countingCollector(calls), kickBudgetMs: 5000 });
+  eq(result.error, null, "§6 the recycle reports no error");
+  eq(calls.count, 1, "§6 the recycled job is built by the ordinary queued drain");
+  eq(result.publishedPackVersionIds.length, 1, "§6 the recycled build publishes");
+  const done = await store.getBuildJob(job.jobId);
+  eq(done.status, "done", "§6 the job completed (no steal ever happened)");
 }
 
 /* ---------------- §7 — drain filter; unfiltered drain unchanged ---------------- */
@@ -384,6 +407,101 @@ async function startColdTrip({ genStore, tripId }) {
   eq(wake.waitingForPack, true, "§8 without a scheduler the trip waits as before");
   eq(calls.count, 0, "§8 without a scheduler no build is attempted");
   eq(await packStore.getReadyVersion(TESTBURGH.destinationId), null, "§8 without a scheduler no pack appears");
+}
+
+/* ---------------- §9 — the kick budget releases (never strands) ---------------- */
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  // A metro-scale collector: outlasts the kick's budget (the
+  // Lisbon kill loop — the function box would kill it mid-claim).
+  const result = await runPackKick(store, dest.destinationId, {
+    collectorFor: countingCollector(calls, { delayMs: 2000 }),
+    kickBudgetMs: 200
+  });
+  eq(result.error, null, "§9 a budget release reports no error (not a failure)");
+  eq(result.publishedPackVersionIds.length, 0, "§9 nothing publishes on a budget release");
+  eq(await store.getReadyVersion(dest.destinationId), null, "§9 still no serving pack");
+  const released = await store.getBuildJob(job.jobId);
+  eq(released.status, "queued", "§9 the job is back to queued (the kill loop's 'building' strand is gone)");
+  eq(released.lease, null, "§9 the lease is cleared");
+  eq(released.error, null, "§9 NO failure is recorded on the job");
+  // The trip's next wake is no longer suppressed by a
+  // "build-in-flight" lockout: the decision is to kick again.
+  const next = await decidePackKick(store, dest.destinationId);
+  eq(next.kick, true, "§9 the next wake kicks again (no self-suppression)");
+  eq(next.reason, "queued-build-waiting", "§9 reason is the queued build, not build-in-flight");
+  // A fast failure (BEFORE the budget) still records a failure —
+  // the release path does not swallow §5's contract.
+  const { job: failJob } = await store.enqueueBuild(dest.destinationId, "cold-read-2");
+  const fail = await runPackKick(store, dest.destinationId, {
+    collectorFor: countingCollector({ count: 0 }, { failWith: "fast boom" }),
+    kickBudgetMs: 2000
+  });
+  ok(fail.error && fail.error.includes("fast boom"), "§9 a pre-budget failure is still reported");
+  const recorded = await store.getBuildJob(failJob.jobId);
+  eq(recorded.status, "failed", "§9 a pre-budget failure still fails the job (not a release)");
+}
+
+/* ---------------- §10 — release-then-cron-reclaim end to end ---------------- */
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+  const slow = { count: 0 };
+  const kick = await runPackKick(store, dest.destinationId, {
+    collectorFor: countingCollector(slow, { delayMs: 2000 }),
+    kickBudgetMs: 200
+  });
+  eq(kick.publishedPackVersionIds.length, 0, "§10 the short-lived kick releases without publishing");
+  eq((await store.getBuildJob(job.jobId)).status, "queued", "§10 the job is queued after the release");
+  // The cron's call: the SAME drain WITHOUT the budget (its 300 s
+  // box owns the full collector deadline) — reclaims and publishes.
+  const fast = { count: 0 };
+  const reclaimed = await drainQueuedBuilds(store, countingCollector(fast), { workerId: "cron" });
+  eq(reclaimed.length, 1, "§10 the unbudgeted drain reclaims the released job");
+  const ready = await store.getReadyVersion(dest.destinationId);
+  ok(ready && ready.dto.packVersionId === reclaimed[0].dto.packVersionId, "§10 the reclaimed build publishes the serving pack");
+  eq((await store.getBuildJob(job.jobId)).status, "done", "§10 the job completed through the cron path");
+}
+
+/* ---------------- §11 — big-city live-shaped run (Lisbon class) ---------------- */
+{
+  // The REAL collector (liveCollector -> collectPoiCandidates)
+  // against stubbed fetches that answer slowly, inside a
+  // short-lived harness: proves the release path against the real
+  // collection shape — 6 selector chunks + version assembly — not
+  // a mocked collector. Lisbon's fan-out is exactly this shape
+  // with a larger bbox.
+  const store = new InMemoryPackStore();
+  const dest = { ...testDestination(), displayName: "Lisbon Class", bbox: { minLat: 38.65, maxLat: 38.77, minLon: -9.22, maxLon: -9.06 } };
+  await store.registerDestination(dest);
+  const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+  let fetchCalls = 0;
+  const slowFetcher = async () => {
+    fetchCalls += 1;
+    await sleep(1500); // each chunk fetch outlasts the whole harness budget
+    return { ok: true, status: 200, text: async () => JSON.stringify({ elements: [] }) };
+  };
+  const began = Date.now();
+  const result = await runPackKick(store, dest.destinationId, {
+    collectorFor: () => liveCollector(slowFetcher),
+    kickBudgetMs: 300
+  });
+  const elapsed = Date.now() - began;
+  eq(result.error, null, "§11 the live-shaped run releases without error");
+  eq(result.publishedPackVersionIds.length, 0, "§11 nothing publishes inside the harness lifetime");
+  ok(elapsed < 1500, `§11 the harness returned in ${elapsed}ms — long before any chunk fetch finished`);
+  const released = await store.getBuildJob(job.jobId);
+  eq(released.status, "queued", "§11 the job is back to queued after the live-shaped release");
+  eq(released.lease, null, "§11 the lease is cleared");
+  ok(fetchCalls >= 1, "§11 the real collector issued real chunk fetches (not a mocked collector)");
+  const next = await decidePackKick(store, dest.destinationId);
+  eq(next.kick, true, "§11 the trip is not lockout-suppressed after the release");
 }
 
 console.log(`PACK-KICK CHECKS: ${count}/${count} PASS`);
