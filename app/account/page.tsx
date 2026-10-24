@@ -76,70 +76,48 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const access = getRoamlyAccessForUser(current.user.email);
 
   return (
-    <div className="calm-bleed mx-auto w-full max-w-6xl px-4 pb-8 pt-5 sm:px-6">
-      <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-        <section className="space-y-4">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">Account</p>
-          {access.hasQaAccess ? <p className="flex items-center gap-1.5 text-[13.5px] font-normal text-cgray"><span aria-hidden className="calm-dot h-2 w-2 rounded-full bg-chead" />Tester access</p> : null}
-          <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">Your Roamly profile.</h1>
-          <p className="text-base font-normal leading-[1.45] text-cink">
-            Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.
+    <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
+      {access.hasQaAccess ? <p className="mb-1.5 flex items-center gap-1.5 text-[13.5px] font-normal text-cgray"><span aria-hidden className="calm-dot h-2 w-2 rounded-full bg-chead" />Tester access</p> : null}
+      <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">Settings</h1>
+
+      {setupState ? (
+        <div id="setup" className="mt-5 scroll-mt-24">
+          <p className="mb-2 ml-4 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">Finish setup — once</p>
+          <h2 className="sr-only">Three steps, once</h2>
+          <SetupCascade initialState={setupState} />
+          <p className="ml-4 mt-2 text-[13.5px] font-normal leading-[1.4] text-cgray">
+            Each step powers one thing. Done once, remembered forever.
           </p>
-          <div className="grid gap-3">
-            <div className="rounded-[14px] bg-white p-4 shadow-calm">
-              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Account type</p>
-              <p className="mt-1.5 text-[22px] font-bold text-chead">{access.hasQaAccess ? "Tester access" : "Free user"}</p>
-              <p className="mt-1 text-sm font-normal leading-[1.45] text-cgray">
-                {access.hasQaAccess
-                  ? "Tester access unlocks paid feature checks without creating Stripe revenue."
-                  : "Payments unlock one itinerary or Live Trip Companion for one trip."}
-              </p>
-            </div>
-            <div className="rounded-[14px] bg-white p-4 shadow-calm">
-              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Free itinerary</p>
-              <p className="mt-1.5 text-[22px] font-bold text-chead">{access.hasQaAccess ? "Tester override" : free.used ? "Used" : "Available"}</p>
-              <p className="mt-1 text-sm font-normal leading-[1.45] text-cgray">You get 1 free itinerary per account.</p>
-            </div>
+        </div>
+      ) : null}
+
+      <p className="mb-2 ml-4 mt-7 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">Manage</p>
+      <div className="space-y-4">
+        <div className="rounded-[14px] bg-white p-4 shadow-calm">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
+          <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h2>
+          <div className="mt-5">
+            <AccountProfileForm initialName={profileName} email={current.user.email || ""} />
           </div>
-        </section>
+        </div>
 
-        <section className="space-y-4">
-          {setupState ? (
-            <div id="setup" className="scroll-mt-24">
-              <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Finish setup — once</p>
-              <h2 className="sr-only">Three steps, once</h2>
-              <SetupCascade initialState={setupState} />
-              <p className="ml-4 mt-2 text-[13.5px] font-normal leading-[1.4] text-cgray">
-                Each step powers one thing. Done once, remembered forever.
-              </p>
-            </div>
-          ) : null}
-
-          <div className="rounded-[14px] bg-white p-4 shadow-calm">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
-            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h2>
-            <div className="mt-5">
-              <AccountProfileForm initialName={profileName} email={current.user.email || ""} />
-            </div>
+        <div className="rounded-[14px] bg-white p-4 shadow-calm">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Privacy controls</p>
+          <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Trip privacy and reminders</h2>
+          <div className="mt-5">
+            <LocationTrackingSettings />
           </div>
+        </div>
 
-          <div className="rounded-[14px] bg-white p-4 shadow-calm">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Privacy controls</p>
-            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Trip privacy and reminders</h2>
-            <div className="mt-5">
-              <LocationTrackingSettings />
-            </div>
+        <div className="rounded-[14px] bg-white p-4 shadow-calm">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
+          <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h2>
+          <div className="mt-5">
+            <EmailConnectionSettings />
           </div>
+        </div>
 
-          <div className="rounded-[14px] bg-white p-4 shadow-calm">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
-            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h2>
-            <div className="mt-5">
-              <EmailConnectionSettings />
-            </div>
-          </div>
-
-          <div id="traveler-memory" className="scroll-mt-24">
+        <div id="traveler-memory" className="scroll-mt-24">
           <div className="rounded-[14px] bg-white p-4 shadow-calm">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Traveler memory</p>
             <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Preferences Roamly can use</h2>
@@ -147,18 +125,38 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
               <TravelerMemorySettings countryOptions={listCountryOptions()} returnTo={returnTo} />
             </div>
           </div>
-          </div>
-
-          {profileResult.error ? (
-            <div className="rounded-app border border-amber-200 bg-amber-50 p-5 text-amber-900 shadow-soft">
-              <p className="text-xs font-black uppercase tracking-[0.18em]">Profile table pending</p>
-              <p className="mt-2 text-sm font-bold leading-6">
-                {profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.
-              </p>
-            </div>
-          ) : null}
-        </section>
+        </div>
       </div>
+
+      <p className="mb-2 ml-4 mt-7 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">Account</p>
+      <div className="grid gap-3">
+        <div className="rounded-[14px] bg-white p-4 shadow-calm">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Account type</p>
+          <p className="mt-1.5 text-[22px] font-bold text-chead">{access.hasQaAccess ? "Tester access" : "Free user"}</p>
+          <p className="mt-1 text-sm font-normal leading-[1.45] text-cgray">
+            {access.hasQaAccess
+              ? "Tester access unlocks paid feature checks without creating Stripe revenue."
+              : "Payments unlock one itinerary or Live Trip Companion for one trip."}
+          </p>
+        </div>
+        <div className="rounded-[14px] bg-white p-4 shadow-calm">
+          <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Free itinerary</p>
+          <p className="mt-1.5 text-[22px] font-bold text-chead">{access.hasQaAccess ? "Tester override" : free.used ? "Used" : "Available"}</p>
+          <p className="mt-1 text-sm font-normal leading-[1.45] text-cgray">You get 1 free itinerary per account.</p>
+        </div>
+        <p className="ml-4 text-[13.5px] font-normal leading-[1.45] text-cgray">
+          Keep the profile simple. Roamly only needs the identity required for trips, ownership, and support.
+        </p>
+      </div>
+
+      {profileResult.error ? (
+        <div className="mt-4 rounded-[14px] bg-white p-4 shadow-calm">
+          <p className="text-[13px] font-semibold uppercase tracking-[0.05em] text-cred">Profile table pending</p>
+          <p className="mt-1.5 text-sm font-normal leading-6 text-cink">
+            {profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

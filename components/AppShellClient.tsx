@@ -108,6 +108,144 @@ function routeHidesBottomNav(pathname: string) {
   return pathname === "/plan";
 }
 
+/* ——— App frame (owner design, 2026-10-23 truth rebuild) ———
+   The blessed screens are APP frames: no site header, no marketing
+   bottom nav — the app tab bar (Itinerary / Live / Alerts / Account)
+   is the only navigation. The matcher below defines the app-surface
+   set: a trip home (/trip/[id]), its Live Companion
+   (/trip/[id]/live), its single-event sheets
+   (/trip/[id]/event/[eventId]), /notifications and /account.
+   Marketing pages never match and keep their chrome. */
+const APP_TRIP_SURFACE = /^\/trip\/[^/]+(?:\/(?:live|event(?:\/[^/]+)?))?\/?$/;
+
+function isAppSurface(pathname: string) {
+  return (
+    APP_TRIP_SURFACE.test(pathname) ||
+    pathname === "/notifications" ||
+    pathname.startsWith("/notifications/") ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/")
+  );
+}
+
+function appSurfaceTripId(pathname: string) {
+  const match = pathname.match(/^\/trip\/([^/]+)/);
+  return match ? match[1] : null;
+}
+
+function AppTabIcon({ name }: { name: "itinerary" | "live" | "alerts" | "account" }) {
+  const common = {
+    width: 25,
+    height: 25,
+    viewBox: "0 0 25 25",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.7,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": true
+  } as const;
+  if (name === "itinerary") {
+    return (
+      <svg {...common}>
+        <circle cx="5" cy="6.5" r="1.15" fill="currentColor" stroke="none" />
+        <circle cx="5" cy="12.5" r="1.15" fill="currentColor" stroke="none" />
+        <circle cx="5" cy="18.5" r="1.15" fill="currentColor" stroke="none" />
+        <path d="M9.5 6.5h10M9.5 12.5h10M9.5 18.5h10" />
+      </svg>
+    );
+  }
+  if (name === "live") {
+    return (
+      <svg {...common}>
+        <circle cx="12.5" cy="12.5" r="7.5" />
+        <circle cx="12.5" cy="12.5" r="2.6" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+  if (name === "alerts") {
+    return (
+      <svg {...common}>
+        <path d="M12.5 3.5a5.5 5.5 0 0 1 5.5 5.5c0 4 1.2 5.4 2 6.5H5c.8-1.1 2-2.5 2-6.5a5.5 5.5 0 0 1 5.5-5.5" />
+        <path d="M10.3 19.5a2.3 2.3 0 0 0 4.4 0" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <circle cx="12.5" cy="8.5" r="3.6" />
+      <path d="M5.5 20a7.2 7.2 0 0 1 14 0" />
+    </svg>
+  );
+}
+
+function AppTabBar({
+  pathname,
+  tripId,
+  unreadCount,
+  t
+}: {
+  pathname: string;
+  tripId: string;
+  unreadCount: number;
+  t: (key: string, fallback?: string) => string;
+}) {
+  const itineraryHref = tripId ? `/trip/${tripId}` : "/dashboard";
+  const liveHref = tripId ? `/trip/${tripId}/live` : "/dashboard";
+  const tabs = [
+    {
+      href: itineraryHref,
+      label: t("ui.nav.itinerary", "Itinerary"),
+      icon: "itinerary" as const,
+      active: /^\/trip\/[^/]+\/?$/.test(pathname) || /^\/trip\/[^/]+\/event(\/|$)/.test(pathname) || pathname === "/dashboard"
+    },
+    {
+      href: liveHref,
+      label: t("ui.nav.live", "Live"),
+      icon: "live" as const,
+      active: /^\/trip\/[^/]+\/live\/?$/.test(pathname)
+    },
+    {
+      href: "/notifications",
+      label: t("ui.nav.alerts", "Alerts"),
+      icon: "alerts" as const,
+      active: pathname === "/notifications" || pathname.startsWith("/notifications/"),
+      count: unreadCount
+    },
+    {
+      href: "/account",
+      label: t("ui.nav.account", "Account"),
+      icon: "account" as const,
+      active: pathname === "/account" || pathname.startsWith("/account/")
+    }
+  ];
+  return (
+    <nav
+      aria-label="App navigation"
+      className="roamly-app-tabbar fixed inset-x-0 bottom-0 z-40 grid min-w-0 grid-cols-4 border-t border-[rgba(61,78,109,0.28)] bg-white/95 px-2.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] backdrop-blur-[18px]"
+    >
+      {tabs.map((tab) => (
+        <Link
+          key={tab.href + tab.label}
+          href={tab.href}
+          aria-current={tab.active ? "page" : undefined}
+          className={`relative flex min-h-11 min-w-0 flex-col items-center gap-[3px] whitespace-nowrap px-0 py-1 text-center text-[0.65rem] font-medium leading-tight tracking-[-0.01em] transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
+            tab.active ? "text-chead" : "text-cgray2"
+          }`}
+        >
+          <AppTabIcon name={tab.icon} />
+          {tab.label}
+          {"count" in tab && tab.count ? (
+            <span className="absolute right-1 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-chead px-1 text-[0.62rem] font-bold text-white">
+              {tab.count > 9 ? "9+" : tab.count}
+            </span>
+          ) : null}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
 function AppShellContent({
   children,
   initialAuth
@@ -293,9 +431,16 @@ function AppShellContent({
   const planTripHref = "/plan";
   const planTripLabel = authenticated ? t("ui.nav.planTrip", "Plan trip") : t("ui.nav.startPlanning", "Start planning");
 
+  // App frame: on app surfaces the site header and the marketing /
+  // standard bottom nav are suppressed; the app tab bar is the only
+  // navigation (see isAppSurface for the surface set).
+  const appFrame = isAppSurface(pathname);
+  const frameTripId = appSurfaceTripId(pathname) || activeTripId;
+
   return (
     <TranslatedTextBoundary>
-      <div data-bottom-nav={bottomNavHidden ? "hidden" : "visible"} className={`roamly-app-shell min-h-dvh min-w-0 bg-[#fbf8ef] text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
+      <div data-bottom-nav={bottomNavHidden ? "hidden" : "visible"} className={`roamly-app-shell min-h-dvh min-w-0 ${appFrame ? "bg-cbg" : "bg-[#fbf8ef]"} text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
+        {!appFrame ? (
         <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_8px_30px_rgba(16,32,51,0.04)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Roamly home">
@@ -362,13 +507,17 @@ function AppShellContent({
             </div>
           </div>
         </header>
+        ) : null}
 
-        <main className={`min-w-0 lg:pb-0 ${routeHidesBottomNav(pathname) ? "pb-[max(2rem,env(safe-area-inset-bottom))]" : "pb-[calc(8.75rem+env(safe-area-inset-bottom))]"}`}>
+        <main className={appFrame ? "min-w-0 pb-[calc(6.5rem+env(safe-area-inset-bottom))]" : `min-w-0 lg:pb-0 ${routeHidesBottomNav(pathname) ? "pb-[max(2rem,env(safe-area-inset-bottom))]" : "pb-[calc(8.75rem+env(safe-area-inset-bottom))]"}`}>
           {children}
         </main>
 
         <RoamlyLocationTracker />
 
+        {appFrame ? (
+          <AppTabBar pathname={pathname} tripId={frameTripId} unreadCount={unreadCount} t={t} />
+        ) : (
         <nav
           ref={bottomNavRef}
           aria-label="Mobile navigation"
@@ -399,6 +548,7 @@ function AppShellContent({
             </Link>
           ))}
         </nav>
+        )}
       </div>
     </TranslatedTextBoundary>
   );
