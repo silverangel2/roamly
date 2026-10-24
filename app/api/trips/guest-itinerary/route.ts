@@ -13,12 +13,14 @@ import {
   guestFreeItineraryEntitlement,
   publicGuestItineraryView
 } from "@/lib/roamly/guestItineraryView";
+import { buildGuestGenerationStatus } from "@/lib/roamly/guestGenerationStatus";
+import { publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
-const GUEST_TRIP_COLUMNS = "id,user_id,title,destination_name,status,itinerary_status,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,live_companion_unlocked,metadata";
+const GUEST_TRIP_COLUMNS = "id,user_id,title,destination_name,status,itinerary_status,itinerary_payment_status,itinerary_unlock_source,tracking_unlocked,live_companion_unlocked,metadata,created_at";
 
 function guestUnavailable(message = "Roamly could not start a free itinerary right now.") {
   return NextResponse.json({ ok: false, error: "GUEST_ITINERARY_UNAVAILABLE", message }, { status: 503 });
@@ -103,7 +105,89 @@ export async function GET(request: NextRequest) {
     metadata: trip.metadata
   });
 
-  return NextResponse.json({ ok: true, tripId: access.tripId, unlockSource: "free", ...view });
+  // Real generation status for the guest page, from measured fields only.
+  // Only safe, plain values cross into the response: no error text, no error
+  // codes, no model names, no costs, no tokens. The progress record is mapped
+  // to the three fields the estimator reads, so nothing else from it can leak.
+  // One gap in the public record: it drops per-day start/finish times, so the
+  // route reads those from the same v2 generation doc (only when the public
+  // record parsed, which already proves the doc is v2) for the pace math.
+  const progress = publicStagedGenerationProgress(trip.metadata, access.tripId);
+  const metadataRecord =
+    trip.metadata && typeof trip.metadata === "object" && !Array.isArray(trip.metadata)
+      ? (trip.metadata as Record<string, unknown>)
+      : null;
+  const generationRecord =
+    metadataRecord?.generation && typeof metadataRecord.generation === "object" && !Array.isArray(metadataRecord.generation)
+      ? (metadataRecord.generation as Record<string, unknown>)
+      : null;
+  const rawDaysRecord =
+    generationRecord?.days && typeof generationRecord.days === "object" && !Array.isArray(generationRecord.days)
+      ? (generationRecord.days as Record<string, unknown>)
+      : null;
+  const rawDayTiming = progress && rawDaysRecord
+    ? Object.values(rawDaysRecord)
+        .filter((day): day is Record<string, unknown> => !!day && typeof day === "object" && !Array.isArray(day))
+        .map((day) => ({
+          status: typeof day.status === "string" ? day.status : "",
+          startedAt: typeof day.startedAt === "string" ? day.startedAt : null,
+          completedAt: typeof day.completedAt === "string" ? day.completedAt : null
+        }))
+    : [];
+  const zeroEngineRecord =
+    metadataRecord?.zeroEngine && typeof metadataRecord.zeroEngine === "object" && !Array.isArray(metadataRecord.zeroEngine)
+      ? (metadataRecord.zeroEngine as Record<string, unknown>)
+      : null;
+  const packWaitCount =
+    typeof zeroEngineRecord?.packWaitCount === "number" && Number.isFinite(zeroEngineRecord.packWaitCount)
+      ? zeroEngineRecord.packWaitCount
+      : 0;
+  const waitingForPack =
+    packWaitCount > 0 && progress?.currentStage === "generating_outline" && (progress?.completedDayCount ?? 0) === 0;
+  const maxPackWaitMs = Math.max(
+    60_000,
+    Number(process.env.ROAMLY_ZERO_ENGINE_MAX_PACK_WAIT_MS || 7_200_000) || 7_200_000
+  );
+  const generationStatus = buildGuestGenerationStatus({
+    viewStatus: view.status,
+    progress: progress
+      ? {
+          status: progress.status,
+          currentStage: progress.currentStage,
+          completedDayCount: progress.completedDayCount,
+          totalDayCount: progress.totalDayCount,
+          days:
+            rawDayTiming.length > 0
+              ? rawDayTiming
+              : progress.days.map((day) => ({
+                  status: day.status,
+                  startedAt: null,
+                  completedAt: null
+                })),
+          stageRuns: progress.stageRuns.map((run) => ({
+            stage: run.stage,
+            status: run.status,
+            durationMs: run.durationMs,
+            dayNumbers: run.dayNumbers
+          })),
+          startedAt: progress.startedAt
+        }
+      : null,
+    waitingForPack,
+    failedTimeout: progress?.lastErrorCode === "ZERO_ENGINE_PACK_WAIT_TIMEOUT",
+    destination:
+      typeof trip.destination_name === "string" && trip.destination_name.trim()
+        ? trip.destination_name.trim().slice(0, 160)
+        : null,
+    tripStartedAt:
+      typeof (trip as { created_at?: unknown }).created_at === "string"
+        ? (trip as { created_at: string }).created_at
+        : null,
+    nowMs: Date.now(),
+    maxPackWaitMs
+  });
+
+  return NextResponse.json({ ok: true, tripId: access.tripId, unlockSource: "free", ...view, generationStatus });
 }
 
 export async function POST(request: NextRequest) {
