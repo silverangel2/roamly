@@ -300,12 +300,17 @@ export function dedupeExecutiveReports(reports: readonly ExecutiveReportArtifact
 }
 
 export function executiveCanPerform(action: string) {
-  // Level-3 grant (owner-approved 2026-09-30): the executive secretary may
-  // coordinate bounded safe repairs — prepare, validate, brief, review, and
-  // record them. It still may not dispatch jobs, touch budgets or spending,
-  // reach production, or grant authority.
-  if (/^(prepare|validate|brief|review|record)( a| the)? bounded safe[- ]repair\b/i.test(action.trim())) return true;
-  return !/(dispatch|repriorit|priority|budget|spend|production|commit|push|deploy|level.?3|customer.?truth|provider.?configuration)/i.test(action);
+  // Scope correction (owner 2026-10-24): the executive secretary does NOT
+  // hold Level 3 — it coordinates; it does not code. It may brief, review,
+  // record, and validate evidence for its briefings, and it may prepare a
+  // *brief* about a repair. It may never prepare (write) a repair patch,
+  // dispatch jobs, touch budgets or spending, reach production, commit,
+  // push, deploy, or grant authority.
+  const text = action.trim();
+  if (/^(brief|review|record)( a| the)?\b/i.test(text)) return true;
+  if (/^validate( a| the)? bounded safe[- ]repair evidence\b/i.test(text)) return true;
+  if (/^prepare( a| the)? bounded safe[- ]repair brief\b/i.test(text)) return true;
+  return !/(dispatch|repriorit|priority|budget|spend|production|commit|push|deploy|level.?3|customer.?truth|provider.?configuration|prepare( a| the)? bounded safe[- ]repair\b)/i.test(text);
 }
 
 export function suppressExecutiveNoise(records: readonly ExecutiveRecord[]) {

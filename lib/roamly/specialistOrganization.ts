@@ -7,14 +7,17 @@ export const SPECIALIST_MAX_AUTHORITY: AutonomyLevel = "LEVEL_2_DIAGNOSE";
 export const SPECIALIST_NETWORK_POLICY = "NONE" as const;
 
 /**
- * Level-3 grant (owner-approved 2026-09-30): the gap auditor and the
- * executive secretary may create and advance bounded safe-repair jobs up to
- * LEVEL_3_SAFE_REPAIR. Every other specialist stays capped at
- * SPECIALIST_MAX_AUTHORITY (LEVEL_2_DIAGNOSE): they diagnose, prioritize,
- * and propose — they never repair or deploy.
+ * Level-3 grant (owner-approved 2026-09-30, scope corrected 2026-10-24):
+ * LEVEL_3_SAFE_REPAIR goes to the bots that NEED FREQUENT CODING — that
+ * is the selection rule, not titles. The gap auditor qualifies: it finds
+ * defects constantly, so preparing bounded repairs is its normal output.
+ * The executive secretary does NOT hold Level 3: it coordinates (briefs,
+ * reviews, records) and does not code. Every other specialist stays capped
+ * at SPECIALIST_MAX_AUTHORITY (LEVEL_2_DIAGNOSE): they diagnose,
+ * prioritize, and propose — they never repair or deploy.
  */
 export const SAFE_REPAIR_MAX_AUTHORITY: AutonomyLevel = "LEVEL_3_SAFE_REPAIR";
-export const LEVEL_3_SAFE_REPAIR_ROLES = ["GAP_AUDIT_QA", "EXECUTIVE_SECRETARY"] as const;
+export const LEVEL_3_SAFE_REPAIR_ROLES = ["GAP_AUDIT_QA"] as const;
 export type Level3SafeRepairRole = typeof LEVEL_3_SAFE_REPAIR_ROLES[number];
 
 export function roleMayReachLevel3(role: string): role is Level3SafeRepairRole {
@@ -133,7 +136,9 @@ export function createSafeRepairJob(input: {
     financialBudgetUsd: 0,
     maxAttempts: 1,
     ownerApprovalRequired: false,
-    runnerId: input.role === "GAP_AUDIT_QA" ? "phase2.gap-audit.safe-repair" : "phase8.secretary.safe-repair"
+    // Only GAP_AUDIT_QA holds LEVEL_3 (2026-10-24 correction), so the
+    // gap-audit safe-repair runner is the only one a safe-repair job uses.
+    runnerId: "phase2.gap-audit.safe-repair"
   });
 }
 
