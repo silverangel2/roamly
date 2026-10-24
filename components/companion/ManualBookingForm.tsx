@@ -186,6 +186,11 @@ export function ManualBookingForm({ tripId, referral = null }: ManualBookingForm
           gate: kind === "flight" ? gate : null,
           startTime: toDateTime(startDate, startTime),
           endTime: kind === "flight" ? toDateTime(endDate || startDate, endTime) : kind === "hotel" ? toDateTime(endDate, "11:00") : null,
+          // B04: the calendar dates travel as dates, so a date-only
+          // activity or restaurant keeps its chosen date even when no
+          // clock was given (the timestamp fields above stay null then).
+          startDate: startDate || null,
+          endDate: endDate || null,
           checkInTime: kind === "hotel" ? toDateTime(startDate, "15:00") : null,
           checkOutTime: kind === "hotel" ? toDateTime(endDate, "11:00") : null,
           origin,
