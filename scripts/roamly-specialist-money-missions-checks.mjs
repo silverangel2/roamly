@@ -23,7 +23,9 @@ import { PHASE3_MAX_AUTHORITY } from "../lib/roamly/adrianLucaOrchestration.ts";
 
 /**
  * Smarter-specialists policy gate: every specialist has a money mission,
- * the LEVEL_3 grant is scoped to gap auditor + executive secretary only,
+ * the LEVEL_3 grant is scoped to the gap auditor only (scope corrected
+ * 2026-10-24: Level 3 goes to the bots that need frequent coding; the
+ * executive secretary coordinates and does not code),
  * and all LEVEL_4 owner-approval gates stay intact.
  */
 
@@ -41,7 +43,7 @@ console.log("  PASS all 7 specialists have money missions");
 // 2. Default ceiling stays LEVEL_2; only the gap audit profile reaches LEVEL_3.
 assert.equal(SPECIALIST_MAX_AUTHORITY, "LEVEL_2_DIAGNOSE", "default specialist ceiling must stay LEVEL_2_DIAGNOSE");
 assert.equal(SAFE_REPAIR_MAX_AUTHORITY, "LEVEL_3_SAFE_REPAIR", "safe-repair ceiling must be LEVEL_3_SAFE_REPAIR");
-assert.deepEqual([...LEVEL_3_SAFE_REPAIR_ROLES].sort(), ["EXECUTIVE_SECRETARY", "GAP_AUDIT_QA"], "level-3 grant is scoped to gap auditor + executive secretary only");
+assert.deepEqual([...LEVEL_3_SAFE_REPAIR_ROLES].sort(), ["GAP_AUDIT_QA"], "level-3 grant is scoped to the gap auditor only (2026-10-24 correction: frequent-coding rule)");
 for (const profile of profiles) {
   const mayReach = specialistMayReachLevel3(profile.id);
   if (profile.id === "GAP_AUDIT_QA_RELIABILITY") {
@@ -53,9 +55,9 @@ for (const profile of profiles) {
   }
 }
 assert.ok(roleMayReachLevel3("GAP_AUDIT_QA"), "GAP_AUDIT_QA role may reach level 3");
-assert.ok(roleMayReachLevel3("EXECUTIVE_SECRETARY"), "EXECUTIVE_SECRETARY role may reach level 3");
+assert.ok(!roleMayReachLevel3("EXECUTIVE_SECRETARY"), "EXECUTIVE_SECRETARY role must NOT reach level 3 (coordinates, does not code)");
 assert.ok(!roleMayReachLevel3("SEO"), "SEO role must not reach level 3");
-console.log("  PASS level-3 grant is scoped to gap auditor + executive secretary");
+console.log("  PASS level-3 grant is scoped to the gap auditor only");
 
 // 3. Phase-3 orchestration ceiling is now LEVEL_3 (per-role gates still apply).
 assert.equal(PHASE3_MAX_AUTHORITY, "LEVEL_3_SAFE_REPAIR", "phase-3 ceiling must be LEVEL_3_SAFE_REPAIR");
