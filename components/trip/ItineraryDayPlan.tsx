@@ -1,3 +1,4 @@
+import { bookingExactTiming } from "@/lib/roamly/bookingDisplayTiming";
 import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
@@ -276,31 +277,6 @@ function bookingIsConfirmed(booking: Record<string, unknown>) {
 
 type BookingTiming = { date: string; start: string; end: string };
 
-function bookingExactTiming(booking: Record<string, unknown>): BookingTiming {
-  const isoStart = getString(booking.start_at);
-  const isoEnd = getString(booking.end_at);
-  let date = "";
-  let start = "";
-  let end = "";
-  const clockFromIso = (iso: string) => {
-    const m = iso.match(/T(\d{2}):(\d{2})/);
-    return m ? `${m[1]}:${m[2]}` : "";
-  };
-  if (isoStart) {
-    date = isoStart.slice(0, 10);
-    start = clockFromIso(isoStart);
-  } else {
-    const legacyDate = getString(booking.start_date);
-    if (legacyDate) date = legacyDate.slice(0, 10);
-    start = getString(booking.start_time);
-  }
-  if (isoEnd) {
-    end = clockFromIso(isoEnd);
-  } else {
-    end = getString(booking.end_time);
-  }
-  return { date, start, end };
-}
 
 function bookingMatchesItem(booking: Record<string, unknown>, itemTitle: string) {
   const bookingTitle = normalizedBookingTitle(booking.title);
