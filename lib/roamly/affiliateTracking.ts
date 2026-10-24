@@ -325,6 +325,11 @@ export async function recordAffiliateConversion(params: {
     supabase: params.supabase,
     userId: click.user_id,
     tripId: click.trip_id,
+    // B01: the affiliate webhook runs with the service-role client on the
+    // click owner's behalf and has no user session, so it must use the
+    // service-role-only segment function. The session-bound function would
+    // raise (auth.uid() is null for service-role calls) — fail-closed.
+    segmentReplacement: "service",
     input: conversionBookingInput({
       input: params.input,
       click,
