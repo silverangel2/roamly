@@ -1525,7 +1525,38 @@ async function runOutlineStage(params: {
     // The kick (above) starts that enqueued build as post-response
     // work, so the wait is the build's own duration, not the time
     // until the hourly drain happens to tick.
+    //
+    // KF-2 (2026-10-24): that wait was UNBOUNDED — a trip whose pack
+    // build never publishes sat in generating_outline forever with
+    // zero AI calls, zero errors and a growing packWaitCount, and
+    // nothing ever converted it into a visible failure (Montreal,
+    // 2026-10-24: 75 waits, no error). The bound below closes the
+    // contract: the wait ends, loudly, after MAX_PACK_WAIT_MS from
+    // the run's start. 2h is deliberate, not padding: the pack drain
+    // ticks hourly at :15, so a build enqueued just after a tick
+    // waits up to 60 min for the next tick plus Overpass collection
+    // time for a big city; 2h covers a missed tick + a slow build
+    // while still ending the wait. The failure rides the normal
+    // terminal path (job failed, failure email), and the state stays
+    // resumable: a later advance retries the outline — pack ready by
+    // then ⇒ success; pack still missing ⇒ this branch fails again
+    // at once, never silently. Env override:
+    // ROAMLY_ZERO_ENGINE_MAX_PACK_WAIT_MS.
     run = { ...run, destinationId, packWaitCount: run.packWaitCount + 1 };
+    const waitStartedAt = Date.parse(run.startedAt) || Date.parse(state.startedAt || "") || Date.now();
+    const maxPackWaitMs = Math.max(60_000, Number(process.env.ROAMLY_ZERO_ENGINE_MAX_PACK_WAIT_MS || 7_200_000) || 7_200_000);
+    if (Date.now() - waitStartedAt > maxPackWaitMs) {
+      const failed = releaseLease({
+        ...state,
+        status: "failed",
+        currentStage: "failed",
+        lastError: `The destination's map data did not finish building within ${Math.round(maxPackWaitMs / 60000)} minutes after ${run.packWaitCount} waits. The pack build may still be queued; retry the generation once the destination is warm.`,
+        lastErrorCode: "ZERO_ENGINE_PACK_WAIT_TIMEOUT",
+        updatedAt: nowIso()
+      });
+      await deps.store.persistState(trip, failed, run);
+      return { ok: false, status: "failed", state: failed, advanced: false, error: "ZERO_ENGINE_PACK_WAIT_TIMEOUT", stage: "outline" };
+    }
     const waiting = releaseLease({ ...state, status: "queued", currentStage: "generating_outline", updatedAt: nowIso() });
     await deps.store.persistState(trip, waiting, run);
     schedulePackBuildKick(deps, destinationId, state.tripId);

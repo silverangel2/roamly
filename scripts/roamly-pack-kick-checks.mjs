@@ -504,4 +504,31 @@ async function startColdTrip({ genStore, tripId }) {
   eq(next.kick, true, "§11 the trip is not lockout-suppressed after the release");
 }
 
+/* ---------------- §12 — KF-2: the pack wait is bounded ---------------- */
+{
+  // A cold trip waits honestly while the wait is young, and fails
+  // LOUDLY once the wait exceeds the bound — never another silent
+  // busy. (Montreal, 2026-10-24: 75 waits, zero errors, forever.)
+  const packStore = new InMemoryPackStore();
+  await packStore.registerDestination(TESTBURGH);
+  const genStore = createMemoryGenerationStore();
+  const deps = { store: genStore, packStore };
+  const tripId = "trip-kf2-pack-wait";
+  await startColdTrip({ genStore, tripId });
+  const young = await advanceEngineGeneration({ deps, tripId, userId: USER_ID, requestId: "req-kf2-young" });
+  eq(young.waitingForPack, true, "§12 a young cold wait still waits (the bound does not break the normal path)");
+  eq(young.status, "queued", "§12 the young wait stays queued, not failed");
+  // Backdate the run past the 2h default bound, wake again.
+  const row = genStore.trips.get(tripId);
+  row.metadata.zeroEngine.startedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const aged = await advanceEngineGeneration({ deps, tripId, userId: USER_ID, requestId: "req-kf2-aged" });
+  eq(aged.status, "failed", "§12 an over-bound pack wait fails instead of waiting forever");
+  eq(aged.error, "ZERO_ENGINE_PACK_WAIT_TIMEOUT", "§12 the failure carries the named code");
+  eq(aged.state.lastErrorCode, "ZERO_ENGINE_PACK_WAIT_TIMEOUT", "§12 the recorded state carries the named code");
+  ok((aged.state.lastError || "").includes("map data"), "§12 the recorded error names the cause for the traveler");
+  const after = await genStore.loadTrip(tripId, USER_ID);
+  eq(after.metadata.generation.status, "failed", "§12 the failed state persists");
+  eq(after.metadata.generation.currentStage, "failed", "§12 the failed stage persists");
+}
+
 console.log(`PACK-KICK CHECKS: ${count}/${count} PASS`);
