@@ -172,7 +172,7 @@ function formatTripDate(value?: string | null, locale = "en") {
   }).format(date);
 }
 
-function formatBookingTimestamp(value: unknown, locale = "en") {
+function formatBookingTimestamp(value: unknown, locale = "en", timeZone = "UTC") {
   const text = getString(value);
   if (!text) return "";
   const date = new Date(text);
@@ -181,7 +181,9 @@ function formatBookingTimestamp(value: unknown, locale = "en") {
     month: "short",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone,
+    timeZoneName: "short"
   }).format(date);
 }
 
@@ -192,7 +194,11 @@ function isConfirmedBookingSnapshot(booking: Record<string, unknown>) {
 }
 
 function bookingDetailText(booking: Record<string, unknown>, locale = "en") {
-  const timestamp = formatBookingTimestamp(booking.start_at, locale);
+  const metadata = getRecord(booking.metadata);
+  const zone = getString(booking.timezone || metadata?.timezone) || "UTC";
+  let timestamp = "";
+  try { timestamp = formatBookingTimestamp(booking.start_at, locale, zone); }
+  catch { timestamp = formatBookingTimestamp(booking.start_at, locale, "UTC"); }
   const legacyDate = getString(booking.start_date);
   const legacyTime = getString(booking.start_time);
   const legacyTimestamp = [legacyDate, legacyTime].filter(Boolean).join(" ");
