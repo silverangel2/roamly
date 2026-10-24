@@ -80,7 +80,7 @@ const TRAVEL_SUBJECT_PATTERNS = [
   /terminal (?:change|updated?)/i
 ];
 
-const BOOKING_REFERENCE_PATTERN = /\b(?:confirmation|booking|reservation|record locator|pnr|voucher|order|reference)\s*(?:code|number|#)?\s*[:#-]?\s*([A-Z0-9-]{5,16})\b/gi;
+const BOOKING_REFERENCE_PATTERN = /\b(?:confirmation|booking|reservation|record locator|pnr|voucher|order|reference)\s*(?:code|number|#)?\s*[:#-]?\s*([A-Z0-9-]{5,64})\b/gi;
 const FLIGHT_NUMBER_PATTERN = /\b([A-Z]{2}\s?\d{1,4})\b/g;
 const DATE_PATTERN = /\b(\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})\b/gi;
 const TIME_PATTERN = /\b(\d{1,2}:\d{2}\s?(?:AM|PM|am|pm)?|\d{1,2}\s?(?:AM|PM|am|pm))\b/g;
@@ -116,7 +116,11 @@ export function filterTravelEmail(metadata: TravelEmailMetadata): TravelEmailFil
   const subjectPattern = TRAVEL_SUBJECT_PATTERNS.find((pattern) => pattern.test(subject));
   if (subjectPattern) reasons.push("travel_subject");
 
-  const bookingReferences = unique([...searchable.matchAll(BOOKING_REFERENCE_PATTERN)].map((match) => match[1].toUpperCase()));
+  const explicitReferences = [...searchable.matchAll(/\b(?:confirmation|booking|reservation|record locator|pnr|voucher|order|reference)\s*(?:(?:code|number)\s*[:#-]?\s*|[:#]\s*)([A-Z0-9-]{5,64})\b/gi)].map(match => match[1].toUpperCase());
+  const bookingReferences = unique([
+    ...explicitReferences,
+    ...[...searchable.matchAll(BOOKING_REFERENCE_PATTERN)].map(match => match[1].toUpperCase()).filter(value => /\d/.test(value))
+  ]).filter(value => !new Set(["CONFIRMATION", "CONFIRMED", "BOOKING", "RESERVATION", "OPTIONS", "NUMBER", "REFERENCE", "ITINERARY"]).has(value));
   if (bookingReferences.length) {
     reasons.push("booking_reference");
     facts.bookingReferenceCandidates = bookingReferences.slice(0, 3);
