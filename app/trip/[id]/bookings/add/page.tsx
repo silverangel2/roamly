@@ -37,6 +37,7 @@ export default async function AddTripBookingPage({ params, searchParams }: { par
     <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
       <ManualBookingForm
         tripId={id}
+        tripCurrency={bundle.data.trip.budget_currency ?? null}
         referral={referral.referral ? {
           affiliateClickId: referral.referral.id,
           recommendationId: referral.referral.recommendation_id,
