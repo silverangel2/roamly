@@ -29,21 +29,21 @@ export function UpNextActivityCard({
     : "";
   const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming, presentation?.destination);
   return (
-    <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-sun">{tripStarted ? t("ui.status.upNextNearby") : "Planned next"}</p>
+    <section className="rounded-[14px] bg-white p-4 shadow-calm">
+      <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{tripStarted ? t("ui.status.upNextNearby") : "Planned next"}</p>
       {activity ? (
         <>
-          <h2 className="mt-2 text-2xl font-black text-ink">{title}</h2>
-          {tripStarted ? null : <p className="mt-2 text-sm font-bold leading-6 text-slate-500">This trip has not started, so this is not happening today.</p>}
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{detail}</p>
+          <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{title}</h2>
+          {tripStarted ? null : <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">This trip has not started, so this is not happening today.</p>}
+          <p className="mt-1.5 text-sm font-normal leading-6 text-cink">{detail}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {activity.scheduled_start ? (
-              <span className="rounded-full bg-mist px-3 py-2 text-xs font-black text-slate-600">
+              <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">
                 {formatRoamlyTime(activity.scheduled_start, locale)}
               </span>
             ) : null}
             {tripStarted && activity.distance_meters != null ? (
-              <span className="rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
+              <span className="rounded-md bg-cblue/10 px-2 py-0.5 text-xs font-semibold text-cblue">
                 {t("ui.status.metersAway", "{distance} m away").replace("{distance}", String(activity.distance_meters))}
               </span>
             ) : null}
@@ -59,7 +59,7 @@ export function UpNextActivityCard({
           />
         </>
       ) : (
-        <p className="mt-2 text-sm font-bold leading-6 text-slate-500">{t("ui.status.noNextActivity")}</p>
+        <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">{t("ui.status.noNextActivity")}</p>
       )}
     </section>
   );

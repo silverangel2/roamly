@@ -20,9 +20,9 @@ export function TripActivationBanner({
   return (
     <section className="rounded-[14px] bg-white p-4 shadow-calm sm:p-5">
       <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">Roamly notification</p>
-      <h1 className="mt-1.5 text-[30px] font-bold leading-[1.12] tracking-[-0.022em] text-chead">
+      <h2 className="mt-1.5 text-[30px] font-bold leading-[1.12] tracking-[-0.022em] text-chead">
         {title}
-      </h1>
+      </h2>
       <p className="mt-2 text-[15px] font-semibold text-chead">{tripStarted ? `Day ${dayNumber || 1}` : "Not started"}</p>
       <p className="mt-2 max-w-2xl text-[15px] font-normal leading-[1.45] text-cink">
         {notificationProximityCopy(notification?.body, tripStarted)}
