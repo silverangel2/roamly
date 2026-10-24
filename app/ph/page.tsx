@@ -177,6 +177,16 @@ export default function PhilippinesPage() {
         </div>
       </section>
 
+      <section className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
+        <h2 className="mt-1 text-2xl font-black tracking-tight">What it costs</h2>
+        <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600">
+          Your first itinerary is free, one per account. After that, for Philippines trips: Full Itinerary{" "}
+          <strong className="font-bold text-ink">₱99</strong>, Live Trip Companion{" "}
+          <strong className="font-bold text-ink">₱79</strong>, Complete Trip Pack{" "}
+          <strong className="font-bold text-ink">₱149</strong>. One-time each, tax included, no subscription.
+        </p>
+      </section>
+
       <section className="mx-auto w-full max-w-5xl px-4 pb-12 pt-2 sm:px-8">
         <p className="text-xs font-semibold leading-5 text-slate-500">
           Flights and hotels for these trips book through Roamly&apos;s usual partner links inside the planner — flights via

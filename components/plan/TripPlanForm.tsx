@@ -679,12 +679,6 @@ function TripPlanFormSession({
   const signedIn = Boolean(apiAuthToken) || Boolean(sessionUser);
   const accountFreeUsed = signedIn && freeItineraryUsed;
   const requiresPaidUnlock = accountFreeUsed && !testerAccess;
-  const entitlement = planEntitlementCopy({
-    signedIn,
-    freeItineraryUsed: accountFreeUsed,
-    testerAccess
-  });
-
   const jsonHeaders = useCallback(() => {
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (apiAuthToken) headers["x-roamly-session-token"] = apiAuthToken;
@@ -727,6 +721,16 @@ function TripPlanFormSession({
   }, [authStatus, resolveSessionUser, shouldShowResumeNotice]);
 
   const validStops = useMemo(() => stops.map((stop) => stop.place).filter((place): place is NormalizedPlace => isValidPlaceValue(place?.value)), [stops]);
+  const entitlement = planEntitlementCopy({
+    signedIn,
+    freeItineraryUsed: accountFreeUsed,
+    testerAccess,
+    // The traveler's own selected destination country — the same value the
+    // plan submit stamps as destinationCountry on the trip.
+    isPhilippinesTrip:
+      (tripType === "single_destination" ? destinationPlace?.country : validStops[validStops.length - 1]?.country) ===
+      "Philippines"
+  });
   const normalizedDestination = useMemo(() => {
     if (tripType === "multi_city") return validStops.map((place) => place.value).join(" \u2192 ");
     return placeValue(destinationPlace);

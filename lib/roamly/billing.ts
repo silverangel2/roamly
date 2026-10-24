@@ -28,14 +28,90 @@ export type RoamlyBillingTrip = {
 
 type RoamlyQaTrip = Pick<RoamlyBillingTrip, "id" | "user_id" | "metadata">;
 
-const purchaseOptions: Record<
-  RoamlyPurchaseType,
-  { priceId: string; envName: string; amount: number; name: string; description: string }
-> = {
+export type RoamlyPurchaseOption = {
+  priceId: string;
+  envName: string;
+  amount: number;
+  currency: string;
+  display: string;
+  name: string;
+  description: string;
+};
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function metadataStringField(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  return typeof value === "string" ? value : "";
+}
+
+function normalizedPlaceName(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s(city|island)$/, "");
+}
+
+// Display names of the Philippines pack registry (lib/roamly/engine/packs/destinations.ts).
+// Used only as a fallback when no destinationCountry was stamped: a trip whose
+// destination city is one of these is a Philippines trip.
+const PHILIPPINES_CITY_NAMES = new Set([
+  "manila",
+  "boracay",
+  "el nido",
+  "coron",
+  "puerto princesa",
+  "cebu",
+  "bohol",
+  "siargao",
+  "baguio",
+  "davao",
+  "samal",
+  "palawan"
+]);
+
+/**
+ * Philippines context for one trip, resolved from the trip's own stored metadata —
+ * never from a client guess. Primary rule: destinationCountry === "Philippines"
+ * (stamped by the PH pack and the plan flow). Fallbacks cover trips whose country
+ * was never stamped: a Philippines stop, a Philippines city name, or a
+ * destination label naming the Philippines.
+ */
+export function isPhilippinesTrip(trip: Pick<RoamlyBillingTrip, "metadata"> | null | undefined): boolean {
+  if (!trip?.metadata) return false;
+  const root = metadataRecord(trip.metadata);
+  const planning = metadataRecord(root.planning);
+  const scopes = [root, planning];
+  for (const scope of scopes) {
+    if (metadataStringField(scope, "destinationCountry").trim().toLowerCase() === "philippines") return true;
+  }
+  const stops = root.destinationStops;
+  if (Array.isArray(stops)) {
+    for (const stop of stops) {
+      const stopRecord = metadataRecord(stop);
+      if (metadataStringField(stopRecord, "country").trim().toLowerCase() === "philippines") return true;
+      if (metadataStringField(stopRecord, "destinationCountry").trim().toLowerCase() === "philippines") return true;
+    }
+  }
+  for (const scope of scopes) {
+    const city = normalizedPlaceName(metadataStringField(scope, "destinationCity"));
+    if (city && PHILIPPINES_CITY_NAMES.has(city)) return true;
+    if (metadataStringField(scope, "destination").toLowerCase().includes("philippines")) return true;
+  }
+  return false;
+}
+
+const purchaseOptions: Record<RoamlyPurchaseType, RoamlyPurchaseOption> = {
   itinerary_unlock: {
     priceId: roamlyConfig.itineraryUnlockPriceId,
     envName: "ROAMLY_STRIPE_ITINERARY_PRICE_ID",
     amount: roamlyConfig.itineraryUnlockPriceCents,
+    currency: roamlyConfig.currency,
+    display: "$4.99 CAD",
     name: "Roamly Full Itinerary Unlock",
     description: "One custom full itinerary for one trip. No subscription."
   },
@@ -43,6 +119,8 @@ const purchaseOptions: Record<
     priceId: roamlyConfig.trackingAddonPriceId,
     envName: "ROAMLY_STRIPE_FEATURES_PRICE_ID",
     amount: roamlyConfig.trackingAddonPriceCents,
+    currency: roamlyConfig.currency,
+    display: "$3.99 CAD",
     name: "Roamly Live Trip Companion",
     description: "Pre-trip reminders, booking timeline, nearby activities, and up-next help for one locked itinerary."
   },
@@ -50,6 +128,43 @@ const purchaseOptions: Record<
     priceId: roamlyConfig.tripBundlePriceId,
     envName: "ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID",
     amount: roamlyConfig.tripBundlePriceCents,
+    currency: roamlyConfig.currency,
+    display: "$7.99 CAD",
+    name: "Roamly Complete Trip Pack",
+    description: "Full itinerary plus Live Trip Companion for one trip."
+  }
+};
+
+// Philippines price set: one-time, tax-inclusive Stripe Prices (the ₱ amounts are
+// the TOTAL the traveler pays — no tax is ever added on top). Wired from the
+// ROAMLY_STRIPE_*_PRICE_ID_PHP production env vars; until those vars are live,
+// a Philippines checkout fails loudly with STRIPE_PRICE_MISSING instead of
+// falling back to a CAD charge — display and charge never diverge.
+const phpPurchaseOptions: Record<RoamlyPurchaseType, RoamlyPurchaseOption> = {
+  itinerary_unlock: {
+    priceId: roamlyConfig.itineraryUnlockPriceIdPhp,
+    envName: "ROAMLY_STRIPE_ITINERARY_PRICE_ID_PHP",
+    amount: roamlyConfig.phpItineraryUnlockPriceCents,
+    currency: "php",
+    display: "₱99",
+    name: "Roamly Full Itinerary Unlock",
+    description: "One custom full itinerary for one trip. No subscription."
+  },
+  tracking_addon: {
+    priceId: roamlyConfig.trackingAddonPriceIdPhp,
+    envName: "ROAMLY_STRIPE_FEATURES_PRICE_ID_PHP",
+    amount: roamlyConfig.phpTrackingAddonPriceCents,
+    currency: "php",
+    display: "₱79",
+    name: "Roamly Live Trip Companion",
+    description: "Pre-trip reminders, booking timeline, nearby activities, and up-next help for one locked itinerary."
+  },
+  bundle: {
+    priceId: roamlyConfig.tripBundlePriceIdPhp,
+    envName: "ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID_PHP",
+    amount: roamlyConfig.phpTripBundlePriceCents,
+    currency: "php",
+    display: "₱149",
     name: "Roamly Complete Trip Pack",
     description: "Full itinerary plus Live Trip Companion for one trip."
   }
@@ -64,8 +179,8 @@ export function normalizePurchaseType(value: unknown): RoamlyPurchaseType {
   return "bundle";
 }
 
-export function getPurchaseOption(type: RoamlyPurchaseType) {
-  return purchaseOptions[type];
+export function getPurchaseOption(type: RoamlyPurchaseType, trip?: Pick<RoamlyBillingTrip, "metadata"> | null) {
+  return isPhilippinesTrip(trip) ? phpPurchaseOptions[type] : purchaseOptions[type];
 }
 
 export function getCheckoutSuccessUrl(tripId: string) {
@@ -117,9 +232,10 @@ function safeStripeErrorMessage(error: unknown) {
 
 export async function validateStripePriceForPurchase(
   stripe: Stripe,
-  purchaseType: RoamlyPurchaseType
+  purchaseType: RoamlyPurchaseType,
+  trip?: Pick<RoamlyBillingTrip, "metadata"> | null
 ): Promise<ValidatedStripePrice | StripePriceValidationError> {
-  const option = getPurchaseOption(purchaseType);
+  const option = getPurchaseOption(purchaseType, trip);
   if (!option.priceId) {
     return {
       ok: false,
@@ -171,12 +287,12 @@ export async function validateStripePriceForPurchase(
       envName: option.envName
     };
   }
-  if ((price.currency || "").toLowerCase() !== roamlyConfig.currency.toLowerCase()) {
+  if ((price.currency || "").toLowerCase() !== option.currency.toLowerCase()) {
     return {
       ok: false,
       status: 503,
       error: "STRIPE_PRICE_CURRENCY_MISMATCH",
-      message: `${option.envName} does not match Roamly's checkout currency.`,
+      message: `${option.envName} does not match Roamly's checkout currency for this trip.`,
       envName: option.envName
     };
   }
@@ -755,7 +871,7 @@ export async function lockGeneratedItinerary(
 export async function requireTripEditable(supabase: SupabaseClient, userId: string, tripId: string) {
   const { data: trip, error } = await supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at")
+    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,metadata")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -798,13 +914,14 @@ async function createCheckoutSession(
   supabase: SupabaseClient,
   user: { id: string; email?: string | null },
   tripId: string,
-  purchaseType: RoamlyPurchaseType
+  purchaseType: RoamlyPurchaseType,
+  trip?: Pick<RoamlyBillingTrip, "metadata"> | null
 ) {
   const stripe = createStripeClient();
   if (!stripe) return { ok: false as const, status: 503, error: "Stripe checkout needs STRIPE_SECRET_KEY." };
 
-  const option = getPurchaseOption(purchaseType);
-  const priceValidation = await validateStripePriceForPurchase(stripe, purchaseType);
+  const option = getPurchaseOption(purchaseType, trip);
+  const priceValidation = await validateStripePriceForPurchase(stripe, purchaseType, trip);
   if (!priceValidation.ok) return priceValidation;
   const writer = createSupabaseAdminClient() || supabase;
   const claimed = await claimCheckoutAttempt(writer, {
@@ -812,7 +929,7 @@ async function createCheckoutSession(
     tripId,
     purchaseType,
     amountCents: priceValidation.price.unit_amount || option.amount,
-    currency: priceValidation.price.currency || roamlyConfig.currency
+    currency: priceValidation.price.currency || option.currency
   });
   if (!claimed.attempt) return { ok: false as const, status: 503, error: claimed.error || "CHECKOUT_ATTEMPT_CLAIM_FAILED" };
 
@@ -839,7 +956,7 @@ async function createCheckoutSession(
       tripId,
       purchaseType,
       amountCents: priceValidation.price.unit_amount || option.amount,
-      currency: priceValidation.price.currency || roamlyConfig.currency
+      currency: priceValidation.price.currency || option.currency
     });
     if (!retryClaim.attempt) return { ok: false as const, status: 503, error: retryClaim.error || "CHECKOUT_ATTEMPT_CLAIM_FAILED" };
     attempt = retryClaim.attempt;
@@ -892,7 +1009,7 @@ async function createCheckoutSession(
   const purchaseUpdate = await writer.from("roamly_itinerary_purchases").update({
     stripe_checkout_session_id: session.id,
     amount_cents: session.amount_total || option.amount,
-    currency: session.currency || roamlyConfig.currency
+    currency: session.currency || option.currency
   }).eq("id", attempt.purchaseId).eq("status", "pending");
   if (purchaseUpdate.error) {
     return { ok: false as const, status: 503, error: "CHECKOUT_ATTEMPT_PERSIST_FAILED", message: "Checkout was created but could not be saved locally. Please retry so Roamly can recover the same checkout safely." };
@@ -903,7 +1020,7 @@ async function createCheckoutSession(
     trip_id: tripId,
     stripe_session_id: session.id,
     amount: session.amount_total || option.amount,
-    currency: session.currency || roamlyConfig.currency,
+    currency: session.currency || option.currency,
     status: "pending"
   }, { onConflict: "stripe_session_id" });
   if (paymentWrite.error) {
@@ -938,7 +1055,7 @@ export async function createItineraryCheckoutSession(
     await markTripAsQaTester(supabase, user.id, tripId, { qa_checkout_kind: "itinerary" });
     return { ok: true as const, alreadyUnlocked: true, tester: true as const, url: `/trip/${tripId}` };
   }
-  return createCheckoutSession(supabase, user, tripId, "itinerary_unlock");
+  return createCheckoutSession(supabase, user, tripId, "itinerary_unlock", editable.trip);
 }
 
 export async function createTrackingCheckoutSession(
@@ -957,7 +1074,7 @@ export async function createTrackingCheckoutSession(
   if (tripHasTrackingUnlock(locked.trip)) {
     return { ok: true as const, alreadyUnlocked: true, url: `/trip/${tripId}/live` };
   }
-  return createCheckoutSession(supabase, user, tripId, "tracking_addon");
+  return createCheckoutSession(supabase, user, tripId, "tracking_addon", locked.trip);
 }
 
 export const createFeaturesCheckoutSession = createTrackingCheckoutSession;
@@ -985,7 +1102,7 @@ export async function createBundleCheckoutSession(
     await unlockLiveCompanion(writer, tripId, "admin");
     return { ok: true as const, alreadyUnlocked: true, tester: true as const, url: `/trip/${tripId}` };
   }
-  return createCheckoutSession(supabase, user, tripId, "bundle");
+  return createCheckoutSession(supabase, user, tripId, "bundle", editable.trip);
 }
 
 export const createCompleteTripCheckoutSession = createBundleCheckoutSession;
@@ -1001,13 +1118,18 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
 
   const tripResult = await supabase
     .from("roamly_trips")
-    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked,live_companion_unlocked")
+    .select("id,user_id,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked,live_companion_unlocked,metadata")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();
 
   if (tripResult.error) return { ok: false, error: tripResult.error.message };
   if (!tripResult.data) return { ok: false, error: "Trip not found for checkout session." };
+
+  // Fallbacks only: a completed checkout session always carries amount_total
+  // and currency. Resolving them from the trip keeps a PH purchase's ledger
+  // rows in pesos even if Stripe ever omits them.
+  const fallbackOption = getPurchaseOption(purchaseType, tripResult.data);
 
   const tripAlreadyLocked = isTripLocked(tripResult.data);
   const update: Record<string, unknown> = {};
@@ -1066,8 +1188,8 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
       user_id: userId,
       trip_id: tripId,
       purchase_type: purchaseType,
-      amount_cents: session.amount_total || getPurchaseOption(purchaseType).amount,
-      currency: session.currency || roamlyConfig.currency,
+      amount_cents: session.amount_total || fallbackOption.amount,
+      currency: session.currency || fallbackOption.currency,
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: paymentIntentId(session),
       stripe_subscription_id: stripeObjectId(session.subscription),
@@ -1085,8 +1207,8 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
       trip_id: tripId,
       stripe_session_id: session.id,
       stripe_payment_intent: paymentIntentId(session),
-      amount: session.amount_total || getPurchaseOption(purchaseType).amount,
-      currency: session.currency || roamlyConfig.currency,
+      amount: session.amount_total || fallbackOption.amount,
+      currency: session.currency || fallbackOption.currency,
       status: session.payment_status
     },
     { onConflict: "stripe_session_id" }
@@ -1105,8 +1227,8 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     metadata: {
       tripId,
       purchaseType,
-      amountCents: session.amount_total || getPurchaseOption(purchaseType).amount,
-      currency: session.currency || roamlyConfig.currency,
+      amountCents: session.amount_total || fallbackOption.amount,
+      currency: session.currency || fallbackOption.currency,
       checkoutSessionId: session.id
     }
   });

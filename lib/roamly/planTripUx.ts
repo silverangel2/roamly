@@ -1,6 +1,7 @@
 import { calculateTripDateRange, shiftIsoDate } from "@/lib/roamly/dateUtils";
 
 export const ITINERARY_UNLOCK_PRICE = "$4.99 CAD";
+export const ITINERARY_UNLOCK_PRICE_PHP = "₱99";
 export const PLAN_START_NOTE = `Free to start. Another trip is ${ITINERARY_UNLOCK_PRICE}.`;
 
 export const PLAN_PREFERENCE_DEFAULTS = {
@@ -118,8 +119,11 @@ export function planEntitlementCopy(input: {
   signedIn: boolean;
   freeItineraryUsed: boolean;
   testerAccess?: boolean;
+  // Philippines plan context: the traveler's selected destination country.
+  // Defaults to the CAD price set when absent — never guessed.
+  isPhilippinesTrip?: boolean;
 }): PlanEntitlementCopy {
-  const price = ITINERARY_UNLOCK_PRICE;
+  const price = input.isPhilippinesTrip ? ITINERARY_UNLOCK_PRICE_PHP : ITINERARY_UNLOCK_PRICE;
   if (!input.signedIn) {
     return {
       stepNote: `Free to start — no account needed for one itinerary. Saving it needs an account. Another trip is ${price}.`,

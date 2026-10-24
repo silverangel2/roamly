@@ -12,6 +12,9 @@ type ActivateTripButtonProps = {
   showItineraryUnlock?: boolean;
   testerAccess?: boolean;
   apiAuthToken?: string;
+  // Server-resolved from the trip's stored metadata (see the trip page) — never
+  // guessed on the client. Philippines trips show the ₱ price set; all others CAD.
+  isPhilippinesTrip?: boolean;
 };
 
 export function ActivateTripButton({
@@ -20,7 +23,8 @@ export function ActivateTripButton({
   trackingUnlocked = false,
   showItineraryUnlock = true,
   testerAccess = false,
-  apiAuthToken = ""
+  apiAuthToken = "",
+  isPhilippinesTrip = false
 }: ActivateTripButtonProps) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<CheckoutKind | "">("");
@@ -96,7 +100,7 @@ export function ActivateTripButton({
             disabled={Boolean(busy)}
             className="w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-400 px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-400/20 transition hover:from-orange-300 hover:to-rose-300 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
-            {busy === "complete" ? "Opening secure checkout..." : "Complete Trip Pack — $7.99 CAD"}
+            {busy === "complete" ? "Opening secure checkout..." : isPhilippinesTrip ? "Complete Trip Pack — ₱149" : "Complete Trip Pack — $7.99 CAD"}
           </button>
           <button
             type="button"
@@ -104,7 +108,7 @@ export function ActivateTripButton({
             disabled={Boolean(busy)}
             className="w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-ink ring-1 ring-cloud transition hover:ring-ocean disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
-            {busy === "itinerary" ? "Opening secure checkout..." : "Unlock itinerary — $4.99 CAD"}
+            {busy === "itinerary" ? "Opening secure checkout..." : isPhilippinesTrip ? "Unlock itinerary — ₱99" : "Unlock itinerary — $4.99 CAD"}
           </button>
           <p className="px-1 text-xs font-medium leading-4 text-slate-500">
             One-time payment. No subscription.
@@ -118,7 +122,7 @@ export function ActivateTripButton({
             disabled={Boolean(busy)}
             className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
-            {busy === "tracking" ? "Opening secure checkout..." : "Add Live Companion — $3.99 CAD"}
+            {busy === "tracking" ? "Opening secure checkout..." : isPhilippinesTrip ? "Add Live Companion — ₱79" : "Add Live Companion — $3.99 CAD"}
           </button>
           <p className="px-1 text-xs font-medium leading-4 text-slate-500">
             Adds live reminders and trip guidance.

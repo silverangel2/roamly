@@ -29,6 +29,9 @@ export const roamlyConfig = {
   itineraryUnlockPriceCents: 499,
   trackingAddonPriceCents: 399,
   tripBundlePriceCents: 799,
+  phpItineraryUnlockPriceCents: 9900,
+  phpTrackingAddonPriceCents: 7900,
+  phpTripBundlePriceCents: 14900,
   itineraryUnlockPriceId:
     process.env.ROAMLY_STRIPE_ITINERARY_PRICE_ID ||
     process.env.ROAMLY_STRIPE_ITINERARY_UNLOCK_PRICE_ID ||
@@ -42,6 +45,9 @@ export const roamlyConfig = {
     process.env.ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID ||
     process.env.ROAMLY_STRIPE_TRIP_BUNDLE_PRICE_ID ||
     "",
+  itineraryUnlockPriceIdPhp: process.env.ROAMLY_STRIPE_ITINERARY_PRICE_ID_PHP || "",
+  trackingAddonPriceIdPhp: process.env.ROAMLY_STRIPE_FEATURES_PRICE_ID_PHP || "",
+  tripBundlePriceIdPhp: process.env.ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID_PHP || "",
   vapidPublicKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
   notificationCronSecret: process.env.ROAMLY_NOTIFICATION_CRON_SECRET || "",
   affiliates: {
