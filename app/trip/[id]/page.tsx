@@ -48,6 +48,7 @@ import { TripHashSync } from "@/components/roamly/TripContextNav";
 import { HouseAdSlot } from "@/components/roamly/HouseAdCard";
 import { CustomizeYourTrip } from "@/components/roamly/CustomizeYourTrip";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
+import { isPhilippinesTrip } from "@/lib/roamly/billing";
 import { isEmailConfigured } from "@/lib/roamly/email";
 import { affiliateDisclosure, enrichItineraryBookingSuggestions, klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { flightMarketFreshness } from "@/lib/roamly/selectedFlightIdentity";
@@ -282,7 +283,8 @@ function PrimaryTripAction({
   paidForItinerary,
   freeAvailable,
   testerAccess,
-  apiAuthToken
+  apiAuthToken,
+  isPhilippinesTrip
 }: {
   tripId: string;
   itineraryLocked: boolean;
@@ -292,6 +294,7 @@ function PrimaryTripAction({
   freeAvailable: boolean;
   testerAccess: boolean;
   apiAuthToken: string;
+  isPhilippinesTrip: boolean;
 }) {
   if (generationInProgress) {
     return (
@@ -315,6 +318,7 @@ function PrimaryTripAction({
           showItineraryUnlock={false}
           testerAccess={testerAccess}
           apiAuthToken={apiAuthToken}
+          isPhilippinesTrip={isPhilippinesTrip}
         />
       </div>
     );
@@ -354,6 +358,7 @@ function PrimaryTripAction({
         trackingUnlocked={false}
         testerAccess={testerAccess}
         apiAuthToken={apiAuthToken}
+        isPhilippinesTrip={isPhilippinesTrip}
       />
     </div>
   );
@@ -2584,6 +2589,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                   freeAvailable={freeAvailable}
                   testerAccess={access.hasQaAccess}
                   apiAuthToken={apiAuthToken}
+                  isPhilippinesTrip={isPhilippinesTrip(trip)}
                 />
               ) : null}
               {canShowFull ? (
