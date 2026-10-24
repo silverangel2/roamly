@@ -28,6 +28,7 @@
     "test:market-search-request": "node --experimental-strip-types scripts/roamly-market-search-request-checks.mjs",
     "test:market-search-quota": "node --experimental-strip-types scripts/roamly-market-search-quota-checks.mjs",
     "test:klook-affiliate-links": "node --experimental-strip-types scripts/roamly-klook-affiliate-link-checks.mjs",
+    "test:philippines-pack": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-philippines-pack-checks.mjs",
     "test:specialist-money-missions": "node --experimental-strip-types scripts/roamly-specialist-money-missions-checks.mjs",
     "test:seo-traffic-money": "node scripts/roamly-seo-traffic-money-checks.mjs",
     "test:autopost-money": "node scripts/roamly-autopost-money-checks.mjs",

@@ -45,6 +45,7 @@ import {
 } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { TripHashSync } from "@/components/roamly/TripContextNav";
+import { HouseAdSlot } from "@/components/roamly/HouseAdCard";
 import { CustomizeYourTrip } from "@/components/roamly/CustomizeYourTrip";
 import { confirmCheckoutSessionForTrip } from "@/lib/payments";
 import { isEmailConfigured } from "@/lib/roamly/email";
@@ -2596,6 +2597,10 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         </section>
 
         <TripHashSync focusAnchor={focusAnchor} />
+
+        <div className="mt-6">
+          <HouseAdSlot context="trip" placement="trip" />
+        </div>
 
         {canShowFull && full && !generationPanelVisible ? (
           <div className="mt-4">
