@@ -10,6 +10,10 @@ import {
   type GuestItineraryDayView,
   type GuestItineraryStatus
 } from "@/lib/roamly/guestItineraryView";
+import {
+  guestGenerationStatusLines,
+  type GuestGenerationStatus
+} from "@/lib/roamly/guestGenerationStatus";
 import { presentTravelerTitle, punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
 
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
@@ -25,6 +29,7 @@ type GuestItineraryResponse = {
   flights: GuestBookingCard[];
   experiences: GuestBookingCard[];
   essentials: GuestBookingCard[];
+  generationStatus?: GuestGenerationStatus;
 };
 
 function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
@@ -60,6 +65,20 @@ function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
 
 function planAuthUrl(pathname: "/login" | "/signup") {
   return `${pathname}?next=${encodeURIComponent(PLAN_RESUME_PATH)}`;
+}
+
+// Clock time in the traveler's own locale for the pack-wait outer bound
+// (e.g. "2:35 PM"). Returns null for a missing or unparseable deadline, and
+// the status lines then fall back to the outer-bound duration in words.
+function formatDeadlineLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  try {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } catch {
+    return null;
+  }
 }
 
 export function GuestFreeItinerary() {
@@ -102,6 +121,13 @@ export function GuestFreeItinerary() {
     };
   }, []);
 
+  const generationLines = itinerary?.generationStatus
+    ? guestGenerationStatusLines(
+        itinerary.generationStatus,
+        formatDeadlineLabel(itinerary.generationStatus.packWaitDeadlineAt)
+      )
+    : null;
+
   return (
     <section data-guest-free-itinerary className="rounded-[1.75rem] border border-cloud bg-white p-4 shadow-soft sm:p-6">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Free itinerary")}</p>
@@ -114,14 +140,33 @@ export function GuestFreeItinerary() {
       {error ? <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{translateText(error)}</p> : null}
       {!itinerary && !error ? <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{translateText("Loading your free itinerary...")}</p> : null}
       {itinerary?.status === "building" ? (
-        <p className="mt-4 text-sm font-bold leading-6 text-slate-600">
-          {translateText("Roamly is building your free itinerary. Completed days appear here as they are ready.")}
-        </p>
+        <div className="mt-4">
+          {generationLines ? (
+            <>
+              <p className="text-sm font-bold leading-6 text-slate-600">{translateText(generationLines.headline)}</p>
+              {generationLines.detail ? (
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(generationLines.detail)}</p>
+              ) : null}
+              {generationLines.estimate ? (
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(generationLines.estimate)}</p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-sm font-bold leading-6 text-slate-600">
+              {translateText("Roamly is building your free itinerary. Completed days appear here as they are ready.")}
+            </p>
+          )}
+        </div>
       ) : null}
       {itinerary?.status === "failed" ? (
-        <p className="mt-4 text-sm font-bold leading-6 text-slate-600">
-          {translateText("Roamly could not finish this free itinerary.")}
-        </p>
+        <div className="mt-4">
+          <p className="text-sm font-bold leading-6 text-slate-600">
+            {translateText("Roamly could not finish this free itinerary.")}
+          </p>
+          {generationLines?.detail ? (
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(generationLines.detail)}</p>
+          ) : null}
+        </div>
       ) : null}
 
       {itinerary?.days.length ? (
