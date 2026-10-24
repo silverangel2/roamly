@@ -67,11 +67,18 @@ function BookingIcon({ type }: { type: TripBookingType }) {
   );
 }
 
+function walletTimeZone(value?: string | null) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value || "UTC" });
+    return value || "UTC";
+  } catch { return "UTC"; }
+}
+
 function formatDateTime(value: string | null, locale: RoamlyLocale, timeZone?: string | null) {
   if (!value) return "Date not set";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Date not set";
-  return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: timeZone || "UTC", timeZoneName: "short" });
+  return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: walletTimeZone(timeZone), timeZoneName: "short" });
 }
 
 function formatDateRange(booking: TripBookingRecord, locale: RoamlyLocale) {
@@ -82,7 +89,7 @@ function formatDateRange(booking: TripBookingRecord, locale: RoamlyLocale) {
   const startDate = new Date(start || "");
   const endDate = new Date(end);
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return formatDateTime(start, locale, booking.timezone);
-  const formatter = (date: Date) => formatRoamlyDate(date, locale, { month: "short", day: "numeric", timeZone: booking.timezone || "UTC" });
+  const formatter = (date: Date) => formatRoamlyDate(date, locale, { month: "short", day: "numeric", timeZone: walletTimeZone(booking.timezone) });
   return `${formatter(startDate)}-${formatter(endDate)}`;
 }
 
