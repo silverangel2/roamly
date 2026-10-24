@@ -471,7 +471,8 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     ),
 
     total_price: nullableMoney(input.totalPrice),
-    currency: normalizedCurrency(input.currency),
+    amount_cents: nullableMoney(input.totalPrice) == null ? null : Math.round(Number(input.totalPrice) * 100),
+    currency: normalizedCurrency(input.currency) || "XXX",
     taxes_and_fees: nullableMoney(input.taxesAndFees),
 
     cancellation_deadline: nullableTimestamp(

@@ -177,7 +177,7 @@ function stripHtml(value: string) {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
+    .replace(/[^\S\r\n]+/g, " ").replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -195,7 +195,7 @@ function gmailPartText(part?: GmailMessagePart | null): string[] {
 }
 
 function gmailMessageBodyText(message: GmailMessageMetadataResponse) {
-  return gmailPartText(message.payload).join("\n").replace(/\s+/g, " ").trim().slice(0, EMAIL_LOOKBACK_BODY_TEXT_LIMIT);
+  return gmailPartText(message.payload).join("\n").replace(/[^\S\r\n]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, EMAIL_LOOKBACK_BODY_TEXT_LIMIT);
 }
 
 function gmailFailureKind(response: Response, data: GmailHistoryResponse) {

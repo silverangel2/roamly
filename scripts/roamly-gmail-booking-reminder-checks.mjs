@@ -37,6 +37,9 @@ function loadReminderModule() {
         };
       }
       if (id === "@/lib/supabase/admin") return { createSupabaseAdminClient: () => null };
+      if (id === "@/lib/roamly/build2Flags") return { build2ReconciliationSilentEnabled: () => false };
+      if (id === "@/lib/roamly/gateMachine") return { GMAIL_CONSENT_SCOPE: "https://www.googleapis.com/auth/gmail.readonly" };
+      if (id === "@/lib/roamly/reconciliationLane") return { classifyBookingPattern: () => { throw new Error("Unexpected Build 2 lane call in legacy test"); } };
       return nodeRequire(id);
     },
     process,
@@ -59,6 +62,9 @@ function loadEmailConnectionModule() {
     module: { exports: {} },
     require(id) {
       if (id === "@/lib/supabase/admin") return { createSupabaseAdminClient: () => null };
+      if (id === "@/lib/roamly/build2Flags") return { build2ReconciliationSilentEnabled: () => false };
+      if (id === "@/lib/roamly/gateMachine") return { GMAIL_CONSENT_SCOPE: "https://www.googleapis.com/auth/gmail.readonly" };
+      if (id === "@/lib/roamly/reconciliationLane") return { classifyBookingPattern: () => { throw new Error("Unexpected Build 2 lane call in legacy test"); } };
       if (id === "@/lib/roamly/bookingExtraction") return { extractAndMatchTravelEmailBooking: async () => null };
       if (id === "@/lib/roamly/gmailDisconnect") return { revokeGoogleOAuthToken: async () => ({ ok: true }), stopGmailPushDelivery: async () => ({ ok: true }) };
       if (id === "@/lib/roamly/travelEmailFiltering") {
@@ -149,6 +155,7 @@ function fakeSupabaseForPreTripScheduler() {
   function builder(table) {
     const filters = [];
     let insertPayload = null;
+    let selectedRange = null;
     const api = {
       select() {
         return api;
@@ -193,6 +200,10 @@ function fakeSupabaseForPreTripScheduler() {
       limit() {
         return api;
       },
+      range(start, end) {
+        selectedRange = [start, end];
+        return api;
+      },
       maybeSingle() {
         return Promise.resolve({ data: null, error: null });
       },
@@ -219,7 +230,7 @@ function fakeSupabaseForPreTripScheduler() {
             return true;
           })
         );
-        return { data, error: null };
+        return { data: selectedRange ? data.slice(selectedRange[0], selectedRange[1] + 1) : data, error: null };
       }
       if (table === "roamly_bookings") {
         const tripId = filters.find((filter) => filter.op === "eq" && filter.column === "trip_id")?.value;

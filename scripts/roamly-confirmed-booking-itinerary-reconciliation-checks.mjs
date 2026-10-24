@@ -292,3 +292,9 @@ assert.equal(uncertainTransfer.routing_status, "UNCERTAIN", "missing current rou
 assert.equal(uncertainTransfer.travelTimeMinutes, undefined, "missing route evidence cannot retain an old duration");
 
 console.log("confirmed booking canonical itinerary reconciliation checks passed");
+
+const manila = applyConfirmedBookingOverrideToItinerary(baseItinerary([]), { ...hotel, start_at: "2026-10-10T07:00:00Z", metadata: { timezone: "Asia/Manila" } });
+assert.equal(manila.itinerary.daily_itinerary[0].live_timeline[0].startTime, "15:00", "confirmed hotel anchor uses its destination wall clock");
+const nearMidnight = applyConfirmedBookingOverrideToItinerary(baseItinerary([]), { ...hotel, start_at: "2026-10-09T17:00:00Z", metadata: { timezone: "Asia/Manila" } });
+assert.equal(nearMidnight.changed, true, "booking date uses Manila October 10 rather than UTC October 9");
+assert.equal(nearMidnight.itinerary.daily_itinerary[0].live_timeline[0].startTime, "01:00");

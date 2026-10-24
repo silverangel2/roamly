@@ -1,3 +1,4 @@
+import { hotelEmailFacts } from "@/lib/roamly/emailBookingFacts";
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -331,10 +332,11 @@ export function deterministicBookingExtraction(params: {
   const bookingTypes = asStringArray(facts.bookingTypes);
   const domain = senderDomain(params.metadata.sender);
   const providerHint = providerHintFromDomain(domain);
-  const provider = providerHint.provider || providerName(params.metadata, params.filter);
+  const hotelFacts = hotelEmailFacts(clean(params.metadata.bodyText) || clean(params.metadata.snippet));
+  const provider = providerHint.provider || hotelFacts.provider || providerName(params.metadata, params.filter);
   const bookingType = bookingTypeFromText(`${searchable} ${provider || ""}`, flightNumbers, bookingTypes, domain);
-  const startTime = dateTimeHintToIso(dateHints[0], timeHints[0]);
-  const endTime =
+  const startTime = bookingType === "hotel" && hotelFacts.hasLabelledDates ? hotelFacts.start : dateTimeHintToIso(dateHints[0], timeHints[0]);
+  const endTime = bookingType === "hotel" && hotelFacts.hasLabelledDates ? hotelFacts.end :
     dateHints[1] || timeHints[1]
       ? dateTimeHintToIso(dateHints[1] || dateHints[0], timeHints[1])
       : null;
@@ -351,7 +353,7 @@ export function deterministicBookingExtraction(params: {
       (startTime ? 0.1 : 0) +
       (eventTypes.length ? 0.05 : 0)
   );
-  const hotelName = extractNamedValue(searchable, ["hotel", "property", "accommodation"]);
+  const hotelName = hotelFacts.name || extractNamedValue(searchable, ["hotel", "property", "accommodation"]);
   const activityName = extractNamedValue(searchable, ["activity", "experience", "tour", "ticket", "voucher"]);
   const route = extractRouteFromText(searchable);
   const originName =
@@ -359,7 +361,7 @@ export function deterministicBookingExtraction(params: {
     route.origin ||
     null;
   const destinationName =
-    cleanLocationValue(extractNamedValue(searchable, ["destination", "arrival city", "arrival", "dropoff", "drop-off"])) ||
+    hotelFacts.destination || cleanLocationValue(extractNamedValue(searchable, ["destination", "arrival city", "arrival", "dropoff", "drop-off"])) ||
     route.destination ||
     null;
   const terminal = bookingType === "flight" ? extractTerminal(searchable) || null : null;
@@ -379,9 +381,9 @@ export function deterministicBookingExtraction(params: {
     !startTime && status === "confirmed" ? "start_time" : "",
     bookingType === "flight" && !flightNumber ? "flight_number" : ""
   ].filter(Boolean);
-  const requiresUserApproval = requiresApprovalForEvent(eventTypes, bookingType, status);
+  const timezoneUnresolved = bookingType === "hotel" && hotelFacts.hasLabelledDates ? hotelFacts.unresolved : hasUnresolvedTimezone(dateHints[0], timeHints[0]);
+  const requiresUserApproval = requiresApprovalForEvent(eventTypes, bookingType, status) || timezoneUnresolved;
   const strongCancellationEvidence = hasStrongCancellationEvidence(params.metadata, confirmationCode, provider);
-  const timezoneUnresolved = hasUnresolvedTimezone(dateHints[0], timeHints[0]);
 
   return {
     extractionMethod: "deterministic",
@@ -412,7 +414,7 @@ export function deterministicBookingExtraction(params: {
     },
     booking: {
       bookingType,
-      bookingStatus: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0 ? status : "needs_confirmation",
+      bookingStatus: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0 && !requiresUserApproval ? status : "needs_confirmation",
       provider,
       confirmationCode,
       sourceType: "email",
@@ -421,6 +423,7 @@ export function deterministicBookingExtraction(params: {
       title,
       startTime,
       endTime,
+      ...(bookingType === "hotel" ? { checkInTime: startTime, checkOutTime: endTime, timezone: hotelFacts.timezone, totalPrice: hotelFacts.totalPrice, currency: hotelFacts.currency } : {}),
       origin: originName,
       destination: destinationName,
       locationName: bookingType === "hotel" ? hotelName || null : bookingType === "activity" ? activityName || null : null,
@@ -445,7 +448,7 @@ export function deterministicBookingExtraction(params: {
         gate,
         status
       }),
-      travelerConfirmed: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0,
+      travelerConfirmed: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0 && !requiresUserApproval,
       lastSyncedAt: new Date().toISOString()
     }
   };
@@ -704,15 +707,28 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
 
 async function bestTripMatch(supabase: SupabaseClient, userId: string, extraction: StructuredBookingExtraction) {
   const existing = await existingBookingTripMatch(supabase, userId, extraction).catch(() => null);
-  const { data } = await supabase
+  if (existing?.ambiguous) return null;
+  let query = supabase
     .from("roamly_trips")
     .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date")
     .eq("user_id", userId)
-    .neq("status", "archived")
-    .order("start_date", { ascending: true, nullsFirst: false })
-    .limit(20);
+    .neq("status", "archived");
+  if (existing) {
+    query = query.eq("id", existing.tripId);
+  } else {
+    const instant = new Date(extraction.booking.startTime || "");
+    if (!Number.isFinite(instant.getTime())) return null;
+    const earliest = new Date(instant.getTime() - 2 * 86400000).toISOString().slice(0, 10);
+    const latest = new Date(instant.getTime() + 2 * 86400000).toISOString().slice(0, 10);
+    query = query.lte("start_date", latest)
+      .or(`end_date.gte.${earliest},and(end_date.is.null,start_date.gte.${earliest})`);
+  }
+  // Bound the relevant date window, not the user's oldest trips. Overflow is
+  // unavailable evidence, never a reason to silently choose an incomplete set.
+  const { data, error } = await query.order("start_date", { ascending: true, nullsFirst: false }).limit(201);
+  if (error) throw new Error("Trip matching is temporarily unavailable.");
+  if ((data || []).length > 200) throw new Error("Too many overlapping trips for automatic matching.");
   const trips = (data || []) as TripMatchRecord[];
-  if (existing?.ambiguous) return null;
   if (existing) {
     const trip = trips.find((candidate) => candidate.id === existing.tripId);
     if (trip) return { trip, score: existing.score, reasons: existing.reasons, existingBookingId: existing.bookingId };

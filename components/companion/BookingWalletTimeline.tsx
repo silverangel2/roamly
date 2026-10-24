@@ -67,22 +67,22 @@ function BookingIcon({ type }: { type: TripBookingType }) {
   );
 }
 
-function formatDateTime(value: string | null, locale: RoamlyLocale) {
+function formatDateTime(value: string | null, locale: RoamlyLocale, timeZone?: string | null) {
   if (!value) return "Date not set";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Date not set";
-  return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return formatRoamlyDate(date, locale, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: timeZone || "UTC", timeZoneName: "short" });
 }
 
 function formatDateRange(booking: TripBookingRecord, locale: RoamlyLocale) {
   const start = booking.check_in_time || booking.start_time;
   const end = booking.check_out_time || booking.end_time;
   if (!start && !end) return "Date not set";
-  if (!end) return formatDateTime(start, locale);
+  if (!end) return formatDateTime(start, locale, booking.timezone);
   const startDate = new Date(start || "");
   const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return formatDateTime(start, locale);
-  const formatter = (date: Date) => formatRoamlyDate(date, locale, { month: "short", day: "numeric" });
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return formatDateTime(start, locale, booking.timezone);
+  const formatter = (date: Date) => formatRoamlyDate(date, locale, { month: "short", day: "numeric", timeZone: booking.timezone || "UTC" });
   return `${formatter(startDate)}-${formatter(endDate)}`;
 }
 
@@ -95,7 +95,7 @@ function routeLine(booking: TripBookingRecord) {
 
 function primaryDetail(booking: TripBookingRecord, locale: RoamlyLocale) {
   if (booking.booking_type === "hotel") return formatDateRange(booking, locale);
-  return formatDateTime(booking.start_time || booking.check_in_time, locale);
+  return formatDateTime(booking.start_time || booking.check_in_time, locale, booking.timezone);
 }
 
 function essentialReference(booking: TripBookingRecord) {

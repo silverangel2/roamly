@@ -11,6 +11,8 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 
 type BookingOverrideRecord = {
   id?: string | null;
+  timezone?: string | null;
+  metadata?: Record<string, unknown> | null;
   superseded_by_booking_id?: string | null;
   recommendation_id?: string | null;
   booking_type?: string | null;
@@ -58,9 +60,15 @@ function isoDate(value?: string | null) {
   return clean(value).slice(0, 10);
 }
 
-function minutesFromDate(value?: string | null) {
+function minutesFromDate(value?: string | null, timeZone?: string | null) {
   const date = parseDate(value);
   if (!date) return null;
+  if (timeZone) {
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(date).map(part => [part.type, part.value]));
+      return Number(p.hour) * 60 + Number(p.minute);
+    } catch { return null; }
+  }
   return date.getUTCHours() * 60 + date.getUTCMinutes();
 }
 
@@ -165,7 +173,14 @@ function bookingIsCurrent(booking: BookingOverrideRecord) {
 }
 
 function bookingDate(booking: BookingOverrideRecord) {
-  return isoDate(bookingStart(booking) || booking.end_time || booking.end_at);
+  const value = bookingStart(booking) || booking.end_time || booking.end_at;
+  const zone = clean(booking.timezone || booking.metadata?.timezone);
+  const date = parseDate(value);
+  if (zone && date) {
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(date); }
+    catch { return ""; }
+  }
+  return isoDate(value);
 }
 
 type TimelineRecord = RoamlyActivitySeed & Record<string, unknown>;
@@ -376,7 +391,7 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
   const title = clean(booking.title) || provider || "Confirmed reservation";
   const reference = clean(booking.confirmation_number) || clean((booking.reservation_requirements || {}).confirmation_number);
   const start = bookingStart(booking);
-  const startMinutes = minutesFromDate(start) ?? clockMinutes(existing?.startTime) ?? 9 * 60;
+  const startMinutes = minutesFromDate(start, clean(booking.timezone || booking.metadata?.timezone)) ?? clockMinutes(existing?.startTime) ?? 9 * 60;
   const item = {
     item_id: clean(existing?.item_id) || marker,
     time_label: start ? formatTimeLabel(startMinutes) : clean(existing?.time_label) || formatTimeLabel(startMinutes),
