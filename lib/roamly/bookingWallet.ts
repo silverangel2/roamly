@@ -980,6 +980,15 @@ export async function createTripBooking(params: {
   userId: string;
   tripId: string;
   input: TripBookingInput;
+  // B01: which segment-replacement RPC to call. "authenticated" (default) is
+  // the session-bound function: it raises unless p_user_id = auth.uid(), so
+  // user-session flows (manual booking, confirm, attach) keep working with
+  // their own id. "service" is the service-role-only function for trusted
+  // server flows (affiliate webhook, Gmail sync) that act on a booking
+  // owner's behalf without a user session. Never pass "service" from a
+  // user-session flow: the service function is unreachable from one, so the
+  // call would fail closed instead of silently taking the trusted path.
+  segmentReplacement?: "authenticated" | "service";
 }) {
   const ownership = await assertTripOwnership(
     params.supabase,
@@ -1165,16 +1174,22 @@ export async function createTripBooking(params: {
   // between), the booking survived with all of its segments silently gone.
   // roamly_replace_booking_segments performs the delete+insert in one
   // transaction and re-checks trip ownership inside the function.
+  // B01: the RPC is routed by params.segmentReplacement. The default
+  // authenticated function binds p_user_id to auth.uid() inside the database,
+  // so a caller can never name another owner's identifiers and pass; the
+  // service function is reserved for trusted server flows and is revoked
+  // from every user session.
   if (previousBooking || segments.length) {
-    const segmentReplace = await params.supabase.rpc(
-      "roamly_replace_booking_segments",
-      {
-        p_booking_id: String(savedRow.id),
-        p_user_id: params.userId,
-        p_trip_id: params.tripId,
-        p_segments: segments
-      }
-    );
+    const segmentRpc =
+      params.segmentReplacement === "service"
+        ? "roamly_replace_booking_segments_service"
+        : "roamly_replace_booking_segments";
+    const segmentReplace = await params.supabase.rpc(segmentRpc, {
+      p_booking_id: String(savedRow.id),
+      p_user_id: params.userId,
+      p_trip_id: params.tripId,
+      p_segments: segments
+    });
 
     if (segmentReplace.error) {
       return {

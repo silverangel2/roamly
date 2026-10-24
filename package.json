@@ -70,6 +70,7 @@
     "test:verified-companion-repair": "node scripts/roamly-verified-companion-repair-checks.mjs",
     "test:booking-outcome": "node scripts/roamly-booking-outcome-checks.mjs",
     "test:booking-closure": "node scripts/roamly-booking-closure-checks.mjs",
+    "test:booking-segment-auth": "node scripts/roamly-booking-segment-auth-checks.mjs",
     "test:booking-evidence-token": "node --experimental-strip-types scripts/roamly-booking-evidence-token-checks.mjs",
     "test:booking-supersession": "node --experimental-strip-types scripts/roamly-booking-supersession-checks.mjs",
     "test:hotel-inventory": "node --experimental-strip-types scripts/roamly-hotel-inventory-checks.mjs",
