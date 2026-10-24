@@ -3,6 +3,7 @@ import { recordTripEvent } from "@/lib/roamly/events";
 import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import { bookingTimestamp, bookingDate } from "@/lib/roamly/bookingDateTime";
 export { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 
 export const TRIP_BOOKING_TYPES = [
@@ -81,7 +82,11 @@ export type TripBookingInput = {
   title?: string | null;
   startTime?: string | null;
   endTime?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   timezone?: string | null;
+  departureTimezone?: string | null;
+  arrivalTimezone?: string | null;
   origin?: string | null;
   destination?: string | null;
   locationName?: string | null;
@@ -130,6 +135,8 @@ export type TripBookingRecord = {
   title: string;
   start_time: string | null;
   end_time: string | null;
+  start_date: string | null;
+  end_date: string | null;
   timezone: string | null;
   origin: string | null;
   destination: string | null;
@@ -216,6 +223,26 @@ function nullableTimestamp(value: unknown) {
   if (!text) return null;
   const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+// Zone-aware instant conversion for NEW booking writes (B04 fix).
+// Offset-bearing strings parse directly. Offset-free wall clocks convert
+// ONLY with an explicit IANA zone; without one no instant is fabricated
+// (the date-only fields preserve the calendar date instead). This replaces
+// the old server-timezone parse for write paths: on Vercel, `new Date` of
+// an offset-free string silently meant UTC. Legacy/read paths keep using
+// nullableTimestamp so already-stored rows keep reading as before.
+// NOTE: the trip's own metadata timezone is deliberately NOT used as a
+// fallback here — it defaults to "UTC" when absent, which would just
+// reintroduce the silent-UTC fabrication for most trips.
+function convertBookingTimestamp(value: unknown, timeZone?: string | null) {
+  const text = clean(value);
+  if (!text) return null;
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return bookingTimestamp(text, timeZone);
 }
 
 function nullableMoney(value: unknown) {
@@ -391,6 +418,8 @@ export function serializeTripBookingRecord(
     title: nullableText(row.title) || "Trip booking",
     start_time: typeof row.start_at === "string" ? row.start_at : null,
     end_time: typeof row.end_at === "string" ? row.end_at : null,
+    start_date: typeof row.start_date === "string" ? row.start_date : null,
+    end_date: typeof row.end_date === "string" ? row.end_date : null,
     timezone: typeof metadata.timezone === "string" ? metadata.timezone : null,
     origin: nullableText(row.origin),
     destination: nullableText(row.destination),
@@ -437,6 +466,16 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     travelerConfirmed ||
     confirmedStatuses.has(bookingStatus);
 
+  // B04: booking times convert with the caller's explicit zone only.
+  // Date-only facts persist as dates (start_date/end_date) even when no
+  // instant can honestly be established. The start clock belongs to the
+  // departure zone and the end clock to the arrival zone; both fall back
+  // to the single booking zone when no leg zone is given, so hotel and
+  // activity writes (which carry only `timezone`) behave unchanged.
+  const zone = nullableText(input.timezone);
+  const departureZone = nullableText(input.departureTimezone) || zone;
+  const arrivalZone = nullableText(input.arrivalTimezone) || zone;
+
   return {
     booking_type: canonicalBookingType(bookingType),
     booking_status: canonicalBookingStatus(
@@ -451,8 +490,10 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     source_type: normalizedSourceType(input.sourceType),
     title,
 
-    start_at: nullableTimestamp(input.startTime),
-    end_at: nullableTimestamp(input.endTime),
+    start_at: convertBookingTimestamp(input.startTime, departureZone),
+    end_at: convertBookingTimestamp(input.endTime, arrivalZone),
+    start_date: bookingDate(input.startDate),
+    end_date: bookingDate(input.endDate),
 
     origin: nullableText(input.origin),
     destination: nullableText(input.destination),
@@ -463,8 +504,8 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     gate: nullableText(input.gate),
 
     room_type: nullableText(input.roomType),
-    check_in_at: nullableTimestamp(input.checkInTime),
-    check_out_at: nullableTimestamp(input.checkOutTime),
+    check_in_at: convertBookingTimestamp(input.checkInTime, zone),
+    check_out_at: convertBookingTimestamp(input.checkOutTime, zone),
 
     reservation_requirements: safeJson(
       input.reservationRequirements
@@ -475,8 +516,9 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     currency: normalizedCurrency(input.currency) || "XXX",
     taxes_and_fees: nullableMoney(input.taxesAndFees),
 
-    cancellation_deadline: nullableTimestamp(
-      input.cancellationDeadline
+    cancellation_deadline: convertBookingTimestamp(
+      input.cancellationDeadline,
+      zone
     ),
     cancellation_terms: nullableText(
       input.cancellationTerms
@@ -497,6 +539,8 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
         sourceReference: nullableText(input.sourceReference)
       }),
       timezone: nullableText(input.timezone),
+      departureTimezone: nullableText(input.departureTimezone),
+      arrivalTimezone: nullableText(input.arrivalTimezone),
       locationName: nullableText(input.locationName),
       coordinates:
         input.coordinates &&
@@ -510,14 +554,23 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
   };
 }
 
-export function normalizeBookingSegments(segments: BookingSegmentInput[] | null | undefined) {
+export function normalizeBookingSegments(
+  segments: BookingSegmentInput[] | null | undefined,
+  zones?: {
+    timeZone?: string | null;
+    departureTimeZone?: string | null;
+    arrivalTimeZone?: string | null;
+  }
+) {
+  const departureZone = zones?.departureTimeZone || zones?.timeZone || null;
+  const arrivalZone = zones?.arrivalTimeZone || zones?.timeZone || null;
   return (segments || [])
     .map((segment, index) => ({
       sequence: Math.max(1, Math.round(Number(segment.sequence) || index + 1)),
       origin: nullableText(segment.origin),
       destination: nullableText(segment.destination),
-      departure_time: nullableTimestamp(segment.departureTime),
-      arrival_time: nullableTimestamp(segment.arrivalTime),
+      departure_time: convertBookingTimestamp(segment.departureTime, departureZone),
+      arrival_time: convertBookingTimestamp(segment.arrivalTime, arrivalZone),
       provider: nullableText(segment.provider),
       service_number: nullableText(segment.serviceNumber),
       terminal: nullableText(segment.terminal),
@@ -788,7 +841,12 @@ async function findMatchingCanonicalBooking(params: {
   userId: string;
   tripId: string;
   booking: Record<string, unknown>;
-}) {
+}): Promise<{
+  booking: Record<string, unknown> | null;
+  error: string | null;
+  ambiguous?: boolean;
+  candidates?: Record<string, unknown>[];
+}> {
   const base = () =>
     params.supabase
       .from("roamly_bookings")
@@ -810,28 +868,46 @@ async function findMatchingCanonicalBooking(params: {
     if (result.data) return { booking: result.data as Record<string, unknown>, error: null };
   }
 
+  // B03: a provider identifier is an identity ONLY within its provider
+  // and booking type. Two different providers — or a flight and a hotel —
+  // may legitimately share one confirmation string; matching on the string
+  // alone let the second import overwrite the first. Identifier matches
+  // are therefore scoped by provider_name and booking_type (the normalized
+  // booking carries canonical types, the same values stored rows carry,
+  // so scoping is consistent; a legacy row with a non-canonical type
+  // simply misses and inserts instead of overwriting — the safe side).
+  // When a scoped identifier still matches more than one row, the match
+  // is ambiguous: the caller inserts a new needs-review row instead of
+  // overwriting any existing reservation.
+  const providerName = textValue(params.booking.provider_name);
+  const bookingType = textValue(params.booking.booking_type);
+  async function scopedIdentifierMatch(column: string, value: string, extra?: Array<[string, string]>) {
+    let query = base().eq(column, value);
+    if (providerName) query = query.eq("provider_name", providerName);
+    if (bookingType) query = query.eq("booking_type", bookingType);
+    for (const [extraColumn, extraValue] of extra || []) {
+      query = query.eq(extraColumn, extraValue);
+    }
+    const result = await query.order("created_at", { ascending: false }).limit(2);
+    if (result.error) return { rows: null as Record<string, unknown>[] | null, error: result.error.message };
+    return { rows: (result.data || []) as Record<string, unknown>[], error: null };
+  }
+  function scopedResult(match: { rows: Record<string, unknown>[] | null; error: string | null }) {
+    if (match.error) return { booking: null as Record<string, unknown> | null, error: match.error };
+    if (!match.rows || match.rows.length === 0) return null;
+    if (match.rows.length > 1) {
+      return { booking: null as Record<string, unknown> | null, error: null, ambiguous: true, candidates: match.rows };
+    }
+    return { booking: match.rows[0], error: null };
+  }
+
   const providerBookingId = textValue(
     params.booking.provider_booking_id
   );
 
   if (providerBookingId) {
-    const result = await base()
-      .eq("provider_booking_id", providerBookingId)
-      .maybeSingle();
-
-    if (result.error) {
-      return {
-        booking: null,
-        error: result.error.message
-      };
-    }
-
-    if (result.data) {
-      return {
-        booking: result.data as Record<string, unknown>,
-        error: null
-      };
-    }
+    const matched = scopedResult(await scopedIdentifierMatch("provider_booking_id", providerBookingId));
+    if (matched) return matched;
   }
 
   const confirmationNumber = textValue(
@@ -839,47 +915,16 @@ async function findMatchingCanonicalBooking(params: {
   );
 
   if (confirmationNumber) {
-    const result = await base()
-      .eq("confirmation_number", confirmationNumber)
-      .maybeSingle();
-
-    if (result.error) {
-      return {
-        booking: null,
-        error: result.error.message
-      };
-    }
-
-    if (result.data) {
-      return {
-        booking: result.data as Record<string, unknown>,
-        error: null
-      };
-    }
+    const matched = scopedResult(await scopedIdentifierMatch("confirmation_number", confirmationNumber));
+    if (matched) return matched;
   }
 
   const title = textValue(params.booking.title);
   const startAt = textValue(params.booking.start_at);
 
   if (title && startAt) {
-    const result = await base()
-      .eq("title", title)
-      .eq("start_at", startAt)
-      .maybeSingle();
-
-    if (result.error) {
-      return {
-        booking: null,
-        error: result.error.message
-      };
-    }
-
-    if (result.data) {
-      return {
-        booking: result.data as Record<string, unknown>,
-        error: null
-      };
-    }
+    const matched = scopedResult(await scopedIdentifierMatch("title", title, [["start_at", startAt]]));
+    if (matched) return matched;
   }
 
   return {
@@ -1010,7 +1055,21 @@ export async function createTripBooking(params: {
     };
   }
 
-  const previousBooking = match.booking;
+  // B03: a genuinely ambiguous identifier match never overwrites an
+  // existing reservation. It inserts as a new needs-review row instead
+  // (status unknown, unconfirmed, flagged in metadata) for a human to
+  // resolve — a customer assertion is never turned into a provider
+  // confirmation by matching alone.
+  const ambiguousMatch = match.ambiguous === true;
+  const previousBooking = ambiguousMatch ? null : match.booking;
+  const writeBooking = ambiguousMatch
+    ? {
+        ...booking,
+        booking_status: "unknown",
+        traveler_confirmed: false,
+        metadata: { ...booking.metadata, ambiguousMatch: true }
+      }
+    : booking;
 
   if (previousBooking) {
     const previousStatus = clean(previousBooking.booking_status);
@@ -1059,7 +1118,7 @@ export async function createTripBooking(params: {
       : await params.supabase
         .from("roamly_bookings")
         .update({
-          ...booking,
+          ...writeBooking,
           updated_at: new Date().toISOString()
         })
         .eq("id", String(previousBooking.id))
@@ -1069,7 +1128,7 @@ export async function createTripBooking(params: {
     : await params.supabase
         .from("roamly_bookings")
         .insert({
-          ...booking,
+          ...writeBooking,
           user_id: params.userId,
           trip_id: params.tripId,
           source_connection_id: params.input.reconciliation?.connectionId || null,
@@ -1156,16 +1215,29 @@ export async function createTripBooking(params: {
   const createdBooking =
     serializeTripBookingRecord(savedRow);
 
-  const segments = normalizeBookingSegments(
-    params.input.segments
-  );
+  // B06: an OMITTED segment field preserves existing segments; only an
+  // explicitly supplied list (including an explicit empty list) replaces
+  // them. The distinction lives here and at the route, which passes
+  // undefined for an absent field: normalizeBookingSegments alone cannot
+  // tell omission from an empty list, since it normalizes both to [].
+  // The RPC itself stays atomic (delete+insert in one transaction); the
+  // parent write and the segment replace remain two statements, so on an
+  // RPC failure the parent update stands but the OLD segments are intact
+  // (preserved, not deleted) — the safe direction. True single-transaction
+  // parent+segments atomicity would need a wrapping RPC and is out of scope.
+  const segmentsExplicit = params.input.segments !== undefined && params.input.segments !== null;
+  const segments = normalizeBookingSegments(params.input.segments, {
+    timeZone: typeof booking.metadata.timezone === "string" ? booking.metadata.timezone : null,
+    departureTimeZone: typeof booking.metadata.departureTimezone === "string" ? booking.metadata.departureTimezone : null,
+    arrivalTimeZone: typeof booking.metadata.arrivalTimezone === "string" ? booking.metadata.arrivalTimezone : null
+  });
 
   // CA3 FIX A — atomic segment replacement. The previous delete-then-insert ran
   // as two separate statements: if the insert failed (deploy, restart, crash in
   // between), the booking survived with all of its segments silently gone.
   // roamly_replace_booking_segments performs the delete+insert in one
   // transaction and re-checks trip ownership inside the function.
-  if (previousBooking || segments.length) {
+  if ((previousBooking && segmentsExplicit) || (!previousBooking && segments.length)) {
     const segmentReplace = await params.supabase.rpc(
       "roamly_replace_booking_segments",
       {
@@ -1254,7 +1326,7 @@ export async function createTripBooking(params: {
     eventType: "booking_wallet_updated",
     eventTitle: previousBooking
       ? "Booking updated"
-      : booking.traveler_confirmed
+      : writeBooking.traveler_confirmed
         ? "Booking confirmed"
         : "Booking added",
     eventBody: previousBooking
@@ -1262,9 +1334,9 @@ export async function createTripBooking(params: {
       : `${booking.title} was added to the Booking Wallet.`,
     metadata: {
       bookingId: savedRow.id,
-      bookingType: booking.booking_type,
-      bookingStatus: booking.booking_status,
-      sourceType: booking.source_type,
+      bookingType: writeBooking.booking_type,
+      bookingStatus: writeBooking.booking_status,
+      sourceType: writeBooking.source_type,
       meaningfulChange: change?.eventType || null,
       companionTriggered: Boolean(change),
       itineraryOverrideChanged:
@@ -1279,6 +1351,7 @@ export async function createTripBooking(params: {
     meaningfulChange: change?.eventType || null,
     itineraryOverride,
     created: !previousBooking,
+    ambiguousMatch,
     error: null
   };
 }
@@ -1353,6 +1426,8 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
             `${endDate}${endTime ? `T${endTime}` : "T00:00:00"}`
           )
         : null),
+    start_date: startDate,
+    end_date: endDate,
     timezone: null,
     origin: nullableText(record.origin),
     destination: nullableText(record.destination),

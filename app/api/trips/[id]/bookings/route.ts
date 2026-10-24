@@ -27,7 +27,12 @@ function jsonObject(body: Record<string, unknown>, camel: string, snake?: string
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-function segmentInput(value: unknown): BookingSegmentInput[] {
+// B06: an ABSENT segments field maps to undefined (preserve existing
+// segments), while an explicit [] maps to [] (replace with empty). The old
+// code mapped both to [], so every segment-less update silently deleted
+// all existing segments.
+function segmentInput(value: unknown): BookingSegmentInput[] | undefined {
+  if (value === undefined || value === null) return undefined;
   if (!Array.isArray(value)) return [];
   return value.map((item, index) => {
     const segment = record(item);
@@ -64,7 +69,11 @@ function bookingInput(body: Record<string, unknown>): TripBookingInput {
     title: text(body, "title"),
     startTime: text(body, "startTime", "start_time"),
     endTime: text(body, "endTime", "end_time"),
+    startDate: text(body, "startDate", "start_date"),
+    endDate: text(body, "endDate", "end_date"),
     timezone: text(body, "timezone"),
+    departureTimezone: text(body, "departureTimezone", "departure_timezone"),
+    arrivalTimezone: text(body, "arrivalTimezone", "arrival_timezone"),
     origin: text(body, "origin"),
     destination: text(body, "destination"),
     locationName: text(body, "locationName", "location_name"),
