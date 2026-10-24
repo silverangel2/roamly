@@ -584,14 +584,12 @@ function tripDateScore(trip: TripMatchRecord, startTime?: string | null) {
 }
 
 function tripTextScore(trip: TripMatchRecord, extraction: StructuredBookingExtraction) {
-  const destination = [trip.destination, trip.destination_name, trip.destination_city, trip.title].map(clean).filter(Boolean).join(" ").toLowerCase();
-  const bookingText = [extraction.booking.destination, extraction.booking.locationName, extraction.booking.title].map(clean).filter(Boolean).join(" ").toLowerCase();
-  if (!destination || !bookingText) return 0;
-  const matched = destination
-    .split(/\W+/)
-    .filter((word) => word.length >= 4)
-    .some((word) => bookingText.includes(word))
-  return matched ? 0.3 : 0;
+  const normalize = (value: string) => value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const city = normalize(clean(trip.destination_city) || clean(trip.destination_name || trip.destination).split(",")[0]);
+  const bookingText = normalize([extraction.booking.destination, extraction.booking.locationName, extraction.booking.title].map(clean).filter(Boolean).join(" "));
+  if (!city || !bookingText) return 0;
+  // Country names and generic trip titles are not destination identity.
+  return ` ${bookingText} `.includes(` ${city} `) ? 0.3 : 0;
 }
 
 export function scoreTripForEmailLookbackMatch(

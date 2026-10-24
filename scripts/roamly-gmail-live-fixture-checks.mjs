@@ -57,3 +57,6 @@ saved=[];
 const ambiguous=await compiled.exports.extractAndMatchTravelEmailBooking({...params,supabase:database([...old,target,{...target,id:'second-match'}])});assert.equal(ambiguous.status,'unmatched');assert.equal(saved.length,0);
 await assert.rejects(()=>compiled.exports.extractAndMatchTravelEmailBooking({...params,supabase:database([target],true)}),/temporarily unavailable/);
 console.log('PASS: orchestration finds a current owned trip beyond 25 old trips, rejects tied matches and surfaces database failure.');
+
+const boracayExtraction=deterministicBookingExtraction({metadata,filter:filterTravelEmail(metadata)});
+assert.equal(compiled.exports.scoreTripForEmailLookbackMatch({...target,destination_name:'Manila, Philippines'},boracayExtraction,2).reasons.includes('destination_text_match'),false,'sharing a country cannot match a different city');
