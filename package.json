@@ -72,6 +72,7 @@
     "test:booking-closure": "node scripts/roamly-booking-closure-checks.mjs",
     "test:booking-evidence-token": "node --experimental-strip-types scripts/roamly-booking-evidence-token-checks.mjs",
     "test:booking-supersession": "node --experimental-strip-types scripts/roamly-booking-supersession-checks.mjs",
+    "test:b10b15-booking-fixes": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-b10b15-server-only-register.mjs scripts/roamly-b10b15-booking-fixes-checks.mjs",
     "test:hotel-inventory": "node --experimental-strip-types scripts/roamly-hotel-inventory-checks.mjs",
     "test:selected-activity-freshness": "node scripts/roamly-klook-activity-continuity-checks.mjs",
     "test:selected-flight-freshness": "node scripts/roamly-selected-flight-continuity-checks.mjs",
