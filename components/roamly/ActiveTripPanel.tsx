@@ -8,20 +8,20 @@ export function ActiveTripPanel({ trip }: { trip: TrackingTrip | null }) {
   const { t } = useI18n();
   if (!trip) {
     return (
-      <div className="rounded-[1.5rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{t("ui.status.noActiveTrip")}</p>
-        <h2 className="mt-2 text-2xl font-black text-ink">{t("ui.status.nothingLive")}</h2>
-        <p className="mt-2 text-sm font-bold text-slate-500">{t("ui.status.unlockCompanion")}</p>
+      <div className="rounded-[14px] bg-white p-4 shadow-calm">
+        <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.noActiveTrip")}</p>
+        <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{t("ui.status.nothingLive")}</h2>
+        <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">{t("ui.status.unlockCompanion")}</p>
       </div>
     );
   }
   const destination = getTripDestinationLabel(trip) || "Destination ready";
 
   return (
-    <div className="rounded-[1.5rem] border border-cloud bg-white/90 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.liveCompanion")}</p>
-      <h2 className="mt-2 text-2xl font-black text-ink">{trip.title || destination}</h2>
-      <p className="mt-2 text-sm font-bold text-slate-500">
+    <div className="rounded-[14px] bg-white p-4 shadow-calm">
+      <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.liveCompanion")}</p>
+      <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{trip.title || destination}</h2>
+      <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">
         {trip.destination_city || destination} · {trip.status}
       </p>
     </div>

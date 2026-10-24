@@ -260,10 +260,6 @@ export function NotificationTimelineCard({
 
   return (
     <div>
-      <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">
-        {t("ui.status.notificationTimeline")}
-      </p>
-
       {items.length ? (
         groups.map((group) => (
           <div key={group.key} className="mb-5 last:mb-0">

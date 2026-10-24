@@ -3,12 +3,10 @@ import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlac
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getTripDayFromDate, isCompanionEligibleActivity } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
-import { formatRoamlyDate } from "@/lib/i18n";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
@@ -37,17 +35,7 @@ import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { evaluateConfirmedBookingCost } from "@/lib/roamly/bookings";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
-import { TripContextNav } from "@/components/roamly/TripContextNav";
 import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
-
-/** Short "Sep 7" / "Sep 7 - Sep 9" range for nav headers; a single-day trip
- *  shows one date instead of the redundant "Sep 7 - Sep 7". */
-function formatShortDateRange(startDate: string | null, endDate: string | null, locale: string) {
-  if (!startDate || !endDate) return "Dates flexible";
-  const start = formatRoamlyDate(startDate, locale, { month: "short", day: "numeric" });
-  const end = formatRoamlyDate(endDate, locale, { month: "short", day: "numeric" });
-  return start === end ? start : `${start} - ${end}`;
-}
 
 function daysUntil(date: string | null) {
   if (!date) return null;
@@ -56,6 +44,21 @@ function daysUntil(date: string | null) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.ceil((start.getTime() - today.getTime()) / 86400000);
+}
+
+/** Gate eyebrow range, same form as the trip page: "Oct 23 – 25". */
+function shortDateRange(startDate: string | null, endDate: string | null) {
+  const start = startDate ? new Date(`${startDate}T00:00:00`) : null;
+  const end = endDate ? new Date(`${endDate}T00:00:00`) : null;
+  if (!start || Number.isNaN(start.getTime())) return "";
+  const monthDay = (date: Date) =>
+    new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
+  if (!end || Number.isNaN(end.getTime()) || start.getTime() === end.getTime()) return monthDay(start);
+  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
+    const month = new Intl.DateTimeFormat("en", { month: "short" }).format(start);
+    return `${month} ${start.getDate()} – ${end.getDate()}`;
+  }
+  return `${monthDay(start)} – ${monthDay(end)}`;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -401,26 +404,23 @@ export default async function LiveTripPage({
   if (!fieldTestMode) {
     const setupState = await getRoamlySetupState(supabase, current.user).catch(() => null);
     if (setupState && !setupState.complete) {
-      return <SetupGateScreen initialState={setupState} tripName={bundle.data.trip.title || destinationLabel} />;
+      return (
+        <SetupGateScreen
+          initialState={setupState}
+          eyebrow={`${destinationLabel} · ${shortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date)}`}
+        />
+      );
     }
   }
 
   if (!fieldTestMode) {
     return (
       <div className="calm-bleed mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
-        <TripContextNav
-          tripId={id}
-          title={bundle.data.trip.title || destinationLabel}
-          destination={destinationLabel}
-          dates={formatShortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date, locale)}
-        />
-        <section className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <h1 className="mt-1 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">{tripCompleted ? `Your trip in ${destinationLabel} is complete` : tripUpcoming ? `Get ready for ${destinationLabel}` : tripDatesMissing ? `Set dates for ${destinationLabel}` : `Live in ${destinationLabel}`}</h1>
-            <p className="mt-2 max-w-2xl text-[15px] font-normal leading-[1.45] text-cgray">{tripCompleted ? "Your itinerary, saved bookings, and trip details are still available here." : tripUpcoming ? "Your companion is ready. Live assistance begins during your trip dates." : tripDatesMissing ? "Add travel dates to get accurate live timing and trip reminders." : "Today is your plan. Live helps with the next step while you are moving."}</p>
-          </div>
-          <Button href={`/trip/${id}#day-by-day`} tone="secondary" className="hidden shrink-0 sm:inline-flex">View plan</Button>
-        </section>
+        {/* Truth rebuild (2026-10-23): no TripContextNav, no page H1
+            block, no marketing subline on this surface. The client
+            opens with the mock-04 title block (eyebrow · NOW as the
+            title · status line); the trip's sections stay reachable
+            via the itinerary and the shell's app tab bar. */}
         {companionPanelInput ? (
           <div className="mb-5">
             <CompanionPanel tripId={id} initialInput={companionPanelInput} passView={companionPassView} />

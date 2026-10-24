@@ -30,7 +30,7 @@ export function NavigationButtons({ tripId, className = "", showHeading = false,
 
   return (
     <div className={className}>
-      {showHeading ? <p className="mb-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">{t("ui.actions.directions")}</p> : null}
+      {showHeading ? <p className="mb-2 text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.actions.directions")}</p> : null}
       <div className="flex flex-wrap gap-2">
         {links.map((link) => (
           <a
@@ -39,7 +39,7 @@ export function NavigationButtons({ tripId, className = "", showHeading = false,
             target="_blank"
             rel="noreferrer"
             onClick={() => void record(link.provider)}
-            className="rounded-full bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-slate-200 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700"
+            className="rounded-full bg-cbg px-3 py-2 text-xs font-semibold text-chead transition hover:text-cblue"
           >
             {link.label}
           </a>

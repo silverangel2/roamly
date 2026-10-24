@@ -73,7 +73,7 @@ export function TripStateLines({
   const grantMissing = !locationGranted || grantRevoked;
 
   return (
-    <div className="mt-4 space-y-1.5 px-1 text-[13.5px] font-normal leading-6 text-cgray">
+    <div className="mt-3 space-y-1.5 text-[13.5px] font-normal leading-6 text-cgray">
       <p className="flex items-start gap-1.5">
         <span
           aria-hidden

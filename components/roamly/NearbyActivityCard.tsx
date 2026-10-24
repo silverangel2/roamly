@@ -113,39 +113,39 @@ export function NearbyActivityCard({
 
   if (!tripStarted) {
     return (
-      <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">Nearby</p>
-        <h2 className="mt-2 text-2xl font-black text-ink">Not nearby yet</h2>
-        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">This trip has not started, so a planned stop is not nearby.</p>
-        {title ? <p className="mt-3 text-sm font-black text-ink">First planned stop: {title}</p> : null}
+      <section className="rounded-[14px] bg-white p-4 shadow-calm">
+        <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Nearby</p>
+        <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Not nearby yet</h2>
+        <p className="mt-1.5 text-sm font-normal leading-6 text-cink">This trip has not started, so a planned stop is not nearby.</p>
+        {title ? <p className="mt-3 text-sm font-semibold text-chead">First planned stop: {title}</p> : null}
       </section>
     );
   }
 
   if (!activity) {
     return (
-      <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{t("ui.status.nearbyNow")}</p>
-        <h2 className="mt-2 text-2xl font-black text-ink">{t("ui.status.noNearbyActivity")}</h2>
-        <p className="mt-2 text-sm font-bold text-slate-500">{t("ui.status.nearbyUpdate")}</p>
+      <section className="rounded-[14px] bg-white p-4 shadow-calm">
+        <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.nearbyNow")}</p>
+        <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{t("ui.status.noNearbyActivity")}</h2>
+        <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">{t("ui.status.nearbyUpdate")}</p>
       </section>
     );
   }
 
   return (
-    <section className="rounded-[1.75rem] border border-ocean/20 bg-white/95 p-5 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.nearbyNow")}</p>
-      <h2 className="mt-2 text-2xl font-black text-ink">{title}</h2>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{detail}</p>
+    <section className="rounded-[14px] bg-white p-4 shadow-calm">
+      <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.nearbyNow")}</p>
+      <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{title}</h2>
+      <p className="mt-1.5 text-sm font-normal leading-6 text-cink">{detail}</p>
       {activity.distance_meters != null ? (
-        <p className="mt-2 text-sm font-black text-ocean">{activity.distance_meters}m away</p>
+        <p className="mt-2 text-sm font-semibold text-cblue">{activity.distance_meters}m away</p>
       ) : null}
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <button
           type="button"
           onClick={checkIn}
           disabled={Boolean(busy)}
-          className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
+          className="rounded-xl bg-cblue px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {busy === "check" ? "Checking..." : "Check in"}
         </button>
@@ -153,7 +153,7 @@ export function NearbyActivityCard({
           type="button"
           onClick={complete}
           disabled={Boolean(busy)}
-          className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink shadow-soft ring-1 ring-cloud disabled:opacity-60"
+          className="rounded-xl bg-cbg px-4 py-3 text-sm font-semibold text-chead disabled:opacity-60"
         >
           {busy === "complete" ? "Saving..." : "Mark done"}
         </button>
@@ -161,13 +161,13 @@ export function NearbyActivityCard({
           type="button"
           onClick={skip}
           disabled={Boolean(busy)}
-          className="rounded-2xl bg-cloud px-4 py-3 text-sm font-black text-slate-600 shadow-soft disabled:opacity-60"
+          className="rounded-xl px-4 py-3 text-sm font-semibold text-cgray disabled:opacity-60"
         >
           {busy === "skip" ? "Saving..." : "Skip"}
         </button>
       </div>
-      {notice ? <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
-      {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+      {notice ? <p className="mt-3 rounded-xl bg-cblue/10 px-4 py-3 text-sm font-medium text-chead">{notice}</p> : null}
+      {error ? <p className="mt-3 rounded-xl bg-cred/10 px-4 py-3 text-sm font-medium text-cred">{error}</p> : null}
     </section>
   );
 }

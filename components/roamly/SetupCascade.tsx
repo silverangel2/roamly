@@ -32,10 +32,16 @@ type InstallPromptEvent = Event & {
 
 export function SetupCascade({
   initialState,
-  onStateChange
+  onStateChange,
+  variant = "full"
 }: {
   initialState: RoamlySetupState;
   onStateChange?: (state: RoamlySetupState) => void;
+  /** "full" (Settings): every step explains itself inline. "compact"
+   *  (the trip-ready gate): the mock's quiet rows — the current step's
+   *  action sits on its row as a blue text action, done reads "✓ Done",
+   *  locked rows stay silent and the unlock note sits under the card. */
+  variant?: "full" | "compact";
 }) {
   const [setup, setSetup] = useState(initialState);
   const [busy, setBusy] = useState("");
@@ -212,58 +218,63 @@ export function SetupCascade({
     }
   }
 
+  const compact = variant === "compact";
+  const compactActionClass = "shrink-0 text-base font-normal text-cblue disabled:opacity-50";
+
   const stepShell = (
     index: number,
     title: string,
     feature: string,
-    children: React.ReactNode
+    children: React.ReactNode,
+    compactAction?: React.ReactNode
   ) => {
     const done = dones[index];
     const locked = currentIndex !== -1 && index > currentIndex;
     return (
-      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 px-4 pb-[15px] pt-[13px] sm:px-5">
-        <div className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className={`mt-0.5 w-5 shrink-0 text-center text-[15px] font-semibold leading-6 ${
-              done ? "text-cgreen" : locked ? "text-cgray2" : "text-chead"
-            }`}
-          >
-            {done ? "✓" : index + 1}
-          </span>
-          <div className="min-w-0 flex-1">
+      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 px-4 pb-[15px] pt-[13px]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <h3 className={`text-[17px] font-semibold leading-tight ${locked ? "text-cgray" : "text-chead"}`}>{title}</h3>
             <p className={`mt-0.5 text-[14.5px] font-normal leading-snug ${locked ? "text-cgray2" : "text-cgray"}`}>{feature}</p>
-            {locked ? (
-              <p className="mt-1.5 text-[13.5px] font-normal leading-5 text-cgray2">
-                Finish step {currentIndex + 1} first — this one unlocks next.
-              </p>
-            ) : (
-              children
-            )}
           </div>
-          {locked ? <span className="shrink-0 text-[15px] font-normal text-cgray2">Locked</span> : null}
+          {locked ? (
+            <span className="shrink-0 text-[15px] font-normal text-cgray2">Locked</span>
+          ) : compact && compactAction ? (
+            compactAction
+          ) : done ? (
+            <span className="flex shrink-0 items-center gap-1.5 text-[15px] font-normal text-cgray">
+              <span aria-hidden className="text-cgreen">✓</span> Done
+            </span>
+          ) : null}
         </div>
+        {!locked && !(compact && compactAction) ? children : null}
+        {compact && index === 2 && locationError ? (
+          <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
+            {locationError}
+          </p>
+        ) : null}
       </section>
     );
   };
 
   const actionClass =
-    "mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-50 sm:w-auto sm:min-w-60";
+    "mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-50";
   const quietLinkClass = "font-semibold text-cblue";
+  const firstLockedIndex = currentIndex !== -1 ? dones.findIndex((done, i) => i > currentIndex) : -1;
 
   return (
+    <>
     <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
       {setup.complete ? (
-        <p className="border-b border-chair px-4 py-3 text-sm font-normal leading-6 text-cink sm:px-5">
+        <p className="border-b border-chair px-4 py-3 text-sm font-normal leading-6 text-cink">
           All set — everything works. These steps stay here if you ever need them again.
         </p>
       ) : null}
       <div className="divide-y divide-chair">
         {stepShell(
           0,
-          "Connect Gmail",
-          "Booking Recon — your booking emails, matched to your trip",
+          "Booking Recon",
+          "Your booking emails, matched to your trip",
           gmailDone ? (
             <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
               {setup.gmailConnected ? (
@@ -291,7 +302,16 @@ export function SetupCascade({
                 Connect Gmail
               </a>
             </div>
-          )
+          ),
+          gmailDone && !setup.gmailConnected ? (
+            <a className={compactActionClass} href="/api/integrations/gmail/connect">
+              Reconnect
+            </a>
+          ) : !gmailDone ? (
+            <a className={compactActionClass} href="/api/integrations/gmail/connect">
+              Connect Gmail
+            </a>
+          ) : undefined
         )}
 
         {stepShell(
@@ -320,7 +340,16 @@ export function SetupCascade({
                 </button>
               ) : null}
             </div>
-          )
+          ),
+          appDone && standalone && alertsPermission === "default" ? (
+            <button type="button" className={compactActionClass} disabled={busy === "alerts"} onClick={() => void turnOnAlerts()}>
+              {busy === "alerts" ? "Turning on…" : "Turn on alerts"}
+            </button>
+          ) : !appDone && promptReady ? (
+            <button type="button" className={compactActionClass} disabled={busy === "app"} onClick={() => void installWithPrompt()}>
+              {busy === "app" ? "Opening…" : "Install"}
+            </button>
+          ) : undefined
         )}
 
         {stepShell(
@@ -369,9 +398,28 @@ export function SetupCascade({
                 </p>
               ) : null}
             </div>
-          )
+          ),
+          locationDone && setup.locationGranted && !setup.locationEnabled ? (
+            <button type="button" className={compactActionClass} disabled={busy === "location-on"} onClick={() => void turnLocationBackOn()}>
+              {busy === "location-on" ? "Turning on…" : "Turn on"}
+            </button>
+          ) : locationDone && !setup.locationGranted ? (
+            <button type="button" className={compactActionClass} disabled={busy === "location"} onClick={() => void turnOnLocation()}>
+              {busy === "location" ? "Turning on…" : "Turn on location"}
+            </button>
+          ) : !locationDone ? (
+            <button type="button" className={compactActionClass} disabled={busy === "location"} onClick={() => void turnOnLocation()}>
+              {busy === "location" ? "Turning on…" : "Turn on location"}
+            </button>
+          ) : undefined
         )}
       </div>
     </div>
+    {compact && firstLockedIndex !== -1 ? (
+      <p className="mx-4 mt-2 text-[13.5px] font-normal leading-5 text-cgray">
+        Finish step {currentIndex + 1} first — this one unlocks next.
+      </p>
+    ) : null}
+    </>
   );
 }

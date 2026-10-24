@@ -115,7 +115,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
 
   if (!event) {
     return (
-      <div className="calm-bleed mx-auto -mb-[8.75rem] flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl flex-col px-0 sm:px-6">
+      <div className="calm-bleed mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-2xl flex-col px-0 sm:px-6">
         <section className={sheetClass}>
           {grabHandle}
           <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">This update is no longer here.</h1>
@@ -147,7 +147,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
   }
 
   return (
-    <div className="calm-bleed mx-auto -mb-[8.75rem] flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl flex-col px-0 sm:px-6">
+    <div className="calm-bleed mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-2xl flex-col px-0 sm:px-6">
       <section className={sheetClass}>
         {grabHandle}
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">

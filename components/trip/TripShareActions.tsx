@@ -10,7 +10,7 @@ type TripShareActionsProps = {
 };
 
 const buttonClass =
-  "inline-flex min-h-11 items-center text-sm font-medium text-slate-500 transition hover:text-ink disabled:pointer-events-none disabled:opacity-60";
+  "inline-flex min-h-11 items-center text-sm font-medium text-cgray transition hover:text-chead disabled:pointer-events-none disabled:opacity-60";
 
 export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripShareActionsProps) {
   const { locale, t } = useI18n();
@@ -101,20 +101,20 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
           {t("ui.actions.shareTripLink", "Share trip link")}
         </button>
       </div>
-      {shareMessage ? <p className="w-full text-xs font-bold text-slate-500">{shareMessage}</p> : null}
+      {shareMessage ? <p className="w-full text-xs font-medium text-cgray">{shareMessage}</p> : null}
 
       {modalOpen ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t("ui.actions.emailItinerary", "Email itinerary")}>
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.25rem] border border-cloud bg-white p-5 shadow-soft">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[14px] bg-white p-5 shadow-calm">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{t("ui.actions.emailItinerary", "Email itinerary")}</p>
-                <h2 className="mt-2 text-2xl font-black text-ink">{t("ui.email.sendTripDocument", "Send this trip document")}</h2>
+                <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.actions.emailItinerary", "Email itinerary")}</p>
+                <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{t("ui.email.sendTripDocument", "Send this trip document")}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="rounded-full border border-cloud bg-white px-3 py-1.5 text-sm font-black text-slate-500 hover:text-ink"
+                className="rounded-full bg-cbg px-3 py-1.5 text-sm font-semibold text-cgray hover:text-chead"
                 aria-label={t("ui.actions.closeEmailModal", "Close email modal")}
               >
                 {t("ui.actions.close", "Close")}
@@ -122,34 +122,34 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
             </div>
 
             {!emailConfigured ? (
-              <p className="mt-4 rounded-2xl border border-sun/30 bg-sun/20 px-4 py-3 text-sm font-black leading-6 text-amber-800">
+              <p className="mt-4 rounded-[14px] bg-[#FF9500]/15 px-4 py-3 text-sm font-semibold leading-6 text-chead">
                 {t("ui.status.emailNotConfigured", "Email sending is not configured yet. You can export the PDF or copy the trip link.")}
               </p>
             ) : (
               <form onSubmit={(event) => void sendEmail(event)} className="mt-4 grid gap-3">
                 <label className="grid gap-2">
-                  <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{t("ui.email.recipientEmail", "Recipient email")}</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.email.recipientEmail", "Recipient email")}</span>
                   <input
                     value={recipient}
                     onChange={(event) => setRecipient(event.target.value)}
                     type="email"
                     required
                     placeholder="friend@example.com"
-                    className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                    className="rounded-xl border border-chair bg-white px-4 py-3 text-sm font-normal text-cink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/15"
                   />
                 </label>
                 <button
                   type="submit"
                   disabled={busy}
-                  className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
+                  className="rounded-xl bg-cblue px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                 >
                   {busy ? t("ui.status.sending", "Sending...") : t("ui.actions.sendItinerary", "Send itinerary")}
                 </button>
               </form>
             )}
 
-            {message ? <p className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{message}</p> : null}
-            {error ? <p className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+            {message ? <p className="mt-4 rounded-[14px] bg-cblue/10 px-4 py-3 text-sm font-medium text-chead">{message}</p> : null}
+            {error ? <p className="mt-4 rounded-[14px] bg-cred/10 px-4 py-3 text-sm font-medium text-cred">{error}</p> : null}
           </div>
         </div>
       ) : null}

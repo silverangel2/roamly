@@ -185,3 +185,38 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
     </section>
   );
 }
+
+/*
+ * TripHashSync — the headless half of TripContextNav (truth rebuild,
+ * 2026-10-23). The mock-true itinerary home has no pill row, but the
+ * page's tab panels are revealed through the URL hash: deep links
+ * (#budget, #requirements, #day-by-day…) and the in-page anchors must
+ * still activate the matching radio tab and scroll to it. This keeps
+ * that exact behavior with no visible chrome.
+ */
+export function TripHashSync({ focusAnchor = null }: { focusAnchor?: string | null }) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const updateHash = (initial = false) => {
+      const fromWindow = window.location.hash;
+      const nextHash = fromWindow && fromWindow !== "#" ? fromWindow : focusAnchor ? `#${focusAnchor}` : "";
+      if (!nextHash) {
+        if (!initial) clearTripPanels();
+      } else {
+        activateTabForSuffix(nextHash);
+        scrollToHash(nextHash);
+      }
+    };
+    updateHash(true);
+    const onNavigate = () => updateHash(false);
+    window.addEventListener("hashchange", onNavigate);
+    window.addEventListener("popstate", onNavigate);
+    return () => {
+      window.removeEventListener("hashchange", onNavigate);
+      window.removeEventListener("popstate", onNavigate);
+    };
+  }, [pathname, focusAnchor]);
+
+  return null;
+}

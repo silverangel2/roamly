@@ -6,8 +6,6 @@ import { NearbyActivityCard } from "@/components/roamly/NearbyActivityCard";
 import { NotificationTimelineCard } from "@/components/roamly/NotificationTimelineCard";
 import { TripActivationBanner } from "@/components/roamly/TripActivationBanner";
 import { UpNextActivityCard } from "@/components/roamly/UpNextActivityCard";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import {
   getCheckedActivities,
   getCurrentDayRecord,
@@ -29,13 +27,14 @@ export default async function NotificationsPage() {
 
   if (!current.configured || !current.user) {
     return (
-      <div className="calm-bleed mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <h1 className="text-[26px] font-bold tracking-[-0.018em] text-chead">Notifications need an account.</h1>
-          <div className="mt-5">
-            <Button href="/login?next=/notifications">Log in</Button>
+      <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
+        <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
+        <div className="mt-5 rounded-[14px] bg-white p-4 shadow-calm">
+          <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">Notifications need an account.</h2>
+          <div className="mt-4">
+            <a className="inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href="/login?next=/notifications">Log in</a>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -128,20 +127,21 @@ export default async function NotificationsPage() {
 
   if (!trip) {
     return (
-      <div className="calm-bleed mx-auto w-full max-w-4xl px-4 pb-8 pt-5 sm:px-6">
+      <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
         <NotificationShellStateBridge activeTripId="" unreadCount={unreadNotifications.count || 0} />
-        <section className="mb-6">
+        <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
+        <section className="mb-6 mt-5">
           <NotificationTimelineCard initialItems={notificationItems} />
         </section>
-        <Card>
-          <h1 className="text-[26px] font-bold tracking-[-0.018em] text-chead">No current trip to show.</h1>
+        <div className="rounded-[14px] bg-white p-4 shadow-calm">
+          <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">No current trip to show.</h2>
           <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Reminders and check-ins stay with the trip they belong to. Open a trip to see its own updates.
           </p>
-          <div className="mt-5">
-            <Button href="/dashboard">Open dashboard</Button>
+          <div className="mt-4">
+            <a className="inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href="/dashboard">Open dashboard</a>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
@@ -206,8 +206,9 @@ export default async function NotificationsPage() {
     : null;
 
   return (
-    <div className="calm-bleed mx-auto w-full max-w-6xl px-4 pb-8 pt-5 sm:px-6">
+    <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
+      <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
       {companionOn ? <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} tripStarted={tripStarted} presentation={presentation} /> : null}
       <p className="mt-4 text-[15px] font-normal leading-[1.45] text-cgray">
         {companionOn
@@ -220,21 +221,21 @@ export default async function NotificationsPage() {
       </section>
 
       {companionOn ? (
-      <section className="mt-6 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+      <section className="mt-6 grid gap-4">
         <ActiveTripPanel trip={trip} />
         <NearbyActivityCard tripId={trip.id} activity={tripStarted ? (nearbyActivities[0] || upNext.activity) : upNext.activity} tripStarted={tripStarted} presentation={presentation} />
       </section>
       ) : (
-        <Card className="mt-6">
-          <h1 className="text-[22px] font-bold tracking-[-0.018em] text-chead">Reminders stay with this trip.</h1>
+        <div className="mt-6 rounded-[14px] bg-white p-4 shadow-calm">
+          <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">Reminders stay with this trip.</h2>
           <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Check-ins and Live Companion tools appear here after Live Companion is unlocked for this trip. Nothing on this page comes from another trip.
           </p>
-        </Card>
+        </div>
       )}
 
       {companionOn ? (
-      <section className="mt-5 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="mt-5 grid gap-4">
         <CurrentDayTimeline
           day={currentDay.day}
           dayNumber={currentDay.dayNumber}
@@ -250,7 +251,7 @@ export default async function NotificationsPage() {
       ) : null}
 
       <section className="mt-6">
-        <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{companionOn ? "Live Companion updates" : "Trip updates"}</p>
+        <p className="mb-2 ml-4 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">{companionOn ? "Live Companion updates" : "Trip updates"}</p>
         <div className="divide-y divide-chair overflow-hidden rounded-[14px] bg-white shadow-calm">
           {(events.data || []).length ? (
             (events.data || []).map((event) => (
