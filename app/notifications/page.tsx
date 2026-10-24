@@ -29,7 +29,7 @@ export default async function NotificationsPage() {
 
   if (!current.configured || !current.user) {
     return (
-      <div className="calm-bleed safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="calm-bleed mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <h1 className="text-[26px] font-bold tracking-[-0.018em] text-chead">Notifications need an account.</h1>
           <div className="mt-5">
@@ -128,7 +128,7 @@ export default async function NotificationsPage() {
 
   if (!trip) {
     return (
-      <div className="calm-bleed safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      <div className="calm-bleed mx-auto w-full max-w-4xl px-4 pb-8 pt-5 sm:px-6">
         <NotificationShellStateBridge activeTripId="" unreadCount={unreadNotifications.count || 0} />
         <section className="mb-6">
           <NotificationTimelineCard initialItems={notificationItems} />
@@ -206,7 +206,7 @@ export default async function NotificationsPage() {
     : null;
 
   return (
-    <div className="calm-bleed safe-bottom mx-auto w-full max-w-6xl px-4 py-8 pb-28 sm:px-6">
+    <div className="calm-bleed mx-auto w-full max-w-6xl px-4 pb-8 pt-5 sm:px-6">
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={unreadNotifications.count || 0} />
       {companionOn ? <TripActivationBanner notification={notification} dayNumber={currentDay.dayNumber} tripStarted={tripStarted} presentation={presentation} /> : null}
       <p className="mt-4 text-[15px] font-normal leading-[1.45] text-cgray">

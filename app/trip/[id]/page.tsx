@@ -229,7 +229,7 @@ function getTravelStyle(trip: RoamlyTripRecord) {
 
 function SetupCard({ title, summary }: { title: string; summary: string }) {
   return (
-    <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+    <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
       <Card>
         <Badge tone="sun">Setup</Badge>
         <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">{title}</h1>
@@ -1206,7 +1206,7 @@ function BookingRecommendationCard({
   const visibleHotelPartners = guardedHotelAction ? hotelPartners.filter((partner) => partner.id !== "booking") : hotelPartners;
 
   return (
-    <article className="rounded-[1.35rem] bg-white px-5 py-5 shadow-calm">
+    <article className="rounded-[14px] bg-white px-4 py-4 shadow-calm">
       {category === "hotel" && suggestion.photo_urls?.[0] ? (
         <div className="relative mb-4 h-52 overflow-hidden rounded-xl bg-[#f3f5f1] sm:h-64">
           <Image src={suggestion.photo_urls[0]} alt={`${title} property photo`} fill unoptimized sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
@@ -1507,7 +1507,7 @@ function BookingSearchFallbackCard({
   const hasAffiliateUrl = isAffiliateBookingHref(href);
   const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : "Google search");
   return (
-    <article className="rounded-[1.35rem] bg-white px-5 py-5 shadow-calm">
+    <article className="rounded-[14px] bg-white px-4 py-4 shadow-calm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-lg font-semibold leading-6 tracking-tight text-ink">{title}</h3>
@@ -1770,7 +1770,7 @@ function PackageStays({
   if (!suggestions.length && !areaPartners.length) return null;
 
   return (
-    <section aria-label="Your stay" className="rounded-[1.5rem] bg-white px-5 py-6 shadow-calm sm:px-6 sm:py-7">
+    <section aria-label="Your stay" className="rounded-[14px] bg-white px-4 py-6 shadow-calm sm:px-6 sm:py-7">
       <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-ink">Stay options in this package</h2>
       <p className="mt-1.5 max-w-md text-[0.9375rem] leading-6 text-slate-500">Partner searches for your dates. A price is shown only when a partner returns one.</p>
       <div className="mt-5 divide-y divide-[#efe7da]">
@@ -2467,12 +2467,12 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   }).catch(() => null);
 
   return (
-    <div className="safe-bottom roamly-print-document w-full bg-cbg px-4 pb-28 pt-5 text-cink sm:px-6 sm:py-8">
+    <div className="roamly-print-document w-full bg-cbg px-4 pb-8 pt-5 text-cink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <GenerationNavigationRefresh active={one(search.generating) === "1" && !generationPanelVisible && !canShowFull} />
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
-        <section className="bg-transparent pb-1 pt-1 sm:pb-2">
+        <section className="bg-transparent pb-1 pt-0 sm:pb-2">
           {destinationPhoto ? (
             <figure className="mb-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2486,7 +2486,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           ) : null}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-[1.85rem] font-bold leading-[1.15] tracking-[-0.035em] text-chead sm:text-4xl">{tripTitle}</h1>
+              <h1 className="text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">{tripTitle}</h1>
               <p className="mt-1.5 text-[0.95rem] leading-6 text-cgray">{destinationLabel} · {formatDateRange(trip, locale)} · {formatDayCount(dayCount)} · {travelerLabel}</p>
               {(full?.destination_summary || preview?.destination_summary) ? (
                 <details className="mt-2 max-w-2xl">
@@ -2511,7 +2511,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           {build2GatesEnabled() && canShowFull ? <HandoffBlock tripId={id} /> : null}
 
           {!draftCommand && commandNextTitle ? (
-            <div className="roamly-now-next mt-6 rounded-2xl bg-white px-5 py-5 shadow-calm">
+            <div className="roamly-now-next mt-6 rounded-[14px] bg-white px-4 py-4 shadow-calm">
               <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">What matters now</p>
               <p className="mt-1 text-[1.15rem] font-semibold leading-6 tracking-[-0.02em] text-chead">{commandNextTitle}</p>
               {commandNextMeta ? <p className="mt-1 text-sm text-cgray">{commandNextMeta}</p> : null}
@@ -2616,7 +2616,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         ) : null}
 
         {!canShowFull && !showGenerationPanel ? (
-          <section id="day-by-day" className="calm-enter mt-4 scroll-mt-32 rounded-[14px] bg-white px-5 py-8 text-center shadow-calm sm:px-8">
+          <section id="day-by-day" className="calm-enter mt-4 scroll-mt-32 rounded-[14px] bg-white px-4 py-8 text-center shadow-calm sm:px-8">
             <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-chead">
               {completedTrip ? "This trip has no saved day-by-day plan" : showPaymentWall ? "Unlock this trip" : "Your itinerary isn't ready yet"}
@@ -2723,7 +2723,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
                   </div>
                   {noteDisplay.text ? (
-                    <div className="mt-4 rounded-2xl bg-white px-5 py-5 shadow-calm">
+                    <div className="mt-4 rounded-[14px] bg-white px-4 py-4 shadow-calm">
                       <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Your notes</p>
                       <ul className="mt-2 grid gap-1.5">
                         {noteDisplay.constraints.map((line) => <li key={line} className="text-sm leading-6 text-cink">{line}</li>)}
@@ -2800,7 +2800,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 <section id="overview" className="roamly-tab-panel roamly-panel-overview mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Snapshot" title="Trip at a glance" summary="The key context for this trip, with the next decision kept above." />
                   <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-                    <div className="rounded-[1.35rem] bg-white px-5 py-5 shadow-calm">
+                    <div className="rounded-[14px] bg-white px-4 py-4 shadow-calm">
                       <p className="text-[0.8125rem] font-medium text-slate-500">Trip status</p>
                       <p className="mt-1 text-[1.05rem] font-semibold leading-6 tracking-tight text-ink">
                         {attentionText || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
@@ -2833,7 +2833,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary={readiness.primaryAction.id === "bookings" ? readiness.urgentItems[0] || "Review the bookings that still need you." : "Only the recommended transport, stay, flights, and important activities."} />
                   {noteDisplay.text ? (
-                    <div className="mb-4 rounded-2xl bg-white px-4 py-4 shadow-[0_8px_24px_rgba(16,32,51,0.04)]">
+                    <div className="mb-4 rounded-[14px] bg-white px-4 py-4 shadow-calm">
                       <p className="text-[0.75rem] font-medium text-slate-500">Your notes shape these choices</p>
                       <p className="mt-2 text-sm leading-6 text-slate-700">{noteDisplay.hotel}</p>
                       <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.flight}</p>

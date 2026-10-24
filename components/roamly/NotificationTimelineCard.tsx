@@ -176,7 +176,7 @@ export function NotificationTimelineCard({
     const delivery = deliveryLabel(item.delivery_status, item.delivery_channel, t);
     const unread = item.status !== "read";
     return (
-      <article key={item.id} className="px-4 py-3">
+      <article key={item.id} className="py-3 pl-3 pr-4">
         <div className="flex items-start gap-2.5">
           <span
             aria-hidden

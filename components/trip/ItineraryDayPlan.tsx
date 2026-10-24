@@ -628,7 +628,7 @@ export function DayTimelineCard({
   return (
     <section
       id={`day-${day.day_number}`}
-      className="roamly-day-print scroll-mt-40 rounded-[14px] bg-white px-5 py-6 shadow-calm sm:px-7 sm:py-7"
+      className="roamly-day-print scroll-mt-40 rounded-[14px] bg-white px-4 py-4 shadow-calm sm:px-7 sm:py-7"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -636,7 +636,7 @@ export function DayTimelineCard({
             Day {day.day_number}
             {day.date ? ` · ${weekday ? `${weekday}, ` : ""}${formatTripDate(day.date, locale)}` : ""}
           </p>
-          <h3 className="mt-1 text-[22px] font-bold leading-7 tracking-[-0.03em] text-chead">{dayTitle}</h3>
+          <h3 className="mt-1 text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-chead">{dayTitle}</h3>
           {dayCity ? <p className="mt-1 text-sm text-cgray">{dayCity}</p> : null}
         </div>
         {typeof day.estimated_cost === "number" && day.estimated_cost > 0 ? (
@@ -729,7 +729,7 @@ export function BuildingDayCard({
   return (
     <section
       id={`day-${dayNumber}`}
-      className="roamly-day-print scroll-mt-36 rounded-[14px] border border-dashed border-chair bg-white px-5 py-6 shadow-calm sm:px-8"
+      className="roamly-day-print scroll-mt-36 rounded-[14px] border border-dashed border-chair bg-white px-4 py-4 shadow-calm sm:px-8"
     >
       <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-cgray">
         <span className="rounded-md bg-cbg px-2 py-0.5 text-[10px] tracking-[0.06em] text-cgray">Day {dayNumber}</span>

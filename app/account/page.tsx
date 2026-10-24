@@ -41,7 +41,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
 
   if (!current.configured) {
     return (
-      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <Badge tone="sun">Setup needed</Badge>
           <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">Connect Supabase to use accounts.</h1>
@@ -76,7 +76,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   const access = getRoamlyAccessForUser(current.user.email);
 
   return (
-    <div className="calm-bleed safe-bottom mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+    <div className="calm-bleed mx-auto w-full max-w-6xl px-4 pb-8 pt-5 sm:px-6">
       <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
         <section className="space-y-4">
           <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">Account</p>
@@ -115,7 +115,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             </div>
           ) : null}
 
-          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+          <div className="rounded-[14px] bg-white p-4 shadow-calm">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
             <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h2>
             <div className="mt-5">
@@ -123,7 +123,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             </div>
           </div>
 
-          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+          <div className="rounded-[14px] bg-white p-4 shadow-calm">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Privacy controls</p>
             <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Trip privacy and reminders</h2>
             <div className="mt-5">
@@ -131,7 +131,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             </div>
           </div>
 
-          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+          <div className="rounded-[14px] bg-white p-4 shadow-calm">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
             <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h2>
             <div className="mt-5">
@@ -140,7 +140,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           </div>
 
           <div id="traveler-memory" className="scroll-mt-24">
-          <div className="rounded-[14px] bg-white p-5 shadow-calm">
+          <div className="rounded-[14px] bg-white p-4 shadow-calm">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Traveler memory</p>
             <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Preferences Roamly can use</h2>
             <div className="mt-5">
