@@ -286,7 +286,19 @@ function conversionBookingInput(params: {
     provider: params.input.provider || booking.provider || params.click.provider,
     affiliateClickId: params.click.id,
     affiliateConversionId: params.conversionId,
-    sourceType: "affiliate_conversion",
+    // The roamly_bookings.source_type CHECK (20260801 migration) allows
+    // 'affiliate' but NOT 'affiliate_conversion', so a conversion stored
+    // under its own name fails the insert. Store the allowed value and keep
+    // the conversion kind in metadata (plus metadata.affiliateConversionId,
+    // written by the booking writer's referral metadata) so the affiliate
+    // provenance is not lost.
+    sourceType: "affiliate",
+    metadata: {
+      ...(booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+        ? booking.metadata
+        : {}),
+      affiliateConversion: true
+    },
     sourceReference: params.input.externalOrderId || params.input.rawEventReference || params.input.subId || params.click.sub_id,
     title,
     totalPrice: params.input.amount ?? booking.totalPrice ?? null,

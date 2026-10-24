@@ -31,6 +31,7 @@
     "test:klook-affiliate-links": "node --experimental-strip-types scripts/roamly-klook-affiliate-link-checks.mjs",
     "test:philippines-pack": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-philippines-pack-checks.mjs",
     "test:ph-pricing": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-ph-pricing-checks.mjs",
+    "test:b07b09-billing-fixes": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-b07b09-billing-fixes-checks.mjs",
     "test:specialist-money-missions": "node --experimental-strip-types scripts/roamly-specialist-money-missions-checks.mjs",
     "test:seo-traffic-money": "node scripts/roamly-seo-traffic-money-checks.mjs",
     "test:autopost-money": "node scripts/roamly-autopost-money-checks.mjs",
