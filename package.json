@@ -99,6 +99,7 @@
     "test:operational-scheduled-event-reconciliation": "node --experimental-strip-types scripts/roamly-operational-scheduled-event-reconciliation-checks.mjs",
     "test:confirmed-booking-itinerary-reconciliation": "node scripts/roamly-confirmed-booking-itinerary-reconciliation-checks.mjs",
     "test:confirmed-booking-monetary-truth": "node scripts/roamly-confirmed-booking-monetary-truth-checks.mjs",
+    "test:b02b06-booking-fixes": "node scripts/roamly-b02b06-booking-fixes-checks.mjs",
     "test:booking-rendered-time": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-booking-rendered-time-checks.mjs",
     "test:gmail-live-fixture": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-gmail-live-fixture-checks.mjs",
     "test:email-reference": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-email-reference-regression-checks.mjs",
