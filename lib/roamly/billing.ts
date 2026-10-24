@@ -296,6 +296,31 @@ export async function validateStripePriceForPurchase(
       envName: option.envName
     };
   }
+  // All three Roamly products are one-time purchases ("No subscription" in
+  // their descriptions). A recurring Price must never slip through as a
+  // silent subscription: reject it loudly at validation, before any
+  // checkout session is created.
+  if (price.type === "recurring") {
+    return {
+      ok: false,
+      status: 503,
+      error: "STRIPE_PRICE_RECURRING",
+      message: `${option.envName} points to a recurring Stripe Price, but ${option.name} is a one-time purchase.`,
+      envName: option.envName
+    };
+  }
+  // Philippines prices are tax-inclusive by owner decision: the ₱ amount is
+  // the TOTAL the traveler pays. A PHP Price configured tax-exclusive would
+  // silently add tax on top at checkout, so it fails validation here.
+  if (option.currency === "php" && price.tax_behavior !== "inclusive") {
+    return {
+      ok: false,
+      status: 503,
+      error: "STRIPE_PRICE_TAX_MISMATCH",
+      message: `${option.envName} must be tax-inclusive: the ₱ amount is the total the traveler pays.`,
+      envName: option.envName
+    };
+  }
 
   return {
     ok: true,
@@ -1610,6 +1635,39 @@ async function markCheckoutSessionExpired(supabase: SupabaseClient, session: Str
   return { ok: true as const };
 }
 
+async function markCheckoutSessionPaymentFailed(supabase: SupabaseClient, session: Stripe.Checkout.Session) {
+  // Mirrors markCheckoutSessionExpired, but a failed payment is not an
+  // expiry: the pending purchase + payment rows created at checkout
+  // creation are marked "failed" (both statuses are allowed by the checked-in
+  // constraints), and nothing is unlocked. If the session never created rows
+  // (unknown session id), both updates touch zero rows and succeed.
+  const purchaseUpdate = await supabase
+    .from("roamly_itinerary_purchases")
+    .update({
+      status: "failed",
+      metadata: { stripe_status: session.status, failed_at: new Date().toISOString() }
+    })
+    .eq("stripe_checkout_session_id", session.id);
+  if (purchaseUpdate.error) return { ok: false as const, error: purchaseUpdate.error.message };
+  const paymentUpdate = await supabase
+    .from("roamly_trip_payments")
+    .update({ status: "failed" })
+    .eq("stripe_session_id", session.id);
+  if (paymentUpdate.error) return { ok: false as const, error: paymentUpdate.error.message };
+  const userId = session.metadata?.user_id || session.metadata?.userId;
+  if (userId) {
+    await recordAppEvent(supabase, {
+      userId,
+      eventType: "checkout_async_payment_failed",
+      metadata: {
+        tripId: session.metadata?.trip_id || session.metadata?.tripId || null,
+        checkoutSessionId: session.id
+      }
+    });
+  }
+  return { ok: true as const };
+}
+
 async function recordSubscriptionWebhook(supabase: SupabaseClient, event: Stripe.Event) {
   const subscription = subscriptionFromEvent(event);
   let purchaseResult = await findStripeSubscriptionPurchase(supabase, subscription.id);
@@ -1756,6 +1814,16 @@ export async function handleStripeWebhookEvent(supabase: SupabaseClient, event: 
 
     if (event.type === "checkout.session.completed") {
       result = await applyPaidItineraryPurchase(supabase, checkoutSessionFromEvent(event));
+    } else if (event.type === "checkout.session.async_payment_succeeded") {
+      // Asynchronous payment methods (bank transfer, etc.) complete checkout
+      // before funds arrive, so checkout.session.completed fires while the
+      // session is still unpaid and cannot fulfill. THIS is the event that
+      // fulfills the purchase, with exactly the same fulfillment as a
+      // synchronous completion.
+      result = await applyPaidItineraryPurchase(supabase, checkoutSessionFromEvent(event));
+    } else if (event.type === "checkout.session.async_payment_failed") {
+      // Funds never arrived: record the failure and unlock nothing.
+      result = await markCheckoutSessionPaymentFailed(supabase, checkoutSessionFromEvent(event));
     } else if (event.type === "checkout.session.expired") {
       result = await markCheckoutSessionExpired(supabase, checkoutSessionFromEvent(event));
     } else if (event.type === "charge.refunded") {
@@ -1805,12 +1873,17 @@ export async function handleStripeWebhookEvent(supabase: SupabaseClient, event: 
 
 export async function getStripeBillingDiagnostics() {
   const stripe = createStripeClient();
+  // Both price sets are reported independently: a missing or misconfigured
+  // PHP price must be visible here, never silently CAD-defaulted.
   const configured = {
     STRIPE_SECRET_KEY: Boolean(process.env.STRIPE_SECRET_KEY),
     STRIPE_WEBHOOK_SECRET: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
     ROAMLY_STRIPE_ITINERARY_PRICE_ID: Boolean(roamlyConfig.itineraryUnlockPriceId),
     ROAMLY_STRIPE_FEATURES_PRICE_ID: Boolean(roamlyConfig.trackingAddonPriceId),
-    ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID: Boolean(roamlyConfig.tripBundlePriceId)
+    ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID: Boolean(roamlyConfig.tripBundlePriceId),
+    ROAMLY_STRIPE_ITINERARY_PRICE_ID_PHP: Boolean(roamlyConfig.itineraryUnlockPriceIdPhp),
+    ROAMLY_STRIPE_FEATURES_PRICE_ID_PHP: Boolean(roamlyConfig.trackingAddonPriceIdPhp),
+    ROAMLY_STRIPE_COMPLETE_TRIP_PRICE_ID_PHP: Boolean(roamlyConfig.tripBundlePriceIdPhp)
   };
 
   if (!stripe) {
@@ -1821,13 +1894,21 @@ export async function getStripeBillingDiagnostics() {
     };
   }
 
+  const philippinesTrip: Pick<RoamlyBillingTrip, "metadata"> = {
+    metadata: { destinationCountry: "Philippines" }
+  };
+  const priceSets = (Object.keys(purchaseOptions) as RoamlyPurchaseType[]).flatMap((purchaseType) => [
+    { purchaseType, priceSet: "cad" as const, option: getPurchaseOption(purchaseType), trip: undefined },
+    { purchaseType, priceSet: "php" as const, option: getPurchaseOption(purchaseType, philippinesTrip), trip: philippinesTrip }
+  ]);
+
   const prices = await Promise.all(
-    (Object.keys(purchaseOptions) as RoamlyPurchaseType[]).map(async (purchaseType) => {
-      const option = getPurchaseOption(purchaseType);
-      const validation = await validateStripePriceForPurchase(stripe, purchaseType);
+    priceSets.map(async ({ purchaseType, priceSet, option, trip }) => {
+      const validation = await validateStripePriceForPurchase(stripe, purchaseType, trip);
       if (!validation.ok) {
         return {
           purchaseType,
+          priceSet,
           envName: option.envName,
           configured: Boolean(option.priceId),
           ok: false,
@@ -1837,13 +1918,16 @@ export async function getStripeBillingDiagnostics() {
       }
       return {
         purchaseType,
+        priceSet,
         envName: option.envName,
         configured: true,
         ok: true,
         active: validation.price.active,
         productActive: true,
         amountMatches: validation.price.unit_amount === option.amount,
-        currencyMatches: validation.price.currency === roamlyConfig.currency,
+        currencyMatches: validation.price.currency === option.currency,
+        currency: option.currency,
+        taxBehavior: validation.price.tax_behavior,
         mode: validation.mode,
         interval: validation.interval,
         productName: validation.productName
