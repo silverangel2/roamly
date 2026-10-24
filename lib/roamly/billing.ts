@@ -1008,7 +1008,7 @@ async function createCheckoutSession(
 
   const purchaseUpdate = await writer.from("roamly_itinerary_purchases").update({
     stripe_checkout_session_id: session.id,
-    amount_cents: session.amount_total || option.amount,
+    amount_cents: session.amount_total ?? option.amount,
     currency: session.currency || option.currency
   }).eq("id", attempt.purchaseId).eq("status", "pending");
   if (purchaseUpdate.error) {
@@ -1019,7 +1019,7 @@ async function createCheckoutSession(
     user_id: user.id,
     trip_id: tripId,
     stripe_session_id: session.id,
-    amount: session.amount_total || option.amount,
+    amount: session.amount_total ?? option.amount,
     currency: session.currency || option.currency,
     status: "pending"
   }, { onConflict: "stripe_session_id" });
@@ -1188,7 +1188,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
       user_id: userId,
       trip_id: tripId,
       purchase_type: purchaseType,
-      amount_cents: session.amount_total || fallbackOption.amount,
+      amount_cents: session.amount_total ?? fallbackOption.amount,
       currency: session.currency || fallbackOption.currency,
       stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: paymentIntentId(session),
@@ -1207,7 +1207,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
       trip_id: tripId,
       stripe_session_id: session.id,
       stripe_payment_intent: paymentIntentId(session),
-      amount: session.amount_total || fallbackOption.amount,
+      amount: session.amount_total ?? fallbackOption.amount,
       currency: session.currency || fallbackOption.currency,
       status: session.payment_status
     },
@@ -1227,7 +1227,7 @@ export async function applyPaidItineraryPurchase(supabase: SupabaseClient, sessi
     metadata: {
       tripId,
       purchaseType,
-      amountCents: session.amount_total || fallbackOption.amount,
+      amountCents: session.amount_total ?? fallbackOption.amount,
       currency: session.currency || fallbackOption.currency,
       checkoutSessionId: session.id
     }

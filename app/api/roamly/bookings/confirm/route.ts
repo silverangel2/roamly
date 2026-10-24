@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeExtractedBooking, verifyBookingEvidenceToken } from "@/lib/roamly/bookings";
 import { createTripBooking } from "@/lib/roamly/bookingWallet";
+import { diffBookingCorrections } from "@/lib/roamly/bookingCorrections";
 import { scheduleCompanionEvents, tripHasLiveCompanionUnlock } from "@/lib/roamly/tripCompanion";
 import { requireUser } from "@/lib/roamly/auth";
 
@@ -25,6 +26,12 @@ export async function POST(request: NextRequest) {
   if (!extracted) return NextResponse.json({ ok: false, error: "Fresh server-verified booking evidence is required." }, { status: 400 });
   const booking = normalizeExtractedBooking(extracted);
   const dateTime = (date: string, time: string) => date ? `${date}T${time || "00:00:00"}Z` : null;
+  // B10: the traveler's review edits are NOT silently discarded and NOT
+  // applied as confirmed facts. They are diffed against the server-verified
+  // extraction and stored as a separate pending customer assertion, bound to
+  // the signed evidence token. The booking row itself stays
+  // needs_confirmation / traveler-unconfirmed.
+  const corrections = diffBookingCorrections(body.corrections, booking as unknown as Record<string, unknown>);
   const saved = await createTripBooking({
     supabase: auth.supabase,
     userId: auth.user.id,
@@ -52,7 +59,15 @@ export async function POST(request: NextRequest) {
       metadata: {
         evidenceState: "pending",
         extractionConfidence: booking.extraction_confidence,
-        sourceMetadata: booking.metadata
+        sourceMetadata: booking.metadata,
+        ...(corrections
+          ? {
+              customerCorrections: corrections,
+              correctionEvidenceToken: typeof body.evidenceToken === "string" ? body.evidenceToken : null,
+              correctionAssertedAt: new Date().toISOString(),
+              captureState: "customer_asserted"
+            }
+          : {})
       }
     }
   });
@@ -61,5 +76,5 @@ export async function POST(request: NextRequest) {
   if (tripHasLiveCompanionUnlock(ownership.data)) {
     await scheduleCompanionEvents(auth.supabase, tripId);
   }
-  return NextResponse.json({ ok: true, booking: saved.booking });
+  return NextResponse.json({ ok: true, booking: saved.booking, correctionsSaved: Boolean(corrections), correctionCount: corrections ? Object.keys(corrections).length : 0 });
 }

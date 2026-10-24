@@ -81,6 +81,12 @@ export default async function TripBookingsPage({ params, searchParams }: { param
       : ((legacyResult.data || []) as Record<string, unknown>[]).map((booking) =>
         legacyRoamlyBookingToWallet(booking, { userId: current.user!.id, tripId: id })
       );
+  // B15: any read failure other than a missing table is a load failure, not
+  // an empty wallet. listTripBookings returns [] on error, so without this
+  // flag a failed read would silently render "Nothing booked yet".
+  const bookingsLoadError =
+    (walletResult.error != null && !isMissingTableError(walletResult.error)) ||
+    (legacyResult.error != null && !isMissingTableError(legacyResult.error.message));
   const referrals: BookingOutcomeReferral[] = (referralsResult.data || []).map((row) => {
     const context = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
       ? row.metadata as Record<string, unknown>
@@ -136,6 +142,7 @@ export default async function TripBookingsPage({ params, searchParams }: { param
         companionUnlocked={companionOperational}
         locale={locale}
         focus={focus === "flight" || focus === "hotel" || focus === "activity" ? focus : null}
+        loadError={bookingsLoadError}
         referrals={referrals}
         referralDetails={referralDetails}
       />
