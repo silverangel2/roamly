@@ -725,11 +725,15 @@ function TripPlanFormSession({
     signedIn,
     freeItineraryUsed: accountFreeUsed,
     testerAccess,
-    // The traveler's own selected destination country — the same value the
-    // plan submit stamps as destinationCountry on the trip.
+    // The traveler's own selected destinations — the same rule the server
+    // prices by (lib/roamly/billing.ts isPhilippinesTrip): pesos ONLY when
+    // every stop is in the Philippines. A multi-country trip prices in
+    // CAD no matter which end the Philippines sits on, so the planner
+    // flag must never use the final stop alone.
     isPhilippinesTrip:
-      (tripType === "single_destination" ? destinationPlace?.country : validStops[validStops.length - 1]?.country) ===
-      "Philippines"
+      tripType === "single_destination"
+        ? destinationPlace?.country === "Philippines"
+        : validStops.length > 0 && validStops.every((place) => place.country === "Philippines")
   });
   const normalizedDestination = useMemo(() => {
     if (tripType === "multi_city") return validStops.map((place) => place.value).join(" \u2192 ");
@@ -1971,7 +1975,7 @@ function TripPlanFormSession({
                 <FieldError id="plan-budget-error" message={budgetFieldError} />
                 {budgetAmount.trim() || budgetFieldError ? null : (
                   <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-500">
-                    {translateText("A rough total is enough. Many short trips land around 1,500–4,000 CAD. Roamly will not fill this in for you.")}
+                    {translateText("A rough total is enough. Roamly will not fill this in for you.")}
                   </p>
                 )}
               </label>

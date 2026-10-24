@@ -4,6 +4,7 @@ import type { UtcInstant } from "@/lib/roamly/engine/time";
 import type { EngineWeatherDay } from "@/lib/roamly/engine/util";
 import type { StoredCandidate, WeatherSnapshotKind } from "@/lib/roamly/engine/packs/types";
 import { PACK_CLASSIFIER_VERSION, PACK_QUERY_VERSION, toInstant } from "@/lib/roamly/engine/packs/types";
+import { destinationCoverageBoxes } from "@/lib/roamly/engine/packs/destinations";
 
 /*
  * Collectors — the typed provider services for the pack data plane
@@ -311,6 +312,25 @@ out center;`
   ];
 }
 
+/** Overpass chunks for one destination's collection: main chunks once per
+ *  coverage box (seed box first, then each deliberate subregion box, ids
+ *  suffixed so chunk results stay attributable), plus the wide chunk.
+ *  A Bohol build therefore queries the Panglao and interior boxes instead
+ *  of missing their sights; the wide chunk is unchanged. More boxes mean
+ *  more sequential chunks under the same overall deadline — a slow box
+ *  degrades to PARTIAL, never kills the collection. */
+export function overpassChunksForDestination(destination: DestinationDTO): OverpassChunk[] {
+  return [
+    ...destinationCoverageBoxes(destination).flatMap((box, boxIndex) =>
+      mainOverpassQueryChunks(box).map((chunk) => ({
+        id: boxIndex === 0 ? chunk.id : `${chunk.id}@box${boxIndex + 1}`,
+        query: chunk.query
+      }))
+    ),
+    { id: "wide", query: wideOverpassQuery(wideBBox(destination.centre)) }
+  ];
+}
+
 /** Overall wall-clock budget for one destination's POI collection.
  *  The pack-refresh function budget is 300 s; the collection must
  *  hand time back, so the default deadline is 210 s — chunk fetches
@@ -406,13 +426,17 @@ export async function collectPoiCandidates(
   now: () => Date = () => new Date(),
   deadlineMs: number = DEFAULT_COLLECTION_DEADLINE_MS
 ): Promise<PoiCollection> {
-  if (!destination.bbox) {
+  if (!destination.bbox && !(destination.coverageBoxes && destination.coverageBoxes.length > 0)) {
     throw new Error(`destination ${destination.destinationId} has no bbox — registry row is incomplete`);
   }
-  const chunks: OverpassChunk[] = [
-    ...mainOverpassQueryChunks(destination.bbox),
-    { id: "wide", query: wideOverpassQuery(wideBBox(destination.centre)) }
-  ];
+  // Main chunks run once per coverage box (seed box first, then each
+  // deliberate subregion box, ids suffixed so chunk results stay
+  // attributable). A Bohol build therefore queries the Panglao and
+  // interior boxes instead of missing their sights; the wide chunk is
+  // unchanged. More boxes mean more sequential chunks under the same
+  // overall deadline — a slow box degrades to PARTIAL, never kills the
+  // collection (the deadline discipline below is untouched).
+  const chunks: OverpassChunk[] = overpassChunksForDestination(destination);
   const startedAt = now().getTime();
   const elements: OsmElement[] = [];
   const succeededChunks: string[] = [];

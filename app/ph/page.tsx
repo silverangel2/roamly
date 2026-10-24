@@ -163,7 +163,12 @@ export default function PhilippinesPage() {
                         {item.time_label} — {item.title}
                       </span>
                       <span className="block text-xs font-semibold leading-5 text-[#cfe5d8]">
-                        {item.location_name} · {item.estimated_cost === 0 ? "Free" : `${formatPeso(item.estimated_cost)} est.`}
+                        {item.location_name} ·{" "}
+                        {item.packageIncluded
+                          ? `Included in ${item.packageName ?? "tour package"}`
+                          : item.estimated_cost === 0
+                            ? "Free"
+                            : `${formatPeso(item.estimated_cost)} est.`}
                       </span>
                     </li>
                   ))}

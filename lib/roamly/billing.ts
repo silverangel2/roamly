@@ -75,27 +75,56 @@ const PHILIPPINES_CITY_NAMES = new Set([
 ]);
 
 /**
- * Philippines context for one trip, resolved from the trip's own stored metadata —
- * never from a client guess. Primary rule: destinationCountry === "Philippines"
- * (stamped by the PH pack and the plan flow). Fallbacks cover trips whose country
- * was never stamped: a Philippines stop, a Philippines city name, or a
- * destination label naming the Philippines.
+ * THE one Philippines-pricing rule, used identically by the quote shown on
+ * the trip page, the checkout session, the price validator, and the
+ * webhook fallback — so a traveler can never see a peso quote and pay in
+ * Canadian dollars, or the reverse. It is derived server-side from the
+ * trip's own stored metadata, never from a client guess:
+ *
+ *  1. When the trip carries stops (multi-city trips store them under
+ *     metadata.planning.destinationStops; some callers put them at the
+ *     metadata root), the trip prices in pesos ONLY when EVERY stop is
+ *     in the Philippines. A multi-country trip — Philippines first or
+ *     Philippines last — prices in CAD. This is the fix for the old
+ *     split: the planner stamped destinationCountry from the FINAL stop
+ *     while billing treated ANY Philippines stop as a peso trip, so a
+ *     Philippines-first trip showed CAD and charged PHP.
+ *  2. Without stops (single-destination and legacy trips), the stamped
+ *     destinationCountry decides: "Philippines" prices in pesos.
+ *  3. Last resort for trips whose country was never stamped: a
+ *     Philippines city name or a destination label naming the
+ *     Philippines. A stop whose country cannot be determined counts as
+ *     NOT Philippines — peso pricing needs positive proof, and CAD is
+ *     the safe default.
+ *
+ * Note the behavior change this rule carries on purpose: a multi-country
+ * trip whose final stop is in the Philippines used to price in pesos
+ * (via the stamped country); it now prices in CAD like every other
+ * multi-country trip. One rule, everywhere, no exceptions.
  */
 export function isPhilippinesTrip(trip: Pick<RoamlyBillingTrip, "metadata"> | null | undefined): boolean {
   if (!trip?.metadata) return false;
   const root = metadataRecord(trip.metadata);
   const planning = metadataRecord(root.planning);
   const scopes = [root, planning];
+  const rootStops = root.destinationStops;
+  const planningStops = planning.destinationStops;
+  const stops = Array.isArray(rootStops) && rootStops.length > 0 ? rootStops : planningStops;
+  if (Array.isArray(stops) && stops.length > 0) {
+    return stops.every((stop) => {
+      if (typeof stop === "string") {
+        // A bare string stop carries no country field; only a trailing
+        // ", Philippines" counts as Philippines evidence.
+        return stop.trim().toLowerCase().endsWith(", philippines");
+      }
+      const stopRecord = metadataRecord(stop);
+      const country =
+        metadataStringField(stopRecord, "country") || metadataStringField(stopRecord, "destinationCountry");
+      return country.trim().toLowerCase() === "philippines";
+    });
+  }
   for (const scope of scopes) {
     if (metadataStringField(scope, "destinationCountry").trim().toLowerCase() === "philippines") return true;
-  }
-  const stops = root.destinationStops;
-  if (Array.isArray(stops)) {
-    for (const stop of stops) {
-      const stopRecord = metadataRecord(stop);
-      if (metadataStringField(stopRecord, "country").trim().toLowerCase() === "philippines") return true;
-      if (metadataStringField(stopRecord, "destinationCountry").trim().toLowerCase() === "philippines") return true;
-    }
   }
   for (const scope of scopes) {
     const city = normalizedPlaceName(metadataStringField(scope, "destinationCity"));

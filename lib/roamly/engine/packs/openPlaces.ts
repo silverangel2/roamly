@@ -13,6 +13,7 @@ import {
   type FetchPolicy,
   type Fetcher
 } from "@/lib/roamly/engine/packs/collectors";
+import { destinationCoverageBoxes, insideDestinationCoverage } from "@/lib/roamly/engine/packs/destinations";
 
 /*
  * Open Places adapter — the independent FALLBACK supply for pack
@@ -473,18 +474,22 @@ export async function collectPoiCandidatesFromOpenPlaces(
   apiKey: string,
   options: OpenPlacesOptions = {}
 ): Promise<OpenPlacesCollection> {
-  if (!destination.bbox) {
+  if (!destination.bbox && !(destination.coverageBoxes && destination.coverageBoxes.length > 0)) {
     throw new Error(`destination ${destination.destinationId} has no bbox — registry row is incomplete`);
   }
   if (!apiKey) {
     throw new OpenPlacesError("provider", "Open Places collection called without an API key");
   }
-  const bbox = destination.bbox;
   const now = options.now ?? (() => new Date());
   const sleep = options.sleep ?? defaultSleep;
   const deadlineMs = options.deadlineMs ?? DEFAULT_OPEN_PLACES_DEADLINE_MS;
   const baseUrl = options.baseUrl ?? OPEN_PLACES_API_URL;
-  const radiusMi = openPlacesRadiusMi(destination.centre, bbox);
+  // The browse circle must reach every coverage box, not just the seed
+  // box — otherwise subregion records never arrive to be filtered in.
+  // The post-filter below still drops everything outside coverage.
+  const radiusMi = Math.max(
+    ...destinationCoverageBoxes(destination).map((box) => openPlacesRadiusMi(destination.centre, box))
+  );
   const startedAt = now().getTime();
   const remainingMs = (): number => deadlineMs - (now().getTime() - startedAt);
 
@@ -594,13 +599,13 @@ export async function collectPoiCandidatesFromOpenPlaces(
   let unclassified = 0;
   const classified: StoredCandidate[] = [];
   for (const rec of records) {
+    // Coverage is the seed bbox PLUS any deliberate subregion boxes
+    // (Bohol's sights live outside its small seed box) — never the bare
+    // bbox alone, or subregion sights silently drop out of fresh packs.
     if (
       typeof rec.lat !== "number" ||
       typeof rec.lon !== "number" ||
-      rec.lat < bbox.minLat ||
-      rec.lat > bbox.maxLat ||
-      rec.lon < bbox.minLon ||
-      rec.lon > bbox.maxLon
+      !insideDestinationCoverage(destination, rec.lat, rec.lon)
     ) {
       droppedOutOfBbox += 1;
       continue;
