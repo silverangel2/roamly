@@ -3,6 +3,7 @@ import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/li
 import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking } from "@/lib/roamly/bookingWallet";
 import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { bookingOutcomeLabel, deriveBookingOutcome, type BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
+import { BookingReviewActions } from "@/components/companion/BookingReviewActions";
 
 type BookingWalletTimelineProps = {
   tripId: string;
@@ -10,6 +11,8 @@ type BookingWalletTimelineProps = {
   companionUnlocked?: boolean;
   locale: RoamlyLocale;
   focus?: "flight" | "hotel" | "activity" | null;
+  /** B15: a non-missing-table read failure — render the failure, never an empty wallet. */
+  loadError?: boolean;
   referrals?: BookingOutcomeReferral[];
   referralDetails?: Array<{
     id: string;
@@ -20,6 +23,15 @@ type BookingWalletTimelineProps = {
     createdAt: string | null;
   }>;
 };
+
+function sourceWords(sourceType: TripBookingRecord["source_type"]) {
+  if (sourceType === "screenshot" || sourceType === "upload") return "screenshot you uploaded";
+  if (sourceType === "email" || sourceType === "gmail") return "email";
+  if (sourceType === "manual") return "details you added";
+  if (sourceType === "affiliate_conversion") return "affiliate booking";
+  if (sourceType === "affiliate_click") return "option you viewed";
+  return "booking record";
+}
 
 function statusClass(status: TripBookingStatus) {
   if (status === "confirmed" || status === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-800";
@@ -141,11 +153,16 @@ function navLinkClass(active = false) {
   return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
-export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, referrals = [], referralDetails = [] }: BookingWalletTimelineProps) {
+export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, loadError = false, referrals = [], referralDetails = [] }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
+  // B12: superseded rows are history, never active — shown in their own
+  // labeled section below, never mixed into the live wallet.
+  const supersededBookings = bookings.filter((booking) => booking.superseded_by_booking_id != null);
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
-  const actionNeeded = activeBookings.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected");
+  // B11: only unreviewed records ask for action. A traveler assertion or a
+  // dismissal resolves the ask without ever promoting the row to confirmed.
+  const actionNeeded = activeBookings.filter((booking) => (booking.booking_status === "needs_confirmation" || booking.booking_status === "detected") && booking.review_state == null);
   const outcomeFor = (booking: TripBookingRecord) => deriveBookingOutcome({ tripId, category: booking.booking_type, booking, bookings, referrals });
   const visibleReferrals = referrals
     .map((referral) => ({ referral, outcome: deriveBookingOutcome({ tripId, category: referral.category || "other", recommendationId: referral.recommendation_id, bookings, referrals: [referral] }) }))
@@ -181,11 +198,41 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         <Link href={`/trip/${tripId}/companion`} className={navLinkClass(false)}>Companion</Link>
       </nav>
 
+      {loadError ? (
+        <section className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-800">Bookings could not be loaded</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">Roamly could not read your bookings just now. This does not mean you have no bookings.</p>
+          <Link href={`/trip/${tripId}/bookings`} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
+            Try loading bookings again
+          </Link>
+        </section>
+      ) : null}
+
       {actionNeeded.length ? (
         <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Action needed</p>
           <p className="mt-1 text-base font-black text-ink">Review {actionNeeded.length === 1 ? actionNeeded[0].title : `${actionNeeded.length} booking details`}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">These details were found but are not confirmed for travel yet.</p>
+          <div className="mt-3 grid gap-3">
+            {actionNeeded.map((booking) => (
+              <article key={booking.id} className="rounded-xl bg-white px-3 py-3">
+                <p className="text-sm font-black text-ink">{booking.title || booking.provider || "Booking"}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">Found via {sourceWords(booking.source_type)}{booking.provider ? ` · ${booking.provider}` : ""}{booking.confirmation_code ? ` · Ref ${booking.confirmation_code}` : ""}</p>
+                <BookingReviewActions
+                  tripId={tripId}
+                  bookingId={booking.id}
+                  initial={{
+                    title: booking.title || "",
+                    provider: booking.provider || "",
+                    confirmation: booking.confirmation_code || "",
+                    amount: booking.total_price,
+                    currency: booking.currency || "CAD",
+                    startDate: (booking.start_time || booking.check_in_time || "").slice(0, 10)
+                  }}
+                />
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
 
@@ -264,6 +311,9 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                             <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(booking)}</p>
                             <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
                             {reference ? <p className="mt-1 text-xs font-black text-slate-500">Reference: {reference}</p> : null}
+                            {booking.review_state === "traveler_asserted" ? <p className="mt-1 text-xs font-bold text-slate-500">Your details are recorded and awaiting confirmation.</p> : null}
+                            {booking.review_state === "dismissed" ? <p className="mt-1 text-xs font-bold text-slate-500">You dismissed this item.</p> : null}
+                            {booking.pending_corrections ? <p className="mt-1 text-xs font-bold text-slate-500">Correction pending review — not confirmed yet.</p> : null}
                           </div>
                           <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(booking.booking_status)}`}>
                             {customerStatus(booking, outcomeFor(booking))}
@@ -292,6 +342,21 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           </div>
         )}
       </section>
+
+      {supersededBookings.length ? (
+        <section className="mt-6 border-t border-[#e8dfd0] pt-5">
+          <h2 className="text-lg font-black text-ink">Booking history</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Replaced bookings. These are kept for reference only and are not active.</p>
+          <div className="mt-3 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
+            {supersededBookings.map((booking) => (
+              <article key={booking.id} className="py-3">
+                <p className="text-sm font-black text-slate-700">{booking.title || booking.provider || "Booking"}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">Replaced by a newer version · {primaryDetail(booking, locale)}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { sanitizeBookingCorrectionFields } from "@/lib/roamly/bookingCorrections";
 import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
@@ -154,6 +155,16 @@ export type TripBookingRecord = {
   created_at: string;
   updated_at: string;
   superseded_by_booking_id: string | null;
+  /**
+   * Traveler review state, derived from the row's metadata (never a status
+   * change): "traveler_asserted" means the traveler confirmed these details
+   * are theirs — it is NOT provider confirmation. "dismissed" means the
+   * traveler dismissed the item with an optional reason. Null = still
+   * awaiting traveler review. Set only by the bookings review route.
+   */
+  review_state: "traveler_asserted" | "dismissed" | null;
+  /** Traveler corrections recorded as a pending assertion (see B10). */
+  pending_corrections: Record<string, unknown> | null;
   booking_segments?: BookingSegmentRecord[];
 };
 
@@ -297,8 +308,11 @@ export function isConfirmedBooking(booking: Pick<TripBookingRecord, "booking_sta
   return isOperationalCurrentBooking(booking) && booking.traveler_confirmed && confirmedStatuses.has(booking.booking_status);
 }
 
-export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status">) {
-  return !inactiveStatuses.has(booking.booking_status);
+export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status"> & { superseded_by_booking_id?: string | null }) {
+  // ONE operational-current rule: a superseded row is history, never active,
+  // even when its status still reads as a live one. isConfirmedBooking already
+  // required this via isOperationalCurrentBooking; the active set now does too.
+  return isOperationalCurrentBooking(booking) && !inactiveStatuses.has(booking.booking_status);
 }
 
 export function isBookingClickOnly(booking: Pick<TripBookingRecord, "booking_status" | "source_type">) {
@@ -418,6 +432,14 @@ export function serializeTripBookingRecord(
     created_at: typeof row.created_at === "string" ? row.created_at : "",
     updated_at: typeof row.updated_at === "string" ? row.updated_at : "",
     superseded_by_booking_id: nullableText(row.superseded_by_booking_id),
+    review_state:
+      metadata.reviewState === "traveler_asserted" || metadata.reviewState === "dismissed"
+        ? metadata.reviewState
+        : null,
+    pending_corrections:
+      safeJson(metadata.customerCorrections) && Object.keys(safeJson(metadata.customerCorrections)).length
+        ? safeJson(metadata.customerCorrections)
+        : null,
     booking_segments: Array.isArray(row.booking_segments)
       ? row.booking_segments as BookingSegmentRecord[]
       : undefined
@@ -597,6 +619,80 @@ export async function listTripBookings(params: {
       )
     ),
     error: null
+  };
+}
+
+export type BookingReviewAction = "assert" | "dismiss" | "correct";
+
+/**
+ * Traveler review of one wallet booking (B11). The traveler's action is
+ * recorded in the row's metadata only: it NEVER changes booking_status or
+ * traveler_confirmed, so a customer assertion can never become provider
+ * confirmation. "assert" records that the details are the traveler's own;
+ * "dismiss" records a dismissal with an optional reason; "correct" merges
+ * sanitized correction fields into the pending customerCorrections assertion.
+ * Superseded rows are history and cannot be reviewed.
+ */
+export async function reviewTripBooking(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  bookingId: string;
+  action: BookingReviewAction;
+  reason?: string | null;
+  corrections?: unknown;
+}) {
+  const trip = await params.supabase
+    .from("roamly_trips")
+    .select("id")
+    .eq("id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (trip.error) return { ok: false as const, error: trip.error.message };
+  if (!trip.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
+
+  const existing = await params.supabase
+    .from("roamly_bookings")
+    .select("id,metadata,superseded_by_booking_id")
+    .eq("id", params.bookingId)
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (existing.error) return { ok: false as const, error: existing.error.message };
+  if (!existing.data) return { ok: false as const, error: "BOOKING_NOT_FOUND" };
+  const row = existing.data as Record<string, unknown>;
+  if (row.superseded_by_booking_id != null) return { ok: false as const, error: "BOOKING_NOT_CURRENT" };
+
+  const metadata = safeJson(row.metadata);
+  const now = new Date().toISOString();
+  if (params.action === "assert") {
+    metadata.reviewState = "traveler_asserted";
+    metadata.travelerAssertion = { assertedAt: now };
+  } else if (params.action === "dismiss") {
+    metadata.reviewState = "dismissed";
+    const reason = typeof params.reason === "string" ? params.reason.trim().slice(0, 500) : "";
+    metadata.reviewDismissed = { dismissedAt: now, reason: reason || null };
+  } else if (params.action === "correct") {
+    const sanitized = sanitizeBookingCorrectionFields(params.corrections);
+    const supplied = Object.fromEntries(Object.entries(sanitized).filter(([, value]) => value != null));
+    if (!Object.keys(supplied).length) return { ok: false as const, error: "NO_VALID_CORRECTIONS" };
+    metadata.customerCorrections = { ...safeJson(metadata.customerCorrections), ...supplied };
+    metadata.correctionAssertedAt = now;
+  } else {
+    return { ok: false as const, error: "UNKNOWN_REVIEW_ACTION" };
+  }
+
+  const updated = await params.supabase
+    .from("roamly_bookings")
+    .update({ metadata })
+    .eq("id", params.bookingId)
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId);
+  if (updated.error) return { ok: false as const, error: updated.error.message };
+  return {
+    ok: true as const,
+    reviewState: typeof metadata.reviewState === "string" ? metadata.reviewState : null,
+    pendingCorrections: safeJson(metadata.customerCorrections)
   };
 }
 
@@ -1294,7 +1390,7 @@ export function bookingWalletSummary(bookings: TripBookingRecord[]) {
     total: bookings.length,
     active: active.length,
     confirmed: confirmed.length,
-    needsConfirmation: bookings.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected").length,
+    needsConfirmation: active.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected").length,
     clickOnly: bookings.filter(isBookingClickOnly).length
   };
 }
@@ -1386,6 +1482,8 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
     created_at: nullableText(record.created_at) || now,
     updated_at: nullableText(record.updated_at) || now,
     superseded_by_booking_id: typeof record.superseded_by_booking_id === "string" ? record.superseded_by_booking_id : null,
+    review_state: null,
+    pending_corrections: null,
     booking_segments: []
   };
 }
