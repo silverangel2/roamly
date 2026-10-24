@@ -2478,7 +2478,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // gate keys on the account's persisted state, never on this trip;
   // completed once, it never renders again.
   const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
-  if (setupState && !setupState.complete) {
+  if (setupState && !setupState.complete && !access.hasQaAccess) {
     return (
       <SetupGateScreen
         initialState={setupState}
