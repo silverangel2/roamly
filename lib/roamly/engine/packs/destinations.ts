@@ -118,9 +118,55 @@ export const PARIS_DESTINATION: DestinationDTO = {
   }
 };
 
+/* ------------------------------------------------------------------ */
+/* Philippines registry additions (Roamly PH launch, 2026-10-23)       */
+/*                                                                     */
+/* Centres verified through Google Places Text Search (the registered */
+/* Places connector) on 2026-10-23 and cross-checked against the      */
+/* bundled GeoNames cities dataset where a matching city exists       */
+/* (Manila, Cebu City, Baguio, El Nido, Davao agree within ~1 km;     */
+/* Puerto Princesa's Places locality point is used as returned).      */
+/* The activity-level data pack lives in lib/roamly/philippinesPack.ts; */
+/* these registry rows make the destinations first-class for           */
+/* pack builds. Bboxes follow the same shadow sizing rule as every    */
+/* other seed.                                                         */
+/* ------------------------------------------------------------------ */
+
+const PH_SEED_SPECS: readonly SeedSpec[] = [
+  { poolId: "manila-city", displayName: "Manila", country: "Philippines", kind: "big city", centre: { lat: 14.5995133, lon: 120.984234 }, timeZone: "Asia/Manila" },
+  { poolId: "boracay-island", displayName: "Boracay", country: "Philippines", kind: "island", centre: { lat: 11.9673753, lon: 121.924815 }, timeZone: "Asia/Manila" },
+  { poolId: "el-nido-town", displayName: "El Nido", country: "Philippines", kind: "small town", centre: { lat: 11.1989164, lon: 119.4231658 }, timeZone: "Asia/Manila" },
+  { poolId: "coron-town", displayName: "Coron", country: "Philippines", kind: "small town", centre: { lat: 11.9989958, lon: 120.2046888 }, timeZone: "Asia/Manila" },
+  { poolId: "puerto-princesa-city", displayName: "Puerto Princesa", country: "Philippines", kind: "city", centre: { lat: 9.7856257, lon: 118.626479 }, timeZone: "Asia/Manila" },
+  { poolId: "cebu-city", displayName: "Cebu City", country: "Philippines", kind: "city", centre: { lat: 10.2926115, lon: 123.9021934 }, timeZone: "Asia/Manila" },
+  { poolId: "bohol-island", displayName: "Bohol", country: "Philippines", kind: "island", centre: { lat: 9.6533997, lon: 123.8670252 }, timeZone: "Asia/Manila" },
+  { poolId: "siargao-island", displayName: "Siargao", country: "Philippines", kind: "island", centre: { lat: 9.7837527, lon: 126.1565715 }, timeZone: "Asia/Manila" },
+  { poolId: "baguio-city", displayName: "Baguio", country: "Philippines", kind: "small city", centre: { lat: 16.4129692, lon: 120.5913973 }, timeZone: "Asia/Manila" },
+  { poolId: "davao-city", displayName: "Davao City", country: "Philippines", kind: "city", centre: { lat: 7.0647456, lon: 125.6088427 }, timeZone: "Asia/Manila" },
+  { poolId: "samal-island", displayName: "Samal Island", country: "Philippines", kind: "island", centre: { lat: 7.0835209, lon: 125.7057809 }, timeZone: "Asia/Manila" }
+];
+
+export const PHILIPPINES_DESTINATION_SEEDS: readonly DestinationDTO[] = PH_SEED_SPECS.map((spec) => ({
+  destinationId: destinationRegistryId(spec.country, spec.displayName, spec.centre),
+  displayName: spec.displayName,
+  country: spec.country,
+  centre: spec.centre,
+  bbox: shadowBBox(spec.centre, spec.kind),
+  timeZone: spec.timeZone,
+  geocodeProvenance: {
+    source: "recorded-destination-registry",
+    sourceRef: spec.poolId,
+    recordedAt: null,
+    label:
+      spec.provenanceLabel ??
+      `Google Places-verified centre (Text Search, 2026-10-23, Philippines pack build), cross-checked against the bundled GeoNames city dataset where available; kind "${spec.kind}" sizes the collection bbox by the shadow rule`
+  }
+}));
+
 /** The registry a production store serves: the breadth corpus plus
  *  every production addition. */
 export const PRODUCTION_DESTINATION_SEEDS: readonly DestinationDTO[] = [
   ...BREADTH_DESTINATION_SEEDS,
-  PARIS_DESTINATION
+  PARIS_DESTINATION,
+  ...PHILIPPINES_DESTINATION_SEEDS
 ];

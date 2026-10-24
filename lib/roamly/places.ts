@@ -268,6 +268,131 @@ export const recommendedPlaces: NormalizedPlace[] = [
     currency: "EUR",
     timezone: "Europe/Lisbon",
     source: "local"
+  },
+  // Philippines (Roamly PH launch, 2026-10-23). Centres verified through
+  // Google Places Text Search on 2026-10-23 and cross-checked against the
+  // bundled GeoNames cities dataset where a matching city exists. Currency
+  // PHP + timezone Asia/Manila ride the existing place -> budget-currency
+  // plumbing in the planner.
+  {
+    label: "Manila, Philippines",
+    value: "Manila, Philippines",
+    city: "Manila",
+    region: "Metro Manila",
+    country: "Philippines",
+    latitude: 14.5995133,
+    longitude: 120.984234,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Boracay, Philippines",
+    value: "Boracay, Philippines",
+    city: "Boracay",
+    region: "Aklan",
+    country: "Philippines",
+    latitude: 11.9673753,
+    longitude: 121.924815,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "El Nido, Philippines",
+    value: "El Nido, Philippines",
+    city: "El Nido",
+    region: "Palawan",
+    country: "Philippines",
+    latitude: 11.1989164,
+    longitude: 119.4231658,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Coron, Philippines",
+    value: "Coron, Philippines",
+    city: "Coron",
+    region: "Palawan",
+    country: "Philippines",
+    latitude: 11.9989958,
+    longitude: 120.2046888,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Puerto Princesa, Philippines",
+    value: "Puerto Princesa, Philippines",
+    city: "Puerto Princesa",
+    region: "Palawan",
+    country: "Philippines",
+    latitude: 9.7856257,
+    longitude: 118.626479,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Cebu City, Philippines",
+    value: "Cebu City, Philippines",
+    city: "Cebu City",
+    region: "Cebu",
+    country: "Philippines",
+    latitude: 10.2926115,
+    longitude: 123.9021934,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Bohol, Philippines",
+    value: "Bohol, Philippines",
+    city: "Bohol",
+    region: "Bohol",
+    country: "Philippines",
+    latitude: 9.6533997,
+    longitude: 123.8670252,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Siargao, Philippines",
+    value: "Siargao, Philippines",
+    city: "Siargao",
+    region: "Surigao del Norte",
+    country: "Philippines",
+    latitude: 9.7837527,
+    longitude: 126.1565715,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Baguio, Philippines",
+    value: "Baguio, Philippines",
+    city: "Baguio",
+    region: "Benguet",
+    country: "Philippines",
+    latitude: 16.4129692,
+    longitude: 120.5913973,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
+  },
+  {
+    label: "Davao City, Philippines",
+    value: "Davao City, Philippines",
+    city: "Davao City",
+    region: "Davao del Sur",
+    country: "Philippines",
+    latitude: 7.0647456,
+    longitude: 125.6088427,
+    currency: "PHP",
+    timezone: "Asia/Manila",
+    source: "local"
   }
 ];
 
@@ -287,6 +412,24 @@ export function localPlaceSearch(query: string, places: NormalizedPlace[] = reco
       return aStarts - bStarts || a.label.localeCompare(b.label);
     })
     .slice(0, limit);
+}
+
+/**
+ * Exact-match a free-text destination label against the recommended
+ * places (e.g. a "/plan?destination=Cebu City, Philippines" deep link).
+ * Returns the full local place record — coordinates, currency, timezone —
+ * or null when the text is not a known recommended place. Used so deep
+ * links land on the planner with the destination's real defaults
+ * (including its currency) instead of a bare custom label.
+ */
+export function matchRecommendedPlace(text: string): NormalizedPlace | null {
+  const wanted = normalizePlaceText(text).toLowerCase();
+  if (!wanted) return null;
+  return (
+    recommendedPlaces.find(
+      (place) => place.label.toLowerCase() === wanted || place.value.toLowerCase() === wanted
+    ) ?? null
+  );
 }
 
 export function normalizeCustomPlace(value: string): NormalizedPlace {

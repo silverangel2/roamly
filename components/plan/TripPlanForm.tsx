@@ -14,6 +14,7 @@ import {
 } from "@/lib/trip-planner";
 import {
   isValidPlaceValue,
+  matchRecommendedPlace,
   normalizePlaceText,
   popularOriginPlaces,
   recommendedPlaces,
@@ -1198,7 +1199,12 @@ function TripPlanFormSession({
             // available as a quiet resume action and is not written over until edited.
             setPreviousDraft(record);
             holdDraftSave.current = true;
-            setDestinationPlace(readDraftPlace(freshDestination));
+            // A deep-linked destination that matches a recommended place
+            // (e.g. from the /ph door) arrives with its real record —
+            // coordinates, timezone, and its currency as the budget default.
+            const knownFreshPlace = matchRecommendedPlace(freshDestination);
+            setDestinationPlace(knownFreshPlace ?? readDraftPlace(freshDestination));
+            if (knownFreshPlace && isCurrencyOption(knownFreshPlace.currency)) setBudgetCurrency(knownFreshPlace.currency);
             setRestoreNotice(false);
           } else {
             restorePlanDraft(record);
@@ -1239,7 +1245,11 @@ function TripPlanFormSession({
     } else if (!restoredStoredDraft && queryDestination) {
       const placeLabel = normalizePlaceText(queryDestination);
       if (placeLabel) {
-        setDestinationPlace(readDraftPlace(placeLabel));
+        // Same deep-link resolution as the fresh-destination branch above:
+        // a recommended place keeps its record (and currency default).
+        const knownQueryPlace = matchRecommendedPlace(placeLabel);
+        setDestinationPlace(knownQueryPlace ?? readDraftPlace(placeLabel));
+        if (knownQueryPlace && isCurrencyOption(knownQueryPlace.currency)) setBudgetCurrency(knownQueryPlace.currency);
       }
     }
 
