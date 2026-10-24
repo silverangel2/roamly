@@ -18,7 +18,7 @@ export function TripActivationBanner({
       ? "Live Trip Companion ready"
       : "Trip has not started";
   return (
-    <section className="rounded-[14px] bg-white p-5 shadow-calm sm:p-6">
+    <section className="rounded-[14px] bg-white p-4 shadow-calm sm:p-5">
       <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">Roamly notification</p>
       <h1 className="mt-1.5 text-[30px] font-bold leading-[1.12] tracking-[-0.022em] text-chead">
         {title}

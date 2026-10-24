@@ -374,7 +374,7 @@ function AppShellContent({
           aria-label="Mobile navigation"
           aria-hidden={bottomNavHidden || undefined}
           inert={bottomNavHidden ? true : undefined}
-          className={`roamly-bottom-nav fixed inset-x-0 bottom-0 z-40 grid min-w-0 border-t border-[rgba(61,78,109,0.28)] bg-white/95 px-2.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] backdrop-blur-[18px] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:hidden ${
+          className={`roamly-bottom-nav fixed inset-x-0 bottom-0 z-40 grid min-w-0 border-t border-[rgba(61,78,109,0.28)] bg-white/95 px-1.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] backdrop-blur-[18px] transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none lg:hidden ${
             bottomNavHidden ? "pointer-events-none translate-y-[calc(100%+max(1rem,env(safe-area-inset-bottom)))]" : "translate-y-0"
           } ${authenticated ? "grid-cols-5" : "grid-cols-6"}`}
         >
@@ -383,7 +383,7 @@ function AppShellContent({
               key={route.href}
               href={route.href}
               aria-current={isActive(pathname, route.href, mobileRoutes.map((item) => item.href)) ? "page" : undefined}
-              className={`relative flex min-h-11 min-w-0 flex-col items-center gap-[3px] px-1 py-1 text-center text-[0.66rem] font-medium leading-tight transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
+              className={`relative flex min-h-11 min-w-0 flex-col items-center gap-[3px] whitespace-nowrap px-0 py-1 text-center text-[0.65rem] font-medium leading-tight tracking-[-0.01em] transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
                 isActive(pathname, route.href, mobileRoutes.map((item) => item.href))
                   ? "text-chead"
                   : "text-cgray2"

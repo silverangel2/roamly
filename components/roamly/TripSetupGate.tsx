@@ -36,14 +36,14 @@ export function SetupGateScreen({
 
   if (setup.complete) {
     return (
-      <div className="calm-bleed calm-crossfade safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl items-center px-4 py-10 sm:px-6">
+      <div className="calm-bleed calm-crossfade mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl items-center px-4 py-10 sm:px-6">
         <p className="text-base font-normal leading-7 text-cgray">All set — opening your trip…</p>
       </div>
     );
   }
 
   return (
-    <div className="calm-bleed calm-crossfade safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl items-start px-4 py-10 sm:px-6">
+    <div className="calm-bleed calm-crossfade mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl items-start px-4 pb-10 pt-5 sm:px-6">
       <section className="w-full">
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Your trip is ready</p>
         <h1 className="mt-1.5 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">{tripName}</h1>
@@ -51,7 +51,7 @@ export function SetupGateScreen({
           Three steps, once — then everything works. Done here, they are remembered forever: no setup on
           your next trip, or the one after.
         </p>
-        <p className="mb-2 ml-4 mt-6 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Finish setup</p>
+        <p className="mb-2 ml-4 mt-5 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Finish setup</p>
         <SetupCascade initialState={setup} onStateChange={handleStateChange} />
         <p className="mt-6 text-center text-[15px] font-normal leading-[1.45] text-cgray">
           Your itinerary is saved and waiting — it opens the moment the steps are done.

@@ -1590,9 +1590,9 @@ export function LiveTripClient({
   const showSetupCard = Boolean(!mobileRuntime || !isStandalone || fieldTestMode || tripCompleted || setupGap);
 
   return (
-    <div className="calm-enter mx-auto grid w-full max-w-5xl gap-5 pb-28 md:pb-0">
+    <div className="calm-enter mx-auto grid w-full max-w-5xl gap-5 pb-0">
       <section className="text-cink">
-        <div className="px-1 pb-1 pt-1">
+        <div className="px-0 pb-1 pt-1">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.liveCompanion")}</p>
@@ -1685,14 +1685,14 @@ export function LiveTripClient({
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-cbg px-3 py-3">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-cgray">Next</p>
+              <div className="rounded-xl bg-cbg px-4 py-3">
+                <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Next</p>
                 <p className="mt-1 text-sm font-semibold leading-5 text-chead">{displayedNextTitle}</p>
                 {nextActivity ? <p className="mt-1 text-xs font-normal text-cgray">{nextTimingStatus === "PLANNED" ? "Planned · " : ""}{formatClock(nextStart?.toISOString() || null, timezone, locale)}</p> : null}
               </div>
               {!preTrip ? (
-              <div className="rounded-xl bg-cbg px-3 py-3">
-                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-cgray">Timing</p>
+              <div className="rounded-xl bg-cbg px-4 py-3">
+                <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Timing</p>
                 <p className="mt-1 text-sm font-semibold text-chead">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</p>
                 {model.route.status === "verified" ? <p className="mt-1 text-xs font-normal text-cgray">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</p> : nextActivity ? <p className="mt-1 text-xs font-normal text-cgray">Travel time from your location is still uncertain</p> : null}
                 {permission === "granted" ? (
@@ -1706,7 +1706,7 @@ export function LiveTripClient({
             </div>
 
             <div className="mt-4 rounded-xl bg-cbg px-4 py-3">
-              <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-cgray">{t("ui.booking.address")}</p>
+              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{t("ui.booking.address")}</p>
               <p className="mt-1 text-sm font-normal leading-5 text-cink">{displayedAddress}</p>
               {nextActivity?.openingHours ? (
                 <p className="mt-2 text-xs font-normal text-cgray">{t("ui.status.hours")}: {nextActivity.openingHours}</p>

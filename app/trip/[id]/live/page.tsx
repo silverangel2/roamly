@@ -100,7 +100,7 @@ export default async function LiveTripPage({
 
   if (!current.configured || !current.user) {
     return (
-      <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+      <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
           <Badge tone="sun">Setup</Badge>
           <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Connect Supabase to use Live Trip Companion.</h1>
@@ -347,7 +347,7 @@ export default async function LiveTripPage({
 
   if (fieldTestMode) {
     return (
-      <div className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
+      <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
         <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-white px-4 py-3 text-ink shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -407,7 +407,7 @@ export default async function LiveTripPage({
 
   if (!fieldTestMode) {
     return (
-      <div className="calm-bleed safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+      <div className="calm-bleed mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
         <TripContextNav
           tripId={id}
           title={bundle.data.trip.title || destinationLabel}

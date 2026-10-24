@@ -221,7 +221,7 @@ export function SetupCascade({
     const done = dones[index];
     const locked = currentIndex !== -1 && index > currentIndex;
     return (
-      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 px-4 py-4 sm:px-5">
+      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 px-4 pb-[15px] pt-[13px] sm:px-5">
         <div className="flex items-start gap-3">
           <span
             aria-hidden

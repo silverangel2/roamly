@@ -98,7 +98,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
   const itineraryLink = (
     <a
       href={`/trip/${id}`}
-      className="mt-6 flex min-h-12 items-center gap-2.5 rounded-xl bg-cbg px-4 text-[16.5px] font-medium text-chead"
+      className="mt-[22px] flex min-h-12 items-center gap-2.5 rounded-xl bg-cbg px-4 text-[16.5px] font-medium text-chead"
     >
       See the full itinerary
       <span aria-hidden className="ml-auto text-xl leading-none text-cchev">
@@ -108,14 +108,14 @@ export default async function TripEventPage({ params }: EventPageProps) {
   );
 
   const sheetClass =
-    "calm-sheet w-full rounded-t-[20px] bg-white px-5 pb-10 pt-2.5 shadow-sheet sm:mt-16 sm:rounded-[20px]";
+    "calm-sheet w-full max-sm:flex-1 rounded-t-[20px] bg-white px-5 pb-10 pt-2.5 shadow-sheet sm:mt-16 sm:rounded-[20px]";
   const grabHandle = (
-    <span aria-hidden className="mx-auto mb-4 block h-[5px] w-9 rounded-full bg-chair" />
+    <span aria-hidden className="mx-auto mb-[18px] block h-[5px] w-9 rounded-full bg-chair" />
   );
 
   if (!event) {
     return (
-      <div className="calm-bleed safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl items-end px-0 sm:items-start sm:px-6">
+      <div className="calm-bleed mx-auto -mb-[8.75rem] flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl flex-col px-0 sm:px-6">
         <section className={sheetClass}>
           {grabHandle}
           <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">This update is no longer here.</h1>
@@ -147,7 +147,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
   }
 
   return (
-    <div className="calm-bleed safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl items-end px-0 sm:items-start sm:px-6">
+    <div className="calm-bleed mx-auto -mb-[8.75rem] flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl flex-col px-0 sm:px-6">
       <section className={sheetClass}>
         {grabHandle}
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">
@@ -169,7 +169,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
         ) : null}
         {place ? <p className="mt-3 text-[15px] font-normal text-cgray">{place}</p> : null}
         {setupInvitation ? (
-          <p className="mt-5 border-t border-chair pt-4 text-[15px] font-normal leading-[1.5] text-cgray">
+          <p className="mt-5 border-t border-chair pt-[15px] text-[15px] font-normal leading-[1.5] text-cgray">
             One last thing for today: finish setup so Booking Recon is activated, Roamly can reach you in
             the moment, and the companion can go live.{" "}
             <a href="/account#setup" className="font-semibold text-cblue">
