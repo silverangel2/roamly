@@ -255,14 +255,41 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
   const matched = new Map<string, MatchedMustSee>(); // mustSee.id -> match
   for (const ms of mustSees) {
     const pools = [...excursions, ...ferries, ...sights];
-    let cand: EngineCandidate | null = null;
+    // Best-match, not first-match (2026-10-24, Montreal daily test):
+    // the pattern ladder hands the solver a SET of patterns of mixed
+    // specificity ("jean talon" beside bare "jean"; "science" beside
+    // bare "centre" when the French name defeats tier 1), and the pool
+    // runs in candidate_key order, so node candidates always precede
+    // way candidates. First-match therefore let a bare-token neighbour
+    // steal the must-see — Théâtre Jean-Duceppe ("jean") stole the
+    // Jean Talon market, Le Centre d'art ("centre") stole the science
+    // centre — and the solver reported both "scheduled" while the
+    // traveler asked for two places that never appeared. The match is
+    // now the candidate matching the LONGEST pattern (the most
+    // specific name wins), ties broken by the number of patterns
+    // matched, then by pool order (today's behaviour on a true tie).
+    // A pattern normalizing to empty matches nothing: the old
+    // `.some(nm.includes(normText(p)))` let an empty needle match
+    // every candidate. The kind fallback below is unchanged and still
+    // runs only when no pattern matches at all.
+    const needles = ms.patterns.map((p) => normText(p)).filter((n) => n.length > 0);
+    let best: { c: EngineCandidate; longest: number; count: number } | null = null;
     for (const c of pools) {
       const nm = normText(c.name);
-      if (ms.patterns.some((p) => nm.includes(normText(p)))) {
-        cand = c;
-        break;
+      let longest = 0;
+      let count = 0;
+      for (const needle of needles) {
+        if (nm.includes(needle)) {
+          count += 1;
+          if (needle.length > longest) longest = needle.length;
+        }
+      }
+      if (count === 0) continue;
+      if (!best || longest > best.longest || (longest === best.longest && count > best.count)) {
+        best = { c, longest, count };
       }
     }
+    let cand: EngineCandidate | null = best?.c ?? null;
     if (!cand) {
       const kinds = [...new Set(ms.patterns.map((p) => KIND_BY_PATTERN[normText(p)]).filter(Boolean))];
       cand = pools.find((c) => kinds.includes(c.kind)) || null;
@@ -893,9 +920,25 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
       if (!["standard", "ferry", "rest-morning"].includes(role)) continue; // must-sees land on FULL days only
       const hours = hoursFor(m.cand, date);
       const km = haversineKm(pos, m.cand.pos);
-      if (km > 1.6) continue;
+      // A matched must-see beyond walking range is DRIVEN to, not
+      // dropped (2026-10-24, Montreal daily test): the old 1.6 km skip
+      // made Marché Jean Talon — ~6 km from the Old Montreal anchor —
+      // unplaceable even when correctly matched, so the solver ended
+      // with "no feasible slot remained (distance/geometry)". The
+      // pinned path already drives when the leg exceeds 1.2 km; the
+      // force block mirrors it past 1.6 km. A drive leg adds nothing
+      // to the party's walking budget (move() only counts walks), so
+      // a "never walk too far" party still never walks far. The far
+      // path checks the visit fits the day's clock before moving —
+      // slotCheck on the drive arrival — and a day that cannot fit it
+      // leaves it for a later FULL day, exactly as before.
+      const far = km > 1.6;
+      if (far) {
+        const arrival = t + travelMin(km, "drive");
+        if (!slotCheck(hours, arrival, DURATIONS[m.cand.kind] || 45).ok) continue;
+      }
       paceFor(DURATIONS[m.cand.kind] || 45); // a forced stop obeys the same break cadence
-      move(m.cand.pos, m.cand.key, m.cand.name, "walk");
+      move(m.cand.pos, m.cand.key, m.cand.name, far ? "drive" : "walk");
       const chk = slotCheck(hours, t, DURATIONS[m.cand.kind] || 45);
       const item = addStop(m.cand, hours, chk.ok ? Math.max(t, chk.start) : t, "mustsee");
       mustSeeResults.push({ id: m.ms.id, label: m.ms.label, status: "scheduled", day: dayIdx + 1, item: item.name, itemKey: m.cand.key });
