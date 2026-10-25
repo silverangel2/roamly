@@ -164,6 +164,14 @@ export interface SolveSpec {
   weatherOverride?: EngineWeatherDay[] | null;
   mustSeeDayPins?: Record<string, number> | null;
   closedKeys?: Set<string> | null;
+  /** GATE-1 FIX (2026-10-25): meals already scheduled on COMPLETED
+   *  days of the same trip (from earlier day batches). A fresh
+   *  solveTrip run must never re-pick them — final validation
+   *  forbids a meal name repeating across days, so a repeat is a
+   *  guaranteed plan failure, never a fallback. Carries both the
+   *  candidate key and the display name because validation keys on
+   *  the NAME: a same-name different venue fails the plan too. */
+  priorMeals?: Array<{ key?: string | null; name?: string | null }> | null;
 }
 
 export interface MustSeeResult {
@@ -232,6 +240,21 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
   const used = new Set<string>(); // candidate keys, across ALL days
   const usedPos: EnginePos[] = []; // anti-clustering, across all days
   const usedFood = new Set<string>();
+  // GATE-1 FIX (2026-10-25): final validation keys meal repeats on
+  // the NAME (lib/itinerary.ts travelerReadinessErrors, `meal:` +
+  // the title lowercased with non-alphanumerics folded to spaces),
+  // so the solver must avoid same-NAME foods too, not just same
+  // keys. Seeded from spec.priorMeals: meals already scheduled on
+  // completed days of the same trip, so a fresh batch run cannot
+  // re-pick them either.
+  const mealNameKey = (name: string): string =>
+    String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const usedFoodNames = new Set<string>();
+  for (const prior of spec.priorMeals || []) {
+    if (prior.key) usedFood.add(prior.key);
+    const priorName = mealNameKey(prior.name || "");
+    if (priorName) usedFoodNames.add(priorName);
+  }
   const lastUsedDay = new Map<string, number>(); // candidate key -> 0-based day it last ran (long-stay relaxation)
   const scheduledDay = new Map<string, number>(); // candidate key -> 0-based day it was actually scheduled (any path)
   const softUsed = new Set<string>(); // keys reserved as REST/OPEN ideas — never scheduled later
@@ -595,8 +618,24 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         notes.push(`${date}: no food places in the open data near the day's route — a lunch window is held instead of a booking.`);
         return mealWindow();
       }
-      const unusedNear = near.filter((x) => !usedFood.has(x.f.key));
-      const pool = unusedNear.length ? unusedNear : near;
+      // GATE-1 FIX (2026-10-25): a lunch food must NEVER be one
+      // already used on another day of this plan — final validation
+      // refuses the whole plan for a repeated meal name, so reusing
+      // the nearest food is not a fallback, it is a guaranteed
+      // failure. When no UNUSED food is near, the honest meal window
+      // (a rest item, which validation skips) is the correct outcome
+      // — never a reused place. The old code fell back to ALL near
+      // foods here, which is exactly how Toronto repeated one
+      // restaurant on all five days and failed FINAL_VALIDATION.
+      // Name-based too: validation keys on the name, so a same-name
+      // different venue fails the plan as well.
+      const pool = near.filter(
+        (x) => !usedFood.has(x.f.key) && !usedFoodNames.has(mealNameKey(x.f.name))
+      );
+      if (!pool.length) {
+        notes.push(`${date}: only already-used food places near the day's route — a lunch window is held instead of a repeat.`);
+        return mealWindow();
+      }
       const bestTier = Math.min(...pool.map((x) => x.tier));
       const cands = pool
         .filter((x) => x.tier === bestTier)
@@ -632,6 +671,7 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
       };
       items.push(item);
       usedFood.add(chosen.f.key);
+      usedFoodNames.add(mealNameKey(chosen.f.name));
       t = item.end;
       pos = chosen.f.pos;
       posKey = chosen.f.key;

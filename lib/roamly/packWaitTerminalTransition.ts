@@ -21,8 +21,12 @@
 //
 // Effect (resumable, loud): job -> failed with last_error_code
 // ZERO_ENGINE_PACK_WAIT_TIMEOUT; trip generation state -> failed with
-// the same code and a plain message; an operational incident is
-// recorded. The staged state stays retryable the same way the
+// the same code and a plain message; trip row status +
+// itinerary_status -> "draft" (GATE-1 FIX 2026-10-25: the pre-fix row
+// stayed `generating` for a terminal job — the engine's own failed
+// path writes "draft", so the sweep path now matches it); an
+// operational incident is recorded. The staged state stays retryable
+// the same way the
 // engine-cap failure is retryable: a later advance retries the
 // outline — pack ready by then => success; pack still missing =>
 // fails again at once, never silently. This module never touches a
@@ -195,7 +199,19 @@ export async function runPackWaitTerminalTransition(params: {
     };
     const tripUpdate = await client
       .from("roamly_trips")
-      .update({ metadata: nextMetadata })
+      // GATE-1 FIX (2026-10-25): the row must stop saying
+      // `generating` for a terminal job, or the traveler-facing
+      // surfaces keyed on the row (dashboard card, status route)
+      // show a forever-generating trip for a job that already
+      // failed. `draft` is the row value the engine's own failed
+      // path writes (generate.ts
+      // persistedTripStatusForGeneration("failed") -> "draft"), so
+      // the sweep path and the engine path now leave identical row
+      // states. The trip page itself renders the failure + Retry
+      // from metadata.generation (status "failed") via
+      // publicStagedGenerationProgress — that rendering was already
+      // correct; this row fix closes the list/status surfaces.
+      .update({ metadata: nextMetadata, status: "draft", itinerary_status: "draft" })
       .eq("id", trip.id)
       .eq("user_id", trip.user_id);
     if (tripUpdate.error) {
