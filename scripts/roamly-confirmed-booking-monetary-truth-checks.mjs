@@ -24,6 +24,9 @@ function loadTsModule(entryFile) {
       module: { exports: {} },
       process,
       require(id) {
+        // Test-only stub: "server-only" is a Next.js marker with no
+        // runtime exports and is absent from this checkout's node_modules.
+        if (id === "server-only") return {};
         if (id.startsWith("@/")) {
           const local = id.slice(2);
           return load(hasKnownExtension(local) ? local : `${local}.ts`);
@@ -88,51 +91,61 @@ const baseInput = {
   marketResults: []
 };
 
-const known = await getConfirmedBookingCostCents(query([{ amount_cents: 80000, currency: "CAD" }]), "u", "t", "CAD");
+const known = await getConfirmedBookingCostCents(query([{ amount_cents: 80000, currency: "CAD", booking_status: "booked", traveler_confirmed: true }]), "u", "t", "CAD");
 assert.equal(known.status, "known_compatible");
 assert.equal(known.amountCents, 80000);
 
-const mismatch = await getConfirmedBookingCostCents(query([{ amount_cents: 150000, currency: "USD" }]), "u", "t", "CAD");
+const mismatch = await getConfirmedBookingCostCents(query([{ amount_cents: 150000, currency: "USD", booking_status: "booked", traveler_confirmed: true }]), "u", "t", "CAD");
 assert.equal(mismatch.status, "currency_mismatch");
 assert.equal(mismatch.amountCents, null);
 assert.equal(mismatch.knownAmountCents, 0);
 
 const multiCurrency = await getConfirmedBookingCostCents(query([
-  { amount_cents: 50000, currency: "CAD" },
-  { amount_cents: 70000, currency: "USD" },
-  { amount_cents: 10000, currency: "CAD" }
+  { amount_cents: 50000, currency: "CAD", booking_status: "booked", traveler_confirmed: true },
+  { amount_cents: 70000, currency: "USD", booking_status: "booked", traveler_confirmed: true },
+  { amount_cents: 10000, currency: "CAD", booking_status: "booked", traveler_confirmed: true }
 ]), "u", "t", "CAD");
 assert.equal(multiCurrency.status, "currency_mismatch");
 assert.equal(multiCurrency.amountCents, null);
 assert.equal(multiCurrency.knownAmountCents, 60000, "only known CAD evidence is retained as the CAD subtotal");
 assert.equal(JSON.stringify(multiCurrency.currencies), JSON.stringify(["CAD", "USD"]));
 
-const unknownAmount = await getConfirmedBookingCostCents(query([{ amount_cents: null, currency: "CAD" }]), "u", "t", "CAD");
+const unknownAmount = await getConfirmedBookingCostCents(query([{ amount_cents: null, currency: "CAD", booking_status: "booked", traveler_confirmed: true }]), "u", "t", "CAD");
 assert.equal(unknownAmount.status, "unknown_amount");
 assert.equal(unknownAmount.amountCents, null);
 
-const unknownCurrency = await getConfirmedBookingCostCents(query([{ amount_cents: 80000, currency: null }]), "u", "t", "CAD");
+const unknownCurrency = await getConfirmedBookingCostCents(query([{ amount_cents: 80000, currency: null, booking_status: "booked", traveler_confirmed: true }]), "u", "t", "CAD");
 assert.equal(unknownCurrency.status, "unknown_currency");
 assert.equal(unknownCurrency.amountCents, null);
 
-const zero = await getConfirmedBookingCostCents(query([{ amount_cents: 0, currency: "CAD" }]), "u", "t", "CAD");
+const zero = await getConfirmedBookingCostCents(query([{ amount_cents: 0, currency: "CAD", booking_status: "booked", traveler_confirmed: true }]), "u", "t", "CAD");
 assert.equal(zero.status, "known_compatible");
 assert.equal(zero.amountCents, 0);
 
 const filtered = await getConfirmedBookingCostCents(query([
   { amount_cents: 80000, currency: "CAD", booking_status: "cancelled" },
   { amount_cents: 70000, currency: "CAD", superseded_by_booking_id: "successor" },
-  { amount_cents: 50000, currency: "CAD", booking_status: "paid", superseded_by_booking_id: null }
+  { amount_cents: 50000, currency: "CAD", booking_status: "paid", traveler_confirmed: true, superseded_by_booking_id: null }
 ]), "u", "t", "CAD");
 assert.equal(filtered.amountCents, 50000, "cancelled and superseded bookings are excluded from monetary truth");
+
+const pendingExcluded = await getConfirmedBookingCostCents(query([
+  { amount_cents: 12000, currency: "CAD", booking_status: "unknown", traveler_confirmed: false, superseded_by_booking_id: null },
+  { amount_cents: 80000, currency: "CAD", booking_status: "booked", traveler_confirmed: true, superseded_by_booking_id: null }
+]), "u", "t", "CAD");
+assert.equal(pendingExcluded.amountCents, 80000, "pending rows are excluded from committed totals");
+const pendingOnly = await getConfirmedBookingCostCents(query([
+  { amount_cents: 12000, currency: "CAD", booking_status: "unknown", traveler_confirmed: false, superseded_by_booking_id: null }
+]), "u", "t", "CAD");
+assert.equal(pendingOnly.amountCents, 0, "pending-only totals read as zero committed");
 
 const queryError = await getConfirmedBookingCostCents(query(null, new Error("temporary database failure")), "u", "t", "CAD");
 assert.equal(queryError.status, "query_error");
 assert.equal(queryError.amountCents, null);
 
 const partial = await getConfirmedBookingCostCents(query([
-  { amount_cents: 80000, currency: "CAD" },
-  { amount_cents: null, currency: "CAD" }
+  { amount_cents: 80000, currency: "CAD", booking_status: "booked", traveler_confirmed: true },
+  { amount_cents: null, currency: "CAD", booking_status: "booked", traveler_confirmed: true }
 ]), "u", "t", "CAD");
 assert.equal(partial.status, "unknown_amount");
 assert.equal(partial.amountCents, null);

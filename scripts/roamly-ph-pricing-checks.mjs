@@ -64,7 +64,7 @@ assert.equal(cadDefault.amount, 799);
 function stubStripe(price) {
   return { prices: { retrieve: async () => ({ ...price, product: { id: "prod_x", active: true, name: "Test" } }) } };
 }
-const phpPrice = { id: "price_1UU5MgGt1u1jZHNU8uK9m7EZ", active: true, unit_amount: 9900, currency: "php", type: "one_time" };
+const phpPrice = { id: "price_1UU5MgGt1u1jZHNU8uK9m7EZ", active: true, unit_amount: 9900, currency: "php", type: "one_time", tax_behavior: "inclusive" };
 const cadPrice = { id: "price_1TpriyGt1u1jZHNUjeUYH3Nu", active: true, unit_amount: 499, currency: "cad", type: "one_time" };
 
 const phOk = await validateStripePriceForPurchase(stubStripe(phpPrice), "itinerary_unlock", phTrip);
