@@ -7,6 +7,7 @@ import { BookingRecommendationButton } from "@/components/trip/BookingRecommenda
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { TripStateLines } from "@/components/roamly/TripStateLines";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
+import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
 import { EntryGate } from "@/components/roamly/EntryGate";
 import { HandoffBlock } from "@/components/roamly/HandoffBlock";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
@@ -2420,6 +2421,14 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     ["roamly-tab-bookings", "Bookings"],
     ...briefingTabs
   ];
+  // G1: the Bookings panel had a radio input but no visible tab label, so a
+  // traveler with no confirmed booking had no on-page route to it. The tab
+  // nav below renders the briefing tabs plus this Bookings label, using the
+  // same label pattern and styling as the existing tabs.
+  const briefingNavTabs = [
+    ...briefingTabs,
+    ["roamly-tab-bookings", "Bookings"]
+  ];
   const travelerStatus = mapTravelerTripStatus({
     completed: completedTrip,
     phase: readiness.phase,
@@ -2478,17 +2487,31 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     ...(full ? summarizeItineraryShape(full) : {})
   });
 
-  // The setup gate (owner design, 2026-10-23): a traveler whose
-  // three setup steps were never completed meets the cascade here —
-  // the "Your trip is ready" moment — instead of the itinerary. The
-  // gate keys on the account's persisted state, never on this trip;
-  // completed once, it never renders again.
+  // The setup gate (owner design, 2026-10-23; second-time law, 2026-10-24):
+  // a traveler whose three setup steps were never completed meets the
+  // cascade here — the "Your trip is ready" moment — instead of the
+  // itinerary, but ONLY when this is not the account's first trip (see
+  // lib/roamly/setupGate.ts for the exact trigger). The gate keys on
+  // the account's persisted state, never on this trip; completed once,
+  // it never renders again. It is never a wall: skipSetupGate=1 reveals
+  // the itinerary with limited features, per visit, never remembered.
   const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
-  if (setupState && !setupState.complete && !access.hasQaAccess) {
+  const skipSetupGate = one(search.skipSetupGate) === "1";
+  const priorTrip = setupState && !setupState.complete && !access.hasQaAccess
+    ? await (supabase ? hasPriorTrip(supabase, current.user.id, id) : Promise.resolve(false))
+    : false;
+  const gateApplies = setupState
+    ? setupGateApplies({ setupComplete: setupState.complete, hasQaAccess: access.hasQaAccess, hasPriorTrip: priorTrip })
+    : false;
+  const limitedFeatures = setupState ? setupGateLimitedFeatures(setupState) : [];
+  if (gateApplies && !skipSetupGate && setupState) {
     return (
       <SetupGateScreen
         initialState={setupState}
         eyebrow={`${destinationLabel} · ${formatShortDateRange(trip, locale)}`}
+        dayCount={dayCount}
+        skipHref={`/trip/${id}?skipSetupGate=1`}
+        limitedFeatures={limitedFeatures}
       />
     );
   }
@@ -2496,6 +2519,26 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // Destination photo (owner design, 2026-10-23): a real photo of the
   // destination from Wikimedia/Wikidata, cached per destination so later
   // trips reuse it. When none resolves, the header stays bare by design.
+  // Near-misses already live on the Bookings page (unmatched +
+  // needs_confirmation extractions with attach/discard). The trip page
+  // only points at them, with a count, and only when at least one waits.
+  // Same filters as the email-imports route; a query failure means no
+  // line, never a wrong count.
+  let pendingImports: number | null = null;
+  if (supabase) {
+    try {
+      const pendingResult = await supabase
+        .from("booking_extraction_results")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", current.user.id)
+        .in("match_status", ["unmatched", "needs_confirmation"])
+        .or(`trip_id.eq.${trip.id},trip_id.is.null`);
+      pendingImports = pendingResult.error ? null : pendingResult.count;
+    } catch {
+      pendingImports = null;
+    }
+  }
+
   const photoPlanning = getTripPlanningMetadata(trip.metadata);
   const destinationPhoto = await getDestinationPhoto({
     label: destinationLabel,
@@ -2510,6 +2553,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
       <GenerationNavigationRefresh active={one(search.generating) === "1" && !generationPanelVisible && !canShowFull} />
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
+        {skipSetupGate && setupState && !setupState.complete ? (
+          <p className="mb-4 rounded-xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cink shadow-calm">
+            Showing with limited features
+            {limitedFeatures.length ? `: ${limitedFeatures.join(" · ")}` : ""}. Finish setup anytime in
+            Settings to turn everything on.
+          </p>
+        ) : null}
         <section className="bg-transparent pb-1 pt-0 sm:pb-2">
           {destinationPhoto ? (
             <DestinationPhotoBand
@@ -2530,10 +2580,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           {canShowFull && full && !generationPanelVisible && setupState ? (
             <TripStateLines
               gmailConnected={setupState.gmailConnected}
+              gmailLastSyncedAt={setupState.gmailLastSyncedAt}
               locationGranted={setupState.locationGranted}
               locationEnabled={setupState.locationEnabled}
               companionUnlocked={trackingUnlocked && !completedTrip}
               tripActive={tripLifecycle === "active"}
+              tripId={trip.id}
+              pendingImportCount={pendingImports ?? undefined}
             />
           ) : null}
           <p className="mt-1.5 text-[13.5px] font-normal leading-6 text-cgray">{formatDateRange(trip, locale)} · {travelerLabel}</p>
@@ -2688,7 +2741,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 #roamly-tab-overview:checked ~ .roamly-tab-nav,
                 #roamly-tab-requirements:checked ~ .roamly-tab-nav,
                 #roamly-tab-essentials:checked ~ .roamly-tab-nav,
-                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav{display:block}
+                #roamly-tab-travel-notes:checked ~ .roamly-tab-nav,
+                #roamly-tab-bookings:checked ~ .roamly-tab-nav{display:block}
                 #roamly-tab-day-by-day:checked ~ .roamly-tab-nav label[for="roamly-tab-day-by-day"],
                 #roamly-tab-overview:checked ~ .roamly-tab-nav label[for="roamly-tab-overview"],
                 #roamly-tab-budget:checked ~ .roamly-tab-nav label[for="roamly-tab-budget"],
@@ -2702,9 +2756,9 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === defaultPanelTab} />
               ))}
 
-              <nav aria-label="Trip briefing sections" title="Trip sections" className="roamly-tab-nav roamly-no-print top-[4.25rem] z-20 -mx-4 overflow-x-auto px-4 py-1 sm:sticky sm:top-[5.15rem] sm:mx-0">
+              <nav aria-label="Trip sections" title="Trip sections" className="roamly-tab-nav roamly-no-print top-[4.25rem] z-20 -mx-4 overflow-x-auto px-4 py-1 sm:sticky sm:top-[5.15rem] sm:mx-0">
                 <div className="flex min-w-max gap-2">
-                  {briefingTabs.map(([tabId, label]) => (
+                  {briefingNavTabs.map(([tabId, label]) => (
                     <label
                       key={tabId}
                       htmlFor={tabId}
