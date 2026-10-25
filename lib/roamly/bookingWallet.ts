@@ -975,6 +975,41 @@ async function applyGmailBookingRevision(params: {
   };
 }
 
+// U2 FIX — omitted-vs-explicit for money on update. This is the same
+// disease B06 fixed for segments only: a matched re-save that omits a money
+// field used to overwrite the stored value with null / "XXX", so a traveler
+// fixing a time or title silently lost the booking's price. On update, an
+// omitted field preserves the stored value; only an explicit, valid value
+// replaces it. There is no clear-price signal in the API (no clearPrice /
+// clear_price anywhere in the tree), so explicit null preserves too.
+// Explicit zero replaces with zero (B14 rule) — it is a real price, not a
+// wipe. total_price and amount_cents move together: they are one value in
+// two units (B02's one-unit rule), never updated independently.
+function preserveOmittedMoneyFieldsOnUpdate(
+  booking: ReturnType<typeof normalizeTripBookingInput>,
+  previous: Record<string, unknown>,
+  input: TripBookingInput
+) {
+  const next = { ...booking };
+  if (typeof input.totalPrice === "number" && Number.isFinite(input.totalPrice) && input.totalPrice >= 0) {
+    const price = nullableMoney(input.totalPrice);
+    next.total_price = price;
+    next.amount_cents = price == null ? null : Math.round(price * 100);
+  } else {
+    next.total_price = typeof previous.total_price === "number" ? previous.total_price : null;
+    next.amount_cents = typeof previous.amount_cents === "number" ? previous.amount_cents : null;
+  }
+  const currency = normalizedCurrency(input.currency);
+  next.currency =
+    currency ?? (typeof previous.currency === "string" && previous.currency ? previous.currency : "XXX");
+  if (typeof input.taxesAndFees === "number" && Number.isFinite(input.taxesAndFees) && input.taxesAndFees >= 0) {
+    next.taxes_and_fees = nullableMoney(input.taxesAndFees);
+  } else {
+    next.taxes_and_fees = typeof previous.taxes_and_fees === "number" ? previous.taxes_and_fees : null;
+  }
+  return next;
+}
+
 export async function createTripBooking(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -1047,6 +1082,12 @@ export async function createTripBooking(params: {
     }
   }
 
+  // U2: on a matched re-save, omitted money fields keep the stored values
+  // (see preserveOmittedMoneyFieldsOnUpdate) instead of wiping them.
+  const updatePayload = previousBooking
+    ? preserveOmittedMoneyFieldsOnUpdate(booking, previousBooking, params.input)
+    : booking;
+
   const writeResult = previousBooking
     ? params.input.reconciliation
       ? await params.supabase
@@ -1059,7 +1100,7 @@ export async function createTripBooking(params: {
       : await params.supabase
         .from("roamly_bookings")
         .update({
-          ...booking,
+          ...updatePayload,
           updated_at: new Date().toISOString()
         })
         .eq("id", String(previousBooking.id))

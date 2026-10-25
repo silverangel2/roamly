@@ -47,6 +47,7 @@
     "ingest:roamly-marketing-images": "node scripts/ingest-roamly-marketing-images.mjs",
     "test:roamly-marketing-images": "node scripts/roamly-marketing-photo-ingestion-checks.mjs",
     "proof:facebook-reels": "node scripts/facebook-reel-runtime-proof.mjs",
+    "test:u2-price-preservation": "node scripts/roamly-u2-price-preservation-checks.mjs",
     "test:roamly": "node scripts/roamly-core-checks.mjs",
     "test:public-event-truth": "node scripts/roamly-public-event-discovery-checks.mjs",
     "test:trip-hierarchy": "node scripts/roamly-trip-hierarchy-checks.mjs",
