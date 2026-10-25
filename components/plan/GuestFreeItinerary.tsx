@@ -184,7 +184,13 @@ export function GuestFreeItinerary() {
               {day.food.length ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Food")}. </span>{day.food.join(", ")}</p> : null}
               {day.timeline.length ? (
                 <ul className="mt-3 grid gap-2">
-                  {day.timeline.map((item) => (
+                  {day.timeline.map((item) => {
+                    // A time with no displayable activity is noise, not a plan
+                    // line: the traveler saw bare "14:31 – 14:34." rows. Skip
+                    // items whose traveler-facing title is empty.
+                    const displayTitle = presentTravelerTitle({ title: item.title, category: item.title }).title;
+                    if (!displayTitle.trim()) return null;
+                    return (
                     <li key={`${day.dayNumber}-${item.time}-${item.title}`} className="text-sm font-semibold leading-6 text-slate-700">
                       {item.time ? <span className="font-black text-ink">{punctuateTravelerTime(item.time)}</span> : null}
                       {item.bookingUrl ? (
@@ -194,14 +200,15 @@ export function GuestFreeItinerary() {
                           rel="noopener noreferrer sponsored"
                           className="font-black text-ocean underline decoration-ocean/30 underline-offset-4"
                         >
-                          {presentTravelerTitle({ title: item.title, category: item.title }).title}
+                          {displayTitle}
                           {item.bookingLabel ? ` · ${item.bookingLabel}` : ""}
                         </a>
                       ) : (
-                        presentTravelerTitle({ title: item.title, category: item.title }).title
+                        displayTitle
                       )}
                     </li>
-                  ))}
+                    );
+                  })}
                 </ul>
               ) : null}
             </article>

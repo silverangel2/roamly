@@ -127,6 +127,17 @@ function detailRows(booking: TripBookingRecord, locale: RoamlyLocale) {
   ].filter((row): row is [string, string] => Boolean(row[1]));
 }
 
+function segmentLines(booking: TripBookingRecord, locale: RoamlyLocale) {
+  const segments = (booking.booking_segments || []).slice().sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  if (!segments.length) return [];
+  return segments.map((segment) => {
+    const route = [segment.origin, segment.destination].filter(Boolean).join(" → ");
+    const times = [segment.departure_time, segment.arrival_time].filter(Boolean).map((value) => formatDateTime(value, locale, booking.timezone)).filter(Boolean).join(" – ");
+    const service = [segment.provider, segment.service_number].filter(Boolean).join(" ");
+    return [route, times, service].filter(Boolean).join(" · ") || "Leg";
+  });
+}
+
 function nextBooking(bookings: TripBookingRecord[]) {
   const now = Date.now();
   return (
@@ -236,6 +247,9 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                 <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(next.booking_status)}`}>{customerStatus(next, outcomeFor(next))}</span>
               </div>
               <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(next)}</p>
+              {segmentLines(next, locale).map((line) => (
+                <p key={line} className="mt-1 text-sm font-bold text-slate-500">{line}</p>
+              ))}
               <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(next, locale)}</p>
             </div>
           </div>
@@ -262,6 +276,9 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                           <div className="min-w-0">
                             <h3 className="text-base font-black text-ink">{booking.title || booking.provider || "Booking"}</h3>
                             <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(booking)}</p>
+                            {segmentLines(booking, locale).map((line) => (
+                              <p key={line} className="mt-1 text-sm font-bold text-slate-500">{line}</p>
+                            ))}
                             <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
                             {reference ? <p className="mt-1 text-xs font-black text-slate-500">Reference: {reference}</p> : null}
                           </div>
