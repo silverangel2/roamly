@@ -1335,6 +1335,94 @@ export async function backfillGmailTripWindow(params: {
   return { ok: true, error: null, processed: processed.processed, quarantined: processed.quarantined };
 }
 
+/**
+ * Owner-triggered search for OLD mail the normal sync windows miss.
+ *
+ * Why it exists: the recovery lookback only covers newer_than:30d, and the
+ * reconnect backfill only covers earliest-upcoming-trip-start minus 30 days
+ * to latest-end plus 1 day. A confirmation mailed before both windows (for
+ * example a Sep-16 mail for an Oct-29 trip, searched on Oct-25) is invisible
+ * to both, even though the connection itself is healthy.
+ *
+ * Bounded and cursor-safe, exactly like the reconnect backfill: one
+ * messages.list call over a fixed 90-day window (today minus 90 days to
+ * tomorrow, so today's mail is included), at most
+ * GMAIL_OLDER_SEARCH_MAX_MESSAGES ids, fed through the SAME fetch →
+ * extract → match pipeline as a normal sync (same extraction, same
+ * matching thresholds, same confidence/auto-apply rules — nothing
+ * loosened). A fetched mail that cannot match lands in the email-imports
+ * review panel as unmatched/needs-review; this search never claims an
+ * auto-match. It never writes the sync cursor, never touches
+ * last_synced_at, never overwrites existing extraction rows, and never
+ * deletes or re-sends anything. Per-message failures quarantine per G13
+ * and the batch continues. Traveler-triggered only, from the traveler's
+ * own session and connection — never a cron for everyone, never
+ * another traveler's mail.
+ */
+export const GMAIL_OLDER_SEARCH_DAYS = 90;
+export const GMAIL_OLDER_SEARCH_MAX_MESSAGES = 50;
+
+export function olderGmailSearchWindow(today: Date = new Date()): { after: string; before: string } {
+  const formatGmailDate = (date: Date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
+  };
+  const after = new Date(today.getTime() - GMAIL_OLDER_SEARCH_DAYS * 24 * 60 * 60 * 1000);
+  const before = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  return { after: formatGmailDate(after), before: formatGmailDate(before) };
+}
+
+export function olderGmailSearchQuery(window: { after: string; before: string }): string {
+  return `after:${window.after} before:${window.before} (confirmation OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in)`;
+}
+
+export async function searchOlderGmail(params: {
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<{ ok: boolean; error: string | null; processed: number; quarantined?: number; window?: { after: string; before: string } }> {
+  const writer = createSupabaseAdminClient() || params.supabase;
+  const { data: connectionData, error: connectionError } = await writer
+    .from("email_connections")
+    .select("*")
+    .eq("user_id", params.userId)
+    .eq("provider", GMAIL_PROVIDER)
+    .neq("connection_status", "disconnected")
+    .maybeSingle();
+  if (connectionError || !connectionData) {
+    return { ok: false, error: "GMAIL_NOT_CONNECTED", processed: 0 };
+  }
+  const connection = connectionData as EmailConnectionRecord;
+
+  let accessToken: string;
+  try {
+    accessToken = await accessTokenForConnection(writer, connection);
+  } catch {
+    // Do not mark anything here — the normal sync owns reauth, exactly
+    // like the reconnect backfill.
+    return { ok: false, error: "GMAIL_BACKFILL_TOKEN_FAILED", processed: 0 };
+  }
+
+  const window = olderGmailSearchWindow();
+  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  url.searchParams.set("q", olderGmailSearchQuery(window));
+  url.searchParams.set("maxResults", String(GMAIL_OLDER_SEARCH_MAX_MESSAGES));
+  const { response, data } = await providerFetchJson<{ messages?: Array<{ id?: string }> }>(url, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  if (!response.ok) return { ok: false, error: "GMAIL_BACKFILL_SEARCH_FAILED", processed: 0 };
+  const messageIds = (data.messages || [])
+    .map((message) => message.id)
+    .filter((id): id is string => Boolean(id));
+  if (!messageIds.length) return { ok: true, error: null, processed: 0, window };
+  // Same pipeline as the backfill: per-message quarantine (G13), upsert-safe
+  // re-processing, no cursor write, no last_synced_at write.
+  const processed = await processGmailMessageIds({ supabase: writer, connection, accessToken, messageIds });
+  if (processed.retryable) return { ok: false, error: "GMAIL_BACKFILL_PROCESSING_RETRY", processed: processed.processed, quarantined: processed.quarantined, window };
+  return { ok: true, error: null, processed: processed.processed, quarantined: processed.quarantined, window };
+}
+
 export async function syncGmailConnection(params: {
   supabase: SupabaseClient;
   userId: string;
