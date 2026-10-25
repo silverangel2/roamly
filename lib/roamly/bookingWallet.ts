@@ -568,6 +568,87 @@ export async function supersedeBooking(params: {
   return { ok: true as const, idempotent: false as const, booking: booking || null };
 }
 
+/**
+ * Traveler cancel for a tracked booking (manual, screenshot, email-imported).
+ *
+ * Cancel is a Roamly-tracking action only: it never touches Stripe, never
+ * refunds anything, and never cancels a Roamly purchase/unlock (those are
+ * separate purchase records, not bookings). The row is never hard-deleted —
+ * its status becomes "cancelled", which drops it from the active set
+ * (isActiveTripBooking) and from budget totals, while the record and its
+ * provenance stay readable in booking history. Only the booking's status
+ * and updated_at change: price, currency, and segments history are never
+ * rewritten by a cancel.
+ *
+ * Edge rules: cancelling an already-cancelled booking is a harmless no-op
+ * success; cancelling a superseded booking is refused (superseded rows are
+ * history, not actionable); cancelling a refunded booking is refused so the
+ * refund fact is never overwritten. Ownership is enforced twice: the trip
+ * must belong to the caller, and the row must match id + user + trip.
+ */
+export async function cancelTripBooking(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  bookingId: string;
+}) {
+  const ownership = await assertTripOwnership(
+    params.supabase,
+    params.userId,
+    params.tripId
+  );
+  if (!ownership.ok) {
+    return { ok: false as const, error: ownership.error };
+  }
+
+  const existing = await params.supabase
+    .from("roamly_bookings")
+    .select("*")
+    .eq("id", params.bookingId)
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .maybeSingle();
+  if (existing.error) return { ok: false as const, error: "BOOKING_READ_FAILED" };
+  if (!existing.data) return { ok: false as const, error: "BOOKING_NOT_FOUND" };
+
+  const row = existing.data as Record<string, unknown>;
+  if (row.booking_status === "cancelled") {
+    return {
+      ok: true as const,
+      idempotent: true as const,
+      alreadyCancelled: true as const,
+      booking: serializeTripBookingRecord(row)
+    };
+  }
+  if (row.booking_status === "refunded") {
+    return { ok: false as const, error: "BOOKING_ALREADY_REFUNDED" };
+  }
+  if (row.superseded_by_booking_id) {
+    return { ok: false as const, error: "BOOKING_ALREADY_SUPERSEDED" };
+  }
+
+  const updated = await params.supabase
+    .from("roamly_bookings")
+    .update({
+      booking_status: "cancelled",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", params.bookingId)
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .select("*")
+    .single();
+  if (updated.error || !updated.data) {
+    return { ok: false as const, error: "BOOKING_CANCEL_FAILED" };
+  }
+  return {
+    ok: true as const,
+    idempotent: false as const,
+    alreadyCancelled: false as const,
+    booking: serializeTripBookingRecord(updated.data as Record<string, unknown>)
+  };
+}
+
 export async function listTripBookings(params: {
   supabase: SupabaseClient;
   userId: string;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/lib/roamly/bookingWallet";
 import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking } from "@/lib/roamly/bookingWallet";
+import { BookingCancelAction } from "@/components/companion/BookingCancelAction";
 import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { bookingOutcomeLabel, deriveBookingOutcome, type BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
 
@@ -143,6 +144,7 @@ function navLinkClass(active = false) {
 
 export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, referrals = [], referralDetails = [] }: BookingWalletTimelineProps) {
   const activeBookings = bookings.filter(isActiveTripBooking).sort((a, b) => bookingWalletTimelineSortKey(a).localeCompare(bookingWalletTimelineSortKey(b)));
+  const cancelledBookings = bookings.filter((booking) => booking.booking_status === "cancelled" || booking.booking_status === "refunded");
   const summary = bookingWalletSummary(bookings);
   const next = nextBooking(activeBookings);
   const actionNeeded = activeBookings.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected");
@@ -277,6 +279,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                             </div>
                           </details>
                         ) : null}
+                        <BookingCancelAction tripId={tripId} bookingId={booking.id} />
                       </div>
                     </div>
                   </article>
@@ -292,6 +295,34 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           </div>
         )}
       </section>
+
+      {cancelledBookings.length ? (
+        <section className="mt-6">
+          <h2 className="text-xl font-black tracking-tight text-ink">Booking history</h2>
+          <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-600">These bookings are no longer active. They stay here so the record is not lost.</p>
+          <div className="mt-2 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
+            {cancelledBookings.map((booking) => (
+              <article key={booking.id} className="py-4">
+                <div className="flex items-start gap-3">
+                  <BookingIcon type={booking.booking_type} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="text-base font-black text-ink">{booking.title || booking.provider || "Booking"}</h3>
+                        <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(booking)}</p>
+                        <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
+                      </div>
+                      <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(booking.booking_status)}`}>
+                        No longer active
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }
