@@ -7,6 +7,7 @@ import { BookingRecommendationButton } from "@/components/trip/BookingRecommenda
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { TripStateLines } from "@/components/roamly/TripStateLines";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
+import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
 import { EntryGate } from "@/components/roamly/EntryGate";
 import { HandoffBlock } from "@/components/roamly/HandoffBlock";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
@@ -2478,17 +2479,31 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     ...(full ? summarizeItineraryShape(full) : {})
   });
 
-  // The setup gate (owner design, 2026-10-23): a traveler whose
-  // three setup steps were never completed meets the cascade here —
-  // the "Your trip is ready" moment — instead of the itinerary. The
-  // gate keys on the account's persisted state, never on this trip;
-  // completed once, it never renders again.
+  // The setup gate (owner design, 2026-10-23; second-time law, 2026-10-24):
+  // a traveler whose three setup steps were never completed meets the
+  // cascade here — the "Your trip is ready" moment — instead of the
+  // itinerary, but ONLY when this is not the account's first trip (see
+  // lib/roamly/setupGate.ts for the exact trigger). The gate keys on
+  // the account's persisted state, never on this trip; completed once,
+  // it never renders again. It is never a wall: skipSetupGate=1 reveals
+  // the itinerary with limited features, per visit, never remembered.
   const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
-  if (setupState && !setupState.complete && !access.hasQaAccess) {
+  const skipSetupGate = one(search.skipSetupGate) === "1";
+  const priorTrip = setupState && !setupState.complete && !access.hasQaAccess
+    ? await (supabase ? hasPriorTrip(supabase, current.user.id, id) : Promise.resolve(false))
+    : false;
+  const gateApplies = setupState
+    ? setupGateApplies({ setupComplete: setupState.complete, hasQaAccess: access.hasQaAccess, hasPriorTrip: priorTrip })
+    : false;
+  const limitedFeatures = setupState ? setupGateLimitedFeatures(setupState) : [];
+  if (gateApplies && !skipSetupGate && setupState) {
     return (
       <SetupGateScreen
         initialState={setupState}
         eyebrow={`${destinationLabel} · ${formatShortDateRange(trip, locale)}`}
+        dayCount={dayCount}
+        skipHref={`/trip/${id}?skipSetupGate=1`}
+        limitedFeatures={limitedFeatures}
       />
     );
   }
@@ -2510,6 +2525,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
       <GenerationNavigationRefresh active={one(search.generating) === "1" && !generationPanelVisible && !canShowFull} />
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
+        {skipSetupGate && setupState && !setupState.complete ? (
+          <p className="mb-4 rounded-xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cink shadow-calm">
+            Showing with limited features
+            {limitedFeatures.length ? `: ${limitedFeatures.join(" · ")}` : ""}. Finish setup anytime in
+            Settings to turn everything on.
+          </p>
+        ) : null}
         <section className="bg-transparent pb-1 pt-0 sm:pb-2">
           {destinationPhoto ? (
             <DestinationPhotoBand

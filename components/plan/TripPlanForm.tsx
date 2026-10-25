@@ -585,6 +585,7 @@ export function TripPlanForm(props: {
   testerAccess?: boolean;
   apiAuthToken?: string;
   build2GatesEnabled?: boolean;
+  secondTimeGateNotice?: boolean;
 }) {
   const [sessionKey, setSessionKey] = useState(0);
   return <TripPlanFormSession key={sessionKey} {...props} onStartNew={() => setSessionKey((value) => value + 1)} />;
@@ -595,6 +596,7 @@ function TripPlanFormSession({
   testerAccess = false,
   apiAuthToken = "",
   build2GatesEnabled = false,
+  secondTimeGateNotice = false,
   onStartNew
 }: {
   onStartNew: () => void;
@@ -602,6 +604,7 @@ function TripPlanFormSession({
   testerAccess?: boolean;
   apiAuthToken?: string;
   build2GatesEnabled?: boolean;
+  secondTimeGateNotice?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1769,6 +1772,11 @@ function TripPlanFormSession({
           >
             {translateText("Resume previous trip")}
           </button>
+        </p>
+      ) : null}
+      {signedIn && secondTimeGateNotice ? (
+        <p className="mt-4 text-sm leading-6 text-slate-600">
+          {translateText("You've already had a trip with Roamly, so this one opens behind three quick setup steps — Gmail for Booking Recon, the app for Live Companion alerts, and location for the companion to go live. Or skip for now and see it with limited features.")}
         </p>
       ) : null}
       {restoreNotice && !previousDraft ? (

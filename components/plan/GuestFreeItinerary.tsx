@@ -30,6 +30,7 @@ type GuestItineraryResponse = {
   experiences: GuestBookingCard[];
   essentials: GuestBookingCard[];
   generationStatus?: GuestGenerationStatus;
+  deliveryEmail?: string | null;
 };
 
 function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
@@ -85,6 +86,62 @@ export function GuestFreeItinerary() {
   const { translateText } = useI18n();
   const [itinerary, setItinerary] = useState<GuestItineraryResponse | null>(null);
   const [error, setError] = useState("");
+  const [needsRecovery, setNeedsRecovery] = useState(false);
+  const [deliveryEmail, setDeliveryEmail] = useState<string | null>(null);
+  const [emailDraft, setEmailDraft] = useState("");
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const [recoverySent, setRecoverySent] = useState(false);
+
+  async function saveDeliveryEmail() {
+    const email = emailDraft.trim();
+    if (!email || emailSaving) return;
+    setEmailSaving(true);
+    setEmailError("");
+    try {
+      const response = await fetch("/api/trips/guest-itinerary/email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.ok) {
+        setEmailError(
+          typeof data?.message === "string" && data.message
+            ? data.message
+            : "That email couldn't be saved — check it and try again."
+        );
+        return;
+      }
+      setDeliveryEmail(typeof data.deliveryEmail === "string" ? data.deliveryEmail : email);
+    } catch {
+      setEmailError("That email couldn't be saved — check it and try again.");
+    } finally {
+      setEmailSaving(false);
+    }
+  }
+
+  async function requestRecovery() {
+    const email = recoveryEmail.trim();
+    if (!email || recoveryBusy) return;
+    setRecoveryBusy(true);
+    try {
+      await fetch("/api/trips/guest-itinerary/recover", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ email })
+      }).catch(() => null);
+      // The endpoint answers the same line whether or not the email
+      // holds a trip, so this confirmation never leaks existence.
+      setRecoverySent(true);
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }
 
   useEffect(() => {
     let stopped = false;
@@ -96,10 +153,13 @@ export function GuestFreeItinerary() {
       if (stopped) return;
       if (!response.ok || !data?.ok) {
         setItinerary(null);
+        setNeedsRecovery(response.status === 401);
         setError(response.status === 401 ? "Start a free itinerary from the plan page." : "Your free itinerary could not be loaded.");
         return;
       }
       setError("");
+      setNeedsRecovery(false);
+      setDeliveryEmail(typeof data.deliveryEmail === "string" && data.deliveryEmail ? data.deliveryEmail : null);
       // Older API responses may not include the booking sections; default them
       // so rendering never crashes on a missing array.
       setItinerary({
@@ -138,6 +198,37 @@ export function GuestFreeItinerary() {
       <p className="mt-3 text-sm font-black leading-6 text-ink">{translateText(itinerary?.disclaimer || GUEST_FREE_ITINERARY_DISCLAIMER)}</p>
 
       {error ? <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{translateText(error)}</p> : null}
+      {needsRecovery ? (
+        <div data-guest-recovery className="mt-4 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+          <p className="text-sm font-black leading-6 text-ink">
+            {translateText("Lost this trip? Enter the email you gave us and we'll send you a link to get it back.")}
+          </p>
+          {recoverySent ? (
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+              {translateText("If that email has a free itinerary, a link is on its way to it.")}
+            </p>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="email"
+                value={recoveryEmail}
+                onChange={(event) => setRecoveryEmail(event.target.value)}
+                placeholder="Email"
+                autoComplete="email"
+                className="min-h-12 flex-1 rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-semibold text-ink"
+              />
+              <button
+                type="button"
+                disabled={recoveryBusy || !recoveryEmail.trim()}
+                onClick={() => void requestRecovery()}
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {translateText(recoveryBusy ? "Sending…" : "Send me the link")}
+              </button>
+            </div>
+          )}
+        </div>
+      ) : null}
       {!itinerary && !error ? <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{translateText("Loading your free itinerary...")}</p> : null}
       {itinerary?.status === "building" ? (
         <div className="mt-4">
@@ -209,6 +300,44 @@ export function GuestFreeItinerary() {
         </div>
       ) : null}
 
+      {/* Delivery email at day-1-ready (owner law, 2026-10-24): the free
+          itinerary generates first; the moment day 1 is viewable, ask
+          where to send the rest. Never before generation starts, and
+          never while nothing is viewable yet. */}
+      {itinerary && itinerary.days.length >= 1 ? (
+        deliveryEmail ? (
+          <p data-guest-delivery-saved className="mt-5 text-sm font-semibold leading-6 text-slate-600">
+            {translateText("We'll send the rest to")} {deliveryEmail}.
+          </p>
+        ) : (
+          <div data-guest-delivery-email className="mt-5 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+            <p className="text-sm font-black leading-6 text-ink">{translateText("Where do I send the rest?")}</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              {translateText("Day 1 is ready. Leave your email and we'll send the rest of this itinerary to you — and you can get this trip back if you switch browsers.")}
+            </p>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                type="email"
+                value={emailDraft}
+                onChange={(event) => setEmailDraft(event.target.value)}
+                placeholder="Email"
+                autoComplete="email"
+                className="min-h-12 flex-1 rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-semibold text-ink"
+              />
+              <button
+                type="button"
+                disabled={emailSaving || !emailDraft.trim()}
+                onClick={() => void saveDeliveryEmail()}
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {translateText(emailSaving ? "Saving…" : "Send the rest to me")}
+              </button>
+            </div>
+            {emailError ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{translateText(emailError)}</p> : null}
+          </div>
+        )
+      ) : null}
+
       {itinerary?.status === "ready" && (itinerary.stays.length > 0 || itinerary.flights.length > 0 || itinerary.experiences.length > 0 || itinerary.essentials.length > 0) ? (
         <div className="mt-6 grid gap-4">
           {itinerary.stays.length ? (
@@ -251,7 +380,7 @@ export function GuestFreeItinerary() {
             <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Live Companion")}</p>
             <h3 className="mt-2 text-lg font-black text-ink">{translateText("Add Live Companion")}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              {translateText("Pre-trip reminders, a booking timeline, and up-next help for this trip. This is an offer only. Nothing is unlocked yet.")}
+              {translateText("Pre-trip reminders, a booking timeline, and up-next help for this trip. This is an offer only. Nothing is unlocked yet. Live Companion needs an account — sign in to add it.")}
             </p>
             <Link
               href={planAuthUrl("/login")}
