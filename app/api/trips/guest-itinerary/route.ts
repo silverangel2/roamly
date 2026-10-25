@@ -8,12 +8,15 @@ import {
   verifyGuestItineraryCookie
 } from "@/lib/roamly/guestItineraryAccess";
 import {
+  GUEST_AVIASALES_SEARCH_URL,
   GUEST_ITINERARY_PATH,
   GUEST_PAID_ENTITLEMENT_MESSAGE,
   guestFreeItineraryEntitlement,
   publicGuestItineraryView
 } from "@/lib/roamly/guestItineraryView";
+import { buildAviasalesDeepLink } from "@/lib/roamly/bookingLinks";
 import { buildGuestGenerationStatus } from "@/lib/roamly/guestGenerationStatus";
+import { derivePackBuildStatus } from "@/lib/roamly/packBuildStatus";
 import {
   guestRecoveryUrl,
   readGuestDeliveryEmail,
@@ -103,6 +106,47 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  // Flight search link for the honest empty-flights state: built from
+  //  the trip's own generation payload (origin, destination, dates) via
+  //  the standing Travelpayouts/Aviasales builder — a link to search,
+  //  never a fabricated flight, price, or time. When the builder cannot
+  //  resolve a routed search (e.g. an unmapped airport), the section
+  //  still gets the Aviasales search home page rather than vanishing.
+  const tripMetadataRecord =
+    trip.metadata && typeof trip.metadata === "object" && !Array.isArray(trip.metadata)
+      ? (trip.metadata as Record<string, unknown>)
+      : null;
+  const generationPayloadRecord =
+    tripMetadataRecord?.generation && typeof tripMetadataRecord.generation === "object" && !Array.isArray(tripMetadataRecord.generation)
+      ? ((tripMetadataRecord.generation as Record<string, unknown>).payload as Record<string, unknown> | null)
+      : null;
+  const payloadTravelers = generationPayloadRecord?.travelers;
+  const payloadAdults =
+    typeof payloadTravelers === "number"
+      ? payloadTravelers
+      : payloadTravelers && typeof payloadTravelers === "object" && !Array.isArray(payloadTravelers)
+        ? (payloadTravelers as Record<string, unknown>).adults
+        : null;
+  const flightSearchUrl =
+    buildAviasalesDeepLink({
+      origin:
+        typeof generationPayloadRecord?.origin === "string"
+          ? generationPayloadRecord.origin
+          : typeof generationPayloadRecord?.originCity === "string"
+            ? generationPayloadRecord.originCity
+            : null,
+      destination:
+        typeof trip.destination_name === "string" && trip.destination_name.trim()
+          ? trip.destination_name
+          : typeof generationPayloadRecord?.destination === "string"
+            ? generationPayloadRecord.destination
+            : null,
+      departureDate: typeof generationPayloadRecord?.startDate === "string" ? generationPayloadRecord.startDate : null,
+      returnDate: typeof generationPayloadRecord?.endDate === "string" ? generationPayloadRecord.endDate : null,
+      travelers: typeof payloadAdults === "number" && Number.isFinite(payloadAdults) ? payloadAdults : 1,
+      marker: process.env.ROAMLY_TRAVELPAYOUTS_MARKER
+    }) || GUEST_AVIASALES_SEARCH_URL;
+
 
   const view = publicGuestItineraryView({
     tripTitle: trip.title,
@@ -110,7 +154,8 @@ export async function GET(request: NextRequest) {
     tripStatus: trip.status,
     itineraryStatus: trip.itinerary_status,
     fullJson: itineraryResult.data?.full_json,
-    metadata: trip.metadata
+    metadata: trip.metadata,
+    flightSearchUrl
   });
 
   // Real generation status for the guest page, from measured fields only.
@@ -156,6 +201,67 @@ export async function GET(request: NextRequest) {
     60_000,
     Number(process.env.ROAMLY_ZERO_ENGINE_MAX_PACK_WAIT_MS || 7_200_000) || 7_200_000
   );
+  // Pack-build visibility (incident 2026-10-25, stream 2): read-only
+  // display from existing pack rows + the trip's own zero-engine
+  // record. Deliberately NOT readServingPack: that would enqueue a
+  // build as a side effect. A read failure degrades to "unknown" and
+  // never fails this response.
+  const packDestinationId =
+    typeof zeroEngineRecord?.destinationId === "string" && zeroEngineRecord.destinationId.trim()
+      ? zeroEngineRecord.destinationId.trim()
+      : null;
+  let packBuild = derivePackBuildStatus({ destinationId: packDestinationId });
+  if (packDestinationId) {
+    try {
+      const [readyResult, jobsResult] = await Promise.all([
+        admin
+          .from("roamly_destination_packs")
+          .select("pack_version_id,status,built_at,candidate_count")
+          .eq("destination_id", packDestinationId)
+          .eq("status", "ready")
+          .order("version", { ascending: false })
+          .limit(1),
+        admin
+          .from("roamly_destination_pack_builds")
+          .select("status,requested_at,started_at,finished_at,error")
+          .eq("destination_id", packDestinationId)
+          .order("requested_at", { ascending: false })
+          .limit(10)
+      ]);
+      if (readyResult.error || jobsResult.error) {
+        packBuild = derivePackBuildStatus({ destinationId: packDestinationId, readFailed: true });
+      } else {
+        const readyRow = (readyResult.data || [])[0] as
+          | { pack_version_id?: unknown; built_at?: unknown; candidate_count?: unknown }
+          | undefined;
+        packBuild = derivePackBuildStatus({
+          destinationId: packDestinationId,
+          readyVersion: readyRow
+            ? {
+                packVersionId: readyRow.pack_version_id,
+                builtAt: readyRow.built_at,
+                candidateCount: readyRow.candidate_count
+              }
+            : null,
+          buildJobs: ((jobsResult.data || []) as Array<{
+            status?: unknown;
+            requested_at?: unknown;
+            started_at?: unknown;
+            finished_at?: unknown;
+            error?: unknown;
+          }>).map((row) => ({
+            status: row.status,
+            requestedAt: row.requested_at,
+            startedAt: row.started_at,
+            finishedAt: row.finished_at,
+            error: row.error
+          }))
+        });
+      }
+    } catch {
+      packBuild = derivePackBuildStatus({ destinationId: packDestinationId, readFailed: true });
+    }
+  }
   const generationStatus = buildGuestGenerationStatus({
     viewStatus: view.status,
     progress: progress
@@ -192,7 +298,8 @@ export async function GET(request: NextRequest) {
         ? (trip as { created_at: string }).created_at
         : null,
     nowMs: Date.now(),
-    maxPackWaitMs
+    maxPackWaitMs,
+    packBuild
   });
 
   // Guest delivery (owner law, 2026-10-24): when the itinerary is ready
@@ -237,7 +344,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, tripId: access.tripId, unlockSource: "free", ...view, generationStatus, deliveryEmail });
+  return NextResponse.json({ ok: true, tripId: access.tripId, unlockSource: "free", ...view, generationStatus, packBuild, deliveryEmail });
 }
 
 export async function POST(request: NextRequest) {

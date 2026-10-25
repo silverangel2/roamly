@@ -43,6 +43,18 @@ export type GuestGenerationProgressInput = {
   startedAt?: unknown;
 } | null;
 
+export type GuestGenerationPackBuildInput = {
+  state?: unknown;
+  destinationId?: unknown;
+  packVersionId?: unknown;
+  builtAt?: unknown;
+  candidateCount?: unknown;
+  buildRequestedAt?: unknown;
+  buildStartedAt?: unknown;
+  lastError?: unknown;
+  lastErrorAt?: unknown;
+} | null;
+
 export type GuestGenerationStatusInput = {
   viewStatus: "building" | "ready" | "failed";
   progress: GuestGenerationProgressInput;
@@ -52,7 +64,23 @@ export type GuestGenerationStatusInput = {
   tripStartedAt: string | null;
   nowMs: number;
   maxPackWaitMs: number;
+  // Pack-build state as derived by lib/roamly/packBuildStatus.ts from
+  // existing pack rows (pass-through only — this module never invents
+  // a pack state). Absent when the server could not read the rows.
+  packBuild?: GuestGenerationPackBuildInput;
 };
+
+export type GuestGenerationPackBuild = {
+  state: "ready" | "building" | "failed" | "not_built" | "unknown";
+  destinationId: string | null;
+  packVersionId: string | null;
+  builtAt: string | null;
+  candidateCount: number | null;
+  buildRequestedAt: string | null;
+  buildStartedAt: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+} | null;
 
 export type GuestGenerationStatus = {
   phase: GuestGenerationPhase;
@@ -66,6 +94,7 @@ export type GuestGenerationStatus = {
   failedTimeout: boolean;
   destination: string | null;
   maxPackWaitMs: number;
+  packBuild: GuestGenerationPackBuild;
 };
 
 function asText(value: unknown): string {
@@ -175,7 +204,29 @@ export function buildGuestGenerationStatus(input: GuestGenerationStatusInput): G
       ? new Date(startedAtMs + Math.max(1, input.maxPackWaitMs)).toISOString()
       : null;
 
+  // Sanitized pass-through: only the known state enum and plain,
+  // length-bounded values cross into the response.
+  const rawPack = input.packBuild && typeof input.packBuild === "object" ? input.packBuild : null;
+  const packBuild: GuestGenerationPackBuild =
+    rawPack && ["ready", "building", "failed", "not_built", "unknown"].includes(asText(rawPack.state))
+      ? {
+          state: asText(rawPack.state) as "ready" | "building" | "failed" | "not_built" | "unknown",
+          destinationId: asText(rawPack.destinationId) || null,
+          packVersionId: asText(rawPack.packVersionId) || null,
+          builtAt: asText(rawPack.builtAt) || null,
+          candidateCount:
+            typeof rawPack.candidateCount === "number" && Number.isFinite(rawPack.candidateCount) && rawPack.candidateCount >= 0
+              ? Math.floor(rawPack.candidateCount)
+              : null,
+          buildRequestedAt: asText(rawPack.buildRequestedAt) || null,
+          buildStartedAt: asText(rawPack.buildStartedAt) || null,
+          lastError: asText(rawPack.lastError) ? asText(rawPack.lastError).slice(0, 240) : null,
+          lastErrorAt: asText(rawPack.lastErrorAt) || null
+        }
+      : null;
+
   return {
+    packBuild,
     phase,
     completedDayCount,
     totalDayCount,

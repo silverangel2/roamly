@@ -18,6 +18,13 @@
 //  - re-save with explicit [] -> segments cleared;
 //  - re-save with an explicit new list -> segments replaced;
 //  - an RPC failure surfaces as an error, never a silent success.
+//  - S3 FAIL-LOUD GUARD (2026-10-25 incident): when the RPC claims success
+//    but the owner re-read of booking_segments does not show exactly the
+//    written legs (the live RLS-gap failure: SECURITY DEFINER stored rows
+//    the owner session could not read back, yet POST returned 200 with
+//    echoed legs), the save FAILS with BOOKING_SEGMENTS_NOT_STORED —
+//    never a 200 with phantom legs. The POST shape carries the re-read
+//    stored rows, not the echoed input.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -39,13 +46,15 @@ assert.match(walletSource, /p_booking_id: String\(savedRow\.id\)/, "RPC call mus
 assert.match(walletSource, /p_user_id: params\.userId/, "RPC call must carry the user id");
 assert.match(walletSource, /p_trip_id: params\.tripId/, "RPC call must carry the trip id");
 assert.match(walletSource, /p_segments: segments/, "RPC call must carry the normalized segments");
+assert.match(walletSource, /from\("booking_segments"\)/, "writer must re-read booking_segments after the RPC (fail-loud guard)");
+assert.match(walletSource, /BOOKING_SEGMENTS_NOT_STORED/, "guard must fail loudly when stored segments do not match the write");
 
 // ---- faithful in-memory Supabase stand-in ----
 function makeDb() {
   const trips = [{ id: "trip-1", user_id: "user-1" }];
   const bookings = [];
   const segmentsTable = [];
-  const ctx = { seq: 0, segSeq: 0, rpcCalls: [], failRpc: false };
+  const ctx = { seq: 0, segSeq: 0, rpcCalls: [], failRpc: false, hideReread: false };
 
   class Query {
     constructor(table, rows) {
@@ -69,6 +78,11 @@ function makeDb() {
     insert(payload) { this.op = "insert"; this.payload = payload; return this; }
     update(payload) { this.op = "update"; this.payload = payload; return this; }
     applyFilters() {
+      // S3 guard model: hideReread simulates the live RLS gap — the RPC
+      // (SECURITY DEFINER) stored rows, but the owner-client re-read of
+      // booking_segments sees nothing. The list embed (bookings table)
+      // still sees segmentsTable, so only the guard's direct re-read hides.
+      if (this.table === "booking_segments" && ctx.hideReread) return [];
       let out = this.rows.filter((row) => this.filters.every(([col, val]) => {
         if (val && typeof val === "object" && val.__contains) {
           const hay = row[col] && typeof row[col] === "object" ? row[col] : {};
@@ -136,6 +150,7 @@ function makeDb() {
     from(table) {
       if (table === "roamly_trips") return new Query(table, trips);
       if (table === "roamly_bookings") return new Query(table, bookings);
+      if (table === "booking_segments") return new Query(table, segmentsTable);
       throw new Error(`unexpected table ${table}`);
     },
     async rpc(name, args) {
@@ -304,6 +319,28 @@ async function reload(supabase, id) {
   const row = await reload(supabase, first.booking.id);
   assert.equal(row.booking_segments.length, 1, "replacement must leave exactly the new list");
   assert.ok(String(row.booking_segments[0].departure_time).startsWith("2026-11-10T21:30"), "replacement must carry the new time");
+}
+
+// ---- case 8 (S3): RPC claims success but owner re-read is empty (live RLS
+// gap) -> the save FAILS loudly, never a 200 with echoed legs ----
+{
+  const { supabase, ctx } = makeDb();
+  ctx.hideReread = true;
+  const result = await wallet.createTripBooking({ supabase, userId: "user-1", tripId: "trip-1", input: { ...flightBase, segments: [seg1] } });
+  assert.ok(result.error, "a stored-but-unreadable segment write must surface as an error, never a silent success");
+  assert.match(String(result.error), /BOOKING_SEGMENTS_NOT_STORED/, "guard error must name the segment-storage failure");
+}
+
+// ---- case 9 (S3): POST shape carries the STORED rows, not echoed input ----
+// (covered by case 1's assertions on the stored snake_case fields, plus an
+// explicit offset-time case: stored timestamptz renders with an offset while
+// the normalized input is a UTC ISO instant — the guard must still match.)
+{
+  const { supabase } = makeDb();
+  const segZ = { sequence: 1, origin: "YUL", destination: "YYZ", departureTime: "2026-11-10T20:30:00.000Z", arrivalTime: "2026-11-10T22:00:00.000Z", provider: "E2E Baseline Air", serviceNumber: "EB100", status: "unknown" };
+  const result = await wallet.createTripBooking({ supabase, userId: "user-1", tripId: "trip-1", input: { ...flightBase, confirmationCode: "E2EBASE9", segments: [segZ] } });
+  assert.equal(result.error, null, `offset-time save must succeed, got ${result.error}`);
+  assert.equal(result.booking.booking_segments[0].service_number, "EB100");
 }
 
 // ---- case 7: RPC failure surfaces as an error, never a silent success ----

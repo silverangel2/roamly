@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getGenerationWorkerSecrets, scheduleStagedGenerationAdvance } from "@/lib/roamly/stagedGenerationBackground";
 import { processGenerationQueue, type RoamlyGenerationWorkerSummary } from "@/lib/roamly/generationWorker";
 import { runStuckGenerationDetector } from "@/lib/roamly/silentFailureDetectors";
+import { runPackWaitTerminalTransition } from "@/lib/roamly/packWaitTerminalTransition";
 import { runBookingMonitorHealthDetector } from "@/lib/roamly/bookingMonitorHealth";
 import { runCommunicationStuckDetector } from "@/lib/roamly/communicationStuckDetector";
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
@@ -69,12 +70,21 @@ export async function POST(request: NextRequest) {
       : undefined
   });
   rearmInProgressTrips(summary, request, requestId);
+  // OPTIONAL (incident 2026-10-25, stream 2 — Junel's call, severable):
+  // sweep-side pack-wait terminal transition, BEFORE the detector, so a
+  // cap-past job is failed loudly instead of being requeued for another
+  // wait cycle. Dropping this hunk + lib/roamly/packWaitTerminalTransition.ts
+  // removes the option with no other change.
+  const packWaitTerminal = await runPackWaitTerminalTransition().catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "pack_wait_terminal_transition", route: "/api/cron/roamly-itinerary-generation" });
+    return { ok: false, transitioned: 0, skipped: 0, error: "PACK_WAIT_TERMINAL_FAILED" };
+  });
   const detector = await runStuckGenerationDetector().catch(async () => {
     await recordBackgroundDetectorFailure({ detector: "stuck_generation", route: "/api/cron/roamly-itinerary-generation" });
     return detectorFailureResult("stuck_generation");
   });
 
-  return NextResponse.json({ ...summary, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ ...summary, packWaitTerminalTransition: packWaitTerminal, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
 }
 
 export async function GET(request: NextRequest) {
@@ -90,6 +100,12 @@ export async function GET(request: NextRequest) {
     executionDeadlineMs
   });
   rearmInProgressTrips(summary, request, requestId);
+  // OPTIONAL (incident 2026-10-25, stream 2 — Junel's call, severable):
+  // see the POST handler note above; same placement, before the detector.
+  const packWaitTerminal = await runPackWaitTerminalTransition().catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "pack_wait_terminal_transition", route: "/api/cron/roamly-itinerary-generation" });
+    return { ok: false, transitioned: 0, skipped: 0, error: "PACK_WAIT_TERMINAL_FAILED" };
+  });
   const detector = await runStuckGenerationDetector().catch(async () => {
     await recordBackgroundDetectorFailure({ detector: "stuck_generation", route: "/api/cron/roamly-itinerary-generation" });
     return detectorFailureResult("stuck_generation");
@@ -103,5 +119,5 @@ export async function GET(request: NextRequest) {
     return detectorFailureResult("communication_stuck");
   });
 
-  return NextResponse.json({ ...summary, silentFailureDetector: detector, bookingMonitorHealth, communicationStuck }, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ ...summary, packWaitTerminalTransition: packWaitTerminal, silentFailureDetector: detector, bookingMonitorHealth, communicationStuck }, { status: summary.ok ? 200 : 500 });
 }

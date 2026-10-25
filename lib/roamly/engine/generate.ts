@@ -46,6 +46,7 @@ import {
 } from "@/lib/itinerary";
 import { normalizeLocale } from "@/lib/i18n";
 import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
+import { GUEST_EMPTY_WINDOW_TEXT } from "@/lib/roamly/guestItineraryView";
 import { lockGeneratedItinerary, markFreeItineraryUsed } from "@/lib/roamly/billing";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { enforceSelectedHotelIdentity } from "@/lib/roamly/selectedHotelIdentity";
@@ -1055,9 +1056,9 @@ export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionConte
     date: day.date,
     city: ctx.destination,
     title: firstStop ? `Day ${day.dayNumber}: ${firstStop.name || firstStop.title || ctx.destination}` : `Day ${day.dayNumber} in ${ctx.destination}`,
-    morning: blockText(0, 12 * 60, "A gentle start around your stay."),
-    afternoon: blockText(12 * 60, 17 * 60, "Open time — rest, wander, or revisit a favorite spot."),
-    evening: blockText(17 * 60, 24 * 60, "A quiet evening near your stay."),
+    morning: blockText(0, 12 * 60, GUEST_EMPTY_WINDOW_TEXT),
+    afternoon: blockText(12 * 60, 17 * 60, GUEST_EMPTY_WINDOW_TEXT),
+    evening: blockText(17 * 60, 24 * 60, GUEST_EMPTY_WINDOW_TEXT),
     food,
     estimated_cost: dayCost,
     map_queries: [...new Set(day.items.map((i) => i.name || i.title || "").filter(Boolean))],

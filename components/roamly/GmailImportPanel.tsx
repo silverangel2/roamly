@@ -13,6 +13,14 @@ type EmailConnectionState = {
   disconnected_at: string | null;
 };
 
+type QuarantinedImport = {
+  id: string;
+  providerMessageId: string | null;
+  subject: string | null;
+  reasons: string[];
+  createdAt: string | null;
+};
+
 type PendingImport = {
   id: string;
   tripId: string | null;
@@ -87,6 +95,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
   const router = useRouter();
   const [connection, setConnection] = useState<EmailConnectionState | null>(null);
   const [imports, setImports] = useState<PendingImport[]>([]);
+  const [quarantined, setQuarantined] = useState<QuarantinedImport[]>([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -104,7 +113,10 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
   const loadImports = useCallback(async () => {
     const response = await fetch(`/api/trips/${encodeURIComponent(tripId)}/bookings/email-imports`, { cache: "no-store" });
     const data = await response.json().catch(() => null);
-    if (response.ok) setImports(Array.isArray(data?.imports) ? data.imports : []);
+    if (response.ok) {
+      setImports(Array.isArray(data?.imports) ? data.imports : []);
+      setQuarantined(Array.isArray(data?.quarantined) ? data.quarantined : []);
+    }
   }, [tripId]);
 
   useEffect(() => {
@@ -327,6 +339,26 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
                       </button>
                     </div>
                   </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {quarantined.length ? (
+          <div className="mt-5">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Kept aside, not deleted</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              These emails could not be read during a sync, so they were kept aside instead of blocking
+              your other mail. They are retried the next time Gmail is reconnected; nothing here was deleted.
+            </p>
+            <div className="mt-3 grid gap-2">
+              {quarantined.map((item: QuarantinedImport) => (
+                <article key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-black text-ink">{item.subject || "Email kept aside"}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    Could not be read during sync — kept aside for a later retry.
+                  </p>
                 </article>
               ))}
             </div>
