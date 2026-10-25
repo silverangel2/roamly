@@ -9,6 +9,31 @@ export const GUEST_ACCOUNT_WALL = [
 export const GUEST_PAID_ENTITLEMENT_MESSAGE =
   "Paid itineraries, Live Companion, and paid packs need an account and a paid entitlement.";
 
+/** Honest empty-window copy: when a day window has no places, the guest
+ *  page says so plainly instead of dressing the gap up as a plan. The
+ *  zero-engine generation layer writes this same string for an empty
+ *  window, and this view maps any legacy generic filler stored before
+ *  the fix (see GUEST_LEGACY_GENERIC_FILLER_TEXTS) to it on read — so
+ *  stored history is never rewritten, but it always renders honestly. */
+export const GUEST_EMPTY_WINDOW_TEXT =
+  "Nothing planned here yet — Roamly didn't find places for this part of the day.";
+
+/** Generic filler the zero-engine used to emit for an empty window
+ *  (lib/roamly/engine/generate.ts blockText fallbacks, pre-fix). These
+ *  read like a plan ("a gentle start", "open time", "a quiet evening")
+ *  while naming nothing — the view must never surface them. */
+export const GUEST_LEGACY_GENERIC_FILLER_TEXTS = [
+  "A gentle start around your stay.",
+  "Open time — rest, wander, or revisit a favorite spot.",
+  "A quiet evening near your stay."
+] as const;
+
+/** Honest empty-flights copy + search link. The link is a search, never
+ *  a flight option: no flight, price, or time is claimed. */
+export const GUEST_NO_FLIGHTS_TEXT = "No flight options found for this trip yet.";
+export const GUEST_FLIGHT_SEARCH_CTA = "Search flights on Aviasales";
+export const GUEST_AVIASALES_SEARCH_URL = "https://www.aviasales.com/";
+
 export type GuestItineraryStatus = "building" | "ready" | "failed";
 
 export type GuestItineraryTimelineItem = {
@@ -46,6 +71,12 @@ export type GuestItineraryView = {
   days: GuestItineraryDayView[];
   stays: GuestBookingCard[];
   flights: GuestBookingCard[];
+  /** Aviasales search link for the trip, carried through only when the
+   *  caller supplies a trusted aviasales.com URL. When flights is empty
+   *  the guest page renders the flights section honestly with this link
+   *  instead of hiding the section. Null = no search link available
+   *  (older API responses), in which case the section stays hidden. */
+  flightSearchUrl: string | null;
   experiences: GuestBookingCard[];
   essentials: GuestBookingCard[];
   continuesBehindAccount: readonly string[];
@@ -61,53 +92,92 @@ function clip(value: unknown, limit = 500) {
   return typeof value === "string" ? value.trim().slice(0, limit) : "";
 }
 
-function dayFromRecord(value: unknown): GuestItineraryDayView | null {
+function isLegacyGenericFiller(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return (GUEST_LEGACY_GENERIC_FILLER_TEXTS as readonly string[]).some(
+    (filler) => filler.toLowerCase() === normalized
+  );
+}
+
+/** A window with no places — blank, or carrying legacy generic filler —
+ *  renders as the honest empty state, never as prose that reads like a
+ *  plan. A window naming real places passes through untouched. */
+function honestWindowText(value: string) {
+  const text = value.trim();
+  if (!text || isLegacyGenericFiller(text)) return GUEST_EMPTY_WINDOW_TEXT;
+  return text;
+}
+
+function dayFromRecord(value: unknown, destination = ""): GuestItineraryDayView | null {
   const day = asRecord(value);
   if (!day) return null;
   const dayNumber = Number(day.day_number ?? day.dayNumber);
   if (!Number.isFinite(dayNumber) || dayNumber < 1) return null;
   const timeline = Array.isArray(day.live_timeline) ? day.live_timeline : [];
+  const morning = honestWindowText(clip(day.morning));
+  const afternoon = honestWindowText(clip(day.afternoon));
+  const evening = honestWindowText(clip(day.evening));
+  const food = (Array.isArray(day.food) ? day.food : [])
+    .map((item) => clip(item, 160))
+    .filter(Boolean)
+    .slice(0, 4);
+  const timelineView = timeline
+    .map((item) => {
+      const record = asRecord(item);
+      const booking = asRecord(record?.booking);
+      return {
+        time: clip(record?.time_label, 40),
+        title: clip(record?.title, 180),
+        bookingUrl: clip(booking?.url, 500) || null,
+        bookingLabel: clip(booking?.ctaLabel, 80) || clip(record?.booking_label, 80) || null
+      };
+    })
+    .filter((item) => item.title)
+    .slice(0, 8);
+  // Day-title honesty: a first-stop name is honest only when the day
+  // evidences a stop. A wholly empty day (honest-empty windows, no food,
+  // no timeline) never keeps a stored stop-named title — it falls back
+  // to "Day N in <destination>". A blank stored title gets the same
+  // fallback. Any day with real content keeps its stored title.
+  const whollyEmpty =
+    morning === GUEST_EMPTY_WINDOW_TEXT &&
+    afternoon === GUEST_EMPTY_WINDOW_TEXT &&
+    evening === GUEST_EMPTY_WINDOW_TEXT &&
+    food.length === 0 &&
+    timelineView.length === 0;
+  const storedTitle = clip(day.title, 180);
+  const title =
+    whollyEmpty || !storedTitle
+      ? destination
+        ? `Day ${dayNumber} in ${destination}`
+        : `Day ${dayNumber}`
+      : storedTitle;
   return {
     dayNumber,
     date: clip(day.date, 40) || null,
-    title: clip(day.title, 180),
-    morning: clip(day.morning),
-    afternoon: clip(day.afternoon),
-    evening: clip(day.evening),
-    food: (Array.isArray(day.food) ? day.food : [])
-      .map((item) => clip(item, 160))
-      .filter(Boolean)
-      .slice(0, 4),
-    timeline: timeline
-      .map((item) => {
-        const record = asRecord(item);
-        const booking = asRecord(record?.booking);
-        return {
-          time: clip(record?.time_label, 40),
-          title: clip(record?.title, 180),
-          bookingUrl: clip(booking?.url, 500) || null,
-          bookingLabel: clip(booking?.ctaLabel, 80) || clip(record?.booking_label, 80) || null
-        };
-      })
-      .filter((item) => item.title)
-      .slice(0, 8)
+    title,
+    morning,
+    afternoon,
+    evening,
+    food,
+    timeline: timelineView
   };
 }
 
-function daysFromItinerary(fullJson: unknown) {
+function daysFromItinerary(fullJson: unknown, destination = "") {
   const days = asRecord(fullJson)?.daily_itinerary;
   if (!Array.isArray(days)) return [];
   return days
-    .map(dayFromRecord)
+    .map((day) => dayFromRecord(day, destination))
     .filter((day): day is GuestItineraryDayView => Boolean(day))
     .sort((a, b) => a.dayNumber - b.dayNumber);
 }
 
-function daysFromMetadata(metadata: unknown) {
+function daysFromMetadata(metadata: unknown, destination = "") {
   const generatedDays = asRecord(asRecord(asRecord(metadata)?.generation)?.generatedDays);
   if (!generatedDays) return [];
   return Object.values(generatedDays)
-    .map(dayFromRecord)
+    .map((day) => dayFromRecord(day, destination))
     .filter((day): day is GuestItineraryDayView => Boolean(day))
     .sort((a, b) => a.dayNumber - b.dayNumber);
 }
@@ -225,14 +295,20 @@ export function publicGuestItineraryView(input: {
   itineraryStatus?: string | null;
   fullJson?: unknown;
   metadata?: unknown;
+  /** Caller-supplied Aviasales search link (the guest route builds it
+   *  from the trip's own origin/dates via the Travelpayouts builder).
+   *  Only a trusted aviasales.com URL is carried through — any other
+   *  host is dropped rather than surfaced to a guest. */
+  flightSearchUrl?: string | null;
 }): GuestItineraryView {
   const full = asRecord(input.fullJson);
   const generation = asRecord(asRecord(input.metadata)?.generation);
   const generationStatus = clip(generation?.status, 40).toLowerCase();
   const tripStatus = clip(input.tripStatus, 40).toLowerCase();
   const itineraryStatus = clip(input.itineraryStatus, 40).toLowerCase();
-  const storedDays = daysFromItinerary(input.fullJson);
-  const days = storedDays.length ? storedDays : daysFromMetadata(input.metadata);
+  const destination = clip(input.destination, 160);
+  const storedDays = daysFromItinerary(input.fullJson, destination);
+  const days = storedDays.length ? storedDays : daysFromMetadata(input.metadata, destination);
   const final =
     FINAL_NOTE.test(clip(full?.generation_note, 200)) ||
     generationStatus === "complete" ||
@@ -240,9 +316,19 @@ export function publicGuestItineraryView(input: {
     itineraryStatus === "locked";
   const failed = generationStatus === "failed" || tripStatus === "failed" || itineraryStatus === "failed";
   const status: GuestItineraryStatus = final && days.length ? "ready" : failed ? "failed" : "building";
-  const destination = clip(input.destination, 160);
   const title = clip(full?.trip_title, 180) || clip(input.tripTitle, 180) || (destination ? `${destination} itinerary` : "Your free itinerary");
   const summary = clip(full?.destination_summary, 500) || (destination ? `Free itinerary for ${destination}.` : "Your free itinerary is on this page.");
+  const flightSearchUrl = (() => {
+    const raw = clip(input.flightSearchUrl, 1000);
+    if (!raw) return null;
+    try {
+      const url = new URL(raw);
+      if (url.protocol !== "https:" || (url.hostname !== "www.aviasales.com" && url.hostname !== "aviasales.com")) return null;
+      return url.toString();
+    } catch {
+      return null;
+    }
+  })();
 
   return {
     title,
@@ -258,6 +344,7 @@ export function publicGuestItineraryView(input: {
     // behaviour (their headings make no budget claim).
     stays: bookingSection(input.fullJson, ["hotel"], 3, true),
     flights: bookingSection(input.fullJson, ["flight", "transport", "car_rental"]),
+    flightSearchUrl,
     experiences: bookingSection(input.fullJson, ["attraction", "tour", "activity"]),
     essentials: bookingSection(input.fullJson, ["product"], 4),
     continuesBehindAccount: GUEST_ACCOUNT_WALL

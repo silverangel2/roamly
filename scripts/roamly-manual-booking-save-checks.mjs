@@ -46,6 +46,10 @@ function makeDb({ tripCurrency = null, planningCurrency = null } = {}) {
     metadata: planningCurrency ? { planning: { budgetCurrency: planningCurrency } } : {}
   }];
   const bookings = [];
+  // S3: the wallet's fail-loud guard re-reads booking_segments after the
+  // RPC, so the stand-in needs a separate segments table (as in production),
+  // not just the booking row's echo.
+  const segmentsTable = [];
   const ctx = { seq: 0, lastInsert: null, lastUpdate: null, rpcCalls: [], failNextWrite: false };
 
   class Query {
@@ -146,6 +150,7 @@ function makeDb({ tripCurrency = null, planningCurrency = null } = {}) {
     from(table) {
       if (table === "roamly_trips") return new Query(trips);
       if (table === "roamly_bookings") return new Query(bookings);
+      if (table === "booking_segments") return new Query(segmentsTable);
       throw new Error(`unexpected table ${table}`);
     },
     async rpc(name, args) {
@@ -153,6 +158,12 @@ function makeDb({ tripCurrency = null, planningCurrency = null } = {}) {
       if (name === "roamly_replace_booking_segments") {
         const row = bookings.find((b) => b.id === args.p_booking_id);
         if (row) row.booking_segments = args.p_segments;
+        for (let i = segmentsTable.length - 1; i >= 0; i--) {
+          if (segmentsTable[i].booking_id === args.p_booking_id) segmentsTable.splice(i, 1);
+        }
+        for (const s of args.p_segments || []) {
+          segmentsTable.push({ booking_id: args.p_booking_id, ...s });
+        }
         return { data: null, error: null };
       }
       return { data: null, error: null };

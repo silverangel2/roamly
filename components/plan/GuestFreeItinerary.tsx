@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import {
   GUEST_ACCOUNT_WALL,
+  GUEST_FLIGHT_SEARCH_CTA,
   GUEST_FREE_ITINERARY_DISCLAIMER,
+  GUEST_NO_FLIGHTS_TEXT,
   type GuestBookingCard,
   type GuestItineraryDayView,
   type GuestItineraryStatus
@@ -14,6 +16,10 @@ import {
   guestGenerationStatusLines,
   type GuestGenerationStatus
 } from "@/lib/roamly/guestGenerationStatus";
+import {
+  packBuildStatusLines,
+  type PackBuildStatus
+} from "@/lib/roamly/packBuildStatus";
 import { presentTravelerTitle, punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
 
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
@@ -23,6 +29,7 @@ type GuestItineraryResponse = {
   title: string;
   summary: string;
   disclaimer: string;
+  flightSearchUrl?: string | null;
   status: GuestItineraryStatus;
   days: GuestItineraryDayView[];
   stays: GuestBookingCard[];
@@ -30,6 +37,7 @@ type GuestItineraryResponse = {
   experiences: GuestBookingCard[];
   essentials: GuestBookingCard[];
   generationStatus?: GuestGenerationStatus;
+  packBuild?: PackBuildStatus | null;
   deliveryEmail?: string | null;
 };
 
@@ -161,6 +169,7 @@ export function GuestFreeItinerary() {
       setNeedsRecovery(false);
       setDeliveryEmail(typeof data.deliveryEmail === "string" && data.deliveryEmail ? data.deliveryEmail : null);
       // Older API responses may not include the booking sections; default them
+        flightSearchUrl: typeof data.flightSearchUrl === "string" && data.flightSearchUrl ? data.flightSearchUrl : null,
       // so rendering never crashes on a missing array.
       setItinerary({
         ...data,
@@ -187,6 +196,13 @@ export function GuestFreeItinerary() {
         formatDeadlineLabel(itinerary.generationStatus.packWaitDeadlineAt)
       )
     : null;
+
+  // Pack-build state, read-only from existing pack rows (incident
+  // 2026-10-25, stream 2). Ready needs no line; any other recorded
+  // state gets one honest line, and "no pack row exists" is said
+  // plainly instead of being hidden behind the generation spinner.
+  const packBuild = itinerary?.packBuild ?? itinerary?.generationStatus?.packBuild ?? null;
+  const packLines = packBuild ? packBuildStatusLines(packBuild, itinerary?.generationStatus?.destination ?? null) : null;
 
   return (
     <section data-guest-free-itinerary className="rounded-[1.75rem] border border-cloud bg-white p-4 shadow-soft sm:p-6">
@@ -241,6 +257,12 @@ export function GuestFreeItinerary() {
               {generationLines.estimate ? (
                 <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(generationLines.estimate)}</p>
               ) : null}
+              {packLines ? (
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(packLines.headline)}</p>
+              ) : null}
+              {packLines?.detail ? (
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(packLines.detail)}</p>
+              ) : null}
             </>
           ) : (
             <p className="text-sm font-bold leading-6 text-slate-600">
@@ -256,6 +278,12 @@ export function GuestFreeItinerary() {
           </p>
           {generationLines?.detail ? (
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(generationLines.detail)}</p>
+          ) : null}
+          {packLines ? (
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(packLines.headline)}</p>
+          ) : null}
+          {packLines?.detail ? (
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateText(packLines.detail)}</p>
           ) : null}
         </div>
       ) : null}
@@ -345,7 +373,7 @@ export function GuestFreeItinerary() {
         )
       ) : null}
 
-      {itinerary?.status === "ready" && (itinerary.stays.length > 0 || itinerary.flights.length > 0 || itinerary.experiences.length > 0 || itinerary.essentials.length > 0) ? (
+      {itinerary?.status === "ready" && (itinerary.stays.length > 0 || itinerary.flights.length > 0 || itinerary.flightSearchUrl || itinerary.experiences.length > 0 || itinerary.essentials.length > 0) ? (
         <div className="mt-6 grid gap-4">
           {itinerary.stays.length ? (
             <section className="rounded-2xl bg-mist p-4">
@@ -359,6 +387,22 @@ export function GuestFreeItinerary() {
               <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Flights & getting there")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText("Best flight and cheaper ways there")}</h3>
               <BookingCardList cards={itinerary.flights} />
+            </section>
+          ) : itinerary.flightSearchUrl ? (
+            <section className="rounded-2xl bg-mist p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Flights & getting there")}</p>
+              <h3 className="mt-1 text-lg font-black text-ink">{translateText(GUEST_NO_FLIGHTS_TEXT)}</h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {translateText("Roamly didn't find flight options for this trip. Search current flights yourself — nothing here is booked or priced.")}
+              </p>
+              <a
+                href={itinerary.flightSearchUrl}
+                target="_blank"
+                rel="noopener noreferrer sponsored"
+                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
+              >
+                {translateText(GUEST_FLIGHT_SEARCH_CTA)}
+              </a>
             </section>
           ) : null}
           {itinerary.experiences.length ? (

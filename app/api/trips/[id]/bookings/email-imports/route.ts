@@ -14,6 +14,14 @@ function text(value: unknown): string | null {
  * Lists email-extracted bookings that still need the traveler's review:
  * extractions that could not be matched to a trip ("unmatched"), plus ones
  * matched to this trip but held back for confirmation ("needs_confirmation").
+ *
+ * G13: also lists quarantined messages — travel_email_messages rows
+ * with processing_result "error", which the sync loop writes when a
+ * single message fails processing instead of stalling the cursor on
+ * it. They carry no booking (the message could not be read), so they
+ * are returned separately as `quarantined`, never merged into
+ * `imports` and never silently dropped. A later successful reprocess
+ * (reconnect backfill) overwrites the row and it leaves this list.
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
   const auth = await requireUser();
@@ -35,6 +43,32 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       { status: 500, headers: { "Cache-Control": "private, no-store" } }
     );
   }
+
+  // Quarantined messages fail soft: if this query fails, the imports
+  // above still render and the list is empty rather than erroring.
+  const { data: quarantinedRows } = await auth.supabase
+    .from("travel_email_messages")
+    .select("id,provider_message_id,subject,filter_reasons,created_at")
+    .eq("user_id", auth.user.id)
+    .eq("provider", "gmail")
+    .eq("processing_result", "error")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const quarantined = ((quarantinedRows || []) as Array<{
+    id: unknown;
+    provider_message_id: unknown;
+    subject: unknown;
+    filter_reasons: unknown;
+    created_at: unknown;
+  }>).map((row) => ({
+    id: String(row.id),
+    providerMessageId: typeof row.provider_message_id === "string" ? row.provider_message_id : null,
+    subject: text(row.subject),
+    reasons: Array.isArray(row.filter_reasons)
+      ? row.filter_reasons.filter((reason): reason is string => typeof reason === "string")
+      : [],
+    createdAt: typeof row.created_at === "string" ? row.created_at : null
+  }));
 
   const imports = ((data || []) as Array<{
     id: unknown;
@@ -63,5 +97,5 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     };
   });
 
-  return NextResponse.json({ ok: true, imports }, { headers: { "Cache-Control": "private, no-store" } });
+  return NextResponse.json({ ok: true, imports, quarantined }, { headers: { "Cache-Control": "private, no-store" } });
 }

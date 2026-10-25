@@ -132,13 +132,68 @@ export async function runPaidActivationMissingDetector(params: {
   return { ok: true, detected, recovered };
 }
 
+// Wake guarantee (Roamly incident 2026-10-25, stream 2): the stuck detector
+// used to only RECORD an overdue job, so a job the sweep never claimed
+// stayed unclaimed forever while the sweep reported 200. An overdue_retry
+// job that is still in a claimable state (queued/waiting) is now REQUEUED
+// as well: its next_attempt_at is reset to now through the existing job
+// row — no second queue, no new machinery. The claim RPC already treats
+// queued/waiting jobs with next_attempt_at <= now() as claimable, so the
+// next sweep claim picks the job up.
+//
+// No tight loop: the requeue sets next_attempt_at to the detector's now,
+// and generationStuckReason only fires overdue_retry again once
+// next_attempt_at + GENERATION_SCHEDULER_CADENCE_MS (5 min) has passed,
+// so a job the claim still misses is re-touched at most once per cadence
+// window. A requeued job that keeps failing still hits the existing
+// loud-failure machinery on its next advance (the zero-engine pack-wait
+// cap reads the run's startedAt, which the requeue never touches), and
+// retry_count is deliberately NOT reset here — the requeue must not
+// launder a failing job's retry history. Only queued/waiting jobs are
+// requeued: running jobs (expired_lease — already claimable via the
+// lease-expiry path) and failed jobs (retry_exhausted, or a job the
+// worker owns via its retry schedule) are left to their own paths.
+export async function requeueOverdueGenerationJob(params: {
+  supabase: DetectorClient;
+  job: GenerationDetectorJob & { id: string };
+  nowMs: number;
+  cadenceMs?: number;
+}): Promise<{ requeued: boolean; error?: string }> {
+  const cadence = params.cadenceMs ?? 5 * 60 * 1000;
+  if (!["queued", "waiting"].includes(params.job.status || "")) return { requeued: false };
+  const nextAttempt =
+    typeof params.job.next_attempt_at === "string" && Number.isFinite(Date.parse(params.job.next_attempt_at))
+      ? Date.parse(params.job.next_attempt_at)
+      : null;
+  if (nextAttempt === null || params.nowMs < nextAttempt + cadence) return { requeued: false };
+  const nowIso = new Date(params.nowMs).toISOString();
+  const thresholdIso = new Date(params.nowMs - cadence).toISOString();
+  const result = await params.supabase
+    .from("roamly_trip_generation_jobs")
+    .update({
+      status: "waiting",
+      next_attempt_at: nowIso,
+      locked_at: null,
+      locked_by: null,
+      lease_expires_at: null,
+      updated_at: nowIso
+    })
+    .eq("id", params.job.id)
+    .in("status", ["queued", "waiting"])
+    .lte("next_attempt_at", thresholdIso)
+    .select("id")
+    .maybeSingle();
+  if (result.error) return { requeued: false, error: result.error.message };
+  return { requeued: Boolean(result.data) };
+}
+
 export async function runStuckGenerationDetector(params: {
   supabase?: DetectorClient | null;
   now?: Date | number;
   recorder?: Recorder;
 } = {}) {
   const client = adminOr(params.supabase);
-  if (!client) return { ok: false, detected: 0, recovered: 0, error: "SUPABASE_SERVICE_ROLE_MISSING" };
+  if (!client) return { ok: false, detected: 0, recovered: 0, requeued: 0, requeueErrors: 0, error: "SUPABASE_SERVICE_ROLE_MISSING" };
   const recorder = params.recorder || recordOperationalEvent;
   const now = nowMs(params.now);
   const jobsResult = await client
@@ -147,17 +202,19 @@ export async function runStuckGenerationDetector(params: {
     .is("completed_at", null)
     .in("status", ["queued", "running", "waiting", "failed"])
     .limit(200);
-  if (jobsResult.error) return { ok: false, detected: 0, recovered: 0, error: "GENERATION_SCAN_FAILED" };
+  if (jobsResult.error) return { ok: false, detected: 0, recovered: 0, requeued: 0, requeueErrors: 0, error: "GENERATION_SCAN_FAILED" };
   const jobs = (jobsResult.data || []) as Array<GenerationDetectorJob & { id: string; trip_id: string; user_id: string; updated_at?: string | null }>;
-  if (!jobs.length) return { ok: true, detected: 0, recovered: 0 };
+  if (!jobs.length) return { ok: true, detected: 0, recovered: 0, requeued: 0, requeueErrors: 0 };
   const tripsResult = await client
     .from("roamly_trips")
     .select("id,user_id,status,itinerary_status,itinerary_generated_at,itinerary_payment_status,itinerary_unlock_source")
     .in("id", [...new Set(jobs.map((job) => job.trip_id))]);
-  if (tripsResult.error) return { ok: false, detected: 0, recovered: 0, error: "GENERATION_TRIP_SCAN_FAILED" };
+  if (tripsResult.error) return { ok: false, detected: 0, recovered: 0, requeued: 0, requeueErrors: 0, error: "GENERATION_TRIP_SCAN_FAILED" };
   const trips = new Map((tripsResult.data || []).map((trip) => [`${trip.id}:${trip.user_id}`, trip]));
   let detected = 0;
   let recovered = 0;
+  let requeued = 0;
+  let requeueErrors = 0;
   for (const job of jobs) {
     const trip = trips.get(`${job.trip_id}:${job.user_id}`);
     if (!trip || generationTripIsComplete(trip) || ["archived", "cancelled", "completed"].includes(safe(trip.status))) continue;
@@ -176,6 +233,15 @@ export async function runStuckGenerationDetector(params: {
         safeMetadata: { operation: "generation_stuck", stage: reason, source: "silent_failure_detector", retryable: reason !== "retry_exhausted", attempt_count: Number.isInteger(job.retry_count) ? job.retry_count : 0 }
       });
       if (result.ok) detected += 1;
+      // Wake guarantee: record first (visibility preserved), then requeue
+      // even if recording failed — a lost incident row must not block
+      // the wake itself. Only overdue_retry + queued/waiting requeues;
+      // requeueOverdueGenerationJob re-checks both guards itself.
+      if (reason === "overdue_retry") {
+        const requeue = await requeueOverdueGenerationJob({ supabase: client, job, nowMs: now });
+        if (requeue.requeued) requeued += 1;
+        else if (requeue.error) requeueErrors += 1;
+      }
     } else {
       await recoverIfOpen({
         client,
@@ -190,7 +256,7 @@ export async function runStuckGenerationDetector(params: {
       recovered += 1;
     }
   }
-  return { ok: true, detected, recovered };
+  return { ok: true, detected, recovered, requeued, requeueErrors };
 }
 
 export { purchaseActivationAgeMs };

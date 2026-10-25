@@ -655,6 +655,52 @@ export function normalizeBookingSegments(
     .sort((a, b) => a.sequence - b.sequence);
 }
 
+// S3 FAIL-LOUD GUARD helpers (2026-10-25 incident): after the segment RPC
+// claims success, the save re-reads booking_segments through the SAME
+// caller client the list endpoint uses and compares the stored rows to the
+// normalized input. A mismatch — including the live failure mode where the
+// RPC (SECURITY DEFINER) stored rows the owner session could not read back
+// through RLS — is an error, never a 200 with echoed legs. Times compare
+// as wall clocks, TZ-independently: normalized zoneless times are verbatim
+// wall clocks while stored timestamptz values render with an offset, so an
+// instant comparison would false-fail under America/Moncton.
+function segmentWallClock(value: unknown): string | null {
+  const text = clean(value);
+  if (!text) return null;
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) {
+    const date = new Date(text);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().slice(0, 19);
+  }
+  const wall = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/.exec(text);
+  if (!wall) return text.slice(0, 19);
+  const [, y, mo, d, h, mi, s] = wall;
+  return `${y}-${mo}-${d}T${h}:${mi}:${s ?? "00"}`;
+}
+
+function storedSegmentsMatchExpected(
+  expected: Array<Record<string, unknown>>,
+  stored: Array<Record<string, unknown>>
+): boolean {
+  if (expected.length !== stored.length) return false;
+  const ordered = [...stored].sort((a, b) => (Number(a.sequence) || 0) - (Number(b.sequence) || 0));
+  return expected.every((exp, index) => {
+    const row = ordered[index];
+    if (!row) return false;
+    return Number(row.sequence) === Number(exp.sequence)
+      && nullableText(row.origin) === nullableText(exp.origin)
+      && nullableText(row.destination) === nullableText(exp.destination)
+      && segmentWallClock(row.departure_time) === segmentWallClock(exp.departure_time)
+      && segmentWallClock(row.arrival_time) === segmentWallClock(exp.arrival_time)
+      && nullableText(row.provider) === nullableText(exp.provider)
+      && nullableText(row.service_number) === nullableText(exp.service_number)
+      && nullableText(row.terminal) === nullableText(exp.terminal)
+      && nullableText(row.gate) === nullableText(exp.gate)
+      && nullableText(row.seat) === nullableText(exp.seat)
+      && nullableText(row.status) === nullableText(exp.status);
+  });
+}
+
 async function assertTripOwnership(supabase: SupabaseClient, userId: string, tripId: string) {
   const { data, error } = await supabase.from("roamly_trips").select("id,budget_currency,metadata").eq("id", tripId).eq("user_id", userId).maybeSingle();
   if (error) return { ok: false as const, error: error.message };
@@ -1603,6 +1649,42 @@ export async function createTripBooking(params: {
     }
   }
 
+  // S3 FAIL-LOUD GUARD: whenever the RPC ran, the response must carry the
+  // segments actually stored and readable by this caller — never the echoed
+  // input. The re-read uses the same caller client as the list endpoint,
+  // so it verifies what a reload will show, not just what the SECURITY
+  // DEFINER function wrote. On any mismatch (or an unreadable re-read) the
+  // save fails loudly; the route maps this to HTTP 400 BOOKING_SAVE_FAILED
+  // and the parent row's stale/empty segment state is never reported as
+  // success. This guard ships WITH the booking_segments RLS policy repair
+  // migration: on the current live database the owner re-read returns []
+  // (the policy gap), so the guard correctly turns today's silent 200 into
+  // a loud failure until that repair lands — the pair is the fix.
+  let storedSegments: Array<Record<string, unknown>> | null = null;
+  const segmentRpcRan = (previousBooking && segmentsExplicit) || (!previousBooking && segments.length);
+  if (segmentRpcRan) {
+    let reread: { data: unknown; error: unknown } | null = null;
+    try {
+      reread = await params.supabase
+        .from("booking_segments")
+        .select("*")
+        .eq("booking_id", String(savedRow.id))
+        .order("sequence", { ascending: true });
+    } catch {
+      reread = null;
+    }
+    const storedRows = reread && !reread.error && Array.isArray(reread.data)
+      ? (reread.data as Array<Record<string, unknown>>)
+      : null;
+    if (!storedRows || !storedSegmentsMatchExpected(segments as unknown as Array<Record<string, unknown>>, storedRows)) {
+      return {
+        booking: createdBooking,
+        error: "BOOKING_SEGMENTS_NOT_STORED"
+      };
+    }
+    storedSegments = storedRows;
+  }
+
   // U1 + B06 (merged): whether the RPC above actually ran — the same
   // gate as the RPC condition (update: segments explicitly supplied;
   // create: at least one segment). #94's own definition could not apply
@@ -1618,10 +1700,13 @@ export async function createTripBooking(params: {
   // made every save response claim no legs — even when the RPC had just
   // written them. When nothing was written (omitted segments on update),
   // the response states nothing and the GET reload stays the source of truth.
+  // S3: when the guard ran, the response carries the RE-READ stored rows,
+  // never the echoed input — the response can no longer claim legs the
+  // database does not hold.
   const bookingWithSegments = segmentsWereWritten
     ? serializeTripBookingRecord({
       ...(savedRow as Record<string, unknown>),
-      booking_segments: segments
+      booking_segments: storedSegments ?? segments
     })
     : createdBooking;
 

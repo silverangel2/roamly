@@ -247,15 +247,48 @@ export function encryptToken(value: string) {
   return `v1.${iv.toString("base64url")}.${tag.toString("base64url")}.${encrypted.toString("base64url")}`;
 }
 
+/**
+ * G14: a token that cannot be decrypted is a reauth case, never a
+ * transient retry. Decrypt failures happen when the encryption key
+ * was rotated or removed after the token was stored, so no retry
+ * will ever succeed — only a fresh connect (new tokens under the
+ * current key) can. The typed error below is what the sync loop
+ * classifies on; the message text is unchanged so existing log
+ * searches keep working.
+ */
+export class TokenDecryptError extends Error {
+  code = "TOKEN_DECRYPT_FAILED" as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "TokenDecryptError";
+  }
+}
+
+export function isTokenDecryptFailure(error: unknown) {
+  return (
+    error instanceof TokenDecryptError ||
+    (typeof error === "object" &&
+      error !== null &&
+      (error as { code?: unknown }).code === "TOKEN_DECRYPT_FAILED")
+  );
+}
+
 export function decryptToken(value: string | null | undefined) {
   if (!value) return "";
   const key = encryptionKey();
-  if (!key) throw new Error("ROAMLY_TOKEN_ENCRYPTION_KEY is required.");
+  if (!key) throw new TokenDecryptError("ROAMLY_TOKEN_ENCRYPTION_KEY is required.");
   const [version, iv, tag, encrypted] = value.split(".");
-  if (version !== "v1" || !iv || !tag || !encrypted) throw new Error("Invalid encrypted token.");
-  const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64url"));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
-  return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
+  if (version !== "v1" || !iv || !tag || !encrypted) throw new TokenDecryptError("Invalid encrypted token.");
+  // A rotated key still yields a well-formed v1 token whose GCM tag
+  // no longer verifies — that failure must classify exactly like a
+  // missing key, so it is wrapped into the same typed error.
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(iv, "base64url"));
+    decipher.setAuthTag(Buffer.from(tag, "base64url"));
+    return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
+  } catch {
+    throw new TokenDecryptError("Invalid encrypted token.");
+  }
 }
 
 export function gmailOAuthConfigured() {
@@ -924,23 +957,85 @@ export async function renewDueGmailWatches(params: { supabase: SupabaseClient; l
   return { ok: failed === 0, renewed, failed, error: null };
 }
 
+/**
+ * G13 quarantine marker. A message that fails processing is recorded
+ * in the EXISTING travel_email_messages table — no new table, no
+ * migration: processing_result "error" is already in the table's
+ * check constraint, and the row upserts on the existing
+ * (email_connection_id, provider, provider_message_id) key, so a
+ * later successful reprocess overwrites the quarantine instead of
+ * duplicating it. Only the quarantine columns are sent, so a filter
+ * row that already holds a sender/subject keeps them on conflict.
+ * The email-imports route surfaces processing_result = "error" rows
+ * as `quarantined`, so a quarantined message stays visible to its
+ * owner and is retryable through a reconnect backfill (which feeds
+ * the same pipeline and overwrites this row on success). It is
+ * never silently dropped, and it never blocks the cursor again.
+ */
+export const GMAIL_SYNC_QUARANTINE_REASON = "gmail_sync_quarantined" as const;
+
+async function quarantineGmailTravelMessage(params: {
+  supabase: SupabaseClient;
+  connection: EmailConnectionRecord;
+  messageId: string;
+  errorCode: string;
+}) {
+  const writer = createSupabaseAdminClient() || params.supabase;
+  const saved = await writer.from("travel_email_messages").upsert(
+    {
+      user_id: params.connection.user_id,
+      email_connection_id: params.connection.id,
+      provider: GMAIL_PROVIDER,
+      provider_message_id: params.messageId,
+      processing_result: "error",
+      filter_reasons: [GMAIL_SYNC_QUARANTINE_REASON, params.errorCode]
+    },
+    { onConflict: "email_connection_id,provider,provider_message_id" }
+  );
+  if (saved.error) {
+    console.warn("Roamly Gmail message quarantine failed", { connectionId: params.connection.id, errorCode: params.errorCode });
+    return false;
+  }
+  console.warn("Roamly Gmail message quarantined", { connectionId: params.connection.id, errorCode: params.errorCode });
+  return true;
+}
+
 async function processGmailMessageIds(params: {
   supabase: SupabaseClient;
   connection: EmailConnectionRecord;
   accessToken: string;
   messageIds: string[];
 }) {
+  // G13: one failing message used to set retryable for the whole
+  // batch, so the sync returned before the cursor upsert and the
+  // same message stalled every later sync forever. Now a per-message
+  // failure is quarantined (recorded + visible, see above) and the
+  // batch continues; only a failure to RECORD the quarantine keeps
+  // the batch retryable, because advancing past an unrecorded
+  // failure would lose the message silently. Sync-level failures
+  // (history list, checkpoint, token) are untouched by this and
+  // still retry/reauth as before.
   let retryable = false;
+  let quarantined = 0;
   for (const messageId of params.messageIds) {
     const processed = await recordGmailTravelMessage({
       supabase: params.supabase,
       connection: params.connection,
       accessToken: params.accessToken,
       messageId
-    }).catch(() => ({ retryable: true }));
-    if (processed.retryable) retryable = true;
+    }).catch(() => ({ retryable: true as const, error: "GMAIL_MESSAGE_PROCESSING_FAILED" }));
+    if (!processed.retryable) continue;
+    const errorCode = (processed as { error?: string }).error || "GMAIL_MESSAGE_PROCESSING_FAILED";
+    const wasQuarantined = await quarantineGmailTravelMessage({
+      supabase: params.supabase,
+      connection: params.connection,
+      messageId,
+      errorCode
+    }).catch(() => false);
+    if (wasQuarantined) quarantined += 1;
+    else retryable = true;
   }
-  return { retryable, processed: params.messageIds.length };
+  return { retryable, processed: params.messageIds.length, quarantined };
 }
 
 async function markGmailReauthorizationRequired(supabase: SupabaseClient, connectionId: string) {
@@ -976,6 +1071,9 @@ async function recoverGmailHistoryCursor(params: {
     console.warn("Roamly Gmail history cursor recovery requires retry", { connectionId: params.connection.id, processed: processed.processed });
     return { ok: false as const, error: "GMAIL_CURSOR_RECOVERY_RETRY", processed: processed.processed };
   }
+  if (processed.quarantined > 0) {
+    console.warn("Roamly Gmail history cursor recovery quarantined messages", { connectionId: params.connection.id, quarantined: processed.quarantined });
+  }
 
   const checkpoint = await providerFetchJson<{ historyId?: string; error?: { message?: string } }>("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
     headers: { authorization: `Bearer ${params.accessToken}` }
@@ -994,7 +1092,7 @@ async function recoverGmailHistoryCursor(params: {
   }, { onConflict: "email_connection_id,provider" });
   if (cursorSaved.error) return { ok: false as const, error: "GMAIL_CURSOR_CHECKPOINT_FAILED", processed: processed.processed };
   console.warn("Roamly Gmail history cursor recovery completed", { connectionId: params.connection.id, processed: processed.processed });
-  return { ok: true as const, error: null, processed: processed.processed, recovered: true as const };
+  return { ok: true as const, error: null, processed: processed.processed, quarantined: processed.quarantined, recovered: true as const };
 }
 
 async function syncGmailConnectionUnlocked(params: {
@@ -1026,8 +1124,25 @@ async function syncGmailConnectionUnlocked(params: {
   try {
     accessToken = await accessTokenForConnection(writer, connection);
   } catch (error) {
+    // G14: before this fix, a decrypt failure fell through to the
+    // transient-retry branch — its message ("ROAMLY_TOKEN_ENCRYPTION_KEY
+    // is required." / "Invalid encrypted token.") contains none of
+    // "reconnected"/"invalid_grant"/"revoked", so the sync retried
+    // forever, releaseEmailSync left the row "error" with a stale
+    // last_synced_at, and the gate kept reporting the traveler as
+    // RECONCILIATION_ARMED ("activated") even though no sync could
+    // ever succeed. A decrypt failure is not transient: the stored
+    // tokens are unreadable under the current key, so it classifies
+    // as REAUTH. markGmailReauthorizationRequired sets status
+    // "disconnected" (+ disconnected_at) and does NOT null the
+    // tokens — that behavior is preserved here — and the gate view
+    // excludes disconnected rows, so the traveler then honestly sees
+    // "Booking Recon: not activated — connect Gmail" (trip line) /
+    // the disconnected SetupCascade line instead of "activated".
+    // releaseEmailSync's .neq("disconnected") guard keeps it from
+    // overwriting "disconnected" back to "error" in the finally.
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (!message || message.includes("reconnected") || message.includes("invalid_grant") || message.includes("revoked")) {
+    if (isTokenDecryptFailure(error) || !message || message.includes("reconnected") || message.includes("invalid_grant") || message.includes("revoked")) {
       await markGmailReauthorizationRequired(writer, connection.id);
       return { ok: false, error: "GMAIL_REAUTH_REQUIRED", processed: 0 };
     }
@@ -1065,6 +1180,9 @@ async function syncGmailConnectionUnlocked(params: {
   if (retryable) {
     return { ok: false, error: "GMAIL_BOOKING_PROCESSING_RETRY", processed: messageIds.length };
   }
+  if (processed.quarantined > 0) {
+    console.warn("Roamly Gmail sync quarantined messages", { connectionId: connection.id, quarantined: processed.quarantined });
+  }
   const nextCursor = result.historyId || historyId;
   const cursorSaved = await writer.from("email_sync_cursors").upsert(
     {
@@ -1087,7 +1205,8 @@ async function syncGmailConnectionUnlocked(params: {
   return {
     ok: true,
     error: null,
-    processed: messageIds.length || (Array.isArray(result.history) ? result.history.length : 0)
+    processed: messageIds.length || (Array.isArray(result.history) ? result.history.length : 0),
+    quarantined: processed.quarantined
   };
 }
 
@@ -1108,7 +1227,7 @@ async function syncGmailConnectionUnlocked(params: {
 export async function backfillGmailTripWindow(params: {
   supabase: SupabaseClient;
   userId: string;
-}): Promise<{ ok: boolean; error: string | null; processed: number; skipped?: string }> {
+}): Promise<{ ok: boolean; error: string | null; processed: number; skipped?: string; quarantined?: number }> {
   const writer = createSupabaseAdminClient() || params.supabase;
   const { data: connectionData, error: connectionError } = await writer
     .from("email_connections")
@@ -1172,7 +1291,7 @@ export async function backfillGmailTripWindow(params: {
   if (!messageIds.length) return { ok: true, error: null, processed: 0 };
   const processed = await processGmailMessageIds({ supabase: writer, connection, accessToken, messageIds });
   if (processed.retryable) return { ok: false, error: "GMAIL_BACKFILL_PROCESSING_RETRY", processed: processed.processed };
-  return { ok: true, error: null, processed: processed.processed };
+  return { ok: true, error: null, processed: processed.processed, quarantined: processed.quarantined };
 }
 
 export async function syncGmailConnection(params: {
