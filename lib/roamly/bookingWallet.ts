@@ -1156,16 +1156,26 @@ export async function createTripBooking(params: {
   const createdBooking =
     serializeTripBookingRecord(savedRow);
 
+  // U1 + B06: an OMITTED segments field (input.segments === undefined) must
+  // preserve stored segments on update — only an EXPLICIT list (or an
+  // explicit []) may replace them. Previously any update fired the RPC with
+  // the normalized [] and wiped stored legs. An explicit null is treated as
+  // an explicit empty list (the route maps non-array bodies to []), never as
+  // "omitted". A new booking with no segments needs no RPC call at all.
+  const segmentsExplicit = params.input.segments !== undefined;
   const segments = normalizeBookingSegments(
     params.input.segments
   );
+  const segmentsWereWritten = previousBooking
+    ? segmentsExplicit
+    : segments.length > 0;
 
   // CA3 FIX A — atomic segment replacement. The previous delete-then-insert ran
   // as two separate statements: if the insert failed (deploy, restart, crash in
   // between), the booking survived with all of its segments silently gone.
   // roamly_replace_booking_segments performs the delete+insert in one
   // transaction and re-checks trip ownership inside the function.
-  if (previousBooking || segments.length) {
+  if (segmentsWereWritten) {
     const segmentReplace = await params.supabase.rpc(
       "roamly_replace_booking_segments",
       {
@@ -1183,6 +1193,18 @@ export async function createTripBooking(params: {
       };
     }
   }
+
+  // U1: the returned booking must carry the segments just written. The
+  // parent insert row has no booking_segments key, so serializing it alone
+  // made every save response claim no legs — even when the RPC had just
+  // written them. When nothing was written (omitted segments on update),
+  // the response states nothing and the GET reload stays the source of truth.
+  const bookingWithSegments = segmentsWereWritten
+    ? serializeTripBookingRecord({
+      ...(savedRow as Record<string, unknown>),
+      booking_segments: segments
+    })
+    : createdBooking;
 
   const itineraryOverride = await applyStoredItineraryBookingOverride({
     supabase: params.supabase,
@@ -1274,7 +1296,7 @@ export async function createTripBooking(params: {
   });
 
   return {
-    booking: createdBooking,
+    booking: bookingWithSegments,
     companionWorkflow,
     meaningfulChange: change?.eventType || null,
     itineraryOverride,
