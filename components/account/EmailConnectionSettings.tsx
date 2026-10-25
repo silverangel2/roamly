@@ -3,13 +3,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { formatRoamlyDate } from "@/lib/i18n";
+import { gmailSyncFailureAction, isGmailSyncPersistentlyFailing } from "@/lib/roamly/emailSyncHealth";
 
 type EmailConnection = {
   provider: "gmail";
   email_address: string | null;
   connection_status: string;
   last_synced_at: string | null;
+  last_sync_error_code?: string | null;
+  last_sync_failed_at?: string | null;
 };
+
+/**
+ * Autosync: a manual sync returns a machine code, never words. The traveler
+ * sees plain words instead — the raw code never renders as a badge.
+ */
+function plainSyncError(message: string): string {
+  if (message.includes("GMAIL_TOKEN_REFRESH_RETRY")) {
+    return "Gmail couldn't refresh its connection. Try Sync again, or reconnect Gmail if this keeps happening.";
+  }
+  if (message.includes("GMAIL_REAUTH_REQUIRED")) {
+    return "Gmail needs to be reconnected — use Connect Gmail below.";
+  }
+  return message;
+}
 
 const PROVIDERS = [
   {
@@ -69,14 +86,14 @@ export function EmailConnectionSettings() {
       }
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `We could not update ${providerName} right now.`);
+      setError(plainSyncError(err instanceof Error ? err.message : `We could not update ${providerName} right now.`));
     } finally {
       setBusy("");
     }
   }
 
   return (
-    <div className="space-y-4">
+    <div id="email-settings" className="space-y-4 scroll-mt-24">
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <p className="text-sm font-black text-ink">Travel email import</p>
         <p className="mt-2 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-bold leading-6 text-teal-950">
@@ -90,7 +107,25 @@ export function EmailConnectionSettings() {
       <div className="grid gap-3">
         {PROVIDERS.map((provider) => {
           const connection = connectionByProvider.get(provider.provider);
-          const connected = connection?.connection_status === "connected" || connection?.connection_status === "syncing";
+          // Autosync: an "error" row is a failed attempt, not a dead
+          // connection — the monitor retries it, so it still reads as
+          // connected here, exactly like the gate view. Only a PERSISTENT
+          // failure (error + last success over 24h old) names itself and
+          // offers the reconnect; a transient failure never pushes one.
+          const connected =
+            connection?.connection_status === "connected" ||
+            connection?.connection_status === "syncing" ||
+            connection?.connection_status === "error";
+          const failing = isGmailSyncPersistentlyFailing({
+            connectionStatus: connection?.connection_status ?? null,
+            lastSyncedAt: connection?.last_synced_at ?? null
+          });
+          const failureAction = gmailSyncFailureAction(connection?.last_sync_error_code ?? null);
+          const failureLine = failing
+            ? failureAction === "reconnect"
+              ? `Gmail sync hasn't worked since ${formatSync(connection?.last_synced_at || null, locale)} — reconnect Gmail`
+              : `Gmail sync hasn't worked since ${formatSync(connection?.last_synced_at || null, locale)} — try Sync Gmail again`
+            : null;
           const syncBusy = busy === `${provider.provider}:sync`;
           const disconnectBusy = busy === `${provider.provider}:disconnect`;
           return (
@@ -101,8 +136,13 @@ export function EmailConnectionSettings() {
                   ? `${connection?.email_address || provider.name} connected · Last sync ${formatSync(connection?.last_synced_at || null, locale)}`
                   : "Not connected"}
               </p>
+              {failureLine ? (
+                <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold leading-6 text-amber-900">
+                  {failureLine}
+                </p>
+              ) : null}
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                {connected ? (
+                {connected && !failing ? (
                   <>
                     <button
                       type="button"
@@ -112,6 +152,31 @@ export function EmailConnectionSettings() {
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void post(provider.disconnectPath, `${provider.provider}:disconnect`, provider.name)}
+                      disabled={Boolean(busy)}
+                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                    >
+                      {disconnectBusy ? "Disconnecting..." : provider.disconnectLabel}
+                    </button>
+                  </>
+                ) : failing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void post(provider.syncPath, `${provider.provider}:sync`, provider.name)}
+                      disabled={Boolean(busy)}
+                      className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                    >
+                      {syncBusy ? "Syncing..." : provider.syncLabel}
+                    </button>
+                    <a
+                      href={provider.connectPath}
+                      className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink"
+                    >
+                      {failureAction === "reconnect" ? "Reconnect Gmail" : provider.connectLabel}
+                    </a>
                     <button
                       type="button"
                       onClick={() => void post(provider.disconnectPath, `${provider.provider}:disconnect`, provider.name)}

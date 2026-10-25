@@ -196,6 +196,15 @@ export interface GmailGateView {
   /** Last successful sync, when the row has one. Used only to tell a
       traveler whether "activated" is fresh or stale — never a gate input. */
   lastSyncedAt?: string | null;
+  /** Raw connection row status. Display only — never a gate input. The
+      state mapping above deliberately treats "error" as connected; this
+      field lets surfaces tell a transient failure from a stuck pipe. */
+  connectionStatus?: string | null;
+  /** Last recorded sync failure code, when the migration that adds it has
+      been applied. Display only — never a gate input. */
+  lastSyncErrorCode?: string | null;
+  /** When the last sync failure was recorded. Display only. */
+  lastSyncFailedAt?: string | null;
 }
 
 interface EmailConnectionGateRow {
@@ -227,14 +236,35 @@ export async function readGmailGateView(
   const row = data as EmailConnectionGateRow;
   const scopes = Array.isArray(row.granted_scopes) ? row.granted_scopes : [];
   const grantedScope = scopes.length ? scopes.join(" ") : null;
+  // Autosync: failure detail for display only. Best-effort on purpose —
+  // the columns arrive with migration 20261025_roamly_email_sync_failure_
+  // columns, and a not-yet-applied migration must never break the gate
+  // view (it would flip the traveler to "not activated").
+  const failure = await supabase
+    .from("email_connections")
+    .select("last_sync_error_code,last_sync_failed_at")
+    .eq("id", row.id)
+    .maybeSingle()
+    .then(
+      (result) => (result.error ? null : (result.data as { last_sync_error_code?: string | null; last_sync_failed_at?: string | null } | null)),
+      () => null
+    );
+  const display = {
+    connectionStatus: row.connection_status,
+    lastSyncErrorCode: failure?.last_sync_error_code ?? null,
+    lastSyncFailedAt: failure?.last_sync_failed_at ?? null
+  };
   if (row.connection_status === "revoked") {
-    return { state: "REVOKED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false };
+    return { state: "REVOKED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false, ...display };
   }
   if (row.connection_status === "error") {
     // A failed sync attempt, not a revoked token: the connection still
     // exists and the monitor retries it. Treat it as connected so the
     // traveler is never pushed into a reconnect (which would reset the
     // scan cursor); staleness is shown from last_synced_at instead.
+    // (Autosync exception, display only: a PERSISTENT failure — error
+    // plus a day-old last sync — is named on the account/trip surfaces
+    // through the display fields above, never through this state.)
     const syncInitialized = Boolean(row.last_synced_at);
     return {
       state: syncInitialized ? "RECONCILIATION_ARMED" : "CONNECTED",
@@ -242,16 +272,17 @@ export async function readGmailGateView(
       grantedScope,
       emailAddress: row.email_address,
       syncInitialized,
-      lastSyncedAt: row.last_synced_at
+      lastSyncedAt: row.last_synced_at,
+      ...display
     };
   }
   if (row.connection_status !== "connected" && row.connection_status !== "syncing") {
-    return { state: "REAUTH_REQUIRED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false };
+    return { state: "REAUTH_REQUIRED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false, ...display };
   }
   if (!scopes.includes(GMAIL_READONLY_SCOPE)) {
     // Connected without the read scope the lane needs — the identity is
     // there but the granted scope does not cover reconciliation.
-    return { state: "CONNECTED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false, lastSyncedAt: row.last_synced_at };
+    return { state: "CONNECTED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false, lastSyncedAt: row.last_synced_at, ...display };
   }
   const syncInitialized = Boolean(row.last_synced_at) || row.connection_status === "syncing";
   return {
@@ -260,7 +291,8 @@ export async function readGmailGateView(
     grantedScope,
     emailAddress: row.email_address,
     syncInitialized,
-    lastSyncedAt: row.last_synced_at
+    lastSyncedAt: row.last_synced_at,
+    ...display
   };
 }
 

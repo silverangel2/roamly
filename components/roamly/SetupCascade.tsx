@@ -277,7 +277,21 @@ export function SetupCascade({
           "Your booking emails, matched to your trip",
           gmailDone ? (
             <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
-              {setup.gmailConnected ? (
+              {setup.gmailConnected && setup.gmailSyncFailing ? (
+                <p>
+                  Connected{setup.gmailEmail ? ` — ${setup.gmailEmail}` : ""}, but Gmail sync hasn&apos;t
+                  worked since {setup.gmailLastSyncedAt ? new Date(setup.gmailLastSyncedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "its last sync"}.{" "}
+                  {setup.gmailSyncFailureReconnect ? (
+                    <a className={quietLinkClass} href="/api/integrations/gmail/connect">
+                      Reconnect Gmail
+                    </a>
+                  ) : (
+                    <a className={quietLinkClass} href="#email-settings">
+                      Sync Gmail again
+                    </a>
+                  )}
+                </p>
+              ) : setup.gmailConnected ? (
                 <p>
                   Connected{setup.gmailEmail ? ` — ${setup.gmailEmail}` : ""}. Booking Recon is activated —
                   confirmations are matched to your trips and kept in step.

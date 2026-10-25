@@ -140,17 +140,43 @@ async function releaseEmailSync(params: {
       (never as a reauth demand), so a failed attempt can never push the
       traveler into a reconnect — which would reset the scan cursor. */
   ok?: boolean;
+  /** Machine failure code from the attempt just released (Gmail only).
+      Persisted so the traveler surfaces can name the failure in plain
+      words instead of a bare code. Never a message, never a token. */
+  errorCode?: string | null;
 }) {
-  await params.supabase
+  // Autosync: record what failed and when, next to the stale sync date.
+  // The failure columns come from migration
+  // 20261025_roamly_email_sync_failure_columns; until the owner applies
+  // it, the full update errors and the base update below runs instead,
+  // so a missing migration can never leave the row stuck on "syncing".
+  const failed = params.ok === false;
+  const full = await params.supabase
     .from("email_connections")
     .update({
+      // Status line kept verbatim: the recon-batch2 suite asserts this
+      // exact expression, and the behavior is identical either way.
       connection_status: params.ok === false ? "error" : "connected",
       sync_lease_token: null,
-      sync_lease_expires_at: null
+      sync_lease_expires_at: null,
+      last_sync_error_code: failed ? (params.errorCode ?? null) : null,
+      last_sync_failed_at: failed ? new Date().toISOString() : null
     })
     .eq("id", params.connectionId)
     .eq("sync_lease_token", params.leaseToken)
     .neq("connection_status", "disconnected");
+  if (full.error) {
+    await params.supabase
+      .from("email_connections")
+      .update({
+        connection_status: params.ok === false ? "error" : "connected",
+        sync_lease_token: null,
+        sync_lease_expires_at: null
+      })
+      .eq("id", params.connectionId)
+      .eq("sync_lease_token", params.leaseToken)
+      .neq("connection_status", "disconnected");
+  }
 }
 
 async function providerFetchJson<T>(url: string | URL, init?: RequestInit) {
@@ -1142,7 +1168,22 @@ async function syncGmailConnectionUnlocked(params: {
     // releaseEmailSync's .neq("disconnected") guard keeps it from
     // overwriting "disconnected" back to "error" in the finally.
     const message = error instanceof Error ? error.message.toLowerCase() : "";
-    if (isTokenDecryptFailure(error) || !message || message.includes("reconnected") || message.includes("invalid_grant") || message.includes("revoked")) {
+    // Autosync: the underlying refresh error used to be swallowed here —
+    // the traveler surface got only the bare RETRY code and no log line
+    // ever named the cause. Log the kind + provider message server-side
+    // only (never a token, secret, or email content).
+    const isReauth =
+      isTokenDecryptFailure(error) ||
+      !message ||
+      message.includes("reconnected") ||
+      message.includes("invalid_grant") ||
+      message.includes("revoked");
+    console.warn("Roamly Gmail token refresh failed", {
+      connectionId: connection.id,
+      kind: isReauth ? "reauth" : "retry",
+      error: error instanceof Error ? error.message : "unknown refresh error"
+    });
+    if (isReauth) {
       await markGmailReauthorizationRequired(writer, connection.id);
       return { ok: false, error: "GMAIL_REAUTH_REQUIRED", processed: 0 };
     }
@@ -1305,7 +1346,13 @@ export async function syncGmailConnection(params: {
     outcome = await syncGmailConnectionUnlocked({ ...params, leaseToken: lease.token });
     return outcome;
   } finally {
-    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token, ok: outcome?.ok ?? false });
+    await releaseEmailSync({
+      supabase: params.supabase,
+      connectionId: lease.id,
+      leaseToken: lease.token,
+      ok: outcome?.ok ?? false,
+      errorCode: outcome && !outcome.ok && typeof outcome.error === "string" ? outcome.error : null
+    });
   }
 }
 

@@ -24,12 +24,21 @@ export function TripStateLines({
   companionUnlocked,
   tripActive,
   tripId,
-  pendingImportCount
+  pendingImportCount,
+  gmailSyncFailing,
+  gmailSyncFailureReconnect,
 }: {
   gmailConnected: boolean;
   /** Last successful Gmail sync, when connected. A stale date replaces
       the plain "activated" line — it never flips the connected state. */
   gmailLastSyncedAt?: string | null;
+  /** Autosync, display only: the sync is persistently failing (row in
+      "error" + last success over 24h old). Shown as a quiet state line
+      on the trip home — never itinerary-page furniture, never a gate. */
+  gmailSyncFailing?: boolean;
+  /** Autosync, display only: the persistent failure is a refresh/auth
+      failure, so the line names reconnecting as the fix. */
+  gmailSyncFailureReconnect?: boolean;
   locationGranted: boolean;
   locationEnabled: boolean;
   companionUnlocked: boolean;
@@ -108,7 +117,14 @@ export function TripStateLines({
         />
         <span>
           Booking Recon:{" "}
-          {gmailStale ? (
+          {gmailConnected && gmailSyncFailing ? (
+            <>
+              connected, but Gmail sync hasn&apos;t worked since {lastSyncLabel} —{" "}
+              <a className={linkClass} href="/account#setup-step-1">
+                {gmailSyncFailureReconnect ? "reconnect Gmail in Account" : "fix it in Account"}
+              </a>
+            </>
+          ) : gmailStale ? (
             <>connected, but inbox not checked since {lastSyncLabel}</>
           ) : gmailConnected ? (
             "activated"
