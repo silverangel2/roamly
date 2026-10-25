@@ -669,7 +669,10 @@ export async function runScheduledBookingMonitor() {
       .select(
         "id,user_id,provider,last_synced_at"
       )
-      .eq("connection_status", "connected")
+      // "error" rows are failed sync attempts, not dead connections —
+      // they must keep retrying, or the failed-status fix would orphan
+      // the inbox it was meant to surface.
+      .in("connection_status", ["connected", "error"])
       .eq("provider", "gmail")
       .or(
         `last_synced_at.is.null,last_synced_at.lte.${dueBefore}`

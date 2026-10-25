@@ -794,7 +794,11 @@ export async function extractAndMatchTravelEmailBooking(params: {
   emailMessageId?: string | null;
 }) {
   if (!params.filter.shouldProcess) return { attached: false, status: "ignored" as const };
-  const writer = createSupabaseAdminClient() || params.supabase;
+  // B01: keep the admin client visible so the segment-replacement routing
+  // below can choose the matching RPC. The service function is used only
+  // when this sync actually holds the service-role client.
+  const adminClient = createSupabaseAdminClient();
+  const writer = adminClient || params.supabase;
   const deterministic = deterministicBookingExtraction({ metadata: params.metadata, filter: params.filter });
   // Build 2 lane (Phase 8): the deterministic extractor is the
   // parser of record. In-lane the AI path is never consulted, so a
@@ -858,6 +862,12 @@ export async function extractAndMatchTravelEmailBooking(params: {
     supabase: writer,
     userId: params.connection.user_id,
     tripId: match.trip.id,
+    // B01: Gmail sync acts on the connection owner's behalf without a user
+    // session, so it uses the service-role-only segment function when the
+    // admin client is available. If the writer falls back to a user-session
+    // client, the session-bound function applies instead and its auth.uid()
+    // gate binds to that session's owner.
+    segmentReplacement: adminClient ? "service" : "authenticated",
     input: {
       ...extraction.booking,
       sourceType: emailSource,
