@@ -156,7 +156,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   if (result.error) {
     const status = result.error === "TRIP_NOT_FOUND" ? 404 : 400;
-    return NextResponse.json({ ok: false, error: result.error }, { status });
+    // Customer boundary: only stable codes leave the server. Anything else
+    // (including raw database text from any save step) becomes one retryable
+    // plain-word code; the original stays in server logs only.
+    const customerError = result.error === "TRIP_NOT_FOUND" ? result.error : "BOOKING_SAVE_FAILED";
+    if (customerError !== result.error) console.error("[Roamly bookings] manual save failed:", result.error);
+    return NextResponse.json({ ok: false, error: customerError }, { status });
   }
 
   const reconciliation = result.booking?.id

@@ -214,8 +214,25 @@ function sanitizeBookingEvidence(value: unknown): unknown {
 function nullableTimestamp(value: unknown) {
   const text = clean(value);
   if (!text) return null;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  // An offset-bearing instant converts to UTC exactly as before.
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(text)) {
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  // An offset-free wall clock must be preserved verbatim, NEVER run through
+  // `new Date` in the server's local timezone: under America/Moncton that
+  // shifted a 20:30 flight to the next day (2026-11-11T00:30Z). Validate the
+  // calendar date TZ-independently via UTC components, then keep the
+  // traveler's typed wall clock (seconds added when omitted).
+  const wall = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/.exec(text);
+  if (!wall) return null;
+  const [, y, mo, d, h, mi, s] = wall;
+  const check = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? "0")));
+  if (
+    check.getUTCFullYear() !== +y || check.getUTCMonth() !== +mo - 1 || check.getUTCDate() !== +d ||
+    check.getUTCHours() !== +h || check.getUTCMinutes() !== +mi || check.getUTCSeconds() !== +(s ?? "0")
+  ) return null;
+  return `${y}-${mo}-${d}T${h}:${mi}:${s ?? "00"}`;
 }
 
 function nullableMoney(value: unknown) {
@@ -424,7 +441,7 @@ export function serializeTripBookingRecord(
   };
 }
 
-export function normalizeTripBookingInput(input: TripBookingInput) {
+export function normalizeTripBookingInput(input: TripBookingInput, fallbackCurrency?: string | null) {
   const travelerConfirmed = input.travelerConfirmed === true;
   const bookingStatus = normalizedBookingStatus(input.bookingStatus, travelerConfirmed);
   const bookingType = normalizedBookingType(input.bookingType);
@@ -472,7 +489,14 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
 
     total_price: nullableMoney(input.totalPrice),
     amount_cents: nullableMoney(input.totalPrice) == null ? null : Math.round(Number(input.totalPrice) * 100),
-    currency: normalizedCurrency(input.currency) || "XXX",
+    // Currency for a NOT NULL column: an explicit valid currency wins, then the
+    // trip's own currency, then "XXX" (the ISO 4217 no-currency marker) when
+    // nothing is known — never null, never an invented price: total_price
+    // stays null when no price was supplied, so readers show no amount.
+    currency:
+      normalizedCurrency(input.currency) ??
+      normalizedCurrency(fallbackCurrency) ??
+      "XXX",
     taxes_and_fees: nullableMoney(input.taxesAndFees),
 
     cancellation_deadline: nullableTimestamp(
@@ -529,10 +553,23 @@ export function normalizeBookingSegments(segments: BookingSegmentInput[] | null 
 }
 
 async function assertTripOwnership(supabase: SupabaseClient, userId: string, tripId: string) {
-  const { data, error } = await supabase.from("roamly_trips").select("id").eq("id", tripId).eq("user_id", userId).maybeSingle();
+  const { data, error } = await supabase.from("roamly_trips").select("id,budget_currency,metadata").eq("id", tripId).eq("user_id", userId).maybeSingle();
   if (error) return { ok: false as const, error: error.message };
   if (!data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
-  return { ok: true as const };
+  // The trip's own currency (planner budget currency, e.g. PHP for Philippines
+  // trips) is the fallback unit for bookings saved without a currency. It labels
+  // an unknown price; it never invents one.
+  const row = data as Record<string, unknown>;
+  const planning = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    ? (row.metadata as Record<string, unknown>).planning
+    : null;
+  const planningCurrency = planning && typeof planning === "object" && !Array.isArray(planning)
+    ? (planning as Record<string, unknown>).budgetCurrency ?? (planning as Record<string, unknown>).budget_currency
+    : null;
+  return {
+    ok: true as const,
+    tripCurrency: normalizedCurrency(row.budget_currency) ?? normalizedCurrency(planningCurrency)
+  };
 }
 
 export async function supersedeBooking(params: {
@@ -994,7 +1031,7 @@ export async function createTripBooking(params: {
     };
   }
 
-  const booking = normalizeTripBookingInput(params.input);
+  const booking = normalizeTripBookingInput(params.input, ownership.tripCurrency);
 
   const match = await findMatchingCanonicalBooking({
     supabase: params.supabase,
@@ -1121,9 +1158,12 @@ export async function createTripBooking(params: {
         };
       }
     }
+    // Customer boundary: the raw database message must never reach the
+    // customer. Detail stays in server logs; the caller gets one stable code.
+    console.error("[Roamly bookings] booking write failed:", writeResult.error);
     return {
       booking: null,
-      error: writeResult.error.message
+      error: "BOOKING_SAVE_FAILED"
     };
   }
 
