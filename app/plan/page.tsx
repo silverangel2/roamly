@@ -6,6 +6,8 @@ import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { createRoamlySessionToken } from "@/lib/roamly/session-token";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
+import { getRoamlySetupState } from "@/lib/roamly/setupState";
+import { hasAnyTrip } from "@/lib/roamly/setupGate";
 
 export const metadata: Metadata = {
   title: "Plan a Trip by Budget — AI Itinerary Planner",
@@ -30,6 +32,18 @@ export default async function PlanPage() {
       : [null, null];
   const freeItineraryUsed = Boolean(free?.used);
   const access = getRoamlyAccessForUser(current.user?.email);
+  // Second-time disclosure (owner law, 2026-10-24): a signed-in traveler
+  // who already has a trip and hasn't finished setup will meet the gate
+  // when this new trip opens — say so BEFORE generation, not after.
+  const planUser = current.user;
+  const secondTimeGateNotice =
+    planUser && supabase
+      ? await (async () => {
+          const state = await getRoamlySetupState(supabase, planUser).catch(() => null);
+          if (!state || state.complete) return false;
+          return hasAnyTrip(supabase, planUser.id);
+        })()
+      : false;
   const apiAuthToken = createRoamlySessionToken(current.user, [
     { method: "POST", path: "/api/roamly/price-discovery" },
     { method: "POST", path: "/api/trips/draft" },
@@ -43,7 +57,7 @@ export default async function PlanPage() {
         <header className="mb-4">
           <h1 className="text-sm font-semibold text-[#526b6c]">Plan a trip</h1>
         </header>
-        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} build2GatesEnabled={build2GatesEnabled()} />
+        <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} build2GatesEnabled={build2GatesEnabled()} secondTimeGateNotice={secondTimeGateNotice} />
       </div>
     </div>
   );

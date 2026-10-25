@@ -173,6 +173,9 @@ export default function PhilippinesPage() {
           </div>
           <div className="mt-6">
             <Button href={philippinesPlanHref("Cebu City, Philippines")}>Make it yours in the planner</Button>
+            <p className="mt-3 text-xs font-semibold leading-5 text-[#cfe5d8]">
+              Starting from a sample builds a fresh trip from Roamly&apos;s places — the sample&apos;s exact stops aren&apos;t carried over.
+            </p>
           </div>
         </div>
       </section>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
+import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -397,17 +398,29 @@ export default async function LiveTripPage({
     );
   }
 
-  // The setup gate (owner design, 2026-10-23): the companion's home
-  // sits behind the same one-time setup as the trip — a traveler whose
-  // steps were never completed meets the cascade, not a half-live
-  // companion. Field-test mode is an internal lane and skips it.
+  // The setup gate (owner design, 2026-10-23; second-time law, 2026-10-24):
+  // the companion's home sits behind the same one-time setup as the
+  // trip — a traveler whose steps were never completed meets the
+  // cascade, not a half-live companion — but only from the second trip
+  // on (see lib/roamly/setupGate.ts), and never as a wall: skip for now
+  // reveals the companion with its limits named. Field-test mode is an
+  // internal lane and skips it.
   if (!fieldTestMode) {
     const setupState = await getRoamlySetupState(supabase, current.user).catch(() => null);
-    if (setupState && !setupState.complete) {
+    const skipLiveGate = search.skipSetupGate === "1";
+    const priorTrip =
+      setupState && !setupState.complete ? await hasPriorTrip(supabase, current.user.id, id) : false;
+    const gateApplies = setupState
+      ? setupGateApplies({ setupComplete: setupState.complete, hasQaAccess: access.hasQaAccess, hasPriorTrip: priorTrip })
+      : false;
+    if (gateApplies && !skipLiveGate && setupState) {
       return (
         <SetupGateScreen
           initialState={setupState}
           eyebrow={`${destinationLabel} · ${shortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date)}`}
+          dayCount={daysCount}
+          skipHref={`/trip/${id}/live?skipSetupGate=1`}
+          limitedFeatures={setupGateLimitedFeatures(setupState)}
         />
       );
     }
