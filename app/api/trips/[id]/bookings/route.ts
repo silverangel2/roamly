@@ -27,7 +27,10 @@ function jsonObject(body: Record<string, unknown>, camel: string, snake?: string
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-function segmentInput(value: unknown): BookingSegmentInput[] {
+function segmentInput(value: unknown): BookingSegmentInput[] | undefined {
+  // U1 + B06: an ABSENT segments field must stay undefined so the writer can
+  // distinguish "omitted — preserve stored legs" from "explicit [] — clear".
+  if (value === undefined) return undefined;
   if (!Array.isArray(value)) return [];
   return value.map((item, index) => {
     const segment = record(item);
