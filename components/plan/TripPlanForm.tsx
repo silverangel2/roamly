@@ -2001,7 +2001,7 @@ function TripPlanFormSession({
         {step === 3 ? (
           <div className="grid gap-5">
             <p className="text-sm leading-6 text-slate-600">
-              {translateText("Pace, walking, and transport start on a labeled default. Interests stay empty until you choose them.")}
+              {translateText("Pace, walking, and transport start on a labeled default. Pick at least one interest to shape your days.")}
             </p>
             <div>
               <FieldLabel>
@@ -2144,7 +2144,7 @@ function TripPlanFormSession({
         ) : null}
       </div>
 
-      {notice ? (
+      {notice && !(priceChecking && notice === "Checking trip costs...") ? (
         <p className="mt-4 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
           {translateText(notice)}
         </p>
