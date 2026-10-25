@@ -29,6 +29,9 @@ export interface RoamlySetupMemory {
 export interface RoamlySetupState {
   /** Gmail is connected right now (reconciliation is being fed). */
   gmailConnected: boolean;
+  /** Last successful Gmail sync, when connected. Drives the stale-sync
+      trip line only — a stale date never flips gmailConnected itself. */
+  gmailLastSyncedAt: string | null;
   gmailEmail: string | null;
   /** Step 1 completed at least once. */
   gmailOnce: boolean;
@@ -88,6 +91,7 @@ export async function getRoamlySetupState(
 
   return {
     gmailConnected,
+    gmailLastSyncedAt: gmailConnected ? gmailView?.lastSyncedAt ?? null : null,
     gmailEmail: gmailView?.emailAddress ?? null,
     gmailOnce,
     appInstalledOnce,

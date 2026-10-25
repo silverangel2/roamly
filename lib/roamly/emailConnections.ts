@@ -134,11 +134,17 @@ async function releaseEmailSync(params: {
   supabase: SupabaseClient;
   connectionId: string;
   leaseToken: string;
+  /** False when the sync just failed: the failure must stay visible
+      instead of being reset to "connected". The booking monitor retries
+      "error" rows, and the gate view treats them as connected-but-stale
+      (never as a reauth demand), so a failed attempt can never push the
+      traveler into a reconnect — which would reset the scan cursor. */
+  ok?: boolean;
 }) {
   await params.supabase
     .from("email_connections")
     .update({
-      connection_status: "connected",
+      connection_status: params.ok === false ? "error" : "connected",
       sync_lease_token: null,
       sync_lease_expires_at: null
     })
@@ -1085,16 +1091,102 @@ async function syncGmailConnectionUnlocked(params: {
   };
 }
 
+/**
+ * Reconnect backfill: on reconnect, Gmail mail older than the history
+ * cursor is invisible to the normal sync (history API only sees messages
+ * added after the cursor), and renewing the watch then anchors "now",
+ * burying it further. Before the watch cursor moves, this searches the
+ * user's upcoming trip window for travel confirmations and feeds them
+ * through the same message pipeline as a normal sync.
+ *
+ * Bounded and cursor-safe: at most EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC
+ * messages, only mail in the window, and it never writes the sync
+ * cursor or last_synced_at — the following sync/renew still anchors
+ * "now". Re-processing a message is safe: message records upsert on
+ * (email_connection_id, provider, provider_message_id).
+ */
+export async function backfillGmailTripWindow(params: {
+  supabase: SupabaseClient;
+  userId: string;
+}): Promise<{ ok: boolean; error: string | null; processed: number; skipped?: string }> {
+  const writer = createSupabaseAdminClient() || params.supabase;
+  const { data: connectionData, error: connectionError } = await writer
+    .from("email_connections")
+    .select("*")
+    .eq("user_id", params.userId)
+    .eq("provider", GMAIL_PROVIDER)
+    .neq("connection_status", "disconnected")
+    .maybeSingle();
+  if (connectionError || !connectionData) {
+    return { ok: false, error: "GMAIL_NOT_CONNECTED", processed: 0 };
+  }
+  const connection = connectionData as EmailConnectionRecord;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: trips, error: tripsError } = await writer
+    .from("roamly_trips")
+    .select("start_date,end_date")
+    .eq("user_id", params.userId)
+    .gte("start_date", today)
+    .order("start_date", { ascending: true })
+    .limit(20);
+  if (tripsError) return { ok: false, error: "GMAIL_BACKFILL_TRIPS_FAILED", processed: 0 };
+  const rows = (trips || []) as Array<{ start_date?: string | null; end_date?: string | null }>;
+  const starts = rows.map((row) => row.start_date).filter((value): value is string => Boolean(value));
+  const ends = rows.map((row) => row.end_date).filter((value): value is string => Boolean(value));
+  if (!starts.length) return { ok: true, error: null, processed: 0, skipped: "no_upcoming_trips" };
+
+  const formatGmailDate = (date: Date) => {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}/${month}/${day}`;
+  };
+  const earliest = new Date(`${starts[0]}T00:00:00Z`);
+  const after = new Date(earliest.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const latestEnd = ends.length ? ends[ends.length - 1] : starts[starts.length - 1];
+  const before = new Date(`${latestEnd}T00:00:00Z`);
+  before.setUTCDate(before.getUTCDate() + 1);
+
+  let accessToken: string;
+  try {
+    accessToken = await accessTokenForConnection(writer, connection);
+  } catch {
+    // Do not mark anything here — the following sync owns reauth.
+    return { ok: false, error: "GMAIL_BACKFILL_TOKEN_FAILED", processed: 0 };
+  }
+
+  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+  url.searchParams.set(
+    "q",
+    `after:${formatGmailDate(after)} before:${formatGmailDate(before)} (confirmation OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in)`
+  );
+  url.searchParams.set("maxResults", String(EMAIL_LOOKBACK_MAX_MESSAGES_PER_SYNC));
+  const { response, data } = await providerFetchJson<{ messages?: Array<{ id?: string }> }>(url, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  if (!response.ok) return { ok: false, error: "GMAIL_BACKFILL_SEARCH_FAILED", processed: 0 };
+  const messageIds = (data.messages || [])
+    .map((message) => message.id)
+    .filter((id): id is string => Boolean(id));
+  if (!messageIds.length) return { ok: true, error: null, processed: 0 };
+  const processed = await processGmailMessageIds({ supabase: writer, connection, accessToken, messageIds });
+  if (processed.retryable) return { ok: false, error: "GMAIL_BACKFILL_PROCESSING_RETRY", processed: processed.processed };
+  return { ok: true, error: null, processed: processed.processed };
+}
+
 export async function syncGmailConnection(params: {
   supabase: SupabaseClient;
   userId: string;
 }) {
   const lease = await claimEmailSync({ ...params, provider: GMAIL_PROVIDER });
   if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  let outcome: Awaited<ReturnType<typeof syncGmailConnectionUnlocked>> | null = null;
   try {
-    return await syncGmailConnectionUnlocked({ ...params, leaseToken: lease.token });
+    outcome = await syncGmailConnectionUnlocked({ ...params, leaseToken: lease.token });
+    return outcome;
   } finally {
-    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token });
+    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token, ok: outcome?.ok ?? false });
   }
 }
 
@@ -1161,9 +1253,11 @@ export async function syncOutlookConnection(params: {
 }) {
   const lease = await claimEmailSync({ ...params, provider: OUTLOOK_PROVIDER });
   if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  let outcome: Awaited<ReturnType<typeof syncOutlookConnectionUnlocked>> | null = null;
   try {
-    return await syncOutlookConnectionUnlocked({ ...params, leaseToken: lease.token });
+    outcome = await syncOutlookConnectionUnlocked({ ...params, leaseToken: lease.token });
+    return outcome;
   } finally {
-    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token });
+    await releaseEmailSync({ supabase: params.supabase, connectionId: lease.id, leaseToken: lease.token, ok: outcome?.ok ?? false });
   }
 }

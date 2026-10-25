@@ -101,6 +101,14 @@ export type RoamlyActivitySeed = {
   transportMode?: string;
   duration?: string;
   durationMinutes?: number;
+  /** Shared tour/boat package this stop belongs to (e.g. El Nido Tour A).
+   *  A package's price is counted once per day it appears, never once per stop. */
+  packageId?: string;
+  /** Display name for the package above, shown when a stop rides included. */
+  packageName?: string;
+  /** True when this stop's price is already counted via an earlier same-day
+   *  stop on the same package — render as "Included", never as "Free". */
+  packageIncluded?: boolean;
   travelTimeMinutes?: number;
   origin?: string;
   destination?: string;
@@ -2507,8 +2515,15 @@ export function normalizeItinerary(raw: unknown, payload: TripPlannerPayload): R
                 destination: cleanOptionalString(itemRecord.destination),
                 booking_label: cleanOptionalString(itemRecord.booking_label),
                 affiliate_category: cleanTimelineAffiliateCategory(itemRecord.affiliate_category),
-                booking: cleanTimelineBooking(itemRecord.booking)
-                ,plan_role: ["protected_anchor", "must_do", "primary", "supporting", "meal", "rest", "transition", "alternative"].includes(String(itemRecord.plan_role))
+                booking: cleanTimelineBooking(itemRecord.booking),
+                // Shared tour package (PH pack): the price is counted once
+                // per day by the sample builder; later same-day stops on
+                // the package ride included and must survive normalization
+                // so surfaces render "Included", never "Free".
+                packageId: cleanOptionalString(itemRecord.packageId),
+                packageName: cleanOptionalString(itemRecord.packageName),
+                packageIncluded: itemRecord.packageIncluded === true,
+                plan_role: ["protected_anchor", "must_do", "primary", "supporting", "meal", "rest", "transition", "alternative"].includes(String(itemRecord.plan_role))
                   ? String(itemRecord.plan_role) as RoamlyActivitySeed["plan_role"]
                   : undefined,
                 must_do: itemRecord.must_do === true,

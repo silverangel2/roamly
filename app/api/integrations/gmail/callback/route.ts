@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { requireUser } from "@/lib/roamly/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
+  backfillGmailTripWindow,
   exchangeGmailCodeForTokens,
   getGmailProfile,
   GMAIL_OAUTH_STATE_COOKIE,
@@ -46,6 +47,12 @@ export async function GET(request: NextRequest) {
       emailAddress: profile?.emailAddress || (auth.ok ? auth.user.email || null : null)
     });
     if (!saved.connection) throw new Error(saved.error || "Gmail connection failed.");
+    // Backfill BEFORE the sync and the watch renewal: the backfill
+    // searches the upcoming trip window for mail the history cursor
+    // has already passed, and it must run before renew anchors "now".
+    // It never moves the cursor itself, and a backfill failure never
+    // fails the reconnect — the normal sync still runs.
+    await backfillGmailTripWindow({ supabase, userId }).catch(() => null);
     await syncGmailConnection({ supabase, userId }).catch(() => null);
     await renewGmailWatch({ supabase, connection: saved.connection }).catch(() => null);
     return NextResponse.redirect(new URL("/account?gmail=connected", request.url));

@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
+import { sanitizeBookingCorrectionFields } from "@/lib/roamly/bookingCorrections";
 import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import { bookingTimestamp, bookingDate } from "@/lib/roamly/bookingDateTime";
 export { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 
 export const TRIP_BOOKING_TYPES = [
@@ -81,7 +83,11 @@ export type TripBookingInput = {
   title?: string | null;
   startTime?: string | null;
   endTime?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   timezone?: string | null;
+  departureTimezone?: string | null;
+  arrivalTimezone?: string | null;
   origin?: string | null;
   destination?: string | null;
   locationName?: string | null;
@@ -130,6 +136,8 @@ export type TripBookingRecord = {
   title: string;
   start_time: string | null;
   end_time: string | null;
+  start_date: string | null;
+  end_date: string | null;
   timezone: string | null;
   origin: string | null;
   destination: string | null;
@@ -154,6 +162,16 @@ export type TripBookingRecord = {
   created_at: string;
   updated_at: string;
   superseded_by_booking_id: string | null;
+  /**
+   * Traveler review state, derived from the row's metadata (never a status
+   * change): "traveler_asserted" means the traveler confirmed these details
+   * are theirs — it is NOT provider confirmation. "dismissed" means the
+   * traveler dismissed the item with an optional reason. Null = still
+   * awaiting traveler review. Set only by the bookings review route.
+   */
+  review_state: "traveler_asserted" | "dismissed" | null;
+  /** Traveler corrections recorded as a pending assertion (see B10). */
+  pending_corrections: Record<string, unknown> | null;
   booking_segments?: BookingSegmentRecord[];
 };
 
@@ -214,8 +232,72 @@ function sanitizeBookingEvidence(value: unknown): unknown {
 function nullableTimestamp(value: unknown) {
   const text = clean(value);
   if (!text) return null;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  // An offset-bearing instant converts to UTC exactly as before.
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(text)) {
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  // An offset-free wall clock must be preserved verbatim, NEVER run through
+  // `new Date` in the server's local timezone: under America/Moncton that
+  // shifted a 20:30 flight to the next day (2026-11-11T00:30Z). Validate the
+  // calendar date TZ-independently via UTC components, then keep the
+  // traveler's typed wall clock (seconds added when omitted).
+  const wall = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/.exec(text);
+  if (!wall) return null;
+  const [, y, mo, d, h, mi, s] = wall;
+  const check = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? "0")));
+  if (
+    check.getUTCFullYear() !== +y || check.getUTCMonth() !== +mo - 1 || check.getUTCDate() !== +d ||
+    check.getUTCHours() !== +h || check.getUTCMinutes() !== +mi || check.getUTCSeconds() !== +(s ?? "0")
+  ) return null;
+  return `${y}-${mo}-${d}T${h}:${mi}:${s ?? "00"}`;
+}
+
+// Zone-aware instant conversion for NEW booking writes (B04 fix).
+// Offset-bearing strings parse directly. Offset-free wall clocks convert
+// ONLY with an explicit IANA zone; without one no instant is fabricated
+// (the date-only fields preserve the calendar date instead). This replaces
+// the old server-timezone parse for write paths: on Vercel, `new Date` of
+// an offset-free string silently meant UTC. Legacy/read paths keep using
+// nullableTimestamp so already-stored rows keep reading as before.
+// NOTE: the trip's own metadata timezone is deliberately NOT used as a
+// fallback here — it defaults to "UTC" when absent, which would just
+// reintroduce the silent-UTC fabrication for most trips.
+function convertBookingTimestamp(value: unknown, timeZone?: string | null) {
+  const text = clean(value);
+  if (!text) return null;
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  return bookingTimestamp(text, timeZone);
+}
+
+// INTEGRATION RECONCILE (#86 vs #88 — the timestamp conversion both PRs
+// own, arbitrated by test:manual-booking-save AND test:b02b06-booking-fixes).
+// #88's rule: a zone-less wall clock yields no instant (the date survives
+// in the date field instead). #86's rule: a typed wall clock must survive
+// reload (the live bug was a 20:30 flight shifting to the next day).
+// Both hold when the rule keys on whether the calendar date survives
+// elsewhere: offset-bearing and zoned clocks always convert via #88;
+// offset-free + zoneless clocks yield null ONLY when the corresponding
+// date field already carries the date — otherwise the date would be lost
+// entirely (start_at null AND start_date null), so the wall clock is
+// preserved verbatim via #86's nullableTimestamp (TZ-independent, seconds
+// added when omitted). Every #88 zone-less/DST case sends its date field;
+// every #86 case sends none — so both suites pass on this rule.
+function convertBookingTimestampPreservingDate(
+  value: unknown,
+  timeZone?: string | null,
+  dateSurvives?: boolean
+) {
+  const text = clean(value);
+  if (!text) return null;
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(text) || timeZone) {
+    return convertBookingTimestamp(value, timeZone);
+  }
+  if (dateSurvives) return null;
+  return nullableTimestamp(value);
 }
 
 function nullableMoney(value: unknown) {
@@ -297,8 +379,11 @@ export function isConfirmedBooking(booking: Pick<TripBookingRecord, "booking_sta
   return isOperationalCurrentBooking(booking) && booking.traveler_confirmed && confirmedStatuses.has(booking.booking_status);
 }
 
-export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status">) {
-  return !inactiveStatuses.has(booking.booking_status);
+export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status"> & { superseded_by_booking_id?: string | null }) {
+  // ONE operational-current rule: a superseded row is history, never active,
+  // even when its status still reads as a live one. isConfirmedBooking already
+  // required this via isOperationalCurrentBooking; the active set now does too.
+  return isOperationalCurrentBooking(booking) && !inactiveStatuses.has(booking.booking_status);
 }
 
 export function isBookingClickOnly(booking: Pick<TripBookingRecord, "booking_status" | "source_type">) {
@@ -391,6 +476,8 @@ export function serializeTripBookingRecord(
     title: nullableText(row.title) || "Trip booking",
     start_time: typeof row.start_at === "string" ? row.start_at : null,
     end_time: typeof row.end_at === "string" ? row.end_at : null,
+    start_date: typeof row.start_date === "string" ? row.start_date : null,
+    end_date: typeof row.end_date === "string" ? row.end_date : null,
     timezone: typeof metadata.timezone === "string" ? metadata.timezone : null,
     origin: nullableText(row.origin),
     destination: nullableText(row.destination),
@@ -418,13 +505,21 @@ export function serializeTripBookingRecord(
     created_at: typeof row.created_at === "string" ? row.created_at : "",
     updated_at: typeof row.updated_at === "string" ? row.updated_at : "",
     superseded_by_booking_id: nullableText(row.superseded_by_booking_id),
+    review_state:
+      metadata.reviewState === "traveler_asserted" || metadata.reviewState === "dismissed"
+        ? metadata.reviewState
+        : null,
+    pending_corrections:
+      safeJson(metadata.customerCorrections) && Object.keys(safeJson(metadata.customerCorrections)).length
+        ? safeJson(metadata.customerCorrections)
+        : null,
     booking_segments: Array.isArray(row.booking_segments)
       ? row.booking_segments as BookingSegmentRecord[]
       : undefined
   };
 }
 
-export function normalizeTripBookingInput(input: TripBookingInput) {
+export function normalizeTripBookingInput(input: TripBookingInput, fallbackCurrency?: string | null) {
   const travelerConfirmed = input.travelerConfirmed === true;
   const bookingStatus = normalizedBookingStatus(input.bookingStatus, travelerConfirmed);
   const bookingType = normalizedBookingType(input.bookingType);
@@ -436,6 +531,16 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
   const confirmed =
     travelerConfirmed ||
     confirmedStatuses.has(bookingStatus);
+
+  // B04: booking times convert with the caller's explicit zone only.
+  // Date-only facts persist as dates (start_date/end_date) even when no
+  // instant can honestly be established. The start clock belongs to the
+  // departure zone and the end clock to the arrival zone; both fall back
+  // to the single booking zone when no leg zone is given, so hotel and
+  // activity writes (which carry only `timezone`) behave unchanged.
+  const zone = nullableText(input.timezone);
+  const departureZone = nullableText(input.departureTimezone) || zone;
+  const arrivalZone = nullableText(input.arrivalTimezone) || zone;
 
   return {
     booking_type: canonicalBookingType(bookingType),
@@ -451,8 +556,10 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     source_type: normalizedSourceType(input.sourceType),
     title,
 
-    start_at: nullableTimestamp(input.startTime),
-    end_at: nullableTimestamp(input.endTime),
+    start_at: convertBookingTimestampPreservingDate(input.startTime, departureZone, bookingDate(input.startDate) !== null),
+    end_at: convertBookingTimestampPreservingDate(input.endTime, arrivalZone, bookingDate(input.endDate) !== null),
+    start_date: bookingDate(input.startDate),
+    end_date: bookingDate(input.endDate),
 
     origin: nullableText(input.origin),
     destination: nullableText(input.destination),
@@ -463,8 +570,8 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
     gate: nullableText(input.gate),
 
     room_type: nullableText(input.roomType),
-    check_in_at: nullableTimestamp(input.checkInTime),
-    check_out_at: nullableTimestamp(input.checkOutTime),
+    check_in_at: convertBookingTimestampPreservingDate(input.checkInTime, zone, bookingDate(input.startDate) !== null),
+    check_out_at: convertBookingTimestampPreservingDate(input.checkOutTime, zone, bookingDate(input.endDate) !== null),
 
     reservation_requirements: safeJson(
       input.reservationRequirements
@@ -472,11 +579,20 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
 
     total_price: nullableMoney(input.totalPrice),
     amount_cents: nullableMoney(input.totalPrice) == null ? null : Math.round(Number(input.totalPrice) * 100),
-    currency: normalizedCurrency(input.currency) || "XXX",
+    // Currency for a NOT NULL column: an explicit valid currency wins, then the
+    // trip's own currency, then "XXX" (the ISO 4217 no-currency marker) when
+    // nothing is known — never null, never an invented price: total_price
+    // stays null when no price was supplied, so readers show no amount.
+    currency:
+      normalizedCurrency(input.currency) ??
+      normalizedCurrency(fallbackCurrency) ??
+      "XXX",
     taxes_and_fees: nullableMoney(input.taxesAndFees),
 
-    cancellation_deadline: nullableTimestamp(
-      input.cancellationDeadline
+    cancellation_deadline: convertBookingTimestampPreservingDate(
+      input.cancellationDeadline,
+      zone,
+      false
     ),
     cancellation_terms: nullableText(
       input.cancellationTerms
@@ -497,6 +613,8 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
         sourceReference: nullableText(input.sourceReference)
       }),
       timezone: nullableText(input.timezone),
+      departureTimezone: nullableText(input.departureTimezone),
+      arrivalTimezone: nullableText(input.arrivalTimezone),
       locationName: nullableText(input.locationName),
       coordinates:
         input.coordinates &&
@@ -510,14 +628,23 @@ export function normalizeTripBookingInput(input: TripBookingInput) {
   };
 }
 
-export function normalizeBookingSegments(segments: BookingSegmentInput[] | null | undefined) {
+export function normalizeBookingSegments(
+  segments: BookingSegmentInput[] | null | undefined,
+  zones?: {
+    timeZone?: string | null;
+    departureTimeZone?: string | null;
+    arrivalTimeZone?: string | null;
+  }
+) {
+  const departureZone = zones?.departureTimeZone || zones?.timeZone || null;
+  const arrivalZone = zones?.arrivalTimeZone || zones?.timeZone || null;
   return (segments || [])
     .map((segment, index) => ({
       sequence: Math.max(1, Math.round(Number(segment.sequence) || index + 1)),
       origin: nullableText(segment.origin),
       destination: nullableText(segment.destination),
-      departure_time: nullableTimestamp(segment.departureTime),
-      arrival_time: nullableTimestamp(segment.arrivalTime),
+      departure_time: convertBookingTimestampPreservingDate(segment.departureTime, departureZone, false),
+      arrival_time: convertBookingTimestampPreservingDate(segment.arrivalTime, arrivalZone, false),
       provider: nullableText(segment.provider),
       service_number: nullableText(segment.serviceNumber),
       terminal: nullableText(segment.terminal),
@@ -529,10 +656,23 @@ export function normalizeBookingSegments(segments: BookingSegmentInput[] | null 
 }
 
 async function assertTripOwnership(supabase: SupabaseClient, userId: string, tripId: string) {
-  const { data, error } = await supabase.from("roamly_trips").select("id").eq("id", tripId).eq("user_id", userId).maybeSingle();
+  const { data, error } = await supabase.from("roamly_trips").select("id,budget_currency,metadata").eq("id", tripId).eq("user_id", userId).maybeSingle();
   if (error) return { ok: false as const, error: error.message };
   if (!data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
-  return { ok: true as const };
+  // The trip's own currency (planner budget currency, e.g. PHP for Philippines
+  // trips) is the fallback unit for bookings saved without a currency. It labels
+  // an unknown price; it never invents one.
+  const row = data as Record<string, unknown>;
+  const planning = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    ? (row.metadata as Record<string, unknown>).planning
+    : null;
+  const planningCurrency = planning && typeof planning === "object" && !Array.isArray(planning)
+    ? (planning as Record<string, unknown>).budgetCurrency ?? (planning as Record<string, unknown>).budget_currency
+    : null;
+  return {
+    ok: true as const,
+    tripCurrency: normalizedCurrency(row.budget_currency) ?? normalizedCurrency(planningCurrency)
+  };
 }
 
 export async function supersedeBooking(params: {
@@ -568,6 +708,129 @@ export async function supersedeBooking(params: {
   return { ok: true as const, idempotent: false as const, booking: booking || null };
 }
 
+/**
+ * Traveler cancel for a tracked booking (manual, screenshot, email-imported).
+ *
+ * Cancel is a Roamly-tracking action only: it never touches Stripe, never
+ * refunds anything, and never cancels a Roamly purchase/unlock (those are
+ * separate purchase records, not bookings). The row is never hard-deleted —
+ * its status becomes "cancelled", which drops it from the active set
+ * (isActiveTripBooking) and from budget totals, while the record and its
+ * provenance stay readable in booking history. Only the booking's status
+ * and updated_at change: price, currency, and segments history are never
+ * rewritten by a cancel.
+ *
+ * Edge rules: cancelling an already-cancelled booking is a harmless no-op
+ * success; cancelling a superseded booking is refused (superseded rows are
+ * history, not actionable); cancelling a refunded booking is refused so the
+ * refund fact is never overwritten. Ownership is enforced twice: the trip
+ * must belong to the caller, and the row must match id + user + trip.
+ *
+ * Companion reminders: after a fresh cancel succeeds, this also withdraws
+ * the trip's still-scheduled companion events for this booking
+ * (roamly_trip_companion_events, status 'scheduled' only). 'processing'
+ * rows are never touched — dispatch may be in flight, and its emailSentAt
+ * stamping must not race this withdrawal. Withdrawal is secondary to the
+ * cancel: a withdrawal error is logged server-side and surfaced as
+ * reminderWithdrawalFailed, and the booking stays cancelled.
+ */
+export async function cancelTripBooking(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  bookingId: string;
+}) {
+  const ownership = await assertTripOwnership(
+    params.supabase,
+    params.userId,
+    params.tripId
+  );
+  if (!ownership.ok) {
+    return { ok: false as const, error: ownership.error };
+  }
+
+  const existing = await params.supabase
+    .from("roamly_bookings")
+    .select("*")
+    .eq("id", params.bookingId)
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .maybeSingle();
+  if (existing.error) return { ok: false as const, error: "BOOKING_READ_FAILED" };
+  if (!existing.data) return { ok: false as const, error: "BOOKING_NOT_FOUND" };
+
+  const row = existing.data as Record<string, unknown>;
+  if (row.booking_status === "cancelled") {
+    // No withdrawal is attempted here: there was no fresh cancel status
+    // update. (A booking cancelled after this patch already had its
+    // scheduled reminders withdrawn by that cancel.)
+    return {
+      ok: true as const,
+      idempotent: true as const,
+      alreadyCancelled: true as const,
+      booking: serializeTripBookingRecord(row),
+      remindersWithdrawn: null as number | null,
+      reminderWithdrawalFailed: false as const
+    };
+  }
+  if (row.booking_status === "refunded") {
+    return { ok: false as const, error: "BOOKING_ALREADY_REFUNDED" };
+  }
+  if (row.superseded_by_booking_id) {
+    return { ok: false as const, error: "BOOKING_ALREADY_SUPERSEDED" };
+  }
+
+  const updated = await params.supabase
+    .from("roamly_bookings")
+    .update({
+      booking_status: "cancelled",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", params.bookingId)
+    .eq("user_id", params.userId)
+    .eq("trip_id", params.tripId)
+    .select("*")
+    .single();
+  if (updated.error || !updated.data) {
+    return { ok: false as const, error: "BOOKING_CANCEL_FAILED" };
+  }
+  // Withdraw this booking's still-scheduled companion reminders, using the
+  // same user-session client as the cancel itself. Only 'scheduled' rows
+  // for this booking + trip are withdrawn; 'processing' rows are left alone
+  // so an in-flight dispatch (and its emailSentAt stamp) is never raced.
+  // The booking cancel above is the primary result: a withdrawal failure is
+  // logged server-side and surfaced as a flag — it never un-cancels the
+  // booking.
+  let remindersWithdrawn: number | null = null;
+  let reminderWithdrawalFailed = false;
+  try {
+    const withdrawal = await params.supabase
+      .from("roamly_trip_companion_events")
+      .update({ status: "cancelled" })
+      .eq("booking_id", params.bookingId)
+      .eq("trip_id", params.tripId)
+      .eq("status", "scheduled")
+      .select("id");
+    if (withdrawal.error) {
+      reminderWithdrawalFailed = true;
+      console.error("cancelTripBooking reminder withdrawal failed", withdrawal.error);
+    } else if (Array.isArray(withdrawal.data)) {
+      remindersWithdrawn = withdrawal.data.length;
+    }
+  } catch (error) {
+    reminderWithdrawalFailed = true;
+    console.error("cancelTripBooking reminder withdrawal failed", error);
+  }
+  return {
+    ok: true as const,
+    idempotent: false as const,
+    alreadyCancelled: false as const,
+    booking: serializeTripBookingRecord(updated.data as Record<string, unknown>),
+    remindersWithdrawn,
+    reminderWithdrawalFailed
+  };
+}
+
 export async function listTripBookings(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -597,6 +860,80 @@ export async function listTripBookings(params: {
       )
     ),
     error: null
+  };
+}
+
+export type BookingReviewAction = "assert" | "dismiss" | "correct";
+
+/**
+ * Traveler review of one wallet booking (B11). The traveler's action is
+ * recorded in the row's metadata only: it NEVER changes booking_status or
+ * traveler_confirmed, so a customer assertion can never become provider
+ * confirmation. "assert" records that the details are the traveler's own;
+ * "dismiss" records a dismissal with an optional reason; "correct" merges
+ * sanitized correction fields into the pending customerCorrections assertion.
+ * Superseded rows are history and cannot be reviewed.
+ */
+export async function reviewTripBooking(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  tripId: string;
+  bookingId: string;
+  action: BookingReviewAction;
+  reason?: string | null;
+  corrections?: unknown;
+}) {
+  const trip = await params.supabase
+    .from("roamly_trips")
+    .select("id")
+    .eq("id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (trip.error) return { ok: false as const, error: trip.error.message };
+  if (!trip.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
+
+  const existing = await params.supabase
+    .from("roamly_bookings")
+    .select("id,metadata,superseded_by_booking_id")
+    .eq("id", params.bookingId)
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .maybeSingle();
+  if (existing.error) return { ok: false as const, error: existing.error.message };
+  if (!existing.data) return { ok: false as const, error: "BOOKING_NOT_FOUND" };
+  const row = existing.data as Record<string, unknown>;
+  if (row.superseded_by_booking_id != null) return { ok: false as const, error: "BOOKING_NOT_CURRENT" };
+
+  const metadata = safeJson(row.metadata);
+  const now = new Date().toISOString();
+  if (params.action === "assert") {
+    metadata.reviewState = "traveler_asserted";
+    metadata.travelerAssertion = { assertedAt: now };
+  } else if (params.action === "dismiss") {
+    metadata.reviewState = "dismissed";
+    const reason = typeof params.reason === "string" ? params.reason.trim().slice(0, 500) : "";
+    metadata.reviewDismissed = { dismissedAt: now, reason: reason || null };
+  } else if (params.action === "correct") {
+    const sanitized = sanitizeBookingCorrectionFields(params.corrections);
+    const supplied = Object.fromEntries(Object.entries(sanitized).filter(([, value]) => value != null));
+    if (!Object.keys(supplied).length) return { ok: false as const, error: "NO_VALID_CORRECTIONS" };
+    metadata.customerCorrections = { ...safeJson(metadata.customerCorrections), ...supplied };
+    metadata.correctionAssertedAt = now;
+  } else {
+    return { ok: false as const, error: "UNKNOWN_REVIEW_ACTION" };
+  }
+
+  const updated = await params.supabase
+    .from("roamly_bookings")
+    .update({ metadata })
+    .eq("id", params.bookingId)
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId);
+  if (updated.error) return { ok: false as const, error: updated.error.message };
+  return {
+    ok: true as const,
+    reviewState: typeof metadata.reviewState === "string" ? metadata.reviewState : null,
+    pendingCorrections: safeJson(metadata.customerCorrections)
   };
 }
 
@@ -788,7 +1125,12 @@ async function findMatchingCanonicalBooking(params: {
   userId: string;
   tripId: string;
   booking: Record<string, unknown>;
-}) {
+}): Promise<{
+  booking: Record<string, unknown> | null;
+  error: string | null;
+  ambiguous?: boolean;
+  candidates?: Record<string, unknown>[];
+}> {
   const base = () =>
     params.supabase
       .from("roamly_bookings")
@@ -810,28 +1152,46 @@ async function findMatchingCanonicalBooking(params: {
     if (result.data) return { booking: result.data as Record<string, unknown>, error: null };
   }
 
+  // B03: a provider identifier is an identity ONLY within its provider
+  // and booking type. Two different providers — or a flight and a hotel —
+  // may legitimately share one confirmation string; matching on the string
+  // alone let the second import overwrite the first. Identifier matches
+  // are therefore scoped by provider_name and booking_type (the normalized
+  // booking carries canonical types, the same values stored rows carry,
+  // so scoping is consistent; a legacy row with a non-canonical type
+  // simply misses and inserts instead of overwriting — the safe side).
+  // When a scoped identifier still matches more than one row, the match
+  // is ambiguous: the caller inserts a new needs-review row instead of
+  // overwriting any existing reservation.
+  const providerName = textValue(params.booking.provider_name);
+  const bookingType = textValue(params.booking.booking_type);
+  async function scopedIdentifierMatch(column: string, value: string, extra?: Array<[string, string]>) {
+    let query = base().eq(column, value);
+    if (providerName) query = query.eq("provider_name", providerName);
+    if (bookingType) query = query.eq("booking_type", bookingType);
+    for (const [extraColumn, extraValue] of extra || []) {
+      query = query.eq(extraColumn, extraValue);
+    }
+    const result = await query.order("created_at", { ascending: false }).limit(2);
+    if (result.error) return { rows: null as Record<string, unknown>[] | null, error: result.error.message };
+    return { rows: (result.data || []) as Record<string, unknown>[], error: null };
+  }
+  function scopedResult(match: { rows: Record<string, unknown>[] | null; error: string | null }) {
+    if (match.error) return { booking: null as Record<string, unknown> | null, error: match.error };
+    if (!match.rows || match.rows.length === 0) return null;
+    if (match.rows.length > 1) {
+      return { booking: null as Record<string, unknown> | null, error: null, ambiguous: true, candidates: match.rows };
+    }
+    return { booking: match.rows[0], error: null };
+  }
+
   const providerBookingId = textValue(
     params.booking.provider_booking_id
   );
 
   if (providerBookingId) {
-    const result = await base()
-      .eq("provider_booking_id", providerBookingId)
-      .maybeSingle();
-
-    if (result.error) {
-      return {
-        booking: null,
-        error: result.error.message
-      };
-    }
-
-    if (result.data) {
-      return {
-        booking: result.data as Record<string, unknown>,
-        error: null
-      };
-    }
+    const matched = scopedResult(await scopedIdentifierMatch("provider_booking_id", providerBookingId));
+    if (matched) return matched;
   }
 
   const confirmationNumber = textValue(
@@ -839,47 +1199,16 @@ async function findMatchingCanonicalBooking(params: {
   );
 
   if (confirmationNumber) {
-    const result = await base()
-      .eq("confirmation_number", confirmationNumber)
-      .maybeSingle();
-
-    if (result.error) {
-      return {
-        booking: null,
-        error: result.error.message
-      };
-    }
-
-    if (result.data) {
-      return {
-        booking: result.data as Record<string, unknown>,
-        error: null
-      };
-    }
+    const matched = scopedResult(await scopedIdentifierMatch("confirmation_number", confirmationNumber));
+    if (matched) return matched;
   }
 
   const title = textValue(params.booking.title);
   const startAt = textValue(params.booking.start_at);
 
   if (title && startAt) {
-    const result = await base()
-      .eq("title", title)
-      .eq("start_at", startAt)
-      .maybeSingle();
-
-    if (result.error) {
-      return {
-        booking: null,
-        error: result.error.message
-      };
-    }
-
-    if (result.data) {
-      return {
-        booking: result.data as Record<string, unknown>,
-        error: null
-      };
-    }
+    const matched = scopedResult(await scopedIdentifierMatch("title", title, [["start_at", startAt]]));
+    if (matched) return matched;
   }
 
   return {
@@ -975,11 +1304,55 @@ async function applyGmailBookingRevision(params: {
   };
 }
 
+// U2 FIX — omitted-vs-explicit for money on update. This is the same
+// disease B06 fixed for segments only: a matched re-save that omits a money
+// field used to overwrite the stored value with null / "XXX", so a traveler
+// fixing a time or title silently lost the booking's price. On update, an
+// omitted field preserves the stored value; only an explicit, valid value
+// replaces it. There is no clear-price signal in the API (no clearPrice /
+// clear_price anywhere in the tree), so explicit null preserves too.
+// Explicit zero replaces with zero (B14 rule) — it is a real price, not a
+// wipe. total_price and amount_cents move together: they are one value in
+// two units (B02's one-unit rule), never updated independently.
+function preserveOmittedMoneyFieldsOnUpdate(
+  booking: ReturnType<typeof normalizeTripBookingInput>,
+  previous: Record<string, unknown>,
+  input: TripBookingInput
+) {
+  const next = { ...booking };
+  if (typeof input.totalPrice === "number" && Number.isFinite(input.totalPrice) && input.totalPrice >= 0) {
+    const price = nullableMoney(input.totalPrice);
+    next.total_price = price;
+    next.amount_cents = price == null ? null : Math.round(price * 100);
+  } else {
+    next.total_price = typeof previous.total_price === "number" ? previous.total_price : null;
+    next.amount_cents = typeof previous.amount_cents === "number" ? previous.amount_cents : null;
+  }
+  const currency = normalizedCurrency(input.currency);
+  next.currency =
+    currency ?? (typeof previous.currency === "string" && previous.currency ? previous.currency : "XXX");
+  if (typeof input.taxesAndFees === "number" && Number.isFinite(input.taxesAndFees) && input.taxesAndFees >= 0) {
+    next.taxes_and_fees = nullableMoney(input.taxesAndFees);
+  } else {
+    next.taxes_and_fees = typeof previous.taxes_and_fees === "number" ? previous.taxes_and_fees : null;
+  }
+  return next;
+}
+
 export async function createTripBooking(params: {
   supabase: SupabaseClient;
   userId: string;
   tripId: string;
   input: TripBookingInput;
+  // B01: which segment-replacement RPC to call. "authenticated" (default) is
+  // the session-bound function: it raises unless p_user_id = auth.uid(), so
+  // user-session flows (manual booking, confirm, attach) keep working with
+  // their own id. "service" is the service-role-only function for trusted
+  // server flows (affiliate webhook, Gmail sync) that act on a booking
+  // owner's behalf without a user session. Never pass "service" from a
+  // user-session flow: the service function is unreachable from one, so the
+  // call would fail closed instead of silently taking the trusted path.
+  segmentReplacement?: "authenticated" | "service";
 }) {
   const ownership = await assertTripOwnership(
     params.supabase,
@@ -994,7 +1367,7 @@ export async function createTripBooking(params: {
     };
   }
 
-  const booking = normalizeTripBookingInput(params.input);
+  const booking = normalizeTripBookingInput(params.input, ownership.tripCurrency);
 
   const match = await findMatchingCanonicalBooking({
     supabase: params.supabase,
@@ -1010,7 +1383,21 @@ export async function createTripBooking(params: {
     };
   }
 
-  const previousBooking = match.booking;
+  // B03: a genuinely ambiguous identifier match never overwrites an
+  // existing reservation. It inserts as a new needs-review row instead
+  // (status unknown, unconfirmed, flagged in metadata) for a human to
+  // resolve — a customer assertion is never turned into a provider
+  // confirmation by matching alone.
+  const ambiguousMatch = match.ambiguous === true;
+  const previousBooking = ambiguousMatch ? null : match.booking;
+  const writeBooking = ambiguousMatch
+    ? {
+        ...booking,
+        booking_status: "unknown",
+        traveler_confirmed: false,
+        metadata: { ...booking.metadata, ambiguousMatch: true }
+      }
+    : booking;
 
   if (previousBooking) {
     const previousStatus = clean(previousBooking.booking_status);
@@ -1047,6 +1434,12 @@ export async function createTripBooking(params: {
     }
   }
 
+  // U2: on a matched re-save, omitted money fields keep the stored values
+  // (see preserveOmittedMoneyFieldsOnUpdate) instead of wiping them.
+  const updatePayload = previousBooking
+    ? preserveOmittedMoneyFieldsOnUpdate(booking, previousBooking, params.input)
+    : booking;
+
   const writeResult = previousBooking
     ? params.input.reconciliation
       ? await params.supabase
@@ -1059,7 +1452,11 @@ export async function createTripBooking(params: {
       : await params.supabase
         .from("roamly_bookings")
         .update({
-          ...booking,
+          // U2 (merged with B03): on a matched re-save this is the
+          // money-preserved payload, not the raw normalized booking.
+          // writeBooking === booking on this path (a matched update is
+          // never ambiguous), so this is exactly #93's spread swap.
+          ...updatePayload,
           updated_at: new Date().toISOString()
         })
         .eq("id", String(previousBooking.id))
@@ -1069,7 +1466,7 @@ export async function createTripBooking(params: {
     : await params.supabase
         .from("roamly_bookings")
         .insert({
-          ...booking,
+          ...writeBooking,
           user_id: params.userId,
           trip_id: params.tripId,
           source_connection_id: params.input.reconciliation?.connectionId || null,
@@ -1121,9 +1518,12 @@ export async function createTripBooking(params: {
         };
       }
     }
+    // Customer boundary: the raw database message must never reach the
+    // customer. Detail stays in server logs; the caller gets one stable code.
+    console.error("[Roamly bookings] booking write failed:", writeResult.error);
     return {
       booking: null,
-      error: writeResult.error.message
+      error: "BOOKING_SAVE_FAILED"
     };
   }
 
@@ -1156,25 +1556,44 @@ export async function createTripBooking(params: {
   const createdBooking =
     serializeTripBookingRecord(savedRow);
 
-  const segments = normalizeBookingSegments(
-    params.input.segments
-  );
+  // B06: an OMITTED segment field preserves existing segments; only an
+  // explicitly supplied list (including an explicit empty list) replaces
+  // them. The distinction lives here and at the route, which passes
+  // undefined for an absent field: normalizeBookingSegments alone cannot
+  // tell omission from an empty list, since it normalizes both to [].
+  // The RPC itself stays atomic (delete+insert in one transaction); the
+  // parent write and the segment replace remain two statements, so on an
+  // RPC failure the parent update stands but the OLD segments are intact
+  // (preserved, not deleted) — the safe direction. True single-transaction
+  // parent+segments atomicity would need a wrapping RPC and is out of scope.
+  const segmentsExplicit = params.input.segments !== undefined && params.input.segments !== null;
+  const segments = normalizeBookingSegments(params.input.segments, {
+    timeZone: typeof booking.metadata.timezone === "string" ? booking.metadata.timezone : null,
+    departureTimeZone: typeof booking.metadata.departureTimezone === "string" ? booking.metadata.departureTimezone : null,
+    arrivalTimeZone: typeof booking.metadata.arrivalTimezone === "string" ? booking.metadata.arrivalTimezone : null
+  });
 
   // CA3 FIX A — atomic segment replacement. The previous delete-then-insert ran
   // as two separate statements: if the insert failed (deploy, restart, crash in
   // between), the booking survived with all of its segments silently gone.
   // roamly_replace_booking_segments performs the delete+insert in one
   // transaction and re-checks trip ownership inside the function.
-  if (previousBooking || segments.length) {
-    const segmentReplace = await params.supabase.rpc(
-      "roamly_replace_booking_segments",
-      {
-        p_booking_id: String(savedRow.id),
-        p_user_id: params.userId,
-        p_trip_id: params.tripId,
-        p_segments: segments
-      }
-    );
+  // B01: the RPC is routed by params.segmentReplacement. The default
+  // authenticated function binds p_user_id to auth.uid() inside the database,
+  // so a caller can never name another owner's identifiers and pass; the
+  // service function is reserved for trusted server flows and is revoked
+  // from every user session.
+  if ((previousBooking && segmentsExplicit) || (!previousBooking && segments.length)) {
+    const segmentRpc =
+      params.segmentReplacement === "service"
+        ? "roamly_replace_booking_segments_service"
+        : "roamly_replace_booking_segments";
+    const segmentReplace = await params.supabase.rpc(segmentRpc, {
+      p_booking_id: String(savedRow.id),
+      p_user_id: params.userId,
+      p_trip_id: params.tripId,
+      p_segments: segments
+    });
 
     if (segmentReplace.error) {
       return {
@@ -1183,6 +1602,28 @@ export async function createTripBooking(params: {
       };
     }
   }
+
+  // U1 + B06 (merged): whether the RPC above actually ran — the same
+  // gate as the RPC condition (update: segments explicitly supplied;
+  // create: at least one segment). #94's own definition could not apply
+  // because #88 already owns the segmentsExplicit/condition lines; this
+  // single definition serves both the RPC gate and the return attach.
+  // Null counts as omitted here (see #88's route mapping), not explicit.
+  const segmentsWereWritten = previousBooking
+    ? segmentsExplicit
+    : segments.length > 0;
+
+  // U1: the returned booking must carry the segments just written. The
+  // parent insert row has no booking_segments key, so serializing it alone
+  // made every save response claim no legs — even when the RPC had just
+  // written them. When nothing was written (omitted segments on update),
+  // the response states nothing and the GET reload stays the source of truth.
+  const bookingWithSegments = segmentsWereWritten
+    ? serializeTripBookingRecord({
+      ...(savedRow as Record<string, unknown>),
+      booking_segments: segments
+    })
+    : createdBooking;
 
   const itineraryOverride = await applyStoredItineraryBookingOverride({
     supabase: params.supabase,
@@ -1254,7 +1695,7 @@ export async function createTripBooking(params: {
     eventType: "booking_wallet_updated",
     eventTitle: previousBooking
       ? "Booking updated"
-      : booking.traveler_confirmed
+      : writeBooking.traveler_confirmed
         ? "Booking confirmed"
         : "Booking added",
     eventBody: previousBooking
@@ -1262,9 +1703,9 @@ export async function createTripBooking(params: {
       : `${booking.title} was added to the Booking Wallet.`,
     metadata: {
       bookingId: savedRow.id,
-      bookingType: booking.booking_type,
-      bookingStatus: booking.booking_status,
-      sourceType: booking.source_type,
+      bookingType: writeBooking.booking_type,
+      bookingStatus: writeBooking.booking_status,
+      sourceType: writeBooking.source_type,
       meaningfulChange: change?.eventType || null,
       companionTriggered: Boolean(change),
       itineraryOverrideChanged:
@@ -1274,11 +1715,12 @@ export async function createTripBooking(params: {
   });
 
   return {
-    booking: createdBooking,
+    booking: bookingWithSegments,
     companionWorkflow,
     meaningfulChange: change?.eventType || null,
     itineraryOverride,
     created: !previousBooking,
+    ambiguousMatch,
     error: null
   };
 }
@@ -1294,7 +1736,7 @@ export function bookingWalletSummary(bookings: TripBookingRecord[]) {
     total: bookings.length,
     active: active.length,
     confirmed: confirmed.length,
-    needsConfirmation: bookings.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected").length,
+    needsConfirmation: active.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected").length,
     clickOnly: bookings.filter(isBookingClickOnly).length
   };
 }
@@ -1353,6 +1795,8 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
             `${endDate}${endTime ? `T${endTime}` : "T00:00:00"}`
           )
         : null),
+    start_date: startDate,
+    end_date: endDate,
     timezone: null,
     origin: nullableText(record.origin),
     destination: nullableText(record.destination),
@@ -1386,6 +1830,8 @@ export function legacyRoamlyBookingToWallet(record: Record<string, unknown>, fal
     created_at: nullableText(record.created_at) || now,
     updated_at: nullableText(record.updated_at) || now,
     superseded_by_booking_id: typeof record.superseded_by_booking_id === "string" ? record.superseded_by_booking_id : null,
+    review_state: null,
+    pending_corrections: null,
     booking_segments: []
   };
 }

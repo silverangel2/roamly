@@ -148,6 +148,12 @@ export interface DestinationDTO {
   country: string;
   centre: GeoPointDTO;
   bbox: { minLat: number; minLon: number; maxLat: number; maxLon: number } | null;
+  /** Deliberate subregion boxes that extend collection/filter coverage
+   *  beyond the seed bbox (e.g. an island whose advertised sights lie
+   *  outside the small shadow-rule box around its centre). Coverage is
+   *  the union of bbox + coverageBoxes; the seed bbox itself never moves,
+   *  so no other destination's box is enlarged by accident. */
+  coverageBoxes?: Array<{ minLat: number; minLon: number; maxLat: number; maxLon: number }>;
   timeZone: string; // IANA — the trip's plan-time zone
   geocodeProvenance: ProvenanceDTO;
 }

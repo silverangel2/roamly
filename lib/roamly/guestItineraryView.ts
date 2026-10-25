@@ -116,8 +116,14 @@ function paidUnlockSource(value: string) {
   return value === "paid" || value === "bundle" || value === "admin";
 }
 
+// A price without a known currency is not a price a guest can trust: never
+// invent a currency code for it (provenance law). Where a priced suggestion
+// carries no currency, the label says so plainly instead of showing a
+// currency-qualified amount.
+const PRICE_NOT_AVAILABLE = "price not available";
+
 function bookingPriceLabel(suggestion: Record<string, unknown>): string | null {
-  const currency = clip(suggestion.currency, 12) || "CAD";
+  const currency = clip(suggestion.currency, 12);
   const min = typeof suggestion.estimated_cost_min === "number" && Number.isFinite(suggestion.estimated_cost_min)
     ? Math.round(suggestion.estimated_cost_min)
     : null;
@@ -133,6 +139,11 @@ function bookingPriceLabel(suggestion: Record<string, unknown>): string | null {
       ? Math.round(suggestion.estimated_nightly_cost_max)
       : null;
   const nightly = nightlyMin ?? nightlyMax;
+  // Amounts without a currency are not price evidence and must not render
+  // as a bare or currency-qualified number.
+  if (nightly != null || min != null || max != null) {
+    if (!currency) return PRICE_NOT_AVAILABLE;
+  }
   if (nightly != null) {
     const range = nightlyMin != null && nightlyMax != null && nightlyMax > nightlyMin ? `${nightlyMin}–${nightlyMax}` : `${nightly}`;
     return `about ${currency} ${range}/night`;
@@ -165,7 +176,12 @@ function bookingCardFromSuggestion(value: unknown): GuestBookingCard | null {
   };
 }
 
-function bookingSection(fullJson: unknown, categories: string[], limit = 3): GuestBookingCard[] {
+function bookingSection(
+  fullJson: unknown,
+  categories: string[],
+  limit = 3,
+  requirePriceEvidence = false
+): GuestBookingCard[] {
   const suggestions = asRecord(fullJson)?.booking_suggestions;
   if (!Array.isArray(suggestions)) return [];
   const cards: GuestBookingCard[] = [];
@@ -174,6 +190,10 @@ function bookingSection(fullJson: unknown, categories: string[], limit = 3): Gue
     const category = (clip(record?.booking_category, 40) || clip(record?.category, 40)).toLowerCase();
     if (!categories.includes(category)) continue;
     const card = bookingCardFromSuggestion(suggestion);
+    // Price evidence = a real priced label: amounts plus a known currency.
+    // "price not available" (amounts, no currency) and null (no amounts) are
+    // explicitly NOT evidence, so they can never appear as budget-matched.
+    if (requirePriceEvidence && (!card || card.priceLabel == null || card.priceLabel === PRICE_NOT_AVAILABLE)) continue;
     if (card && !cards.some((existing) => existing.title === card.title && existing.url === card.url)) {
       cards.push(card);
     }
@@ -230,7 +250,13 @@ export function publicGuestItineraryView(input: {
     disclaimer: GUEST_FREE_ITINERARY_DISCLAIMER,
     status,
     days,
-    stays: bookingSection(input.fullJson, ["hotel"]),
+    // Stays render under "Stay picks matched to your budget" in
+    // GuestFreeItinerary, so only priced stays may appear there. When no
+    // stay carries price evidence, stays is empty and the component's
+    // existing length guard hides the section entirely — unpriced stays are
+    // never presented as budget-matched. Other sections keep their existing
+    // behaviour (their headings make no budget claim).
+    stays: bookingSection(input.fullJson, ["hotel"], 3, true),
     flights: bookingSection(input.fullJson, ["flight", "transport", "car_rental"]),
     experiences: bookingSection(input.fullJson, ["attraction", "tour", "activity"]),
     essentials: bookingSection(input.fullJson, ["product"], 4),

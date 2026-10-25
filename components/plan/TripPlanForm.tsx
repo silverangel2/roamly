@@ -585,6 +585,7 @@ export function TripPlanForm(props: {
   testerAccess?: boolean;
   apiAuthToken?: string;
   build2GatesEnabled?: boolean;
+  secondTimeGateNotice?: boolean;
 }) {
   const [sessionKey, setSessionKey] = useState(0);
   return <TripPlanFormSession key={sessionKey} {...props} onStartNew={() => setSessionKey((value) => value + 1)} />;
@@ -595,6 +596,7 @@ function TripPlanFormSession({
   testerAccess = false,
   apiAuthToken = "",
   build2GatesEnabled = false,
+  secondTimeGateNotice = false,
   onStartNew
 }: {
   onStartNew: () => void;
@@ -602,6 +604,7 @@ function TripPlanFormSession({
   testerAccess?: boolean;
   apiAuthToken?: string;
   build2GatesEnabled?: boolean;
+  secondTimeGateNotice?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -725,11 +728,15 @@ function TripPlanFormSession({
     signedIn,
     freeItineraryUsed: accountFreeUsed,
     testerAccess,
-    // The traveler's own selected destination country — the same value the
-    // plan submit stamps as destinationCountry on the trip.
+    // The traveler's own selected destinations — the same rule the server
+    // prices by (lib/roamly/billing.ts isPhilippinesTrip): pesos ONLY when
+    // every stop is in the Philippines. A multi-country trip prices in
+    // CAD no matter which end the Philippines sits on, so the planner
+    // flag must never use the final stop alone.
     isPhilippinesTrip:
-      (tripType === "single_destination" ? destinationPlace?.country : validStops[validStops.length - 1]?.country) ===
-      "Philippines"
+      tripType === "single_destination"
+        ? destinationPlace?.country === "Philippines"
+        : validStops.length > 0 && validStops.every((place) => place.country === "Philippines")
   });
   const normalizedDestination = useMemo(() => {
     if (tripType === "multi_city") return validStops.map((place) => place.value).join(" \u2192 ");
@@ -1771,6 +1778,11 @@ function TripPlanFormSession({
           </button>
         </p>
       ) : null}
+      {signedIn && secondTimeGateNotice ? (
+        <p className="mt-4 text-sm leading-6 text-slate-600">
+          {translateText("You've already had a trip with Roamly, so this one opens behind three quick setup steps — Gmail for Booking Recon, the app for Live Companion alerts, and location for the companion to go live. Or skip for now and see it with limited features.")}
+        </p>
+      ) : null}
       {restoreNotice && !previousDraft ? (
         <p className="mt-4 text-sm leading-6 text-slate-600">
           {translateText("Your saved trip plan is here.")}{" "}
@@ -1971,7 +1983,7 @@ function TripPlanFormSession({
                 <FieldError id="plan-budget-error" message={budgetFieldError} />
                 {budgetAmount.trim() || budgetFieldError ? null : (
                   <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-500">
-                    {translateText("A rough total is enough. Many short trips land around 1,500–4,000 CAD. Roamly will not fill this in for you.")}
+                    {translateText("A rough total is enough. Roamly will not fill this in for you.")}
                   </p>
                 )}
               </label>
@@ -2001,7 +2013,7 @@ function TripPlanFormSession({
         {step === 3 ? (
           <div className="grid gap-5">
             <p className="text-sm leading-6 text-slate-600">
-              {translateText("Pace, walking, and transport start on a labeled default. Interests stay empty until you choose them.")}
+              {translateText("Pace, walking, and transport start on a labeled default. Pick at least one interest to shape your days.")}
             </p>
             <div>
               <FieldLabel>
@@ -2144,7 +2156,7 @@ function TripPlanFormSession({
         ) : null}
       </div>
 
-      {notice ? (
+      {notice && !(priceChecking && notice === "Checking trip costs...") ? (
         <p className="mt-4 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
           {translateText(notice)}
         </p>

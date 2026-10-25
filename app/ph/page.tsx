@@ -163,7 +163,12 @@ export default function PhilippinesPage() {
                         {item.time_label} — {item.title}
                       </span>
                       <span className="block text-xs font-semibold leading-5 text-[#cfe5d8]">
-                        {item.location_name} · {item.estimated_cost === 0 ? "Free" : `${formatPeso(item.estimated_cost)} est.`}
+                        {item.location_name} ·{" "}
+                        {item.packageIncluded
+                          ? `Included in ${item.packageName ?? "tour package"}`
+                          : item.estimated_cost === 0
+                            ? "Free"
+                            : `${formatPeso(item.estimated_cost)} est.`}
                       </span>
                     </li>
                   ))}
@@ -173,6 +178,9 @@ export default function PhilippinesPage() {
           </div>
           <div className="mt-6">
             <Button href={philippinesPlanHref("Cebu City, Philippines")}>Make it yours in the planner</Button>
+            <p className="mt-3 text-xs font-semibold leading-5 text-[#cfe5d8]">
+              Starting from a sample builds a fresh trip from Roamly&apos;s places — the sample&apos;s exact stops aren&apos;t carried over.
+            </p>
           </div>
         </div>
       </section>

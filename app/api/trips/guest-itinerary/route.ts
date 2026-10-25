@@ -14,6 +14,14 @@ import {
   publicGuestItineraryView
 } from "@/lib/roamly/guestItineraryView";
 import { buildGuestGenerationStatus } from "@/lib/roamly/guestGenerationStatus";
+import {
+  guestRecoveryUrl,
+  readGuestDeliveryEmail,
+  readGuestDeliverySentAt,
+  signGuestRecoveryToken,
+  withGuestDeliverySent
+} from "@/lib/roamly/guestDelivery";
+import { sendRoamlyEmail } from "@/lib/roamly/email";
 import { publicStagedGenerationProgress } from "@/lib/roamly/stagedItineraryGeneration";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -187,7 +195,49 @@ export async function GET(request: NextRequest) {
     maxPackWaitMs
   });
 
-  return NextResponse.json({ ok: true, tripId: access.tripId, unlockSource: "free", ...view, generationStatus });
+  // Guest delivery (owner law, 2026-10-24): when the itinerary is ready
+  // and the traveler left an email at day-1-ready, send them the rest —
+  // day list plus the recovery link, so the trip survives a browser or
+  // device switch. The sent flag makes it exactly-once even if the page
+  // is reloaded; a failed send leaves the flag unset so the next load
+  // retries. Sending never fails this response.
+  const deliveryEmail = readGuestDeliveryEmail(trip.metadata);
+  if (view.status === "ready" && deliveryEmail && !readGuestDeliverySentAt(trip.metadata)) {
+    try {
+      const dayLines = view.days
+        .map((day) => `Day ${day.dayNumber}${day.date ? ` · ${day.date}` : ""}${day.title ? ` — ${day.title}` : ""}`)
+        .join("\n");
+      const recoveryToken = signGuestRecoveryToken(access.tripId, access.userId);
+      const recoveryLink = recoveryToken ? guestRecoveryUrl(recoveryToken) : null;
+      const text = [
+        `Your free Roamly itinerary is ready — ${trip.title || "your trip"}.`,
+        dayLines ? `\n${dayLines}` : "",
+        recoveryLink
+          ? `\nOpen it any time, on any device, with this link (works for 30 days):\n${recoveryLink}`
+          : "",
+        "\nNothing is booked or charged. This is the itinerary you asked Roamly to build."
+      ].join("\n");
+      const sent = await sendRoamlyEmail({
+        to: deliveryEmail,
+        subject: "Your Roamly itinerary is ready",
+        text,
+        html: `<p>Your free Roamly itinerary is ready — ${trip.title || "your trip"}.</p>${recoveryLink ? `<p><a href="${recoveryLink}">Open your itinerary any time, on any device</a> (link works for 30 days).</p>` : ""}<p>Nothing is booked or charged. This is the itinerary you asked Roamly to build.</p>`,
+        tripId: access.tripId,
+        idempotencyKey: `guest-delivery:${access.tripId}`
+      }).catch(() => null);
+      if (sent?.ok) {
+        await admin
+          .from("roamly_trips")
+          .update({ metadata: withGuestDeliverySent(trip.metadata) })
+          .eq("id", access.tripId)
+          .eq("user_id", access.userId);
+      }
+    } catch {
+      // Delivery is best-effort; the page itself must always load.
+    }
+  }
+
+  return NextResponse.json({ ok: true, tripId: access.tripId, unlockSource: "free", ...view, generationStatus, deliveryEmail });
 }
 
 export async function POST(request: NextRequest) {

@@ -476,7 +476,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: true,
       coordinates: { latitude: 11.1544236, longitude: 119.32103710000001 },
       google_place_id: "ChIJA48DcIlTtjMRHYjURyc8mgo",
-      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "el-nido-tour-a",
+      packageName: "El Nido Tour A",
     },    {
       time_label: "11:00 AM",
       title: "Small Lagoon",
@@ -494,7 +496,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 11.158156, longitude: 119.31868209999999 },
       google_place_id: "ChIJYTo4UY9TtjMRVlai3o-5OXw",
-      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "el-nido-tour-a",
+      packageName: "El Nido Tour A",
     },    {
       time_label: "1:00 PM",
       title: "Secret Lagoon",
@@ -512,7 +516,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 11.145541999999999, longitude: 119.3127177 },
       google_place_id: "ChIJgQMlc_JTtjMR7WdrITcL5Cs",
-      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "el-nido-tour-a",
+      packageName: "El Nido Tour A",
     },    {
       time_label: "12:00 PM",
       title: "Shimizu Island",
@@ -530,7 +536,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 11.138866199999999, longitude: 119.31856160000001 },
       google_place_id: "ChIJIeqOqPBTtjMRRZ1-mWksR_M",
-      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "el-nido-tour-a",
+      packageName: "El Nido Tour A",
     },    {
       time_label: "3:00 PM",
       title: "Seven Commandos Beach",
@@ -548,7 +556,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 11.1736705, longitude: 119.378839 },
       google_place_id: "ChIJxYHcOxtVtjMR-cXnckGR6d0",
-      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on El Nido island-hopping Tour A; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "el-nido-tour-a",
+      packageName: "El Nido Tour A",
     },    {
       time_label: "6:00 AM",
       title: "Taraw Cliff Canopy Walk",
@@ -620,7 +630,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: true,
       coordinates: { latitude: 11.9578378, longitude: 120.22602859999998 },
       google_place_id: "ChIJ642l7PMcujMRhGBA1dyvXH0",
-      cost_basis: "Reached on Coron island tours; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on Coron island tours; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "coron-island-tour",
+      packageName: "Coron island tour",
     },    {
       time_label: "10:30 AM",
       title: "Barracuda Lake",
@@ -638,7 +650,9 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 11.9550501, longitude: 120.216697 },
       google_place_id: "ChIJDz4mcvAcujMRdEox-GOObYs",
-      cost_basis: "Reached on Coron island tours; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on Coron island tours; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "coron-island-tour",
+      packageName: "Coron island tour",
     },    {
       time_label: "1:00 PM",
       title: "Twin Lagoon",
@@ -656,9 +670,11 @@ export const PH_AREA_PALAWAN: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 11.9476028, longitude: 120.20967979999999 },
       google_place_id: "ChIJ2_px0QwdujMRIRvv9VcjmF0",
-      cost_basis: "Reached on Coron island tours; typical joiner tour price per person (estimate — verify with the operator)."
+      cost_basis: "Reached on Coron island tours; typical joiner tour price per person (estimate — verify with the operator).",
+      packageId: "coron-island-tour",
+      packageName: "Coron island tour",
     },    {
-      time_label: "5:00 PM",
+      time_label: "3:30 PM",
       title: "Maquinit Hot Spring",
       description: "Saltwater hot spring pools by the mangroves — the classic way to end a Coron boat day.",
       location_name: "Maquinit Hot Spring",
@@ -1114,7 +1130,9 @@ export const PH_AREA_SIARGAO: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 9.7348585, longitude: 126.1260153 },
       google_place_id: "ChIJTYaG5CX3AzMR_nUdyoAV7Q8",
-      cost_basis: "Reached on the tri-island tour; typical joiner tour price per person covering Naked, Daku, and Guyam (estimate)."
+      cost_basis: "Reached on the tri-island tour; typical joiner tour price per person covering Naked, Daku, and Guyam (estimate).",
+      packageId: "siargao-tri-island",
+      packageName: "Siargao tri-island tour",
     },    {
       time_label: "11:00 AM",
       title: "Daku Island",
@@ -1132,7 +1150,9 @@ export const PH_AREA_SIARGAO: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 9.741183699999999, longitude: 126.1640441 },
       google_place_id: "ChIJzQvytZf2AzMRqipRH3w1OUY",
-      cost_basis: "Reached on the tri-island tour; typical joiner tour price per person covering Naked, Daku, and Guyam (estimate)."
+      cost_basis: "Reached on the tri-island tour; typical joiner tour price per person covering Naked, Daku, and Guyam (estimate).",
+      packageId: "siargao-tri-island",
+      packageName: "Siargao tri-island tour",
     },    {
       time_label: "2:00 PM",
       title: "Guyam Island",
@@ -1150,7 +1170,9 @@ export const PH_AREA_SIARGAO: PhDestinationArea = {
       must_do: false,
       coordinates: { latitude: 9.7651337, longitude: 126.16794709999999 },
       google_place_id: "ChIJ8YHTAXv2AzMR4ED_7PVLgSo",
-      cost_basis: "Reached on the tri-island tour; typical joiner tour price per person covering Naked, Daku, and Guyam (estimate)."
+      cost_basis: "Reached on the tri-island tour; typical joiner tour price per person covering Naked, Daku, and Guyam (estimate).",
+      packageId: "siargao-tri-island",
+      packageName: "Siargao tri-island tour",
     },    {
       time_label: "8:30 AM",
       title: "Sugba Lagoon, Del Carmen",
@@ -1679,31 +1701,176 @@ export function philippinesActivityCount(): number {
   return PHILIPPINES_AREAS.reduce((sum, area) => sum + area.activities.length, 0);
 }
 
+/** Sample-day rules (PH02/PH05): the old builder sliced the pack list into
+ *  fixed triples and sorted by clock label only, which published impossible
+ *  days — two stops at the same hour, a 240-minute activity overlapping the
+ *  next stop, and same-day jumps between islands. Days are now assigned by
+ *  geography first: activities cluster in list order (a new cluster when a
+ *  stop is more than SAMPLE_CLUSTER_KM from the cluster's first stop),
+ *  clusters chunk into days of at most SAMPLE_MAX_PER_DAY, adjacent
+ *  underfull days merge when their anchors are within the cluster radius,
+ *  and the day list is reconciled to the requested day count by dropping
+ *  the shortest day (ties: earliest) or splitting the longest day
+ *  (ties: earliest). Times are then re-timed forward only — a stop that
+ *  would overlap the previous stop moves to the previous stop's end plus a
+ *  transfer gap sized by the distance (15 min nearby, 45 min across town,
+ *  180 min for a long hop) — so a published sample day never overlaps and
+ *  never jumps islands without a transfer window. The pack's own labels are
+ *  never mutated: re-timing copies each stop. A shared tour package
+ *  (packageId) is counted once per day it appears: the first stop keeps
+ *  the package price and later same-day stops on the package ride included
+ *  (estimated_cost 0 + packageIncluded), so a ₱1,200 Tour A day is ₱1,200,
+ *  not ₱3,600. Costs are the pack's per-person estimates, in PHP. */
+const SAMPLE_CLUSTER_KM = 40;
+const SAMPLE_MAX_PER_DAY = 3;
+
+function sampleCoords(item: PhActivitySeed): { latitude: number; longitude: number } | null {
+  const coords = item.coordinates as { latitude?: unknown; longitude?: unknown } | null | undefined;
+  if (!coords || typeof coords.latitude !== "number" || typeof coords.longitude !== "number") return null;
+  return { latitude: coords.latitude, longitude: coords.longitude };
+}
+
+function sampleHaversineKm(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number }
+): number {
+  const earthKm = 6371;
+  const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((a.latitude * Math.PI) / 180) * Math.cos((b.latitude * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthKm * Math.asin(Math.sqrt(h));
+}
+
+function sampleTimeOfDay(label: string): number {
+  const match = label.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (!match) return 24 * 60;
+  const hours = (parseInt(match[1], 10) % 12) + (match[3].toUpperCase() === "PM" ? 12 : 0);
+  return hours * 60 + parseInt(match[2], 10);
+}
+
+function sampleFormatTimeLabel(minutes: number): string {
+  const hours24 = Math.floor(minutes / 60) % 24;
+  const suffix = hours24 >= 12 ? "PM" : "AM";
+  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
+  return `${hours12}:${String(minutes % 60).padStart(2, "0")} ${suffix}`;
+}
+
+function sampleTransferGapMinutes(distanceKm: number): number {
+  if (distanceKm <= 5) return 15;
+  if (distanceKm <= SAMPLE_CLUSTER_KM) return 45;
+  return 180;
+}
+
 /**
  * Build a sample itinerary for a PH area entirely from this pack,
  * through the app's own itinerary machinery: buildStarterItinerary
  * supplies the plan frame for the payload, the pack's verified
  * activities fill the days, and normalizeItinerary sanitizes the
- * result exactly as it does for generated plans. Costs are the
- * pack's per-person estimates, summed per day, in PHP.
+ * result exactly as it does for generated plans.
  */
 export function buildPhilippinesSampleItinerary(areaKey: string, daysCount = 5, startDate = "2026-12-10"): RoamlyItinerary {
   const area = philippinesArea(areaKey);
   if (!area) throw new RangeError(`no Philippines pack area named ${areaKey}`);
   const days = clampTripDays(daysCount);
   const plannerLabel = area.planLinks[0]?.plannerLabel ?? `${area.displayName}, Philippines`;
-  const perDay = Math.max(1, Math.min(3, Math.floor(area.activities.length / days) || 1));
-  const chosen: PhActivitySeed[][] = Array.from({ length: days }, () => []);
-  area.activities.slice(0, perDay * days).forEach((activity, index) => {
-    chosen[Math.floor(index / perDay)].push(activity);
+  // 1. Cluster in list order: a new cluster when a stop is farther than
+  // SAMPLE_CLUSTER_KM from the cluster's first stop.
+  const clusters: PhActivitySeed[][] = [];
+  for (const activity of area.activities) {
+    const current = clusters[clusters.length - 1];
+    const anchor = current?.[0];
+    const anchorCoords = anchor ? sampleCoords(anchor) : null;
+    const coords = sampleCoords(activity);
+    const distance = anchorCoords && coords ? sampleHaversineKm(anchorCoords, coords) : 0;
+    if (!current || distance > SAMPLE_CLUSTER_KM) clusters.push([activity]);
+    else current.push(activity);
+  }
+  // 2. Chunk clusters into days of at most SAMPLE_MAX_PER_DAY, in list order.
+  const dayGroups: PhActivitySeed[][] = [];
+  for (const cluster of clusters) {
+    for (let i = 0; i < cluster.length; i += SAMPLE_MAX_PER_DAY) {
+      dayGroups.push(cluster.slice(i, i + SAMPLE_MAX_PER_DAY));
+    }
+  }
+  // 3. Merge adjacent underfull days whose anchors are within the cluster
+  // radius (combined size stays within SAMPLE_MAX_PER_DAY).
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (let i = 0; i + 1 < dayGroups.length; i += 1) {
+      const left = dayGroups[i];
+      const right = dayGroups[i + 1];
+      if (left.length + right.length > SAMPLE_MAX_PER_DAY) continue;
+      const leftCoords = sampleCoords(left[0]);
+      const rightCoords = sampleCoords(right[0]);
+      const distance = leftCoords && rightCoords ? sampleHaversineKm(leftCoords, rightCoords) : 0;
+      if (distance > SAMPLE_CLUSTER_KM) continue;
+      dayGroups.splice(i, 2, [...left, ...right]);
+      merged = true;
+      break;
+    }
+  }
+  // 4. Too many days: drop the shortest day (ties: earliest). This drops
+  // the fewest stops; the dropped stops stay on the area page.
+  while (dayGroups.length > days) {
+    let drop = 0;
+    for (let i = 1; i < dayGroups.length; i += 1) {
+      if (dayGroups[i].length < dayGroups[drop].length) drop = i;
+    }
+    dayGroups.splice(drop, 1);
+  }
+  // 5. Too few days: split the longest day into time-sorted halves
+  // (ties: earliest) until the day count matches or every day is a single.
+  while (dayGroups.length < days) {
+    let split = -1;
+    for (let i = 0; i < dayGroups.length; i += 1) {
+      if (dayGroups[i].length < 2) continue;
+      if (split === -1 || dayGroups[i].length > dayGroups[split].length) split = i;
+    }
+    if (split === -1) break;
+    const sorted = [...dayGroups[split]].sort((a, b) => sampleTimeOfDay(a.time_label) - sampleTimeOfDay(b.time_label));
+    const mid = Math.ceil(sorted.length / 2);
+    dayGroups.splice(split, 1, sorted.slice(0, mid), sorted.slice(mid));
+  }
+  // 6. Per day: sort by clock label, then re-time forward only (on copies,
+  // never the pack's own objects) so no stop overlaps the previous stop,
+  // with a transfer gap sized by the hop distance. Then count each shared
+  // tour package once per day.
+  const chosen: PhActivitySeed[][] = dayGroups.map((items) => {
+    const sorted = [...items].sort((a, b) => sampleTimeOfDay(a.time_label) - sampleTimeOfDay(b.time_label));
+    const timed: PhActivitySeed[] = [];
+    let prevEnd: number | null = null;
+    let prevCoords: { latitude: number; longitude: number } | null = null;
+    for (const item of sorted) {
+      const copy = { ...item };
+      const start = sampleTimeOfDay(copy.time_label);
+      const duration = copy.durationMinutes ?? 60;
+      let assigned = start;
+      if (prevEnd !== null) {
+        const coords = sampleCoords(copy);
+        const distance = prevCoords && coords ? sampleHaversineKm(prevCoords, coords) : 0;
+        const earliest = prevEnd + sampleTransferGapMinutes(distance);
+        if (assigned < earliest) assigned = earliest;
+      }
+      if (assigned !== start) copy.time_label = sampleFormatTimeLabel(assigned);
+      timed.push(copy);
+      prevEnd = assigned + duration;
+      prevCoords = sampleCoords(copy);
+    }
+    const seenPackages = new Set<string>();
+    for (const item of timed) {
+      if (!item.packageId) continue;
+      if (seenPackages.has(item.packageId)) {
+        item.estimated_cost = 0;
+        item.packageIncluded = true;
+      } else {
+        seenPackages.add(item.packageId);
+      }
+    }
+    return timed;
   });
-  const timeOfDay = (label: string): number => {
-    const match = label.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return 24 * 60;
-    const hours = (parseInt(match[1], 10) % 12) + (match[3].toUpperCase() === "PM" ? 12 : 0);
-    return hours * 60 + parseInt(match[2], 10);
-  };
-  chosen.forEach((items) => items.sort((a, b) => timeOfDay(a.time_label) - timeOfDay(b.time_label)));
   const start = new Date(`${startDate}T00:00:00Z`);
   const end = new Date(start.getTime() + (days - 1) * 86400000);
   const payload: TripPlannerPayload = {

@@ -91,6 +91,13 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
   return (
     <>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {/* Bookings was reachable only by guessing its URL: the trip
+            page's Bookings panel has no tab label, and the bookings
+            route is where the Add booking form lives. This header link
+            is the discoverable path to it, in the existing control row. */}
+        <a href={`/trip/${tripId}/bookings`} className={buttonClass}>
+          {t("ui.actions.bookings", "Bookings")}
+        </a>
         <button type="button" onClick={exportPdf} className={buttonClass}>
           {t("ui.actions.exportPdf", "Export PDF")}
         </button>
