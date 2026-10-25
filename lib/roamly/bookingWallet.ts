@@ -214,8 +214,25 @@ function sanitizeBookingEvidence(value: unknown): unknown {
 function nullableTimestamp(value: unknown) {
   const text = clean(value);
   if (!text) return null;
-  const date = new Date(text);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  // An offset-bearing instant converts to UTC exactly as before.
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(text)) {
+    const date = new Date(text);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+  // An offset-free wall clock must be preserved verbatim, NEVER run through
+  // `new Date` in the server's local timezone: under America/Moncton that
+  // shifted a 20:30 flight to the next day (2026-11-11T00:30Z). Validate the
+  // calendar date TZ-independently via UTC components, then keep the
+  // traveler's typed wall clock (seconds added when omitted).
+  const wall = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/.exec(text);
+  if (!wall) return null;
+  const [, y, mo, d, h, mi, s] = wall;
+  const check = new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? "0")));
+  if (
+    check.getUTCFullYear() !== +y || check.getUTCMonth() !== +mo - 1 || check.getUTCDate() !== +d ||
+    check.getUTCHours() !== +h || check.getUTCMinutes() !== +mi || check.getUTCSeconds() !== +(s ?? "0")
+  ) return null;
+  return `${y}-${mo}-${d}T${h}:${mi}:${s ?? "00"}`;
 }
 
 function nullableMoney(value: unknown) {
