@@ -772,6 +772,11 @@ export function runEnginePlan(params: {
   payload: TripPlannerPayload;
   totalDayCount: number;
   anchorOverride?: { name: string; pos: { lat: number; lon: number }; key: string | null; source: EngineSolveContext["anchorSource"] } | null;
+  /** GATE-1 FIX (2026-10-25): meals already scheduled on completed
+   *  days of the same trip — threaded into solveTrip so a fresh
+   *  batch run cannot re-pick them. Only the day-batch call passes
+   *  this; first-pass and finalization runs plan no persisted days. */
+  priorMeals?: Array<{ key?: string | null; name?: string | null }> | null;
 }): EnginePlanRun {
   const { pack, payload, totalDayCount } = params;
   const scoredStays = scoreStays(pack);
@@ -801,7 +806,8 @@ export function runEnginePlan(params: {
     mustSees: ctx.mustSees,
     basePos: ctx.anchorPos,
     baseName: ctx.anchorName,
-    pinnedStay: ctx.pinnedStay
+    pinnedStay: ctx.pinnedStay,
+    priorMeals: params.priorMeals || null
   });
 
   const anchorStay = scoredStays.find((s) => s.key === ctx.anchorKey) || null;
@@ -1711,7 +1717,26 @@ async function runDayBatchStage(params: {
     if (refreshed) pack = refreshed.pack;
   }
 
-  const planRun = runEnginePlan({ pack, payload, totalDayCount: state.totalDayCount, anchorOverride: run.anchor });
+  // GATE-1 FIX (2026-10-25): seed this batch's plan with the meals
+  // already scheduled on completed days of the same trip, so the
+  // fresh solver run cannot re-pick them (final validation forbids
+  // a meal name repeating across days). Converted meal seeds carry
+  // item_type "meal", title = the place name, candidateId = the
+  // candidate key; generatedDays is keyed by String(day_number).
+  const priorMeals: Array<{ key: string | null; name: string | null }> = [];
+  for (const [dayKey, completedDay] of Object.entries(state.generatedDays || {})) {
+    if (batch.dayNumbers.includes(Number(dayKey))) continue;
+    for (const seed of completedDay.live_timeline || []) {
+      if (seed.item_type === "meal") {
+        priorMeals.push({
+          key: typeof seed.candidateId === "string" ? seed.candidateId : null,
+          name: typeof seed.title === "string" ? seed.title : null
+        });
+      }
+    }
+  }
+
+  const planRun = runEnginePlan({ pack, payload, totalDayCount: state.totalDayCount, anchorOverride: run.anchor, priorMeals });
   const mustSeeKeys = new Set(
     planRun.plan.mustSeeResults.map((m) => m.itemKey).filter((k): k is string => typeof k === "string" && k.length > 0)
   );

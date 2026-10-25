@@ -146,6 +146,8 @@ const movedTrip = fake.rows.trips.find((t) => t.id === "trip-cap-past");
 assert.equal(movedTrip.metadata.generation.status, "failed");
 assert.equal(movedTrip.metadata.generation.currentStage, "failed");
 assert.equal(movedTrip.metadata.generation.lastErrorCode, "ZERO_ENGINE_PACK_WAIT_TIMEOUT");
+assert.equal(movedTrip.status, "draft", "GATE-1 FIX: row must stop saying generating for a terminal job");
+assert.equal(movedTrip.itinerary_status, "draft", "GATE-1 FIX: itinerary_status matches the engine failed path");
 assert.equal(movedTrip.metadata.zeroEngine.packWaitCount, 71, "zero-engine record preserved for diagnosis");
 const readyJob = fake.rows.jobs.find((j) => j.id === "job-pack-ready");
 assert.equal(readyJob.status, "waiting", "pack-ready job untouched");
