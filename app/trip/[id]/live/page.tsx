@@ -129,7 +129,34 @@ export default async function LiveTripPage({
     metadata: bundle.data.trip.metadata
   });
   const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
-  if ((!locked && !tripCompleted) || (!companionUnlocked && !tripCompleted)) redirect(`/trip/${id}`);
+  // A trip that has not generated yet still goes back to its trip page,
+  // where generation lives. A generated trip whose Companion is not
+  // unlocked must NOT bounce silently back to the trip page: the traveler
+  // clicked Live on purpose and deserves to be told why it did not open
+  // and where the unlock lives (the trip page's Activate control).
+  if (!locked && !tripCompleted) redirect(`/trip/${id}`);
+  if (!companionUnlocked && !tripCompleted) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+        <Card>
+          <Badge tone="sun">Live Companion</Badge>
+          <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Live Companion isn&apos;t unlocked for this trip yet</h1>
+          <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+            Live Companion follows you during the trip with day-by-day help. It needs to be unlocked for this trip before it can open.
+          </p>
+          <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+            Go back to the trip page to unlock it. Nothing was changed, and your itinerary is still there.
+          </p>
+          <a
+            href={`/trip/${id}`}
+            className="mt-5 inline-flex min-h-11 items-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white"
+          >
+            Back to trip
+          </a>
+        </Card>
+      </div>
+    );
+  }
 
   if (!tripCompleted) await scheduleCompanionEvents(supabase, id);
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";
