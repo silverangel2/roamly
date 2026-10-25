@@ -32,6 +32,7 @@ export const KNOWN_TRAVEL_DOMAINS = [
   "klm.com",
   "emirates.com",
   "booking.com",
+  "agoda.com",
   "hotels.com",
   "expedia.com",
   "airbnb.com",
