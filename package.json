@@ -134,7 +134,8 @@
     "test:wiring-fixes": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-fixes-checks.mjs",
     "test:wiring-openplaces": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-wiring-openplaces-checks.mjs",
     "test:pack-kick": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-pack-kick-checks.mjs",
-    "test:mustsee-match": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-mustsee-match-checks.mjs"
+    "test:mustsee-match": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-mustsee-match-checks.mjs",
+    "test:booking-cancel": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-booking-cancel-server-only-register.mjs scripts/roamly-booking-cancel-checks.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
