@@ -30,6 +30,11 @@ type ExtractedReview = {
 
 type ManualBookingFormProps = {
   tripId: string;
+  // The trip's own currency (planner budget currency). Sent with every manual
+  // kind so the server never has to guess the unit for an unknown price; null
+  // means unknown and the server falls back to the trip, then the "XXX"
+  // no-currency marker.
+  tripCurrency?: string | null;
   referral?: {
     affiliateClickId: string;
     recommendationId: string | null;
@@ -88,7 +93,7 @@ function Field({
   );
 }
 
-export function ManualBookingForm({ tripId, referral = null }: ManualBookingFormProps) {
+export function ManualBookingForm({ tripId, tripCurrency = null, referral = null }: ManualBookingFormProps) {
   const router = useRouter();
   const { locale, t } = useI18n();
   const referralKind = referral?.bookingType as BookingKind | null;
@@ -174,6 +179,10 @@ export function ManualBookingForm({ tripId, referral = null }: ManualBookingForm
           bookingType: kind,
           bookingStatus: null,
           travelerConfirmed: false,
+          // One currency field for every manual kind (flight, hotel, activity,
+          // restaurant, other). Null means "no price known"; the server resolves
+          // it from the trip and never writes null into the bookings table.
+          currency: tripCurrency || null,
           recommendationId: referral?.recommendationId || null,
           affiliateClickId: referral?.affiliateClickId || null,
           sourceType: review ? "upload" : "manual",
@@ -186,6 +195,11 @@ export function ManualBookingForm({ tripId, referral = null }: ManualBookingForm
           gate: kind === "flight" ? gate : null,
           startTime: toDateTime(startDate, startTime),
           endTime: kind === "flight" ? toDateTime(endDate || startDate, endTime) : kind === "hotel" ? toDateTime(endDate, "11:00") : null,
+          // B04: the calendar dates travel as dates, so a date-only
+          // activity or restaurant keeps its chosen date even when no
+          // clock was given (the timestamp fields above stay null then).
+          startDate: startDate || null,
+          endDate: endDate || null,
           checkInTime: kind === "hotel" ? toDateTime(startDate, "15:00") : null,
           checkOutTime: kind === "hotel" ? toDateTime(endDate, "11:00") : null,
           origin,
@@ -223,7 +237,12 @@ export function ManualBookingForm({ tripId, referral = null }: ManualBookingForm
       router.push(`/trip/${tripId}/bookings`);
       router.refresh();
     } catch (err) {
-      setError(localizeCustomerError(locale, err));
+      const message = err instanceof Error ? err.message : "";
+      setError(
+        message === "BOOKING_SAVE_FAILED"
+          ? t("ui.booking.saveFailed", "Couldn't save your booking. Please try again.")
+          : localizeCustomerError(locale, err)
+      );
     } finally {
       setBusy(false);
     }
