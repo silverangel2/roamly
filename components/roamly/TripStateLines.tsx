@@ -21,13 +21,20 @@ export function TripStateLines({
   locationGranted,
   locationEnabled,
   companionUnlocked,
-  tripActive
+  tripActive,
+  tripId,
+  pendingImportCount
 }: {
   gmailConnected: boolean;
   locationGranted: boolean;
   locationEnabled: boolean;
   companionUnlocked: boolean;
   tripActive: boolean;
+  /** When set, a pending-review count renders as a quiet third line.
+      Near-misses already live on the Bookings page; the trip page only
+      points at them, and only when at least one is actually waiting. */
+  tripId?: string;
+  pendingImportCount?: number;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(locationEnabled);
@@ -93,6 +100,17 @@ export function TripStateLines({
           )}
         </span>
       </p>
+      {tripId && pendingImportCount != null && pendingImportCount > 0 ? (
+        <p className="flex items-start gap-1.5">
+          <span aria-hidden className="calm-dot mt-[7px] h-2 w-2 shrink-0 rounded-full bg-cgray2" />
+          <span>
+            {pendingImportCount} booking{pendingImportCount === 1 ? "" : "s"} from your inbox need your review —{" "}
+            <a className={linkClass} href={`/trip/${tripId}/bookings`}>
+              Review on the Bookings page
+            </a>
+          </span>
+        </p>
+      ) : null}
       {companionUnlocked ? (
         <p className="flex items-start gap-1.5">
           <span

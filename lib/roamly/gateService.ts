@@ -193,6 +193,8 @@ export interface GmailGateView {
   emailAddress: string | null;
   /** True once a sync/watch exists — reconciliation has initialized. */
   syncInitialized: boolean;
+  /** Last successful sync, when the row has one. */
+  lastSyncedAt?: string | null;
 }
 
 interface EmailConnectionGateRow {
@@ -226,6 +228,21 @@ export async function readGmailGateView(
   const grantedScope = scopes.length ? scopes.join(" ") : null;
   if (row.connection_status === "revoked") {
     return { state: "REVOKED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false };
+  }
+  if (row.connection_status === "error") {
+    // A failed sync attempt, not a revoked token: the connection still
+    // exists and the monitor retries it. Treat it as connected so the
+    // traveler is never pushed into a reconnect (which would reset the
+    // scan cursor); staleness is shown from last_synced_at instead.
+    const syncInitialized = Boolean(row.last_synced_at);
+    return {
+      state: syncInitialized ? "RECONCILIATION_ARMED" : "CONNECTED",
+      connectionRef: row.id,
+      grantedScope,
+      emailAddress: row.email_address,
+      syncInitialized,
+      lastSyncedAt: row.last_synced_at
+    };
   }
   if (row.connection_status !== "connected" && row.connection_status !== "syncing") {
     return { state: "REAUTH_REQUIRED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false };

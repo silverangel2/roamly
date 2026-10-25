@@ -2496,6 +2496,26 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // Destination photo (owner design, 2026-10-23): a real photo of the
   // destination from Wikimedia/Wikidata, cached per destination so later
   // trips reuse it. When none resolves, the header stays bare by design.
+  // Near-misses already live on the Bookings page (unmatched +
+  // needs_confirmation extractions with attach/discard). The trip page
+  // only points at them, with a count, and only when at least one waits.
+  // Same filters as the email-imports route; a query failure means no
+  // line, never a wrong count.
+  let pendingImports: number | null = null;
+  if (supabase) {
+    try {
+      const pendingResult = await supabase
+        .from("booking_extraction_results")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", current.user.id)
+        .in("match_status", ["unmatched", "needs_confirmation"])
+        .or(`trip_id.eq.${trip.id},trip_id.is.null`);
+      pendingImports = pendingResult.error ? null : pendingResult.count;
+    } catch {
+      pendingImports = null;
+    }
+  }
+
   const photoPlanning = getTripPlanningMetadata(trip.metadata);
   const destinationPhoto = await getDestinationPhoto({
     label: destinationLabel,
@@ -2534,6 +2554,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               locationEnabled={setupState.locationEnabled}
               companionUnlocked={trackingUnlocked && !completedTrip}
               tripActive={tripLifecycle === "active"}
+              tripId={trip.id}
+              pendingImportCount={pendingImports ?? undefined}
             />
           ) : null}
           <p className="mt-1.5 text-[13.5px] font-normal leading-6 text-cgray">{formatDateRange(trip, locale)} · {travelerLabel}</p>
