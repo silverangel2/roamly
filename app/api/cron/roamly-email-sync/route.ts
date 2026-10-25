@@ -16,8 +16,14 @@ const RECENT_SYNC_SKIP_MS = 20 * 60_000;
 
 /**
  * Scheduled email import: every 30 minutes, sync Gmail/Outlook connections
- * for travelers with an upcoming or active trip. Each sync respects the
- * per-connection lease so overlapping runs never double-process a mailbox.
+ * for every connected traveler — not only travelers with an upcoming or
+ * active trip. (Autosync: the old trip filter silently orphaned connected
+ * inboxes with no current trip — their last sync froze while the account
+ * still read "connected" — so it is gone. Per-run cost is unchanged: the
+ * 50-connection cap, the 20-minute recent-sync skip, and the
+ * per-connection lease below still bound every run; only who fills the
+ * 50 slots changed, stalest first. Each sync costs a few Gmail API calls:
+ * one history listing plus at most 10 lookback messages.)
  */
 export async function GET(request: NextRequest) {
   const expected = (
@@ -42,27 +48,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "SUPABASE_NOT_CONFIGURED" }, { status: 503 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  const { data: activeTrips, error: tripsError } = await supabase
-    .from("roamly_trips")
-    .select("user_id")
-    .neq("status", "archived")
-    .gte("end_date", today)
-    .limit(2000);
-
-  if (tripsError) {
-    return NextResponse.json({ ok: false, error: "TRIP_LOOKUP_FAILED" }, { status: 500 });
-  }
-
-  const tripRows = (activeTrips || []) as Array<{ user_id: unknown }>;
-  const activeUserIds = new Set(
-    tripRows.map((trip) => String(trip.user_id)).filter(Boolean)
-  );
-  if (activeUserIds.size === 0) {
-    return NextResponse.json({ ok: true, synced: 0, skipped: 0, total: 0 });
-  }
-
   const { data: connections, error: connectionsError } = await supabase
     .from("email_connections")
     .select("user_id,provider,last_synced_at")
@@ -80,7 +65,7 @@ export async function GET(request: NextRequest) {
   const candidates = connectionRows
     .filter((connection) => {
       const userId = String(connection.user_id || "");
-      if (!userId || !activeUserIds.has(userId)) return false;
+      if (!userId) return false;
       const lastSynced = connection.last_synced_at;
       if (lastSynced) {
         const syncedAt = new Date(lastSynced).getTime();

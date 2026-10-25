@@ -2581,6 +2581,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
             <TripStateLines
               gmailConnected={setupState.gmailConnected}
               gmailLastSyncedAt={setupState.gmailLastSyncedAt}
+              gmailSyncFailing={setupState.gmailSyncFailing}
+              gmailSyncFailureReconnect={setupState.gmailSyncFailureReconnect}
               locationGranted={setupState.locationGranted}
               locationEnabled={setupState.locationEnabled}
               companionUnlocked={trackingUnlocked && !completedTrip}

@@ -1,5 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { readGmailGateView } from "@/lib/roamly/gateService";
+import { gmailSyncFailureNeedsReconnect, isGmailSyncPersistentlyFailing } from "@/lib/roamly/emailSyncHealth";
 
 /*
  * Roamly setup state — the cascade behind "everything works"
@@ -32,6 +33,14 @@ export interface RoamlySetupState {
   /** Last successful Gmail sync, when connected. Drives the stale-sync
       trip line only — a stale date never flips gmailConnected itself. */
   gmailLastSyncedAt: string | null;
+  /** Autosync, display only: the Gmail sync is persistently failing
+      (row in "error" + last success over 24h old). Never flips
+      gmailConnected and never gates anything — it only decides which
+      words the trip/account surfaces show next to "connected". */
+  gmailSyncFailing: boolean;
+  /** Autosync, display only: the persistent failure is a refresh/auth
+      failure, so the honest advice is reconnecting, not retrying. */
+  gmailSyncFailureReconnect: boolean;
   gmailEmail: string | null;
   /** Step 1 completed at least once. */
   gmailOnce: boolean;
@@ -89,9 +98,18 @@ export async function getRoamlySetupState(
   const locationEnabled = locationRow?.location_tracking_enabled === true;
   const appInstalledOnce = Boolean(memory.app);
 
+  // Autosync: persistent-failure flags are display only. They are computed
+  // from the gate view's raw row fields and never feed gmailConnected,
+  // gmailOnce, or complete above.
+  const gmailSyncFailing = isGmailSyncPersistentlyFailing({
+    connectionStatus: gmailView?.connectionStatus ?? null,
+    lastSyncedAt: gmailConnected ? gmailView?.lastSyncedAt ?? null : null
+  });
   return {
     gmailConnected,
     gmailLastSyncedAt: gmailConnected ? gmailView?.lastSyncedAt ?? null : null,
+    gmailSyncFailing,
+    gmailSyncFailureReconnect: gmailSyncFailing && gmailSyncFailureNeedsReconnect(gmailView?.lastSyncErrorCode ?? null),
     gmailEmail: gmailView?.emailAddress ?? null,
     gmailOnce,
     appInstalledOnce,
