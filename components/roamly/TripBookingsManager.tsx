@@ -4,11 +4,14 @@ import { useMemo, useState } from "react";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { groupConfirmedBudgetTotals } from "@/lib/roamly/bookingBudgetCard";
 
 type Booking = {
   id?: string;
   booking_type: string;
   booking_status?: string | null;
+  traveler_confirmed?: boolean | null;
+  superseded_by_booking_id?: string | null;
   provider_name?: string | null;
   provider?: string | null;
   title?: string | null;
@@ -67,16 +70,24 @@ function bookingWhen(booking: Booking, locale: Parameters<typeof formatRoamlyDat
 
 export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
   const { locale } = useI18n();
-  const committed = bookings
-    .filter((booking) => booking.booking_status !== "cancelled")
-    .reduce((sum, booking) => sum + (booking.amount_cents || (booking.total_price ? Math.round(booking.total_price * 100) : 0)), 0);
+  // B13: canonical confirmation + per-currency totals (see
+  // lib/roamly/bookingBudgetCard.ts). Pending, cancelled, superseded, and
+  // unknown-amount rows never count as committed cost.
+  const { confirmedCount, totals } = groupConfirmedBudgetTotals(bookings);
 
   return (
     <div className="rounded-[1.5rem] border border-cloud bg-mist p-4">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Committed budget</p>
-      <p className="mt-2 text-3xl font-black text-ink">{formatMoney(committed, "CAD", locale)}</p>
+      {totals.length ? (
+        totals.map(({ currency, cents }) => (
+          <p key={currency} className="mt-2 text-3xl font-black text-ink">{formatMoney(cents, currency, locale)}</p>
+        ))
+      ) : (
+        <p className="mt-2 text-3xl font-black text-ink">No confirmed bookings yet</p>
+      )}
       <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
-        Confirmed bookings count as committed cost. Price estimates stay separate.
+        {confirmedCount ? `${confirmedCount} confirmed booking${confirmedCount === 1 ? "" : "s"} count${confirmedCount === 1 ? "s" : ""} as committed cost. ` : ""}
+        Pending and unconfirmed bookings are not counted here. Price estimates stay separate.
       </p>
     </div>
   );
@@ -294,6 +305,7 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
   const [evidenceToken, setEvidenceToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const hasOverBudgetWarning = useMemo(
     () => bookings.some((booking) => (booking.amount_cents || 0) > 0),
     [bookings]
@@ -303,11 +315,16 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
     if (!extracted) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const response = await fetch("/api/roamly/bookings/confirm", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tripId, evidenceToken })
+        // B10: send the traveler's review edits with the confirm. The server
+        // diffs them against the signed extraction and stores any real
+        // corrections as a separate pending assertion — the edits are neither
+        // discarded nor treated as confirmed facts.
+        body: JSON.stringify({ tripId, evidenceToken, corrections: extracted })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error || "Could not save booking.");
@@ -319,6 +336,9 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
       setBookings(refreshedData.bookings);
       setExtracted(null);
       setEvidenceToken("");
+      if (data?.correctionsSaved) {
+        setNotice(`Your corrections were saved for review (${data.correctionCount || 0} field${data.correctionCount === 1 ? "" : "s"}). They are not confirmed yet.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save booking.");
     } finally {
@@ -344,6 +364,7 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
           </p>
         ) : null}
         {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+        {notice ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{notice}</p> : null}
         {busy && !extracted ? <p className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-ink">Reading screenshot...</p> : null}
       </div>
       <div className="space-y-4">
