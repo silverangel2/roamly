@@ -18,12 +18,16 @@ import { useRouter } from "next/navigation";
 
 export function TripStateLines({
   gmailConnected,
+  gmailLastSyncedAt,
   locationGranted,
   locationEnabled,
   companionUnlocked,
   tripActive
 }: {
   gmailConnected: boolean;
+  /** Last successful Gmail sync, when connected. A stale date replaces
+      the plain "activated" line — it never flips the connected state. */
+  gmailLastSyncedAt?: string | null;
   locationGranted: boolean;
   locationEnabled: boolean;
   companionUnlocked: boolean;
@@ -71,6 +75,22 @@ export function TripStateLines({
 
   const linkClass = "font-semibold text-cblue";
   const grantMissing = !locationGranted || grantRevoked;
+  // Same 45-minute honesty window the Gmail imports panel already uses:
+  // a connected inbox whose last successful sync is older than that is
+  // stale, and the trip line must say so instead of plain "activated".
+  // A missing date means no successful sync yet — that stays "activated"
+  // here, because a first sync may still be running.
+  const lastSyncMs = gmailLastSyncedAt ? Date.parse(gmailLastSyncedAt) : Number.NaN;
+  const gmailStale =
+    gmailConnected && Number.isFinite(lastSyncMs) && Date.now() - lastSyncMs > 45 * 60 * 1000;
+  const lastSyncLabel = Number.isFinite(lastSyncMs)
+    ? new Date(lastSyncMs).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      })
+    : null;
 
   return (
     <div className="mt-3 space-y-1.5 text-[13.5px] font-normal leading-6 text-cgray">
@@ -81,7 +101,9 @@ export function TripStateLines({
         />
         <span>
           Booking Recon:{" "}
-          {gmailConnected ? (
+          {gmailStale ? (
+            <>connected, but inbox not checked since {lastSyncLabel}</>
+          ) : gmailConnected ? (
             "activated"
           ) : (
             <>
