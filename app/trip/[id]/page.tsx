@@ -2530,6 +2530,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           {canShowFull && full && !generationPanelVisible && setupState ? (
             <TripStateLines
               gmailConnected={setupState.gmailConnected}
+              gmailLastSyncedAt={setupState.gmailLastSyncedAt}
               locationGranted={setupState.locationGranted}
               locationEnabled={setupState.locationEnabled}
               companionUnlocked={trackingUnlocked && !completedTrip}

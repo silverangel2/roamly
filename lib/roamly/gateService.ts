@@ -193,6 +193,9 @@ export interface GmailGateView {
   emailAddress: string | null;
   /** True once a sync/watch exists — reconciliation has initialized. */
   syncInitialized: boolean;
+  /** Last successful sync, when the row has one. Used only to tell a
+      traveler whether "activated" is fresh or stale — never a gate input. */
+  lastSyncedAt?: string | null;
 }
 
 interface EmailConnectionGateRow {
@@ -233,7 +236,7 @@ export async function readGmailGateView(
   if (!scopes.includes(GMAIL_READONLY_SCOPE)) {
     // Connected without the read scope the lane needs — the identity is
     // there but the granted scope does not cover reconciliation.
-    return { state: "CONNECTED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false };
+    return { state: "CONNECTED", connectionRef: row.id, grantedScope, emailAddress: row.email_address, syncInitialized: false, lastSyncedAt: row.last_synced_at };
   }
   const syncInitialized = Boolean(row.last_synced_at) || row.connection_status === "syncing";
   return {
@@ -241,7 +244,8 @@ export async function readGmailGateView(
     connectionRef: row.id,
     grantedScope,
     emailAddress: row.email_address,
-    syncInitialized
+    syncInitialized,
+    lastSyncedAt: row.last_synced_at
   };
 }
 

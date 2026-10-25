@@ -16,6 +16,7 @@
     "test:october4-journey": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-october4-journey-checks.mjs",
     "test:guest-plan-preview": "node scripts/roamly-guest-plan-preview-checks.mjs",
     "test:guest-generation-status": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-guest-generation-status-checks.mjs",
+    "test:recon-stale-agoda": "node scripts/roamly-recon-stale-agoda-checks.mjs",
     "test:confirmed-itinerary-anchors": "node --experimental-strip-types scripts/roamly-confirmed-itinerary-anchor-checks.mjs",
     "test:finds-game": "node scripts/roamly-finds-game-checks.mjs",
     "test:curated-amazon-finds": "node --experimental-strip-types scripts/roamly-curated-amazon-finds-checks.mjs",
