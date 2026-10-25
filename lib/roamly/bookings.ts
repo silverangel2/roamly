@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { createTripBooking } from "@/lib/roamly/bookingWallet";
+import { bookingTimestamp } from "@/lib/roamly/bookingDateTime";
 export { createBookingEvidenceToken, verifyBookingEvidenceToken } from "@/lib/roamly/bookingEvidenceToken";
 
 export type RoamlyBookingType =
@@ -98,9 +99,20 @@ function metadataText(metadata: Record<string, unknown>, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function asAmountCents(value: unknown) {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value > 1000 ? Math.round(value) : Math.round(value * 100);
+// Money-unit contract for extracted bookings (B02 fix): `amount_cents` is
+// ALWAYS minor units (integer cents) and `amount` is ALWAYS major units
+// (e.g. dollars). The two fields are kept distinct: an explicit minor-unit
+// value is kept as-is, a major-unit value is converted exactly once.
+// Normalization is idempotent because the normalized record carries only
+// `amount_cents`, which re-normalizes to itself. Units are NEVER inferred
+// from magnitude: the old "value > 1000" threshold turned a $4.99 cost
+// (amount_cents=499) into $499 (49900 cents).
+function asAmountCents(amountCents: unknown, amountMajor: unknown) {
+  if (typeof amountCents === "number" && Number.isFinite(amountCents)) {
+    return Math.round(amountCents);
+  }
+  if (typeof amountMajor === "number" && Number.isFinite(amountMajor)) {
+    return Math.round(amountMajor * 100);
   }
   return null;
 }
@@ -149,7 +161,7 @@ export function normalizeExtractedBooking(value: Record<string, unknown>): Extra
     origin: asText(value.origin ?? metadata.origin),
     destination: asText(value.destination ?? metadata.destination),
     booking_status: statuses.has(bookingStatus) ? (bookingStatus as ExtractedBooking["booking_status"]) : "unknown",
-    amount_cents: asAmountCents(value.amount_cents ?? value.amount),
+    amount_cents: asAmountCents(value.amount_cents, value.amount),
     currency: asText(value.currency).toLowerCase() || "cad",
     start_date: asText(value.start_date),
     end_date: asText(value.end_date),
@@ -219,7 +231,8 @@ export async function extractBookingFromScreenshot(file: File): Promise<{ bookin
 
 function combineBookingDateTime(
   dateValue: string | null | undefined,
-  timeValue: string | null | undefined
+  timeValue: string | null | undefined,
+  timeZone?: string | null
 ) {
   if (!dateValue) return null;
 
@@ -227,11 +240,12 @@ function combineBookingDateTime(
   const normalizedTime =
     /^\d{2}:\d{2}$/.test(time) ? `${time}:00` : time;
 
-  const value = new Date(`${dateValue}T${normalizedTime}Z`);
-
-  return Number.isNaN(value.getTime())
-    ? null
-    : value.toISOString();
+  // B04 fix: a wall clock is NEVER stamped as UTC by appending "Z" (the old
+  // code turned a 09:00 Manila clock into 09:00Z, 8 hours late). With an
+  // explicit IANA zone the clock converts exactly; without one no instant
+  // is fabricated — the caller preserves the calendar date instead and
+  // the instant stays null.
+  return bookingTimestamp(`${dateValue}T${normalizedTime}`, timeZone);
 }
 
 function flightSegmentForBooking(booking: ExtractedBooking, startTime: string | null, endTime: string | null) {
@@ -263,13 +277,21 @@ export async function saveConfirmedBooking(
   }
 ) {
   const { booking } = params;
+  // The extraction may carry an explicit IANA zone (metadata.timezone).
+  // It is the only zone a screenshot clock may convert with: without it,
+  // combineBookingDateTime returns null for the instant and the date-only
+  // fields below preserve the calendar date instead of a shifted time.
+  const extractionTimeZone =
+    typeof booking.metadata?.timezone === "string" ? booking.metadata.timezone : null;
   const startTime = combineBookingDateTime(
     booking.start_date,
-    booking.start_time
+    booking.start_time,
+    extractionTimeZone
   );
   const endTime = combineBookingDateTime(
     booking.end_date,
-    booking.end_time
+    booking.end_time,
+    extractionTimeZone
   );
   const requirements: Record<string, unknown> = {
     extraction_confidence: booking.extraction_confidence,
@@ -307,12 +329,16 @@ export async function saveConfirmedBooking(
 
       startTime,
       endTime,
+      startDate: booking.start_date || null,
+      endDate: booking.end_date || null,
+      timezone: extractionTimeZone,
 
       checkInTime:
         booking.booking_type === "hotel"
           ? combineBookingDateTime(
               booking.start_date,
-              booking.start_time
+              booking.start_time,
+              extractionTimeZone
             )
           : null,
 
@@ -320,7 +346,8 @@ export async function saveConfirmedBooking(
         booking.booking_type === "hotel"
           ? combineBookingDateTime(
               booking.end_date,
-              booking.end_time
+              booking.end_time,
+              extractionTimeZone
             )
           : null,
 
@@ -432,9 +459,29 @@ function normalizedCurrency(value: unknown) {
   return typeof value === "string" && /^[A-Za-z]{3}$/.test(value.trim()) ? value.trim().toUpperCase() : null;
 }
 
-export function evaluateConfirmedBookingCost(rows: Array<{ amount_cents?: unknown; currency?: unknown; booking_status?: unknown; superseded_by_booking_id?: unknown }>, budgetCurrency = "CAD"): Omit<ConfirmedBookingCost, "error"> {
+// Raw-row form of the authoritative confirmation predicate (B05 fix).
+// On serialized records, isConfirmedBooking requires an operational row
+// that is traveler-confirmed with a status the serializer reports as
+// confirmed; the serializer maps raw "booked", "paid", and "reserved" to
+// confirmed and everything else to needs_confirmation/cancelled. So a raw
+// row counts as committed money ONLY when it is not superseded, is
+// traveler-confirmed, and carries one of those three statuses. A pending
+// row with a price is not committed money, even if it carries an amount —
+// the old filter (not cancelled + not superseded) counted it.
+// The evaluator itself enforces this, not just the query, because it is
+// also called directly with raw rows.
+const CONFIRMED_BOOKING_STATUSES = new Set(["booked", "paid", "reserved"]);
+
+function isConfirmedCostRow(row: { booking_status?: unknown; traveler_confirmed?: unknown; superseded_by_booking_id?: unknown }) {
+  return row.superseded_by_booking_id == null
+    && row.traveler_confirmed === true
+    && typeof row.booking_status === "string"
+    && CONFIRMED_BOOKING_STATUSES.has(row.booking_status);
+}
+
+export function evaluateConfirmedBookingCost(rows: Array<{ amount_cents?: unknown; currency?: unknown; booking_status?: unknown; traveler_confirmed?: unknown; superseded_by_booking_id?: unknown }>, budgetCurrency = "CAD"): Omit<ConfirmedBookingCost, "error"> {
   const currency = normalizedCurrency(budgetCurrency);
-  const operationalRows = rows.filter((row) => row.booking_status !== "cancelled" && row.superseded_by_booking_id == null);
+  const operationalRows = rows.filter(isConfirmedCostRow);
   const currencies = Array.from(new Set(operationalRows.map((row) => normalizedCurrency(row.currency)).filter((value): value is string => Boolean(value))));
   const knownAmountCents = operationalRows.reduce((sum, row) => sum + (normalizedCurrency(row.currency) === currency && typeof row.amount_cents === "number" && Number.isFinite(row.amount_cents) && row.amount_cents >= 0 ? row.amount_cents : 0), 0);
   const hasUnknownAmount = operationalRows.some((row) => !(typeof row.amount_cents === "number" && Number.isFinite(row.amount_cents) && row.amount_cents >= 0));
@@ -454,7 +501,7 @@ export async function getConfirmedBookingCostCents(supabase: SupabaseClient, use
   const currency = normalizedCurrency(budgetCurrency);
   const { data, error } = await supabase
     .from("roamly_bookings")
-    .select("amount_cents,currency")
+    .select("amount_cents,currency,booking_status,traveler_confirmed,superseded_by_booking_id")
     .eq("user_id", userId)
     .eq("trip_id", tripId)
     .is("superseded_by_booking_id", null)
