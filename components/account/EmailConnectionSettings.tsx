@@ -25,6 +25,13 @@ function plainSyncError(message: string): string {
   if (message.includes("GMAIL_REAUTH_REQUIRED")) {
     return "Gmail needs to be reconnected — use Connect Gmail below.";
   }
+  if (
+    message.includes("GMAIL_BACKFILL_SEARCH_FAILED") ||
+    message.includes("GMAIL_BACKFILL_TOKEN_FAILED") ||
+    message.includes("GMAIL_BACKFILL_PROCESSING_RETRY")
+  ) {
+    return "We couldn't search your older mail right now. Your saved trips are safe — try again later.";
+  }
   return message;
 }
 
@@ -34,9 +41,11 @@ const PROVIDERS = [
     name: "Gmail",
     connectPath: "/api/integrations/gmail/connect",
     syncPath: "/api/integrations/gmail/sync",
+    searchOlderPath: "/api/integrations/gmail/search-older",
     disconnectPath: "/api/integrations/gmail/disconnect",
     connectLabel: "Connect Gmail",
     syncLabel: "Sync Gmail",
+    searchOlderLabel: "Search older mail",
     disconnectLabel: "Disconnect Gmail"
   }
 ];
@@ -84,6 +93,13 @@ export function EmailConnectionSettings() {
         ];
         setNotice(`Roamly has stopped syncing Gmail. ${warnings.join(" ")}`);
       }
+      if (action.endsWith(":search-older")) {
+        const checked = typeof data?.processed === "number" ? data.processed : 0;
+        const keptAside = typeof data?.quarantined === "number" && data.quarantined > 0 ? `, ${data.quarantined} kept aside` : "";
+        setNotice(
+          `Searched your mail from the last 90 days: ${checked} message${checked === 1 ? "" : "s"} checked${keptAside}. Anything found is on your trips, or in a trip's email imports for review.`
+        );
+      }
       await load();
     } catch (err) {
       setError(plainSyncError(err instanceof Error ? err.message : `We could not update ${providerName} right now.`));
@@ -127,6 +143,7 @@ export function EmailConnectionSettings() {
               : `Gmail sync hasn't worked since ${formatSync(connection?.last_synced_at || null, locale)} — try Sync Gmail again`
             : null;
           const syncBusy = busy === `${provider.provider}:sync`;
+          const searchOlderBusy = busy === `${provider.provider}:search-older`;
           const disconnectBusy = busy === `${provider.provider}:disconnect`;
           return (
             <div key={provider.provider} className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -154,6 +171,14 @@ export function EmailConnectionSettings() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => void post(provider.searchOlderPath, `${provider.provider}:search-older`, provider.name)}
+                      disabled={Boolean(busy)}
+                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                    >
+                      {searchOlderBusy ? "Searching..." : provider.searchOlderLabel}
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void post(provider.disconnectPath, `${provider.provider}:disconnect`, provider.name)}
                       disabled={Boolean(busy)}
                       className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
@@ -170,6 +195,14 @@ export function EmailConnectionSettings() {
                       className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-50"
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void post(provider.searchOlderPath, `${provider.provider}:search-older`, provider.name)}
+                      disabled={Boolean(busy)}
+                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                    >
+                      {searchOlderBusy ? "Searching..." : provider.searchOlderLabel}
                     </button>
                     <a
                       href={provider.connectPath}
