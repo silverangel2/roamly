@@ -48,6 +48,9 @@ interface SeedSpec {
   kind: string;
   centre: { lat: number; lon: number };
   timeZone: string;
+  /** Deliberate subregion boxes (see DestinationDTO.coverageBoxes). Only
+   *  seeds that name them get them — no box is ever widened implicitly. */
+  coverageBoxes?: Array<{ minLat: number; minLon: number; maxLat: number; maxLon: number }>;
   /** Overrides the shared provenance label for entries that did NOT
    *  come from the shadow mock pool (the label must never claim a
    *  provenance the entry does not have). */
@@ -139,7 +142,25 @@ const PH_SEED_SPECS: readonly SeedSpec[] = [
   { poolId: "coron-town", displayName: "Coron", country: "Philippines", kind: "small town", centre: { lat: 11.9989958, lon: 120.2046888 }, timeZone: "Asia/Manila" },
   { poolId: "puerto-princesa-city", displayName: "Puerto Princesa", country: "Philippines", kind: "city", centre: { lat: 9.7856257, lon: 118.626479 }, timeZone: "Asia/Manila" },
   { poolId: "cebu-city", displayName: "Cebu City", country: "Philippines", kind: "city", centre: { lat: 10.2926115, lon: 123.9021934 }, timeZone: "Asia/Manila" },
-  { poolId: "bohol-island", displayName: "Bohol", country: "Philippines", kind: "island", centre: { lat: 9.6533997, lon: 123.8670252 }, timeZone: "Asia/Manila" },
+  // Bohol's shadow-rule island box (±0.04 lat / ±0.055 lon around the
+  // Tagbilaran-area centre) covers the town but none of the six sights
+  // the /ph page advertises — every one of them sits outside it on at
+  // least one axis. Coverage is therefore two deliberate subregions,
+  // not a bigger box: Panglao (Alona Beach + Hinagdanan Cave) and the
+  // interior corridor (Tarsier Sanctuary, Bilar Forest, Loboc River,
+  // Chocolate Hills). The seed bbox itself is unchanged.
+  {
+    poolId: "bohol-island",
+    displayName: "Bohol",
+    country: "Philippines",
+    kind: "island",
+    centre: { lat: 9.6533997, lon: 123.8670252 },
+    timeZone: "Asia/Manila",
+    coverageBoxes: [
+      { minLat: 9.53, maxLat: 9.64, minLon: 123.74, maxLon: 123.81 },
+      { minLat: 9.61, maxLat: 9.81, minLon: 123.8, maxLon: 124.18 }
+    ]
+  },
   { poolId: "siargao-island", displayName: "Siargao", country: "Philippines", kind: "island", centre: { lat: 9.7837527, lon: 126.1565715 }, timeZone: "Asia/Manila" },
   { poolId: "baguio-city", displayName: "Baguio", country: "Philippines", kind: "small city", centre: { lat: 16.4129692, lon: 120.5913973 }, timeZone: "Asia/Manila" },
   { poolId: "davao-city", displayName: "Davao City", country: "Philippines", kind: "city", centre: { lat: 7.0647456, lon: 125.6088427 }, timeZone: "Asia/Manila" },
@@ -152,6 +173,7 @@ export const PHILIPPINES_DESTINATION_SEEDS: readonly DestinationDTO[] = PH_SEED_
   country: spec.country,
   centre: spec.centre,
   bbox: shadowBBox(spec.centre, spec.kind),
+  ...(spec.coverageBoxes ? { coverageBoxes: spec.coverageBoxes } : {}),
   timeZone: spec.timeZone,
   geocodeProvenance: {
     source: "recorded-destination-registry",
@@ -162,6 +184,33 @@ export const PHILIPPINES_DESTINATION_SEEDS: readonly DestinationDTO[] = PH_SEED_
       `Google Places-verified centre (Text Search, 2026-10-23, Philippines pack build), cross-checked against the bundled GeoNames city dataset where available; kind "${spec.kind}" sizes the collection bbox by the shadow rule`
   }
 }));
+
+/** Every box a destination collects from: the seed bbox first, then any
+ *  deliberate subregion boxes. A null seed bbox yields only subregions. */
+export function destinationCoverageBoxes(destination: DestinationDTO): Array<{
+  minLat: number;
+  minLon: number;
+  maxLat: number;
+  maxLon: number;
+}> {
+  const boxes = destination.bbox ? [destination.bbox] : [];
+  if (destination.coverageBoxes) boxes.push(...destination.coverageBoxes);
+  return boxes;
+}
+
+/** True when a point survives the destination's coverage filter — inside
+ *  the seed bbox OR inside any deliberate subregion box. Both collection
+ *  consumers (Overpass chunks, Open Places filter) must use this, never
+ *  the bare bbox, or subregion sights silently drop out of fresh packs. */
+export function insideDestinationCoverage(
+  destination: DestinationDTO,
+  lat: number,
+  lon: number
+): boolean {
+  return destinationCoverageBoxes(destination).some(
+    (box) => lat >= box.minLat && lat <= box.maxLat && lon >= box.minLon && lon <= box.maxLon
+  );
+}
 
 /** The registry a production store serves: the breadth corpus plus
  *  every production addition. */
