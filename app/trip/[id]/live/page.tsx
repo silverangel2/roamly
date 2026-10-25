@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
+import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -129,7 +130,34 @@ export default async function LiveTripPage({
     metadata: bundle.data.trip.metadata
   });
   const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
-  if ((!locked && !tripCompleted) || (!companionUnlocked && !tripCompleted)) redirect(`/trip/${id}`);
+  // A trip that has not generated yet still goes back to its trip page,
+  // where generation lives. A generated trip whose Companion is not
+  // unlocked must NOT bounce silently back to the trip page: the traveler
+  // clicked Live on purpose and deserves to be told why it did not open
+  // and where the unlock lives (the trip page's Activate control).
+  if (!locked && !tripCompleted) redirect(`/trip/${id}`);
+  if (!companionUnlocked && !tripCompleted) {
+    return (
+      <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+        <Card>
+          <Badge tone="sun">Live Companion</Badge>
+          <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Live Companion isn&apos;t unlocked for this trip yet</h1>
+          <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+            Live Companion follows you during the trip with day-by-day help. It needs to be unlocked for this trip before it can open.
+          </p>
+          <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+            Go back to the trip page to unlock it. Nothing was changed, and your itinerary is still there.
+          </p>
+          <a
+            href={`/trip/${id}`}
+            className="mt-5 inline-flex min-h-11 items-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white"
+          >
+            Back to trip
+          </a>
+        </Card>
+      </div>
+    );
+  }
 
   if (!tripCompleted) await scheduleCompanionEvents(supabase, id);
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";
@@ -397,17 +425,29 @@ export default async function LiveTripPage({
     );
   }
 
-  // The setup gate (owner design, 2026-10-23): the companion's home
-  // sits behind the same one-time setup as the trip — a traveler whose
-  // steps were never completed meets the cascade, not a half-live
-  // companion. Field-test mode is an internal lane and skips it.
+  // The setup gate (owner design, 2026-10-23; second-time law, 2026-10-24):
+  // the companion's home sits behind the same one-time setup as the
+  // trip — a traveler whose steps were never completed meets the
+  // cascade, not a half-live companion — but only from the second trip
+  // on (see lib/roamly/setupGate.ts), and never as a wall: skip for now
+  // reveals the companion with its limits named. Field-test mode is an
+  // internal lane and skips it.
   if (!fieldTestMode) {
     const setupState = await getRoamlySetupState(supabase, current.user).catch(() => null);
-    if (setupState && !setupState.complete) {
+    const skipLiveGate = search.skipSetupGate === "1";
+    const priorTrip =
+      setupState && !setupState.complete ? await hasPriorTrip(supabase, current.user.id, id) : false;
+    const gateApplies = setupState
+      ? setupGateApplies({ setupComplete: setupState.complete, hasQaAccess: access.hasQaAccess, hasPriorTrip: priorTrip })
+      : false;
+    if (gateApplies && !skipLiveGate && setupState) {
       return (
         <SetupGateScreen
           initialState={setupState}
           eyebrow={`${destinationLabel} · ${shortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date)}`}
+          dayCount={daysCount}
+          skipHref={`/trip/${id}/live?skipSetupGate=1`}
+          limitedFeatures={setupGateLimitedFeatures(setupState)}
         />
       );
     }
