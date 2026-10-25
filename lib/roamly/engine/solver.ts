@@ -172,6 +172,14 @@ export interface SolveSpec {
    *  candidate key and the display name because validation keys on
    *  the NAME: a same-name different venue fails the plan too. */
   priorMeals?: Array<{ key?: string | null; name?: string | null }> | null;
+  /** GATE-1B FIX (2026-10-25): activities already scheduled on
+   *  COMPLETED days of the same trip (from earlier day batches).
+   *  Same rule as priorMeals: a fresh solveTrip run must never
+   *  re-pick them — final validation forbids an activity name
+   *  repeating across days, so a repeat is a guaranteed plan
+   *  failure, never a fallback. Carries key + display name
+   *  because validation keys on the NAME. */
+  priorActivities?: Array<{ key?: string | null; name?: string | null }> | null;
 }
 
 export interface MustSeeResult {
@@ -254,6 +262,21 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     if (prior.key) usedFood.add(prior.key);
     const priorName = mealNameKey(prior.name || "");
     if (priorName) usedFoodNames.add(priorName);
+  }
+  // GATE-1B FIX (2026-10-25): the activity ledger mirrors the meal
+  // ledger. The solver's cross-day `used` set is keyed by candidate
+  // key, but final validation keys repeats on the NAME — so a
+  // same-name different-key venue (common in OSM-sourced packs)
+  // slipped past the ledger and failed the plan at finalization.
+  // usedActivityNames is seeded from prior batches AND recorded
+  // by every scheduling path (addStop, ferry, excursion), so a
+  // name once scheduled can never be scheduled again on any day
+  // of the same trip, by any path, in any run.
+  const usedActivityNames = new Set<string>();
+  for (const prior of spec.priorActivities || []) {
+    if (prior.key) used.add(prior.key);
+    const priorName = mealNameKey(prior.name || "");
+    if (priorName) usedActivityNames.add(priorName);
   }
   const lastUsedDay = new Map<string, number>(); // candidate key -> 0-based day it last ran (long-stay relaxation)
   const scheduledDay = new Map<string, number>(); // candidate key -> 0-based day it was actually scheduled (any path)
@@ -425,7 +448,10 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
   }
 
   /* ---- helpers bound to the ledger ---- */
-  const isFree = (c: EngineCandidate): boolean => !used.has(c.key);
+  // GATE-1B: isFree is name-aware too — a different-key venue sharing
+  // a scheduled activity's name would still fail final validation.
+  const isFree = (c: EngineCandidate): boolean =>
+    !used.has(c.key) && !usedActivityNames.has(mealNameKey(c.name));
   const farFromUsed = (c: EngineCandidate, allowSelf = false): boolean =>
     !usedPos.some((p) => {
       const d = haversineKm(p, c.pos);
@@ -439,6 +465,15 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     if (softUsed.has(c.key)) return null;
     if (pinnedKeyDay.size && pinnedKeyDay.has(c.key) && pinnedKeyDay.get(c.key) !== dayIdx) return null; // reserved for its pinned day
     if (closedKeys && closedKeys.has(`${c.key}@${dayIdx}`)) return null; // a stated fact closed this place on this day
+    // GATE-1B: a name already scheduled on any day of this trip (this
+    // run or a prior batch) can never be picked again — not even via
+    // the long-stay relaxation below. Validation forbids the name
+    // repeat outright, so a relaxed repeat is a guaranteed plan
+    // failure, never a favourite returning. The relaxation path is
+    // left in place but can no longer emit a validation-failing
+    // repeat: a relaxed candidate's name is by construction already
+    // recorded, so it is refused here first.
+    if (usedActivityNames.has(mealNameKey(c.name))) return null;
     if (!used.has(c.key)) return "fresh";
     if (
       relaxFavorites &&
@@ -567,6 +602,9 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
       items.push(item);
       used.add(cand.key);
       usedPos.push(cand.pos);
+      // GATE-1B: record the name, not just the key — validation keys
+      // repeats on the name, so the ledger must too.
+      { const n = mealNameKey(cand.name); if (n) usedActivityNames.add(n); }
       lastUsedDay.set(cand.key, dayIdx);
       scheduledDay.set(cand.key, dayIdx);
       t = item.end;
@@ -882,6 +920,7 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         items.push(item);
         used.add(fm.cand.key);
         usedPos.push(fm.cand.pos);
+        { const n = mealNameKey(fm.cand.name); if (n) usedActivityNames.add(n); } // GATE-1B
         t = item.end;
         pos = fm.cand.pos;
         posKey = fm.cand.key;
@@ -914,6 +953,7 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         items.push(item);
         used.add(em.cand.key);
         usedPos.push(em.cand.pos);
+        { const n = mealNameKey(em.cand.name); if (n) usedActivityNames.add(n); } // GATE-1B
         t = item.end;
         pos = em.cand.pos;
         posKey = em.cand.key;

@@ -777,6 +777,10 @@ export function runEnginePlan(params: {
    *  batch run cannot re-pick them. Only the day-batch call passes
    *  this; first-pass and finalization runs plan no persisted days. */
   priorMeals?: Array<{ key?: string | null; name?: string | null }> | null;
+  /** GATE-1B FIX (2026-10-25): activities already scheduled on
+   *  completed days of the same trip — same rule, same threading.
+   *  Only the day-batch call passes this. */
+  priorActivities?: Array<{ key?: string | null; name?: string | null }> | null;
 }): EnginePlanRun {
   const { pack, payload, totalDayCount } = params;
   const scoredStays = scoreStays(pack);
@@ -807,7 +811,8 @@ export function runEnginePlan(params: {
     basePos: ctx.anchorPos,
     baseName: ctx.anchorName,
     pinnedStay: ctx.pinnedStay,
-    priorMeals: params.priorMeals || null
+    priorMeals: params.priorMeals || null,
+    priorActivities: params.priorActivities || null
   });
 
   const anchorStay = scoredStays.find((s) => s.key === ctx.anchorKey) || null;
@@ -1736,7 +1741,24 @@ async function runDayBatchStage(params: {
     }
   }
 
-  const planRun = runEnginePlan({ pack, payload, totalDayCount: state.totalDayCount, anchorOverride: run.anchor, priorMeals });
+  // GATE-1B FIX (2026-10-25): same seeding for activities — a fresh
+  // batch run must not re-pick an activity already scheduled on a
+  // completed day (final validation forbids the name repeat). Rest
+  // items are skipped by validation and never seeded.
+  const priorActivities: Array<{ key: string | null; name: string | null }> = [];
+  for (const [dayKey, completedDay] of Object.entries(state.generatedDays || {})) {
+    if (batch.dayNumbers.includes(Number(dayKey))) continue;
+    for (const seed of completedDay.live_timeline || []) {
+      if (seed.item_type === "activity") {
+        priorActivities.push({
+          key: typeof seed.candidateId === "string" ? seed.candidateId : null,
+          name: typeof seed.title === "string" ? seed.title : null
+        });
+      }
+    }
+  }
+
+  const planRun = runEnginePlan({ pack, payload, totalDayCount: state.totalDayCount, anchorOverride: run.anchor, priorMeals, priorActivities });
   const mustSeeKeys = new Set(
     planRun.plan.mustSeeResults.map((m) => m.itemKey).filter((k): k is string => typeof k === "string" && k.length > 0)
   );

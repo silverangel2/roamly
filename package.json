@@ -19,6 +19,7 @@
     "test:roamly-incident-wake-guarantee": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-incident-wake-guarantee-checks.mjs",
     "test:roamly-incident-pack-wait-terminal": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-incident-pack-wait-terminal-checks.mjs",
     "test:gate1-meal-repeat": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-gate1-meal-repeat-checks.mjs",
+    "test:gate1b-activity-repeat": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-gate1b-activity-repeat-checks.mjs",
     "test:guest-manila-empty-states": "node scripts/roamly-guest-manila-empty-states-checks.mjs",
     "test:gmail-recon-g13-g14": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-gmail-recon-g13-g14-checks.mjs",
     "test:confirmed-itinerary-anchors": "node --experimental-strip-types scripts/roamly-confirmed-itinerary-anchor-checks.mjs",
