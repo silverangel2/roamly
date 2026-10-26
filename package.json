@@ -24,6 +24,7 @@
     "test:gmail-recon-g13-g14": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-gmail-recon-g13-g14-checks.mjs",
     "test:autosync-fix": "node --experimental-strip-types scripts/roamly-autosync-fix-checks.mjs",
     "test:backfill-older": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-backfill-older-checks.mjs",
+    "test:backfill-paging": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-backfill-paging-checks.mjs",
     "test:confirmed-itinerary-anchors": "node --experimental-strip-types scripts/roamly-confirmed-itinerary-anchor-checks.mjs",
     "test:finds-game": "node scripts/roamly-finds-game-checks.mjs",
     "test:curated-amazon-finds": "node --experimental-strip-types scripts/roamly-curated-amazon-finds-checks.mjs",
