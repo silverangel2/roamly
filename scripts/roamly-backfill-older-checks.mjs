@@ -78,6 +78,7 @@ class FakeQuery {
   select() { return this; }
   eq(field, value) { this.filters.push((row) => row[field] === value); return this; }
   neq(field, value) { this.filters.push((row) => row[field] !== value); return this; }
+  in(field, values) { this.filters.push((row) => values.includes(row[field])); return this; }
   or() { return this; }
   gte(field, value) { this.filters.push((row) => row[field] >= value); return this; }
   lte(field, value) { this.filters.push((row) => row[field] <= value); return this; }
@@ -150,7 +151,7 @@ check("older window constant is 90 days", GMAIL_OLDER_SEARCH_DAYS === 90);
 check("older search cap is 50 messages per run", GMAIL_OLDER_SEARCH_MAX_MESSAGES === 50);
 const query = olderGmailSearchQuery(window);
 check("older query carries the window", query.includes("after:2026/07/27") && query.includes("before:2026/10/26"));
-check("older query carries the travel keywords", query.includes("confirmation OR reservation"));
+check("older query carries the travel keywords", query.includes("confirmation") && query.includes("reservation") && query.includes("itinerary") && query.includes("check-in"));
 
 const dayMs = 24 * 60 * 60 * 1000;
 const mailDay = Date.parse("2026-09-16T00:00:00Z");

@@ -1344,12 +1344,21 @@ export async function backfillGmailTripWindow(params: {
  * example a Sep-16 mail for an Oct-29 trip, searched on Oct-25) is invisible
  * to both, even though the connection itself is healthy.
  *
- * Bounded and cursor-safe, exactly like the reconnect backfill: one
- * messages.list call over a fixed 90-day window (today minus 90 days to
- * tomorrow, so today's mail is included), at most
- * GMAIL_OLDER_SEARCH_MAX_MESSAGES ids, fed through the SAME fetch →
- * extract → match pipeline as a normal sync (same extraction, same
- * matching thresholds, same confidence/auto-apply rules — nothing
+ * Bounded and cursor-safe, exactly like the reconnect backfill: PAGED
+ * messages.list calls over a fixed 90-day window (today minus 90 days to
+ * tomorrow, so today's mail is included), GMAIL_OLDER_SEARCH_MAX_MESSAGES
+ * ids per page, until the window is exhausted or
+ * GMAIL_OLDER_SEARCH_MAX_SCANNED ids have been scanned — whichever
+ * comes first. Paging matters because messages.list returns newest
+ * first: a single first page fills with the newest noisy mail and a
+ * 39-day-old confirmation is crowded out before it is ever seen
+ * (proven live 2026-10-25: the first 50 newest matches held promos,
+ * Github comments and test mail, but not the Sep-16 Agoda mail).
+ * Already-processed ids are skipped before any content fetch, so a
+ * re-tap resumes instead of re-doing work; quarantined (error) rows
+ * are retried, per G13. Everything scanned is fed through the SAME
+ * fetch → extract → match pipeline as a normal sync (same extraction,
+ * same matching thresholds, same confidence/auto-apply rules — nothing
  * loosened). A fetched mail that cannot match lands in the email-imports
  * review panel as unmatched/needs-review; this search never claims an
  * auto-match. It never writes the sync cursor, never touches
@@ -1361,6 +1370,7 @@ export async function backfillGmailTripWindow(params: {
  */
 export const GMAIL_OLDER_SEARCH_DAYS = 90;
 export const GMAIL_OLDER_SEARCH_MAX_MESSAGES = 50;
+export const GMAIL_OLDER_SEARCH_MAX_SCANNED = 1000;
 
 export function olderGmailSearchWindow(today: Date = new Date()): { after: string; before: string } {
   const formatGmailDate = (date: Date) => {
@@ -1375,13 +1385,23 @@ export function olderGmailSearchWindow(today: Date = new Date()): { after: strin
 }
 
 export function olderGmailSearchQuery(window: { after: string; before: string }): string {
-  return `after:${window.after} before:${window.before} (confirmation OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in)`;
+  // Terms stay inside booking-confirmation vocabulary — they are the
+  // words booking mails actually use. "booking" and "confirmed" are
+  // added because the previous term set could miss a mail whose
+  // subject is "Your booking is confirmed!" (neither "confirmation"
+  // nor any previous term need appear in it), while the downstream
+  // travel filter already treats both words as travel language.
+  // "check-out" joins "check-in" for the same reason: stay mails name
+  // both dates. Paging (not a wider net alone) is what makes these
+  // extra matches affordable — without paging they would only crowd
+  // the first page faster.
+  return `after:${window.after} before:${window.before} (confirmation OR confirmed OR booking OR reservation OR itinerary OR delayed OR cancelled OR changed OR voucher OR ticket OR Klook OR transport OR check-in OR check-out)`;
 }
 
 export async function searchOlderGmail(params: {
   supabase: SupabaseClient;
   userId: string;
-}): Promise<{ ok: boolean; error: string | null; processed: number; quarantined?: number; window?: { after: string; before: string } }> {
+}): Promise<{ ok: boolean; error: string | null; processed: number; quarantined?: number; scanned?: number; skipped?: number; window?: { after: string; before: string } }> {
   const writer = createSupabaseAdminClient() || params.supabase;
   const { data: connectionData, error: connectionError } = await writer
     .from("email_connections")
@@ -1405,22 +1425,62 @@ export async function searchOlderGmail(params: {
   }
 
   const window = olderGmailSearchWindow();
-  const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
-  url.searchParams.set("q", olderGmailSearchQuery(window));
-  url.searchParams.set("maxResults", String(GMAIL_OLDER_SEARCH_MAX_MESSAGES));
-  const { response, data } = await providerFetchJson<{ messages?: Array<{ id?: string }> }>(url, {
-    headers: { authorization: `Bearer ${accessToken}` }
-  });
-  if (!response.ok) return { ok: false, error: "GMAIL_BACKFILL_SEARCH_FAILED", processed: 0 };
-  const messageIds = (data.messages || [])
-    .map((message) => message.id)
-    .filter((id): id is string => Boolean(id));
-  if (!messageIds.length) return { ok: true, error: null, processed: 0, window };
+  // Page newest-first through the whole window. A single first page
+  // is exactly how the Sep-16 mail was missed: the newest 50 matches
+  // were promos, Github comments and test mail. Stop only when Gmail
+  // runs out of pages or the scan bound is hit.
+  const seenIds = new Set<string>();
+  const messageIds: string[] = [];
+  let pageToken: string | undefined;
+  let listFailed = false;
+  while (messageIds.length < GMAIL_OLDER_SEARCH_MAX_SCANNED) {
+    const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+    url.searchParams.set("q", olderGmailSearchQuery(window));
+    url.searchParams.set("maxResults", String(GMAIL_OLDER_SEARCH_MAX_MESSAGES));
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const { response, data } = await providerFetchJson<{ messages?: Array<{ id?: string }>; nextPageToken?: string }>(url, {
+      headers: { authorization: `Bearer ${accessToken}` }
+    });
+    if (!response.ok) {
+      listFailed = true;
+      break;
+    }
+    for (const message of data.messages || []) {
+      if (message.id && !seenIds.has(message.id)) {
+        seenIds.add(message.id);
+        messageIds.push(message.id);
+      }
+    }
+    pageToken = data.nextPageToken || undefined;
+    if (!pageToken) break;
+  }
+  const scanned = messageIds.length;
+  if (listFailed) return { ok: false, error: "GMAIL_BACKFILL_SEARCH_FAILED", processed: 0, scanned, window };
+  if (!scanned) return { ok: true, error: null, processed: 0, scanned: 0, skipped: 0, window };
+  // Skip ids this connection already processed, before any content
+  // fetch, so a re-tap resumes instead of re-doing work. Quarantined
+  // (error) rows are NOT skipped — G13 keeps them retryable.
+  const alreadySeen = new Set<string>();
+  for (let i = 0; i < messageIds.length; i += 200) {
+    const chunk = messageIds.slice(i, i + 200);
+    const { data: seenRows } = await writer
+      .from("travel_email_messages")
+      .select("provider_message_id,processing_result")
+      .eq("email_connection_id", connection.id)
+      .eq("provider", GMAIL_PROVIDER)
+      .in("provider_message_id", chunk);
+    for (const row of (seenRows as Array<{ provider_message_id?: string | null; processing_result?: string | null }> | null) || []) {
+      if (row.provider_message_id && row.processing_result !== "error") alreadySeen.add(row.provider_message_id);
+    }
+  }
+  const freshIds = messageIds.filter((id) => !alreadySeen.has(id));
+  const skipped = scanned - freshIds.length;
+  if (!freshIds.length) return { ok: true, error: null, processed: 0, quarantined: 0, scanned, skipped, window };
   // Same pipeline as the backfill: per-message quarantine (G13), upsert-safe
   // re-processing, no cursor write, no last_synced_at write.
-  const processed = await processGmailMessageIds({ supabase: writer, connection, accessToken, messageIds });
-  if (processed.retryable) return { ok: false, error: "GMAIL_BACKFILL_PROCESSING_RETRY", processed: processed.processed, quarantined: processed.quarantined, window };
-  return { ok: true, error: null, processed: processed.processed, quarantined: processed.quarantined, window };
+  const processed = await processGmailMessageIds({ supabase: writer, connection, accessToken, messageIds: freshIds });
+  if (processed.retryable) return { ok: false, error: "GMAIL_BACKFILL_PROCESSING_RETRY", processed: processed.processed, quarantined: processed.quarantined, scanned, skipped, window };
+  return { ok: true, error: null, processed: processed.processed, quarantined: processed.quarantined, scanned, skipped, window };
 }
 
 export async function syncGmailConnection(params: {

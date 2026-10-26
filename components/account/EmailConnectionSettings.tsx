@@ -95,9 +95,11 @@ export function EmailConnectionSettings() {
       }
       if (action.endsWith(":search-older")) {
         const checked = typeof data?.processed === "number" ? data.processed : 0;
+        const scanned = typeof data?.scanned === "number" ? data.scanned : checked;
+        const skipped = typeof data?.skipped === "number" && data.skipped > 0 ? `, ${data.skipped} already seen` : "";
         const keptAside = typeof data?.quarantined === "number" && data.quarantined > 0 ? `, ${data.quarantined} kept aside` : "";
         setNotice(
-          `Searched your mail from the last 90 days: ${checked} message${checked === 1 ? "" : "s"} checked${keptAside}. Anything found is on your trips, or in a trip's email imports for review.`
+          `Searched your mail from the last 90 days: ${scanned} message${scanned === 1 ? "" : "s"} found, ${checked} checked${skipped}${keptAside}. Anything found is on your trips, or in a trip's email imports for review.`
         );
       }
       await load();
