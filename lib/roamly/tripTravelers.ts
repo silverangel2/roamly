@@ -42,6 +42,11 @@ type TripShape = {
   travelers_count?: number | null;
   destination_country?: string | null;
   origin_country?: string | null;
+  /** Origin label ("Saint John, Canada") — the country part is used
+   *  as the origin fallback when no explicit origin code exists
+   *  (correction phase, 2026-10-28: trips carry no origin_country
+   *  column, so domestic detection never saw an origin). */
+  origin?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   metadata?: unknown;
@@ -240,7 +245,7 @@ export function buildTripTravelerRequirements(params: {
   const endDate = params.trip.end_date || (typeof planning.endDate === "string" ? planning.endDate : null);
   const requirementsFor = (slot: TripTravelerSlot, country: string | null) => deriveTravelRequirements({
     destinationCountry: destination,
-    originCountry: params.trip.origin_country || (typeof planning.originCountry === "string" ? planning.originCountry : null),
+    originCountry: params.trip.origin_country || (typeof planning.originCountry === "string" ? planning.originCountry : null) || params.trip.origin || null,
     passportIssuingCountry: country,
     startDate: typeof startDate === "string" ? startDate : null,
     endDate: typeof endDate === "string" ? endDate : null,

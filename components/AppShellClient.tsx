@@ -9,7 +9,16 @@ import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { TranslatedTextBoundary } from "@/components/i18n/TranslatedTextBoundary";
 import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { countUnreadNotifications, shouldLoadShellState } from "@/lib/roamly/appShellState";
+import { shouldLoadShellState } from "@/lib/roamly/appShellState";
+import { countAlertsBadgeNotifications } from "@/lib/roamly/alertsBadge";
+import { INFO_NOTIFICATION_TYPES } from "@/lib/roamly/alertsNotificationTypes";
+import { resolveSelectedTrip } from "@/lib/roamly/notificationTrip";
+import {
+  isStalePreTripInfoNotification,
+  notificationActionState,
+  notificationActionStateForInfoCard
+} from "@/lib/roamly/liveCompanion";
+import { resolveTripTimezone, zoneForMath } from "@/lib/roamly/tripTimezone";
 import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
 import { nextBottomNavHidden } from "@/lib/roamly/bottomNavScroll";
 import { primaryNavActiveHref } from "@/lib/roamly/shellNav";
@@ -105,7 +114,15 @@ function NavIcon({ href }: { href: string }) {
 }
 
 function routeHidesBottomNav(pathname: string) {
-  return pathname === "/plan";
+  // Correction phase (D8, 2026-10-28): /plan used to hide the mobile
+  // bottom nav entirely, leaving phone travelers with no visible
+  // navigation on the Plan page (audit F1). The plan form has no
+  // sticky footer that the bar would collide with, and the main
+  // column already reserves bottom clearance on non-app surfaces, so
+  // no route hides the bar anymore. Kept as a function so the call
+  // sites (scroll-hide logic, main padding) keep one decision point.
+  void pathname;
+  return false;
 }
 
 /* ——— App frame (owner design, 2026-10-23 truth rebuild) ———
@@ -114,9 +131,14 @@ function routeHidesBottomNav(pathname: string) {
    is the only navigation. The matcher below defines the app-surface
    set: a trip home (/trip/[id]), its Live Companion
    (/trip/[id]/live), its single-event sheets
-   (/trip/[id]/event/[eventId]), /notifications and /account.
+   (/trip/[id]/event/[eventId]), its country-info panel
+   (/trip/[id]/country-info), its place-detail pages
+   (/trip/[id]/place/[placeId]), and its standalone directions
+   screens (/trip/[id]/directions/[placeId], Picture 7 — the
+   picture's tab bar shows Itinerary active there, as on place
+   detail), /notifications and /account.
    Marketing pages never match and keep their chrome. */
-const APP_TRIP_SURFACE = /^\/trip\/[^/]+(?:\/(?:live|event(?:\/[^/]+)?))?\/?$/;
+const APP_TRIP_SURFACE = /^\/trip\/[^/]+(?:\/(?:live|event(?:\/[^/]+)?|country-info|place(?:\/[^/]+)?|directions(?:\/[^/]+)?))?\/?$/;
 
 function isAppSurface(pathname: string) {
   return (
@@ -182,22 +204,30 @@ function AppTabIcon({ name }: { name: "itinerary" | "live" | "alerts" | "account
 function AppTabBar({
   pathname,
   tripId,
+  alertsTripId,
   unreadCount,
   t
 }: {
   pathname: string;
   tripId: string;
+  /** Trip the Alerts tab must keep showing, or "" for the rule trip:
+      the viewed trip on trip surfaces, the Alerts page's own trip on
+      /notifications, and "" elsewhere (Account, dashboard) so the
+      rule — not a stale companion trip — selects there. Without this
+      the Alerts tab would flip a Toronto view back to Montreal. */
+  alertsTripId: string;
   unreadCount: number;
   t: (key: string, fallback?: string) => string;
 }) {
   const itineraryHref = tripId ? `/trip/${tripId}` : "/dashboard";
   const liveHref = tripId ? `/trip/${tripId}/live` : "/dashboard";
+  const alertsHref = alertsTripId ? `/notifications?trip=${encodeURIComponent(alertsTripId)}` : "/notifications";
   const tabs = [
     {
       href: itineraryHref,
       label: t("ui.nav.itinerary", "Itinerary"),
       icon: "itinerary" as const,
-      active: /^\/trip\/[^/]+\/?$/.test(pathname) || /^\/trip\/[^/]+\/event(\/|$)/.test(pathname) || pathname === "/dashboard"
+      active: /^\/trip\/[^/]+\/?$/.test(pathname) || /^\/trip\/[^/]+\/event(\/|$)/.test(pathname) || /^\/trip\/[^/]+\/country-info\/?$/.test(pathname) || /^\/trip\/[^/]+\/place(\/|$)/.test(pathname) || /^\/trip\/[^/]+\/directions(\/|$)/.test(pathname) || pathname === "/dashboard"
     },
     {
       href: liveHref,
@@ -206,7 +236,7 @@ function AppTabBar({
       active: /^\/trip\/[^/]+\/live\/?$/.test(pathname)
     },
     {
-      href: "/notifications",
+      href: alertsHref,
       label: t("ui.nav.alerts", "Alerts"),
       icon: "alerts" as const,
       active: pathname === "/notifications" || pathname.startsWith("/notifications/"),
@@ -304,10 +334,8 @@ function AppShellContent({
         return;
       }
 
-      const [activeResponse, notificationsResponse] = await Promise.all([
-        fetch("/api/roamly/trips/active").catch(() => null),
-        fetch("/api/roamly/notifications").catch(() => null)
-      ]);
+      // Itinerary/Live tab hrefs still follow the companion-active trip.
+      const activeResponse = await fetch("/api/roamly/trips/active").catch(() => null);
 
       if (!alive) return;
 
@@ -316,10 +344,103 @@ function AppShellContent({
         setActiveTripId(data?.activeTrip?.id || "");
       }
 
-      if (notificationsResponse?.ok) {
-        const data = await notificationsResponse.json().catch(() => null);
-        setUnreadCount(Array.isArray(data?.notifications) ? countUnreadNotifications(data.notifications) : 0);
+      // Badge (conditional-acceptance item 2 + repair round item P2 +
+      // timezone round Priority 2): ONE semantics, shared with the
+      // Alerts page — unread alerts shown on the Alerts screen for
+      // the selected trip, counted by lib/roamly/alertsBadge.ts.
+      // When the user is viewing a trip surface, the badge comes from
+      // /api/roamly/badge?tripId=<that trip> — a DIRECT trip lookup,
+      // so a selected trip beyond the newest-40 list window still
+      // gets its own correct badge (the old list fetch capped at 40
+      // and fell back to the rule trip for the badge only). Only
+      // when no trip surface is viewed does the shell resolve the
+      // rule trip from the list and count client-side. There is no
+      // all-trips fallback anymore: when no selected trip resolves,
+      // or any fetch fails, the honest count is 0 and the badge hides
+      // — never a stale number. On /notifications itself the page's
+      // bridge overrides with its own same-rule count (see below).
+      const surfaceTripId = appSurfaceTripId(pathname);
+      if (surfaceTripId) {
+        const badgeResponse = await fetch(
+          `/api/roamly/badge?tripId=${encodeURIComponent(surfaceTripId)}`
+        ).catch(() => null);
+        if (!alive) return;
+        const badgeData = badgeResponse?.ok ? await badgeResponse.json().catch(() => null) : null;
+        setUnreadCount(
+          badgeData && typeof badgeData.unreadCount === "number" && Number.isFinite(badgeData.unreadCount)
+            ? badgeData.unreadCount
+            : 0
+        );
+        return;
       }
+      const tripsResponse = await fetch("/api/roamly/trips").catch(() => null);
+
+      if (!alive) return;
+
+      if (!tripsResponse?.ok) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const tripsData = await tripsResponse.json().catch(() => null);
+      const trips = Array.isArray(tripsData?.trips) ? tripsData.trips : [];
+      const selected = resolveSelectedTrip({ trips, urlTripId: appSurfaceTripId(pathname) });
+
+      if (!selected) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const notificationsResponse = await fetch(
+        `/api/roamly/notifications?tripId=${encodeURIComponent(selected.id)}`
+      ).catch(() => null);
+
+      if (!alive) return;
+
+      if (!notificationsResponse?.ok) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const notificationsData = await notificationsResponse.json().catch(() => null);
+      const rows: Array<Record<string, unknown>> = Array.isArray(notificationsData?.notifications)
+        ? notificationsData.notifications
+        : [];
+      const lifecycle = {
+        status: selected.status ?? null,
+        itineraryStatus: selected.itinerary_status ?? null,
+        startDate: selected.start_date ?? null,
+        endDate: selected.end_date ?? null,
+        metadata: selected.metadata
+      };
+      // Timezone round: the rule-path outdated gate resolves through
+      // the ONE client-safe resolver (metadata + destination
+      // registry), not metadata-only — the list rows now carry
+      // destination columns for exactly this (see /api/roamly/trips).
+      const timezone = zoneForMath(resolveTripTimezone({
+        metadata: selected.metadata,
+        destination: (selected as { destination?: unknown }).destination,
+        destination_name: (selected as { destination_name?: unknown }).destination_name,
+        destination_city: (selected as { destination_city?: unknown }).destination_city
+      }));
+      const annotated = rows.map((row) => {
+        const type = typeof row.type === "string" ? row.type : "";
+        const actionUrl = typeof row.action_url === "string" ? row.action_url : null;
+        const actionState = INFO_NOTIFICATION_TYPES.has(type)
+          ? notificationActionStateForInfoCard({ actionUrl, trip: lifecycle })
+          : notificationActionState({ actionUrl, trip: lifecycle });
+        return {
+          ...row,
+          action_state: actionState,
+          is_outdated: isStalePreTripInfoNotification({
+            type,
+            startDate: lifecycle.startDate,
+            endDate: lifecycle.endDate,
+            timezone
+          })
+        };
+      });
+      setUnreadCount(countAlertsBadgeNotifications(annotated));
     }
 
     const handleNotificationShellState = (event: Event) => {
@@ -436,6 +557,11 @@ function AppShellContent({
   // navigation (see isAppSurface for the surface set).
   const appFrame = isAppSurface(pathname);
   const frameTripId = appSurfaceTripId(pathname) || activeTripId;
+  // Repair round P2: the Alerts tab keeps the viewed trip (trip
+  // surface) or the Alerts page's own trip (bridge activeTripId on
+  // /notifications); anywhere else it carries no trip, so the rule
+  // selects — never a stale companion trip, never a flip.
+  const alertsTripId = appSurfaceTripId(pathname) || (pathname === "/notifications" ? activeTripId : "");
 
   return (
     <TranslatedTextBoundary>
@@ -509,14 +635,39 @@ function AppShellContent({
         </header>
         ) : null}
 
-        <main className={appFrame ? "min-w-0 pb-[calc(6.5rem+env(safe-area-inset-bottom))]" : `min-w-0 lg:pb-0 ${routeHidesBottomNav(pathname) ? "pb-[max(2rem,env(safe-area-inset-bottom))]" : "pb-[calc(8.75rem+env(safe-area-inset-bottom))]"}`}>
+        {/* Owner-10 Item 1 — bottom-nav clearance, stated as the spec's
+            own numbers so it can be checked, not just felt: the fixed
+            tab bar is 64px tall (spec §2, measured 62px in a 390px
+            viewport with safe-area 0) plus the iPhone safe area, and
+            the main column clears it by 64px + 2.5rem of breathing
+            room + the safe area (= 104px + safe area, the value this
+            rule carried before, now derived in the open). Every app
+            surface (the 8 screens) renders inside this main element,
+            so this one rule is every screen's bottom padding; the bar
+            itself already pads with env(safe-area-inset-bottom).
+            Verified by viewport captures scrolled to each screen's
+            bottom: the last content sits above the bar on all 8. */}
+        <main className={appFrame ? "min-w-0 pb-[calc(64px+2.5rem+env(safe-area-inset-bottom))]" : `min-w-0 lg:pb-0 ${routeHidesBottomNav(pathname) ? "pb-[max(2rem,env(safe-area-inset-bottom))]" : "pb-[calc(8.75rem+env(safe-area-inset-bottom))]"}`}>
           {children}
         </main>
 
         <RoamlyLocationTracker />
 
-        {appFrame ? (
-          <AppTabBar pathname={pathname} tripId={frameTripId} unreadCount={unreadCount} t={t} />
+        {/* Follow-up fix (2026-10-29, D8 reopened): the correction phase
+            made routeHidesBottomNav always return false, but the app tab
+            bar never RENDERED on /plan because /plan is not an app
+            surface — the marketing nav rendered instead (and is
+            lg:hidden, so desktop showed no bottom bar at all). Render
+            the app tab bar on /plan for signed-in travelers WITHOUT
+            flipping appFrame, so the wizard keeps its site header,
+            background, and main padding. Signed-out visitors keep the
+            marketing nav (their funnel links). The wizard's
+            Back/Continue controls are in-flow, not a sticky footer,
+            and the plan page already carries .safe-bottom clearance,
+            so the fixed 64px bar cannot collide with them. AppTabBar
+            falls back to /dashboard links when no trip is active. */}
+        {appFrame || (authenticated && pathname === "/plan") ? (
+          <AppTabBar pathname={pathname} tripId={frameTripId} alertsTripId={alertsTripId} unreadCount={unreadCount} t={t} />
         ) : (
         <nav
           ref={bottomNavRef}

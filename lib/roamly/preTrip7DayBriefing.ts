@@ -2,7 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getRoamlySupportEmail, sendRoamlyEmail } from "@/lib/roamly/email";
 import { claimCommunication, completeCommunication, failCommunication } from "@/lib/roamly/communicationOrchestration";
-import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import {
+  BACKGROUND_TIMEZONE_HOLD,
+  resolveBackgroundTripTimezone
+} from "@/lib/roamly/backgroundNotificationTimezone";
 import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
 import { buildPreTrip7DayBriefingContent, preTrip7DayWindow, tripStartFromDate, type PreTrip7DayBooking } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { communicationLogicalKey } from "@/lib/roamly/communicationPolicy";
@@ -49,7 +52,9 @@ export async function schedulePreTrip7DayBriefing(params: {
   const preferenceState = await getCommunicationPreferenceState({ supabase: db, userId: params.trip.user_id, tripId: params.trip.id, purpose: "pretrip_7d" });
   if (preferenceState === "unavailable") return { ok: false as const, scheduled: false, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE" };
   if (preferenceState === "disabled") return { ok: true as const, scheduled: false, suppressed: "COMMUNICATION_PREFERENCE_DISABLED" as const };
-  const timezone = timezoneFromTripMetadata(params.trip.metadata || {}, "UTC");
+  const resolution = resolveBackgroundTripTimezone(params.trip);
+  if (!resolution.zone) return { ok: true as const, scheduled: false, suppressed: BACKGROUND_TIMEZONE_HOLD };
+  const timezone = resolution.zone;
   const tripStart = tripStartFromDate(params.trip.start_date, timezone);
   if (!tripStart) return { ok: true as const, scheduled: false, suppressed: "TRIP_DATE_INVALID" as const };
   const window = preTrip7DayWindow(tripStart, now);
@@ -84,9 +89,14 @@ export async function schedulePreTrip7DayBriefing(params: {
     .eq("id", params.trip.id)
     .eq("user_id", params.trip.user_id)
     .maybeSingle();
-  const currentTimezone = latestTrip.data ? timezoneFromTripMetadata((latestTrip.data as PreTrip7DayTrip).metadata || {}, "UTC") : timezone;
+  const currentResolution = latestTrip.data ? resolveBackgroundTripTimezone(latestTrip.data as PreTrip7DayTrip) : null;
+  const currentTimezone = currentResolution?.zone || timezone;
   const currentStart = latestTrip.data ? tripStartFromDate((latestTrip.data as PreTrip7DayTrip).start_date, currentTimezone) : null;
   const currentWindow = currentStart ? preTrip7DayWindow(currentStart, params.now || new Date()) : null;
+  if (latestTrip.data && currentResolution && !currentResolution.zone) {
+    await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: BACKGROUND_TIMEZONE_HOLD, retryable: true });
+    return { ok: true as const, scheduled: false, suppressed: BACKGROUND_TIMEZONE_HOLD };
+  }
   if (latestTrip.error || !latestTrip.data || ["archived", "cancelled", "completed"].includes(clean(latestTrip.data.status)) || clean(latestTrip.data.itinerary_status) === "cancelled" || !currentWindow?.eligible) {
     await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "PRETRIP_7D_NO_LONGER_USEFUL", retryable: true });
     return { ok: true as const, scheduled: false, suppressed: "PRETRIP_7D_NO_LONGER_USEFUL" as const };

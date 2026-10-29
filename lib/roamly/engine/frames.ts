@@ -31,14 +31,21 @@ type FrameFn = (d: FrameData) => string;
 const S = (d: FrameData, k: string): string => String(d[k]);
 
 export const FRAMES: Record<string, FrameFn> = {
-  dayOpen1: (d) => `${S(d, "dateLong")} begins at a humane hour — the first stop is ${S(d, "firstName")} at ${S(d, "firstTime")}, and nothing on this day starts before ${S(d, "earliest")}.`,
-  dayOpen2: (d) => `${S(d, "dateLong")} is built around ${S(d, "anchorName")}, with the day's stops gathered close so the walking stays easy.`,
-  dayOpen3: (d) => `Day ${S(d, "dayNumber")} — ${S(d, "dateLong").toLowerCase()} — keeps the same gentle shape: out after ${S(d, "earliest")}, home before dinner.`,
-  dayOpenRest: (d) => `${S(d, "dateLong")} is the trip's breathing day: one good outing in the morning, then the afternoon is deliberately left empty.`,
+  // Day-open frames (final local round, 2026-10-27): plain plan facts
+  // only. The previous wording judged the plan's times and pacing
+  // in words the plan data does not carry. Each replacement names
+  // only what the plan itself says: the day's real first stop + its
+  // real time, or the plan's own day type. No time or activity is
+  // ever invented here; the frame data bag comes from the solver's
+  // day items.
+  dayOpen1: (d) => `${S(d, "dateLong")} starts with ${S(d, "firstName")} at ${S(d, "firstTime")}.`,
+  dayOpen2: (d) => `${S(d, "dateLong")} is built around ${S(d, "anchorName")}.`,
+  dayOpen3: (d) => `Day ${S(d, "dayNumber")} — ${S(d, "dateLong").toLowerCase()} — starts at ${S(d, "earliest")} with ${S(d, "anchorName")}.`,
+  dayOpenRest: (d) => `${S(d, "dateLong")} starts slowly, with the morning left open.`,
   // Pacing day types (owner, 2026-10-21): the composer narrates the
   // shape honestly — a slow day is a feature of the plan, never an
   // apology.
-  dayOpenLight: (d) => `${S(d, "dateLong")} is a light day, on purpose — a late start, one or two good stops, and no rushing.`,
+  dayOpenLight: (d) => `${S(d, "dateLong")} is a light day.`,
   dayOpenRestDay: (d) => `${S(d, "dateLong")} is a slow day, on purpose: nothing is booked, and nothing needs booking.`,
   dayOpenOpen: (d) => `${S(d, "dateLong")} is an open day, on purpose — no fixed plans at all.`,
   openIdeas: (d) => `If the mood strikes, the day has gentle options: ${S(d, "ideas")}. Nothing is booked and nothing is expected — they are simply there if wanted.`,

@@ -78,9 +78,44 @@ export type TravelRequirementInput = {
   evidenceFreshness?: EvidenceFreshness;
 };
 
+/** Common country names to ISO codes. Unknown names return null —
+ *  never guessed — so the non-domestic path is preserved. Only
+ *  unambiguous names are listed; a name not here stays unknown. */
+const COUNTRY_NAME_TO_ISO: Record<string, string> = {
+  "canada": "CA",
+  "united states": "US", "united states of america": "US", "usa": "US", "america": "US",
+  "united kingdom": "GB", "uk": "GB", "great britain": "GB", "england": "GB",
+  "philippines": "PH", "france": "FR", "germany": "DE", "japan": "JP",
+  "australia": "AU", "mexico": "MX", "india": "IN", "china": "CN",
+  "spain": "ES", "italy": "IT", "portugal": "PT", "netherlands": "NL",
+  "brazil": "BR", "ireland": "IE", "switzerland": "CH", "austria": "AT",
+  "belgium": "BE", "greece": "GR", "turkey": "TR", "thailand": "TH",
+  "vietnam": "VN", "indonesia": "ID", "malaysia": "MY", "singapore": "SG",
+  "south korea": "KR", "korea": "KR", "new zealand": "NZ", "poland": "PL",
+  "sweden": "SE", "norway": "NO", "denmark": "DK", "finland": "FI",
+  "iceland": "IS", "morocco": "MA", "egypt": "EG", "israel": "IL",
+  "ukraine": "UA", "costa rica": "CR", "colombia": "CO", "argentina": "AR",
+  "chile": "CL", "peru": "PE", "jamaica": "JM", "bahamas": "BS",
+  "dominican republic": "DO", "united arab emirates": "AE", "uae": "AE",
+  "saudi arabia": "SA", "pakistan": "PK", "bangladesh": "BD",
+  "sri lanka": "LK", "nepal": "NP", "kenya": "KE", "south africa": "ZA",
+  "nigeria": "NG", "czech republic": "CZ", "czechia": "CZ", "hungary": "HU",
+  "romania": "RO", "croatia": "HR", "russia": "RU", "taiwan": "TW",
+  "hong kong": "HK"
+};
+
+/** ISO country code from a code ("CA"), a name ("Canada"), or a
+ *  "City, Country" label ("Saint John, Canada"). Correction phase
+ *  (2026-10-28): trips carry country NAMES, so the old code-only
+ *  check never fired domestic detection and every domestic trip
+ *  prompted for a passport country. Unknown names still return null. */
 function cleanCountry(value?: string | null) {
-  const code = (value || "").trim().toUpperCase();
-  return /^[A-Z]{2}$/.test(code) ? code : null;
+  const raw = (value || "").trim();
+  if (!raw) return null;
+  const upper = raw.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) return upper;
+  const last = raw.split(",").pop()!.trim().toLowerCase();
+  return COUNTRY_NAME_TO_ISO[last] || null;
 }
 
 export function deriveTravelRequirements(input: TravelRequirementInput): TravelRequirement[] {

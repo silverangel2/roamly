@@ -182,16 +182,24 @@ const flightSearch = titles.presentTrackingActivityTitle({
 });
 assert.equal(flightSearch, "Getting from Saint John to Montreal");
 assert.equal(/flight search/i.test(flightSearch), false);
+// Round 2 evidence boundary: the old contract (calendar window alone
+// unlocking near claims) was the false-proximity bug. The new contract
+// takes location evidence: trip-not-active evidence keeps the honest
+// pre-trip copy; an active trip WITHOUT evidence never says near; an
+// active trip WITH verified evidence may.
 const beforeStart = titles.notificationProximityCopy(
   "You are near your first planned area. Roamly has prepared today’s activities from your locked itinerary.",
-  false
+  { verified: false, reason: "trip_not_active" }
 );
 assert.equal(/near your first planned area/i.test(beforeStart), false);
 assert.equal(/prepared today/i.test(beforeStart), false);
 assert.match(beforeStart, /has not started/);
 assert.match(beforeStart, /not today’s activities/);
-const duringTrip = titles.notificationProximityCopy("", true);
-assert.match(duringTrip, /near your first planned area/);
+const duringTripNoLocation = titles.notificationProximityCopy("", { verified: false, reason: "no_traveler_location" });
+assert.equal(/near your first planned area/i.test(duringTripNoLocation), false);
+assert.match(duringTripNoLocation, /planned/);
+const duringTripVerified = titles.notificationProximityCopy("", { verified: true, reason: "verified" });
+assert.match(duringTripVerified, /near your first planned area/);
 const bookedFlightPlace = titles.presentTravelerTitle({ title: "Montreal airport", suppressFlightFraming: false });
 assert.match(bookedFlightPlace.title, /Montreal airport/);
 const lounge = titles.presentTravelerTitle({
@@ -359,15 +367,20 @@ assert.match(tripPage, /Suspense fallback=\{<TripHomeLoading/);
 assert.equal(fs.existsSync(path.join(root, "app/trip/[id]/loading.tsx")), false, "Live must not inherit the trip-home skeleton");
 assert.equal((tripPage.match(/This draft is saved\. Roamly is not preparing it yet/g) || []).length, 1);
 const sw = fs.readFileSync(path.join(root, "public/sw.js"), "utf8");
-assert.match(sw, /roamly-offline-v2/);
+assert.match(sw, /roamly-(preview-)?offline-v4/); // Owner-review 2026-10-28: v2 expectation updated to v4 — the Oct 27 final-local offline repair (per-user+trip cache, sign-out purge, per-user images cache); offline suite still pins v4 independently (test:ux-offline 20/20). Next-phase 2026-10-29: the preview/correction builds deliberately carry "roamly-preview-offline-v4" (preview cache isolation, so preview caches never collide with production) — the regex accepts the preview infix but still requires v4; v2/v3 still fail. Worker itself untouched by this line.
 assert.match(sw, /async function networkFirst/);
 assert.match(sw, /const response = await networkFirst\(event, request, docsCacheName\(\)\)/);
 assert.doesNotMatch(sw, /staleWhileRevalidate\(event, request, docsCacheName\(\)\)/);
 const notificationsPage = fs.readFileSync(path.join(root, "app/notifications/page.tsx"), "utf8");
-assert.match(notificationsPage, /tripStarted/);
-assert.match(notificationsPage, /bookingRows\.error/);
+assert.doesNotMatch(notificationsPage, /TripActivationBanner|ActiveTripPanel|CurrentDayTimeline|UpNextActivityCard|CheckedActivitiesList|NearbyActivityCard/, "PICTURE 1: Alerts renders no companion panels");
+assert.match(notificationsPage, /travelUpdateBookingRows/, "PICTURE 1: Alerts Travel updates still renders from real confirmed bookings");
+assert.match(notificationsPage, /bookingRows/, "PICTURE 1: Alerts still fetches the trip's bookings (Upcoming + Travel updates)");
 assert.match(fs.readFileSync(path.join(root, "components/roamly/NearbyActivityCard.tsx"), "utf8"), /Not nearby yet/);
-assert.match(fs.readFileSync(path.join(root, "components/roamly/CurrentDayTimeline.tsx"), "utf8"), /These are not today’s activities/);
+// Round 2A: the timeline's honesty guarantee is now its evidence gate —
+// a stored "nearby" status renders as "Planned" unless locationVerified.
+// (The old literal never existed in this file; that assertion failed on
+// the base tree too, so it is replaced by the gate that enforces it.)
+assert.match(fs.readFileSync(path.join(root, "components/roamly/CurrentDayTimeline.tsx"), "utf8"), /locationVerified/);
 assert.match(fs.readFileSync(path.join(root, "components/trip/LiveTripClient.tsx"), "utf8"), /function timelineRowTitle/);
 const zones = loadTsModule("lib/roamly/liveCompanion.ts");
 assert.equal(zones.timezoneFromTripMetadata({ timezone: "Not/AZone" }), "UTC");

@@ -4,6 +4,7 @@ import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking
 import { BookingCancelAction } from "@/components/companion/BookingCancelAction";
 import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { bookingOutcomeLabel, deriveBookingOutcome, type BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
+import { isTestBooking, testBookingLabel } from "@/lib/roamly/testBooking";
 import { BookingReviewActions } from "@/components/companion/BookingReviewActions";
 
 type BookingWalletTimelineProps = {
@@ -41,7 +42,28 @@ function statusClass(status: TripBookingStatus) {
   return "border-slate-200 bg-slate-50 text-slate-700";
 }
 
+// UX repair (integration): a test booking wears a neutral pill, never
+// the emerald confirmed pill — the label alone is not enough.
+function pillClassFor(booking: TripBookingRecord) {
+  if (isTestBooking({
+    title: booking.title,
+    provider: booking.provider,
+    metadata: booking.is_test_booking ? { qa_test: true } : undefined
+  })) return "border-slate-300 bg-slate-100 text-slate-700";
+  return statusClass(booking.booking_status);
+}
+
 function customerStatus(booking: TripBookingRecord, outcome: ReturnType<typeof deriveBookingOutcome>) {
+  // Builder-L: "Test booking" takes precedence over "Confirmed" — a
+  // QA/test row must never wear a confirmed badge. The title/provider
+  // pattern is the retroactive catch (e.g. "Roamly QA Test Stay");
+  // the serializer's is_test_booking flag covers future stamped rows.
+  // No other status changes.
+  if (isTestBooking({
+    title: booking.title,
+    provider: booking.provider,
+    metadata: booking.is_test_booking ? { qa_test: true } : undefined
+  })) return testBookingLabel;
   if (isConfirmedBooking(booking)) return booking.booking_status === "modified" ? "Confirmed · updated" : booking.booking_status === "completed" ? "Completed" : "Confirmed";
   if (booking.booking_status === "needs_confirmation" || booking.booking_status === "detected") return "Action needed";
   if (booking.booking_status === "cancelled" || booking.booking_status === "refunded") return "No longer active";
@@ -310,7 +332,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-black text-ink">{next.title}</h2>
-                <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(next.booking_status)}`}>{customerStatus(next, outcomeFor(next))}</span>
+                <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${pillClassFor(next)}`}>{customerStatus(next, outcomeFor(next))}</span>
               </div>
               <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(next)}</p>
               {segmentLines(next, locale).map((line) => (
@@ -351,7 +373,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                             {booking.review_state === "dismissed" ? <p className="mt-1 text-xs font-bold text-slate-500">You dismissed this item.</p> : null}
                             {booking.pending_corrections ? <p className="mt-1 text-xs font-bold text-slate-500">Correction pending review — not confirmed yet.</p> : null}
                           </div>
-                          <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(booking.booking_status)}`}>
+                          <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${pillClassFor(booking)}`}>
                             {customerStatus(booking, outcomeFor(booking))}
                           </span>
                         </div>

@@ -1,10 +1,15 @@
 import Image from "next/image";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { hasSetupSkip, setupSkipCookieName } from "@/lib/roamly/setupSkip";
+import { formatGateEyebrow } from "@/lib/roamly/tripIdentity";
 import { TripAuthSessionCheck } from "@/components/auth/TripAuthSessionCheck";
 import { ActivateTripButton } from "@/components/trip/ActivateTripButton";
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
+import { OfflineTripBanner } from "@/components/roamly/OfflineTripBanner";
+import { LimitedFeaturesNotice } from "@/components/roamly/LimitedFeaturesNotice";
 import { TripStateLines } from "@/components/roamly/TripStateLines";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
@@ -12,6 +17,7 @@ import { EntryGate } from "@/components/roamly/EntryGate";
 import { HandoffBlock } from "@/components/roamly/HandoffBlock";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
 import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
+import { buildVenuePhotoMap } from "@/lib/roamly/venuePhotos";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { DestinationPhotoBand } from "@/components/trip/DestinationPhotoBand";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
@@ -24,6 +30,8 @@ import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshBu
 import { StagedGenerationProgress } from "@/components/trip/StagedGenerationProgress";
 import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { TripShareActions } from "@/components/trip/TripShareActions";
+import { ItineraryHomePanel } from "@/components/trip/ItineraryHomePanel";
+import { buildHomeDayView, formatHomeDateRange } from "@/lib/roamly/itineraryHome";
 import { PostTripLibraryAskCard } from "@/components/trip/PostTripLibraryAskCard";
 import { TripCommentBox } from "@/components/trip/TripCommentBox";
 import {
@@ -59,7 +67,7 @@ import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roaml
 import { buildBudgetPresentation } from "@/lib/roamly/budgetPresentation";
 import { BudgetVerdictCard } from "@/components/BudgetVerdictCard";
 import { readBudgetVerdictDisplay } from "@/lib/roamly/engine/budgetVerdictDisplay";
-import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerArea, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { hasConfirmedFlightBooking, isDriveMode, isMixedMode, looksLikeProviderSearchTitle, presentDayHeading, presentGroundTransportText, presentTravelerArea, presentTravelerTitle, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
 import { rankChoicesForNotes, readTripNoteText, travelerNoteDisplay } from "@/lib/roamly/travelerNotes";
 import { mapTravelerTripStatus } from "@/lib/roamly/tripStatusDisplay";
 import type { TransportOption } from "@/lib/roamly/transportOptions";
@@ -1898,7 +1906,9 @@ function CompactPrintDay({ day, currency, confirmedBookings, suppressFlightFrami
         </p>
         <span>Est. {formatMoney(day.estimated_cost, currency)}</span>
       </div>
-      <h3>{presentTravelerTitle({ title: day.title, destination: dayCity || day.city, suppressFlightFraming }).title || day.title}</h3>
+      {presentDayHeading({ title: day.title, destination: dayCity || day.city, suppressFlightFraming }).headings.map((heading) => (
+        <h3 key={heading}>{heading}</h3>
+      ))}
       {items.length ? (
         <div className="roamly-pdf-timeline">
           {items.map((item, index) => (
@@ -2446,9 +2456,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
       ? "roamly-tab-budget"
       : typeof actionFocus === "string" && actionFocus.startsWith("day-")
         ? "roamly-tab-day-by-day"
-        : canShowFull
-          ? "roamly-tab-day-by-day"
-          : null;
+        : null;
   const companionStartLabel = trip.start_date
     ? new Date(`${trip.start_date}T12:00:00`).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })
     : "soon";
@@ -2494,9 +2502,14 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // lib/roamly/setupGate.ts for the exact trigger). The gate keys on
   // the account's persisted state, never on this trip; completed once,
   // it never renders again. It is never a wall: skipSetupGate=1 reveals
-  // the itinerary with limited features, per visit, never remembered.
+  // the itinerary with limited features — and round 2 remembers that
+  // choice per trip (lib/roamly/setupSkip.ts cookie), so a return
+  // visit reveals without re-skipping. Remembered skip still never
+  // completes a step and never touches billing or entitlements.
   const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
-  const skipSetupGate = one(search.skipSetupGate) === "1";
+  const skipCookieName = setupSkipCookieName(id);
+  const skippedBefore = skipCookieName ? hasSetupSkip((await cookies()).get(skipCookieName)?.value, id) : false;
+  const skipSetupGate = one(search.skipSetupGate) === "1" || skippedBefore;
   const priorTrip = setupState && !setupState.complete && !access.hasQaAccess
     ? await (supabase ? hasPriorTrip(supabase, current.user.id, id) : Promise.resolve(false))
     : false;
@@ -2508,10 +2521,11 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     return (
       <SetupGateScreen
         initialState={setupState}
-        eyebrow={`${destinationLabel} · ${formatShortDateRange(trip, locale)}`}
+        eyebrow={formatGateEyebrow(destinationLabel, trip.start_date, trip.end_date) || destinationLabel}
         dayCount={dayCount}
         skipHref={`/trip/${id}?skipSetupGate=1`}
         limitedFeatures={limitedFeatures}
+        tripId={id}
       />
     );
   }
@@ -2547,20 +2561,86 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     longitude: typeof photoPlanning.destinationLongitude === "number" ? photoPlanning.destinationLongitude : null
   }).catch(() => null);
 
+  // Itinerary Home panel (panel 5): one compact day view per stored day,
+  // built from the SAME plan the day cards render
+  // (buildDisplayTimelineItems), so the panel and the cards never
+  // disagree. Only this trip's days, bookings, essentials, and
+  // documents are passed in — nothing from any other trip.
+  // Owner-10 item 4: the home view shapes the day WITHOUT the day
+  // cards' 6-row cap and WITHOUT folding the intercity travel leg
+  // away, in stored (chronological) order — travel, arrival,
+  // activities, return, nothing dropped. Walk transfers still fold
+  // (the mock shows no walk rows); the day cards keep their own
+  // defaults, and Live keeps its engine (see the report's live-view
+  // difference note).
+  const itineraryHomeDays = canonicalDays.map((day) =>
+    buildHomeDayView(
+      {
+        day_number: day.day_number,
+        date: day.date,
+        primary_plan: day.primary_plan,
+        morning: day.morning,
+        afternoon: day.afternoon,
+        evening: day.evening,
+        rows: buildDisplayTimelineItems(day, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true }).items
+      },
+      locale
+    )
+  );
+  // Venue-row thumbnails (originals pass): one parallel pipeline round
+  // over the plan's venue stops; misses stay icon-only downstream.
+  const venuePhotos = await buildVenuePhotoMap(
+    canonicalDays,
+    getString(photoPlanning.destinationCountry) || trip.destination_country || null
+  ).catch(() => ({}));
+  const itineraryHomeEssentials = full
+    ? full.pre_trip_essentials.map((item) => ({ title: item.title, reason: item.reason }))
+    : [];
+  const itineraryHomeEditHref = ["archived", "cancelled", "completed"].includes(trip.status)
+    ? null
+    : `/trip/${id}#customize`;
+
   return (
     <div className="roamly-print-document w-full bg-cbg px-4 pb-8 pt-5 text-cink sm:px-6 sm:py-8">
       {shouldCleanCheckoutUrl ? <CheckoutUrlCleanup /> : null}
       <GenerationNavigationRefresh active={one(search.generating) === "1" && !generationPanelVisible && !canShowFull} />
       <div className="roamly-print-paper mx-auto max-w-6xl">
         <div className="roamly-screen-document">
+        {/* Offline round (2026-10-27): cached-trip label. Renders
+            nothing while online; offline it shows the real
+            last-online-load time for this trip. */}
+        <OfflineTripBanner tripId={id} />
+        {/* Final local round (2026-10-27): the long limited-features
+            paragraph is now the compact expandable notice — one short
+            collapsed line, full details on tap, same feature strings
+            and same Settings route, no claim changed. */}
         {skipSetupGate && setupState && !setupState.complete ? (
-          <p className="mb-4 rounded-xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cink shadow-calm">
-            Showing with limited features
-            {limitedFeatures.length ? `: ${limitedFeatures.join(" · ")}` : ""}. Finish setup anytime in
-            Settings to turn everything on.
-          </p>
+          <LimitedFeaturesNotice features={limitedFeatures} />
         ) : null}
-        <section className="bg-transparent pb-1 pt-0 sm:pb-2">
+        {/* Picture 5 (2026-10-26): transient checkout notices stay
+            visible above the home panel — they are time-sensitive
+            payment states, not standing content blocks, so they are
+            deliberately NOT detail-only. */}
+        {checkoutNeedsAttention ? (
+          <NoticeBanner tone="coral">
+            Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
+          </NoticeBanner>
+        ) : null}
+        {checkoutProcessing ? (
+          <NoticeBanner>
+            Stripe returned successfully. Roamly is waiting for the signed webhook to update this trip; refresh in a moment if it still looks locked.
+          </NoticeBanner>
+        ) : null}
+        {checkoutStartFailed ? (
+          <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
+        ) : null}
+        {/* Picture 5 (2026-10-26): this legacy header is NOT the home
+            screen. It carries .roamly-detail-only, so on a full trip it
+            stays hidden until a detail tab radio is checked (see the
+            tabs style block); its content then renders above the active
+            detail panel. Trips without tabs keep it visible as before,
+            because the hiding style only renders with the tabs. */}
+        <section className="roamly-detail-only bg-transparent pb-1 pt-0 sm:pb-2">
           {destinationPhoto ? (
             <DestinationPhotoBand
               imageUrl={destinationPhoto.imageUrl}
@@ -2611,19 +2691,6 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               
                     {completedTrip ? <PostTripLibraryAskCard tripId={id} /> : null}
           {itineraryLocked ? <NoticeBanner>This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.</NoticeBanner> : null}
-              {checkoutNeedsAttention ? (
-                <NoticeBanner tone="coral">
-                  Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
-                </NoticeBanner>
-              ) : null}
-              {checkoutProcessing ? (
-                <NoticeBanner>
-                  Stripe returned successfully. Roamly is waiting for the signed webhook to update this trip; refresh in a moment if it still looks locked.
-                </NoticeBanner>
-              ) : null}
-              {checkoutStartFailed ? (
-                <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
-              ) : null}
               {showGenerationPanel && generationProgress ? (
                 <StagedGenerationProgress
                   tripId={id}
@@ -2665,8 +2732,11 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
         <TripHashSync focusAnchor={focusAnchor} />
 
-        <div className="mt-6">
-          <HouseAdSlot context="trip" placement="trip" />
+        <div className="roamly-detail-only mt-6">
+          {/* Correction phase (2026-10-28): destination-match rule —
+              a city-specific promo for another city (e.g. Lisbon on a
+              Montreal itinerary) is suppressed from this slot. */}
+          <HouseAdSlot context="trip" placement="trip" destinationCity={trip.destination_city || trip.destination_name || null} />
         </div>
 
         {canShowFull && full && !generationPanelVisible ? (
@@ -2726,6 +2796,25 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 .roamly-tab-nav label:active{transform:scale(0.95)}
                 @media (prefers-reduced-motion:reduce){.roamly-tab-panel{animation:none}.roamly-tab-nav label{transition:none}}
                 .roamly-home-panel{display:block}
+                /* Picture 5 (2026-10-26): the home screen is the
+                   Itinerary Home panel alone. Blocks marked
+                   .roamly-detail-only (legacy header, house ad,
+                   footer) stay hidden on the home view and appear
+                   only once a detail tab radio is checked — i.e.
+                   only inside a detail destination. This style block
+                   renders only with the tabs, so trips without tabs
+                   (no plan yet, generating) are unaffected. */
+                .roamly-detail-only{display:none}
+                .roamly-screen-document:has(.roamly-tab-input:checked) .roamly-detail-only{display:block}
+                .roamly-gap-cards{display:none}
+                .roamly-screen-document:has(.roamly-tab-input:checked) .roamly-gap-cards{display:block}
+                /* Edit trip (#customize) is a detail destination too:
+                   the editing section stays hidden on the home view
+                   and appears only when it is the URL target (the
+                   panel's Edit trip pill, or the budget panel's
+                   Customize link). */
+                #customize{display:none}
+                #customize:target{display:block}
                 #roamly-tab-day-by-day:checked ~ .roamly-tab-panels .roamly-home-panel,
                 #roamly-tab-overview:checked ~ .roamly-tab-panels .roamly-home-panel,
                 #roamly-tab-budget:checked ~ .roamly-tab-panels .roamly-home-panel,
@@ -2752,7 +2841,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 #roamly-tab-requirements:checked ~ .roamly-tab-nav label[for="roamly-tab-requirements"],
                 #roamly-tab-essentials:checked ~ .roamly-tab-nav label[for="roamly-tab-essentials"],
                 #roamly-tab-travel-notes:checked ~ .roamly-tab-nav label[for="roamly-tab-travel-notes"]{background:#1F2D4D;color:white;border-color:#1F2D4D}
-                @media print{.roamly-tab-panel{display:block!important}.roamly-tab-nav{display:none!important}}
+                @media print{.roamly-tab-panel{display:block!important}.roamly-tab-nav{display:none!important}.roamly-detail-only{display:block!important}.roamly-gap-cards{display:block!important}#customize{display:block!important}}
               `}</style>
               {panelTabs.map(([tabId]) => (
                 <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === defaultPanelTab} />
@@ -2773,23 +2862,25 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               </nav>
 
               <div className="roamly-tab-panels">
+                {/* Picture 5 (2026-10-26): the home screen IS this panel
+                    and nothing else. The transport line, stays, and
+                    notes that used to sit under it are removed from
+                    this section — they still render in their detail
+                    destinations (day-by-day panel, bookings panel,
+                    travel-notes panel; see the report). */}
                 <section className="roamly-home-panel mt-5 scroll-mt-28" aria-label="Trip home">
-                  <div className="grid gap-4">
-                    <p className="px-1 text-[0.95rem] leading-6 text-cink">{suppressFlightFraming ? (isDriveMode(transportPreference) ? "Drive. No flight is booked." : "Mixed travel. No flight is booked.") : transportPreference ? transportPreference : "How you’ll get there is still to confirm."}</p>
-                    <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
-                  </div>
-                  {noteDisplay.text ? (
-                    <div className="mt-4 rounded-[14px] bg-white px-4 py-4 shadow-calm">
-                      <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Your notes</p>
-                      <ul className="mt-2 grid gap-1.5">
-                        {noteDisplay.constraints.map((line) => <li key={line} className="text-sm leading-6 text-cink">{line}</li>)}
-                      </ul>
-                      {noteDisplay.hotel ? <p className="mt-3 text-sm leading-6 text-cink">{noteDisplay.hotel}</p> : null}
-                      {noteDisplay.flight ? <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.flight}</p> : null}
-                      {noteDisplay.activity ? <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.activity}</p> : null}
-                      {noteDisplay.gaps.length ? <p className="mt-3 text-xs leading-5 text-cgray">{noteDisplay.gaps.join(" ")}</p> : null}
-                    </div>
-                  ) : null}
+                  <ItineraryHomePanel
+                    tripId={id}
+                    destinationLabel={destinationLabel}
+                    dateRangeLabel={formatHomeDateRange(trip.start_date, trip.end_date, locale)}
+                    days={itineraryHomeDays}
+                    photo={destinationPhoto}
+                    venuePhotos={venuePhotos}
+                    editHref={itineraryHomeEditHref}
+                    essentials={itineraryHomeEssentials}
+                    packing={packingItems}
+                    documents={documentItems}
+                  />
                 </section>
                 <section id="day-by-day" className="roamly-tab-panel roamly-panel-day-by-day mt-8 scroll-mt-32">
                   {canShowFull && full ? <TripCommentBox tripId={id} /> : null}
@@ -2910,7 +3001,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 </section>
 
                 
-                {trackingUnlocked ? <TripGapCards tripId={id} /> : null}
+                {/* Exactness pass (2026-10-26): gap cards + their
+                    affiliate/house-ad blocks live behind the detail
+                    tabs, not on the home view — the mock home ends
+                    at "View day on map". Hidden on home (no radio
+                    checked), shown on any detail tab, same as
+                    .roamly-detail-only. Print keeps them. */}
+                {trackingUnlocked ? <div className="roamly-gap-cards"><TripGapCards tripId={id} /></div> : null}
                 {hasRequirements ? <section id="requirements" className="roamly-tab-panel roamly-panel-requirements mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Before you go" title="Entry requirements" summary={travelerRequirementState.evaluations.length > 1 ? "Requirements can differ for each traveler. Roamly evaluates each person only from their explicit passport country." : "A conservative review based on your destination and your declared passport country."} />
                   <TripTravelerRequirements tripId={id} evaluations={travelerRequirementState.evaluations} />
@@ -2946,7 +3043,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
             </div>
 
-            <footer className="mt-10 border-t border-chair py-6 text-sm font-medium text-cgray">
+            <footer className="roamly-detail-only mt-10 border-t border-chair py-6 text-sm font-medium text-cgray">
               Generated by Roamly
             </footer>
           </>

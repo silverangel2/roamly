@@ -78,6 +78,30 @@ export function formatRoamlyDate(
   locale: RoamlyLocale | string | null | undefined,
   options: Intl.DateTimeFormatOptions = {}
 ) {
+  // Correction phase (D1, 2026-10-28): a date-only string ("2026-10-26")
+  // is a CALENDAR date, not a UTC midnight instant. `new Date(value)`
+  // parses it as UTC midnight, so a viewer west of UTC (e.g. ADT,
+  // UTC-4) saw the PREVIOUS day — the dashboard showed Oct 25 for a
+  // trip starting Oct 26. Date-only values are therefore formatted
+  // from their own parts (timeZone UTC on a UTC-built date), which
+  // renders the same calendar date in every viewer timezone and
+  // matches the trip page's date-part rendering. Full datetimes keep
+  // the previous behavior untouched.
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const utc = new Date(Date.UTC(year, month - 1, day));
+      if (
+        month >= 1 && month <= 12 && day >= 1 && day <= 31 &&
+        utc.getUTCFullYear() === year && utc.getUTCMonth() === month - 1 && utc.getUTCDate() === day
+      ) {
+        return new Intl.DateTimeFormat(roamlyIntlLocale(locale), { ...options, timeZone: "UTC" }).format(utc);
+      }
+    }
+  }
   return new Intl.DateTimeFormat(roamlyIntlLocale(locale), options).format(new Date(value));
 }
 

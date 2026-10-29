@@ -113,13 +113,34 @@ const companionOfferAt = guest.indexOf("data-guest-live-companion-offer");
 check("ui: companion wording lives inside the ready-only offer", companionOfferAt !== -1 && guest.indexOf("Live Companion needs an account") > companionOfferAt);
 
 const gate = src("components/roamly/TripSetupGate.tsx");
-check("ui: gate shows preview day count", gate.includes("dayCount") && gate.includes("saved and waiting behind these steps"));
+// Acceptance-review round (2026-10-28, owner-approved): the old check
+// below required the sentence "saved and waiting behind these steps",
+// which the picture-3 round removed BY DESIGN from the approved gate
+// (TripSetupGate.tsx renders "Everything is prepared…" +
+// "Itinerary generated and saved" instead, and its dayCount prop is
+// kept for callers but deliberately not rendered). The replacement
+// checks pin THAT approved behavior, not the removed sentence:
+//   OLD coverage: (a) a dayCount value exists somewhere in the gate;
+//     (b) a preview day-count sentence is shown.
+//   NEW coverage: (a) the dayCount prop is still accepted for callers
+//     but is never interpolated into rendered output; (b) the approved
+//     preview copy IS shown and the removed sentence is NOT (pinned
+//     absent, so it cannot silently return); (c) the refusal path is
+//     present in words — "Skip for now" + the limited-features
+//     footnote — so skipping still reveals with limited features.
+// Nothing is dropped except the removed sentence itself.
+check("ui: gate shows approved preview, removed day-count sentence absent", gate.includes("Your trip is ready!") && gate.includes("Everything is prepared. Complete a few optional steps to unlock more features.") && gate.includes("Itinerary generated and saved") && !gate.includes("saved and waiting behind these steps"));
+check("ui: gate keeps dayCount prop for callers but does not render it", gate.includes("dayCount?: number") && !gate.includes("{dayCount}"));
+check("ui: gate refusal path names limited features in words", gate.includes("Skip for now") && gate.includes("You can still view your full itinerary with limited features."));
 check("ui: gate has skip-for-now path", gate.includes("Skip for now") && gate.includes("skipHref"));
 check("ui: gate names limited features", gate.includes("limitedFeatures"));
 
 const tripPage = src("app/trip/[id]/page.tsx");
 check("ui: trip page uses prior-trip trigger", tripPage.includes("hasPriorTrip") && tripPage.includes("setupGateApplies"));
-check("ui: trip page honors skip param", tripPage.includes("skipSetupGate") && tripPage.includes("Showing with limited features"));
+// Final local round (2026-10-27, Task 2): the skip-reveal banner's
+// wording moved into the compact expandable LimitedFeaturesNotice
+// component; the skip behavior (param + mount) is unchanged.
+check("ui: trip page honors skip param", tripPage.includes("skipSetupGate") && tripPage.includes("<LimitedFeaturesNotice"));
 check("ui: trip page QA bypass intact", tripPage.includes("hasQaAccess: access.hasQaAccess"));
 
 const livePage = src("app/trip/[id]/live/page.tsx");

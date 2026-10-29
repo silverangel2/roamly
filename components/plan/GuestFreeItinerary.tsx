@@ -20,7 +20,7 @@ import {
   packBuildStatusLines,
   type PackBuildStatus
 } from "@/lib/roamly/packBuildStatus";
-import { presentTravelerTitle, punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
+import { presentDayHeading, presentTravelerTitle, punctuateTravelerTime } from "@/lib/roamly/itineraryPresentation";
 
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
 
@@ -296,7 +296,14 @@ export function GuestFreeItinerary() {
                 {translateText("Day")} {day.dayNumber}
                 {day.date ? ` · ${day.date}` : ""}
               </p>
-              {day.title ? <h3 className="mt-1 text-lg font-black text-ink">{presentTravelerTitle({ title: day.title, category: "activity" }).title}</h3> : null}
+              {(() => {
+                // Round 2 HIGH 3: merged day titles render as one heading
+                // per venue; an unconfident join renders no venue heading.
+                const headings = day.title ? presentDayHeading({ title: day.title, category: "activity" }).headings : [];
+                return headings.map((heading) => (
+                  <h3 key={heading} className="mt-1 text-lg font-black text-ink">{heading}</h3>
+                ));
+              })()}
               {day.morning ? <p className="mt-3 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Morning")}. </span>{day.morning}</p> : null}
               {day.afternoon ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Afternoon")}. </span>{day.afternoon}</p> : null}
               {day.evening ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-700"><span className="font-black text-ink">{translateText("Evening")}. </span>{day.evening}</p> : null}

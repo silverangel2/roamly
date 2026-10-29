@@ -33,7 +33,27 @@ import {
   type LiveLocationPermission,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
-import { cleanTravelerTimeLabel, confirmableStopTitle, isHollowTravelerPlace, looksLikeProviderSearchTitle, preTripAddressCopy, preTripPrepTitle, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, confirmableStopTitle, isHollowTravelerPlace, looksLikeProviderSearchTitle, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import { evaluateLocationEvidence } from "@/lib/roamly/locationEvidence";
+import { LocationPermissionRecovery } from "@/components/roamly/LocationPermissionRecovery";
+import { TimeProvenanceLabel } from "@/components/roamly/TimeProvenanceLabel";
+import { hasVerifiedLiveEvidence, isFreshEvidenceTimestamp, provenanceForLiveDayRow, provenanceForPreTripRow } from "@/lib/roamly/timeProvenance";
+import { DirectionsPanel } from "@/components/trip/DirectionsPanel";
+import { VenueThumb } from "@/components/roamly/VenueThumb";
+import { venuePhotoForTitle, type VenuePhotoMap } from "@/lib/roamly/venuePhotos";
+
+/** Timeline-row thumbnail: renders only when the map holds a photo. */
+function LiveRowThumb({ venuePhotos, title }: { venuePhotos?: VenuePhotoMap; title: string }) {
+  const thumb = venuePhotoForTitle(venuePhotos, title);
+  if (!thumb) return null;
+  return <VenueThumb photo={thumb} title={title} />;
+}
+import { formatTripDateRange, tripClockState, tripDayDateLabel } from "@/lib/roamly/tripClock";
+import { UNKNOWN_TZ_LABEL } from "@/lib/roamly/tripTimezone";
+import type { DayTimelineRow } from "@/lib/roamly/liveDayTimeline";
+import { TripHeroCard, type TripHeroPhoto } from "@/components/roamly/TripHeroCard";
+import { DESIGN_TOKENS } from "@/lib/roamly/designTokens";
+import { buildAppleMapsUrl, buildGoogleMapsUrl } from "@/lib/roamly/navigationLinks";
 
 export type LiveSimulatorPlace = {
   id: string;
@@ -130,6 +150,13 @@ type LiveTripClientProps = {
   transportationPreference?: string | null;
   hasConfirmedFlight?: boolean;
   timezone?: string | null;
+  /**
+   * Timezone round (2026-10-26): true when the page could not resolve
+   * the trip's zone from metadata or the destination registry. The
+   * client then renders UNKNOWN_TZ_LABEL under the hero instead of
+   * silently showing UTC days.
+   */
+  timezoneUnknown?: boolean;
   companionEnabled?: boolean;
   companionPausedUntil?: string | null;
   backgroundLocationEnabled?: boolean;
@@ -139,6 +166,23 @@ type LiveTripClientProps = {
   bookingDetails?: LiveCompanionBookingDetail[];
   liveDemoEnabled?: boolean;
   fieldTestMode?: boolean;
+  /** Round 2 hero photo (real destination-photo pipeline; null → bare header). */
+  heroPhoto?: TripHeroPhoto | null;
+  /** Round 2 pre-trip Day timeline rows, built server-side from the stored plan. */
+  dayTimelineRows?: DayTimelineRow[];
+  /** Round 2 Full Itinerary tab: all days' stops (title/time/status only).
+   *  Correction phase (D5/D6): activities also carry the itinerary's
+   *  map query + coordinates when present, so the Map tab can fall back
+   *  to itinerary links when no live-activity link exists. */
+  itineraryDays?: Array<{
+    dayNumber: number;
+    dateLabel: string | null;
+    activities: Array<{ title: string; timeLabel: string | null; status: string | null; mapQuery?: string | null; latitude?: number | null; longitude?: number | null }>;
+  }>;
+  /** Stored day title for the pre-trip Day heading (e.g. "Plan for arrival and first exploration"). */
+  dayPlanTitle?: string | null;
+  /** Pipeline thumbnails for venue rows, keyed by normalized title. */
+  venuePhotos?: VenuePhotoMap;
 };
 
 const SIMULATED_LOCATION_KEY = "roamly_live_simulated_location";
@@ -182,32 +226,10 @@ function formatClock(value: string | null | undefined, timezone?: string | null,
   return cleanTravelerTimeLabel(formatted);
 }
 
-function formatShortDay(date: Date, timezone?: string | null, locale = "en") {
-  return new Intl.DateTimeFormat(locale, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: timezone || undefined
-  }).format(date);
-}
-
-function timingCopy(minutes: number | null, startDate: Date | null, timezone?: string | null, locale = "en") {
-  if (minutes == null) return "No start time";
-  if (minutes < -5) return "Started";
-  if (minutes <= 0) return "Now";
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) {
-    const remainder = minutes % 60;
-    return remainder ? `${hours}h ${remainder}m` : `${hours}h`;
-  }
-  // Beyond two days a date beats a day-count: "Wed, Oct 21" is what the
-  // traveler actually wants, and it can never be misread as a travel time
-  // (the old "1232h 31m" looked like a route duration).
-  if (startDate && Number.isFinite(startDate.getTime())) return formatShortDay(startDate, timezone, locale);
-  const days = Math.round(minutes / (60 * 24));
-  return days <= 1 ? "in 1 day" : `in ${days} days`;
-}
+// Round 2: the old local timingCopy/formatShortDay countdown formatter is
+// replaced by lib/roamly/liveTimingDisplay.ts (timingDisplay), which labels
+// the countdown by its basis and separates it from travel time. Keeping two
+// countdown formatters would let them drift apart again.
 
 function formatMeters(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return "Waiting";
@@ -306,10 +328,57 @@ function timelineRowTitle(
   return title;
 }
 
+/** Owner-10 item 5 — the same title-echo rule as
+ *  itineraryHome.stripTitleEcho, for in-progress activity
+ *  descriptions ("{title} — planned for day N of this trip."). */
+function stripLiveTitleEcho(title: string, detail: string): string {
+  const text = (detail || "").trim();
+  if (!text) return "";
+  const plain = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  if (plain(text) === plain(title)) return "";
+  let out = text;
+  const rawTitle = (title || "").trim();
+  if (rawTitle && text.toLowerCase().startsWith(rawTitle.toLowerCase())) {
+    out = text.slice(rawTitle.length);
+  } else if (rawTitle && plain(text).startsWith(plain(rawTitle))) {
+    const dash = text.search(/[—–-]/);
+    if (dash !== -1) out = text.slice(dash + 1);
+  } else {
+    return text;
+  }
+  out = out.trim().replace(/^[—–-]\s*/, "").trim();
+  if (/^planned for day \d+ of this trip\.?$/i.test(out)) return "";
+  return out;
+}
+
+/** Owner-10 item 5 — bare-acronym title + no real description. */
+function isUnverifiedLiveStop(title: string, strippedDetail: string): boolean {
+  return /^[A-Z0-9]{2,4}$/.test((title || "").trim()) && !strippedDetail.trim();
+}
+
+/** Walk/transfer legs: they are movements between stops, not
+ *  activities — the compact upcoming list (owner-10 item 6) shows
+ *  activities only; the live engine's own current item is still
+ *  featured above the list whatever it is. */
+function isWalkLiveActivity(activity: LiveCompanionActivity): boolean {
+  const title = (activity.title || "").toLowerCase();
+  const category = (activity.category || "").toLowerCase();
+  if (/\b(transfer|transit)\b/.test(category)) return true;
+  return /^(walk|transfer|transit|getting|travel|drive|take|go|ride|fly)\b/.test(title);
+}
+
 function activityDisplayDescription(activity: LiveCompanionActivity | null, fallback: string) {
   if (!activity?.shortDescription) return fallback;
-  return isUsablePlaceLabel(activity.shortDescription) && !looksLikeProviderSearchTitle(activity.shortDescription)
-    ? activity.shortDescription
+  const stripped = stripLiveTitleEcho(activity.title || "", activity.shortDescription);
+  if (!stripped) return fallback;
+  return isUsablePlaceLabel(stripped) && !looksLikeProviderSearchTitle(stripped)
+    ? stripped
     : "We could not verify the place details for this stop yet.";
 }
 
@@ -479,6 +548,7 @@ export function LiveTripClient({
   transportationPreference = null,
   hasConfirmedFlight = false,
   timezone = null,
+  timezoneUnknown = false,
   companionEnabled = true,
   companionPausedUntil = null,
   backgroundLocationEnabled = false,
@@ -487,7 +557,12 @@ export function LiveTripClient({
   initialLocation = null,
   bookingDetails = [],
   liveDemoEnabled = false,
-  fieldTestMode = false
+  fieldTestMode = false,
+  heroPhoto = null,
+  dayTimelineRows = [],
+  itineraryDays = [],
+  dayPlanTitle = null,
+  venuePhotos
 }: LiveTripClientProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -506,6 +581,10 @@ export function LiveTripClient({
   const [routeBusy, setRouteBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [nowTick, setNowTick] = useState(() => new Date());
+  // Round 2 panel tabs (composite structure): Today / Full Itinerary /
+  // Map / Essentials. Tab state is client-only; every panel's data is
+  // the real trip data passed in as props.
+  const [liveTab, setLiveTab] = useState<"today" | "itinerary" | "map" | "essentials">("today");
   const usableLocation = location && isFreshLocationObservation(location.capturedAt, nowTick.getTime()) ? location : null;
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
@@ -522,6 +601,10 @@ export function LiveTripClient({
       // Storage is a nicety, not a requirement.
     }
   }, []);
+  // Round 2 panel 7 (DIRECTIONS): additive-only toggle for the
+  // "Getting to your next stop" panel below the Up Next card. The
+  // existing Directions link row is untouched.
+  const [showDirectionsPanel, setShowDirectionsPanel] = useState(false);
   const [error, setError] = useState("");
   const [qaBusy, setQaBusy] = useState("");
   const [demoState, setDemoState] = useState<LiveDemoState | null>(null);
@@ -651,7 +734,6 @@ export function LiveTripClient({
       return aStart - bStart;
     });
   }, [activeTripStartDate, liveActivities, timezone]);
-  const nextTimingStatus = (nextActivity as (LiveCompanionActivity & { timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN" }) | null)?.timing_status;
   const mapsHref = useMemo(() => {
     const mapsTarget = currentActivity || nextActivity;
     return googleMapsUrlForActivity(mapsTarget, directionMode);
@@ -661,19 +743,6 @@ export function LiveTripClient({
     [currentActivity, nextActivity, directionMode]
   );
   const hasDirectionLinks = Boolean(directionLinks.google || directionLinks.apple || directionLinks.citymapper);
-  const gpsStatus = useMemo(() => {
-    if (usableLocation) {
-      const accuracy = usableLocation.accuracy != null ? ` \u00b1${Math.round(usableLocation.accuracy)}m` : "";
-      return { ok: true, copy: `GPS live${accuracy}` };
-    }
-    if (location) return { ok: false, copy: "GPS updating\u2026" };
-    if (watching) return { ok: false, copy: "Waiting for GPS\u2026" };
-    return { ok: false, copy: "GPS off" };
-  }, [usableLocation, location, watching]);
-  const scrollToDirections = useCallback(() => {
-    document.getElementById("live-directions")?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, []);
-  const nextStart = nextActivity ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone }) : null;
   const paused = model.activationStatus === "paused";
   const activeStep = currentActivity || nextActivity;
   const actionableActivityId = currentActivity?.id || null;
@@ -692,6 +761,32 @@ export function LiveTripClient({
   });
   const tripCompleted = tripPhaseNow === "completed_trip";
   const preTrip = tripPhaseNow === "future_trip";
+
+  // Round 2, CRITICAL 1 — Live side of the one evidence rule. A stored
+  // "nearby" status is a past GPS mint, not current proof: it renders
+  // as "nearby" only when fresh coordinates (live GPS or the persisted
+  // fix, re-checked here) place the traveler within radius of THAT
+  // activity on an active trip. Otherwise it reads "Planned" — the same
+  // downgrade the Alerts timeline applies, through the same function.
+  const displayStatusFor = (activity: {
+    status?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    radiusMeters?: number | null;
+  }) => {
+    if (activity.status !== "nearby") return activity.status || "Planned";
+    const verified = evaluateLocationEvidence({
+      tripActive: tripWindowActive,
+      travelerLatitude: usableLocation?.latitude ?? null,
+      travelerLongitude: usableLocation?.longitude ?? null,
+      travelerObservedAt: usableLocation?.capturedAt ?? null,
+      destinationLatitude: activity.latitude ?? null,
+      destinationLongitude: activity.longitude ?? null,
+      radiusMeters: activity.radiusMeters ?? null,
+      now: nowTick.getTime()
+    }).verified;
+    return verified ? "nearby" : "Planned";
+  };
 
   useEffect(() => {
     let alive = true;
@@ -933,6 +1028,22 @@ export function LiveTripClient({
     persistLocationOn();
     if (tripWindowActive) void startForegroundLocation();
   }, [persistLocationOn, startForegroundLocation, tripWindowActive]);
+
+  // Round 2 permission recovery: re-querying the Permissions API never
+  // prompts, so it is safe after a denial — if the traveler has since
+  // allowed Roamly in device/browser settings, this picks it up and
+  // starts sensing; if still denied, state stays denied and the steps
+  // stay on screen. It never attempts to bypass browser security.
+  const recheckLocationPermission = useCallback(async () => {
+    if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
+    try {
+      const status = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+      setPermission(status.state as LiveLocationPermission);
+      if (status.state === "granted") enableLocation();
+    } catch {
+      // Permissions API unavailable here: leave state untouched.
+    }
+  }, [enableLocation]);
 
   const liveTripUrl = typeof window !== "undefined" ? `${window.location.origin}/trip/${tripId}/live` : "";
   const canNativeShare = typeof navigator !== "undefined" && typeof (navigator as Navigator & { share?: unknown }).share === "function";
@@ -1298,40 +1409,11 @@ export function LiveTripClient({
     };
   }, [usableLocation, mapsHref, nextActivity, online, tripId]);
 
-  async function saveLiveControls(patch: { liveCompanionEnabled?: boolean; liveCompanionPausedUntil?: string | null }) {
-    setError("");
-    setNotice("");
-    const response = await fetch(`/api/trips/${tripId}/companion/preferences`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(patch)
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || !data?.ok) throw new Error(data?.error || "Could not update Live Companion controls.");
-  }
-
-  async function pauseCompanion() {
-    try {
-      await saveLiveControls({
-        liveCompanionEnabled: true,
-        liveCompanionPausedUntil: new Date(Date.now() + 60 * 60_000).toISOString()
-      });
-      stopForegroundLocation();
-      setNotice("Live Companion paused for 1 hour.");
-    } catch (err) {
-      setError(localizeCustomerError(locale, err));
-    }
-  }
-
-  async function resumeCompanion() {
-    try {
-      await saveLiveControls({ liveCompanionEnabled: true, liveCompanionPausedUntil: null });
-      setNotice("Live Companion resumed. Refresh if the paused badge remains.");
-    } catch (err) {
-      setError(localizeCustomerError(locale, err));
-    }
-  }
-
+  // Picture 4: the Pause/Resume control lived here and is removed with
+  // its button (see the Today-tab removals). Pausing remains a
+  // companion-preference write (PUT /api/trips/[id]/companion/preferences)
+  // owned by Settings, not by this screen — no dead handler is kept
+  // here to imply a control that does not exist.
   const runAction = useCallback(async (activityId: string, action: "check-in" | "skip" | "complete", actionLocation?: LiveCoordinates | null) => {
     setBusy(activityId + action);
     setError("");
@@ -1558,22 +1640,18 @@ export function LiveTripClient({
     : [];
 
   const suppressFlightFraming = shouldSuppressFlightFraming({ transportationPreference, hasConfirmedFlight });
-  const locationOff = permission !== "granted";
-  const companionStartLabel = tripStartDate
-    ? new Date(`${tripStartDate}T12:00:00`).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })
-    : null;
-  const nextTitleRaw = activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming, originLabel || "");
-  const nextIsHollow = preTrip && !nextTitleRaw;
-  const preTripNext = preTripPrepTitle(activeDestinationLabel, tripStartDate || "");
-  const displayedNextTitle = nextIsHollow ? preTripNext : activityDisplayTitle(nextActivity, preTrip ? preTripNext : "Flexible time", activeDestinationLabel, suppressFlightFraming, originLabel || "");
-  const displayedAddress = nextIsHollow || (preTrip && isHollowTravelerPlace(primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming, originLabel || ""), activeDestinationLabel))
-    ? preTripAddressCopy(locationOff)
-    : primaryAddress(nextActivity || currentActivity, activeDestinationLabel, suppressFlightFraming, originLabel || "");
-
-  // The alerts feed is a trip-day surface only (2026-10-23): outside the
-  // active trip window none of it renders. Pre-trip the page is the plan
-  // plus the state lines; a completed trip carries no live feed.
-  const feedAlerts = tripWindowActive ? model.alerts : [];
+  // Row-title fallback for the timeline: the next stop's traveler title
+  // is borrowed only when a row is still the generic "Trip · city" label
+  // (timelineRowTitle's own rule).
+  const nextRowTitle = activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming, originLabel || "");
+  // Acceptance-review round (2026-10-28), DISPLAY ONLY: the embedded
+  // directions panel previously rendered the next stop's raw title
+  // even when the timeline row itself flagged it "Unverified stop"
+  // — same gap as the standalone screen. Same rule as the timeline
+  // rows (bare-acronym title + no real description after echo strip).
+  const nextUnverified = nextActivity
+    ? isUnverifiedLiveStop(nextActivity.title || "", stripLiveTitleEcho(nextActivity.title || "", nextActivity.shortDescription || ""))
+    : false;
 
   // Declutter (2026-10-23): this phone's setup state is stated exactly
   // once on the live view — the quiet line in the side card. The steps
@@ -1611,324 +1689,659 @@ export function LiveTripClient({
       : Math.min(Math.max(Math.round((today.getTime() - start.getTime()) / 86400000) + 1, 1), total);
     return { idx, total };
   })();
-  const upcomingToday = todayActivities.filter(
+  // Repair round item 1 — THE EVIDENCE GATE for in-progress times.
+  // Today's times are recomputed for today from the live activity
+  // records, so on their own they are Estimated, never Live-updated.
+  // Live-updated requires verified live evidence inside the 10-minute
+  // freshness window: a fresh location fix (usableLocation is null
+  // unless the fix is fresh) or a fresh verified check-in event
+  // (checked_in with a fresh checked_in_at). Location unavailable and
+  // no fresh check-in — the tester renders' state — means every
+  // recomputed time reads Estimated. A stale check-in falls back the
+  // same way; it is never presented as current.
+  const verifiedLiveEvidence = hasVerifiedLiveEvidence({
+    freshLocationFix: usableLocation != null,
+    freshCheckIn: items.some(
+      (item) => item.status === "checked_in" && isFreshEvidenceTimestamp(item.checked_in_at ?? null, nowTick.getTime())
+    )
+  });
+  const liveDayProvenanceFor = (activity: { booking?: { status?: string | null } | null; timing_status?: string | null }) =>
+    provenanceForLiveDayRow({
+      bookingVerified: activity.booking?.status === "verified" || activity.timing_status === "FACTUAL",
+      verifiedLiveEvidence
+    });
+  // Picture 4 in-progress timeline: today's remaining stops, in the
+  // same chronological sort as todayActivities. The first remaining
+  // stop carries the UP NEXT pill; the current stop carries NOW.
+  const remainingToday = todayActivities.filter(
     (activity) =>
       activity.id !== currentActivity?.id &&
       !["completed", "skipped", "checked_in", "missed"].includes(String(activity.status))
   );
+  // Owner-10 item 6 — Live simplification. The Today tab shows ONE
+  // featured card (the current stop, else the first remaining stop)
+  // + a compact upcoming list (remaining activities, walk legs
+  // excluded — they are movements, not activities). The live
+  // engine's data is untouched; only this tab's presentation
+  // changes, and the full list still lives on the Full Itinerary tab.
+  const featuredActivity = currentActivity ?? remainingToday[0] ?? null;
+  const upcomingActivities = todayActivities.filter(
+    (activity) => activity.id !== featuredActivity?.id && !isWalkLiveActivity(activity)
+  );
+  const featuredStart = featuredActivity
+    ? activityStartDate({ activity: featuredActivity, tripStartDate: activeTripStartDate, timezone })
+    : null;
+  const featuredTimeLabel = featuredActivity
+    ? featuredStart
+      ? formatClock(featuredStart.toISOString(), timezone, locale)
+      : featuredActivity.timeLabel || ""
+    : "";
+  const featuredRawTitle = featuredActivity
+    ? timelineRowTitle(featuredActivity, nextRowTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")
+    : "";
+  const featuredStripped = featuredActivity
+    ? stripLiveTitleEcho(featuredRawTitle, featuredActivity.shortDescription || "")
+    : "";
+  const featuredUnverified = featuredActivity ? isUnverifiedLiveStop(featuredRawTitle, featuredStripped) : false;
+  const featuredPill = !featuredActivity
+    ? null
+    : featuredActivity.id === currentActivity?.id
+      ? "Now"
+      : featuredActivity.id === remainingToday[0]?.id
+        ? "Up next"
+        : null;
   const directionsHref = (() => {
     const isIOS = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent || "");
     if (isIOS && directionLinks.apple) return directionLinks.apple;
     return directionLinks.google || directionLinks.apple || directionLinks.citymapper || null;
   })();
+  // Correction phase (D6, 2026-10-28): the Map tab claimed "Maps links
+  // are not available" while the Itinerary Map provided links for the
+  // same stops — live links derive from tracked activities, itinerary
+  // links from the itinerary. When no live link exists, fall back to
+  // the current day's first itinerary stop (its map query, or its
+  // coordinates when the stop carries verified ones; name-only when
+  // coordinates are absent — never a claimed accuracy).
+  const fallbackMapStop = (() => {
+    if (directionsHref || mapsHref) return null;
+    const day = itineraryDays.find((entry) => entry.dayNumber === eyebrowDay?.idx) || itineraryDays[0];
+    const first = day?.activities?.[0];
+    if (!first || !(first.mapQuery || first.title)) return null;
+    return first;
+  })();
+  const fallbackGoogleHref = fallbackMapStop
+    ? buildGoogleMapsUrl({ label: fallbackMapStop.mapQuery || fallbackMapStop.title, latitude: fallbackMapStop.latitude ?? null, longitude: fallbackMapStop.longitude ?? null })
+    : "";
+  const fallbackAppleHref = fallbackMapStop
+    ? buildAppleMapsUrl({ label: fallbackMapStop.mapQuery || fallbackMapStop.title, latitude: fallbackMapStop.latitude ?? null, longitude: fallbackMapStop.longitude ?? null })
+    : "";
+  const mapDirectionsHref = directionsHref || fallbackGoogleHref || null;
+  const mapMapsHref = mapsHref || fallbackAppleHref || fallbackGoogleHref || null;
   const essentialsDone = checklist.filter((item) => item.is_done).length;
-  const currentEndLabel = currentActivity?.endAt ? formatClock(currentActivity.endAt, timezone, locale) : null;
   const rowChevron = (
     <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#B7C1D2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
       <path d="M1.5 1.5 6.5 6.5 1.5 11.5" />
     </svg>
   );
 
+  // Picture 4 timeline icon: a colored circle + line glyph from the
+  // row's own kind/category/mode/title — never a photo (no
+  // per-activity photo source exists) and never a guessed place type:
+  // unknown rows get the neutral pin. Travel legs use the plane only
+  // for flight legs; other legs get the directions arrow.
+  const timelineIcon = (input: { kind: "travel" | "stop"; title?: string | null; category?: string | null; mode?: string | null }) => {
+    const strokeProps = {
+      width: 20,
+      height: 20,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "#fff",
+      strokeWidth: 2,
+      strokeLinecap: "round",
+      strokeLinejoin: "round"
+    } as const;
+    const text = `${input.title || ""} ${input.category || ""} ${input.mode || ""}`.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (input.kind === "travel") {
+      if (/flight|fly|plane|airport/.test(text)) {
+        return {
+          bg: DESIGN_TOKENS.color.primary,
+          glyph: (
+            <svg {...strokeProps}>
+              <path d="M21 3 10 14M21 3l-6.5 18-4-9.5L2 8l19-5z" />
+            </svg>
+          )
+        };
+      }
+      return {
+        bg: DESIGN_TOKENS.color.primary,
+        glyph: (
+          <svg {...strokeProps}>
+            <path d="M3.5 20.5 20.5 3.5M8 3.5h12.5V16" />
+          </svg>
+        )
+      };
+    }
+    if (/hotel|lodging|arrival|stay|check.?in/.test(text)) {
+      return {
+        bg: DESIGN_TOKENS.color.success,
+        glyph: (
+          <svg {...strokeProps}>
+            <path d="M3 20V10M8 20V10M13 20V10M18 20V10M2 10l9-6 9 6M3 20h18" />
+          </svg>
+        )
+      };
+    }
+    if (/museum|market|historic|landmark|culture/.test(text)) {
+      return {
+        bg: DESIGN_TOKENS.color.activityOrange,
+        glyph: (
+          <svg {...strokeProps}>
+            <path d="M3 20V10M8 20V10M13 20V10M18 20V10M2 10l9-6 9 6M3 20h18" />
+          </svg>
+        )
+      };
+    }
+    if (/galler|art|exhibit/.test(text)) {
+      return {
+        bg: DESIGN_TOKENS.color.activityPurple,
+        glyph: (
+          <svg {...strokeProps}>
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <path d="M3 17l5-5 4 4 3-3 6 6" />
+          </svg>
+        )
+      };
+    }
+    // Theatre before food: "theatre" contains "eat", so the food
+    // branch would swallow every theatre stop if it ran first.
+    if (/theatr|show|concert|performance|evening/.test(text)) {
+      return {
+        bg: DESIGN_TOKENS.color.primary,
+        glyph: (
+          <svg {...strokeProps}>
+            <path d="M12 3l2.2 5.2 5.6.5-4.2 3.7 1.3 5.6L12 15.2 7.1 18l1.3-5.6L4.2 8.7l5.6-.5L12 3z" />
+          </svg>
+        )
+      };
+    }
+    if (/restaurant|food|dining|cafe|eat|veg|bistro/.test(text)) {
+      return {
+        bg: DESIGN_TOKENS.color.activityOrange,
+        glyph: (
+          <svg {...strokeProps}>
+            <path d="M6 3v7M10 3v7M6 5.5h4M6 10v11M17 3v6c0 3-3.5 3-3.5 0V3" />
+          </svg>
+        )
+      };
+    }
+    return {
+      bg: DESIGN_TOKENS.color.primary,
+      glyph: (
+        <svg {...strokeProps}>
+          <path d="M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10z" />
+          <circle cx="12" cy="11" r="2" />
+        </svg>
+      )
+    };
+  };
+
   return (
     <div className="calm-enter mx-auto w-full max-w-5xl">
-      {/* Title block — the NOW is the title (owner mock 04). No page
-          H1 block, no marketing subline: eyebrow, the current stop as
-          the large title, the until line when the stop carries an end
-          time, then the status line (dot + word). */}
-      <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">
-        {preTrip
-          ? `${activeDestinationLabel || t("ui.nav.trips")} · Starts ${companionStartLabel || "soon"}`
-          : tripCompleted
-            ? `${activeDestinationLabel || t("ui.nav.trips")} · Trip complete`
-            : eyebrowDay
-              ? `${activeDestinationLabel || t("ui.nav.trips")} · Day ${eyebrowDay.idx} of ${eyebrowDay.total}`
-              : activeDestinationLabel || t("ui.nav.trips")}
-      </p>
-      <h1 className="mt-1.5 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">
-        {preTrip
-          ? timingCopy(model.countdownMinutes, nextStart, timezone, locale)
-          : tripCompleted
-            ? "This trip is complete"
-            : activityDisplayTitle(currentActivity, "Your next stop is not confirmed yet", activeDestinationLabel, suppressFlightFraming, originLabel || "")}
-      </h1>
-      {currentActivity && !preTrip && !tripCompleted && currentEndLabel ? (
-        <p className="mt-[7px] text-[17px] font-semibold text-chead">
-          Until {currentEndLabel}
-          {nextActivity ? (
-            <span className="font-normal text-cgray">
-              {" "}· then {activityDisplayTitle(nextActivity, "", activeDestinationLabel, suppressFlightFraming, originLabel || "")}
-            </span>
-          ) : null}
-        </p>
+      {/* Round 2 panel header (composite structure, real data): page
+          title row, photo hero with the trip-state badge computed from
+          the same clock as the Today tab, then the four tabs. */}
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <a href={`/trip/${tripId}`} className="inline-flex min-h-11 items-center px-1 text-[22px] font-bold text-chead" aria-label="Back to trip">
+          ‹
+        </a>
+        <h1 className="text-[20px] font-bold tracking-[-0.018em] text-chead">Live Companion</h1>
+        <a href="/account" className="inline-flex min-h-11 items-center px-1 text-[15px] font-semibold text-cblue" aria-label="Settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+        </a>
+      </div>
+      <TripHeroCard
+        destination={activeDestinationLabel || t("ui.nav.trips")}
+        dateLine={formatTripDateRange(activeTripStartDate, activeTripEndDate)}
+        dayLine={eyebrowDay ? `Day ${eyebrowDay.idx} of ${eyebrowDay.total}` : null}
+        badge={tripClockState({ startDate: activeTripStartDate, endDate: activeTripEndDate, timezone, now: nowTick }).badge}
+        photo={heroPhoto}
+      />
+      {timezoneUnknown ? (
+        <p className="mt-2 px-1 text-[13px] font-medium text-cgray">{UNKNOWN_TZ_LABEL}</p>
       ) : null}
-      <p className="mt-1.5 flex items-center gap-1.5 text-[13.5px] font-normal text-cgray">
-        <span
-          aria-hidden
-          className={classNames(
-            "calm-dot h-2 w-2 rounded-full",
-            model.activationStatus === "active" ? "bg-cgreen" : "bg-cgray2"
-          )}
-        />
-        {statusLabel(model.activationStatus)}
-        {permission === "granted" ? <span>· {gpsStatus.copy}</span> : null}
-      </p>
-
-      {/* Location state rows — same states, same actions as before,
-          restated as quiet white cards under the status line. The grant
-          ask itself still lives only in the Settings cascade. */}
+      <div role="tablist" aria-label="Live Companion sections" className="mt-4 flex gap-5 border-b border-chair px-1">
+        {([
+          ["today", "Today"],
+          ["itinerary", "Full Itinerary"],
+          ["map", "Map"],
+          ["essentials", "Essentials"]
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={liveTab === key}
+            onClick={() => setLiveTab(key)}
+            className={`-mb-px border-b-2 pb-2 text-[15px] font-semibold ${
+              liveTab === key ? "border-cblue text-cblue" : "border-transparent text-cgray"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div hidden={liveTab !== "today"}>
+      {/* Picture 4 — Live Companion, Today tab. Closed state, top to
+          bottom, exactly the picture: banner · Day heading + subtitle ·
+          timeline (time · icon · title · detail · chevron) · Directions
+          + Open in Maps buttons. The Directions button opens the
+          picture-7 directions panel (unchanged component, user-invoked);
+          the closed state ends at the buttons. Pre-trip shows the
+          stored plan timeline verbatim; in-progress shows today's live
+          activities in the same timeline shape, with NOW / UP NEXT
+          pills and the current stop's check-in / complete / skip
+          actions. Anything the picture does not show lives nowhere on
+          this tab for the customer: no NOW card, no UP NEXT list, no
+          Pause row, no QR / phone-transfer card, no alerts feed, no
+          footer line (field-test and deep-link lanes below are
+          conditional only and never standing content). */}
       {preTrip ? (
-        trackingEnabled ? (
-          <div className="mt-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
-            <p className="text-sm font-normal text-cink">
-              Location on — Live Companion starts {companionStartLabel || "when your trip starts"}.
-            </p>
+        <>
+          <div className="mt-3 flex items-start gap-3 rounded-2xl bg-cblue/10 px-4 py-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cblue/15 text-cblue" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 3 10 14M21 3l-6.5 18-4-9.5L2 8l19-5z" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[17px] font-semibold leading-[1.3] text-chead">Trip hasn&apos;t started yet</span>
+              <span className="mt-0.5 block text-[15px] font-normal leading-[1.45] text-cink">
+                These are your planned activities for Day {eyebrowDay?.idx || 1}
+                {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
+                You&apos;ll get real-time updates when the trip begins.
+              </span>
+            </span>
           </div>
-        ) : (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
-            <p className="min-w-0 text-sm font-normal leading-6 text-cink">
-              Location is off. Turn it on once — Live Companion will be ready when your trip starts.
-            </p>
-            <button
-              type="button"
-              onClick={() => enableLocation()}
-              className="min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
-            >
-              Turn on location
-            </button>
+          <h2 className="mx-1 mb-1 mt-5 text-[22px] font-bold leading-[1.25] tracking-[-0.018em] text-chead">
+            Day {eyebrowDay?.idx || 1}
+            {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` · ${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)}` : ""}
+          </h2>
+          {dayPlanTitle ? (
+            <p className="mx-1 mb-3 text-[15px] font-normal leading-[1.45] text-cgray">{dayPlanTitle}</p>
+          ) : null}
+          <section className="relative">
+            {dayTimelineRows.length ? (
+              <div aria-hidden className="absolute bottom-5 left-24 top-5 w-0 border-l-2 border-dotted border-chair" />
+            ) : null}
+            {dayTimelineRows.length ? (
+              dayTimelineRows.map((row, rowIndex) => {
+                const icon = timelineIcon({ kind: row.kind, title: row.title, category: row.category, mode: row.mode });
+                const displayTitle = row.unverified ? "Unverified stop" : row.title;
+                const displayDetail = row.unverified && row.planTitle
+                  ? `Plan title: ${row.planTitle}${row.detail ? ` · ${row.detail}` : ""}`
+                  : row.detail;
+                return (
+                  <div key={`${row.title}-${rowIndex}`} className="relative flex items-start gap-3 py-3">
+                    {/* Conditional-acceptance item 1: every pre-trip time
+                        carries its provenance. Travel legs whose time is
+                        plan-derived already carry the mock's Planned pill
+                        under the title, so they get no second label; every
+                        other row labels its time here (Planned when the
+                        builder marked it schedule-derived, Confirmed when
+                        it is verified/FACTUAL). Rows with no time get no
+                        label — there is no time to label. */}
+                    <span className="flex w-[88px] shrink-0 flex-col pt-2">
+                      <span className="text-[15px] font-semibold text-chead">{row.time || ""}</span>
+                      {row.time && !(row.kind === "travel" && row.planned) ? (
+                        <TimeProvenanceLabel kind={provenanceForPreTripRow(row.planned)} />
+                      ) : null}
+                    </span>
+                    <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full text-white" style={{ backgroundColor: icon.bg }} aria-hidden="true">
+                      {icon.glyph}
+                    </span>
+                    {!row.unverified ? <LiveRowThumb venuePhotos={venuePhotos} title={row.title} /> : null}
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{displayTitle}</span>
+                      {row.kind === "travel" && row.planned ? (
+                        <span className="mt-1 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Planned</span>
+                      ) : null}
+                      {displayDetail ? (
+                        <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">{displayDetail}</span>
+                      ) : null}
+                    </span>
+                    {rowChevron}
+                  </div>
+                );
+              })
+            ) : (
+              <p className="rounded-2xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray shadow-calm">
+                Day plan details are not available yet.
+              </p>
+            )}
+          </section>
+          {directionsHref || mapsHref ? (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {hasDirectionLinks && directionsHref ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDirectionsPanel((value) => !value)}
+                  aria-expanded={showDirectionsPanel}
+                  aria-label="Getting to your next stop"
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm"
+                >
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3.5 11.5 11.5 3.5M5 3.5h6.5V10" />
+                    </svg>
+                  </span>Directions</button>
+              ) : null}
+              {mapsHref ? (
+                <a href={mapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10z" />
+                      <circle cx="12" cy="11" r="2" />
+                    </svg>
+                  </span>
+                  Open in Maps
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      ) : tripCompleted ? (
+        <div className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+          <p className="text-[17px] font-semibold text-chead">Trip complete</p>
+          <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
+            Live Companion is closed for this trip. The saved plan stays here to review.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Repair round P3: the banner title "Trip in progress"
+              duplicated the hero badge word-for-word, so it is gone.
+              The hero above is the Live view's ONE destination/state
+              header; this banner keeps only its day context + the
+              timing-truth line. */}
+          <div className="mt-3 flex items-start gap-3 rounded-2xl bg-cblue/10 px-4 py-3">
+            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-cgreen" aria-hidden="true" />
+            <span className="min-w-0">
+              <span className="block text-[15px] font-normal leading-[1.45] text-cink">
+                Live updates for Day {eyebrowDay?.idx || 1}
+                {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
+                Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a verified booking. Check in as you go.
+              </span>
+            </span>
           </div>
-        )
-      ) : tripWindowActive ? (
-        !trackingEnabled ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
-            <p className="min-w-0 text-sm font-normal leading-6 text-cink">
-              Location is off — Live Companion can&apos;t follow along.
+          {error ? (
+            <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3.5 py-[11px] text-sm font-semibold leading-[1.35] text-cred">{error}</p>
+          ) : null}
+          {notice ? (
+            <p role="status" aria-live="polite" className="mt-3 rounded-xl bg-cblue/10 px-3.5 py-[11px] text-sm font-medium leading-[1.35] text-cink">{notice}</p>
+          ) : null}
+          {!trackingEnabled ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+              <p className="min-w-0 text-sm font-normal leading-6 text-cink">
+                Location is off — Live Companion can&apos;t follow along.
+              </p>
+              <button
+                type="button"
+                onClick={() => enableLocation()}
+                className="min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
+              >
+                Turn on location
+              </button>
+            </div>
+          ) : permission === "denied" ? (
+            /* Owner-10 item 6: permission recovery stays reachable
+               but renders as ONE compact control — the full
+               step-by-step recovery sits behind the tap, not as a
+               wall of text on the Live screen. */
+            <details className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+              <summary className="cursor-pointer text-[15px] font-semibold text-chead">Location is off — fix it</summary>
+              <div className="mt-2">
+                <LocationPermissionRecovery
+                  permission="denied"
+                  onRetry={enableLocation}
+                  onRecheck={() => void recheckLocationPermission()}
+                />
+              </div>
+            </details>
+          ) : permission !== "granted" ? (
+            <details className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+              <summary className="cursor-pointer text-[15px] font-semibold text-chead">Location is off — fix it</summary>
+              <div className="mt-2">
+                <LocationPermissionRecovery
+                  permission="prompt"
+                  onRetry={enableLocation}
+                  onRecheck={() => void recheckLocationPermission()}
+                />
+              </div>
+            </details>
+          ) : null}
+          {/* Owner-10 item 6: the Today tab is now the status banner
+              (above) + ONE featured card + a compact upcoming list.
+              The full walk-inserted timeline still lives on the Full
+              Itinerary tab; nothing was deleted, only restructured. */}
+          {featuredActivity ? (
+            <section className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
+              <span className="text-[13px] font-semibold uppercase tracking-wide text-cgray">Next relevant activity</span>
+              <span className="mt-1 block break-words text-[19px] font-bold leading-[1.3] text-chead">
+                {featuredUnverified ? "Unverified stop" : featuredRawTitle}
+              </span>
+              <span className="mt-1 flex flex-wrap items-center gap-2">
+                {featuredTimeLabel ? <span className="text-[15px] font-semibold text-chead">{featuredTimeLabel}</span> : null}
+                {/* Repair round item 1: the featured time is recomputed
+                    for today, so it is Estimated unless the evidence
+                    gate passes (fresh location fix or fresh check-in)
+                    or a verified booking supplied it (Confirmed). */}
+                {featuredTimeLabel && featuredActivity ? (
+                  <TimeProvenanceLabel kind={liveDayProvenanceFor(featuredActivity)} />
+                ) : null}
+                {featuredPill ? (
+                  <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">{featuredPill}</span>
+                ) : null}
+              </span>
+              {featuredUnverified && featuredRawTitle ? (
+                <span className="mt-1 block break-words text-[14px] font-normal text-cgray">Plan title: {featuredRawTitle}</span>
+              ) : null}
+              {!featuredUnverified ? (
+                <span className="mt-1 block break-words text-[15px] font-normal leading-[1.4] text-cgray">
+                  {activityDisplayDescription(featuredActivity, featuredActivity.category || "")}
+                </span>
+              ) : null}
+            </section>
+          ) : null}
+          <section className="mt-3">
+            {upcomingActivities.length ? (
+              upcomingActivities.map((activity) => {
+                const start = activityStartDate({ activity, tripStartDate: activeTripStartDate, timezone });
+                const timeLabel = start ? formatClock(start.toISOString(), timezone, locale) : activity.timeLabel || "";
+                const rawTitle = timelineRowTitle(activity, nextRowTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "");
+                const stripped = stripLiveTitleEcho(rawTitle, activity.shortDescription || "");
+                const unverified = isUnverifiedLiveStop(rawTitle, stripped);
+                const isUpNext = activity.id === remainingToday[0]?.id;
+                return (
+                  <div key={activity.id} className="flex items-start gap-3 border-b border-chair py-3 last:border-b-0">
+                    {/* Repair round item 1: upcoming times are recomputed
+                        for today, so each carries Estimated unless the
+                        evidence gate passes or a verified booking
+                        supplied it. Rows with no time get no label. */}
+                    <span className="flex w-[88px] shrink-0 flex-col pt-0.5">
+                      <span className="text-[15px] font-semibold text-chead">{timeLabel}</span>
+                      {timeLabel ? (
+                        <TimeProvenanceLabel kind={liveDayProvenanceFor(activity)} />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{unverified ? "Unverified stop" : rawTitle}</span>
+                      {unverified && rawTitle ? (
+                        <span className="mt-0.5 block break-words text-[13px] font-normal text-cgray">Plan title: {rawTitle}</span>
+                      ) : null}
+                      {isUpNext ? (
+                        <span className="mt-1 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Up next</span>
+                      ) : null}
+                    </span>
+                  </div>
+                );
+              })
+            ) : todayActivities.length ? null : dayTimelineRows.length ? (
+              <div>
+                <p className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-cgray">Today&apos;s plan · from your itinerary</p>
+                {dayTimelineRows.map((row, rowIndex) => {
+                  const icon = timelineIcon({ kind: row.kind, title: row.title, category: row.category, mode: row.mode });
+                  const displayTitle = row.unverified ? "Unverified stop" : row.title;
+                  const displayDetail = row.unverified && row.planTitle
+                    ? `Plan title: ${row.planTitle}${row.detail ? ` · ${row.detail}` : ""}`
+                    : row.detail;
+                  return (
+                    <div key={`${row.title}-${rowIndex}`} className="flex items-start gap-3 border-b border-chair py-3 last:border-b-0">
+                      <span className="flex w-[88px] shrink-0 flex-col pt-0.5">
+                        <span className="text-[15px] font-semibold text-chead">{row.time || ""}</span>
+                        {row.time && !(row.kind === "travel" && row.planned) ? (
+                          <TimeProvenanceLabel kind={provenanceForPreTripRow(row.planned)} />
+                        ) : null}
+                      </span>
+                      <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full text-white" style={{ backgroundColor: icon.bg }} aria-hidden="true">
+                        {icon.glyph}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{displayTitle}</span>
+                        {row.kind === "travel" && row.planned ? (
+                          <span className="mt-1 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Planned</span>
+                        ) : null}
+                        {displayDetail ? (
+                          <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">{displayDetail}</span>
+                        ) : null}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray shadow-calm">
+                Today&apos;s plan is not available yet.
+              </p>
+            )}
+          </section>
+          {!tripCompleted ? <section className="mt-3 rounded-2xl bg-white shadow-calm">
+            {currentActivity && !tripCompleted ? (
+              /* Owner-10 item 6: Check in / Complete / Skip stay
+                 reachable, behind the featured card — one tap on
+                 "Stop actions" — instead of a standing action block. */
+              <details className="px-1 pb-1">
+                <summary className="cursor-pointer px-3 py-2.5 text-[15px] font-semibold text-chead">Stop actions</summary>
+                <button
+                  type="button"
+                  onClick={() => void runAction(currentActivity.id, "check-in", location)}
+                  disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
+                  className="min-h-[50px] w-full rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-45"
+                >
+                  {t("ui.actions.checkIn")}
+                </button>
+                <div className="divide-y divide-chair">
+                  <button
+                    type="button"
+                    onClick={() => void runAction(currentActivity.id, "complete")}
+                    disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                    className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink disabled:opacity-45"
+                  >
+                    Complete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void runAction(currentActivity.id, "skip")}
+                    disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                    className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink disabled:opacity-45"
+                  >
+                    Skip this activity
+                  </button>
+                </div>
+              </details>
+            ) : null}
+            <p className="px-4 py-2.5 text-[13px] font-normal leading-[1.4] text-cgray">
+              {!currentActivity ? "Review the plan and confirm anything still suggested." : "Skip or complete this stop. The rest of today's times stay as labeled."}
             </p>
-            <button
-              type="button"
-              onClick={() => enableLocation()}
-              className="min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
-            >
-              Turn on location
-            </button>
-          </div>
-        ) : permission === "denied" ? (
-          <div className="mt-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
-            <p className="text-sm font-normal leading-6 text-cink">
-              Location is on, but your browser is blocking it. Allow location for Roamly in your browser settings, then return here.
-            </p>
-          </div>
-        ) : permission !== "granted" ? (
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
-            <p className="min-w-0 text-sm font-normal leading-6 text-cink">
-              Location is on for this trip — this browser still needs to allow it.
-            </p>
-            <a
-              href="/account#setup-step-3"
-              className="inline-flex min-h-11 shrink-0 items-center px-1 text-[15px] font-semibold text-cblue"
-            >
-              Turn on in Settings
-            </a>
+          </section> : null}
+          {directionsHref || mapsHref ? (
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              {hasDirectionLinks && directionsHref ? (
+                <button
+                  type="button"
+                  onClick={() => setShowDirectionsPanel((value) => !value)}
+                  aria-expanded={showDirectionsPanel}
+                  aria-label="Getting to your next stop"
+                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm"
+                >
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3.5 11.5 11.5 3.5M5 3.5h6.5V10" />
+                    </svg>
+                  </span>Directions</button>
+              ) : null}
+              {mapsHref ? (
+                <a href={mapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10z" />
+                      <circle cx="12" cy="11" r="2" />
+                    </svg>
+                  </span>
+                  Open in Maps
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
+      {/* Picture-7 directions panel, user-invoked only: the Directions
+          button above opens it for the next stop. Closed, the Today
+          tab ends at the buttons. The panel's own standalone link
+          (standaloneHref) is this picture's Live entry point to the
+          standalone directions screen; the toggle behavior and the
+          panel's mount props are otherwise unchanged. */}
+      {nextActivity ? (
+        showDirectionsPanel ? (
+          <div className="mt-3 overflow-hidden rounded-2xl shadow-calm">
+            <DirectionsPanel
+              tripId={tripId}
+              destination={{
+                id: nextActivity.id,
+                title: nextActivity.title,
+                address: nextActivity.address,
+                placeName: nextActivity.placeName,
+                latitude: nextActivity.latitude,
+                longitude: nextActivity.longitude,
+                radiusMeters: nextActivity.radiusMeters
+              }}
+              originItemId={currentActivity?.id ?? null}
+              dayNumber={eyebrowDay?.idx ?? null}
+              dayDate={nextActivity.date ?? null}
+              tripDestinationLabel={activeDestinationLabel}
+              tripStartDate={activeTripStartDate}
+              tripEndDate={activeTripEndDate}
+              tripOriginLabel={originLabel}
+              mode={directionMode}
+              permission={permission}
+              location={usableLocation}
+              liveRoute={model.route}
+              routeEvidence={null}
+              steps={null}
+              onBack={() => setShowDirectionsPanel(false)}
+              onRequestLocation={() => enableLocation()}
+              unverified={nextUnverified}
+              planTitle={nextUnverified ? nextActivity.title : null}
+              standaloneHref={`/trip/${tripId}/directions/${nextActivity.id}?from=live`}
+            />
           </div>
         ) : null
       ) : null}
 
-      {/* Alerts — a trip-day surface only (feedAlerts is already
-          window-gated above). One slim tint banner per alert, above
-          the NOW card, exactly where mock 04 puts it. */}
-      {feedAlerts.length || error || notice ? (
-        <div className="mt-[15px] grid gap-2">
-          {feedAlerts.slice(0, 2).map((alert) => (
-            <p key={alert} className="calm-alert-in flex items-baseline gap-2 rounded-xl bg-cred/10 px-3.5 py-[11px] text-sm font-medium leading-[1.35] text-cink">
-              <span aria-hidden className="shrink-0 font-bold text-cred">!</span>
-              <span>{alert}</span>
-            </p>
-          ))}
-          {error ? (
-            <p role="alert" className="calm-alert-in flex items-baseline gap-2 rounded-xl bg-cred/10 px-3.5 py-[11px] text-sm font-semibold leading-[1.35] text-cred">
-              <span aria-hidden className="shrink-0 font-bold">!</span>
-              <span>{error}</span>
-            </p>
-          ) : null}
-          {notice ? (
-            <p role="status" aria-live="polite" className="calm-alert-in rounded-xl bg-cblue/10 px-3.5 py-[11px] text-sm font-medium leading-[1.35] text-cink">
-              {notice}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* NOW — one white grouped card. Address row with the route as
-          its right value, the description under a hairline, Timing as
-          a hairline row. No nested tiles. */}
-      <p className="mx-4 mb-[7px] mt-[17px] text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">
-        {preTrip ? "Get ready" : tripCompleted ? "Completed" : t("ui.status.now", "Now")}
-      </p>
-      <section className="rounded-[14px] bg-white shadow-calm">
-        <div className="flex min-h-11 items-center gap-2.5 px-4 py-2.5">
-          <span className="min-w-0 text-[17px] font-normal text-cink">{displayedAddress}</span>
-          {model.route.status === "verified" ? (
-            <span className="ml-auto shrink-0 text-[17px] font-normal text-cgray">{routeBusy ? "Checking" : routeCopy(model.route)}</span>
-          ) : null}
-        </div>
-        <div className="border-t border-chair px-4 py-[11px]">
-          <p className="text-[15px] font-normal leading-[1.4] text-cink">
-            {preTrip
-              ? "This trip has not started. Review the plan and confirm anything still suggested."
-              : tripCompleted
-                ? "Live Companion does not start again after the trip ends. The saved plan stays here to review."
-                : activityDisplayDescription(currentActivity, model.activationReason)}
-          </p>
-          {nextActivity?.openingHours ? (
-            <p className="mt-1.5 text-[13px] font-normal text-cgray">{t("ui.status.hours")}: {nextActivity.openingHours}</p>
-          ) : null}
-        </div>
-        {!preTrip ? (
-          <div className="flex min-h-11 items-center gap-2.5 border-t border-chair px-4 py-2.5">
-            <span className="shrink-0 text-[17px] font-normal text-cink">Timing</span>
-            <span className="ml-auto min-w-0 text-right">
-              <span className="block text-[17px] font-normal text-cgray">{timingCopy(model.countdownMinutes, nextStart, timezone, locale)}</span>
-              {model.route.status === "verified" ? (
-                <span className="mt-0.5 block text-[13px] font-normal text-cgray2">{routeBusy ? "Checking travel time" : `${routeCopy(model.route)} from your location`}</span>
-              ) : nextActivity ? (
-                <span className="mt-0.5 block text-[13px] font-normal text-cgray2">Travel time from your location is still uncertain</span>
-              ) : null}
-            </span>
-          </div>
-        ) : null}
-        {nextActivity?.booking?.reference || nextActivity?.booking?.provider || nextActivity?.booking?.gate || nextActivity?.booking?.terminal ? (
-          <details className="border-t border-chair px-4 py-[11px]">
-            <summary className="cursor-pointer text-[15px] font-semibold text-chead">{t("ui.status.details")}</summary>
-            <div className="mt-2 grid gap-1.5">
-              {[
-                [t("ui.status.provider"), nextActivity.booking?.provider],
-                [t("ui.status.reference"), nextActivity.booking?.reference],
-                [t("ui.status.terminal"), nextActivity.booking?.terminal],
-                [t("ui.booking.gate"), nextActivity.booking?.gate]
-              ]
-                .filter((row): row is [string, string] => Boolean(row[1]))
-                .map(([label, value]) => (
-                  <p key={label} className="flex items-baseline justify-between gap-3 text-[15px] font-normal text-cink">
-                    <span className="text-cgray">{label}</span>
-                    <span className="text-right">{value}</span>
-                  </p>
-                ))}
-            </div>
-          </details>
-        ) : null}
-      </section>
-
-      {/* Check In — the one filled action, full width under the NOW
-          card (mock 04). Complete / Skip keep their handlers as quiet
-          hairline rows beneath it. */}
-      {currentActivity && !tripCompleted ? (
-        <>
-          <button
-            type="button"
-            onClick={() => void runAction(currentActivity.id, "check-in", location)}
-            disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
-            className="mt-3 min-h-[50px] w-full rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-45"
-          >
-            {t("ui.actions.checkIn")}
-          </button>
-          <section className="mt-3 divide-y divide-chair rounded-[14px] bg-white shadow-calm">
-            <button
-              type="button"
-              onClick={() => void runAction(currentActivity.id, "complete")}
-              disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-              className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink disabled:opacity-45"
-            >
-              Complete
-            </button>
-            <button
-              type="button"
-              onClick={() => void runAction(currentActivity.id, "skip")}
-              disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-              className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink disabled:opacity-45"
-            >
-              Skip this activity
-            </button>
-          </section>
-          <p className="mt-2 px-4 text-[13px] font-normal leading-[1.4] text-cgray">Skip or complete this stop. The rest of today keeps its scheduled times.</p>
-        </>
-      ) : null}
-
-      {/* UP NEXT — hairline list rows (title + right-aligned gray
-          time). The Directions row is the card's last row: ONE row,
-          the traveler's links behind it. */}
-      {upcomingToday.length || hasDirectionLinks ? (
-        <>
-          <p className="mx-4 mb-[7px] mt-[17px] text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Up Next</p>
-          <section id="live-directions" className="scroll-mt-24 divide-y divide-chair rounded-[14px] bg-white shadow-calm">
-            {upcomingToday.map((activity) => {
-              const start = activityStartDate({ activity, tripStartDate: activeTripStartDate, timezone });
-              return (
-                <div key={activity.id} className="flex min-h-11 items-center gap-2.5 px-4 py-2.5">
-                  <span className="min-w-0 truncate text-[17px] font-normal text-cink">
-                    {timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}
-                  </span>
-                  <span className="ml-auto flex shrink-0 items-center gap-[5px] text-[17px] font-normal text-cgray">
-                    {activity.id === nextActivity?.id && nextTimingStatus === "PLANNED" ? "Planned · " : ""}
-                    {start ? formatClock(start.toISOString(), timezone, locale) : activity.timeLabel || ""}
-                    {rowChevron}
-                  </span>
-                </div>
-              );
-            })}
-            {hasDirectionLinks && directionsHref ? (
-              <a href={directionsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-2.5 px-4 py-2.5">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue">
-                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3.5 11.5 11.5 3.5M5 3.5h6.5V10" />
-                  </svg>
-                </span>
-                <span className="text-[17px] font-normal text-cink">Directions</span>
-                <span className="ml-auto flex shrink-0 items-center gap-[5px] text-[17px] font-normal text-cgray">
-                  {model.route.status === "verified" ? routeCopy(model.route) : ""}
-                  {rowChevron}
-                </span>
-              </a>
-            ) : null}
-          </section>
-        </>
-      ) : null}
-
-      {/* Controls — quiet Settings-style rows in one grouped card
-          (mock 04). Pause/Resume is one state row; Essentials keeps
-          its checklist behind the count row. The mock's "End Day
-          Early" row has no behavior anywhere in the app — it is not
-          rendered rather than invented (see TRUTH-LIST). */}
-      {!tripCompleted ? (
-        <section className="mt-[17px] divide-y divide-chair rounded-[14px] bg-white shadow-calm">
-          <button
-            type="button"
-            onClick={() => void (paused ? resumeCompanion() : pauseCompanion())}
-            className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink"
-          >
-            {paused ? "Resume Companion" : "Pause Companion"}
-          </button>
-          <details>
-            <summary className="flex min-h-11 cursor-pointer list-none items-center px-4 py-2.5 text-[17px] font-normal text-cink [&::-webkit-details-marker]:hidden">
-              Essentials
-              <span className="ml-auto flex shrink-0 items-center gap-[5px] text-[17px] font-normal text-cgray">
-                {essentialsDone} of {checklist.length}
-                {rowChevron}
-              </span>
-            </summary>
-            <div className="border-t border-chair px-4 py-3">
-              <div className="grid gap-2">
-                {checklist.slice(0, 5).map((item) => (
-                  <p key={item.id} className="text-sm font-normal text-cink">
-                    {item.is_done ? "Done: " : ""}{item.item}
-                  </p>
-                ))}
-              </div>
-            </div>
-          </details>
-        </section>
-      ) : null}
-
-      {showSetupCard ? (
-      <section className="mt-5 rounded-[14px] bg-white p-4 shadow-calm">
+      {fieldTestMode && showSetupCard ? (
+      <section className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
         <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
         {!mobileRuntime ? (
           <div className="mt-3 rounded-xl bg-cbg p-4">
@@ -1985,7 +2398,7 @@ export function LiveTripClient({
         ) : fieldTestMode && notificationPermission === "denied" ? (
           <div className="mt-3 rounded-xl bg-coral/20 p-4">
             <h3 className="text-xl font-semibold text-coral">Notifications are blocked</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">In iPhone Settings, allow notifications for Roamly, then return to this field test. Roamly will not ask again here.</p>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">In iPhone Settings, allow notifications for Roamly, then return to the field test. Roamly will not ask again here.</p>
           </div>
         ) : fieldTestMode && notificationPermission === "granted" && !pushReady ? (
           <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
@@ -2075,9 +2488,11 @@ export function LiveTripClient({
         </section>
       ) : null}
 
-      <p className="mt-[13px] text-center text-[13px] font-normal text-cgray">
-        Roamly is following along — it speaks up only when it matters.
-      </p>
+      {fieldTestMode ? (
+        <p className="mt-[13px] text-center text-[13px] font-normal text-cgray">
+          Roamly is following along — it speaks up only when it matters.
+        </p>
+      ) : null}
 
       <section
         className={deepLinkedActivityId ? "grid scroll-mt-24 gap-3" : "hidden"}
@@ -2092,7 +2507,7 @@ export function LiveTripClient({
             id={`live-activity-${activity.id}`}
             tabIndex={deepLinkedActivityId === activity.id ? -1 : undefined}
             className={classNames(
-              "rounded-[14px] border bg-white p-4 shadow-calm transition-shadow",
+              "rounded-2xl border bg-white p-4 shadow-calm transition-shadow",
               deepLinkedActivityId === activity.id
                 ? "border-cblue/40 bg-cblue/5 shadow-[0_0_0_3px_rgba(0,122,255,0.15)]"
                 : activity.id === currentActivity?.id ? "border-cblue/40" : "border-chair"
@@ -2101,9 +2516,9 @@ export function LiveTripClient({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.06em] text-cgray">
-                  {activity.timeLabel || "Flexible"} · {activity.id === currentActivity?.id ? "Now" : activity.id === nextActivity?.id ? "Next" : activity.status || "Planned"}
+                  {activity.timeLabel || "Flexible"} · {activity.id === currentActivity?.id ? "Now" : activity.id === nextActivity?.id ? "Next" : displayStatusFor(activity)}
                 </p>
-                <h3 className="mt-1 text-[17px] font-semibold text-chead">{timelineRowTitle(activity, displayedNextTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
+                <h3 className="mt-1 text-[17px] font-semibold text-chead">{timelineRowTitle(activity, nextRowTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
                 <p className="mt-1 line-clamp-2 text-sm font-normal leading-[1.45] text-cink">{activity.shortDescription}</p>
               </div>
               <button
@@ -2140,8 +2555,106 @@ export function LiveTripClient({
         ))}
       </section>
 
+      </div>
+
+      {/* Round 2 tab panels (composite structure, real data). The
+          itinerary tab's rows carry no coordinates, so a stored
+          "nearby" status there can never render as nearby — it reads
+          "Planned", fail-closed, same as every other surface. */}
+      {liveTab === "itinerary" ? (
+        <section className="mt-4">
+          <p className="mx-4 mb-[7px] text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Full Itinerary</p>
+          {itineraryDays.length ? (
+            <div className="grid gap-4">
+              {itineraryDays.map((day) => (
+                <div key={day.dayNumber} className="rounded-2xl bg-white p-4 shadow-calm">
+                  <p className="text-[17px] font-semibold text-chead">
+                    Day {day.dayNumber}{day.dateLabel ? ` · ${day.dateLabel}` : ""}
+                  </p>
+                  <div className="mt-2 divide-y divide-chair">
+                    {day.activities.map((activity, activityIndex) => (
+                      <div key={`${activity.title}-${activityIndex}`} className="flex items-baseline gap-3 py-2">
+                        <span className="w-[88px] shrink-0 text-[15px] font-semibold text-chead">{activity.timeLabel || ""}</span>
+                        <span className="min-w-0 flex-1 truncate text-[15px] font-normal text-cink">{activity.title}</span>
+                        <span className="shrink-0 text-[13px] font-normal text-cgray">
+                          {activity.status === "nearby" ? "Planned" : activity.status || "Planned"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl bg-white p-4 text-[15px] font-normal leading-[1.45] text-cgray shadow-calm">
+              The full itinerary for this trip is not available here yet.
+            </p>
+          )}
+          <a href={`/trip/${tripId}`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-cblue px-5 text-[15px] font-semibold text-white">
+            See the full itinerary
+          </a>
+        </section>
+      ) : null}
+      {/* Picture 4, Map tab — honest unavailable state (named gap):
+          no map component or map dependency exists in this codebase,
+          so no map image, tile, or static-map frame is ever rendered
+          here. The real external-maps links for the current/next stop
+          remain as the way to see the stops on a map — links, not a
+          map. */}
+      {liveTab === "map" ? (
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-calm">
+          <p className="text-[17px] font-semibold text-chead">Map</p>
+          <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
+            An in-app map is not available for this trip yet — no map component exists in the app, so no map is shown here.
+          </p>
+          {mapDirectionsHref || mapMapsHref ? (
+            <>
+              <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+                {directionsHref || mapsHref ? "Open this trip's stops in your maps app instead:" : "Open today's first stop in your maps app instead:"}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                {mapDirectionsHref ? (
+                  <a href={mapDirectionsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cbg px-4 text-[15px] font-semibold text-chead">
+                    Directions
+                  </a>
+                ) : null}
+                {mapMapsHref ? (
+                  <a href={mapMapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cbg px-4 text-[15px] font-semibold text-chead">
+                    Open in Maps
+                  </a>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+              Maps links are not available for this trip yet.
+            </p>
+          )}
+        </section>
+      ) : null}
+      {liveTab === "essentials" ? (
+        <section className="mt-4 rounded-2xl bg-white p-4 shadow-calm">
+          <p className="text-[17px] font-semibold text-chead">
+            Essentials · {essentialsDone} of {checklist.length}
+          </p>
+          {checklist.length ? (
+            <div className="mt-2 grid gap-2">
+              {checklist.map((item) => (
+                <p key={item.id} className="text-sm font-normal text-cink">
+                  {item.is_done ? "Done: " : ""}{item.item}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cgray">
+              No essentials for this trip yet.
+            </p>
+          )}
+        </section>
+      ) : null}
+
       {canSimulateLocation ? (
-        <details className="rounded-[14px] border border-chair bg-white p-4 shadow-calm">
+        <details className="rounded-2xl border border-chair bg-white p-4 shadow-calm">
           <summary className="cursor-pointer text-sm font-semibold text-chead">Tester location tools</summary>
           <div className="mt-4 grid gap-3">
             <select

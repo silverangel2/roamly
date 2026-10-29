@@ -50,13 +50,17 @@ const hashToTabId: Record<string, string> = {
 };
 
 /** The trip page shows tab panels through radio inputs; a hash link alone cannot
- *  reveal a hidden panel, so activate the matching tab before the browser jumps. */
+ *  reveal a hidden panel, so activate the matching tab before the browser jumps.
+ *  Picture 5 (2026-10-26): a day-card hash (#day-N, the Itinerary Home
+ *  panel's "See day" and timeline-row target) is a day-by-day-panel hash —
+ *  without this mapping the link jumped at a hidden panel and the day
+ *  card never appeared. */
 function activateTabForSuffix(suffix: string) {
   if (suffix === "#customize") {
     clearTripPanels();
     return;
   }
-  const tabId = hashToTabId[suffix];
+  const tabId = /^#day-\d+$/.test(suffix) ? "roamly-tab-day-by-day" : hashToTabId[suffix];
   if (!tabId || typeof document === "undefined") return;
   const input = document.getElementById(tabId) as HTMLInputElement | null;
   if (input && !input.checked) input.click();

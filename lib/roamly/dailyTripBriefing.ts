@@ -3,7 +3,10 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getRoamlySupportEmail, sendRoamlyEmail } from "@/lib/roamly/email";
 import { claimCommunication, completeCommunication, failCommunication } from "@/lib/roamly/communicationOrchestration";
 import { communicationLogicalKey } from "@/lib/roamly/communicationPolicy";
-import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import {
+  BACKGROUND_TIMEZONE_HOLD,
+  resolveBackgroundTripTimezone
+} from "@/lib/roamly/backgroundNotificationTimezone";
 import { renderEmailBodyCopy, renderRoamlyEmailShell, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
 import { tripStartFromDate } from "@/lib/roamly/preTrip7DayBriefingContent";
 import { buildDailyTripBriefingContent, dailyTripWindow, findFirstDailyEvent, type DailyTripActivity, type DailyTripBooking } from "@/lib/roamly/dailyTripBriefingContent";
@@ -48,7 +51,9 @@ export async function scheduleDailyTripBriefing(params: { supabase: SupabaseClie
   const preferenceState = await getCommunicationPreferenceState({ supabase: db, userId: params.trip.user_id, tripId: params.trip.id, purpose: "daily_trip_briefing" });
   if (preferenceState === "unavailable") return { ok: false as const, scheduled: false, error: "COMMUNICATION_PREFERENCES_UNAVAILABLE" };
   if (preferenceState === "disabled") return { ok: true as const, scheduled: false, suppressed: "COMMUNICATION_PREFERENCE_DISABLED" as const };
-  const timezone = timezoneFromTripMetadata(params.trip.metadata || {}, "UTC");
+  const resolution = resolveBackgroundTripTimezone(params.trip);
+  if (!resolution.zone) return { ok: true as const, scheduled: false, suppressed: BACKGROUND_TIMEZONE_HOLD };
+  const timezone = resolution.zone;
   const tripStart = tripStartFromDate(params.trip.start_date, timezone);
   if (!tripStart) return { ok: true as const, scheduled: false, suppressed: "TRIP_DATE_INVALID" as const };
   const initialActivities = await loadActivities(db, params.trip.id);
@@ -69,9 +74,14 @@ export async function scheduleDailyTripBriefing(params: { supabase: SupabaseClie
   if (!claim.ok || !claim.claimed || !claim.communicationId || !claim.claimToken) return { ok: claim.ok, scheduled: false, status: claim.status };
   const latestTrip = await db.from("roamly_trips").select("id,user_id,destination,destination_name,destination_city,start_date,end_date,special_notes,status,itinerary_status,tracking_unlocked,live_companion_unlocked,metadata").eq("id", params.trip.id).eq("user_id", params.trip.user_id).maybeSingle();
   const currentTrip = latestTrip.data as DailyTrip | null;
-  const currentTimezone = currentTrip ? timezoneFromTripMetadata(currentTrip.metadata || {}, "UTC") : timezone;
+  const currentResolution = currentTrip ? resolveBackgroundTripTimezone(currentTrip) : null;
+  const currentTimezone = currentResolution?.zone || timezone;
   const currentStart = currentTrip ? tripStartFromDate(currentTrip.start_date, currentTimezone) : null;
   const currentWindow = currentStart ? dailyTripWindow({ tripStart: currentStart, tripEnd: currentTrip?.end_date, timezone: currentTimezone, now }) : null;
+  if (currentTrip && currentResolution && !currentResolution.zone) {
+    await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: BACKGROUND_TIMEZONE_HOLD, retryable: true });
+    return { ok: true as const, scheduled: false, suppressed: BACKGROUND_TIMEZONE_HOLD };
+  }
   if (latestTrip.error || !currentTrip || !currentStart || ["archived", "cancelled", "completed"].includes(clean(currentTrip.status)) || clean(currentTrip.itinerary_status) === "cancelled" || !currentWindow?.eligible || currentWindow.dayKey !== window.dayKey) {
     await failCommunication({ supabase: db, communicationId: claim.communicationId, claimToken: claim.claimToken, errorCode: "DAILY_TRIP_NO_LONGER_USEFUL", retryable: true });
     return { ok: true as const, scheduled: false, suppressed: "DAILY_TRIP_NO_LONGER_USEFUL" as const };
