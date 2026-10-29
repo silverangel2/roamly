@@ -297,17 +297,22 @@ async function existingJobGenerationVersion(params: {
   tripId: string;
   userId: string;
 }): Promise<string | null> {
+  // 409-STORM FIX (2026-10-29): select the ACTIVE job, not merely the
+  // latest job. The old query returned null when the newest row was
+  // terminal even while an older job was still active, so the caller
+  // computed the default key, missed the active job, INSERTed, and
+  // collided with the active-trip index on every wake.
   const { data, error } = await params.admin
     .from("roamly_trip_generation_jobs")
     .select("generation_version,status")
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
+    .in("status", ["queued", "running", "waiting"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error || !data) return null;
   const row = data as { generation_version?: unknown; status?: unknown };
-  if (row.status === "completed" || row.status === "cancelled") return null;
   return typeof row.generation_version === "string" && row.generation_version ? row.generation_version : null;
 }
 

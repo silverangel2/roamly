@@ -46,6 +46,7 @@ import {
 } from "@/lib/roamly/generationDiagnostics";
 import {
   createOrResumeGenerationJob,
+  findActiveGenerationJobVersion,
   getGenerationQueueForTripAdmin,
   markQueueFromLegacyState,
   publicQueueProgress,
@@ -380,11 +381,23 @@ async function activeGenerationResponse(params: {
   requestOrigin: string;
 }) {
   const progress = publicStagedGenerationProgress(params.trip.metadata, params.tripId);
+  // 409-STORM FIX (2026-10-29): forward the ACTIVE job's version.
+  // The old call omitted generationVersion, defaulted to the BRAIN
+  // key, missed an active zero-engine job, INSERTed, and collided
+  // with the active-trip index on every duplicate-generate request.
+  // (The RPC path now also ignores key mismatches, so this is
+  // defense-in-depth: the route is correct even standalone.)
+  const activeVersion = await findActiveGenerationJobVersion({
+    supabase: params.supabase,
+    tripId: params.tripId,
+    userId: params.userId
+  });
   const queueResult = await createOrResumeGenerationJob({
     supabase: params.supabase,
     tripId: params.tripId,
     userId: params.userId,
     payload: params.payload,
+    generationVersion: activeVersion || undefined,
     reason: "duplicate_generate_resume"
   });
   if (queueResult.ok) {

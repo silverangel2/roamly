@@ -5,10 +5,16 @@
 //      ensureTripJob resume omitted the job's generationVersion, so
 //      the idempotency key defaulted to the brain version, missed
 //      the existing zero-engine job, and the INSERT collided with
-//      roamly_trip_generation_jobs_active_trip_idx. Section 1 first
-//      REPRODUCES the collision with the pre-fix call shape (a
-//      direct createOrResumeGenerationJob without a version — the
-//      exact call the old ensureTripJob made), then proves the
+//      roamly_trip_generation_jobs_active_trip_idx. Section 1
+//      exercises that pre-fix call shape (a direct
+//      createOrResumeGenerationJob without a version — the exact
+//      call the old ensureTripJob made) and proves it now RESUMES
+//      the engine job: since the 2026-10-29 Fix #1 amendment, job
+//      creation runs through the atomic RPC
+//      roamly_get_or_create_generation_job, which the fake client
+//      below emulates with the migration's own semantics (plus
+//      fidelity scenarios against the real function and negative
+//      checks proving the emulation can fail). It then proves the
 //      fixed ensureTripJob resumes the engine job.
 //   2. All-in budget verdict display model (pure formatter).
 //   3. Must-see extraction from desire phrasing + named-miss lines.
@@ -328,13 +334,213 @@ class FakeQuery {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Fake RPC — roamly_get_or_create_generation_job, emulated from the  */
+/* migration SQL itself (20261029000100), not from the app's hopes:   */
+/*   step 1: the ACTIVE job for the trip (any key) wins; the          */
+/*           caller's mutable fields merge onto it in place           */
+/*           (greatest priority, coalesce stage/plan/reason/key, OR   */
+/*           paid) and it returns with resumed = true.                */
+/*   step 2: a same-(user, idempotency-key) job in any other status   */
+/*           returns untouched, resumed = true (status NEVER flipped).*/
+/*   step 3: insert exactly one row (resumed = false) — unless the    */
+/*           active-trip arbiter or the (user_id, idempotency_key)    */
+/*           unique index conflicts; both are swallowed exactly as    */
+/*           the SQL swallows them (DO NOTHING / caught               */
+/*           unique_violation) and control falls to the re-selects.   */
+/*   step 4: re-select active, then keyed; if neither is visible the  */
+/*           function raises (P0001) instead of looping.              */
+/* PostgREST bind-time casts run BEFORE the body: a mistyped uuid /   */
+/* integer / boolean argument fails with 22P02, and a NULL trip or    */
+/* user id fails the insert with 23502 — both surface as errors,      */
+/* never as fabricated rows. Unknown function names fail with the     */
+/* PostgREST schema-cache error (PGRST202).                           */
+/* ------------------------------------------------------------------ */
+
+const GET_OR_CREATE_RPC = "roamly_get_or_create_generation_job";
+const RPC_JOB_COLUMNS = [
+  "id", "trip_id", "user_id", "status", "priority", "current_stage",
+  "generation_version", "model_version", "retry_count", "next_attempt_at",
+  "locked_at", "locked_by", "lease_expires_at", "idempotency_key",
+  "last_error_code", "last_error_message", "created_at", "started_at",
+  "completed_at", "updated_at", "user_plan", "paid_priority",
+  "queue_priority_reason", "duplicate_request_key"
+];
+const UUID_SHAPE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+function rpcJobShape(row, resumed) {
+  const out = {};
+  for (const col of RPC_JOB_COLUMNS) out[col] = row[col] === undefined ? null : row[col];
+  out.resumed = resumed;
+  return out;
+}
+
+function emulateGetOrCreateGenerationJob(db, args) {
+  const a = args || {};
+  // Bind-time casts (PostgREST -> Postgres) precede the function body.
+  for (const param of ["p_trip_id", "p_user_id"]) {
+    const v = a[param];
+    if (v !== undefined && v !== null && (typeof v !== "string" || !UUID_SHAPE.test(v))) {
+      return { data: null, error: { code: "22P02", message: `invalid input syntax for type uuid: "${v}"` } };
+    }
+  }
+  if (a.p_priority !== undefined && a.p_priority !== null && !Number.isInteger(a.p_priority)) {
+    return { data: null, error: { code: "22P02", message: `invalid input syntax for type integer: "${a.p_priority}"` } };
+  }
+  if (a.p_paid_priority !== undefined && a.p_paid_priority !== null && typeof a.p_paid_priority !== "boolean") {
+    return { data: null, error: { code: "22P02", message: `invalid input syntax for type boolean: "${a.p_paid_priority}"` } };
+  }
+
+  const jobs = db.rows("roamly_trip_generation_jobs");
+  // v_version := coalesce(nullif(p_generation_version, ''), 'roamly-brain-v1')
+  const version = a.p_generation_version ? a.p_generation_version : "roamly-brain-v1";
+  // v_key := p_trip_id::text || ':' || v_version (NULL when trip is NULL)
+  const key = a.p_trip_id === undefined || a.p_trip_id === null ? null : `${a.p_trip_id}:${version}`;
+  const newestFirst = (x, y) => (x.created_at < y.created_at ? 1 : x.created_at > y.created_at ? -1 : 0);
+  const activeForTrip = () =>
+    a.p_trip_id === undefined || a.p_trip_id === null
+      ? null
+      : jobs.filter((j) => j.trip_id === a.p_trip_id && ACTIVE_JOB_STATUSES.includes(j.status)).sort(newestFirst)[0] || null;
+  const keyedJob = () =>
+    key === null
+      ? null
+      : jobs.filter((j) => j.user_id === a.p_user_id && j.idempotency_key === key).sort(newestFirst)[0] || null;
+
+  // Step 1 — the active job for the trip wins, whatever its key; the
+  // function's UPDATE merges the caller's mutable fields onto it.
+  let active = activeForTrip();
+  if (active) {
+    active.priority = Math.max(
+      active.priority === undefined || active.priority === null ? 0 : active.priority,
+      a.p_priority === undefined || a.p_priority === null ? 0 : a.p_priority
+    );
+    if (a.p_current_stage !== undefined && a.p_current_stage !== null) active.current_stage = a.p_current_stage;
+    if (a.p_user_plan !== undefined && a.p_user_plan !== null) active.user_plan = a.p_user_plan;
+    active.paid_priority = Boolean(active.paid_priority) || Boolean(a.p_paid_priority);
+    if (a.p_queue_priority_reason !== undefined && a.p_queue_priority_reason !== null) {
+      active.queue_priority_reason = a.p_queue_priority_reason;
+    }
+    if (a.p_duplicate_request_key !== undefined && a.p_duplicate_request_key !== null) {
+      active.duplicate_request_key = a.p_duplicate_request_key;
+    }
+    active.updated_at = db.stamp();
+    return { data: [rpcJobShape(active, true)], error: null };
+  }
+
+  // Step 2 — a same-key job in a non-active status returns untouched.
+  const keyed = keyedJob();
+  if (keyed) return { data: [rpcJobShape(keyed, true)], error: null };
+
+  // Step 3 — the insert. NULL trip/user violate NOT NULL (23502),
+  // exactly as the real INSERT statement fails.
+  if (a.p_trip_id === undefined || a.p_trip_id === null) {
+    return {
+      data: null,
+      error: { code: "23502", message: 'null value in column "trip_id" of relation "roamly_trip_generation_jobs" violates not-null constraint' }
+    };
+  }
+  if (a.p_user_id === undefined || a.p_user_id === null) {
+    return {
+      data: null,
+      error: { code: "23502", message: 'null value in column "user_id" of relation "roamly_trip_generation_jobs" violates not-null constraint' }
+    };
+  }
+  const activeConflict = jobs.some((j) => j.trip_id === a.p_trip_id && ACTIVE_JOB_STATUSES.includes(j.status));
+  const keyConflict = jobs.some((j) => j.user_id === a.p_user_id && j.idempotency_key === key);
+  if (!activeConflict && !keyConflict) {
+    const now = db.stamp();
+    const row = {
+      id: randomUUID(),
+      trip_id: a.p_trip_id,
+      user_id: a.p_user_id,
+      status: "queued",
+      priority: Math.max(0, a.p_priority === undefined || a.p_priority === null ? 0 : a.p_priority),
+      current_stage: a.p_current_stage === undefined ? null : a.p_current_stage,
+      generation_version: version,
+      model_version: a.p_model_version === undefined ? null : a.p_model_version,
+      retry_count: 0,
+      next_attempt_at: now,
+      locked_at: null,
+      locked_by: null,
+      lease_expires_at: null,
+      idempotency_key: key,
+      last_error_code: null,
+      last_error_message: null,
+      created_at: now,
+      started_at: null,
+      completed_at: null,
+      updated_at: now,
+      user_plan: a.p_user_plan === undefined || a.p_user_plan === null ? "free" : a.p_user_plan,
+      paid_priority: Boolean(a.p_paid_priority),
+      queue_priority_reason: a.p_queue_priority_reason === undefined ? null : a.p_queue_priority_reason,
+      duplicate_request_key: a.p_duplicate_request_key === undefined ? null : a.p_duplicate_request_key
+    };
+    jobs.push(row);
+    return { data: [rpcJobShape(row, false)], error: null };
+  }
+
+  // Step 4 — lost the race: the winner is visible now. Prefer the
+  // active job, then the keyed job; otherwise raise, never loop.
+  active = activeForTrip();
+  if (active) return { data: [rpcJobShape(active, true)], error: null };
+  const keyedAfter = keyedJob();
+  if (keyedAfter) return { data: [rpcJobShape(keyedAfter, true)], error: null };
+  return {
+    data: null,
+    error: { code: "P0001", message: `roamly_get_or_create_generation_job: conflict with no visible row for trip ${a.p_trip_id}` }
+  };
+}
+
 function createFakeSupabaseClient() {
   const db = new FakeDb();
+  const rpcCalls = [];
+  let armedRpcResponse = null;
   return {
     from(table) {
       return new FakeQuery(db, table);
     },
-    __db: db
+    async rpc(name, args) {
+      rpcCalls.push({ name, args: structuredClone(args || {}) });
+      if (armedRpcResponse) {
+        const response = armedRpcResponse;
+        armedRpcResponse = null;
+        return response;
+      }
+      if (name !== GET_OR_CREATE_RPC) {
+        return {
+          data: null,
+          error: { code: "PGRST202", message: `Could not find the function public.${name} in the schema cache` }
+        };
+      }
+      return emulateGetOrCreateGenerationJob(db, args || {});
+    },
+    __db: db,
+    __rpcCalls: rpcCalls,
+    // Test-only failure arming: the NEXT rpc() call returns exactly
+    // this response, once. The negative checks arm it to prove the
+    // code under test surfaces bad responses instead of inventing a
+    // job — the emulation itself never fabricates these responses.
+    __armRpcResponseOnce(response) {
+      armedRpcResponse = response;
+    }
+  };
+}
+
+// A client that delegates to `fake` but rewrites the RPC name or
+// arguments in transit — the only way to drive the real code into
+// the wrong-name / wrong-argument failure modes without touching
+// the code under test.
+function wrapRpcClient(fake, rewrite) {
+  return {
+    from(table) {
+      return fake.from(table);
+    },
+    rpc(name, args) {
+      const rewritten = rewrite(name, args);
+      return fake.rpc(rewritten.name, rewritten.args);
+    },
+    __db: fake.__db,
+    __rpcCalls: fake.__rpcCalls
   };
 }
 
@@ -359,7 +565,7 @@ if (section(1)) {
       status: "draft",
       updated_at: db.stamp()
     }]);
-    db.insert("roamly_trip_generation_jobs", [{
+    const job = {
       id: randomUUID(),
       trip_id: tripId,
       user_id: USER,
@@ -375,15 +581,24 @@ if (section(1)) {
       idempotency_key: `${tripId}:${version}`,
       next_attempt_at: db.stamp(),
       retry_count: 0
-    }]);
+    };
+    db.insert("roamly_trip_generation_jobs", [job]);
+    return job;
   }
 
-  // --- REPRODUCTION: the pre-fix call shape (the old ensureTripJob
-  // called createOrResumeGenerationJob with NO generationVersion).
+  // --- POST-FIX CONTRACT (re-expressed 2026-10-29, the disclosed
+  // Fix #1 test amendment): the pre-fix call shape (the old
+  // ensureTripJob called createOrResumeGenerationJob with NO
+  // generationVersion). Pre-fix this block asserted the call FAILED
+  // with the roamly_trip_generation_jobs_active_trip_idx collision —
+  // that premise is exactly what Fix #1 removes. Under the approved
+  // contract, creation is atomic on the trip's ACTIVE job (the RPC
+  // above), so the same call shape now RESUMES the existing engine
+  // job: same job back, marked resumed, no new row, no error.
   {
     const fake = createFakeSupabaseClient();
     const TRIP = "22222222-2222-4222-8222-222222222222";
-    seedTripWithJob(fake, { tripId: TRIP, version: ZERO_ENGINE_GENERATION_VERSION });
+    const seeded = seedTripWithJob(fake, { tripId: TRIP, version: ZERO_ENGINE_GENERATION_VERSION });
     const repro = await createOrResumeGenerationJob({
       supabase: fake,
       tripId: TRIP,
@@ -392,11 +607,10 @@ if (section(1)) {
       priority: 10,
       reason: "worker_trip_target"
     });
-    eq(repro.ok, false, "1-REPRO: pre-fix call shape (no version) fails against an existing engine job");
-    ok(
-      String(repro.error).includes("roamly_trip_generation_jobs_active_trip_idx"),
-      `1-REPRO: failure is the active-trip index collision (got: ${repro.error})`
-    );
+    eq(repro.ok, true, "1-REPRO: pre-fix call shape (no version) now succeeds — creation keys on the active job, not the version key");
+    eq(repro.job.id, seeded.id, "1-REPRO: the returned job IS the existing zero-engine job");
+    eq(repro.resumed, true, "1-REPRO: the existing job is reported as resumed");
+    eq(repro.job.generation_version, ZERO_ENGINE_GENERATION_VERSION, "1-REPRO: the resumed job keeps the engine version (no brain-key alias)");
     eq(fake.__db.rows("roamly_trip_generation_jobs").length, 1, "1-REPRO: no duplicate job row was created");
   }
 
@@ -436,6 +650,234 @@ if (section(1)) {
     const jobs = fake.__db.rows("roamly_trip_generation_jobs");
     eq(jobs.length, 1, "1: exactly one job created");
     eq(jobs[0].generation_version, ROAMLY_BRAIN_VERSION, "1: the fresh job carries the default brain version");
+  }
+
+  // --- CONTRACT: the code drives the RPC by its exact name, with
+  // the trip, the owner, and the defaulted brain version.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "66666666-6666-4666-8666-666666666666";
+    fake.__db.insert("roamly_trips", [{
+      id: TRIP, user_id: USER, metadata: {}, itinerary_status: "generating", status: "draft", updated_at: fake.__db.stamp()
+    }]);
+    const res = await createOrResumeGenerationJob({
+      supabase: fake, tripId: TRIP, userId: USER, payload: null, priority: 10, reason: "contract_probe"
+    });
+    eq(res.ok, true, "1-CONTRACT: fresh create through the RPC succeeds");
+    eq(fake.__rpcCalls.length, 1, "1-CONTRACT: exactly one RPC call was made");
+    eq(fake.__rpcCalls[0].name, GET_OR_CREATE_RPC, "1-CONTRACT: the RPC is called by its exact production name");
+    eq(fake.__rpcCalls[0].args.p_trip_id, TRIP, "1-CONTRACT: p_trip_id is the trip");
+    eq(fake.__rpcCalls[0].args.p_user_id, USER, "1-CONTRACT: p_user_id is the trip owner");
+    eq(fake.__rpcCalls[0].args.p_generation_version, ROAMLY_BRAIN_VERSION, "1-CONTRACT: an omitted version defaults to the brain version before the call");
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* FIDELITY: the fake RPC against the migration's own contract.     */
+  /* These scenarios mirror tests-harness.cjs (T1/T2/T6a/T6c/T6b)     */
+  /* against the REAL function on local Postgres; AMENDMENT-REPORT.md */
+  /* tabulates fake vs real outcomes per scenario. The emulation      */
+  /* must agree with the SQL — where they could disagree, the SQL     */
+  /* wins and the emulation is what gets fixed.                       */
+  /* ---------------------------------------------------------------- */
+
+  const rpcArgs = (tripId, version) => ({
+    p_trip_id: tripId,
+    p_user_id: USER,
+    p_generation_version: version,
+    p_priority: 0,
+    p_user_plan: "free",
+    p_paid_priority: false,
+    p_queue_priority_reason: "fidelity",
+    p_duplicate_request_key: null,
+    p_current_stage: null,
+    p_model_version: "fake-model"
+  });
+  const seedJobRow = (fake, { tripId, version, status = "queued" }) => {
+    const db = fake.__db;
+    const job = {
+      id: randomUUID(),
+      trip_id: tripId,
+      user_id: USER,
+      status,
+      priority: 0,
+      user_plan: "free",
+      paid_priority: false,
+      queue_priority_reason: null,
+      duplicate_request_key: null,
+      current_stage: null,
+      generation_version: version,
+      model_version: "fake-model",
+      idempotency_key: `${tripId}:${version}`,
+      next_attempt_at: db.stamp(),
+      retry_count: 0
+    };
+    db.insert("roamly_trip_generation_jobs", [job]);
+    return job;
+  };
+
+  // F1 (= harness T1, RPC level; the REPRO block above is the same
+  // scenario through the app code): a BRAIN-key call against an
+  // active zero-engine job returns THAT job, resumed, no new row.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "77777777-7777-4777-8777-777777777777";
+    const seeded = seedJobRow(fake, { tripId: TRIP, version: ZERO_ENGINE_GENERATION_VERSION });
+    const r = await fake.rpc(GET_OR_CREATE_RPC, rpcArgs(TRIP, ROAMLY_BRAIN_VERSION));
+    eq(r.error, null, "1-FIDELITY F1: version-mismatch call does not error");
+    eq(r.data[0].id, seeded.id, "1-FIDELITY F1: the existing engine job is returned");
+    eq(r.data[0].resumed, true, "1-FIDELITY F1: returned as resumed");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 1, "1-FIDELITY F1: still exactly one row");
+  }
+
+  // F2 (= harness T2): 16 mixed-version creates race on a fresh
+  // trip. The fake serializes calls (single-threaded JS), so this
+  // proves the OUTCOME contract — one row, one creator, fifteen
+  // resumers, no errors — not the timing.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "88888888-8888-4888-8888-888888888888";
+    const versions = [...Array(8).fill(ROAMLY_BRAIN_VERSION), ...Array(8).fill(ZERO_ENGINE_GENERATION_VERSION)];
+    const results = await Promise.all(versions.map((v) => fake.rpc(GET_OR_CREATE_RPC, rpcArgs(TRIP, v))));
+    eq(results.filter((r) => r.error).length, 0, "1-FIDELITY F2: no racing caller errors");
+    eq(new Set(results.map((r) => r.data[0].id)).size, 1, "1-FIDELITY F2: every caller lands on the same single job");
+    eq(results.filter((r) => r.data[0].resumed === false).length, 1, "1-FIDELITY F2: exactly one caller creates; the rest resume");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 1, "1-FIDELITY F2: exactly one row exists after the race");
+  }
+
+  // F3 (= harness T6a): a same-key COMPLETED job returns untouched.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "99999999-9999-4999-8999-999999999999";
+    const seeded = seedJobRow(fake, { tripId: TRIP, version: ROAMLY_BRAIN_VERSION, status: "completed" });
+    const r = await fake.rpc(GET_OR_CREATE_RPC, rpcArgs(TRIP, ROAMLY_BRAIN_VERSION));
+    eq(r.error, null, "1-FIDELITY F3: terminal lookup does not error");
+    eq(r.data[0].id, seeded.id, "1-FIDELITY F3: the completed job itself is returned");
+    eq(r.data[0].status, "completed", "1-FIDELITY F3: returned status stays completed");
+    eq(r.data[0].resumed, true, "1-FIDELITY F3: a pre-existing row reports resumed");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 1, "1-FIDELITY F3: no new row");
+    eq(fake.__db.rows("roamly_trip_generation_jobs")[0].status, "completed", "1-FIDELITY F3: the stored row was never flipped active");
+  }
+
+  // F4 (= harness T6c + the masked-by-terminal hole): the trip's
+  // NEWEST job is completed (brain key) while an OLDER zero-engine
+  // job is still active. A brain-key call must return the ACTIVE
+  // job — step 1 (active by trip) precedes the keyed lookup.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const activeSeed = seedJobRow(fake, { tripId: TRIP, version: ZERO_ENGINE_GENERATION_VERSION });
+    seedJobRow(fake, { tripId: TRIP, version: ROAMLY_BRAIN_VERSION, status: "completed" });
+    const r = await fake.rpc(GET_OR_CREATE_RPC, rpcArgs(TRIP, ROAMLY_BRAIN_VERSION));
+    eq(r.data[0].id, activeSeed.id, "1-FIDELITY F4: the ACTIVE job wins over the newer terminal row");
+    eq(r.data[0].status, "queued", "1-FIDELITY F4: the returned job is the active one");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 2, "1-FIDELITY F4: no row created or removed");
+  }
+
+  // F5 (= harness T6b): a finished trip (only a completed brain
+  // job) still gets a genuinely new job under a different version.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const seeded = seedJobRow(fake, { tripId: TRIP, version: ROAMLY_BRAIN_VERSION, status: "completed" });
+    const r = await fake.rpc(GET_OR_CREATE_RPC, rpcArgs(TRIP, ZERO_ENGINE_GENERATION_VERSION));
+    eq(r.error, null, "1-FIDELITY F5: new-version create does not error");
+    ok(r.data[0].id !== seeded.id, "1-FIDELITY F5: a NEW job row is created for the finished trip");
+    eq(r.data[0].resumed, false, "1-FIDELITY F5: the new row reports resumed = false");
+    eq(r.data[0].status, "queued", "1-FIDELITY F5: the new job starts queued");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 2, "1-FIDELITY F5: the finished row and the new row coexist");
+    eq(
+      fake.__db.rows("roamly_trip_generation_jobs").find((j) => j.id === seeded.id).status,
+      "completed",
+      "1-FIDELITY F5: the finished row stays completed"
+    );
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* NEGATIVE CHECKS: the emulation must be able to FAIL, and the     */
+  /* code under test must surface every failure as ok:false — never   */
+  /* a silent success, never a fabricated job. Each check arms a      */
+  /* deliberate failure mode and asserts on it; a mock that           */
+  /* auto-passed would fail these by construction.                    */
+  /* ---------------------------------------------------------------- */
+
+  // (a) WRONG RPC NAME — PostgREST schema-cache failure, surfaced.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const direct = await fake.rpc("roamly_get_or_create_generation_jobs", rpcArgs(TRIP, ROAMLY_BRAIN_VERSION));
+    eq(direct.data, null, "1-NEG name: a mistyped function name returns no data");
+    eq(direct.error && direct.error.code, "PGRST202", "1-NEG name: a mistyped function name fails with the PostgREST schema-cache code");
+    ok(
+      String(direct.error && direct.error.message).includes("Could not find the function"),
+      "1-NEG name: the error names the missing function"
+    );
+    // Through the real code: a client whose rpc rewrites the name
+    // in transit drives createOrResumeGenerationJob into the same
+    // failure, and the seeded trip gains NO job.
+    fake.__db.insert("roamly_trips", [{
+      id: TRIP, user_id: USER, metadata: {}, itinerary_status: "generating", status: "draft", updated_at: fake.__db.stamp()
+    }]);
+    const wrongName = wrapRpcClient(fake, (name, args) => ({ name: "roamly_get_or_create_generation_jobs", args }));
+    const res = await createOrResumeGenerationJob({ supabase: wrongName, tripId: TRIP, userId: USER, payload: null, priority: 10 });
+    eq(res.ok, false, "1-NEG name: the code surfaces the wrong-name failure as ok:false");
+    ok(String(res.error).includes("Could not find the function"), "1-NEG name: the code carries the PostgREST error, not a generic success");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 0, "1-NEG name: no job was fabricated by the failed call");
+  }
+
+  // (b) WRONG ARGUMENTS — bind-time and statement-time failures.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    fake.__db.insert("roamly_trips", [{
+      id: TRIP, user_id: USER, metadata: {}, itinerary_status: "generating", status: "draft", updated_at: fake.__db.stamp()
+    }]);
+    const mistyped = await fake.rpc(GET_OR_CREATE_RPC, { ...rpcArgs(TRIP, ROAMLY_BRAIN_VERSION), p_trip_id: "not-a-uuid" });
+    eq(mistyped.error && mistyped.error.code, "22P02", "1-NEG args: a non-uuid trip id fails the bind cast (22P02)");
+    const noTrip = wrapRpcClient(fake, (name, args) => ({ name, args: { ...args, p_trip_id: undefined } }));
+    const resNoTrip = await createOrResumeGenerationJob({ supabase: noTrip, tripId: TRIP, userId: USER, payload: null, priority: 10 });
+    eq(resNoTrip.ok, false, "1-NEG args: a missing trip id surfaces as ok:false");
+    ok(String(resNoTrip.error).includes("violates not-null constraint"), "1-NEG args: the missing trip id fails as the real INSERT would (23502)");
+    const badPriority = wrapRpcClient(fake, (name, args) => ({ name, args: { ...args, p_priority: "high" } }));
+    const resBadPriority = await createOrResumeGenerationJob({ supabase: badPriority, tripId: TRIP, userId: USER, payload: null, priority: 10 });
+    eq(resBadPriority.ok, false, "1-NEG args: a mistyped priority surfaces as ok:false");
+    ok(String(resBadPriority.error).includes("invalid input syntax for type integer"), "1-NEG args: the mistyped priority fails the integer cast");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 0, "1-NEG args: no job was fabricated by any bad-argument call");
+  }
+
+  // (c) RESPONSE HANDLING — empty and malformed RPC responses are
+  // the code's explicit GENERATION_JOB_NOT_RETURNED, never a job.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    fake.__db.insert("roamly_trips", [{
+      id: TRIP, user_id: USER, metadata: {}, itinerary_status: "generating", status: "draft", updated_at: fake.__db.stamp()
+    }]);
+    const variants = [
+      ["empty rows", { data: [], error: null }],
+      ["null data", { data: null, error: null }],
+      ["malformed non-array data", { data: { unexpected: true }, error: null }]
+    ];
+    for (const [label, response] of variants) {
+      fake.__armRpcResponseOnce(response);
+      const res = await createOrResumeGenerationJob({ supabase: fake, tripId: TRIP, userId: USER, payload: null, priority: 10 });
+      eq(res.ok, false, `1-NEG response: ${label} surfaces as ok:false`);
+      eq(res.error, "GENERATION_JOB_NOT_RETURNED", `1-NEG response: ${label} yields the explicit not-returned error`);
+    }
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 0, "1-NEG response: no phantom job exists after the bad responses");
+  }
+
+  // (d) RPC ERROR RESPONSE — a forced error propagates intact.
+  {
+    const fake = createFakeSupabaseClient();
+    const TRIP = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    fake.__db.insert("roamly_trips", [{
+      id: TRIP, user_id: USER, metadata: {}, itinerary_status: "generating", status: "draft", updated_at: fake.__db.stamp()
+    }]);
+    fake.__armRpcResponseOnce({ data: null, error: { code: "XX000", message: "forced rpc failure (wiring-fixes negative check)" } });
+    const res = await createOrResumeGenerationJob({ supabase: fake, tripId: TRIP, userId: USER, payload: null, priority: 10 });
+    eq(res.ok, false, "1-NEG error: a forced RPC error surfaces as ok:false");
+    eq(res.error, "forced rpc failure (wiring-fixes negative check)", "1-NEG error: the RPC error message reaches the caller intact");
+    eq(fake.__db.rows("roamly_trip_generation_jobs").length, 0, "1-NEG error: no job was fabricated by the failed call");
   }
 
   console.log(`Section 1 (fix #1 — advance 503 / version forwarding): ${count} assertions so far`);
