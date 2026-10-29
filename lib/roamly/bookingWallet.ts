@@ -172,6 +172,12 @@ export type TripBookingRecord = {
   review_state: "traveler_asserted" | "dismissed" | null;
   /** Traveler corrections recorded as a pending assertion (see B10). */
   pending_corrections: Record<string, unknown> | null;
+  /**
+   * UX repair (integration): true when the stored row metadata carries
+   * qa_test (stamped at write time for QA trips). Plumbs through the
+   * serializer only — never a status change, never rewritten on old rows.
+   */
+  is_test_booking?: boolean;
   booking_segments?: BookingSegmentRecord[];
 };
 
@@ -501,6 +507,7 @@ export function serializeTripBookingRecord(
     cancellation_deadline: typeof row.cancellation_deadline === "string" ? row.cancellation_deadline : null,
     cancellation_terms: nullableText(row.cancellation_terms),
     traveler_confirmed: row.traveler_confirmed === true,
+  is_test_booking: metadata.qa_test === true,
     last_synced_at: typeof row.last_synced_at === "string" ? row.last_synced_at : null,
     created_at: typeof row.created_at === "string" ? row.created_at : "",
     updated_at: typeof row.updated_at === "string" ? row.updated_at : "",
@@ -715,9 +722,16 @@ async function assertTripOwnership(supabase: SupabaseClient, userId: string, tri
   const planningCurrency = planning && typeof planning === "object" && !Array.isArray(planning)
     ? (planning as Record<string, unknown>).budgetCurrency ?? (planning as Record<string, unknown>).budget_currency
     : null;
+  const tripMetadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    ? (row.metadata as Record<string, unknown>)
+    : null;
   return {
     ok: true as const,
-    tripCurrency: normalizedCurrency(row.budget_currency) ?? normalizedCurrency(planningCurrency)
+    tripCurrency: normalizedCurrency(row.budget_currency) ?? normalizedCurrency(planningCurrency),
+    // Builder-L: the trip's QA-tester flag was already fetched above
+    // (metadata) but never surfaced; createTripBooking needs it to
+    // stamp metadata.qa_test on NEW booking rows. Additive read only.
+    tripIsQaTester: tripMetadata?.qa_tester === true
   };
 }
 
@@ -1445,6 +1459,16 @@ export async function createTripBooking(params: {
       }
     : booking;
 
+  // Builder-L: stamp test-ness going forward, NEW rows only. When the
+  // trip's metadata carries qa_tester (surfaced by assertTripOwnership
+  // above), the new row's metadata gains qa_test: true — additive
+  // metadata only, no schema or status change, no existing row touched.
+  // normalizeTripBookingInput already passes input.metadata through,
+  // so this merge rides the existing insert payload below.
+  const writeBookingForInsert = !previousBooking && ownership.tripIsQaTester
+    ? { ...writeBooking, metadata: { ...writeBooking.metadata, qa_test: true } }
+    : writeBooking;
+
   if (previousBooking) {
     const previousStatus = clean(previousBooking.booking_status);
     const previousConfirmed = previousBooking.traveler_confirmed === true || ["booked", "paid", "reserved"].includes(previousStatus);
@@ -1512,7 +1536,7 @@ export async function createTripBooking(params: {
     : await params.supabase
         .from("roamly_bookings")
         .insert({
-          ...writeBooking,
+          ...writeBookingForInsert,
           user_id: params.userId,
           trip_id: params.tripId,
           source_connection_id: params.input.reconciliation?.connectionId || null,
@@ -1774,13 +1798,33 @@ export async function createTripBooking(params: {
       }));
   }
 
+  // Builder-L feed-title gate: traveler_confirmed alone never mints
+  // "Booking confirmed" — a customer assertion is not provider
+  // confirmation. "Booking confirmed" requires provider-grade evidence
+  // (a non-empty confirmation number / provider booking id) OR the
+  // wallet's own stricter rule (isConfirmedBooking: traveler-confirmed
+  // AND a confirmed-family status AND not superseded, expressed here
+  // over the write-layer row — a new row is never superseded). Note
+  // for the next reader: at this site the stored status vocabulary is
+  // canonical ("booked" / "cancelled" / "unknown"), which never
+  // intersects the wallet's confirmed-family set, so the rule disjunct
+  // cannot fire for a new row here and provider evidence is the
+  // operative gate; the wallet badge (serialized form, where "booked"
+  // maps to "confirmed") remains the stricter display-side rule.
+  // Everything else new is honestly "Booking added". All
+  // confirmed-path callers funnel through createTripBooking, so this
+  // single hunk fixes every caller.
+  const feedHasProviderEvidence = Boolean(writeBooking.provider_booking_id || writeBooking.confirmation_number);
+  const feedMeetsConfirmedRule =
+    writeBooking.traveler_confirmed &&
+    ["confirmed", "modified", "completed"].includes(writeBooking.booking_status);
   await recordTripEvent(params.supabase, {
     userId: params.userId,
     tripId: params.tripId,
     eventType: "booking_wallet_updated",
     eventTitle: previousBooking
       ? "Booking updated"
-      : writeBooking.traveler_confirmed
+      : feedHasProviderEvidence || feedMeetsConfirmedRule
         ? "Booking confirmed"
         : "Booking added",
     eventBody: previousBooking

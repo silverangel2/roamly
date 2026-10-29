@@ -134,6 +134,13 @@ export function presentGroundTransportText(value: string | null | undefined) {
   return buffered
     .replace(/\bairport\s*\/\s*station\b/gi, "arrival point")
     .replace(/\bairport\s+station\b/gi, "arrival point")
+    // Follow-up fix (2026-10-29, D4 reopened): "airport or station" must
+    // map as a pair BEFORE the named-airport rule below, which would
+    // otherwise eat "airport" after "the" ("between the airport or
+    // station" came out as "between the or station" on the rendered
+    // overview Transport card). Same de-flighting intent as the
+    // "airport / station" rule, with the "or station" alternative kept.
+    .replace(/\bairport or station\b/gi, "arrival point or station")
     .replace(/\bairport\s+transfer\b/gi, "local transfer")
     .replace(/\b(?:to|for)\s+the\s+airport\b/gi, "to your departure point")
     .replace(/\bat\s+the\s+airport\b/gi, "on arrival")
@@ -519,14 +526,41 @@ export function confirmableStopTitle(input: {
 
 const LIVE_PROXIMITY_CLAIM = /near your first planned area|today[’']s activities|prepared today|happening today/i;
 
-/** Before the trip starts, do not claim the traveler is near a stop or inside today's plan. */
-export function notificationProximityCopy(body: string | null | undefined, tripStarted: boolean) {
+/**
+ * Round 2 evidence boundary: "near" language renders ONLY when location
+ * evidence verifies it (see lib/roamly/locationEvidence.ts). The old
+ * contract — tripStarted (a calendar window) alone unlocking near claims —
+ * is exactly the false-proximity bug: a calendar-active trip with no
+ * location rendered "You are near…" while Live admitted "Location needed".
+ * The caller passes the evidence object this page computed; a missing or
+ * unverified evidence object fails closed to planned / not-yet copy, and
+ * any near claim inside a stored body is replaced, never passed through.
+ * The `reason` field picks the honest fallback: "trip_not_active" keeps the
+ * pre-trip wording; every other unverified reason is an active trip with
+ * no usable location, so the copy says planned + location needed.
+ */
+export function notificationProximityCopy(
+  body: string | null | undefined,
+  evidence: { verified: boolean; reason?: string } | null | undefined
+) {
   const text = (body || "").trim();
-  if (tripStarted) {
+  if (evidence?.verified) {
     return text || "You are near your first planned area. Roamly has prepared today’s activities from your locked itinerary.";
   }
-  if (!text || LIVE_PROXIMITY_CLAIM.test(text)) {
-    return "This trip has not started. A planned stop is not nearby, and these are not today’s activities.";
+  // Any affirmative near claim in a stored body is replaced whenever
+  // evidence is missing — a stored event body is a plan record, not
+  // location verification. Negations ("not nearby") are stripped first
+  // so honest copy is never mistaken for a claim.
+  const hasNearClaim = /\bnear\b|\bnearby\b/i.test(text.replace(/\bnot\s+near(?:by)?\b/gi, ""));
+  if (evidence?.reason === "trip_not_active") {
+    if (!text || LIVE_PROXIMITY_CLAIM.test(text) || hasNearClaim) {
+      return "Trip has not started. A planned stop is not nearby, and these are not today’s activities.";
+    }
+    return text;
+  }
+  // Active (or unknown) trip, no location evidence: planned, not near.
+  if (!text || LIVE_PROXIMITY_CLAIM.test(text) || hasNearClaim) {
+    return "Your next stop is planned. Roamly has no location for this trip, so nearness is not confirmed yet.";
   }
   return text;
 }
@@ -587,4 +621,134 @@ export function closeTravelerSentence(value: string | null | undefined) {
   const text = (value || "").trim().replace(/\b([ap])\.m\.\.+/gi, "$1.m.");
   if (!text) return "";
   return /[.!?]$/.test(text) ? text : `${text}.`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Day-heading separation (Round 2, HIGH 3)                            */
+/*                                                                     */
+/* A stored day title is a plan label, not a verified venue identity.  */
+/* The old day displays passed it through verbatim, so a title that    */
+/* joined two venues ("Musée … et du parlement …") rendered as one     */
+/* heading, and a travel leg rendered as if it were an activity.       */
+/*                                                                     */
+/* presentDayHeading separates at the composition layer only: it       */
+/* never renames a venue, never invents a second venue, and never      */
+/* claims a merged title is one place. When a join is present but      */
+/* the split is not confident (e.g. "Musée d'art et d'histoire", one   */
+/* venue whose name contains "et"), the heading is "uncertain": the    */
+/* display falls back to the neutral "Day N" heading and the stops     */
+/* below carry the plan, instead of presenting a guess as a venue.     */
+/* ------------------------------------------------------------------ */
+
+const TRAVEL_LEG_CATEGORY = /^(?:travel|transfer|transit|transport|transportation|drive|driving|flight|train|bus|ferry)$/i;
+const TRAVEL_LEG_TITLE =
+  /^(?:travel|transfer|transit|getting\s+from|getting\s+to|drive\b|driving|departure|arrival|journey|travel\s+to|travel,)/i;
+
+/** True when a title/category describes a travel leg, not an activity. */
+export function isTravelLeg(input: {
+  title?: string | null;
+  category?: string | null;
+  mode?: string | null;
+}) {
+  const category = (input.category || "").trim();
+  const title = (input.title || "").trim();
+  if (TRAVEL_LEG_CATEGORY.test(category)) return true;
+  if (/\b(?:travel|transfer|transit)\b/i.test(category)) return true;
+  if (isDriveMode(input.mode)) return true;
+  if (TRAVEL_LEG_TITLE.test(title)) return true;
+  if (/^getting\s+from\s+.+\s+to\s+.+$/i.test(title)) return true;
+  if (/\bdrive\b/i.test(title) && /\bto\b/i.test(title)) return true;
+  return false;
+}
+
+/** Connectors that join distinct venues in a stored day title. */
+const VENUE_CONNECTOR = /\s+(?:et|and)\s+|\s*[&+]\s*/i;
+const GENERIC_DAY_WORD =
+  /^(?:travel|arrival|departure|day|details|flexible|stop|getting|visit|tour|explore|morning|afternoon|evening|dinner|lunch|breakfast)$/i;
+const COUNTRY_OR_REGION_WORD =
+  /^(?:canada|united states|usa|québec|quebec|france|mexico|philippines|ontario|new brunswick)$/i;
+
+/** Drop a leading article ("du", "de la", "the", …) and capitalise. */
+function stripLeadingArticle(segment: string) {
+  const stripped = segment.trim().replace(/^(?:du|de la|des|de|le|la|les|the)\s+/i, "").trim();
+  if (!stripped) return "";
+  return stripped.charAt(0).toUpperCase() + stripped.slice(1);
+}
+
+/**
+ * One venue-like segment, or "" when the segment does not look like a
+ * distinct venue: single words, generic day words, bare countries, and
+ * lower-case continuations are all refused rather than guessed at.
+ */
+function venueLikeSegment(segment: string) {
+  const cleaned = stripLeadingArticle(segment);
+  if (!cleaned) return "";
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length < 2) return "";
+  if (GENERIC_DAY_WORD.test(words[0])) return "";
+  if (COUNTRY_OR_REGION_WORD.test(cleaned)) return "";
+  if (!/^[A-ZÀÂÄÉÈÊËÎÏÔÖÙÛÜÇ]/.test(cleaned)) return "";
+  return polishCutLabel(cleaned);
+}
+
+/**
+ * Split a merged day title into distinct venue titles. Returns the
+ * single title unchanged when there is no venue connector, and []
+ * when a connector is present but the split is not confident — the
+ * caller must then treat the heading as uncertain, not as one venue.
+ */
+export function splitMergedDayTitle(value: string | null | undefined) {
+  const text = (value || "").trim();
+  if (!text) return [];
+  if (!VENUE_CONNECTOR.test(text)) return [text];
+  const parts = text
+    .split(/\s+(?:et|and)\s+|\s*[&+]\s*/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return [];
+  const venues = parts.map(venueLikeSegment);
+  if (venues.some((venue) => !venue)) return [];
+  return venues;
+}
+
+export type DayHeading = {
+  kind: "travel" | "venues" | "single" | "uncertain";
+  /** One entry per heading element the display should render. Never a merged title. */
+  headings: string[];
+  needsConfirmation: boolean;
+};
+
+/**
+ * Day-heading composition: travel legs are labeled "Travel", distinct
+ * venues become distinct headings, a plain title stays a single
+ * heading, and an unconfident join is "uncertain" (no heading text).
+ */
+export function presentDayHeading(input: {
+  title?: string | null;
+  category?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  suppressFlightFraming?: boolean;
+}): DayHeading {
+  const raw = (input.title || "").trim();
+  if (!raw) return { kind: "single", headings: [], needsConfirmation: true };
+  const presented = presentTrackingActivityTitle({
+    title: raw,
+    category: input.category || raw,
+    origin: input.origin,
+    destination: input.destination,
+    suppressFlightFraming: input.suppressFlightFraming
+  });
+  if (isTravelLeg({ title: raw, category: input.category })) {
+    const label = /^travel\b/i.test(presented) ? presented : `Travel · ${presented}`;
+    return { kind: "travel", headings: [label], needsConfirmation: false };
+  }
+  if (!VENUE_CONNECTOR.test(raw) || isGenericTripLabel(raw)) {
+    return { kind: "single", headings: [presented], needsConfirmation: false };
+  }
+  const venues = splitMergedDayTitle(raw);
+  if (venues.length >= 2) {
+    return { kind: "venues", headings: venues, needsConfirmation: false };
+  }
+  return { kind: "uncertain", headings: [], needsConfirmation: true };
 }

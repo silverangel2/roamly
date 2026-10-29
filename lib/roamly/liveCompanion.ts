@@ -195,19 +195,19 @@ function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
+import { metadataZoneFromMetadata } from "@/lib/roamly/tripTimezone";
+
 export function timezoneFromTripMetadata(metadata: unknown, fallback = "UTC") {
-  const root = recordValue(metadata);
-  const planning = recordValue(root?.planning) || recordValue(root?.tripPlanning) || root;
-  const candidates = [
-    planning?.timezone,
-    planning?.destinationTimezone,
-    planning?.destination_timezone,
-    root?.timezone,
-    root?.destinationTimezone,
-    root?.destination_timezone
-  ];
-  const timezone = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
-  return timezone && safeTimeZone(timezone) === timezone ? timezone : fallback;
+  // Timezone round (2026-10-26): the metadata step of the ONE resolver
+  // in lib/roamly/tripTimezone.ts. Behavior is unchanged (same
+  // candidate keys, same validation, same fallback) — this wrapper
+  // exists so the many existing callers (including background jobs,
+  // which have no UI to carry an unknown-zone label) keep working
+  // while sharing the single implementation. DAY SURFACES must not
+  // call this alone: they use resolveTripTimezone (metadata +
+  // destination registry) and surface the unknown state visibly
+  // instead of inheriting this fallback.
+  return metadataZoneFromMetadata(metadata) || fallback;
 }
 
 function toDate(value: string | Date | null | undefined) {
@@ -332,6 +332,14 @@ export type CustomerTripLifecycleInput = {
   startDate?: string | null;
   endDate?: string | null;
   metadata?: unknown;
+  /**
+   * Timezone-round override: when the caller already resolved the
+   * trip's zone through lib/roamly/tripTimezone.ts (metadata +
+   * destination registry), the lifecycle window uses it instead of
+   * re-deriving metadata-only. Callers without a resolution keep the
+   * old metadata behavior.
+   */
+  timezone?: string | null;
 };
 
 export type CustomerTripLifecycleState = "upcoming" | "active" | "completed" | "cancelled" | "archived" | "missing_dates";
@@ -349,7 +357,7 @@ export function customerTripLifecycleState(trip: CustomerTripLifecycleInput, now
   const window = tripWindowState({
     startDate: trip.startDate,
     endDate: trip.endDate,
-    timezone: timezoneFromTripMetadata(trip.metadata),
+    timezone: trip.timezone || timezoneFromTripMetadata(trip.metadata),
     now
   });
   if (window === "completed_trip") return "completed";
@@ -361,6 +369,7 @@ export function customerTripLifecycleState(trip: CustomerTripLifecycleInput, now
 export type CustomerNotificationItem = {
   id: string;
   trip_id?: string | null;
+  event_id?: string | null;
   type: string;
   title: string;
   body?: string | null;
@@ -375,7 +384,11 @@ function normalizedNotificationValue(value: unknown) {
 
 export function equivalentNotificationKey(item: CustomerNotificationItem) {
   if (!item.trip_id) return null;
-  return [item.trip_id, normalizedNotificationValue(item.type), normalizedNotificationValue(item.title), normalizedNotificationValue(item.body), normalizedNotificationValue(item.scheduled_for)].join("|");
+  // Retry rows minted for one companion event share its event_id even
+  // when their scheduled_for differs, so the event id anchors the key
+  // and scheduled_for is only the fallback for rows minted without one.
+  const anchor = item.event_id ? `event:${item.event_id}` : normalizedNotificationValue(item.scheduled_for);
+  return [item.trip_id, normalizedNotificationValue(item.type), normalizedNotificationValue(item.title), normalizedNotificationValue(item.body), anchor].join("|");
 }
 
 export function dedupeEquivalentNotifications<T extends CustomerNotificationItem>(items: T[]) {
@@ -400,6 +413,57 @@ export function notificationActionState(params: {
   const state = customerTripLifecycleState(params.trip, params.now);
   if (state === "completed" || state === "cancelled" || state === "archived") return "history";
   return state === "upcoming" || state === "active" ? "available" : "unavailable";
+}
+
+/**
+ * Pre-trip info cards (one-week-before, document check, country info, …)
+ * used to ignore action_state and always link to the event sheet, so a
+ * card for a finished trip still read as a live action. Info cards now go
+ * through the same lifecycle gate as action cards: terminal trips render
+ * as history, upcoming/active trips stay available.
+ */
+export function notificationActionStateForInfoCard(params: {
+  actionUrl?: string | null;
+  trip?: CustomerTripLifecycleInput | null;
+  now?: string | Date;
+}): NotificationActionState {
+  return notificationActionState(params);
+}
+
+/** Pre-trip info types whose advice expires once the trip is no longer upcoming. */
+export const PRE_TRIP_INFO_NOTIFICATION_TYPES = new Set([
+  "country_info",
+  "document_check",
+  "one_week_before",
+  "packing_check",
+  "one_day_before",
+  "countdown_24h",
+  "trip_predeparture_7d",
+  "trip_predeparture_1d",
+  "cross_border_documents"
+]);
+
+/**
+ * Relevance rule for pre-trip info cards, reusing tripWindowState: once
+ * the trip window is active or completed, the card is stale. Stale cards
+ * are labelled "Outdated" (never silently deleted) and stop counting
+ * toward unread. Future trips and trips with missing dates are not stale.
+ */
+export function isStalePreTripInfoNotification(params: {
+  type: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  timezone?: string | null;
+  now?: string | Date;
+}) {
+  if (!PRE_TRIP_INFO_NOTIFICATION_TYPES.has(params.type)) return false;
+  const window = tripWindowState({
+    startDate: params.startDate,
+    endDate: params.endDate,
+    timezone: params.timezone,
+    now: params.now
+  });
+  return window === "active" || window === "completed_trip";
 }
 
 export function calculateDistanceMeters(

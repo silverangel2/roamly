@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { hasSetupSkip, setupSkipCookieName } from "@/lib/roamly/setupSkip";
+import { formatGateEyebrow } from "@/lib/roamly/tripIdentity";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
+import { OfflineTripBanner } from "@/components/roamly/OfflineTripBanner";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
 import { Badge } from "@/components/ui/Badge";
@@ -12,7 +16,9 @@ import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
-import { localDateInTimeZone, timezoneFromTripMetadata, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { localDateInTimeZone, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
+import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
+import { zoneForMath } from "@/lib/roamly/tripTimezone";
 import { build2CompanionEnabled } from "@/lib/roamly/build2Flags";
 import { CompanionPanel } from "@/components/trip/CompanionPanel";
 import {
@@ -30,37 +36,19 @@ import {
   getTripBudgetCurrency,
   getTripDaysCount,
   getTripDestinationLabel,
-  getTripOriginLabel
+  getTripOriginLabel,
+  getTripPlanningMetadata
 } from "@/lib/roamly/tripMetadata";
+import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
+import { buildDayTimelineRows, coerceDayTimelineItem } from "@/lib/roamly/liveDayTimeline";
+import { buildVenuePhotoMap } from "@/lib/roamly/venuePhotos";
+import { tripDayDateLabel } from "@/lib/roamly/tripClock";
+import { itineraryDaysFromDailyItinerary } from "@/lib/roamly/liveItineraryFallback";
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { evaluateConfirmedBookingCost } from "@/lib/roamly/bookings";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
 import { customerTripLifecycleState, isCustomerTripTerminalState } from "@/lib/roamly/liveCompanion";
-
-function daysUntil(date: string | null) {
-  if (!date) return null;
-  const start = new Date(`${date}T00:00:00`);
-  if (Number.isNaN(start.getTime())) return null;
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return Math.ceil((start.getTime() - today.getTime()) / 86400000);
-}
-
-/** Gate eyebrow range, same form as the trip page: "Oct 23 – 25". */
-function shortDateRange(startDate: string | null, endDate: string | null) {
-  const start = startDate ? new Date(`${startDate}T00:00:00`) : null;
-  const end = endDate ? new Date(`${endDate}T00:00:00`) : null;
-  if (!start || Number.isNaN(start.getTime())) return "";
-  const monthDay = (date: Date) =>
-    new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(date);
-  if (!end || Number.isNaN(end.getTime()) || start.getTime() === end.getTime()) return monthDay(start);
-  if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
-    const month = new Intl.DateTimeFormat("en", { month: "short" }).format(start);
-    return `${month} ${start.getDate()} – ${end.getDate()}`;
-  }
-  return `${monthDay(start)} – ${monthDay(end)}`;
-}
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -119,6 +107,24 @@ export default async function LiveTripPage({
   const bundle = await getTripBundle(supabase, current.user.id, id);
 
   if (!bundle.data) redirect("/dashboard?tripAccess=denied");
+  // Timezone round (2026-10-26): ONE resolution for every day
+  // computation on this page — stored metadata first, then the
+  // verified destination registry (Montreal → America/Toronto, etc.).
+  // The old metadata-only lookup silently fell back to UTC and showed
+  // the NEXT day after 20:00 destination-local time. When the zone is
+  // genuinely unknown, day math uses UTC only as the LABELED fallback
+  // (timezoneUnknown reaches the client, which renders the label).
+  const tripRecord = bundle.data.trip as typeof bundle.data.trip & {
+    destination_name?: unknown;
+    destination_city?: unknown;
+  };
+  const tripTimezoneResolution = resolveTripTimezoneServer({
+    metadata: bundle.data.trip.metadata,
+    destination: getTripDestinationLabel(bundle.data.trip),
+    destination_name: tripRecord.destination_name,
+    destination_city: tripRecord.destination_city
+  });
+  const tripTimezoneForMath = zoneForMath(tripTimezoneResolution);
   const locked = isTripLocked(bundle.data.trip);
   const companionUnlocked = tripHasTrackingUnlock(bundle.data.trip);
   const fieldTestMode = fieldTestRequested && access.hasQaAccess && bundle.data.trip.metadata?.field_test === true;
@@ -127,7 +133,8 @@ export default async function LiveTripPage({
     itineraryStatus: bundle.data.trip.itinerary_status,
     startDate: bundle.data.trip.start_date,
     endDate: bundle.data.trip.end_date,
-    metadata: bundle.data.trip.metadata
+    metadata: bundle.data.trip.metadata,
+    timezone: tripTimezoneForMath
   });
   const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
   // A trip that has not generated yet still goes back to its trip page,
@@ -136,6 +143,24 @@ export default async function LiveTripPage({
   // clicked Live on purpose and deserves to be told why it did not open
   // and where the unlock lives (the trip page's Activate control).
   if (!locked && !tripCompleted) redirect(`/trip/${id}`);
+  // Correction phase (D7, 2026-10-28): the locked-Live gate was a dead
+  // wall — no preview, no skip path. It now shows a preview of the
+  // traveler's own first day (localized itinerary; pure computation,
+  // safe to run before scheduling) plus the free-flow refusal path.
+  // Nothing here unlocks anything: unlocking still lives on the trip
+  // page's Activate control, and both buttons land there because the
+  // trip page hosts both the itinerary and the unlock.
+  const gatePreviewItinerary = bundle.data.itinerary?.full_json
+    ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
+    : null;
+  const gatePreviewDay = (gatePreviewItinerary?.daily_itinerary || [])[0] || null;
+  const gatePreviewStops = ((gatePreviewDay?.live_timeline || []) as Array<Record<string, unknown>>)
+    .map((item) => ({
+      time: typeof item.time === "string" ? item.time : typeof item.time_label === "string" ? item.time_label : "",
+      title: typeof item.title === "string" ? item.title : ""
+    }))
+    .filter((stop) => stop.title)
+    .slice(0, 4);
   if (!companionUnlocked && !tripCompleted) {
     return (
       <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
@@ -148,12 +173,38 @@ export default async function LiveTripPage({
           <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Go back to the trip page to unlock it. Nothing was changed, and your itinerary is still there.
           </p>
-          <a
-            href={`/trip/${id}`}
-            className="mt-5 inline-flex min-h-11 items-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white"
-          >
-            Back to trip
-          </a>
+          {gatePreviewStops.length ? (
+            <div className="mt-5 rounded-2xl bg-mist/50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Preview · Day 1 of your itinerary</p>
+              <div className="mt-2 grid gap-1.5">
+                {gatePreviewStops.map((stop) => (
+                  <p key={`${stop.time}-${stop.title}`} className="text-sm font-semibold leading-6 text-chead">
+                    {stop.time ? `${stop.time} · ` : ""}{stop.title}
+                  </p>
+                ))}
+              </div>
+              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">Live Companion stays locked until you unlock it on the trip page.</p>
+            </div>
+          ) : (
+            <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
+              When unlocked, Live Companion shows each day&apos;s stops, directions, and check-in as you travel.
+            </p>
+          )}
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <a
+              href={`/trip/${id}`}
+              className="inline-flex min-h-11 items-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white"
+            >
+              Back to trip
+            </a>
+            <a
+              href={`/trip/${id}`}
+              className="inline-flex min-h-11 items-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-bold text-chead"
+            >
+              Skip for now
+            </a>
+          </div>
+          <p className="mt-3 text-[13px] font-medium leading-5 text-cgray">You can still view your full itinerary. Live Companion stays locked until you unlock it.</p>
         </Card>
       </div>
     );
@@ -161,13 +212,17 @@ export default async function LiveTripPage({
 
   if (!tripCompleted) await scheduleCompanionEvents(supabase, id);
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "your trip";
+  // Repair round P3: origin is no longer a displayed Live header line
+  // (the client's hero is the single header); it still reaches the
+  // client as a prop for directions links at each render site below.
+  const photoPlanning = getTripPlanningMetadata(bundle.data.trip.metadata);
   const localizedFull = bundle.data.itinerary?.full_json
     ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
     : null;
   const daysCount = getTripDaysCount(bundle.data.trip);
   const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
-  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, timezoneFromTripMetadata(bundle.data.trip.metadata));
-  const [companion, bookingsResult, trackingActivitiesResult, trackingDaysResult, preferences, locationSettingsResult] = await Promise.all([
+  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, tripTimezoneForMath);
+  const [companion, bookingsResult, trackingActivitiesResult, trackingDaysResult, preferences, locationSettingsResult, destinationPhoto] = await Promise.all([
     buildLiveCompanionSummary(supabase, current.user.id, id),
     supabase
       .from("roamly_bookings")
@@ -192,9 +247,18 @@ export default async function LiveTripPage({
     }),
     supabase
       .from("roamly_location_settings")
-      .select("last_permission_state,location_tracking_enabled")
+      .select("last_permission_state,location_tracking_enabled,last_seen_latitude,last_seen_longitude,last_seen_at")
       .eq("user_id", current.user.id)
-      .maybeSingle()
+      .maybeSingle(),
+    // Round 2 hero photo: the SAME destination-photo pipeline the trip
+    // page uses (real Wikimedia/Wikidata photo, cached, 6s cap). Null
+    // renders the approved bare header — never a generated image.
+    getDestinationPhoto({
+      label: destinationLabel,
+      country: typeof photoPlanning.destinationCountry === "string" ? photoPlanning.destinationCountry : null,
+      latitude: typeof photoPlanning.destinationLatitude === "number" ? photoPlanning.destinationLatitude : null,
+      longitude: typeof photoPlanning.destinationLongitude === "number" ? photoPlanning.destinationLongitude : null
+    }).catch(() => null)
   ]);
 
   const trackingDayNumbers = new Map(
@@ -228,6 +292,64 @@ export default async function LiveTripPage({
     null;
   const nearbyActivity = dayActivities.find((activity) => activity.status === "nearby") || null;
 
+  // Round 2 panels (server-built, real stored data only):
+  // - Day timeline rows from the stored live_timeline for the current
+  //   day (same source the trip page renders). Times, durations, and
+  //   legs come from these seeds; the composite's sample times are
+  //   never used. Empty when the itinerary is unavailable.
+  // - Full Itinerary tab days from the grouped day activities.
+  // - Day plan title from the stored day plan (fallback: trip days).
+  const currentDayPlan = localizedFull?.daily_itinerary.find((day) => day.day_number === currentDay) || null;
+  const dayTimelineRows = buildDayTimelineRows(
+    (currentDayPlan?.live_timeline || [])
+      .map((seed) => coerceDayTimelineItem(seed))
+      .filter((item): item is NonNullable<typeof item> => item !== null),
+    getTripOriginLabel(bundle.data.trip),
+    destinationLabel
+  );
+  const dayPlanTitle =
+    currentDayPlan?.title || bundle.data.days.find((day) => day.day_number === currentDay)?.title || null;
+  // Venue-row thumbnails (originals pass): one parallel pipeline round
+  // over the plan's venue stops; misses stay icon-only downstream.
+  const venuePhotos = await buildVenuePhotoMap(
+    localizedFull?.daily_itinerary || [],
+    typeof photoPlanning.destinationCountry === "string" ? photoPlanning.destinationCountry : bundle.data.trip.destination_country || null
+  ).catch(() => ({}));
+  // Hoisted out of the map callback: narrowing of bundle.data does not
+  // persist into closures, so the start date is read straight-line here.
+  const tripStartDateForDays = bundle.data.trip.start_date;
+  const trackedItineraryDays = Object.entries(activitiesByDay)
+    .map(([dayKey, dayActs]) => ({
+      dayNumber: Number(dayKey),
+      dateLabel: tripDayDateLabel(tripStartDateForDays, Number(dayKey)),
+      activities: (dayActs as Array<{ title?: unknown; time_label?: unknown; status?: unknown; map_query?: unknown; latitude?: unknown; longitude?: unknown }>).map((activity) => ({
+        title: typeof activity.title === "string" ? activity.title : "",
+        timeLabel: typeof activity.time_label === "string" ? activity.time_label : null,
+        status: typeof activity.status === "string" ? activity.status : null,
+        mapQuery: typeof activity.map_query === "string" ? activity.map_query : null,
+        latitude: getNumberOrNull(activity.latitude),
+        longitude: getNumberOrNull(activity.longitude)
+      }))
+    }))
+    .filter((day) => Number.isFinite(day.dayNumber))
+    .sort((a, b) => a.dayNumber - b.dayNumber);
+  // Correction phase (D5, 2026-10-28): trips whose activities were
+  // never materialized into roamly_trip_activities (seeded trips, and
+  // any trip whose tracking rows are absent) left the Full Itinerary
+  // tab empty even though the itinerary JSON exists — the same source
+  // the trip page renders. Fall back to the itinerary's own days,
+  // with honest Planned labels. These rows carry no activity ids, so
+  // no tracking action can attach to them; the client renders them
+  // read-only. All-or-nothing (never mixed with tracked days) so a
+  // day can never double-count or mismatch across sources. The
+  // mapping lives in lib/roamly/liveItineraryFallback so it is
+  // unit-tested against seed-shaped days.
+  const itineraryFallbackDays = itineraryDaysFromDailyItinerary(
+    localizedFull?.daily_itinerary || [],
+    (dayNumber) => tripDayDateLabel(tripStartDateForDays, dayNumber)
+  );
+  const itineraryDays = trackedItineraryDays.length ? trackedItineraryDays : itineraryFallbackDays;
+
   const companionMetadata = getRecord(getRecord(companion.trip?.metadata)?.companion) || {};
   const countryInfo = (getRecord(companionMetadata.travelCountryInfo) || {}) as {
     title?: string;
@@ -243,13 +365,29 @@ export default async function LiveTripPage({
   const budgetAmount = getTripBudgetAmount(bundle.data.trip);
   const totalBudgetCents = budgetAmount == null ? null : Math.round(budgetAmount * 100);
   const remainingBudgetCents = totalBudgetCents == null || committedBudgetCents == null ? null : totalBudgetCents - committedBudgetCents;
-  const tripCountdown = daysUntil(bundle.data.trip.start_date);
+  // Repair round P3: the page-level trip-timing header is gone (the
+  // client's hero is the single header now), so its countdown/range
+  // computations are gone with it — the hero badge from the shared
+  // trip clock already carries the same state. No new date logic was
+  // introduced for this collapse.
   const bookingRows = ((bookingsResult.data || []) as Record<string, unknown>[]);
   const confirmedFlight = hasConfirmedFlightBooking(bookingRows);
   const locationRow = getRecord(locationSettingsResult.data);
   const permissionState = (getRowString(locationRow || {}, "last_permission_state") || "prompt") as LiveLocationPermission;
   const initialTrackingEnabled = (locationRow as Record<string, unknown> | null)?.location_tracking_enabled === true;
-  const tripTimezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
+  // Round 2: the Live client starts from the same persisted fix the
+  // Alerts page reads through locationEvidence. The client re-checks
+  // freshness on every tick (usableLocation), so a stale persisted fix
+  // can never pose as current location — and with no fix at all the
+  // client honestly reports "Location needed", agreeing with Alerts.
+  const persistedLatitude = getNumberOrNull(locationRow?.last_seen_latitude);
+  const persistedLongitude = getNumberOrNull(locationRow?.last_seen_longitude);
+  const persistedSeenAt = getRowString(locationRow || {}, "last_seen_at");
+  const initialLocation =
+    persistedLatitude != null && persistedLongitude != null && persistedSeenAt
+      ? { latitude: persistedLatitude, longitude: persistedLongitude, capturedAt: persistedSeenAt }
+      : null;
+  const tripTimezone = tripTimezoneForMath;
   const tripUpcoming = tripLifecycle === "upcoming";
   const tripDatesMissing = tripLifecycle === "missing_dates";
   function bookingTime(row: Record<string, unknown>, dateKey: string, timeKey: string) {
@@ -412,14 +550,21 @@ export default async function LiveTripPage({
           transportationPreference={bundle.data.trip.transportation_preference}
           hasConfirmedFlight={confirmedFlight}
           timezone={tripTimezone}
+          timezoneUnknown={!tripTimezoneResolution.known}
           companionEnabled={preferences.liveCompanionEnabled}
           companionPausedUntil={preferences.liveCompanionPausedUntil}
           backgroundLocationEnabled={preferences.backgroundLocationEnabled}
           initialPermissionState={permissionState}
           initialTrackingEnabled={initialTrackingEnabled}
+          initialLocation={initialLocation}
           bookingDetails={bookingDetails}
           liveDemoEnabled={false}
           fieldTestMode
+          heroPhoto={destinationPhoto ? { imageUrl: destinationPhoto.imageUrl, credit: destinationPhoto.credit, pageUrl: destinationPhoto.pageUrl } : null}
+          dayTimelineRows={dayTimelineRows}
+          itineraryDays={itineraryDays}
+          dayPlanTitle={dayPlanTitle}
+          venuePhotos={venuePhotos}
         />
       </div>
     );
@@ -434,7 +579,12 @@ export default async function LiveTripPage({
   // internal lane and skips it.
   if (!fieldTestMode) {
     const setupState = await getRoamlySetupState(supabase, current.user).catch(() => null);
-    const skipLiveGate = search.skipSetupGate === "1";
+    // Round 2: the trip page's remembered skip applies here too — the
+    // same per-trip cookie, so skipping once reveals both surfaces on
+    // return (see lib/roamly/setupSkip.ts). Never completes a step.
+    const skipCookieName = setupSkipCookieName(id);
+    const skippedBefore = skipCookieName ? hasSetupSkip((await cookies()).get(skipCookieName)?.value, id) : false;
+    const skipLiveGate = search.skipSetupGate === "1" || skippedBefore;
     const priorTrip =
       setupState && !setupState.complete ? await hasPriorTrip(supabase, current.user.id, id) : false;
     const gateApplies = setupState
@@ -444,10 +594,11 @@ export default async function LiveTripPage({
       return (
         <SetupGateScreen
           initialState={setupState}
-          eyebrow={`${destinationLabel} · ${shortDateRange(bundle.data.trip.start_date, bundle.data.trip.end_date)}`}
+          eyebrow={formatGateEyebrow(destinationLabel, bundle.data.trip.start_date, bundle.data.trip.end_date) || destinationLabel}
           dayCount={daysCount}
           skipHref={`/trip/${id}/live?skipSetupGate=1`}
           limitedFeatures={setupGateLimitedFeatures(setupState)}
+          tripId={id}
         />
       );
     }
@@ -456,11 +607,26 @@ export default async function LiveTripPage({
   if (!fieldTestMode) {
     return (
       <div className="calm-bleed mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+        {/* Offline round (2026-10-27): cached-trip label. Renders
+            nothing while online; offline it shows the real
+            last-online-load time for this trip. */}
+        <OfflineTripBanner tripId={id} />
         {/* Truth rebuild (2026-10-23): no TripContextNav, no page H1
             block, no marketing subline on this surface. The client
             opens with the mock-04 title block (eyebrow · NOW as the
             title · status line); the trip's sections stay reachable
             via the itinerary and the shell's app tab bar. */}
+        {/* Repair round P3: NO page-level trip header here anymore.
+            The page used to render this trip-timing card AND the
+            client's own TripHeroCard AND a "Trip in progress" banner
+            title — three destination/state headers stacked. The
+            client's hero is now the Live view's ONE authoritative
+            header (destination + dates + day + state badge from the
+            same trip clock, plus the photo); it already carried the
+            countdown/state the card below duplicated, so nothing
+            about the trip's state is lost. The origin line leaves
+            with the card — origin still reaches the client as a prop
+            for directions links, and stays on the trip home. */}
         {companionPanelInput ? (
           <div className="mb-5">
             <CompanionPanel tripId={id} initialInput={companionPanelInput} passView={companionPassView} />
@@ -486,13 +652,20 @@ export default async function LiveTripPage({
             transportationPreference={bundle.data.trip.transportation_preference}
           hasConfirmedFlight={confirmedFlight}
             timezone={tripTimezone}
+          timezoneUnknown={!tripTimezoneResolution.known}
             companionEnabled={preferences.liveCompanionEnabled}
             companionPausedUntil={preferences.liveCompanionPausedUntil}
             backgroundLocationEnabled={preferences.backgroundLocationEnabled}
             initialPermissionState={permissionState}
             initialTrackingEnabled={initialTrackingEnabled}
+            initialLocation={initialLocation}
             bookingDetails={bookingDetails}
             liveDemoEnabled={false}
+            heroPhoto={destinationPhoto ? { imageUrl: destinationPhoto.imageUrl, credit: destinationPhoto.credit, pageUrl: destinationPhoto.pageUrl } : null}
+            dayTimelineRows={dayTimelineRows}
+            itineraryDays={itineraryDays}
+            dayPlanTitle={dayPlanTitle}
+          venuePhotos={venuePhotos}
           />
         )}
       </div>

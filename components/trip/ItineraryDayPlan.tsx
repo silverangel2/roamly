@@ -8,7 +8,11 @@ import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { formatMoney, type RoamlyItinerary } from "@/lib/itinerary";
-import { cleanTravelerTimeLabel, isDriveMode, looksLikeProviderSearchTitle, presentGroundTransportText, presentTravelerArea, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
+import { cleanTravelerTimeLabel, isDriveMode, isTravelLeg, looksLikeProviderSearchTitle, presentDayHeading, presentGroundTransportText, presentTravelerArea, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
+import { stripTitleEcho, isUnverifiableStopTitle } from "@/lib/roamly/itineraryHome";
+import { deriveDaySummary, dayRestAndWrap, dayUncertaintyNotes, isGenericStopText } from "@/lib/roamly/daySummary";
+import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
+import { isPlanStayRow } from "@/lib/roamly/planStayRow";
 
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -36,10 +40,6 @@ function formatTripWeekday(value?: string | null, locale = "en") {
   const date = new Date(`${value}T00:00:00`);
   if (!Number.isFinite(date.getTime())) return "";
   return new Intl.DateTimeFormat(locale, { weekday: "long" }).format(date);
-}
-
-function isGenericStopText(value: string) {
-  return /^(stop|place|location|activity|visit|explore|sightseeing|free time|leisure)\b/i.test(value.trim());
 }
 
 function timelineText(record: Record<string, unknown>, ...keys: string[]) {
@@ -235,6 +235,11 @@ export type DisplayTimelineItem = {
   time: string;
   sortMinutes: number | null;
   title: string;
+  /** Owner-10 item 5: true for an unverifiable junk-title stop; the
+   *  card renders "Unverified stop" with planTitle kept. */
+  unverified: boolean;
+  /** The stored plan title when unverified; null otherwise. */
+  planTitle: string | null;
   description: string;
   location: string;
   category: string;
@@ -317,6 +322,9 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
     time: timing.start ? `${formatClock(timing.start)}${timing.end ? `–${formatClock(timing.end)}` : ""}` : "Flexible",
     sortMinutes: timing.start ? parseClockMinutes(timing.start) : null,
     title,
+    // Confirmed bookings are verified records, never unverified stops.
+    unverified: false,
+    planTitle: null,
     description: [provider, flightNumber ? `Flight ${flightNumber}` : ""].filter(Boolean).join(" · "),
     location: city || address,
     category,
@@ -335,11 +343,19 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
   };
 }
 
-/** Pin verified booking times onto the day and insert bookings the plan missed. Returns how many items were consolidated. */
+/** Pin verified booking times onto the day and insert bookings the plan missed. Returns how many items were consolidated.
+ *  Owner-10 item 4: when keepStoredOrder is set (home view only),
+ *  the final time-sort is skipped — the stored plan order IS the
+ *  chronological order, and sorting by clock would strand the
+ *  clock-less opening rows (the "Arrival" travel leg, the
+ *  "Check-in" hotel row) at the end, which is exactly the bug the
+ *  home timeline showed. Matched bookings keep their plan position
+ *  (their time is still pinned); unmatched bookings append. */
 function applyConfirmedBookings(
   output: DisplayTimelineItem[],
   dayDate: string,
-  confirmedBookings: readonly Record<string, unknown>[]
+  confirmedBookings: readonly Record<string, unknown>[],
+  keepStoredOrder = false
 ) {
   let consolidated = 0;
   const matchedIndexes = new Set<number>();
@@ -350,6 +366,16 @@ function applyConfirmedBookings(
     for (let index = 0; index < output.length; index += 1) {
       if (matchedIndexes.has(index)) continue;
       if (!bookingMatchesItem(booking, output[index].title)) continue;
+      // Item 4 (2026-10-28): a plan stay row (check-in, check-out,
+      // return to the stay) is NEVER promoted to confirmed by a
+      // title match — it stays a Planned/arrival activity. The
+      // booking is consumed (matched, so it is not appended as a
+      // second row) but neither the row's authority nor its time
+      // is changed, and it is not counted as consolidated.
+      if (isPlanStayRow(output[index])) {
+        matched = true;
+        break;
+      }
       matchedIndexes.add(index);
       matched = true;
       const item = output[index];
@@ -371,16 +397,35 @@ function applyConfirmedBookings(
       consolidated += 1;
     }
   }
-  output.sort((a, b) => (a.sortMinutes ?? 10_000) - (b.sortMinutes ?? 10_000));
+  if (!keepStoredOrder) {
+    output.sort((a, b) => (a.sortMinutes ?? 10_000) - (b.sortMinutes ?? 10_000));
+  }
   return consolidated;
 }
 
 export function buildDisplayTimelineItems(
   day: RoamlyItinerary["daily_itinerary"][number],
   confirmedBookings: readonly Record<string, unknown>[] = [],
-  options: { suppressFlightFraming?: boolean } = {}
+  options: {
+    suppressFlightFraming?: boolean;
+    /** Owner-10 item 4, home view only: null = no row cap (the
+     *  default 6 cut Day 1's theatre, pause, second gallery and
+     *  return). Detail cards keep the default. */
+    maxRows?: number | null;
+    /** Owner-10 item 4, home view only: intercity "travel" legs
+     *  render as their own rows instead of folding into the next
+     *  stop. Walk "transfer" legs still fold (the mock shows no
+     *  walk rows). */
+    keepTravelRows?: boolean;
+    /** Owner-10 item 4, home view only: keep stored plan order
+     *  (see applyConfirmedBookings). */
+    keepStoredOrder?: boolean;
+  } = {}
 ) {
   const suppressFlightFraming = options.suppressFlightFraming === true;
+  const maxRows = options.maxRows === null ? null : (options.maxRows ?? 6);
+  const keepTravelRows = options.keepTravelRows === true;
+  const keepStoredOrder = options.keepStoredOrder === true;
   const output: DisplayTimelineItem[] = [];
   const seen = new Set<string>();
   const pendingTransfers: string[] = [];
@@ -388,8 +433,9 @@ export function buildDisplayTimelineItems(
   for (const item of day.live_timeline || []) {
     const record = item as unknown as Record<string, unknown>;
     const transferLike = isTransferLike(record);
+    const recordType = timelineText(record, "item_type", "type").toLowerCase();
 
-    if (transferLike && !isMajorTravel(record)) {
+    if (transferLike && !isMajorTravel(record) && !(keepTravelRows && recordType === "travel")) {
       const summary = transferSummary(record, suppressFlightFraming);
       if (summary) pendingTransfers.push(summary);
       continue;
@@ -451,13 +497,34 @@ export function buildDisplayTimelineItems(
     if (seen.has(key)) continue;
     seen.add(key);
 
+    // Owner-10 item 5: the detail card obeys the same echo + junk
+    // rules as the home panel rows — a title-echo description is
+    // stripped (never shown as the description), and a bare-acronym
+    // stop with no real description is flagged, not presented as a
+    // venue. Transfer-note endpoints keep plan-point names: they are
+    // route text between plan points, and the endpoint's own card
+    // directly beneath carries the "Unverified stop" mapping.
+    const strippedDescription = stripTitleEcho(title, description);
+    const unverified = isUnverifiableStopTitle(title, strippedDescription);
+
     output.push({
       itemId: timelineText(record, "item_id"),
       itemType: type,
       time: time || "Flexible",
       sortMinutes,
-      title: title || category,
-      description,
+      // DISPLAY-ONLY rest wording (2026-10-28): the shown title is
+      // shortened; unverified/planTitle above still use the raw
+      // title, and itemType/category (what the count derivation
+      // keys on) are untouched.
+      title: displayRestTitle(title) || category,
+      unverified,
+      planTitle: unverified ? (title || category) : null,
+      // DISPLAY-ONLY shortening (2026-10-28): the stored
+      // description is untouched; only the shown string is
+      // flattened (generic arrival-leg filler), with walk/drive
+      // times, dietary facts, opening-hour notes, and genuine
+      // directions kept verbatim. See activityDescription.ts.
+      description: displayActivityDescription(title, strippedDescription),
       location,
       category,
       durationLabel: duration ? `${duration} min` : timelineText(record, "duration"),
@@ -474,10 +541,10 @@ export function buildDisplayTimelineItems(
       retimedMinutes
     });
 
-    if (output.length >= 6) break;
+    if (maxRows != null && output.length >= maxRows) break;
   }
 
-  const consolidatedCount = applyConfirmedBookings(output, getString(day.date), confirmedBookings);
+  const consolidatedCount = applyConfirmedBookings(output, getString(day.date), confirmedBookings, keepStoredOrder);
   return { items: output, consolidatedCount };
 }
 
@@ -510,15 +577,41 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
   ].filter(Boolean);
   const isConfirmed = item.authority === "confirmed";
 
+  const itemIsTravel = isTravelLeg({ title: item.title, category: item.category || item.itemType });
   return (
     <article className="px-4 py-3">
+      {itemIsTravel ? <p className="mb-0.5 text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Travel</p> : null}
       <div className="flex items-baseline gap-2.5">
-        <h4 className={`min-w-0 flex-1 text-[17px] leading-[1.35] ${item.authority === "must_do" ? "font-semibold text-chead" : "font-normal text-cink"}`}>{item.title}</h4>
+        <h4 className={`min-w-0 flex-1 break-words text-[17px] leading-[1.35] ${item.authority === "must_do" ? "font-semibold text-chead" : "font-normal text-cink"}`}>{item.unverified ? "Unverified stop" : item.title}</h4>
         {isConfirmed ? <span className="shrink-0 rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Booked</span> : null}
         <span className="shrink-0 text-[17px] font-normal leading-[1.35] text-cgray">{mockRowTime(item.time)}</span>
       </div>
-      {item.timeFromBooking ? <p className="mt-0.5 text-xs font-medium text-cgray2">Booking time</p> : null}
+      {item.unverified && item.planTitle ? <p className="mt-0.5 break-words text-[13px] font-normal text-cgray">Plan title: {item.planTitle}</p> : null}
+      {/* Repair round item 1: the day-card detail rows carry the same
+          provenance discipline as the home timeline. A
+          booking-anchored time is Confirmed; a retimed time is
+          Estimated (a recalculation, not the original plan time);
+          any other clock time is the original stored plan time, so
+          it is Planned. The old "Live-updated" label here was the
+          same defect as the Live rows: a stored plan time is not a
+          live update. "Flexible" rows carry no time and no label.
+          Unverified ("Unverified stop") rows carry no Planned line:
+          their own title already says Unplanned, and a Planned
+          label beneath it would contradict it. */}
+      {item.timeFromBooking ? <p className="mt-0.5 text-xs font-medium text-cgray2">Confirmed · booking time</p> : null}
+      {!item.timeFromBooking && item.timeRetimed && /^\d{1,2}:\d{2}\s*(AM|PM)/i.test(mockRowTime(item.time)) ? <p className="mt-0.5 text-xs font-medium text-cgray2">Estimated</p> : null}
+      {!item.unverified && !item.timeFromBooking && !item.timeRetimed && /^\d{1,2}:\d{2}\s*(AM|PM)/i.test(mockRowTime(item.time)) ? <p className="mt-0.5 text-xs font-medium text-cgray2">Planned</p> : null}
       {subLine.length ? <p className="mt-0.5 text-[14.5px] font-normal leading-[1.45] text-cgray">{subLine.join(" \u00b7 ")}</p> : null}
+      {/* Place detail (panel 6): only when the item carries a stable id,
+          so the link can only ever resolve inside this trip's own plan.
+          Items without an id get no link rather than a guessing one. */}
+      {item.itemId ? (
+        <p className="mt-1.5">
+          <a href={`/trip/${tripId}/place/${item.itemId}`} className="text-sm font-medium text-cblue">
+            Place details <span aria-hidden="true">›</span>
+          </a>
+        </p>
+      ) : null}
       {item.timeRetimed ? (
         <p className="mt-1.5 inline-flex items-center rounded-md bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
           Re-timed{item.retimedMinutes ? ` ${item.retimedMinutes > 0 ? "+" : ""}${item.retimedMinutes} min` : ""}
@@ -573,6 +666,17 @@ export function DayTimelineCard({
   staySearch?: StaySearchContext | null;
 }) {
   const { items: timelineItems, consolidatedCount } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming });
+  // ONE STOP-COUNT RULE (2026-10-28): the card's rendered
+  // timeline keeps its 6-row cap, but its summary is derived
+  // from the day's FULL itinerary — the SAME builder options the
+  // home panel uses (maxRows: null, keepTravelRows: true,
+  // keepStoredOrder: true) — so a capped card can never print a
+  // different total from the panel. keepTravelRows matters too:
+  // without it the travel leg folds away and the card loses the
+  // destination clause the panel prints. The full list is used
+  // ONLY for the summary; the rendered rows below are still
+  // `timelineItems` (capped).
+  const fullTimelineItems = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true }).items;
   const places = [
     ...timelineItems.map((item) => item.mapQuery),
     ...day.map_queries
@@ -582,19 +686,51 @@ export function DayTimelineCard({
     .filter((item, index, list) => list.indexOf(item) === index)
     .slice(0, 5);
   const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];
+  // DISPLAY-ONLY day summary (final local round, 2026-10-27):
+  // derived at render time from this day's displayed timeline
+  // items — counts, arrival, and times all come from the items
+  // themselves. The stored text below is used ONLY as the
+  // no-items fallback; it is never written back or modified here.
   const rawDaySummary = day.primary_plan || day.morning || day.afternoon || day.evening;
+  const summaryItems = fullTimelineItems.map((item) => ({
+    time: item.time,
+    title: item.title,
+    itemType: item.itemType,
+    category: item.category,
+    description: item.description,
+    unverified: item.unverified,
+    planTitle: item.planTitle
+  }));
+  const derivedDaySummary = deriveDaySummary(summaryItems);
+  // Correction phase (D2, 2026-10-28): rest + day-end clocks from the
+  // day's own rows, shown only when the data carries them.
+  const restWrap = dayRestAndWrap(summaryItems);
   const daySummary = compact(
-    presentTravelerArea(rawDaySummary, suppressFlightFraming),
+    derivedDaySummary || presentTravelerArea(rawDaySummary, suppressFlightFraming),
     timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
     160
   );
   const dayCity = presentTravelerArea(day.city, suppressFlightFraming);
-  const dayTitle = presentTravelerTitle({
+  // Round 2 HIGH 3: same separation as CurrentDayTimeline — a merged
+  // day title renders as one heading per venue, a travel leg is labeled
+  // Travel, and an unconfident join renders no venue heading at all.
+  const dayHeading = presentDayHeading({
     title: day.title,
     destination: dayCity || day.city,
     suppressFlightFraming
-  }).title || "Your day";
-  const hasUncertainty = Boolean(day.plan_status === "uncertain" || day.uncertainty?.length || timelineItems.some((item) => item.statusText));
+  });
+  const dayHeadings = dayHeading.headings.filter((heading) => heading && heading !== dayCity);
+  // Correction phase (D4, 2026-10-28): name WHAT is unconfirmed
+  // (day notes, row status texts, unconfident heading join, uncertain
+  // plan status) instead of the content-free "Some details still need
+  // confirmation." When nothing specific is unconfirmed, no line
+  // renders at all.
+  const uncertaintyNotes = dayUncertaintyNotes({
+    headingKind: dayHeading.kind,
+    planStatus: day.plan_status,
+    uncertainty: day.uncertainty,
+    statusTexts: timelineItems.map((item) => item.statusText)
+  });
   const repairCandidate = day.conflict_id ? (() => {
     for (const item of day.live_timeline || []) {
       const candidate = findRepairTarget({ ...({ daily_itinerary: [day] } as RoamlyItinerary) }, day.conflict_id, item.item_id || "");
@@ -616,9 +752,9 @@ export function DayTimelineCard({
 
       <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
         <div className="px-4 pt-3.5">
-          {dayTitle && dayTitle !== dayCity ? (
-            <h3 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-chead">{dayTitle}</h3>
-          ) : null}
+          {dayHeadings.map((heading) => (
+            <h3 key={heading} className="text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-chead">{heading}</h3>
+          ))}
           {consolidatedCount ? (
             <p className="mt-2 text-[13px] font-medium leading-5 text-cgray">
               Schedule set from your confirmed {consolidatedCount === 1 ? "booking" : `${consolidatedCount} bookings`} — exact times below
@@ -631,7 +767,14 @@ export function DayTimelineCard({
               {firstAction.time !== "Flexible" ? `${firstAction.time} \u00b7 ` : ""}{firstAction.title}
             </p>
           ) : null}
-          {hasUncertainty ? <p className="mt-1.5 text-xs font-medium text-cgray">Some details still need confirmation.</p> : null}
+          {restWrap.restClock || restWrap.wrapClock ? (
+            <p className="mt-1.5 text-sm leading-6 text-cgray">
+              {restWrap.restClock ? `Rest at ${restWrap.restClock}` : ""}
+              {restWrap.restClock && restWrap.wrapClock ? " \u00b7 " : ""}
+              {restWrap.wrapClock ? `Day ends around ${restWrap.wrapClock}` : ""}.
+            </p>
+          ) : null}
+          {uncertaintyNotes.length ? <p className="mt-1.5 text-xs font-medium text-cgray">Still to confirm: {uncertaintyNotes.slice(0, 3).join(" \u00b7 ")}.</p> : null}
         </div>
 
         {repairCandidate ? (
