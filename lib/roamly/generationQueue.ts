@@ -365,6 +365,35 @@ async function ensureGenerationLayers(params: {
   return { ok: true as const };
 }
 
+/**
+ * 409-STORM FIX (2026-10-29): the ACTIVE job for a trip, by trip —
+ * not by idempotency key, not by "latest job". The old latest-job
+ * lookup returned null when the newest row was terminal even while
+ * an older job was still active, which re-opened the collision.
+ * Returns the active job's generation_version, or null when no job
+ * for the trip is currently active.
+ */
+export async function findActiveGenerationJobVersion(params: {
+  supabase?: SupabaseClient | null;
+  tripId: string;
+  userId: string;
+}): Promise<string | null> {
+  const supabase = adminOrClient(params.supabase);
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("roamly_trip_generation_jobs")
+    .select("generation_version")
+    .eq("trip_id", params.tripId)
+    .eq("user_id", params.userId)
+    .in("status", ["queued", "running", "waiting"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const version = (data as { generation_version?: unknown }).generation_version;
+  return typeof version === "string" && version ? version : null;
+}
+
 export async function createOrResumeGenerationJob(params: {
   supabase?: SupabaseClient | null;
   tripId: string;
@@ -397,85 +426,43 @@ export async function createOrResumeGenerationJob(params: {
   if (!tripLookup.data) return { ok: false as const, error: "TRIP_NOT_FOUND" };
   if (generationTripIsTerminal(tripLookup.data)) return { ok: false as const, error: "TRIP_TERMINAL" };
 
-  const idempotencyKey = generationIdempotencyKey(params.tripId, generationVersion);
-  const existing = await supabase
-    .from("roamly_trip_generation_jobs")
-    .select("*")
-    .eq("user_id", params.userId)
-    .eq("idempotency_key", idempotencyKey)
-    .maybeSingle();
-
-  if (existing.error && !/does not exist|schema cache/i.test(existing.error.message)) {
-    return { ok: false as const, error: existing.error.message };
-  }
-
-  if (existing.data) {
-    const job = existing.data as RoamlyGenerationJob;
-    if (!["completed", "cancelled"].includes(job.status)) {
-      await supabase
-        .from("roamly_trip_generation_jobs")
-        .update({
-          priority: Math.max(job.priority || 0, Math.max(0, Math.round(params.priority || 0))),
-          current_stage: currentStagedLayerType(null, params.payload || null),
-          user_plan: params.userPlan || job.user_plan || "free",
-          paid_priority: params.paidPriority === true || job.paid_priority === true,
-          queue_priority_reason: params.queuePriorityReason || job.queue_priority_reason || params.reason || null,
-          duplicate_request_key: params.duplicateRequestKey || job.duplicate_request_key || null
-        })
-        .eq("id", job.id);
-      await ensureGenerationLayers({ supabase, job, payload: params.payload });
-      return { ok: true as const, job, resumed: true };
-    }
-  }
-
-  const insert = await supabase
-    .from("roamly_trip_generation_jobs")
-    .insert({
-      trip_id: params.tripId,
-      user_id: params.userId,
-      status: "queued",
-      priority: Math.max(0, Math.round(params.priority || 0)),
-      user_plan: params.userPlan || "free",
-      paid_priority: params.paidPriority === true,
-      queue_priority_reason: params.queuePriorityReason || params.reason || null,
-      duplicate_request_key: params.duplicateRequestKey || null,
-      current_stage: currentStagedLayerType(null, params.payload || null),
-      generation_version: generationVersion,
-      model_version: modelVersion(),
-      idempotency_key: idempotencyKey,
-      next_attempt_at: new Date().toISOString()
-    })
-    .select("*")
-    .single();
-
-  if (insert.error) {
-    if (/duplicate key/i.test(insert.error.message)) {
-      const retry = await supabase
-        .from("roamly_trip_generation_jobs")
-        .select("*")
-        .eq("user_id", params.userId)
-        .eq("idempotency_key", idempotencyKey)
-        .maybeSingle();
-      if (retry.data) {
-        const job = retry.data as RoamlyGenerationJob;
-        await ensureGenerationLayers({ supabase, job, payload: params.payload });
-        await markQueueCurrentStage({
-          supabase,
-          tripId: params.tripId,
-          userId: params.userId,
-          currentStage: currentStagedLayerType(null, params.payload || null),
-          status: job.status === "failed" ? "waiting" : undefined
-        });
-        return { ok: true as const, job, resumed: true };
-      }
-    }
-    return { ok: false as const, error: insert.error.message };
-  }
-
-  const job = insert.data as RoamlyGenerationJob;
+  // 409-STORM FIX (2026-10-29): creation is atomic on the ACTIVE
+  // constraint, not on the version key. The single RPC below returns
+  // the existing active job for the trip (whatever its key) or inserts
+  // exactly one row; concurrent callers serialize inside Postgres and
+  // NO 409 ever escapes to PostgREST. The old lookup-then-INSERT path
+  // is deleted: its lookup key (user, idempotency_key) and the
+  // active-trip unique index (trip_id WHERE active) are different
+  // keys, so any version mismatch collided and the duplicate-key
+  // handler re-read by the same wrong key and missed again — the
+  // loop that produced 1,191 409s/day. Catching 409s is NOT done here.
+  const rpc = await supabase.rpc("roamly_get_or_create_generation_job", {
+    p_trip_id: params.tripId,
+    p_user_id: params.userId,
+    p_generation_version: generationVersion,
+    p_priority: Math.max(0, Math.round(params.priority || 0)),
+    p_user_plan: params.userPlan || "free",
+    p_paid_priority: params.paidPriority === true,
+    p_queue_priority_reason: params.queuePriorityReason || params.reason || null,
+    p_duplicate_request_key: params.duplicateRequestKey || null,
+    p_current_stage: currentStagedLayerType(null, params.payload || null),
+    p_model_version: modelVersion()
+  });
+  if (rpc.error) return { ok: false as const, error: rpc.error.message };
+  const rows = (rpc.data || []) as (RoamlyGenerationJob & { resumed?: boolean })[];
+  if (!rows[0]) return { ok: false as const, error: "GENERATION_JOB_NOT_RETURNED" };
+  const job = rows[0] as RoamlyGenerationJob;
+  const resumed = rows[0].resumed !== false;
+  // Same post-condition as the old resume/fresh paths: layers always
+  // ensured. Status is NEVER flipped here: a failed job is returned
+  // as failed, and only ensureTripJob's gated reopen (which checks
+  // canResumeStagedGeneration) may move it back to waiting. The old
+  // duplicate-key handler flipped ANY same-key failed job to waiting
+  // unconditionally, which resurrected retries-exhausted jobs into
+  // another run — a second loop this fix deliberately closes.
   const layers = await ensureGenerationLayers({ supabase, job, payload: params.payload });
   if (!layers.ok) return { ok: false as const, error: layers.error };
-  return { ok: true as const, job, resumed: false };
+  return { ok: true as const, job, resumed };
 }
 
 export async function getGenerationQueueForTrip(params: {
