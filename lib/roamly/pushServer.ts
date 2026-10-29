@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendTripReminderEmail } from "@/lib/roamly/email";
 import { communicationPreferenceForNotificationType, getCompanionPreferences, getCompanionPreferencesForDelivery } from "@/lib/roamly/companionPreferences";
 import { tripWindowState } from "@/lib/roamly/liveCompanion";
+import { resolveBackgroundTripTimezone } from "@/lib/roamly/backgroundNotificationTimezone";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
@@ -350,6 +351,18 @@ export async function disablePushSubscription(supabase: SupabaseClient, userId: 
     .eq("endpoint", endpoint);
 }
 
+/*
+ * Retry discipline for the scheduled-trip scheduler: a push failure used
+ * to reschedule the event (+10 min) with no attempt cap, and every retry
+ * minted a NEW roamly_notifications row — one row per ~15-min queue run,
+ * feeding the 9+ badge forever. Now the in-app row is minted once and
+ * reused on retry, and push retries stop after this many attempts: the
+ * in-app row already exists by then, so push is best-effort after that
+ * and the event is marked shown instead of looping. Scheduling times,
+ * delivery semantics and email behavior are unchanged.
+ */
+export const SCHEDULED_PUSH_MAX_ATTEMPTS = 3;
+
 export async function sendScheduledTripNotifications() {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return { ok: false, error: "Supabase service role is not configured." };
@@ -393,7 +406,7 @@ export async function sendScheduledTripNotifications() {
     const tripResult = event.trip_id
       ? await supabase
           .from("roamly_trips")
-          .select("id,user_id,start_date,end_date,status,tracking_unlocked,live_companion_unlocked,trip_companion_status,metadata")
+          .select("id,user_id,start_date,end_date,status,tracking_unlocked,live_companion_unlocked,trip_companion_status,metadata,destination,destination_name,destination_city")
           .eq("id", event.trip_id)
           .eq("user_id", event.user_id)
           .maybeSingle()
@@ -430,10 +443,19 @@ export async function sendScheduledTripNotifications() {
       continue;
     }
 
-    if (event.trip_id && tripWindowState({
+    // Notification-timezone round (2026-10-27): the completed-trip
+    // gate uses the SAME resolution as Live/Alerts (metadata, then
+    // the verified destination registry via the trip record — this
+    // select previously carried no destination and the gate read a
+    // raw, unvalidated metadata timezone). An unknown zone SKIPS the
+    // gate instead of completing/cancelling a trip on a guessed
+    // window: the event's send time was already fixed at schedule
+    // time, so the gate must not destroy state it cannot verify.
+    const gateResolution = event.trip_id && tripResult.data ? resolveBackgroundTripTimezone(tripResult.data as { metadata?: unknown; destination?: string | null; destination_name?: string | null; destination_city?: string | null }) : null;
+    if (event.trip_id && gateResolution?.zone && tripWindowState({
       startDate: tripResult.data?.start_date,
       endDate: tripResult.data?.end_date,
-      timezone: tripResult.data?.metadata?.timezone,
+      timezone: gateResolution.zone,
       now: new Date()
     }) === "completed_trip") {
       await supabase.from("roamly_trips").update({ status: "completed", trip_companion_status: "completed" }).eq("id", event.trip_id);
@@ -529,6 +551,7 @@ export async function sendScheduledTripNotifications() {
             : event.event_type;
 
     let delivery;
+    let priorPushAttempts = 0;
     if (event.trip_id && activityId && liveEventTypes.has(event.event_type)) {
       const { liveCompanionNotificationIdentity, queueCompanionNotification, sendCompanionNotificationDelivery } = await import("@/lib/roamly/companionNotifications");
       const queued = await queueCompanionNotification({
@@ -573,6 +596,30 @@ export async function sendScheduledTripNotifications() {
         collapsed: emailCollapsed,
         tripAlreadyEmailed
       });
+      // Attempt cap: once the cap is reached the in-app row from the
+      // first attempt already carries the reminder, so stop looping and
+      // mark the event shown instead of rescheduling it again.
+      priorPushAttempts = typeof eventMetadata.pushAttempts === "number" && Number.isFinite(eventMetadata.pushAttempts)
+        ? eventMetadata.pushAttempts
+        : 0;
+      if (priorPushAttempts >= SCHEDULED_PUSH_MAX_ATTEMPTS) {
+        await supabase
+          .from("roamly_trip_companion_events")
+          .update({ status: "shown", completed_at: new Date().toISOString() })
+          .eq("id", event.id)
+          .eq("status", "processing");
+        continue;
+      }
+      // Idempotent in-app row: reuse the row minted on the first attempt
+      // instead of inserting a new roamly_notifications row per retry.
+      const existingNotification = await supabase
+        .from("roamly_notifications")
+        .select("id")
+        .eq("user_id", event.user_id)
+        .eq("event_id", event.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       delivery = await sendPushNotification(supabase, event.user_id, {
       title: event.title || "Roamly reminder",
       body: event.body,
@@ -582,7 +629,7 @@ export async function sendScheduledTripNotifications() {
       type: event.event_type,
       tripId: event.trip_id,
       eventId: event.id
-      }, { sendEmail: emailAllowed });
+      }, { sendEmail: emailAllowed, notificationId: existingNotification.data?.id || null });
       if (tripEmailKey && "emailResult" in delivery && delivery.emailResult) {
         emailedTrips.add(tripEmailKey);
       }
@@ -606,12 +653,13 @@ export async function sendScheduledTripNotifications() {
       const nextMetadata = emailAttempted
         ? {
             ...eventMetadata,
+            pushAttempts: priorPushAttempts + 1,
             emailAttempts: priorEmailAttempts + 1,
             ...(emailDelivered ? { emailSentAt: new Date().toISOString() } : {})
           }
         : emailSuppressedByCollapse && !emailCollapsed
-          ? { ...eventMetadata, emailCollapsed: true }
-          : null;
+          ? { ...eventMetadata, pushAttempts: priorPushAttempts + 1, emailCollapsed: true }
+          : { ...eventMetadata, pushAttempts: priorPushAttempts + 1 };
       await supabase
         .from("roamly_trip_companion_events")
         .update({

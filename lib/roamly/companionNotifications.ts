@@ -2,7 +2,10 @@ import { sendPushNotification } from "@/lib/roamly/pushServer";
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { activityEndDate, activityStartDate, tripWindowState, timezoneFromTripMetadata, type LiveCompanionActivity } from "@/lib/roamly/liveCompanion";
+import { activityEndDate, activityStartDate, tripWindowState, type LiveCompanionActivity } from "@/lib/roamly/liveCompanion";
+import {
+  resolveBackgroundTripTimezone
+} from "@/lib/roamly/backgroundNotificationTimezone";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
@@ -93,16 +96,24 @@ async function validateLiveActivityDelivery(admin: SupabaseClient, delivery: Del
   if (!delivery.trip_id || !activityId) return { valid: false as const, reason: "missing_live_activity_reference" };
 
   const [tripResult, activityResult] = await Promise.all([
-    admin.from("roamly_trips").select("id,user_id,status,start_date,end_date,metadata,itinerary_locked,tracking_unlocked,live_companion_unlocked").eq("id", delivery.trip_id).eq("user_id", delivery.user_id).maybeSingle(),
+    admin.from("roamly_trips").select("id,user_id,status,start_date,end_date,metadata,destination,destination_name,destination_city,itinerary_locked,tracking_unlocked,live_companion_unlocked").eq("id", delivery.trip_id).eq("user_id", delivery.user_id).maybeSingle(),
     admin.from("roamly_activities").select("id,title,status,scheduled_start,scheduled_end").eq("id", activityId).eq("trip_id", delivery.trip_id).maybeSingle()
   ]);
   if (tripResult.error) throw new Error(tripResult.error.message);
   if (activityResult.error) throw new Error(activityResult.error.message);
-  const trip = tripResult.data as { status?: string | null; start_date?: string | null; end_date?: string | null; metadata?: unknown; itinerary_locked?: boolean | null; tracking_unlocked?: boolean | null; live_companion_unlocked?: boolean | null } | null;
+  const trip = tripResult.data as { status?: string | null; start_date?: string | null; end_date?: string | null; metadata?: unknown; destination?: string | null; destination_name?: string | null; destination_city?: string | null; itinerary_locked?: boolean | null; tracking_unlocked?: boolean | null; live_companion_unlocked?: boolean | null } | null;
   const activity = activityResult.data as { id: string; title?: string | null; status?: string | null; scheduled_start?: string | null; scheduled_end?: string | null } | null;
   if (!trip || ["completed", "cancelled", "archived"].includes(String(trip.status || "").toLowerCase())) return { valid: false as const, reason: "trip_not_eligible" };
   if (trip.itinerary_locked !== true || (trip.tracking_unlocked !== true && trip.live_companion_unlocked !== true)) return { valid: false as const, reason: "companion_not_eligible" };
-  const timezone = timezoneFromTripMetadata(trip.metadata);
+  // Notification-timezone round (2026-10-27): the send-time window
+  // uses the SAME resolution as Live/Alerts (metadata, then the
+  // verified destination registry via the trip record — this row
+  // previously carried no destination). An unknown zone HELDS the
+  // delivery with an explicit reason instead of validating its window
+  // in a guessed UTC.
+  const resolution = resolveBackgroundTripTimezone(trip);
+  if (!resolution.zone) return { valid: false as const, reason: "timezone_unknown_held" };
+  const timezone = resolution.zone;
   if (tripWindowState({ startDate: trip.start_date, endDate: trip.end_date, timezone, now }) !== "active") return { valid: false as const, reason: "outside_trip_window" };
   if (!activity || TERMINAL_ACTIVITY_STATUSES.has(String(activity.status || "").toLowerCase())) return { valid: false as const, reason: "activity_terminal" };
   const liveActivity: LiveCompanionActivity = { id: activity.id, title: activity.title || "", status: activity.status, startAt: activity.scheduled_start, endAt: activity.scheduled_end };
@@ -529,7 +540,7 @@ export async function sendCompanionNotificationDelivery(
     if (!validation.valid) {
       await admin
         .from("roamly_companion_notification_deliveries")
-        .update({ status: "suppressed", suppression_reason: `Stale Live Companion delivery: ${validation.reason}` })
+        .update({ status: "suppressed", suppression_reason: validation.reason === "timezone_unknown_held" ? "Live Companion delivery held: trip timezone unknown (no send on a guessed zone)." : `Stale Live Companion delivery: ${validation.reason}` })
         .eq("id", claimedDelivery.id)
         .eq("status", "sending");
       return { ok: true as const, suppressed: true, reason: validation.reason };

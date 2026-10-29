@@ -41,7 +41,11 @@ import {
   getCompanionPreferencesForDelivery,
   communicationPreferenceForNotificationType
 } from "@/lib/roamly/companionPreferences";
-import { tripWindowState, timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import { tripWindowState } from "@/lib/roamly/liveCompanion";
+import {
+  BACKGROUND_TIMEZONE_HOLD,
+  resolveBackgroundTripTimezone
+} from "@/lib/roamly/backgroundNotificationTimezone";
 import {
   FLIGHT_CHANGE_LOOKBACK_MINUTES,
   UPSELL_GAP_EMAIL_COOLDOWN_DAYS,
@@ -75,6 +79,8 @@ type DigestResult = {
   processed?: number;
   sent?: { email: number; push: number; inApp: number };
   moments?: Array<{ tripId: string; moment: FyiMoment; result: string }>;
+  /** Trips held this run because their zone could not be resolved. */
+  heldTrips?: string[];
 };
 
 type EmailPreferences = {
@@ -87,7 +93,9 @@ type TripRow = {
   id: string;
   user_id: string;
   title: string | null;
+  destination?: string | null;
   destination_name: string | null;
+  destination_city?: string | null;
   start_date: string | null;
   end_date: string | null;
   status: string | null;
@@ -494,7 +502,7 @@ function snapshotOf(booking: BookingRow): FlightSnapshot {
 async function eligibleTrips(admin: SupabaseClient, now: Date): Promise<TripRow[]> {
   const result = await admin
     .from("roamly_trips")
-    .select("id,user_id,title,destination_name,start_date,end_date,status,itinerary_locked,tracking_unlocked,live_companion_unlocked,metadata,updated_at")
+    .select("id,user_id,title,destination,destination_name,destination_city,start_date,end_date,status,itinerary_locked,tracking_unlocked,live_companion_unlocked,metadata,updated_at")
     .not("user_id", "is", null)
     .not("start_date", "is", null)
     .in("status", ["locked", "planned", "active"])
@@ -512,7 +520,14 @@ async function processTrip(admin: SupabaseClient, trip: TripRow, now: Date) {
   type TripOutcome = { tripId: string; moment: FyiMoment; result: string; email: boolean; push: boolean; inApp: boolean };
   const outcomes: TripOutcome[] = [];
   const destination = getTripDestinationLabel({ destination_name: trip.destination_name, metadata: trip.metadata }) || "your trip";
-  const timezone = timezoneFromTripMetadata(trip.metadata);
+  // Notification-timezone round (2026-10-27): the digest window uses
+  // the SAME resolution as Live/Alerts (the trip row now carries its
+  // destination columns). An unknown zone HOLDS the whole trip for
+  // this run — no moment is evaluated on a guessed window — and the
+  // hold is recorded in the digest result's heldTrips.
+  const resolution = resolveBackgroundTripTimezone(trip);
+  if (!resolution.zone) return { outcomes, held: true as const, holdReason: BACKGROUND_TIMEZONE_HOLD };
+  const timezone = resolution.zone;
   const window = tripWindowState({ startDate: trip.start_date, endDate: trip.end_date, timezone, now });
 
   // --- Moment 4: trip starting soon (T-3d, 60–84h out) ---
@@ -559,7 +574,7 @@ async function processTrip(admin: SupabaseClient, trip: TripRow, now: Date) {
   }
 
   // Only look at bookings for trips that are upcoming or active.
-  if (window !== "future_trip" && window !== "active") return outcomes;
+  if (window !== "future_trip" && window !== "active") return { outcomes, held: false as const, holdReason: null };
 
   const bookingsResult = await admin
     .from("roamly_bookings")
@@ -569,9 +584,9 @@ async function processTrip(admin: SupabaseClient, trip: TripRow, now: Date) {
     .eq("booking_type", "flight")
     .in("booking_status", ["booked", "paid", "reserved", "cancelled"])
     .not("flight_number", "is", null);
-  if (bookingsResult.error) return outcomes;
+  if (bookingsResult.error) return { outcomes, held: false as const, holdReason: null };
   const bookings = (bookingsResult.data || []) as BookingRow[];
-  if (!bookings.length) return outcomes;
+  if (!bookings.length) return { outcomes, held: false as const, holdReason: null };
 
   const bookingIds = bookings.map((booking) => booking.id);
   const segmentsResult = await admin
@@ -707,7 +722,7 @@ async function processTrip(admin: SupabaseClient, trip: TripRow, now: Date) {
     }
   }
 
-  return outcomes;
+  return { outcomes, held: false as const, holdReason: null };
 }
 
 export async function processFyiDigest(params: { now?: Date } = {}): Promise<DigestResult> {
@@ -722,6 +737,7 @@ export async function processFyiDigest(params: { now?: Date } = {}): Promise<Dig
   try {
     const trips = await eligibleTrips(admin, now);
     const moments: Array<{ tripId: string; moment: FyiMoment; result: string }> = [];
+    const heldTrips: string[] = [];
     let email = 0;
     let push = 0;
     let inApp = 0;
@@ -729,7 +745,8 @@ export async function processFyiDigest(params: { now?: Date } = {}): Promise<Dig
     for (const trip of trips) {
       if (!trip.user_id) continue;
       try {
-        const outcomes = await processTrip(admin, trip, now);
+        const { outcomes, held } = await processTrip(admin, trip, now);
+        if (held) heldTrips.push(trip.id);
         for (const outcome of outcomes) {
           moments.push({ tripId: outcome.tripId, moment: outcome.moment, result: outcome.result });
           if (outcome.result === "sent") {
@@ -747,7 +764,7 @@ export async function processFyiDigest(params: { now?: Date } = {}): Promise<Dig
       }
     }
 
-    return { ok: true, processed: trips.length, sent: { email, push, inApp }, moments };
+    return { ok: true, processed: trips.length, sent: { email, push, inApp }, moments, heldTrips };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "FYI digest failed." };
   } finally {
