@@ -6,7 +6,8 @@ import { getTripBundle, groupActivitiesByDay } from "@/lib/trips";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
-import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
+import { zoneForMath } from "@/lib/roamly/tripTimezone";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 
 export default async function AdminFieldTestEntry({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
@@ -34,7 +35,19 @@ export default async function AdminFieldTestEntry({ params, searchParams }: { pa
   ]);
 
   const destinationLabel = getTripDestinationLabel(bundle.data.trip) || "Saint John";
-  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, getTripDaysCount(bundle.data.trip) || null, timezoneFromTripMetadata(bundle.data.trip.metadata));
+  // Timezone round: same ONE resolution as the customer Live page.
+  const fieldTestTrip = bundle.data.trip as typeof bundle.data.trip & {
+    destination_name?: unknown;
+    destination_city?: unknown;
+  };
+  const fieldTestTimezoneResolution = resolveTripTimezoneServer({
+    metadata: bundle.data.trip.metadata,
+    destination: destinationLabel,
+    destination_name: fieldTestTrip.destination_name,
+    destination_city: fieldTestTrip.destination_city
+  });
+  const fieldTestTimezone = zoneForMath(fieldTestTimezoneResolution);
+  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, getTripDaysCount(bundle.data.trip) || null, fieldTestTimezone);
   const activities = groupActivitiesByDay(bundle.data.activities)[currentDay] || bundle.data.activities;
   const initialPermissionState = (locationSettings?.last_permission_state || "prompt") as "prompt" | "granted" | "denied" | "unavailable";
   const initialLocation = typeof locationSettings?.last_seen_latitude === "number" && typeof locationSettings?.last_seen_longitude === "number"
@@ -44,7 +57,7 @@ export default async function AdminFieldTestEntry({ params, searchParams }: { pa
     <main className="safe-bottom mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
       <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-ink px-4 py-3 text-white shadow-soft"><p className="text-xs font-black uppercase tracking-[0.18em] text-sun">LIVE COMPANION FIELD TEST</p><p className="mt-1 text-sm font-black text-white/85">Desktop: prepare and monitor. Phone: run the real Live Companion.</p></section>
       <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-6 shadow-soft"><h1 className="text-4xl font-black tracking-tight text-ink">LIVE COMPANION FIELD TEST</h1><p className="mt-2 text-2xl font-black text-ocean">{destinationLabel}</p><p className="mt-3 text-sm font-bold leading-6 text-slate-600">Install Roamly, allow notifications and location, then run the real Live Companion on this phone.</p></section>
-    <LiveTripClient tripId={id} activities={activities} checklist={bundle.data.checklist} canSimulateLocation={false} destinationLabel={destinationLabel} simulatorPlaces={[]} tripStartDate={bundle.data.trip.start_date} tripEndDate={bundle.data.trip.end_date} timezone={timezoneFromTripMetadata(bundle.data.trip.metadata)} companionEnabled={preferences.liveCompanionEnabled} companionPausedUntil={preferences.liveCompanionPausedUntil} backgroundLocationEnabled={preferences.backgroundLocationEnabled} initialPermissionState={initialPermissionState} initialLocation={initialLocation} liveDemoEnabled={false} fieldTestMode />
+    <LiveTripClient tripId={id} activities={activities} checklist={bundle.data.checklist} canSimulateLocation={false} destinationLabel={destinationLabel} simulatorPlaces={[]} tripStartDate={bundle.data.trip.start_date} tripEndDate={bundle.data.trip.end_date} timezone={fieldTestTimezone} timezoneUnknown={!fieldTestTimezoneResolution.known} companionEnabled={preferences.liveCompanionEnabled} companionPausedUntil={preferences.liveCompanionPausedUntil} backgroundLocationEnabled={preferences.backgroundLocationEnabled} initialPermissionState={initialPermissionState} initialLocation={initialLocation} liveDemoEnabled={false} fieldTestMode />
     </main>
   );
 }

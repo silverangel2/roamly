@@ -17,19 +17,27 @@ const config: Config = {
         coral: "#FF6B6B",
         mist: "#F4F8FB",
         cloud: "#E9F1F7",
-        /* Calm design system (owner-approved, 2026-10-23): navy-slate
-           ink on the iOS grouped ground; system blue is the only
-           accent, spent sparingly. Zero black in design elements. */
-        chead: "#1F2D4D",
+        /* Calm design system (owner-approved, 2026-10-23), retuned to
+           the adopted design-spec tokens (2026-10-26, pixel-CLOSE
+           contract — never claimed as the mockups' original values):
+           primary/headings/secondary/page-ground/borders/success/
+           warning now carry the spec hexes; deep navy, soft blue,
+           and the two activity accents are added as first-class
+           tokens. Zero black in design elements. */
+        chead: "#223354",
         cink: "#3D4E6D",
-        cgray: "#7C8698",
+        cgray: "#657795",
         cgray2: "#9AA5B8",
-        chair: "#E1E7F0",
+        chair: "#DCE5F0",
         cchev: "#B7C1D2",
-        cbg: "#EFF2F7",
-        cblue: "#007AFF",
-        cgreen: "#34C759",
-        cred: "#FF3B30"
+        cbg: "#F2F6FC",
+        cblue: "#087BFF",
+        cgreen: "#17A86B",
+        cred: "#E94F67",
+        cnavy: "#071E55",
+        csoft: "#E6EFFA",
+        corange: "#FF793D",
+        cpurple: "#8957E5"
       },
       boxShadow: {
         soft: "0 18px 50px rgba(16, 32, 51, 0.12)",

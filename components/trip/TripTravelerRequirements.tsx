@@ -11,7 +11,7 @@ type Evaluation = {
   travelerType: "adult" | "child" | "infant";
   passportIssuingCountry: string | null;
   persisted: boolean;
-  requirements: Array<{ title: string; status: string; summary: string; authority: string | null; actionUrl: string | null }>;
+  requirements: Array<{ title: string; status: string; summary: string; authority: string | null; actionUrl: string | null; category?: string | null }>;
 };
 
 export function TripTravelerRequirements({ tripId, evaluations }: { tripId: string; evaluations: Evaluation[] }) {
@@ -107,7 +107,12 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
           ) : (
             <div className="mt-3 grid gap-2">
               <p className="text-sm font-semibold leading-6 text-slate-600">Requirements use the passport country saved in your account traveler memory.</p>
-              {!item.passportIssuingCountry ? <a className="inline-flex min-h-11 w-fit items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${tripId}?focus=requirements#requirements`)}#traveler-memory`}>Add your passport country</a> : null}
+              {/* Correction phase (2026-10-28): a domestic trip has no
+                  entry requirement, so it must not prompt for a passport
+                  country. The button shows only when the entry
+                  requirement itself is applicable (not NOT_APPLICABLE)
+                  and no passport country is saved. */}
+              {!item.passportIssuingCountry && item.requirements.some((requirement) => requirement.category === "VISA_OR_AUTHORIZATION" && requirement.status !== "NOT_APPLICABLE") ? <a className="inline-flex min-h-11 w-fit items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${tripId}?focus=requirements#requirements`)}#traveler-memory`}>Add your passport country</a> : null}
             </div>
           )}
           {item.requirements.map((requirement) => (

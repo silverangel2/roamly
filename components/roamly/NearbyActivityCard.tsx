@@ -10,11 +10,21 @@ export function NearbyActivityCard({
   tripId,
   activity,
   tripStarted = true,
+  locationVerified = false,
   presentation
 }: {
   tripId: string;
   activity: TrackingActivity | null;
   tripStarted?: boolean;
+  /**
+   * Round 2 evidence boundary: the Nearby treatment renders ONLY when this
+   * is true (fresh coordinates + active trip + within radius, computed by
+   * the Alerts page through lib/roamly/locationEvidence.ts). It defaults
+   * to false so any caller that forgets it fails closed to "Not nearby
+   * yet" — the calendar window alone can never dress a planned stop as
+   * nearby again.
+   */
+  locationVerified?: boolean;
   presentation?: TrackingPresentation;
 }) {
   const { t } = useI18n();
@@ -111,12 +121,19 @@ export function NearbyActivityCard({
     : "";
   const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming, presentation?.destination);
 
-  if (!tripStarted) {
+  // Round 2: "nearby" is an evidence state, not a calendar state. A trip
+  // that has started but has no verified location shows the same honest
+  // variant as a trip that has not started — the planned stop is named,
+  // nearness is not claimed.
+  const showNearby = tripStarted && locationVerified;
+  if (!showNearby) {
     return (
       <section className="rounded-[14px] bg-white p-4 shadow-calm">
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Nearby</p>
         <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Not nearby yet</h2>
-        <p className="mt-1.5 text-sm font-normal leading-6 text-cink">This trip has not started, so a planned stop is not nearby.</p>
+        {/* Builder-L trim: the "Not nearby yet" heading above is the
+            honest proximity statement; the repeated trip-started
+            sentence is removed — the trip-timing header states it once. */}
         {title ? <p className="mt-3 text-sm font-semibold text-chead">First planned stop: {title}</p> : null}
       </section>
     );
