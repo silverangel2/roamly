@@ -14,9 +14,17 @@ type NotificationItem = {
   action_url?: string | null;
   action_state?: "available" | "history" | "unavailable";
   created_at: string;
+  scheduled_for?: string | null;
+  is_outdated?: boolean;
   delivery_status?: string | null;
   delivery_channel?: string | null;
 };
+
+export type NotificationSection =
+  | "action-required"
+  | "upcoming"
+  | "travel-updates"
+  | "activity-history";
 
 /* Delivery state in the calm language: a small dot + word, never a
    colored pill. The dot carries the semantics (green sent, blue
@@ -85,6 +93,18 @@ function isTodayItem(iso: string) {
   return !Number.isNaN(date.getTime()) && date.toDateString() === new Date().toDateString();
 }
 
+/* Scheduled intent, distinct from the mint time: the scheduler's
+   scheduled_for is when the card was DUE ("Due Oct 23"), while the row
+   time beside the title is when the row was actually minted. Showing
+   both explains batch-minted cards (e.g. three cards stamped one minute)
+   without relabelling the mint time. */
+function dueLabel(iso: string | null | undefined) {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return `Due ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date)}`;
+}
+
 /** Info reminders carry their whole message in the card's title + body — the
  *  note IS the destination, so these open in place instead of navigating to a
  *  generic page. Only action notifications (check-in, nearby, booking, …),
@@ -110,9 +130,13 @@ function isInfoNotification(item: NotificationItem) {
 }
 
 export function NotificationTimelineCard({
-  initialItems
+  initialItems,
+  heading,
+  section
 }: {
   initialItems: NotificationItem[];
+  heading?: string | null;
+  section?: NotificationSection;
 }) {
   const { t } = useI18n();
   const [items, setItems] =
@@ -175,18 +199,22 @@ export function NotificationTimelineCard({
   function renderRow(item: NotificationItem) {
     const delivery = deliveryLabel(item.delivery_status, item.delivery_channel, t);
     const unread = item.status !== "read";
+    // Outdated pre-trip cards no longer demand attention: no unread dot,
+    // even though the row itself is still unread until the user marks it.
+    const showUnreadDot = unread && !item.is_outdated;
+    const due = dueLabel(item.scheduled_for);
     return (
       <article key={item.id} className="py-3 pl-3 pr-4">
         <div className="flex items-start gap-2.5">
           <span
             aria-hidden
-            className={`mt-[7px] h-[9px] w-[9px] shrink-0 rounded-full ${unread ? "bg-chead" : "bg-transparent"}`}
+            className={`mt-[7px] h-[9px] w-[9px] shrink-0 rounded-full ${showUnreadDot ? "bg-chead" : "bg-transparent"}`}
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-3">
               <h3
                 className={`min-w-0 flex-1 text-[16.5px] leading-[1.3] ${
-                  unread ? "font-semibold text-chead" : "font-normal text-cink"
+                  showUnreadDot ? "font-semibold text-chead" : "font-normal text-cink"
                 }`}
               >
                 {item.title}
@@ -196,6 +224,9 @@ export function NotificationTimelineCard({
 
             <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] font-normal text-cgray">
               <span className="uppercase tracking-[0.04em]">{notificationTypeLabel(item.type)}</span>
+              {section === "activity-history" ? <span>History</span> : null}
+              {item.is_outdated ? <span className="font-semibold">Outdated</span> : null}
+              {due ? <span>{due}</span> : null}
               <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${delivery.dot}`} />
               <span>{delivery.label}</span>
             </p>
@@ -222,7 +253,7 @@ export function NotificationTimelineCard({
             ) : null}
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-              {isInfoNotification(item) && item.trip_id && item.event_id ? (
+              {isInfoNotification(item) && item.trip_id && item.event_id && item.action_state !== "history" ? (
                 <a
                   href={`/trip/${item.trip_id}/event/${item.event_id}`}
                   onClick={() => {
@@ -232,7 +263,7 @@ export function NotificationTimelineCard({
                 >
                   {t("ui.actions.open")}
                 </a>
-              ) : isInfoNotification(item) ? (
+              ) : isInfoNotification(item) && item.action_state !== "history" ? (
                 <button type="button" onClick={() => toggleExpanded(item)} className={actionLinkClass}>
                   {expandedIds.has(item.id) ? t("ui.actions.close", "Close") : t("ui.actions.open")}
                 </button>
@@ -242,7 +273,7 @@ export function NotificationTimelineCard({
                 </a>
               ) : null}
 
-              {!isInfoNotification(item) && item.action_state === "history" ? (
+              {item.action_state === "history" ? (
                 <span className="text-sm font-normal text-cgray2">History only</span>
               ) : null}
 
@@ -260,6 +291,9 @@ export function NotificationTimelineCard({
 
   return (
     <div>
+      {heading ? (
+        <p className="mb-2 ml-4 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">{heading}</p>
+      ) : null}
       {items.length ? (
         groups.map((group) => (
           <div key={group.key} className="mb-5 last:mb-0">

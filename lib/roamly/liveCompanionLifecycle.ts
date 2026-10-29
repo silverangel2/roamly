@@ -5,10 +5,13 @@ import {
   activityEndDate,
   activityStartDate,
   isTodayWithinTripDates,
-  timezoneFromTripMetadata,
   tripWindowState,
   type LiveCompanionActivity
 } from "@/lib/roamly/liveCompanion";
+import {
+  BACKGROUND_TIMEZONE_HOLD,
+  resolveBackgroundTripTimezone
+} from "@/lib/roamly/backgroundNotificationTimezone";
 import {
   liveCompanionNotificationIdentity,
   queueCompanionNotification,
@@ -71,7 +74,14 @@ async function expireActivities(admin: SupabaseClient, trip: TrackingTrip, activ
 
 async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date) {
   if (!trip.user_id) return { expired: 0, started: 0, skipped: "missing_user" };
-  const timezone = timezoneFromTripMetadata(trip.metadata);
+  // Notification-timezone round (2026-10-27): the lifecycle window
+  // uses the SAME resolution as Live/Alerts (the trip row carries its
+  // destination columns). An unknown zone HOLDS the trip: no window
+  // completion, no activity expiry, no notification is computed from
+  // a guessed UTC — the hold is recorded in the cron result.
+  const resolution = resolveBackgroundTripTimezone(trip);
+  if (!resolution.zone) return { expired: 0, started: 0, skipped: BACKGROUND_TIMEZONE_HOLD };
+  const timezone = resolution.zone;
   const window = tripWindowState({ startDate: trip.start_date, endDate: trip.end_date, timezone, now });
 
   if (window === "completed_trip") {

@@ -183,19 +183,24 @@ export function HouseAdSlot({
   context,
   placement,
   className,
+  destinationCity,
 }: {
   context: HouseAdContext;
   placement?: string;
   className?: string;
+  /** Trip destination city (trip context only). When given, the
+   *  destination-match rule applies: city-specific promos for other
+   *  cities are suppressed from this slot. */
+  destinationCity?: string | null;
 }) {
   const place = placement || context;
-  const candidates = useMemo(() => houseAdCandidates(context), [context]);
+  const candidates = useMemo(() => houseAdCandidates(context, destinationCity), [context, destinationCity]);
   const seed = useMemo(() => Math.floor(Date.now() / 3_600_000), []);
   const startIndex = useMemo(() => {
-    const first = pickHouseAd(context, seed);
+    const first = pickHouseAd(context, seed, destinationCity);
     const index = first ? candidates.findIndex((c) => c.id === first.id) : 0;
     return index >= 0 ? index : 0;
-  }, [candidates, context, seed]);
+  }, [candidates, context, seed, destinationCity]);
 
   const [dismissed, setDismissed] = useState(false);
   const [active, setActive] = useState(startIndex);
