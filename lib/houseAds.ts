@@ -25,6 +25,11 @@ export type HouseAdCreative = {
   imageAlt: string;
   ctaLabel: string;
   monetization: HouseAdMonetization;
+  /** City this creative is SPECIFIC to (hotel creatives only). Null =
+   *  destination-agnostic (house/gadget cards). Correction phase
+   *  (2026-10-28): a city-specific promo must never render on a trip
+   *  to a different city — the Lisbon card on a Montreal itinerary. */
+  destinationCity?: string | null;
 };
 
 /** Booking.com search landing. Roamly's Travelpayouts marker powers its
@@ -51,6 +56,7 @@ export const HOUSE_AD_CREATIVES: HouseAdCreative[] = [
     imageAlt: "A quiet Japanese hotel room with a wooden headboard and lantern light",
     ctaLabel: "See Kyoto stays",
     monetization: "unwired",
+    destinationCity: "Kyoto",
   },
   {
     id: "hotel-lisbon",
@@ -62,6 +68,7 @@ export const HOUSE_AD_CREATIVES: HouseAdCreative[] = [
     imageAlt: "A Lisbon viewpoint terrace over tiled rooftops",
     ctaLabel: "See Lisbon stays",
     monetization: "unwired",
+    destinationCity: "Lisbon",
   },
   {
     id: "gadget-earbuds",
@@ -120,13 +127,25 @@ export const HOUSE_AD_CONTEXT_FAMILIES: Record<HouseAdContext, HouseAdCategory[]
   trip: ["hotel", "house", "gadget"],
 };
 
-export function houseAdCandidates(context: HouseAdContext): HouseAdCreative[] {
+export function houseAdCandidates(context: HouseAdContext, destinationCity?: string | null): HouseAdCreative[] {
   const families = HOUSE_AD_CONTEXT_FAMILIES[context] || HOUSE_AD_CONTEXT_FAMILIES.home;
   const seen = new Set<string>();
   const ordered: HouseAdCreative[] = [];
+  const wanted = typeof destinationCity === "string" ? destinationCity.trim().toLowerCase() : "";
+  // The city part of the destination ("Lisbon" from "Lisbon, Portugal").
+  const wantedCity = wanted.split(",")[0].trim();
   for (const family of families) {
     for (const creative of HOUSE_AD_CREATIVES) {
       if (creative.category === family && !seen.has(creative.id)) {
+        // Destination-match rule (correction phase, 2026-10-28): when
+        // the caller names a trip destination, a city-specific
+        // creative renders ONLY for that exact city. A mismatched
+        // promo is dropped from the candidate list (suppressed),
+        // never shown as if it belonged to the trip.
+        // Destination-agnostic creatives (house/gadget) always stay
+        // eligible. Without a destination (home context), rotation is
+        // unchanged.
+        if (wantedCity && creative.destinationCity && creative.destinationCity.trim().toLowerCase() !== wantedCity) continue;
         seen.add(creative.id);
         ordered.push(creative);
       }
@@ -138,8 +157,8 @@ export function houseAdCandidates(context: HouseAdContext): HouseAdCreative[] {
 /** Even rotation: a numeric seed (the slot passes an hourly bucket) walks
  * the candidate list in order, so every creative in the family gets its
  * share of impressions. */
-export function pickHouseAd(context: HouseAdContext, seed: number): HouseAdCreative | null {
-  const candidates = houseAdCandidates(context);
+export function pickHouseAd(context: HouseAdContext, seed: number, destinationCity?: string | null): HouseAdCreative | null {
+  const candidates = houseAdCandidates(context, destinationCity);
   if (!candidates.length) return null;
   const index = ((Math.floor(seed) % candidates.length) + candidates.length) % candidates.length;
   return candidates[index];

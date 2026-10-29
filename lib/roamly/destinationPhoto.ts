@@ -40,7 +40,11 @@ type CachedPhoto = DestinationPhoto & { fetchedAt: string };
 type CachedMiss = { none: true; fetchedAt: string };
 
 const SETTINGS_TABLE = "roamly_admin_settings";
-const CACHE_PREFIX = "destination_photo:v1:";
+// v2 (owner-10 item 3): the lookup learned title variants + French
+// labels, so v1 cached misses (e.g. a merged plan title that matched
+// nothing) must not shadow the new logic. Bumping the prefix
+// re-probes every label once; hits re-cache under v2.
+const CACHE_PREFIX = "destination_photo:v2:";
 const PHOTO_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const MISS_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const MAX_COORD_DISTANCE_KM = 150;
@@ -92,6 +96,96 @@ type WikiCandidate = {
   label: string;
 };
 
+/**
+ * Owner-10 item 3 — title variants, derived mechanically from the
+ * stop's own title, never hand-rewritten per venue:
+ * 1. the full title verbatim;
+ * 2. the title before " et du " / " et de " / " et " (merged plan
+ *    titles such as "Musée du marché Sainte-Anne et du parlement…"
+ *    name two things; the first is the venue);
+ * 3. the title with a generic leading venue word stripped ("Musée
+ *    du ", "Musée de ", "Musée ", "Le ", "La ", "Les ");
+ * 4. (2) with the same strip.
+ * Proven case: (4) turns the Musée stop into "marché Sainte-Anne",
+ * whose French Wikidata label matches exactly at 0.1 km. Variants
+ * that match nothing (Galerie Blanche, Resto Végo, Le Centre d'art
+ * et musée de Montréal) still return null — a miss stays bare.
+ */
+function labelVariants(label: string): string[] {
+  const out: string[] = [];
+  const push = (value: string) => {
+    const text = value.trim().replace(/\s+/g, " ");
+    if (text && !out.includes(text)) out.push(text);
+  };
+  const stripPrefix = (value: string) =>
+    value.replace(/^(musée\s+du\s+|musée\s+de\s+|musée\s+|le\s+|la\s+|les\s+)/i, "");
+  push(label);
+  const etSplit = label.split(/\s+et\s+du\s+|\s+et\s+de\s+|\s+et\s+/i)[0];
+  push(etSplit);
+  push(stripPrefix(label));
+  push(stripPrefix(etSplit));
+  return out.slice(0, 4);
+}
+
+/** Distinctive tokens (length > 2) of a normalized name, for overlap. */
+function distinctiveTokens(normalized: string): Set<string> {
+  return new Set(normalized.split(" ").filter((token) => token.length > 2));
+}
+
+type WikiEntity = {
+  labels?: { en?: { value?: string }; fr?: { value?: string } };
+  descriptions?: { en?: { value?: string }; fr?: { value?: string } };
+  claims?: {
+    P18?: Array<{ mainsnak?: { datavalue?: { value?: unknown } } }>;
+    P625?: Array<{
+      mainsnak?: { datavalue?: { value?: { latitude?: number; longitude?: number } } };
+    }>;
+  };
+};
+
+function entityCoordsOf(entity: WikiEntity): { lat: number; lon: number } | null {
+  const coordValue = entity.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
+  return typeof coordValue?.latitude === "number" && typeof coordValue?.longitude === "number"
+    ? { lat: coordValue.latitude, lon: coordValue.longitude }
+    : null;
+}
+
+function entityLabelsOf(entity: WikiEntity): string[] {
+  return [entity.labels?.en?.value, entity.labels?.fr?.value].filter(
+    (value): value is string => typeof value === "string" && Boolean(value)
+  );
+}
+
+/** Score one candidate against one variant. The 150 km gate is
+ *  applied by the caller before scoring; this only ranks. */
+function scoreCandidate(
+  entity: WikiEntity,
+  variant: string,
+  country: string | null,
+  coords: { lat: number; lon: number } | null,
+  entityCoords: { lat: number; lon: number } | null
+): number {
+  const wantedName = normalizedPlaceName(variant);
+  const labels = entityLabelsOf(entity);
+  const description = entity.descriptions?.en?.value || entity.descriptions?.fr?.value || "";
+  let score = 0;
+  // French labels count: Wikidata's English label for a French venue
+  // is often a translation ("St. Anne's Market") while the French
+  // label is the venue's own name ("marché Sainte-Anne").
+  if (labels.some((label) => normalizedPlaceName(label) === wantedName)) score += 3;
+  const wantedTokens = distinctiveTokens(wantedName);
+  let shared = 0;
+  for (const label of labels) {
+    const labelTokens = distinctiveTokens(normalizedPlaceName(label));
+    for (const token of wantedTokens) if (labelTokens.has(token)) shared += 1;
+    if (shared) break;
+  }
+  score += Math.min(shared, 2);
+  if (coords && entityCoords) score += Math.max(0, 3 - distanceKm(coords, entityCoords) / 50);
+  if (country && description.toLowerCase().includes(country.toLowerCase())) score += 1;
+  return score;
+}
+
 /** Wikidata: find the place's lead image (P18), with its coordinates
  *  (P625) so a same-named place on another continent can be refused. */
 async function findCommonsFile(
@@ -101,61 +195,109 @@ async function findCommonsFile(
 ): Promise<WikiCandidate | null> {
   // Wikidata entity search matches plain place names; appending the
   // country ("Lunenburg Canada") returns nothing at all. Search the
-  // bare label first and let the coordinate gate + scoring pick the
-  // right same-named place; the country query is only a fallback.
-  const searchTerms = country ? [label, `${label} ${country}`] : [label];
-  let ids: string[] = [];
-  for (const term of searchTerms) {
-    const searchData = (await wikiFetch(
-      `https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=en&type=item&limit=8&search=${encodeURIComponent(term)}`
-    )) as { search?: Array<{ id?: string }> } | null;
-    ids = (searchData?.search || []).map((item) => item.id).filter((id): id is string => Boolean(id));
-    if (ids.length) break;
-  }
-  if (!ids.length) return null;
-
-  const entitiesData = (await wikiFetch(
-    `https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims%7Cdescriptions%7Clabels&languages=en&ids=${ids.join("|")}`
-  )) as {
-    entities?: Record<
-      string,
-      {
-        labels?: { en?: { value?: string } };
-        descriptions?: { en?: { value?: string } };
-        claims?: {
-          P18?: Array<{ mainsnak?: { datavalue?: { value?: unknown } } }>;
-          P625?: Array<{
-            mainsnak?: { datavalue?: { value?: { latitude?: number; longitude?: number } } };
-          }>;
-        };
+  // bare variant first (French, then English — French venues are
+  // indexed under French first) and let the coordinate gate +
+  // scoring pick the right same-named place; the country query is
+  // only a fallback for the full label.
+  for (const variant of labelVariants(label)) {
+    const searchTerms = [variant, ...(variant === label && country ? [`${label} ${country}`] : [])];
+    let ids: string[] = [];
+    for (const term of searchTerms) {
+      for (const lang of ["fr", "en"]) {
+        const searchData = (await wikiFetch(
+          `https://www.wikidata.org/w/api.php?action=wbsearchentities&format=json&language=${lang}&type=item&limit=8&search=${encodeURIComponent(term)}`
+        )) as { search?: Array<{ id?: string }> } | null;
+        ids = (searchData?.search || []).map((item) => item.id).filter((id): id is string => Boolean(id));
+        if (ids.length) break;
       }
-    >;
-  } | null;
-  if (!entitiesData?.entities) return null;
+      if (ids.length) break;
+    }
+    if (!ids.length) continue;
 
-  const wantedName = normalizedPlaceName(label);
+    const entitiesData = (await wikiFetch(
+      `https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims%7Cdescriptions%7Clabels&languages=en%7Cfr&ids=${ids.join("|")}`
+    )) as { entities?: Record<string, WikiEntity> } | null;
+    if (!entitiesData?.entities) continue;
+
+    let best: (WikiCandidate & { score: number }) | null = null;
+    for (const id of ids) {
+      const entity = entitiesData.entities[id];
+      if (!entity) continue;
+      const file = entity.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+      if (typeof file !== "string" || !file) continue;
+      const entityCoords = entityCoordsOf(entity);
+      // The honesty gate: a coords-bearing query must resolve to a
+      // coords-bearing entity within 150 km. An entity with no
+      // coordinates cannot be verified to be THIS place — doubt
+      // resolves to null, never to a same-named place on another
+      // continent (proven 2026-10-26: "WIP" matched a Bangalore office
+      // photo because the vacuous gate let a coords-less entity win).
+      if (coords && (!entityCoords || distanceKm(coords, entityCoords) > MAX_COORD_DISTANCE_KM)) continue;
+      const labels = entityLabelsOf(entity);
+      const entityLabel = labels[0] || "";
+      const description = entity.descriptions?.en?.value || entity.descriptions?.fr?.value || "";
+      const score = scoreCandidate(entity, variant, country, coords, entityCoords);
+      if (!best || score > best.score) {
+        best = { file, coords: entityCoords, description, label: entityLabel, score };
+      }
+    }
+    // Zero-evidence matches never win: a candidate with no name match,
+    // no proximity bonus, and no country mention is a guess, not a photo
+    // of this place. The first variant that yields a scored candidate
+    // wins — the full title outranks its own shortenings.
+    if (best && best.score > 0) return best;
+  }
+  return null;
+}
+
+/**
+ * Owner-10 item 3 — coords-based entity search, the last resort when
+ * no text variant matches. Strict by construction: the entity must
+ * carry P18, sit within the 150 km gate (geosearch itself caps at
+ * 2 km), AND share at least two distinctive tokens with some variant
+ * of the stop's own title. A junk title ("WIP") shares zero tokens
+ * with every nearby entity, so it still returns null; a venue with
+ * no Wikidata entity at all (Galerie Blanche) likewise stays null.
+ */
+async function findCommonsFileByGeosearch(
+  label: string,
+  coords: { lat: number; lon: number }
+): Promise<WikiCandidate | null> {
+  const geoData = (await wikiFetch(
+    `https://www.wikidata.org/w/api.php?action=query&format=json&list=geosearch&gscoord=${coords.lat}%7C${coords.lon}&gsradius=2000&gslimit=20`
+  )) as { query?: { geosearch?: Array<{ title?: string }> } } | null;
+  const ids = (geoData?.query?.geosearch || [])
+    .map((item) => item.title)
+    .filter((id): id is string => typeof id === "string" && id.startsWith("Q"));
+  if (!ids.length) return null;
+  const entitiesData = (await wikiFetch(
+    `https://www.wikidata.org/w/api.php?action=wbgetentities&format=json&props=claims%7Clabels&languages=en%7Cfr&ids=${ids.join("|")}`
+  )) as { entities?: Record<string, WikiEntity> } | null;
+  if (!entitiesData?.entities) return null;
+  const variantTokenSets = labelVariants(label).map((variant) =>
+    distinctiveTokens(normalizedPlaceName(variant))
+  );
   let best: (WikiCandidate & { score: number }) | null = null;
   for (const id of ids) {
     const entity = entitiesData.entities[id];
     if (!entity) continue;
     const file = entity.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
     if (typeof file !== "string" || !file) continue;
-    const coordValue = entity.claims?.P625?.[0]?.mainsnak?.datavalue?.value;
-    const entityCoords =
-      typeof coordValue?.latitude === "number" && typeof coordValue?.longitude === "number"
-        ? { lat: coordValue.latitude, lon: coordValue.longitude }
-        : null;
-    // The honesty gate: when both sides carry coordinates, a photo
-    // from a same-named place far away is a lie — refuse it.
-    if (coords && entityCoords && distanceKm(coords, entityCoords) > MAX_COORD_DISTANCE_KM) continue;
-    const entityLabel = entity.labels?.en?.value || "";
-    const description = entity.descriptions?.en?.value || "";
-    let score = 0;
-    if (normalizedPlaceName(entityLabel) === wantedName) score += 3;
-    if (coords && entityCoords) score += Math.max(0, 3 - distanceKm(coords, entityCoords) / 50);
-    if (country && description.toLowerCase().includes(country.toLowerCase())) score += 1;
+    const entityCoords = entityCoordsOf(entity);
+    if (!entityCoords || distanceKm(coords, entityCoords) > MAX_COORD_DISTANCE_KM) continue;
+    const labels = entityLabelsOf(entity);
+    let shared = 0;
+    for (const labelText of labels) {
+      const labelTokens = distinctiveTokens(normalizedPlaceName(labelText));
+      for (const variantTokens of variantTokenSets) {
+        for (const token of variantTokens) if (labelTokens.has(token)) shared += 1;
+      }
+      if (shared >= 2) break;
+    }
+    if (shared < 2) continue;
+    const score = shared + Math.max(0, 3 - distanceKm(coords, entityCoords) / 50);
     if (!best || score > best.score) {
-      best = { file, coords: entityCoords, description, label: entityLabel, score };
+      best = { file, coords: entityCoords, description: "", label: labels[0] || "", score };
     }
   }
   return best;
@@ -204,7 +346,9 @@ async function fetchDestinationPhoto(
   country: string | null,
   coords: { lat: number; lon: number } | null
 ): Promise<DestinationPhoto | null> {
-  const candidate = await findCommonsFile(label, country, coords);
+  const candidate =
+    (await findCommonsFile(label, country, coords)) ||
+    (coords ? await findCommonsFileByGeosearch(label, coords) : null);
   if (!candidate) return null;
   return commonsImageInfo(candidate.file);
 }

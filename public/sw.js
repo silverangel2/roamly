@@ -127,13 +127,25 @@ self.addEventListener("notificationclick", (event) => {
   })());
 });
 /* ============================================================
- * Roamly offline-first trips (added 2026-09-30)
+ * Roamly offline-first trips (added 2026-09-30; trip-data + RSC
+ * caching and the known-user rule added 2026-10-27)
  *
  * Strategies:
  * - Trip documents (/trip/[id], /trip/[id]/live, /trip/[id]/bookings):
  *   network-first. Fresh SSR is shown whenever the phone is online so a
  *   cleaned itinerary cannot flash an older cached copy. The last good
  *   document is kept only for airplane mode.
+ * - Trip data behind the document: the trip-scoped API responses the
+ *   page actually calls (GET /api/roamly/trips/[id]/*, GET
+ *   /api/trips/[id]/*, GET /api/roamly/badge?tripId=[id]) and the RSC
+ *   payloads for trip-document URLs (the App Router's client-side
+ *   navigation payloads): network-first in the same per-user docs
+ *   cache, so client components (gaps, badge, tab navigation) keep
+ *   working from the last good copy offline instead of erroring.
+ *   Deliberately NOT cached: user-wide endpoints with no trip scope
+ *   (/api/roamly/trips/active, /api/roamly/setup/state) — serving
+ *   one trip's selection state as another trip's content would be
+ *   cross-trip leakage, so those stay network-only.
  * - /_next/static/*, /fonts/*, icons, manifest: cache-first (immutable).
  * - GET /api/trips/[id]/companion/preferences: stale-while-revalidate.
  * - POST /api/roamly/activities/{check-in,skip,complete}: never cached.
@@ -142,16 +154,26 @@ self.addEventListener("notificationclick", (event) => {
  *   UI can show "Will sync when back online."
  *
  * Privacy: only HTTP 200 same-origin responses are cached — never
- * redirects (login wall) or error pages. Trip documents and preferences
- * live in per-user caches (keyed by Supabase user id, communicated from
- * the page); caches are purged on logout and whenever the user id changes,
- * so one device account can never read another's cached trips.
+ * redirects (login wall) or error pages. Trip documents, trip data,
+ * and preferences live in per-user caches (keyed by Supabase user id,
+ * communicated from the page); caches are purged on logout and
+ * whenever the user id changes, so one device account can never read
+ * another's cached trips. A trip document or trip API response is
+ * cached ONLY while a user id is known (from the page's roamly_set_user
+ * message or the IndexedDB restore on activate): a null report (a
+ * transient getUser failure) is ignored rather than cached under an
+ * "anon" namespace, so two accounts can never share one cache through
+ * an unidentified session. NO auth material is ever cached: responses
+ * are stored by the Cache API without cookies, and the cached trip
+ * document was verified (2026-10-27) to contain no session token,
+ * JWT, or access/refresh token value — only the trip's own content.
  * ============================================================ */
 
-const ROAMLY_OFFLINE_VERSION = "roamly-offline-v2";
+const ROAMLY_OFFLINE_VERSION = "roamly-offline-v4";
 const ROAMLY_STATIC_CACHE = `${ROAMLY_OFFLINE_VERSION}-static`;
 const ROAMLY_DOCS_CACHE_PREFIX = `${ROAMLY_OFFLINE_VERSION}-docs-`;
 const ROAMLY_PREFS_CACHE_PREFIX = `${ROAMLY_OFFLINE_VERSION}-prefs-`;
+const ROAMLY_IMAGES_CACHE_PREFIX = `${ROAMLY_OFFLINE_VERSION}-images-`;
 const ROAMLY_OUTBOX_DB = "roamly-offline-outbox";
 const ROAMLY_OUTBOX_STORE = "activity-writes";
 const ROAMLY_META_STORE = "roamly-meta";
@@ -160,6 +182,11 @@ const ROAMLY_OUTBOX_SYNC_TAG = "roamly-outbox";
 
 const TRIP_DOC_RE = /^\/trip\/(?!new(?:\/|$))([^/]+)(\/(live|bookings))?\/?$/;
 const PREFS_RE = /^\/api\/trips\/([^/]+)\/companion\/preferences\/?$/;
+// Trip-scoped data responses behind a trip document. The id segment is
+// mandatory: /api/roamly/trips/active (no id) and
+// /api/roamly/setup/state (no trip at all) deliberately do NOT match,
+// so user-wide state can never be served as one trip's content.
+const TRIP_API_RE = /^\/api\/(?:roamly\/trips\/[^/]+\/.+|trips\/[^/]+\/.+|roamly\/badge)$/;
 const ACTIVITY_WRITE_RE = /^\/api\/roamly\/activities\/(check-in|skip|complete)\/?$/;
 
 let roamlyUserId = null;
@@ -223,8 +250,30 @@ function prefsCacheName() {
   return `${ROAMLY_PREFS_CACHE_PREFIX}${roamlyUserId || "anon"}`;
 }
 
+function imagesCacheName() {
+  return `${ROAMLY_IMAGES_CACHE_PREFIX}${roamlyUserId || "anon"}`;
+}
+
+// Destination-photo hosts ONLY. The destination-photo pipeline
+// (lib/roamly/destinationPhoto.ts) serves Wikimedia/Wikidata photos
+// and nothing else, so these two hosts are the complete allowlist
+// for cached trip images. Any other cross-origin host is never
+// cached, and no image is ever substituted: a cache entry is keyed
+// by its exact URL, so one trip's photo can never serve as another
+// trip's photo, and the page component's load check (onLoad +
+// naturalWidth) still gates display — a cached error page renders
+// the branded fallback, never a wrong photograph.
+const ROAMLY_IMAGE_HOSTS = new Set(["upload.wikimedia.org", "thumb.wikimedia.org"]);
+
 async function handleSetUser(userId) {
   const next = typeof userId === "string" && userId ? userId : null;
+  // A null report means "no user id could be read right now" (a
+  // transient getUser failure looks exactly like no session). It must
+  // NEVER downgrade a known user to an "anon" namespace: that is how
+  // two accounts could end up sharing one cache. Only an explicit
+  // roamly_logout (sign-out) clears, and only a new non-null id
+  // switches accounts (dropping the previous user's caches below).
+  if (!next) return;
   if (next === roamlyUserId) return;
   const prev = roamlyUserId;
   roamlyUserId = next;
@@ -236,9 +285,12 @@ async function handleSetUser(userId) {
   if (prev && prev !== next) {
     // The device account changed: drop the previous user's cached trips so
     // they can never be served to the new account (shared-device safety).
+    // Images go with them — the new account never sees the old
+    // account's cached photos.
     try {
       await caches.delete(`${ROAMLY_DOCS_CACHE_PREFIX}${prev}`);
       await caches.delete(`${ROAMLY_PREFS_CACHE_PREFIX}${prev}`);
+      await caches.delete(`${ROAMLY_IMAGES_CACHE_PREFIX}${prev}`);
     } catch {}
   }
 }
@@ -251,7 +303,8 @@ async function purgeUserCaches() {
         .filter(
           (n) =>
             n.startsWith(ROAMLY_DOCS_CACHE_PREFIX) ||
-            n.startsWith(ROAMLY_PREFS_CACHE_PREFIX)
+            n.startsWith(ROAMLY_PREFS_CACHE_PREFIX) ||
+            n.startsWith(ROAMLY_IMAGES_CACHE_PREFIX)
         )
         .map((n) => caches.delete(n))
     );
@@ -310,6 +363,9 @@ async function cacheFirst(request, cacheName) {
 }
 
 async function staleWhileRevalidate(event, request, cacheName) {
+  // Preferences are per-user data: without a known user id, fetch only
+  // (never read or write a shared/anon cache entry).
+  if (!roamlyUserId) return fetch(request);
   let cache = null;
   try {
     cache = await caches.open(cacheName);
@@ -337,10 +393,15 @@ async function staleWhileRevalidate(event, request, cacheName) {
 }
 
 async function networkFirst(event, request, cacheName) {
+  // Trip content is cached ONLY while a user id is known (see the
+  // header comment): without one, fetch network-only — never read a
+  // shared cache, never write one.
   let cache = null;
-  try {
-    cache = await caches.open(cacheName);
-  } catch {}
+  if (roamlyUserId) {
+    try {
+      cache = await caches.open(cacheName);
+    } catch {}
+  }
   try {
     const response = await fetch(request);
     if (cache && isCacheableResponse(response, request.url)) {
@@ -359,6 +420,70 @@ async function tripDocument(event) {
   const response = await networkFirst(event, request, docsCacheName());
   if (response) return response;
   return offlineFallbackResponse();
+}
+
+// Trip-scoped API data + RSC payloads for trip documents: the same
+// network-first per-user docs cache as the document itself, so the
+// client components behind a cached page keep their last good data
+// offline. An uncached API offline stays a plain network error (the
+// page's existing behavior for uncached calls), never a fabricated
+// response.
+async function tripData(event) {
+  const response = await networkFirst(event, event.request, docsCacheName());
+  if (response) return response;
+  return fetch(event.request);
+}
+
+// Licensed destination images (final local round, 2026-10-27):
+// network-first in the per-user images cache, so a trip photo
+// loaded once online serves offline with its page credit intact
+// (the credit lives in the cached page, not in the image bytes).
+// Same isolation as documents: cached AND served only while a user
+// id is known; sign-out purge and account-switch deletion cover
+// this cache with the docs cache. <img> fetches are no-cors, so
+// responses arrive opaque (status unverifiable) — they are cached
+// ONLY for the allowlisted pipeline hosts and ONLY under their
+// exact URL, and the component's load check still decides display.
+// A failed or wrong-bytes entry therefore shows the branded
+// fallback, never a photograph. Opaque entries are never used for
+// documents, APIs, or anything else.
+async function tripImage(event) {
+  const { request } = event;
+  let cache = null;
+  if (roamlyUserId) {
+    try {
+      cache = await caches.open(imagesCacheName());
+    } catch {}
+  }
+  try {
+    // A stalled image fetch must never hold the trip hero in its
+    // pending gradient forever (seen headless: the external fetch
+    // neither resolves nor rejects through the VM proxy). After 8s
+    // the network leg gives up and the caller falls back to the
+    // cached photo or, failing that, to the component's branded
+    // fallback — a bounded wait, never an endless gradient.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    let response;
+    try {
+      response = await fetch(request, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (cache) {
+      try {
+        await cache.put(request, response.clone());
+      } catch {}
+    }
+    return response;
+  } catch {
+    const cached = cache ? await cache.match(request).catch(() => null) : null;
+    if (cached) return cached;
+    // No cached photo and no network: let the fetch error surface
+    // so the component renders its branded fallback (never a
+    // fabricated response, never a hung gradient).
+    throw new Error("roamly-offline-image");
+  }
 }
 
 function offlineFallbackResponse() {
@@ -459,7 +584,21 @@ self.addEventListener("fetch", (event) => {
   } catch {
     return;
   }
-  if (url.origin !== self.location.origin) return; // never cache third parties
+  // Cross-origin trip images (v4): the ONLY third-party caching.
+  // Allowlisted Wikimedia image hosts, image requests only, user
+  // known only. Everything else cross-origin is untouched (never
+  // cached, never served from cache).
+  if (url.origin !== self.location.origin) {
+    if (
+      request.method === "GET" &&
+      request.destination === "image" &&
+      ROAMLY_IMAGE_HOSTS.has(url.hostname) &&
+      roamlyUserId
+    ) {
+      event.respondWith(tripImage(event));
+    }
+    return;
+  }
 
   // Activity writes: network-first with offline outbox. Never cached.
   if (request.method === "POST" && ACTIVITY_WRITE_RE.test(url.pathname)) {
@@ -489,6 +628,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Trip data responses behind a trip document: network-first, in the
+  // same per-user docs cache (sign-out purge covers them with the
+  // documents, no separate namespace to forget).
+  if (TRIP_API_RE.test(url.pathname)) {
+    event.respondWith(tripData(event));
+    return;
+  }
+
+  // RSC payloads for trip documents (App Router client navigation and
+  // prefetch): network-first in the docs cache, so tab switches
+  // between previously loaded trips keep working offline instead of
+  // falling back to a shell on a failed RSC fetch.
+  if (TRIP_DOC_RE.test(url.pathname) && (url.searchParams.has("_rsc") || request.headers.get("RSC") === "1")) {
+    event.respondWith(tripData(event));
+    return;
+  }
+
   // Trip documents: network-first, with the last saved copy only when offline.
   if (request.mode === "navigate" && TRIP_DOC_RE.test(url.pathname)) {
     event.respondWith(tripDocument(event));
@@ -512,11 +668,16 @@ self.addEventListener("activate", (event) => {
         roamlyUserId = null;
       }
       // Clean up caches from older versions of this worker.
+      // Release composition (2026-10-29): the filter prefix is "roamly-",
+      // not "roamly-offline-", carrying the correction-phase activate fix
+      // (the narrow prefix never matched preview-shaped cache names, so
+      // old caches escaped the purge). Current-version caches are still
+      // kept by the !startsWith clause below.
       try {
         const names = await caches.keys();
         await Promise.all(
           names
-            .filter((n) => n.startsWith("roamly-offline-") && !n.startsWith(ROAMLY_OFFLINE_VERSION))
+            .filter((n) => n.startsWith("roamly-") && !n.startsWith(ROAMLY_OFFLINE_VERSION))
             .map((n) => caches.delete(n))
         );
       } catch {}

@@ -22,6 +22,24 @@ function loadReminderModule() {
       if (id === "@/lib/roamly/liveCompanion") {
         return { timezoneFromTripMetadata: (metadata, fallback = "UTC") => metadata?.timezone || fallback };
       }
+      // Notification-timezone round (2026-10-27): preTripReminders now
+      // resolves zones through backgroundNotificationTimezone. This
+      // sandbox stubs it the same way it already stubs
+      // timezoneFromTripMetadata (stored-metadata zone, else UTC) —
+      // this suite proves reminder/due logic, NOT the resolution; the
+      // real metadata→registry→held resolution is proven by
+      // test:ux-notification-timezone (30/30, both timezones).
+      if (id === "@/lib/roamly/backgroundNotificationTimezone") {
+        return {
+          BACKGROUND_TIMEZONE_HOLD: "TIMEZONE_UNKNOWN_HELD",
+          resolveBackgroundTripTimezone: (trip) => {
+            const zone = trip?.metadata?.timezone || null;
+            return zone
+              ? { zone, source: "metadata", known: true, held: false, holdReason: null }
+              : { zone: null, source: "unknown", known: false, held: true, holdReason: "TIMEZONE_UNKNOWN_HELD" };
+          }
+        };
+      }
       if (id === "@/lib/roamly/companionNotifications") {
         return { queueCompanionNotification: async () => ({ ok: true }) };
       }

@@ -3,7 +3,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   crossBorderTravelDocumentReminders,
   crossBorderTravelNotes,
-  detectCrossBorderTrip
+  detectCrossBorderTrip,
+  normalizeCountry
 } from "@/lib/roamly/crossBorder";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripBudgetCurrency, getTripDestinationLabel, getTripOriginLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
@@ -81,8 +82,72 @@ export async function isLiveCompanionUnlocked(supabase: SupabaseClient, tripId: 
   return { unlocked: tripHasLiveCompanionUnlock(data || {}), error: null };
 }
 
-export function buildCountryInfo(destinationCountry?: string | null, destinationCity?: string | null) {
+export type CountryInfoRoute = {
+  /** Origin country from the trip's own record (may be inferred from its labels). */
+  originCountry?: string | null;
+  /** True when the trip's own origin/destination countries are known to differ. */
+  crossBorder?: boolean;
+};
+
+/**
+ * Round 2, HIGH 4 (builder B, carried into B2): the guidance set is
+ * derived from the trip's own origin/destination countries — the old
+ * builder took no origin at all and gave every trip the cross-border
+ * set, so a domestic trip got passport, embassy, and roaming advice.
+ * Domestic trips now get only the bullets that are actually
+ * applicable. International trips keep the applicable set. When the
+ * route countries cannot be determined, only the generally applicable
+ * bullets are shown — missing data is never filled with generic
+ * cross-border bullets.
+ *
+ * B2 extension: the domestic set follows the owner-approved composite
+ * panel's four notes (government-issued ID; confirm flight/bus
+ * schedule; check weather and pack; emergency number). The schedule
+ * line is guidance to confirm the traveler's own schedule, never a
+ * claimed schedule. The literal emergency number is scoped to Canada
+ * domestic only — 911 is Canada's emergency number (Government of
+ * Canada: "In case of emergency: 911") — and every other domestic
+ * country keeps the generic emergency-numbers line, because this
+ * codebase holds no verified emergency number for any other country
+ * and one must never be invented.
+ */
+export function buildCountryInfo(
+  destinationCountry?: string | null,
+  destinationCity?: string | null,
+  route?: CountryInfoRoute
+) {
   const place = [destinationCity, destinationCountry].filter(Boolean).join(", ") || "your destination";
+  const origin = normalizeCountry(route?.originCountry);
+  const destination = normalizeCountry(destinationCountry);
+  const isDomestic = Boolean(origin && destination && origin === destination);
+  const isInternational = route?.crossBorder === true || Boolean(origin && destination && origin !== destination);
+  const routeType: "domestic" | "international" | "unknown" = isDomestic
+    ? "domestic"
+    : isInternational
+      ? "international"
+      : "unknown";
+  if (isDomestic || !isInternational) {
+    return {
+      title: `Travel notes for ${place}`,
+      summary: isDomestic
+        ? "Check official government and destination sources before travel."
+        : "Route countries are not confirmed for this trip, so only generally applicable notes are shown. Check official government and destination sources before travel.",
+      reminders: isDomestic
+        ? [
+            "Check your government-issued ID for domestic travel.",
+            "Confirm your flight or bus schedule and allow extra time for potential delays.",
+            "Check weather and pack appropriate clothing.",
+            destination === "canada"
+              ? "Save local emergency number: 911."
+              : "Confirm local emergency numbers before you travel."
+          ]
+        : [
+            "Confirm local emergency numbers before you travel.",
+            "Check weather, transit disruptions, and local safety updates before leaving."
+          ],
+      routeType
+    };
+  }
   return {
     title: `Travel notes for ${place}`,
     summary: "Check official government, embassy, airline, and destination sources before travel.",
@@ -91,8 +156,17 @@ export function buildCountryInfo(destinationCountry?: string | null, destination
       "Confirm roaming or eSIM before departure and check device compatibility before buying.",
       "Confirm local emergency numbers and nearest embassy or consulate.",
       "Check weather, transit disruptions, and local safety updates before leaving."
-    ]
+    ],
+    routeType
   };
+}
+
+/** Cross-border bullets, for the render-time guard on stored records. */
+export const CROSS_BORDER_BULLET_PATTERN = /passport|embassy|consulate|roaming|eSIM|visa|entry documents/i;
+
+/** A stored domestic country-info record must never carry cross-border bullets. */
+export function filterDomesticCountryInfoReminders(reminders: string[]) {
+  return reminders.filter((reminder) => !CROSS_BORDER_BULLET_PATTERN.test(reminder));
 }
 
 function getCompanionCrossBorderInfo(trip: CompanionTrip) {
@@ -126,6 +200,14 @@ export function buildPackingChecklist(trip: CompanionTrip) {
 
 export function buildDocumentChecklist(trip?: CompanionTrip) {
   if (trip && getCompanionCrossBorderInfo(trip).cross_border) return crossBorderTravelDocumentReminders(false);
+  // Round 2, HIGH 4 (same finding, adjacent panel): a domestic trip
+  // gets no passport/visa lines — only the lines that actually apply.
+  if (trip) {
+    const info = getCompanionCrossBorderInfo(trip);
+    if (info.origin_country && info.destination_country && info.origin_country === info.destination_country) {
+      return ["Flight, hotel, and activity confirmations", "Travel insurance", "Emergency contact details"];
+    }
+  }
   return ["Passport validity", "Visa or eTA requirement", "Flight, hotel, and activity confirmations", "Travel insurance", "Emergency contact details"];
 }
 
@@ -329,6 +411,10 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
     if (inserted.error) return { ok: false, error: inserted.error.message };
   }
 
+  // Round 2, HIGH 4: the country-info set is derived from this trip's
+  // own origin/destination countries (one computation, reused here so
+  // the stored record, the cross-border flag, and the warnings agree).
+  const crossBorderInfo = getCompanionCrossBorderInfo(trip);
   await reader
     .from("roamly_trips")
     .update({
@@ -341,12 +427,15 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
         companion: {
           status: "scheduled",
           travelCountryInfo: {
-            ...buildCountryInfo(trip.destination_country, trip.destination_city),
-            cross_border: getCompanionCrossBorderInfo(trip).cross_border,
-            crossBorderWarnings: getCompanionCrossBorderInfo(trip).cross_border
+            ...buildCountryInfo(trip.destination_country, trip.destination_city, {
+              originCountry: crossBorderInfo.origin_country,
+              crossBorder: crossBorderInfo.cross_border
+            }),
+            cross_border: crossBorderInfo.cross_border,
+            crossBorderWarnings: crossBorderInfo.cross_border
               ? crossBorderTravelNotes({
-                  originCurrency: getCompanionCrossBorderInfo(trip).origin_currency,
-                  destinationCurrency: getCompanionCrossBorderInfo(trip).destination_currency
+                  originCurrency: crossBorderInfo.origin_currency,
+                  destinationCurrency: crossBorderInfo.destination_currency
                 })
               : []
           },

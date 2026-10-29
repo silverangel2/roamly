@@ -3,6 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { queueCompanionNotification } from "@/lib/roamly/companionNotifications";
 import { timezoneFromTripMetadata } from "@/lib/roamly/liveCompanion";
+import {
+  BACKGROUND_TIMEZONE_HOLD,
+  resolveBackgroundTripTimezone
+} from "@/lib/roamly/backgroundNotificationTimezone";
 import { schedulePreTrip7DayBriefing } from "@/lib/roamly/preTrip7DayBriefing";
 import { schedulePreTrip1DayBriefing } from "@/lib/roamly/preTrip1DayBriefing";
 import { scheduleTravelDayBriefing } from "@/lib/roamly/travelDayBriefing";
@@ -157,7 +161,12 @@ export function tripStartInstant(params: {
   trip: TripReminderRow;
   confirmedBookings: ConfirmedBookingRow[];
 }) {
-  const timezone = timezoneFromTripMetadata(tripMetadataRecord(params.trip), "UTC");
+  // Notification-timezone round (2026-10-27): the SAME resolution as
+  // Live / Alerts / Country info — stored metadata first, then the
+  // verified destination registry (exact match), else HELD. The old
+  // metadata-only step silently computed in UTC for trips with no
+  // recorded zone, so a 9:00 destination-local start became 09:00Z.
+  const resolution = resolveBackgroundTripTimezone(params.trip);
   const firstConfirmedBooking = params.confirmedBookings
     .filter(activeConfirmedBooking)
     .map((booking) => ({ booking, start: bookingTime(booking) }))
@@ -167,18 +176,26 @@ export function tripStartInstant(params: {
   if (firstConfirmedBooking) {
     return {
       start: firstConfirmedBooking.start,
-      timezone,
-      source: "confirmed_booking" as const
+      timezone: resolution.zone,
+      source: "confirmed_booking" as const,
+      held: resolution.held,
+      holdReason: resolution.holdReason
     };
   }
 
   const startDate = clean(params.trip.start_date);
-  const fallbackStart = startDate ? zonedDateTimeToUtc(startDate, 9 * 60, timezone) : null;
+  // A date-only start has no instant without a zone: held trips return
+  // NO instant (never a guessed-zone 9:00), and the caller records the
+  // hold explicitly instead of silently skipping the trip.
+  if (!startDate || !resolution.zone) return null;
+  const fallbackStart = zonedDateTimeToUtc(startDate, 9 * 60, resolution.zone);
   return fallbackStart
     ? {
         start: fallbackStart,
-        timezone,
-        source: "trip_start_date" as const
+        timezone: resolution.zone,
+        source: "trip_start_date" as const,
+        held: false,
+        holdReason: null
       }
     : null;
 }
@@ -205,6 +222,13 @@ export function preTripReminderVersion(params: {
   trip: TripReminderRow;
   confirmedBookings: ConfirmedBookingRow[];
 }) {
+  // Dedupe identity is DELIBERATELY the stored-metadata zone, not the
+  // resolved zone (notification-timezone round, 2026-10-27): metadata
+  // is untouched by the rewire, so an old reminder key equals the new
+  // key for the same trip/start/bookings and a timezone
+  // reinterpretation can never mint a second reminder for one that
+  // already exists. The zone is an interpretation of WHEN, not the
+  // identity of WHAT the reminder is.
   return createHash("sha256")
     .update(JSON.stringify({
       tripId: params.trip.id,
@@ -321,10 +345,15 @@ async function scheduleSingleReminder(params: {
   trip: TripReminderRow;
   type: PreTripReminderType;
   tripStart: Date;
-  timezone: string;
+  timezone: string | null;
   confirmedBookings: ConfirmedBookingRow[];
   version: string;
 }) {
+  // Unknown zone: held, never scheduled on a guessed zone. The caller
+  // records the hold; nothing is inserted and no delivery is queued.
+  if (!params.timezone) {
+    return { scheduled: false, held: true as const, reason: BACKGROUND_TIMEZONE_HOLD };
+  }
   const reminderKey = `${params.trip.id}:${params.type}:${params.version}`;
   const existingEventId = await reminderEventExists({
     supabase: params.supabase,
@@ -335,7 +364,7 @@ async function scheduleSingleReminder(params: {
   });
   if (existingEventId) return { scheduled: false, deduplicated: true, eventId: existingEventId };
 
-  const content = buildPreTripReminderContent(params);
+  const content = buildPreTripReminderContent({ ...params, timezone: params.timezone });
   const scheduledFor = new Date(
     params.tripStart.getTime() -
       REMINDER_WINDOWS[params.type].days * 24 * 60 * 60 * 1000
@@ -448,7 +477,23 @@ export async function schedulePreTripReminders(params?: {
           userId: trip.user_id
         });
         const start = tripStartInstant({ trip, confirmedBookings });
-        if (!start) continue;
+        if (!start) {
+          // Held trips (a start date but no resolvable zone) get an
+          // explicit hold record in the run result — never a silent
+          // skip, never a guessed-zone schedule. Dateless trips still
+          // skip quietly, as before.
+          if (clean(trip.start_date) && resolveBackgroundTripTimezone(trip).held) {
+            results.push({ tripId: trip.id, held: true, reason: BACKGROUND_TIMEZONE_HOLD });
+          }
+          continue;
+        }
+        if (start.held) {
+          // Confirmed-booking start with an unknown zone: the instant
+          // is real but every label/window around it needs a zone, so
+          // the trip holds as a whole until its zone is resolvable.
+          results.push({ tripId: trip.id, held: true, reason: BACKGROUND_TIMEZONE_HOLD });
+          continue;
+        }
         const version = preTripReminderVersion({ trip, confirmedBookings });
         const dueTypes = duePreTripReminderTypes({
           tripStart: start.start,
