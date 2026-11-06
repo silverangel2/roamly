@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { CountryInfoPanel } from "@/components/roamly/CountryInfoPanel";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiCard } from "@/components/boardui/Card";
 import { buildCountryInfoPanelModel } from "@/lib/roamly/countryInfoPanel";
 import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
 import { getTripDestinationLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
@@ -54,12 +54,12 @@ export default async function TripCountryInfoPage({
   if (!current.configured || !current.user) {
     return (
       <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <Badge tone="sun">Setup</Badge>
+        <BuiCard className="p-5">
+          <BuiBadge tone="warm">Setup</BuiBadge>
           <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">
             Connect Supabase to use Country Info.
           </h1>
-        </Card>
+        </BuiCard>
       </div>
     );
   }
@@ -83,7 +83,7 @@ export default async function TripCountryInfoPage({
 
   return (
     <div className="calm-bleed mx-auto w-full max-w-2xl px-4 py-5 sm:px-6 sm:py-8">
-      <section className="rounded-2xl bg-white p-4 shadow-calm sm:p-5">
+      <section className="bui-enter rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card sm:p-5">
         <CountryInfoPanel model={model} initialTab={requestedTab} />
       </section>
     </div>

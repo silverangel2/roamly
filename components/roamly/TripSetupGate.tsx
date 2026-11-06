@@ -1,5 +1,7 @@
 "use client";
 
+import { Check, ChevronRight } from "lucide-react";
+
 /*
  * SetupGateScreen — the "Your trip is ready!" moment, OWNER-APPROVED
  * DESIGN (2026-10-26, composite correct-4-pages.jpg, bottom-left
@@ -20,8 +22,11 @@
  * Two deliberate deviations from a pixel copy, both forced by the
  * hard limits (flagged, not silent):
  *   - The "Itinerary generated and saved" row is a STATUS row, not a
- *     link: linking it to the itinerary would bypass the gate. Its
- *     chevron is decorative, matching the mock's card language.
+ *     link: linking it to the itinerary would bypass the gate.
+ *     Jakob's Law A8 (2026-11-03): the decorative green chevron the
+ *     mock gave it is REMOVED — a chevron reads as "tappable" and
+ *     this row does nothing, so it now renders as the plain status
+ *     line it is.
  *   - The limited-features list is not repeated on this screen (the
  *     mock has none); the reveal banner after Skip names them.
  *   - Step icons are simple inline glyphs, not brand artwork.
@@ -30,7 +35,7 @@
  *
  * Picture 3 literal fixes (2026-10-26, enlarged bottom-left crop
  * read firsthand): the itinerary card is pale green with a solid
- * green check circle and green chevron; the Gmail button is SOLID
+ * green check circle; the Gmail button is SOLID
  * blue (the other two stay blue-outline, as in the picture); the
  * Skip card's text is centered with the chevron at the right edge;
  * every optional-card button sits under the TEXT column (indented
@@ -48,6 +53,7 @@ import { useRouter } from "next/navigation";
 import type { RoamlySetupState } from "@/lib/roamly/setupState";
 import { setupSkipCookieAssignment } from "@/lib/roamly/setupSkip";
 import { SetupCascade } from "@/components/roamly/SetupCascade";
+import { BuiCard } from "@/components/boardui/Card";
 
 export function SetupGateScreen({
   initialState,
@@ -97,24 +103,23 @@ export function SetupGateScreen({
 
   if (setup.complete) {
     return (
-      <div className="calm-bleed calm-crossfade mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-3xl items-center px-4 py-10 sm:px-6">
-        <p className="text-base font-normal leading-7 text-cgray">All set — opening your trip…</p>
+      <div className="calm-bleed calm-crossfade bui-safe-bottom mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-3xl items-center px-4 py-10 sm:px-6">
+        <p className="bui-enter text-base font-normal leading-7 text-cgray">All set — opening your trip…</p>
       </div>
     );
   }
 
   return (
-    <div className="calm-bleed calm-crossfade mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-3xl items-start px-4 pb-10 pt-5 sm:px-6">
-      <section className="w-full">
+    <div className="calm-bleed calm-crossfade bui-safe-bottom mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-3xl items-start px-4 pb-10 pt-5 sm:px-6">
+      <section className="bui-enter w-full">
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{eyebrow}</p>
-        <h1 className="mt-1.5 text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Your trip is ready! 🎉</h1>
+        <h1 className="mt-1.5 text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Your trip is ready!</h1>
         <p className="mt-2.5 max-w-[330px] text-base font-normal leading-[1.45] text-cink">
           Everything is prepared. Complete a few optional steps to unlock more features.
         </p>
         <div className="mt-4 flex items-center rounded-2xl bg-cgreen/10 p-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cgreen text-base font-bold text-white" aria-hidden="true">✓</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cgreen text-white" aria-hidden="true"><Check size={16} strokeWidth={3} /></span>
           <p className="min-w-0 flex-1 px-3 text-[17px] font-semibold leading-tight text-chead">Itinerary generated and saved</p>
-          <span aria-hidden="true" className="shrink-0 text-xl leading-none text-cgreen">›</span>
         </div>
         <h2 className="mb-3 mt-6 text-[19px] font-bold tracking-[-0.018em] text-chead">Optional setup (recommended)</h2>
         <SetupCascade initialState={setup} onStateChange={handleStateChange} variant="optional" />
@@ -123,13 +128,11 @@ export function SetupGateScreen({
           <span className="text-[15px] font-normal text-cgray">OR</span>
           <span className="h-px flex-1 bg-chair" />
         </div>
-        <a
-          href={skipHref}
-          onClick={handleSkip}
-          className="flex items-center rounded-2xl bg-white p-4 shadow-calm"
-        >
-          <p className="min-w-0 flex-1 text-center text-[17px] font-semibold leading-tight text-chead">Skip for now</p>
-          <span aria-hidden="true" className="shrink-0 text-xl leading-none text-cchev">›</span>
+        <a href={skipHref} onClick={handleSkip} className="bui-press bui-touch block">
+          <BuiCard interactive className="flex items-center p-4">
+            <p className="min-w-0 flex-1 text-center text-[17px] font-semibold leading-tight text-chead">Skip for now</p>
+            <ChevronRight aria-hidden="true" size={20} strokeWidth={2} className="shrink-0 text-cchev" />
+          </BuiCard>
         </a>
         <p className="mt-2 text-center text-[15px] font-normal leading-[1.45] text-cgray">
           You can still view your full itinerary with limited features.

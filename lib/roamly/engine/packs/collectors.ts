@@ -463,13 +463,18 @@ export async function collectPoiCandidates(
       // per chunk (mirror fallback preserved; six chunks give the
       // collection more total attempts than the shipped pair ever
       // had), each attempt capped at 45 s and at a third of the
-      // remaining budget — so a chunk whose attempts all hang can
-      // overrun the collection deadline by one bounded tail
-      // (~15 s), never by a full second ladder. Observed live
-      // 2026-10-22 without this bound: a 418 s all-fail collection
-      // against a 210 s deadline.
+      // remaining budget — with NO minimum floor: a 5 s floor made
+      // three hanging attempts overrun a nearly-spent budget by up
+      // to ~15 s regardless of how little time remained (proven
+      // offline 2026-11-01: a 600 ms deadline returned at ~15.1 s).
+      // A third of the remaining budget per attempt means the three
+      // attempts of a chunk that starts before the deadline fit
+      // inside that remaining budget, so the collection returns by
+      // the deadline (plus processing), never by a full second
+      // ladder. Observed live 2026-10-22 without this bound: a
+      // 418 s all-fail collection against a 210 s deadline.
       maxRounds: 1,
-      attemptTimeoutMs: Math.min(45_000, Math.max(5_000, Math.floor(remainingMs / 3))),
+      attemptTimeoutMs: Math.min(45_000, Math.max(1, Math.floor(remainingMs / 3))),
       // Collection politeness floor: the public endpoint's failure
       // mode is fast 429 rejections under load, and a 1.5 s backoff
       // burns all rounds inside one closed rate window. A 4 s base

@@ -12,6 +12,14 @@
       ]
     },
     {
+      "name": "Banff Upper Hot Springs",
+      "day": 1,
+      "score": 75,
+      "reasons": [
+        "named in the traveler's request"
+      ]
+    },
+    {
       "name": "Mountain Folk Coffee Co.",
       "day": 2,
       "score": 75,
@@ -36,12 +44,6 @@
       "reasons": [
         "dietary fit proven by listing tags"
       ]
-    },
-    {
-      "name": "Luxton Home & Garden Museum",
-      "day": 1,
-      "score": 50,
-      "reasons": []
     }
   ],
   "risks": [
@@ -66,6 +68,12 @@
     {
       "day": 1,
       "item": "Central Park",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 1,
+      "item": "Banff Upper Hot Springs",
       "risk": "opening hours not in any data source — door time could differ from the plan",
       "severity": "medium"
     },
@@ -156,22 +164,22 @@
   ],
   "budgetPosture": {
     "verdict": "WITHIN",
-    "note": "even the top of the estimated range (CAD 586) sits under the cap (CAD 1500)",
+    "note": "even the top of the estimated range (CAD 656) sits under the cap (CAD 1500)",
     "cap": {
       "amount": 1500,
       "currency": "CAD",
-      "verdict": "WITHIN — even the top of the estimated range (CAD 586) sits under the cap (CAD 1500) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+      "verdict": "WITHIN — even the top of the estimated range (CAD 656) sits under the cap (CAD 1500) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
     },
-    "coverage": 0.83,
+    "coverage": 0.85,
     "coverageThreshold": 0.5,
-    "pricedItems": 10,
-    "evidencedItems": 10,
+    "pricedItems": 11,
+    "evidencedItems": 11,
     "evidenceByTier": {
-      "COSTED": 10
+      "COSTED": 11
     },
     "estimatedTotals": {
-      "low": 244,
-      "high": 586,
+      "low": 274,
+      "high": 656,
       "currency": "CAD"
     },
     "payingParty": 2,
@@ -179,8 +187,8 @@
     "priceBandsKnown": 0,
     "bandDistribution": {},
     "bandSource": null,
-    "scopeLines": 12,
-    "evidencedScopeLines": 10,
+    "scopeLines": 13,
+    "evidencedScopeLines": 11,
     "components": [
       {
         "component": "lodging",
@@ -213,9 +221,9 @@
   "paceLoad": [
     {
       "day": 1,
-      "stops": 5,
-      "walkingKmEstimated": 1.21,
-      "lastEnd": "16:06"
+      "stops": 6,
+      "walkingKmEstimated": 0.81,
+      "lastEnd": "17:25"
     },
     {
       "day": 2,

@@ -273,7 +273,7 @@ check("live page NEXT uses the eligibility filter", () => {
 });
 const liveClient = readFileSync("components/trip/LiveTripClient.tsx", "utf8");
 check("location-off produces a clear prompt with an action", () => {
-  assert.match(liveClient, /Location is off — Live Companion can't track where you are/, "location-off banner");
+  assert.match(liveClient, /Location is off — Live Companion can&apos;t follow along/, "location-off banner");
   assert.match(liveClient, /Turn on location/, "location action button");
 });
 
@@ -293,8 +293,13 @@ check("dashboard lists the traveler's trips with links to open them", () => {
 });
 check("paid trip card links to /trip/[id] (discoverable and openable)", () => {
   const src = readFileSync(new URL("../lib/roamly/dashboardTripPresentation.ts", import.meta.url), "utf8");
-  // Every trip card href resolves to the trip page (or live page when active).
-  assert.ok(src.includes("href: liveNow ? `/trip/${trip.id}/live` : `/trip/${trip.id}`"),
+  // Every trip card href resolves to the trip page — the trip's home.
+  // (Diagnostic round 2026-11-01: the previous pin demanded a liveNow
+  // conditional to /live that exists in no shipped or candidate product
+  // file; shipped 4221bcb2 and this candidate both set the href
+  // unconditionally, with liveNow driving the eyebrow/badge only. The
+  // itinerary is the trip's home; Live is a layer reached from it.)
+  assert.ok(src.includes("href: `/trip/${trip.id}`"),
     "trip card href must open /trip/[id]");
 });
 

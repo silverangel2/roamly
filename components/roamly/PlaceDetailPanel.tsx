@@ -8,9 +8,11 @@
  * subtitle; photo with count (or the bare treatment when there is no
  * real photo); title (the plan's own title, never rewritten); Planned/
  * Confirmed chip + time-range chip + duration chip; description (or
- * its honest empty state); Directions / Add to calendar / Save row
- * (plain, no card); "About this place" as ONE card (title + subtitle
- * + chevron) whose per-field rows render only when expanded; Nearby
+ * its honest empty state); Directions action (plain, no card); the
+ * key facts (address, opening hours, ticket info) in the open
+ * directly under the actions; "About this place" as ONE card (title
+ * + subtitle + chevron) holding the genuinely secondary fields
+ * (photos, helpful tips), whose rows render only when expanded; Nearby
  * (max 2 cards, real sibling photo or no photo element, walk time,
  * NO heart — no saved-places store exists); "Tips for your visit"
  * plain checklist. Content ENDS at Tips: no "See the full itinerary"
@@ -27,10 +29,13 @@
  * directions screen for this place when the host page passes its
  * URL (external Maps is one tap away on that screen via Open in
  * Maps); without that prop it is a real anchor to the view-model's
- * Google Maps dir link. Add to calendar and Save are rendered
- * DISABLED with an explanation — no calendar export and no
- * saved-places store exist in this codebase, so they must never look
- * like working buttons.
+ * Google Maps dir link. Jakob's Law A6 (2026-11-03): the disabled
+ * "Add to calendar" and "Save" buttons that used to sit beside
+ * Directions are REMOVED — no calendar export and no saved-places
+ * store exist in this codebase, and a dead button in the exact
+ * position travellers tap from habit (Google Maps' actions row) is
+ * worse than an honest absence. They return only when the features
+ * exist.
  *
  * Photo load guarantee (same rule as DestinationPhotoBand): the photo
  * block renders only a photo that actually loads; on error the whole
@@ -39,34 +44,15 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 import type { PlaceDetail } from "@/lib/roamly/placeDetail";
+import { BuiChip } from "@/components/boardui/Badge";
+import { BuiCard } from "@/components/boardui/Card";
 import { SafePhotoImg } from "./SafePhotoImg";
 import { TimeProvenanceLabel } from "./TimeProvenanceLabel";
 
 function PinIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  );
-}
-
-function BookmarkIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2Z" />
-    </svg>
-  );
+  return <MapPin size={22} strokeWidth={1.8} aria-hidden="true" />;
 }
 
 function PlacePhoto({ detail }: { detail: PlaceDetail }) {
@@ -88,13 +74,13 @@ function PlacePhoto({ detail }: { detail: PlaceDetail }) {
         loading="lazy"
         onLoad={() => setState("loaded")}
         onError={() => setState("failed")}
-        className={`h-[240px] w-full rounded-2xl object-cover transition-opacity duration-300 ${
+        className={`h-[240px] w-full rounded-bui-card object-cover transition-opacity duration-300 ${
           state === "loaded" ? "opacity-100" : "opacity-0"
         }`}
       />
       {state === "loaded" ? (
         <>
-          <span className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white">
+          <span className="absolute bottom-3 right-3 rounded-full bg-cnavy/70 px-2.5 py-1 text-xs font-semibold text-white">
             {photo.countLabel}
           </span>
           {photo.credit ? (
@@ -146,20 +132,22 @@ export function PlaceDetailPanel({
   const aboutTips = detail.about.tipsAvailable ? "See tips below" : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-5 sm:px-6">
+    <div className="calm-sheet mx-auto w-full max-w-2xl px-4 pb-10 pt-5 sm:px-6">
       <div className="flex items-start gap-2">
         <a
           href={itineraryHref}
           aria-label="Back to itinerary"
-          className="flex h-9 w-9 shrink-0 items-center justify-center text-[26px] leading-none text-chead"
+          className="flex min-h-11 min-w-11 shrink-0 items-center gap-0.5 text-chead"
+
         >
-          <span aria-hidden="true">‹</span>
+          <ChevronLeft aria-hidden="true" size={26} strokeWidth={2} />
+          <span className="text-[15px] font-semibold leading-5">Itinerary</span>
         </a>
         <div className="flex-1 text-center">
           <p className="text-[17px] font-bold leading-6 text-chead">{detail.dayLabel}</p>
           <p className="mt-0.5 text-[14px] font-normal leading-5 text-cgray">{detail.tripHeader.destination}</p>
         </div>
-        <span aria-hidden="true" className="h-9 w-9 shrink-0" />
+        <span aria-hidden="true" className="min-h-11 min-w-11 shrink-0" />
       </div>
 
       <div className="mt-4">
@@ -175,14 +163,10 @@ export function PlaceDetailPanel({
       ) : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-cblue/10 px-3 py-1 text-[13px] font-semibold text-cblue">
-          {detail.badge}
-        </span>
+        <BuiChip tone="primary">{detail.badge}</BuiChip>
         {detail.evidence.timeKnown && detail.timeRangeLabel ? (
           <>
-            <span className="rounded-full bg-[rgba(31,45,77,0.08)] px-3 py-1 text-[13px] font-medium text-chead">
-              {detail.timeRangeLabel}
-            </span>
+            <BuiChip tone="neutral">{detail.timeRangeLabel}</BuiChip>
             {/* Repair round item 1: the window's own provenance. The
                 stored plan window reads Planned; a retimed window
                 reads Estimated; only a FACTUAL (booking-anchored)
@@ -193,15 +177,9 @@ export function PlaceDetailPanel({
             />
           </>
         ) : (
-          <span className="rounded-full bg-[rgba(31,45,77,0.08)] px-3 py-1 text-[13px] font-medium text-chead">
-            Flexible
-          </span>
+          <BuiChip tone="neutral">Flexible</BuiChip>
         )}
-        {detail.durationLabel ? (
-          <span className="rounded-full bg-[rgba(31,45,77,0.08)] px-3 py-1 text-[13px] font-medium text-chead">
-            {detail.durationLabel}
-          </span>
-        ) : null}
+        {detail.durationLabel ? <BuiChip tone="neutral">{detail.durationLabel}</BuiChip> : null}
       </div>
 
       {detail.description ? (
@@ -212,11 +190,11 @@ export function PlaceDetailPanel({
         </p>
       )}
 
-      <div className="mt-5 grid grid-cols-3 gap-2">
+      <div className="mt-5 flex gap-2">
         {directionsScreenHref ? (
           <a
             href={directionsScreenHref}
-            className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[13px] font-medium text-cblue"
+            className="bui-press flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[13px] font-medium text-cblue"
           >
             <PinIcon />
             Directions
@@ -226,7 +204,7 @@ export function PlaceDetailPanel({
             href={detail.directionsUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[13px] font-medium text-cblue"
+            className="bui-press flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[13px] font-medium text-cblue"
           >
             <PinIcon />
             Directions
@@ -237,33 +215,20 @@ export function PlaceDetailPanel({
             Directions unavailable
           </span>
         )}
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title="Calendar export is not available for this trip yet"
-          className="flex min-h-16 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[13px] font-medium text-cgray opacity-60"
-        >
-          <CalendarIcon />
-          Add to calendar
-        </button>
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          title="Saved places are not available for this trip yet"
-          className="flex min-h-16 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-center text-[13px] font-medium text-cgray opacity-60"
-        >
-          <BookmarkIcon />
-          Save
-        </button>
       </div>
-      <p className="mt-2 text-[13px] leading-5 text-cgray">
-        Add to calendar and Save are not available yet — Roamly has no calendar export or saved-places
-        store for this trip today.
-      </p>
 
-      <section className="mt-6 rounded-2xl bg-white p-4 shadow-calm">
+      {/* Jakob's Law A14 (2026-11-03): address, opening hours and
+          ticket info are key facts — the reference place sheets
+          (Google Maps) show them in the open, directly under the
+          actions row. They render here now; only genuinely
+          secondary material stays in the collapsed About card. */}
+      <section aria-label="Place facts" className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
+        <AboutRow label="Address" value={detail.about.address} />
+        <AboutRow label="Opening hours" value={detail.about.openingHours?.join(" · ") ?? null} />
+        <AboutRow label="Ticket info" value={detail.about.ticketInfo} />
+      </section>
+
+      <BuiCard className="mt-6 p-4">
         <button
           type="button"
           onClick={() => setAboutOpen((open) => !open)}
@@ -273,23 +238,20 @@ export function PlaceDetailPanel({
           <span className="flex-1">
             <span className="block text-[19px] font-bold tracking-[-0.018em] text-chead">About this place</span>
             <span className="mt-1 block text-[14.5px] font-normal leading-6 text-cgray">
-              Address, photos, opening hours, ticket info, and helpful tips.
+              Photos and helpful tips.
             </span>
           </span>
-          <span aria-hidden="true" className={`shrink-0 text-xl leading-6 text-cchev transition-transform ${aboutOpen ? "rotate-90" : ""}`}>
-            ›
+          <span aria-hidden="true" className={`flex shrink-0 items-center text-cchev transition-transform ${aboutOpen ? "rotate-90" : ""}`}>
+            <ChevronRight size={20} strokeWidth={2} />
           </span>
         </button>
         {aboutOpen ? (
-          <div className="mt-4">
-            <AboutRow label="Address" value={detail.about.address} />
+          <div className="bui-enter mt-4">
             <AboutRow label="Photos" value={aboutPhotos} />
-            <AboutRow label="Opening hours" value={detail.about.openingHours?.join(" · ") ?? null} />
-            <AboutRow label="Ticket info" value={detail.about.ticketInfo} />
             <AboutRow label="Helpful tips" value={aboutTips} />
           </div>
         ) : null}
-      </section>
+      </BuiCard>
 
       <section className="mt-6">
         <h2 className="text-[19px] font-bold tracking-[-0.018em] text-chead">Nearby</h2>
@@ -299,7 +261,7 @@ export function PlaceDetailPanel({
               <a
                 key={place.id}
                 href={`/trip/${tripId}/place/${place.id}`}
-                className="block overflow-hidden rounded-2xl bg-white shadow-calm"
+                className="bui-lift bui-press block overflow-hidden rounded-bui-card border border-chair bg-white shadow-bui-card"
               >
                 {place.photo && !place.unverified ? (
                   <SafePhotoImg

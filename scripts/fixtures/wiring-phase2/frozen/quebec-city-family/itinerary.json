@@ -133,8 +133,8 @@
             "userRatingCount": 689,
             "wheelchairEntrance": true,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_MODERATE",
@@ -299,7 +299,7 @@
         }
       ],
       "narrative": [
-        "Saturday, October 24 begins at a humane hour — the first stop is Musée du Fort at 09:34, and nothing on this day starts before 09:00.",
+        "Saturday, October 24 starts with Musée du Fort at 09:34.",
         "The base for the night is Hôtel Marie Rollett, picked for what surrounds it: 59 sights within a short walk.",
         "Expect a mild 11° — good walking weather, with layers for the shade.",
         "Musée du Fort gets the morning's main slot, 09:34 to 11:04 — unhurried, with time to double back to favourites.",
@@ -356,8 +356,8 @@
             "userRatingCount": 923,
             "wheelchairEntrance": true,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceEvidence": {
             "tier": "COSTED",
@@ -455,8 +455,8 @@
             "userRatingCount": 176,
             "wheelchairEntrance": null,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_INEXPENSIVE",
@@ -505,8 +505,8 @@
             "userRatingCount": 58,
             "wheelchairEntrance": null,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceEvidence": {
             "tier": "COSTED",
@@ -607,7 +607,7 @@
         }
       ],
       "narrative": [
-        "Sunday, October 25 is built around Lévis, with the day's stops gathered close so the walking stays easy.",
+        "Sunday, October 25 is built around Lévis.",
         "The ferry crossing is the morning's small adventure: board at Lévis around 09:52 and give the round trip until 11:07. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
         "Lévis lists its hours as 05:00–23:59 today, and the visit sits comfortably inside them.",
         "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
@@ -658,8 +658,8 @@
             "userRatingCount": 1284,
             "wheelchairEntrance": true,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_INEXPENSIVE",
@@ -761,8 +761,8 @@
             "userRatingCount": 402,
             "wheelchairEntrance": null,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_EXPENSIVE",
@@ -846,7 +846,7 @@
         }
       ],
       "narrative": [
-        "Monday, October 26 is built around Lieu historique national des Forts-et-Châteaux-Saint-Louis, with the day's stops gathered close so the walking stays easy.",
+        "Monday, October 26 is built around Lieu historique national des Forts-et-Châteaux-Saint-Louis.",
         "Forts-et-Châteaux-Saint-Louis gets the morning's main slot, 09:36 to 11:06 — unhurried, with time to double back to favourites.",
         "Forts-et-Châteaux-Saint-Louis lists its hours as 09:00–17:00 today, and the visit sits comfortably inside them.",
         "From Forts-et-Châteaux-Saint-Louis, it is a 7-minute walk to Galerie Bédard — close enough to stroll without watching the clock.",
@@ -896,8 +896,8 @@
             "userRatingCount": 1980,
             "wheelchairEntrance": true,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_MODERATE",
@@ -1000,8 +1000,8 @@
             "userRatingCount": 517,
             "wheelchairEntrance": null,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_MODERATE",
@@ -1050,8 +1050,8 @@
             "userRatingCount": 2875,
             "wheelchairEntrance": true,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_MODERATE",
@@ -1183,7 +1183,7 @@
         }
       ],
       "narrative": [
-        "Tuesday, October 27 is built around Musée des plaines d'Abraham, with the day's stops gathered close so the walking stays easy.",
+        "Tuesday, October 27 is built around Musée des plaines d'Abraham.",
         "Musée des plaines d'Abraham gets the morning's main slot, 09:40 to 11:10 — unhurried, with time to double back to favourites.",
         "Musée des plaines d'Abraham lists its hours as 09:00–17:00 today, and the visit sits comfortably inside them.",
         "From Musée des plaines d'Abraham, it is a 13-minute walk to Galerie d'art la Gazelle — close enough to stroll without watching the clock.",
@@ -1285,8 +1285,8 @@
             "userRatingCount": 233,
             "wheelchairEntrance": null,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_MODERATE",
@@ -1335,8 +1335,8 @@
             "userRatingCount": 18934,
             "wheelchairEntrance": true,
             "businessStatus": "OPERATIONAL",
-            "fetchedAt": "2026-10-21T21:06:54.896Z",
-            "refreshDue": "2026-11-20"
+            "fetchedAt": "2026-10-22T00:16:54.740Z",
+            "refreshDue": "2026-11-21"
           },
           "priceBand": {
             "level": "PRICE_LEVEL_MODERATE",

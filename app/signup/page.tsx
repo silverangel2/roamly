@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { AuthForm } from "@/components/auth/AuthForm";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiCard } from "@/components/boardui/Card";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { safeAuthNextPath } from "@/lib/navigation";
 
@@ -61,31 +61,37 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   }
 
   return (
-    <div className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
-      <section className="space-y-5">
-        <Badge tone="sun">Free account</Badge>
-        <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
-          Create your trip space.
-        </h1>
-        <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
-          Start with one free itinerary per Roamly profile. Use email or Google to keep every trip in one place.
-        </p>
-        <div className="rounded-[2rem] border border-orange-100 bg-[linear-gradient(135deg,#fff7ed_0%,#ffffff_58%,#ecfeff_100%)] p-5 text-ink shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Simple accounts</p>
-          <p className="mt-3 text-2xl font-black">One free itinerary now. One-time trip packs later.</p>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            No buyer/seller/admin tier complexity. Roamly stays light.
+    <div className="bg-cbg">
+      <div className="bui-safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
+        {/* Apply-All Sweep (2026-11-03): same auth treatment as
+            login — token ground + the Round 1 pricing hero panel;
+            the "Simple accounts" card becomes an inset block inside
+            the panel. Copy unchanged. */}
+        <section className="bui-enter overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#E6EFFA_52%,#FFF0E6)] p-6 shadow-bui-hero sm:p-10">
+          <BuiBadge tone="warm">Free account</BuiBadge>
+          <h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight text-chead sm:text-6xl">
+            Create your trip space.
+          </h1>
+          <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-cink">
+            Start with one free itinerary per Roamly profile. Use email or Google to keep every trip in one place.
           </p>
-        </div>
-      </section>
+          <div className="mt-6 rounded-2xl bg-white/85 p-4 text-chead shadow-[inset_0_0_0_1px_rgba(220,229,240,0.85)]">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-corange">Simple accounts</p>
+            <p className="mt-3 text-2xl font-black">One free itinerary now. One-time trip packs later.</p>
+            <p className="mt-2 text-sm font-bold leading-6 text-cink">
+              No buyer/seller/admin tier complexity. Roamly stays light.
+            </p>
+          </div>
+        </section>
 
-      <Card className="mx-auto w-full max-w-md">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Roamly account</p>
-        <h2 className="mt-2 text-2xl font-black text-ink">Create account</h2>
-        <div className="mt-5">
-          <AuthForm mode="signup" nextPath={nextPath} />
-        </div>
-      </Card>
+        <BuiCard className="bui-enter mx-auto w-full max-w-md rounded-bui-panel p-6">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Roamly account</p>
+          <h2 className="mt-2 text-2xl font-black text-chead">Create account</h2>
+          <div className="mt-5">
+            <AuthForm mode="signup" nextPath={nextPath} />
+          </div>
+        </BuiCard>
+      </div>
     </div>
   );
 }

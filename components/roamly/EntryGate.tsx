@@ -260,8 +260,13 @@ export function EntryGate(props: {
 
   const ready = machine.isGreen() || serverGate?.flowAllowed === true;
   if (ready) {
+    // BoardUI Round 2 (presentation only): the ready surface sits in a
+    // bui-safe-bottom wrapper so its inline actions clear the home
+    // indicator. All gate views themselves live outside this worker's
+    // file list and are deliberately untouched — their chips, cards
+    // and buttons keep their existing craft.
     return (
-      <>
+      <div className="bui-enter bui-safe-bottom">
         <GateReadyView
           gmailArmed={serverGate?.gmailState === "RECONCILIATION_ARMED"}
           gmailConnected={serverGate?.gmailState === "CONNECTED" || serverGate?.gmailState === "RECONCILIATION_ARMED"}
@@ -275,7 +280,7 @@ export function EntryGate(props: {
             onNotNow={() => setGmailSheetOpen(false)}
           />
         ) : null}
-      </>
+      </div>
     );
   }
 

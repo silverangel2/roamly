@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Settings } from "lucide-react";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { dedupeEquivalentNotifications, isStalePreTripInfoNotification, notificationActionState, notificationActionStateForInfoCard } from "@/lib/roamly/liveCompanion";
 import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
@@ -9,10 +10,22 @@ import { TripHeroCard } from "@/components/roamly/TripHeroCard";
 import { AlertsSectionCard, type AlertsSectionRow } from "@/components/roamly/AlertsSectionCard";
 import { NotificationShellStateBridge } from "@/components/roamly/NotificationShellStateBridge";
 import { isOpenNotificationTrip, selectNotificationTrip } from "@/lib/roamly/notificationTrip";
+import { resolveRoamlySelectedTrip } from "@/lib/roamly/selectedTrip";
+import { getActiveOrUpcomingTrip } from "@/lib/roamly/tripActivation";
 import { INFO_NOTIFICATION_TYPES } from "@/lib/roamly/alertsNotificationTypes";
+import { suppressedCancelledNotifications } from "@/lib/roamly/notificationBookingAttribution";
 import { countAlertsBadgeNotifications } from "@/lib/roamly/alertsBadge";
+import { looksLikeProviderSearchTitle } from "@/lib/roamly/itineraryPresentation";
 import type { TrackingTrip } from "@/lib/roamly/tripActivation";
 import { getTripDestinationLabel, getTripOriginLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
+import {
+  bookingProvenanceSuffix,
+  bookingTruthState,
+  isConfirmed as bookingTruthIsConfirmed,
+  isInactiveTruthState,
+  isTravelerConfirmedOnly as bookingTruthIsTravelerConfirmedOnly,
+  type BookingTruthState
+} from "@/lib/roamly/bookingTruth";
 
 /*
  * PICTURE 1 — Alerts (owner picture, top-left panel of
@@ -125,11 +138,74 @@ function bookingDateRangeLabel(booking: Record<string, unknown>): string | null 
   return formatTripDateRange(startDate, endDate) || null;
 }
 
-const CONFIRMED_BOOKING_STATUSES = new Set(["confirmed", "booked", "ticketed", "issued", "paid", "reserved", "modified", "completed"]);
+/**
+ * Workstream A + Round 2 Lane E2: Alerts booking-derived rows derive
+ * from the ONE booking-truth rule (lib/roamly/bookingTruth). The old
+ * local OR rule (traveler_confirmed OR an active-family status)
+ * promoted email-manufactured statuses to "confirmed" on this page.
+ * "Confirmed" rows are now the providerConfirmationEvidence tier
+ * ONLY (owner ruling 2026-10-30) and carry their provenance (Round 3,
+ * Lane T); travelerConfirmedOnly rows render with the honest
+ * "confirmed by you" wording.
+ */
+function bookingTruthInput(booking: Record<string, unknown>) {
+  return {
+    booking_status: typeof booking.booking_status === "string" ? booking.booking_status : null,
+    traveler_confirmed: booking.traveler_confirmed === true,
+    confirmation_number: typeof booking.confirmation_number === "string" ? booking.confirmation_number : null,
+    provider_booking_id: typeof booking.provider_booking_id === "string" ? booking.provider_booking_id : null,
+    provider_name: typeof booking.provider_name === "string" ? booking.provider_name : null,
+    title: typeof booking.title === "string" ? booking.title : null,
+    source_type: typeof booking.source_type === "string" ? booking.source_type : null,
+    source_reference: typeof booking.source_reference === "string" ? booking.source_reference : null,
+    superseded_by_booking_id: (booking.superseded_by_booking_id as string | null) ?? null,
+    metadata:
+      booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+        ? (booking.metadata as Record<string, unknown>)
+        : null,
+    reservation_requirements:
+      booking.reservation_requirements && typeof booking.reservation_requirements === "object" && !Array.isArray(booking.reservation_requirements)
+        ? (booking.reservation_requirements as Record<string, unknown>)
+        : null
+  };
+}
 
 function isConfirmedBooking(booking: Record<string, unknown>): boolean {
-  const status = String(booking.booking_status || "").trim().toLowerCase();
-  return booking.traveler_confirmed === true || CONFIRMED_BOOKING_STATUSES.has(status);
+  return bookingTruthIsConfirmed(bookingTruthInput(booking));
+}
+
+function isTravelerConfirmedOnlyBooking(booking: Record<string, unknown>): boolean {
+  return bookingTruthIsTravelerConfirmedOnly(bookingTruthInput(booking));
+}
+
+function bookingTruthForRecord(booking: Record<string, unknown>): BookingTruthState {
+  return bookingTruthState(bookingTruthInput(booking));
+}
+
+const RAW_ISO_IN_BODY = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g;
+
+/**
+ * X1 read path for already-persisted notification rows: a stored
+ * booking-reminder body can embed a raw ISO timestamp (the audit's
+ * I6 leak — new bodies are formatted at creation in tripCompanion,
+ * but stored rows render verbatim here). Replace any raw ISO instant
+ * in a rendered body with a formatted date in the trip's timezone;
+ * an unparseable token is dropped rather than leaked raw.
+ */
+function sanitizeStoredNotificationBody(body: unknown, timezone: string | null): string | null {
+  if (typeof body !== "string" || !body) return null;
+  return body.replace(RAW_ISO_IN_BODY, (token) => {
+    const date = new Date(token);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("en", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: timezone || undefined
+    }).format(date);
+  });
 }
 
 function bookingTypeLabel(booking: Record<string, unknown>): string {
@@ -154,10 +230,10 @@ export default async function NotificationsPage({
     return (
       <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
         <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
-        <div className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
+        <div className="bui-enter mt-5 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
           <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">Notifications need an account.</h2>
           <div className="mt-4">
-            <a className="inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href={`/login?next=${encodeURIComponent(loginNext)}`}>Log in</a>
+            <a className="bui-press bui-touch inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href={`/login?next=${encodeURIComponent(loginNext)}`}>Log in</a>
           </div>
         </div>
       </div>
@@ -188,13 +264,29 @@ export default async function NotificationsPage({
     ? await supabase.from("roamly_trips").select("*").eq("user_id", current.user.id).eq("id", requestedTripId).maybeSingle()
     : null;
   const requestedTrip = requestedTripRow?.data as TrackingTrip | null;
-  const trip = requestedTrip && isOpenNotificationTrip(requestedTrip)
-    ? requestedTrip
-    : selectNotificationTrip((tripRows.data || []) as TrackingTrip[]);
+  // Lane N round 2 (F4): this page now resolves through the ONE
+  // shared resolver (lib/roamly/selectedTrip.ts) — the same module
+  // the tab bar consumes — instead of its own inline
+  // requested-else-rule branch. Priority: the ?trip= route param
+  // (direct row above, so an open trip outside the 40-row window
+  // still wins) > companion-active > the notification rule. The
+  // companion id comes from getActiveOrUpcomingTrip — the exact
+  // source behind /api/roamly/trips/active, which is what the shell
+  // feeds the same resolver — so both sides mean the same trip by
+  // "companion-active". The trailing selectNotificationTrip call is
+  // the resolver's own rule step restated as a null-guard; it
+  // cannot return a different trip.
+  const companionTripResult = await getActiveOrUpcomingTrip(supabase, current.user.id);
+  const trip = resolveRoamlySelectedTrip({
+    trips: (tripRows.data || []) as TrackingTrip[],
+    routeTripId: requestedTripId,
+    routeTrip: requestedTrip && isOpenNotificationTrip(requestedTrip) ? requestedTrip : null,
+    companionTripId: companionTripResult.trip?.id ?? null
+  }).trip ?? selectNotificationTrip((tripRows.data || []) as TrackingTrip[]);
   const notifications = trip
     ? await supabase
         .from("roamly_notifications")
-        .select("id,trip_id,event_id,title,body,type,status,action_url,created_at,scheduled_for")
+        .select("id,trip_id,event_id,title,body,type,status,action_url,created_at,scheduled_for,metadata")
         .eq("user_id", current.user.id)
         .eq("trip_id", trip.id)
         .order("created_at", { ascending: false })
@@ -250,13 +342,13 @@ export default async function NotificationsPage({
       <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
         <NotificationShellStateBridge activeTripId="" unreadCount={0} />
         <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
-        <div className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
+        <div className="bui-enter mt-5 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
           <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">No current trip to show.</h2>
           <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Reminders and check-ins stay with the trip they belong to. Open a trip to see its own updates.
           </p>
           <div className="mt-4">
-            <a className="inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href="/dashboard">Open dashboard</a>
+            <a className="bui-press bui-touch inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href="/dashboard">Open dashboard</a>
           </div>
         </div>
       </div>
@@ -290,14 +382,14 @@ export default async function NotificationsPage({
     .map((item) => notificationSectionRow({
       ...item,
       title: "Review travel documents",
-      body: item.body || "Make sure your ID, flights and hotel confirmation are ready."
+      body: sanitizeStoredNotificationBody(item.body, tripTimezone) || "Make sure your ID, flights and hotel confirmation are ready."
     } as SectionNotificationItem, "document"));
   const packingRows = notificationItems
     .filter((item) => item.type === "packing_check" && item.action_state !== "history")
     .map((item) => notificationSectionRow({
       ...item,
       title: "Pack for your trip",
-      body: item.body || "Personalized packing checklist is ready."
+      body: sanitizeStoredNotificationBody(item.body, tripTimezone) || "Personalized packing checklist is ready."
     } as SectionNotificationItem, "packing"));
   const weatherUnavailableRow: AlertsSectionRow = {
     id: "weather-unavailable",
@@ -309,26 +401,91 @@ export default async function NotificationsPage({
   const travelUpdateItems = notificationItems.filter((item) => item.action_state !== "history" && !INFO_NOTIFICATION_TYPES.has(item.type));
   const travelUpdateNotificationRows = travelUpdateItems.map((item) =>
     notificationSectionRow(
-      item as SectionNotificationItem,
+      {
+        ...item,
+        // X1 read path: never render a stored body verbatim — a raw
+        // ISO instant embedded in an old reminder is formatted (or
+        // dropped) before it reaches the traveler.
+        body: sanitizeStoredNotificationBody(item.body, tripTimezone) ?? item.body
+      } as SectionNotificationItem,
       item.type.includes("booking") ? "booking" : "update"
     )
   );
 
-  // Confirmed bookings only (status in the confirmed set or
-  // traveler-confirmed). Unconfirmed or suggested bookings never pose
-  // as upcoming departures or confirmed bookings.
+  // Booking rows are graded by bookingTruth: confirmation-evidence
+  // rows pose as confirmed bookings; travelerConfirmedOnly rows pose only
+  // as the traveler's own confirmation. Unconfirmed or suggested
+  // bookings never pose as upcoming departures or confirmed bookings.
   const bookingRows = await supabase
     .from("roamly_bookings")
-    .select("booking_type,category,booking_status,title,start_at,start_date,end_date,start_time,traveler_confirmed,provider_name")
+    .select("id,booking_type,category,booking_status,title,start_at,start_date,end_date,start_time,traveler_confirmed,provider_name,confirmation_number,provider_booking_id,source_type,source_reference,reservation_requirements,superseded_by_booking_id,metadata")
     .eq("trip_id", trip.id)
     .eq("user_id", current.user.id);
-  const confirmedBookings = ((bookingRows.data || []) as Array<Record<string, unknown>>)
-    .filter(isConfirmedBooking)
-    .filter((booking) => {
-      const type = String(booking.booking_type || "").trim().toLowerCase();
-      return type === "flight" || type === "hotel";
-    });
-  const upcomingBookingRows: AlertsSectionRow[] = confirmedBookings
+  const allTripBookings = (bookingRows.data || []) as Array<Record<string, unknown>>;
+  const flightOrHotel = (booking: Record<string, unknown>) => {
+    const type = String(booking.booking_type || "").trim().toLowerCase();
+    return type === "flight" || type === "hotel";
+  };
+  // Confirmation-evidence ONLY (owner ruling 2026-10-30).
+  const confirmedBookings = allTripBookings.filter(isConfirmedBooking).filter(flightOrHotel);
+  // Traveler-confirmed only: still the traveler's own upcoming
+  // travel (Upcoming rows carry no verification claim), but its
+  // Travel-updates row is worded "confirmed by you", never
+  // "booking confirmed".
+  const travelerConfirmedBookings = allTripBookings.filter(isTravelerConfirmedOnlyBooking).filter(flightOrHotel);
+
+  // X1 READ path (Workstream A): persisted notification rows are
+  // never re-checked against booking status by any writer except the
+  // X1 write paths, so this page suppresses at RENDER time (rows are
+  // never deleted — audit history is preserved). Suppressed from the
+  // travel-updates feed:
+  //  - rows explicitly marked withdrawn in metadata (written by the
+  //    wallet-cancel / booking-monitor paths);
+  //  - rows whose companion event links them to a booking whose
+  //    CURRENT truth is cancelled/refunded/superseded/test
+  //    (roamly_notifications has no booking_id column; the strongest
+  //    available link is event_id → roamly_trip_companion_events,
+  //    whose booking_id names the booking);
+  //  - booking-typed rows whose title exactly matches a currently
+  //    inactive booking's title (fallback for rows with no event
+  //    link);
+  //  - Round 3 (Lane N, X1 residual): pre-fix rows with no link and
+  //    no exact title match are additionally suppressed ONLY under
+  //    the conservative multi-signal attribution in
+  //    lib/roamly/notificationBookingAttribution (cancelled/refunded
+  //    candidate + fuzzy title with provider/window corroboration,
+  //    or provider + window together, with an active-booking
+  //    ambiguity veto). A row that cannot be reliably attributed is
+  //    still left rendering — precision over recall, see lane note.
+  //  The attribution itself lives in that pure module so the exact
+  //  rule this page renders by is fixture-tested; this page only
+  //  supplies the rows it already fetched.
+  const inactiveBookings = allTripBookings.filter((booking) =>
+    isInactiveTruthState(bookingTruthForRecord(booking))
+  );
+  const inactiveBookingIds = new Set(
+    inactiveBookings.map((booking) => (typeof booking.id === "string" ? booking.id : "")).filter(Boolean)
+  );
+  const companionEventRows = await supabase
+    .from("roamly_trip_companion_events")
+    .select("id,booking_id")
+    .eq("trip_id", trip.id)
+    .eq("user_id", current.user.id)
+    .not("booking_id", "is", null);
+  const eventBookingById = new Map<string, string>();
+  for (const eventRow of (companionEventRows.data || []) as Array<Record<string, unknown>>) {
+    if (typeof eventRow.id === "string" && typeof eventRow.booking_id === "string") {
+      eventBookingById.set(eventRow.id, eventRow.booking_id);
+    }
+  }
+  const suppressedNotificationIds = new Set(
+    suppressedCancelledNotifications({
+      notifications: travelUpdateItems,
+      bookings: allTripBookings,
+      eventBookingById
+    }).keys()
+  );
+  const upcomingBookingRows: AlertsSectionRow[] = [...confirmedBookings, ...travelerConfirmedBookings]
     .map((booking) => {
       const type = String(booking.booking_type || "").trim().toLowerCase();
       const startSort = typeof booking.start_at === "string" && booking.start_at
@@ -351,13 +508,18 @@ export default async function NotificationsPage({
     .sort((a, b) => a.sort.localeCompare(b.sort))
     .map((entry) => entry.row);
 
-  // Travel updates, picture shape: a confirmed booking renders as
-  // "<Type> booking confirmed" with its real title + real date range —
-  // "confirmed" only ever from a verified booking record. A
-  // notification row carrying the same confirmation title is the same
-  // event, not a second row, so it is dropped by title match.
-  const travelUpdateBookingRows: AlertsSectionRow[] = confirmedBookings
-    .map((booking) => {
+  // Travel updates, picture shape: a confirmation-evidence booking
+  // renders as "<Type> booking confirmed · <provenance>" with its
+  // real title + real date range. A travelerConfirmedOnly booking
+  // renders as "<Type> booking confirmed by you" — the traveler's
+  // own confirmation. A notification row carrying the
+  // same confirmation title is the same event, not a second row, so
+  // it is dropped by title match.
+  const travelUpdateBookingRows: AlertsSectionRow[] = [
+    ...confirmedBookings.map((booking) => ({ booking, travelerOnly: false })),
+    ...travelerConfirmedBookings.map((booking) => ({ booking, travelerOnly: true }))
+  ]
+    .map(({ booking, travelerOnly }) => {
       const typeLabel = bookingTypeLabel(booking);
       const title = typeof booking.title === "string" && booking.title.trim() ? booking.title.trim() : "";
       const dateRange = bookingDateRangeLabel(booking);
@@ -368,8 +530,12 @@ export default async function NotificationsPage({
       return {
         sort: startSort,
         row: {
-          id: `booking-confirmed-${String(booking.booking_type || "").toLowerCase()}-${title}-${startSort}`,
-          title: `${typeLabel} booking confirmed`,
+          id: `booking-${travelerOnly ? "traveler-confirmed" : "confirmed"}-${String(booking.booking_type || "").toLowerCase()}-${title}-${startSort}`,
+          // Round 3 (Lane T): the confirmation-evidence tier states
+          // its provenance ("… booking confirmed · from your {Provider}
+          // email" / "· from your screenshot" / "· reported by …");
+          // it never renders as plain "verified".
+          title: travelerOnly ? `${typeLabel} booking confirmed by you` : `${typeLabel} booking confirmed · ${bookingProvenanceSuffix(bookingTruthInput(booking))}`,
           body: bodyParts.length ? bodyParts.join(" · ") : null,
           href: null,
           icon: "booking" as const
@@ -381,7 +547,11 @@ export default async function NotificationsPage({
   const travelUpdateBookingTitles = new Set(travelUpdateBookingRows.map((row) => normalizedFeedValue(row.title)));
   const travelUpdateRows = [
     ...travelUpdateBookingRows,
-    ...travelUpdateNotificationRows.filter((row) => !travelUpdateBookingTitles.has(normalizedFeedValue(row.title)))
+    ...travelUpdateNotificationRows.filter(
+      (row) =>
+        !travelUpdateBookingTitles.has(normalizedFeedValue(row.title)) &&
+        !suppressedNotificationIds.has(row.id)
+    )
   ];
 
   // Picture 1, Upcoming rebuild (exactness pass): the mock's Upcoming
@@ -439,6 +609,12 @@ export default async function NotificationsPage({
   };
   const itineraryEventRows: AlertsSectionRow[] = [];
   const sortedDays = [...itineraryDays].sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  // Audit fix helpers: the trip's last day is check-out day, and an
+  // identical generated activity must not repeat across days in this
+  // list (confirmed bookings live in their own rows above and are
+  // never deduped here).
+  const lastDayDate = sortedDays.length ? String(sortedDays[sortedDays.length - 1].date || "").slice(0, 10) : "";
+  const seenGeneratedActivities = new Set<string>();
   for (const day of sortedDays) {
     const dayDate = typeof day.date === "string" ? day.date.slice(0, 10) : "";
     if (!dayDate || dayDate < todayStr) continue;
@@ -451,6 +627,12 @@ export default async function NotificationsPage({
       const rawType = String(item.item_type || "").trim().toLowerCase();
       const type = rawType || (category === "travel" ? "travel" : category === "hotel" ? "hotel" : category === "transfer" ? "transfer" : "activity");
       if (type === "transfer" || type === "rest" || type === "reminder" || type === "booking") continue;
+      // X1 read path: a stored itinerary item (e.g. a travel leg)
+      // linked by booking_id to a booking whose CURRENT truth is
+      // cancelled/refunded/superseded/test never renders as an
+      // upcoming trip event here — the stored stamp is stale by
+      // definition once the booking leaves the active set.
+      if (typeof item.booking_id === "string" && inactiveBookingIds.has(item.booking_id)) continue;
       const title = typeof item.title === "string" ? item.title.trim() : "";
       if (!title) continue;
       const startTime = typeof item.startTime === "string" ? item.startTime : "";
@@ -460,11 +642,38 @@ export default async function NotificationsPage({
         if (startMatch && Number(startMatch[1]) * 60 + Number(startMatch[2]) < nowMinutes) continue;
       }
       const itemOrigin = typeof item.origin === "string" ? item.origin.trim() : "";
-      const rowTitle = type === "travel"
-        ? (itemOrigin || origin ? `Departure from ${itemOrigin || origin}` : "Departure")
-        : type === "hotel"
-          ? `Check in · ${title}`
-          : title;
+      // Audit fixes (2026-10-29 production-recovery):
+      // - the "Estimated arrival back" leg is an ARRIVAL, not a second
+      //   departure, and its origin's "arrival point" suffix is seed
+      //   vocabulary, not a place name;
+      // - a hotel item on the trip's last day is a check-OUT (both
+      //   generators seed it that way), never a check-in;
+      // - raw search-query strings must never render as activity
+      //   titles (the trip page's guard is applied here too), and a
+      //   "… hotel search" placeholder is labelled as a suggestion;
+      // - identical generated activities are listed once, not once
+      //   per day.
+      const isArrivalLeg = /arrival/i.test(title) || /arrival point/i.test(itemOrigin);
+      let rowTitle = title;
+      if (type === "travel") {
+        rowTitle = isArrivalLeg
+          ? itemOrigin
+            ? `Arrival in ${itemOrigin.replace(/\s*arrival point\s*$/i, "")}`
+            : title
+          : itemOrigin || origin
+            ? `Departure from ${itemOrigin || origin}`
+            : "Departure";
+      } else if (type === "hotel") {
+        const stayTitle = looksLikeProviderSearchTitle(title) ? "Hotel search suggestion" : title;
+        rowTitle = `${dayDate === lastDayDate ? "Check out" : "Check in"} · ${stayTitle}`;
+      } else if (looksLikeProviderSearchTitle(title)) {
+        rowTitle = "Local events suggestion";
+      }
+      if (type === "activity") {
+        const dedupeKey = `activity:${normalizedFeedValue(rowTitle)}`;
+        if (seenGeneratedActivities.has(dedupeKey)) continue;
+        seenGeneratedActivities.add(dedupeKey);
+      }
       const rowBody = clock ? `${dateLabel} · ${clock}` : dateLabel;
       itineraryEventRows.push({
         id: `event-${dayDate}-${rowTitle}-${rowBody}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -489,6 +698,34 @@ export default async function NotificationsPage({
   // weather row (not a notification) never counts.
   const renderedNotificationIds = new Set([...actionRows, ...upcomingRows, ...travelUpdateRows].map((row) => row.id));
   const displayedUnreadCount = countAlertsBadgeNotifications(notificationItems, renderedNotificationIds);
+
+  // A21 (Jakob): "Mark all read" for this trip. The write is the
+  // EXISTING read model — the exact server update the single-event
+  // page performs on open (app/trip/[id]/event/[eventId]/page.tsx:
+  // roamly_notifications update { status: "read" } scoped to the
+  // user and to status "unread") — applied here to ALL of this
+  // trip's unread rows (trip scope instead of one event_id). No new
+  // API route or parallel write path is created. The per-single-id
+  // POST in app/api/roamly/notifications/route.ts is a different
+  // shape (one id per call, also stamps read_at) and is not the
+  // event page's model, so it is not reused for this bulk action.
+  const tripUnreadCount = notificationItems.filter((item) => item.status === "unread").length;
+  const tripIdForMarkAll = trip.id;
+  async function markAllNotificationsRead() {
+    "use server";
+    const actionSupabase = await createSupabaseServerClient();
+    if (!actionSupabase) return;
+    const actionUser = await getCurrentUser();
+    if (!actionUser.user) return;
+    await actionSupabase
+      .from("roamly_notifications")
+      .update({ status: "read" })
+      .eq("user_id", actionUser.user.id)
+      .eq("trip_id", tripIdForMarkAll)
+      .eq("status", "unread")
+      .then(() => undefined, () => undefined);
+    redirect(`/notifications?trip=${encodeURIComponent(tripIdForMarkAll)}`);
+  }
 
   // Hero: the SAME destination-photo pipeline the trip page uses (real
   // Wikimedia/Wikidata photo, cached, 6s cap). Null renders the
@@ -515,12 +752,18 @@ export default async function NotificationsPage({
       <NotificationShellStateBridge activeTripId={trip.id} unreadCount={displayedUnreadCount} />
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
-        <a href="/account" className="inline-flex min-h-11 items-center px-1 text-cgray" aria-label="Settings">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-        </a>
+        <div className="flex items-center gap-2">
+          {tripUnreadCount > 0 ? (
+            <form action={markAllNotificationsRead}>
+              <button type="submit" className="inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold text-cblue">
+                Mark all read
+              </button>
+            </form>
+          ) : null}
+          <a href="/account?view=preferences" className="inline-flex min-h-11 items-center px-1 text-cgray" aria-label="Notification settings">
+            <Settings size={22} strokeWidth={2} aria-hidden="true" />
+          </a>
+        </div>
       </div>
       <div className="mt-3">
         <TripHeroCard
@@ -543,7 +786,7 @@ export default async function NotificationsPage({
         className="mt-3 px-1 text-[15px] font-semibold text-chead"
         aria-label={`${displayedUnreadCount} unread alerts for this trip`}
       >
-        {displayedUnreadCount === 1 ? "1 unread alert for this trip" : `${displayedUnreadCount} unread alerts for this trip`}
+        {displayedUnreadCount === 1 ? (<><span className="bui-display-number">1</span> unread alert for this trip</>) : (<><span className="bui-display-number">{displayedUnreadCount}</span> unread alerts for this trip</>)}
       </p>
 
       {/* Picture 1 ends here: hero + these three sections, nothing below. */}
@@ -552,17 +795,20 @@ export default async function NotificationsPage({
           title="Action required"
           badgeTone="red"
           rows={actionRows}
+          delayMs={0}
         />
         <AlertsSectionCard
           title="Upcoming"
           badgeTone="blue"
           rows={upcomingRows}
+          delayMs={60}
         />
         <AlertsSectionCard
           title="Travel updates"
           badgeTone="green"
           rows={travelUpdateRows}
           emptyText="No travel updates for this trip yet"
+          delayMs={120}
         />
       </div>
     </div>

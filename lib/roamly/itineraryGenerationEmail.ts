@@ -206,7 +206,7 @@ export function renderItineraryGenerationEmail(kind: GenerationEmailKind, trip: 
     title: subject,
     bodyHtml,
     bodyText,
-    ctaLabel: complete ? "View your itinerary" : "Review trip",
+    ctaLabel: "View your itinerary",
     ctaUrl: actionUrl,
     supportEmail: process.env.ROAMLY_SUPPORT_EMAIL || "support@roamlyhq.com"
   });

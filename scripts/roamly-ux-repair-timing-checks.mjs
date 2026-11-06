@@ -173,9 +173,16 @@ check("labels: exactly the four kinds, exact strings",
   TIME_PROVENANCE_LABELS.confirmed === "Confirmed" &&
   Object.keys(TIME_PROVENANCE_LABELS).length === 4);
 check("banner: in-progress banner states the corrected truth",
+  // Release-gate item 1 (2026-10-31): "verified booking" was stale
+  // pre–Lane-T wording. RC Round 3 Lane T (TERMINOLOGY-AUDIT row 35,
+  // owner rule 2026-10-30) deliberately replaced it with the
+  // confirmation-evidence wording — Roamly does not independently
+  // verify bookings, so the banner must not claim a verified booking.
+  // test:verification-language and test:ux-conditional pin the same.
   liveClient.includes("Times below are estimates unless labeled otherwise") &&
   liveClient.includes("Live-updated only with a fresh location fix or check-in") &&
-  liveClient.includes("Confirmed only for a verified booking") &&
+  liveClient.includes("Confirmed only for a booking with confirmation evidence on file") &&
+  !liveClient.includes("Confirmed only for a verified booking") &&
   !liveClient.includes("Times below update as the day progresses — each time is labeled Planned, Estimated, Live-updated, or Confirmed"));
 check("home: panel still labels every clock time, Flexible carries none",
   homePanel.includes("provenanceForHomeRow(row)") && homePanel.includes("isClockTime(row.time)"));

@@ -59,7 +59,7 @@ export function LocationPermissionRecovery({
   const steps = permission === "unavailable" ? [] : recoverySteps(platform);
 
   return (
-    <div className="mt-3 rounded-[14px] bg-white px-4 py-3 shadow-calm">
+    <div className="bui-enter mt-3 rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card">
       <p className="text-sm font-semibold leading-6 text-chead">{recoveryHeading(permission)}</p>
       {permission === "unavailable" ? (
         <p className="mt-1 text-sm font-normal leading-6 text-cink">
@@ -78,7 +78,7 @@ export function LocationPermissionRecovery({
           <button
             type="button"
             onClick={onRetry}
-            className="min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
+            className="bui-press bui-touch min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
           >
             Allow location
           </button>
@@ -87,14 +87,14 @@ export function LocationPermissionRecovery({
           <button
             type="button"
             onClick={onRecheck}
-            className="min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
+            className="bui-press bui-touch min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
           >
             I’ve allowed it — check again
           </button>
         ) : null}
         <a
           href="/account#setup-step-3"
-          className="inline-flex min-h-11 shrink-0 items-center px-1 text-[15px] font-semibold text-cblue"
+          className="bui-press bui-touch inline-flex min-h-11 shrink-0 items-center px-1 text-[15px] font-semibold text-cblue"
         >
           Open setup steps
         </a>

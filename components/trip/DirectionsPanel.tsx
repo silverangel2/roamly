@@ -28,6 +28,7 @@
  */
 
 import { useMemo, useState, type ReactNode } from "react";
+import { ArrowUpRight, ChevronLeft, Map } from "lucide-react";
 import { calculateDistanceMeters } from "@/lib/roamly/location";
 import type {
   LiveCoordinates,
@@ -111,20 +112,11 @@ function WalkIcon() {
 }
 
 function MapIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F2D4D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" />
-      <path d="M9 4v14M15 6v14" />
-    </svg>
-  );
+  return <Map size={20} strokeWidth={2} color="#1F2D4D" aria-hidden="true" />;
 }
 
 function ExternalIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3.5 11.5 11.5 3.5M5 3.5h6.5V10" />
-    </svg>
-  );
+  return <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" aria-hidden="true" />;
 }
 
 export function DirectionsPanel(props: DirectionsPanelProps) {
@@ -302,19 +294,15 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
             aria-label="Back"
             className="grid min-h-11 min-w-11 shrink-0 place-items-center text-chead"
           >
-            <svg width="10" height="18" viewBox="0 0 10 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M8.5 1.5 1.5 9l7 7.5" />
-            </svg>
+            <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
           </button>
         ) : (
           <a
-            href={`/trip/${props.tripId}/live`}
-            aria-label="Back to live trip"
+            href={`/trip/${props.tripId}`}
+            aria-label="Back to itinerary"
             className="grid min-h-11 min-w-11 shrink-0 place-items-center text-chead"
           >
-            <svg width="10" height="18" viewBox="0 0 10 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M8.5 1.5 1.5 9l7 7.5" />
-            </svg>
+            <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
           </a>
         )}
         <div className="min-w-0 flex-1 text-center">

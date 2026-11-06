@@ -244,17 +244,28 @@ export function RoamlyLocationTracker() {
           setBusy(false);
           void sendLocation(position.coords, "granted", position.timestamp);
         },
-        async () => {
+        async (geoError) => {
           setBusy(false);
-          setEnabled(false);
-          setLastPermissionState("denied");
-          dismissPrompt(LOCATION_DENIED_DISMISS_MS);
-          setError("Location permission was not granted.");
-          await fetch("/api/roamly/location/update", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ permissionState: "denied" })
-          }).catch(() => undefined);
+          // Grant persistence (2026-10-31): this callback used to treat
+          // ANY geolocation error as a denial — recording "denied" on
+          // the server, which disabled tracking and erased the grant.
+          // Only PERMISSION_DENIED (code 1) is a denial; TIMEOUT and
+          // POSITION_UNAVAILABLE are transient and change nothing
+          // server-side (the switch was just turned on above and the
+          // traveler can simply retry).
+          if (geoError?.code === geoError?.PERMISSION_DENIED || geoError?.code === 1) {
+            setEnabled(false);
+            setLastPermissionState("denied");
+            dismissPrompt(LOCATION_DENIED_DISMISS_MS);
+            setError("Location permission was not granted.");
+            await fetch("/api/roamly/location/update", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ permissionState: "denied" })
+            }).catch(() => undefined);
+          } else {
+            setError("Location is unavailable right now. Check signal and try again.");
+          }
         },
         { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
       );

@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BuiButton } from "@/components/boardui/Button";
 
 export function TripStateLines({
   gmailConnected,
@@ -169,14 +170,16 @@ export function TripStateLines({
             ) : !enabled ? (
               <>
                 not live yet — location is off{" "}
-                <button
+                <BuiButton
                   type="button"
+                  variant="ghost"
+                  size="small"
                   onClick={() => void turnOn()}
-                  disabled={busy}
-                  className="ml-1 inline-flex min-h-8 items-center font-semibold text-cblue disabled:opacity-50"
+                  busy={busy}
+                  className="ml-1"
                 >
                   {busy ? "Turning on…" : "Turn on"}
-                </button>
+                </BuiButton>
               </>
             ) : tripActive ? (
               "live"

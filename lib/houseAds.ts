@@ -23,6 +23,10 @@ export type HouseAdCreative = {
   sponsorLabel: string;
   image: string;
   imageAlt: string;
+  /** Photo credit line rendered as fine print on the card when present.
+   *  Required for CC BY / CC BY-SA photos; null only when the licence
+   *  needs no attribution (CC0 / public domain). */
+  imageCredit?: string | null;
   ctaLabel: string;
   monetization: HouseAdMonetization;
   /** City this creative is SPECIFIC to (hotel creatives only). Null =
@@ -53,7 +57,9 @@ export const HOUSE_AD_CREATIVES: HouseAdCreative[] = [
     body: "Compare Kyoto hotels and ryokan, then book the dates that fit your trip.",
     sponsorLabel: "Booking.com",
     image: "/ads/hotel-kyoto.jpg",
-    imageAlt: "A quiet Japanese hotel room with a wooden headboard and lantern light",
+    imageAlt:
+      "A stone-paved street in Kyoto's Gion district at night, lined with willow trees, autumn maples and traditional wooden machiya townhouses under lantern light",
+    imageCredit: "lumoplank · CC0 · via Wikimedia Commons",
     ctaLabel: "See Kyoto stays",
     monetization: "unwired",
     destinationCity: "Kyoto",
@@ -65,7 +71,9 @@ export const HOUSE_AD_CREATIVES: HouseAdCreative[] = [
     body: "Compare Lisbon hotels near the trams, the viewpoints, and the pastéis.",
     sponsorLabel: "Booking.com",
     image: "/ads/hotel-lisbon.jpg",
-    imageAlt: "A Lisbon viewpoint terrace over tiled rooftops",
+    imageAlt:
+      "The tiled pergola terrace of the Miradouro de Santa Luzia viewpoint in Lisbon, looking over Alfama's red-tiled rooftops, a white church and the Tagus river",
+    imageCredit: null,
     ctaLabel: "See Lisbon stays",
     monetization: "unwired",
     destinationCity: "Lisbon",
@@ -77,7 +85,8 @@ export const HOUSE_AD_CREATIVES: HouseAdCreative[] = [
     body: "ReviewIntel reads what actual buyers said and gives you a straight Buy, Wait, or Skip.",
     sponsorLabel: "ReviewIntel",
     image: "/ads/gadget-earbuds.jpg",
-    imageAlt: "Wireless earbuds and their charging case on a desk beside a laptop",
+    imageAlt: "Two white wireless earbuds beside their closed white charging case on a pale surface",
+    imageCredit: null,
     ctaLabel: "Check it first",
     monetization: "house",
   },
@@ -88,7 +97,8 @@ export const HOUSE_AD_CREATIVES: HouseAdCreative[] = [
     body: "Paste a product link or a screenshot — ReviewIntel reads the real reviews before your money moves.",
     sponsorLabel: "ReviewIntel",
     image: "/ads/ri-check.jpg",
-    imageAlt: "A shopper holding a payment card while browsing a store on a laptop",
+    imageAlt: "A woman holding a payment card while browsing on a laptop at a desk, seen over her shoulder",
+    imageCredit: "Shixart1985 · CC BY 2.0 · via Wikimedia Commons",
     ctaLabel: "Check a product",
     monetization: "house",
   },

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { WalletPassCardView } from "@/components/trip/companionPanelViews";
 import { getTripDayFromDate } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
@@ -15,10 +16,13 @@ import {
 import { getWalletPassSignerFromEnv } from "@/lib/roamly/companionPass";
 import {
   customerTripLifecycleState,
-  isCustomerTripTerminalState,
-  localDateInTimeZone,
-  timezoneFromTripMetadata
+  isCustomerTripTerminalState
 } from "@/lib/roamly/liveCompanion";
+import {
+  liveEligibilityLocalDate,
+  resolveLiveEligibilityTimezone
+} from "@/lib/roamly/liveEligibility";
+import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
 import { localizeActivityRecords } from "@/lib/roamly/liveActivityBinding";
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
@@ -55,10 +59,10 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
   if (!current.configured || !current.user) {
     return (
       <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <Badge tone="sun">Setup</Badge>
+        <BuiCard className="p-5">
+          <BuiBadge tone="warm">Setup</BuiBadge>
           <h1 className="mt-4 text-3xl font-black text-ink">Connect Supabase to use your day pass.</h1>
-        </Card>
+        </BuiCard>
       </div>
     );
   }
@@ -68,23 +72,45 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
   const bundle = await getTripBundle(supabase, current.user.id, id);
   if (!bundle.data) redirect("/dashboard?tripAccess=denied");
 
+  // D4 (2026-10-31): EVERY day/timezone computation on this page
+  // derives from the ONE shared resolver — resolveLiveEligibilityTimezone
+  // in lib/roamly/liveEligibility.ts (metadata zone -> verified
+  // destination registry -> documented UTC fallback), fed with the
+  // same server zone override the eligibility gate and
+  // getCurrentTripDay (lib/roamly/tripActivation.ts) receive: the
+  // server resolution (resolveTripTimezoneServer) for this trip,
+  // which adds the server-only destination seeds. This replaces the
+  // old metadata-only lookup, which fell back to UTC for a Montreal
+  // trip with planning.timezone NULL and numbered/pass-dated the
+  // pass in UTC from 20:00 destination-local time. One instant
+  // (nowInstant) feeds every computation below, lifecycle included.
+  const eligibilityTrip = {
+    metadata: bundle.data.trip.metadata,
+    destination: getTripDestinationLabel(bundle.data.trip),
+    destination_name: bundle.data.trip.destination_name,
+    destination_city: bundle.data.trip.destination_city
+  };
+  const serverZone = resolveTripTimezoneServer(eligibilityTrip).zone;
+  const eligibilityOptions = { zoneOverride: serverZone };
+  const timezone = resolveLiveEligibilityTimezone(eligibilityTrip, eligibilityOptions).zoneForMath;
+  const nowInstant = new Date().toISOString();
+
   const tripLifecycle = customerTripLifecycleState({
     status: bundle.data.trip.status,
     itineraryStatus: bundle.data.trip.itinerary_status,
     startDate: bundle.data.trip.start_date,
     endDate: bundle.data.trip.end_date,
-    metadata: bundle.data.trip.metadata
-  });
+    metadata: bundle.data.trip.metadata,
+    timezone
+  }, nowInstant);
   const tripCompleted = isCustomerTripTerminalState(tripLifecycle);
   if ((!isTripLocked(bundle.data.trip) && !tripCompleted) || (!tripHasTrackingUnlock(bundle.data.trip) && !tripCompleted)) {
     redirect(`/trip/${id}`);
   }
 
-  const timezone = timezoneFromTripMetadata(bundle.data.trip.metadata);
   const daysCount = getTripDaysCount(bundle.data.trip);
-  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, timezone);
-  const nowInstant = new Date().toISOString();
-  const todayLocal = localDateInTimeZone(nowInstant, timezone);
+  const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, timezone, new Date(nowInstant));
+  const todayLocal = liveEligibilityLocalDate(eligibilityTrip, nowInstant, eligibilityOptions);
   const passDate = bundle.data.trip.start_date
     ? addCalendarDays(bundle.data.trip.start_date, Math.max(0, currentDay - 1))
     : todayLocal;
@@ -145,13 +171,16 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
   const signer = getWalletPassSignerFromEnv();
 
   return (
-    <div className="safe-bottom mx-auto w-full max-w-xl px-4 py-6 sm:px-6">
-      <div className="mb-5 flex items-center justify-between">
-        <div>
+    <div className="bui-enter safe-bottom mx-auto w-full max-w-xl px-4 py-6 sm:px-6">
+      {/* Jakob's Law A1 (2026-11-03): "Back to today" sat top-right;
+          back belongs top-left, so it now renders through the shared
+          BackHeader with the same destination and wording. */}
+      <div className="mb-5">
+        <BackHeader href={`/trip/${id}/live`} label="Back to today" ariaLabel="Back to today" />
+        <div className="mt-3">
           <p className="text-[0.75rem] font-medium text-slate-500">Live Companion</p>
           <h1 className="mt-1 text-[1.6rem] font-semibold tracking-[-0.03em] text-ink">Your day pass</h1>
         </div>
-        <Button href={`/trip/${id}/live`} tone="secondary">Back to today</Button>
       </div>
       <WalletPassCardView pass={passView} />
       <p className="mx-auto mt-4 w-[358px] max-w-full text-[12px] leading-[1.5] text-slate-600">

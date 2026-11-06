@@ -2,7 +2,7 @@
 // Static source checks over TripSetupGate.tsx + SetupCascade.tsx
 // (optional variant only) + the trip page's gate wiring. The picture
 // is correct-4-pages.jpg, BOTTOM-LEFT panel, read from an enlarged
-// crop: eyebrow · "Your trip is ready! 🎉" · subtitle · green
+// crop: eyebrow · "Your trip is ready!" · subtitle · green
 // itinerary card · "Optional setup (recommended)" · three cards
 // (Gmail SOLID blue button; home-screen + location blue-OUTLINE
 // buttons) · OR divider · centered "Skip for now" card · footnote,
@@ -49,7 +49,10 @@ check(
   "gate-order-eyebrow-to-footnote",
   ordered(gate, [
     "{eyebrow}",
-    "Your trip is ready! 🎉",
+    // RE-PIN (Jakob extension, 2026-11-03): the gate headline dropped
+    // its 🎉 under the owner's no-emoji-tells checklist (11:34 AST);
+    // the marker follows the new copy exactly.
+    "Your trip is ready!",
     "Everything is prepared. Complete a few optional steps to unlock more features.",
     "Itinerary generated and saved",
     "Optional setup (recommended)",
@@ -87,9 +90,21 @@ check(
 check(
   "itinerary-card-green",
   gate.includes("bg-cgreen/10") &&
-    gate.includes("bg-cgreen text-base font-bold text-white") &&
-    gate.includes("text-cgreen\">›</span>"),
-  "pale-green card + solid green check circle (white check) + green chevron, as in the picture"
+    gate.includes("rounded-full bg-cgreen text-white") &&
+    gate.includes("<Check") &&
+    // RE-PINNED 2026-11-03 (Jakob's Law A8, W1): the old pin also
+    // required the picture's green chevron on this row. A8 removes
+    // it — the row is a status line, not a button, and a chevron
+    // reads as tappable. The pin now asserts, on comment-stripped
+    // code scoped to the card block itself, that NO chevron
+    // remains there (the Skip link further down keeps its own,
+    // which the skip-card checks cover).
+    (() => {
+      const start = gateCode.indexOf("bg-cgreen/10");
+      const end = start === -1 ? -1 : gateCode.indexOf("</div>", start);
+      return start !== -1 && end !== -1 && !gateCode.slice(start, end).includes("ChevronRight");
+    })(),
+  "pale-green card + solid green check circle (white check); NO chevron — plain status line (A8)"
 );
 
 // --- 3. Three optional cards, in picture order, with picture copy ---
@@ -107,7 +122,7 @@ check(
 );
 check(
   "optional-cards-have-chevrons",
-  optional.includes('text-cchev">›</span>') &&
+  optional.includes('text-cchev"><ChevronRight') &&
     (optional.match(/\{chevron\}/g) || []).length >= 4,
   "one chevron definition reused in every card head + done state (4+ uses)"
 );

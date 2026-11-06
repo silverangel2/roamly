@@ -187,7 +187,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
             <select
               value={selectedTripId || ""}
               onChange={(event) => router.push(event.target.value ? `/trips/share?trip=${event.target.value}` : "/trips/share")}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-ink shadow-sm"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-bold text-ink shadow-sm"
             >
               <option value="">Choose a completed trip…</option>
               {trips.map((trip) => (
@@ -205,24 +205,24 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-2 text-sm font-bold text-slate-700">
                 <span>Trip title</span>
-                <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="e.g. Slow week in Lisbon" className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink shadow-sm" />
+                <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="e.g. Slow week in Lisbon" className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
               </label>
               <label className="grid gap-2 text-sm font-bold text-slate-700">
                 <span>Destination *</span>
-                <input value={destination} onChange={(event) => setDestination(event.target.value)} maxLength={200} required className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink shadow-sm" />
+                <input value={destination} onChange={(event) => setDestination(event.target.value)} maxLength={200} required className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
               </label>
               <label className="grid gap-2 text-sm font-bold text-slate-700">
                 <span>Start date</span>
-                <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink shadow-sm" />
+                <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
               </label>
               <label className="grid gap-2 text-sm font-bold text-slate-700">
                 <span>End date</span>
-                <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-ink shadow-sm" />
+                <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
               </label>
             </div>
             <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
               <span>What made this trip eventful / fruitful?</span>
-              <textarea value={highlights} onChange={(event) => setHighlights(event.target.value)} maxLength={4000} rows={4} placeholder="The moments, places, or decisions future travelers should know about…" className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold leading-6 text-ink shadow-sm" />
+              <textarea value={highlights} onChange={(event) => setHighlights(event.target.value)} maxLength={4000} rows={4} placeholder="The moments, places, or decisions future travelers should know about…" className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold leading-6 text-ink shadow-sm" />
             </label>
           </section>
 
@@ -251,7 +251,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                           <select
                             value={row.optionValue}
                             onChange={(event) => updateRow(row.key, { optionValue: event.target.value })}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-ink shadow-sm"
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-bold text-ink shadow-sm"
                           >
                             <option value="">Choose a booked item…</option>
                             {bookedSegments.map((booked) => (
@@ -272,7 +272,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                             <select
                               value={row.rating ?? ""}
                               onChange={(event) => updateRow(row.key, { rating: event.target.value ? Number(event.target.value) : null })}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-ink shadow-sm"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
                             >
                               <option value="">Not rated</option>
                               {[1, 2, 3, 4, 5].map((score) => (
@@ -285,7 +285,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                             <select
                               value={row.verdict}
                               onChange={(event) => updateRow(row.key, { verdict: event.target.value as VerdictRow["verdict"] })}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-ink shadow-sm"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
                             >
                               <option value="">No verdict</option>
                               <option value="loved">Loved it</option>
@@ -300,7 +300,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                               onChange={(event) => updateRow(row.key, { note: event.target.value })}
                               maxLength={1000}
                               placeholder="One line for future travelers…"
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-ink shadow-sm"
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-semibold text-ink shadow-sm"
                             />
                           </label>
                         </div>

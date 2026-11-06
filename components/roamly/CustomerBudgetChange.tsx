@@ -17,6 +17,7 @@ export default function CustomerBudgetChange({ tripId, currentAmount, currency }
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [applied, setApplied] = useState("");
 
   async function preview() {
     setBusy(true); setMessage("");
@@ -31,14 +32,20 @@ export default function CustomerBudgetChange({ tripId, currentAmount, currency }
 
   async function apply() {
     if (!proposal) return;
-    setBusy(true); setMessage("");
+    setBusy(true); setMessage(""); setApplied("");
+    let navigating = false;
     try {
       const response = await fetch(`/api/trips/${tripId}/budget-change/${proposal.id}/apply`, { method: "POST" });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Budget update could not be applied.");
-      window.location.reload();
+      // Success Rules pass (2026-11-03), census row 28: the apply
+      // used to reload silently. Name the applied change and hold
+      // it for a readable beat before the reload handoff.
+      navigating = true;
+      setApplied(`Budget changed to ${currency} ${proposal.requested_budget_amount.toLocaleString("en-CA")}. Refreshing your trip…`);
+      window.setTimeout(() => window.location.reload(), 1200);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Budget update could not be applied."); }
-    finally { setBusy(false); }
+    finally { if (!navigating) setBusy(false); }
   }
 
   return (
@@ -71,6 +78,7 @@ export default function CustomerBudgetChange({ tripId, currentAmount, currency }
             </>
           )}
           {message ? <p className="mt-3 text-sm text-amber-800" aria-live="polite">{message}</p> : null}
+          {applied ? <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800" aria-live="polite">{applied}</p> : null}
         </PackageChangeForm>
       )}
     </div>

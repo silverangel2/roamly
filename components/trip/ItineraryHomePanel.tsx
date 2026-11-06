@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BedDouble, Bell, Building, ChevronRight, Image as ImageIcon, Map, MapPin, MoveRight, Pencil, Plane, Search, Ticket, Utensils } from "lucide-react";
 
 /*
  * Itinerary Home panel (panel 5 — mock panel 1 of correct-4-pages-part2).
@@ -26,10 +27,15 @@ import Link from "next/link";
  *   photo, the real photo loads offline and the fallback never shows.
  * - Durations: plan durations carry "(est.)"; confirmed-booking rows
  *   carry none (see itineraryHome.ts).
- * - Map: there is NO embedded map in this codebase, so the Map tab and
- *   "View day on map" degrade to the existing Open-in-Maps links
- *   (Google / Apple / Citymapper) for the day's real stops. The gap is
- *   named in the tab, not hidden.
+ * - Map: the day view carries ONE Map/List pill (BoardUI branch,
+ *   2026-11-04 — the re-base seam built in-branch): List is the
+ *   default; Map renders the embedded TripDayMap (MapLibre +
+ *   OpenFreeMap, ported with its coordinate chain: plan record →
+ *   placeDetail.itemCoordinates → display builder → itineraryHome
+ *   rows) for stops that carry stored coordinates, and degrades to
+ *   the existing Open-in-Maps links (Google / Apple / Citymapper)
+ *   for a day whose stops carry none. Coordinates are never
+ *   invented; a coordinate-less day says so on its face.
  * - "Edit trip": the existing in-page editing section (#customize);
  *   when the trip is closed to editing, the pill renders disabled with
  *   an honest title — never a dead button presented as working.
@@ -39,15 +45,27 @@ import Link from "next/link";
  *   ("Travel from {origin} to {destination}") when the stored plan
  *   carries a travel leg; a plan with no travel leg shows no origin
  *   here, and none is invented.
- * - Rows link to the full day card (#day-N), which TripHashSync
- *   activates — the per-stop detail sheets are the sibling panels'
- *   surface, not a link this panel can honestly promise yet.
+ * - Rows (Jakob's Law round, 2026-11-03, A15): a timeline stop row
+ *   links to that stop's PLACE DETAIL — the same
+ *   /trip/[id]/place/[placeId] route the place cards use — never
+ *   to the day as a substitute for the stop tapped. Like the day
+ *   cards (ItineraryDayPlan), the link is gated on the row carrying
+ *   a STABLE place id: a row without one (or an unverified row,
+ *   which is not presented as a place) keeps the #day-N full-day
+ *   target rather than a guessed place link that could land on
+ *   the wrong stop or a not-found panel. The "See day" link and
+ *   the day picker remain the way to open a whole day.
+ * - Local tabs (A4, local part): Itinerary / Map / Essentials /
+ *   Documents render as a SEGMENTED CONTROL (one pill track,
+ *   filled selected segment) — a different visual grammar from
+ *   the global tab bar, so the two tab systems never look alike.
  */
 
 import { useEffect, useRef, useState } from "react";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import type { HomeDayView } from "@/lib/roamly/itineraryHome";
 import { VenueThumb } from "@/components/roamly/VenueThumb";
+import { TripDayMap } from "@/components/roamly/TripDayMap";
 import { TimeProvenanceLabel } from "@/components/roamly/TimeProvenanceLabel";
 import { isClockTime, provenanceForHomeRow } from "@/lib/roamly/timeProvenance";
 import { venuePhotoForTitle, type VenuePhotoMap } from "@/lib/roamly/venuePhotos";
@@ -85,54 +103,27 @@ export type ItineraryHomePanelProps = {
   documents: string[];
 };
 
-type HomeTab = "itinerary" | "map" | "essentials" | "documents";
+type HomeTab = "itinerary" | "essentials" | "documents";
 
+/* Map/List pill pass (2026-11-04): the old Itinerary and Map tabs
+ * are ONE day view now, switched by the pill at the panel's bottom
+ * (see the render below); Essentials and Documents stay tabs. */
 const TABS: Array<{ id: HomeTab; label: string }> = [
   { id: "itinerary", label: "Itinerary" },
-  { id: "map", label: "Map" },
   { id: "essentials", label: "Essentials" },
   { id: "documents", label: "Documents" }
 ];
 
-function iconProps() {
-  return {
-    width: 20,
-    height: 20,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.8,
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    "aria-hidden": true
-  } as const;
-}
-
 function RowIcon({ kind, category, title }: { kind: string; category?: string; title?: string }) {
-  const p = iconProps();
+  const p = { size: 20, strokeWidth: 1.8, "aria-hidden": true } as const;
   if (kind === "travel") {
-    return (
-      <svg {...p}>
-        <path d="M2 12h19M14 5l7 7-7 7" />
-        <path d="M2 12l3-3M2 12l3 3" />
-      </svg>
-    );
+    return <MoveRight {...p} />;
   }
   if (kind === "arrival") {
-    return (
-      <svg {...p}>
-        <path d="M12 21s-6-5.5-6-10a6 6 0 0 1 12 0c0 4.5-6 10-6 10Z" />
-        <circle cx="12" cy="11" r="2.2" />
-      </svg>
-    );
+    return <MapPin {...p} />;
   }
   if (kind === "return-to-stay") {
-    return (
-      <svg {...p}>
-        <path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7" />
-        <path d="M3 18h18M3 21v-3M21 21v-3M6 11V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v3" />
-      </svg>
-    );
+    return <BedDouble {...p} />;
   }
   // Venue icons mirror the Live timeline matcher (title + category),
   // so the home rows carry the mock's varied icons instead of one
@@ -142,34 +133,15 @@ function RowIcon({ kind, category, title }: { kind: string; category?: string; t
   // Theatre before food: "theatre" contains "eat", so the food
   // branch would swallow every theatre stop if it ran first.
   if (/theatr|theater|show|concert|performance|evening/.test(text)) {
-    return (
-      <svg {...p}>
-        <path d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2.5 2.5 0 0 0 0 5v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2.5 2.5 0 0 0 0-5Z" />
-        <path d="M13 5v2M13 11v2M13 17v2" />
-      </svg>
-    );
+    return <Ticket {...p} />;
   }
   if (/restaurant|food|dining|cafe|eat|veg|bistro|meal/.test(text)) {
-    return (
-      <svg {...p}>
-        <path d="M4 3v7a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M5 3v18M17 3c-2 0-3 2.5-3 5v3h3v10" />
-      </svg>
-    );
+    return <Utensils {...p} />;
   }
   if (/galler|art|exhibit/.test(text)) {
-    return (
-      <svg {...p}>
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M3 17l5-5 4 4 3-3 6 6" />
-      </svg>
-    );
+    return <ImageIcon {...p} />;
   }
-  return (
-    <svg {...p}>
-      <path d="M3 21h18M5 21V8l7-5 7 5v13" />
-      <path d="M9 21v-6h6v6" />
-    </svg>
-  );
+  return <Building {...p} />;
 }
 
 function rowTint(kind: string, title?: string, category?: string): string {
@@ -199,6 +171,8 @@ export function ItineraryHomePanel({
   documents
 }: ItineraryHomePanelProps) {
   const [tab, setTab] = useState<HomeTab>("itinerary");
+  /* Map/List pill: List is the default, always (seam spec). */
+  const [dayView, setDayView] = useState<"list" | "map">("list");
   const [selectedDayNumber, setSelectedDayNumber] = useState<number | null>(
     days.length ? days[0].dayNumber : null
   );
@@ -218,14 +192,57 @@ export function ItineraryHomePanel({
 
   const selectedDay =
     days.find((day) => day.dayNumber === selectedDayNumber) || days[0] || null;
+  // Map tab stops, from the day's own rows only, IN ORDER (A18):
+  // every row is passed to TripDayMap — rows carrying the stop's
+  // own stored coordinates get pins, rows without them are listed
+  // in the map's card strip marked as having no pin (never given
+  // invented coordinates). A verified pipeline photo (venue rows
+  // only, the same venuePhotos map the timeline thumbnails use)
+  // and the stop's place-detail href (only when the row carries a
+  // stable place id — the A15 gate below) ride along for the pin
+  // popup card. A day with no coordinates at all keeps the
+  // fallback sentence + external links. No fetching, no geocoding,
+  // nothing invented.
+  const placeHrefForRow = (row: HomeDayView["rows"][number]) => {
+    if (row.unverified) return null;
+    const ids = row as typeof row & { itemId?: string | null; placeId?: string | null };
+    const placeId = (typeof ids.itemId === "string" && ids.itemId.trim() ? ids.itemId : null) ||
+      (typeof ids.placeId === "string" && ids.placeId.trim() ? ids.placeId : null);
+    return placeId ? `/trip/${tripId}/place/${placeId}` : null;
+  };
+  const selectedDayMapStops = (selectedDay?.rows ?? []).map((row) => {
+    const coords = row as typeof row & {
+      latitude?: number | null;
+      longitude?: number | null;
+    };
+    const venuePhoto =
+      row.kind === "venue" && !row.unverified ? venuePhotoForTitle(venuePhotos, row.title) : null;
+    return {
+      latitude:
+        typeof coords.latitude === "number" && Number.isFinite(coords.latitude)
+          ? coords.latitude
+          : null,
+      longitude:
+        typeof coords.longitude === "number" && Number.isFinite(coords.longitude)
+          ? coords.longitude
+          : null,
+      label: row.unverified ? "Unverified stop" : row.title,
+      detail: row.time,
+      placeHref: placeHrefForRow(row),
+      photoUrl: venuePhoto?.imageUrl ?? null
+    };
+  });
+  const hasMappableStops = selectedDayMapStops.some(
+    (stop) => stop.latitude != null && stop.longitude != null
+  );
   const showPhoto = Boolean(photo) && photoState !== "failed";
 
   const editPill = editHref ? (
     <a
       href={editHref}
-      className="inline-flex min-h-9 items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-[13px] font-semibold text-chead shadow-calm"
+      className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-[13px] font-semibold text-chead shadow-calm"
     >
-      <span aria-hidden="true">✎</span> Edit trip
+      <Pencil aria-hidden="true" size={13} strokeWidth={2} /> Edit trip
     </a>
   ) : (
     <span
@@ -233,7 +250,7 @@ export function ItineraryHomePanel({
       title="Editing is closed for this trip"
       className="inline-flex min-h-9 cursor-not-allowed items-center gap-1 rounded-full bg-white/70 px-3 py-1.5 text-[13px] font-semibold text-cgray"
     >
-      <span aria-hidden="true">✎</span> Edit trip
+      <Pencil aria-hidden="true" size={13} strokeWidth={2} /> Edit trip
     </span>
   );
 
@@ -247,7 +264,7 @@ export function ItineraryHomePanel({
           real Explore page; the bell leads to Notifications. */}
       <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-4 sm:px-5">
         <Link href="/" aria-label="Roamly home" className="flex items-center gap-1.5 text-chead">
-          <span aria-hidden="true" className="text-[20px] leading-none text-cblue">✈</span>
+          <Plane aria-hidden size={20} className="shrink-0 text-cblue" />
           <span className="text-[22px] font-bold tracking-[-0.02em]">Roamly</span>
         </Link>
         <div className="flex items-center gap-1">
@@ -256,20 +273,14 @@ export function ItineraryHomePanel({
             aria-label="Search places on this trip"
             className="grid h-11 w-11 place-items-center rounded-full text-chead"
           >
-            <svg {...iconProps()}>
-              <circle cx="11" cy="11" r="7" />
-              <path d="m20 20-3.5-3.5" />
-            </svg>
+            <Search size={20} strokeWidth={1.8} aria-hidden="true" />
           </a>
           <a
             href="/notifications"
             aria-label="Notifications"
             className="grid h-11 w-11 place-items-center rounded-full text-chead"
           >
-            <svg {...iconProps()}>
-              <path d="M12 3.5a5.5 5.5 0 0 1 5.5 5.5c0 4 1.2 5.4 2 6.5H4.5c.8-1.1 2-2.5 2-6.5A5.5 5.5 0 0 1 12 3.5" />
-              <path d="M10.3 19.5a2.3 2.3 0 0 0 4.4 0" />
-            </svg>
+            <Bell size={20} strokeWidth={1.8} aria-hidden="true" />
           </a>
         </div>
       </header>
@@ -351,8 +362,22 @@ export function ItineraryHomePanel({
         </div>
       )}
 
-      {/* Tabs: Itinerary / Map / Essentials / Documents */}
-      <nav aria-label="Trip sections" className="flex gap-2 overflow-x-auto px-2 pb-1 pt-3 sm:px-5">
+      {/* Local tabs as a SEGMENTED CONTROL (A4, local part, as
+          merged 2026-11-05): Itinerary / Essentials / Documents
+          inside ONE pill track — the selected segment is a raised
+          white pill on the grey track. The A4-era Map segment is
+          gone by the owner's later pill order (2026-11-04): the
+          day view's Map/List switch is the pill at the panel's
+          bottom (see below). Same destinations, same behaviour,
+          but a deliberately different visual grammar from the
+          global tab bar (separate floating pills / a bottom icon
+          bar), so the two tab systems on this screen never look
+          alike. */}
+      <nav
+        aria-label="Trip sections"
+        data-segmented-control="true"
+        className="mx-4 mt-3 flex gap-1 overflow-x-auto rounded-full bg-cbg p-1 ring-1 ring-chair sm:mx-5"
+      >
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -360,8 +385,8 @@ export function ItineraryHomePanel({
             role="tab"
             aria-selected={tab === item.id}
             onClick={() => setTab(item.id)}
-            className={`min-h-10 shrink-0 rounded-full px-2 py-2 text-[14px] font-semibold transition ${
-              tab === item.id ? "bg-cblue text-white" : "bg-cbg text-cink"
+            className={`min-h-11 flex-1 shrink-0 rounded-full px-3 py-2 text-[14px] font-semibold transition ${
+              tab === item.id ? "bg-white text-chead shadow-calm" : "bg-transparent text-cgray"
             }`}
           >
             {item.label}
@@ -370,7 +395,7 @@ export function ItineraryHomePanel({
       </nav>
 
       {tab === "itinerary" && selectedDay ? (
-        <div className="px-4 pb-5 sm:px-5">
+        <div className="px-4 pb-28 sm:px-5">
           {/* Day picker */}
           <div role="group" aria-label="Pick a day" className="flex snap-x gap-2 overflow-x-auto py-3">
             {days.map((day) => {
@@ -418,6 +443,8 @@ export function ItineraryHomePanel({
             </a>
           </div>
 
+          {dayView === "list" ? (
+          <>
           {/* Compact one-day timeline — the stored plan, mock shape. */}
           {selectedDay.rows.length ? (
             <ol className="relative mt-4">
@@ -425,8 +452,10 @@ export function ItineraryHomePanel({
               {selectedDay.rows.map((row) => (
                 <li key={row.key} className="relative">
                   <a
-                    href={`#day-${selectedDay.dayNumber}`}
-                    aria-label={`${row.unverified ? "Unverified stop" : row.title}: see the full day plan`}
+                    href={placeHrefForRow(row) ?? `#day-${selectedDay.dayNumber}`}
+                    aria-label={`${row.unverified ? "Unverified stop" : row.title}: ${
+                      placeHrefForRow(row) ? "view place details" : "see the full day plan"
+                    }`}
                     className="flex items-start gap-3 py-3"
                   >
                     <span className="w-16 shrink-0 pt-2 text-right text-[13px] font-medium leading-4 text-cgray">
@@ -484,7 +513,7 @@ export function ItineraryHomePanel({
                         </span>
                       ) : null}
                     </span>
-                    <span aria-hidden="true" className="pt-1 text-[18px] leading-none text-cchev">›</span>
+                    <ChevronRight aria-hidden="true" size={18} strokeWidth={2} className="mt-1 shrink-0 text-cchev" />
                   </a>
                 </li>
               ))}
@@ -498,15 +527,93 @@ export function ItineraryHomePanel({
 
           <button
             type="button"
-            onClick={() => setTab("map")}
+            onClick={() => setDayView("map")}
             className="mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-cblue/10 px-4 text-[15px] font-semibold text-cblue"
           >
-            <svg {...iconProps()}>
-              <path d="M3 21h18M5 21V8l7-5 7 5v13" />
-              <path d="M9 21v-6h6v6" />
-            </svg>
+            <Map size={20} strokeWidth={1.8} aria-hidden="true" />
             View day on map
           </button>
+          </>
+          ) : (
+          <div key={`map-${selectedDay.dayNumber}`} className="bui-enter mt-4">
+            {/* Map state of the pill: the embedded map for stops
+                that carry stored coordinates; the honest fallback
+                sentence + the same Open-in-Maps links when a day
+                carries none. The day picker above stays visible in
+                both states (seam spec). */}
+            {hasMappableStops ? (
+              <TripDayMap stops={selectedDayMapStops} />
+            ) : (
+              <p className="rounded-xl bg-cbg px-4 py-3 text-sm leading-6 text-cink">
+                No mappable locations for this day — the day&apos;s stops open in your maps app instead.
+              </p>
+            )}
+            {selectedDay.mapStops.length ? (
+              <ul className="mt-4 grid gap-3">
+                {selectedDay.mapStops.map((stop) => {
+                  const links = buildNavigationLinks({ destinationLabel: stop, address: stop });
+                  return (
+                    <li key={stop} className="rounded-xl bg-cbg px-3 py-3">
+                      <p className="text-sm font-semibold leading-5 text-chead">{stop}</p>
+                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        {links.map((link) => (
+                          <a
+                            key={link.provider}
+                            href={link.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="min-h-9 py-1 text-[13px] font-medium text-cblue"
+                          >
+                            Open in {link.provider === "google_maps" ? "Google Maps" : link.provider === "apple_maps" ? "Apple Maps" : "Citymapper"}
+                          </a>
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-4 rounded-xl bg-cbg px-4 py-3 text-sm leading-6 text-cink">
+                This day has no mappable stops yet. When the plan names places,
+                their map links appear here.
+              </p>
+            )}
+          </div>
+          )}
+
+          {/* Map/List pill (seam spec, built in-branch 2026-11-04):
+              ONE control at the day panel's bottom, in the thumb
+              zone — fixed above the 64px tab bar + safe area,
+              centred; white BoardUI card surface, hairline border,
+              lift shadow; segments 44px+ tall and 76px+ wide; the
+              selected segment is the cblue fill. Local state only —
+              no URL change; List is the default. */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] z-30 flex justify-center">
+            <div
+              role="group"
+              aria-label="Day view"
+              className="bui-squircle pointer-events-auto flex gap-1 rounded-full border border-chair bg-white p-1 shadow-bui-lift"
+            >
+              {(
+                [
+                  { id: "list", label: "List" },
+                  { id: "map", label: "Map" }
+                ] as const
+              ).map((segment) => (
+                <button
+                  key={segment.id}
+                  type="button"
+                  aria-pressed={dayView === segment.id}
+                  onClick={() => setDayView(segment.id)}
+                  className={`bui-tap bui-tab-press flex min-h-11 min-w-[76px] items-center justify-center rounded-full px-4 text-[14px] font-semibold transition ${
+                    dayView === segment.id ? "bg-cblue text-white" : "text-cink hover:bg-csoft"
+                  }`}
+                >
+                  {segment.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -515,49 +622,6 @@ export function ItineraryHomePanel({
           This trip has no saved day-by-day plan yet. Once your itinerary is
           generated, the day picker and timeline appear here.
         </p>
-      ) : null}
-
-      {tab === "map" ? (
-        <div className="px-4 pb-5 sm:px-5">
-          <h3 className="pt-3 text-[17px] font-bold text-chead">
-            {selectedDay ? `${selectedDay.heading} on the map` : "Day on the map"}
-          </h3>
-          <p className="mt-1 text-sm leading-6 text-cgray">
-            Roamly does not have an embedded map yet, so the day&apos;s stops
-            open in your maps app instead — the same destinations as this
-            day&apos;s plan, nothing added.
-          </p>
-          {selectedDay && selectedDay.mapStops.length ? (
-            <ul className="mt-4 grid gap-3">
-              {selectedDay.mapStops.map((stop) => {
-                const links = buildNavigationLinks({ destinationLabel: stop, address: stop });
-                return (
-                  <li key={stop} className="rounded-xl bg-cbg px-3 py-3">
-                    <p className="text-sm font-semibold leading-5 text-chead">{stop}</p>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                      {links.map((link) => (
-                        <a
-                          key={link.provider}
-                          href={link.href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-h-9 py-1 text-[13px] font-medium text-cblue"
-                        >
-                          Open in {link.provider === "google_maps" ? "Google Maps" : link.provider === "apple_maps" ? "Apple Maps" : "Citymapper"}
-                        </a>
-                      ))}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="mt-4 rounded-xl bg-cbg px-4 py-3 text-sm leading-6 text-cink">
-              This day has no mappable stops yet. When the plan names places,
-              their map links appear here.
-            </p>
-          )}
-        </div>
       ) : null}
 
       {tab === "essentials" ? (

@@ -1,6 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { BuiSheet } from "@/components/boardui/Sheet";
+import { BuiMorphButton, type BuiMorphPhase } from "@/components/boardui/MorphButton";
+import { BuiSendIcon } from "@/components/boardui/AnimatedIcons";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
 type TripShareActionsProps = {
@@ -20,6 +23,17 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [shareMessage, setShareMessage] = useState("");
+  /* Submit morph + animated send icon (2026-11-04): the send
+   * button morphs pill → spinner → tick as one shape, and at the
+   * moment of success its plane flies off and a new one springs
+   * in. The specific confirmation line below the form is
+   * untouched — motion accompanies the message. */
+  const [sentPulse, setSentPulse] = useState(false);
+  const sentTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (sentTimer.current) window.clearTimeout(sentTimer.current);
+  }, []);
+  const morphPhase: BuiMorphPhase = busy ? "busy" : sentPulse ? "done" : "idle";
 
   function exportPdf() {
     window.print();
@@ -70,8 +84,22 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
       } | null;
 
       if (response.ok && data?.ok) {
-        setMessage(data?.message || t("ui.status.itineraryEmailSent", "Itinerary email sent."));
+        // Success Rules pass (2026-11-03), rule 1: say what
+        // happened, specifically — name the recipient. The server's
+        // message ("Itinerary email sent.") doesn't carry the
+        // address, so the confirmation is composed here, where the
+        // address is known. The send-another loop stays open: the
+        // form remains, cleared, inside the sheet (rule 2/4).
+        const sentTo = recipient.trim();
+        setMessage(
+          sentTo
+            ? t("ui.status.itineraryEmailSentTo", "Itinerary sent to {email}.").replace("{email}", sentTo)
+            : t("ui.status.itineraryEmailSent", "Itinerary email sent.")
+        );
         setRecipient("");
+        setSentPulse(true);
+        if (sentTimer.current) window.clearTimeout(sentTimer.current);
+        sentTimer.current = window.setTimeout(() => setSentPulse(false), 1500);
         return;
       }
 
@@ -111,8 +139,18 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
       {shareMessage ? <p className="w-full text-xs font-medium text-cgray">{shareMessage}</p> : null}
 
       {modalOpen ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t("ui.actions.emailItinerary", "Email itinerary")}>
-          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[14px] bg-white p-5 shadow-calm">
+        /* Container Rules pass (2026-11-03): emailing the itinerary is
+           a small form task, not a full stop — rule 1 takes it out of
+           the centered modal and onto the shared sheet (bottom sheet
+           on phones, rule-4 side drawer on desktop, itinerary visible
+           beside it). Form, copy and send logic are unchanged; the
+           scrim tap now also closes, like the Close button always did. */
+        <BuiSheet
+          label={t("ui.actions.emailItinerary", "Email itinerary")}
+          backdropClassName="bg-ink/55 backdrop-blur-sm"
+          className="p-5"
+          onClose={() => setModalOpen(false)}
+        >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.actions.emailItinerary", "Email itinerary")}</p>
@@ -142,23 +180,28 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
                     type="email"
                     required
                     placeholder="friend@example.com"
-                    className="rounded-xl border border-chair bg-white px-4 py-3 text-sm font-normal text-cink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/15"
+                    className="rounded-xl border border-chair bg-white px-4 py-3 text-base font-normal text-cink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/15"
                   />
                 </label>
-                <button
-                  type="submit"
-                  disabled={busy}
-                  className="rounded-xl bg-cblue px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                <BuiMorphButton
+                  phase={morphPhase}
+                  className="bg-cblue px-5 text-sm font-semibold text-white"
                 >
-                  {busy ? t("ui.status.sending", "Sending...") : t("ui.actions.sendItinerary", "Send itinerary")}
-                </button>
+                  {t("ui.actions.sendItinerary", "Send itinerary")}
+                </BuiMorphButton>
               </form>
             )}
 
-            {message ? <p className="mt-4 rounded-[14px] bg-cblue/10 px-4 py-3 text-sm font-medium text-chead">{message}</p> : null}
+            {message ? (
+              <p className="mt-4 flex items-center gap-2 rounded-[14px] bg-cblue/10 px-4 py-3 text-sm font-medium text-chead">
+                {/* The send plane flies at the moment of success,
+                    beside the specific confirmation it accompanies. */}
+                <BuiSendIcon sent={sentPulse} className="h-4 w-4 shrink-0 text-cblue" />
+                <span>{message}</span>
+              </p>
+            ) : null}
             {error ? <p className="mt-4 rounded-[14px] bg-cred/10 px-4 py-3 text-sm font-medium text-cred">{error}</p> : null}
-          </div>
-        </div>
+        </BuiSheet>
       ) : null}
     </>
   );

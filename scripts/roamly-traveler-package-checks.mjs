@@ -167,13 +167,14 @@ assert.match(page, /Review the budget/);
 
 const shell = fs.readFileSync(path.join(root, "components/AppShellClient.tsx"), "utf8");
 const scroll = loadTsModule("lib/roamly/bottomNavScroll.ts");
-assert.match(shell, /nextBottomNavHidden/);
+assert.doesNotMatch(shell, /nextBottomNavHidden/); // RE-PIN (Jakob A4, 2026-11-03): was match — the shell no longer consumes the scroll-hide helper; primary navigation never hides. The lib (lib/roamly/bottomNavScroll.ts) remains and its unit tests below still stand.
 assert.match(shell, /data-bottom-nav=/);
-assert.match(shell, /aria-hidden=\{bottomNavHidden/);
-assert.match(shell, /inert=\{bottomNavHidden/);
+assert.match(shell, /data-bottom-nav="visible"/);
+assert.doesNotMatch(shell, /aria-hidden=\{bottomNavHidden/); // RE-PIN (Jakob A4): was match — no hidden state exists to bind.
+assert.doesNotMatch(shell, /inert=\{bottomNavHidden/); // RE-PIN (Jakob A4): was match — same removal.
 assert.match(shell, /lg:hidden/);
 assert.match(shell, /aria-label="Mobile navigation"/);
-assert.match(shell, /motion-reduce:transition-none/);
+assert.doesNotMatch(shell, /motion-reduce:transition-none/); // RE-PIN (Jakob A4): was match — it served the hide transition, which no longer exists.
 
 function scrollStep(state, currentY, focused = false) {
   const next = scroll.nextBottomNavHidden({

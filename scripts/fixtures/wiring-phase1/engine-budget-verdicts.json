@@ -114,10 +114,10 @@
         "destination": "Banff",
         "days": 4,
         "budgetVerdict": "WITHIN",
-        "budgetCoverage": 0.83,
+        "budgetCoverage": 0.85,
         "requirements": "4/7 KEPT",
         "makeSense": "PASS",
-        "emotion": "PASS (3 findings, 3 soft)",
+        "emotion": "PASS (4 findings, 4 soft)",
         "continuity": "PASS",
         "depth": {
           "candidates": 177,

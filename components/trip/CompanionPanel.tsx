@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
+
 /*
  * Build 2 Live Companion — panel v2 client (DESIGN-PRODUCTION.md
  * Phase 7). A new VIEW over the existing live-companion state: the
@@ -378,7 +380,7 @@ export function CompanionPanel({
           href={`/trip/${tripId}/pass`}
           className="mt-2 block px-[2px] text-[12px] font-bold text-ocean"
         >
-          Open your day pass ›
+          Open your day pass <ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
         </a>
       ) : null}
       {chooserItemId && chooserNotification?.directions ? (

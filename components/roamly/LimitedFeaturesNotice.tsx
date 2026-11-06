@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight } from "lucide-react";
+
 /*
  * LimitedFeaturesNotice — compact expandable setup notice (final
  * local round, 2026-10-27). It replaces the long inline paragraph
@@ -33,7 +35,7 @@ export function LimitedFeaturesNotice({ features }: { features: string[] }) {
       className="mb-4 rounded-xl bg-white px-4 py-3 shadow-calm"
     >
       <summary className="cursor-pointer list-none text-[15px] font-medium leading-[1.45] text-cink">
-        Showing with limited features · Finish setup <span aria-hidden="true">▸</span>
+        Showing with limited features · Finish setup <ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
       </summary>
       <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
         Showing with limited features{`: ${features.join(" · ")}`}.{" "}

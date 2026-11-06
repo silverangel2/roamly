@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard, BuiSkeleton } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
 import {
@@ -135,21 +138,21 @@ export function CompanionInstallStep() {
 
   if (phase === "loading") {
     return (
-      <div className="mt-6 animate-pulse rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
-        <div className="h-4 w-32 rounded bg-mist" />
-        <div className="mt-3 h-6 w-2/3 rounded bg-mist" />
-        <div className="mt-3 h-10 w-48 rounded-2xl bg-mist" />
-      </div>
+      <BuiCard className="mt-6 p-4">
+        <BuiSkeleton className="h-4 w-32" />
+        <BuiSkeleton className="mt-3 h-6 w-2/3" />
+        <BuiSkeleton className="mt-3 h-10 w-48" />
+      </BuiCard>
     );
   }
 
   if (phase === "dismissed" || phase === "unsupported" || !capability) return null;
 
   const eyebrow = (
-    <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+    <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
       {t("ui.companionInstall.stepLabel", "Live Companion")}
       {phase !== "done" ? (
-        <span className="ml-2 text-slate-400">
+        <span className="ml-2 text-cgray2">
           {phase === "install"
             ? t("ui.companionInstall.stepOneOfTwo", "Step 1 of 2 — Install")
             : t("ui.companionInstall.stepTwoOfTwo", "Step 2 of 2 — Alerts")}
@@ -163,7 +166,7 @@ export function CompanionInstallStep() {
       type="button"
       onClick={dismiss}
       disabled={busy}
-      className="mt-3 inline-flex min-h-11 items-center text-sm font-black text-slate-500 underline-offset-4 hover:underline disabled:opacity-60"
+      className="bui-press bui-touch mt-3 inline-flex min-h-11 items-center px-1 text-sm font-black text-cgray underline-offset-4 hover:underline disabled:opacity-60"
     >
       {t("ui.companionInstall.later", "Later")}
     </button>
@@ -171,95 +174,91 @@ export function CompanionInstallStep() {
 
   if (phase === "done") {
     return (
-      <div className="mt-6 rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
+      <BuiCard className="bui-enter mt-6 p-4">
         {eyebrow}
-        <h3 className="mt-2 text-xl font-black text-ink">
+        <h3 className="mt-2 text-xl font-black text-chead">
           {t("ui.companionInstall.doneTitle", "You’re set for live trip alerts")}
         </h3>
-        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+        <p className="mt-2 text-sm font-bold leading-6 text-cink">
           {t(
             "ui.companionInstall.doneBody",
             "This device will get flight changes, check-in reminders, and what’s-up-next nudges while you travel."
           )}
         </p>
-        <button
-          type="button"
-          onClick={dismiss}
-          className="mt-3 inline-flex min-h-11 items-center rounded-2xl bg-mist px-4 text-sm font-black text-ink"
-        >
+        <BuiButton type="button" variant="secondary" onClick={dismiss} className="mt-3">
           {t("ui.companionInstall.gotIt", "Got it")}
-        </button>
-      </div>
+        </BuiButton>
+      </BuiCard>
     );
   }
 
   if (phase === "install") {
     return (
-      <div className="mt-6 rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
+      <BuiCard className="bui-enter mt-6 p-4">
         {eyebrow}
-        <h3 className="mt-2 text-xl font-black text-ink">
+        <h3 className="mt-2 text-xl font-black text-chead">
           {t("ui.companionInstall.installTitle", "Add Roamly to your Home Screen")}
         </h3>
-        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+        <p className="mt-2 text-sm font-bold leading-6 text-cink">
           {t(
             "ui.companionInstall.installBody",
             "Get live flight changes, check-in nudges, and what’s-up-next alerts on your phone while you travel."
           )}
         </p>
         {deferredPrompt ? (
-          <button
+          <BuiButton
             type="button"
             onClick={() => void startAndroidInstall()}
-            disabled={busy}
-            className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white disabled:opacity-60 sm:w-auto"
+            busy={busy}
+            className="mt-4 w-full sm:w-auto"
           >
             {t("ui.companionInstall.addToHomeScreen", "Add Roamly to your Home Screen")}
-          </button>
+          </BuiButton>
         ) : capability.isIOS ? (
-          <div className="mt-4 rounded-2xl bg-mist p-4">
-            <ol className="grid gap-2 text-sm font-bold leading-6 text-slate-600">
+          <div className="mt-4 rounded-bui-card border border-chair bg-cbg p-4">
+            <ol className="grid gap-2 text-sm font-bold leading-6 text-cink">
               <li>
-                <span className="mr-2 font-black text-ocean">1.</span>
+                <span className="mr-2 font-black text-cblue">1.</span>
                 {t("ui.companionInstall.iosStep1", "Tap the Share button at the bottom of Safari.")}
               </li>
               <li>
-                <span className="mr-2 font-black text-ocean">2.</span>
+                <span className="mr-2 font-black text-cblue">2.</span>
                 {t("ui.companionInstall.iosStep2", "Scroll down and tap Add to Home Screen.")}
               </li>
               <li>
-                <span className="mr-2 font-black text-ocean">3.</span>
+                <span className="mr-2 font-black text-cblue">3.</span>
                 {t("ui.companionInstall.iosStep3", "Tap Add, then open Roamly from the new Home Screen icon.")}
               </li>
             </ol>
-            <button
+            <BuiButton
               type="button"
               onClick={() => void evaluate()}
-              disabled={busy}
-              className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+              busy={busy}
+              className="mt-4 w-full"
             >
               {t("ui.companionInstall.iveAddedIt", "I’ve added it — continue")}
-            </button>
+            </BuiButton>
           </div>
         ) : (
-          <div className="mt-4 rounded-2xl bg-mist p-4">
-            <p className="text-sm font-bold leading-6 text-slate-600">
+          <div className="mt-4 rounded-bui-card border border-chair bg-cbg p-4">
+            <p className="text-sm font-bold leading-6 text-cink">
               {t(
                 "ui.companionInstall.genericInstallNote",
                 "Use your browser’s menu (⋮ → “Add to Home screen” / “Install app”), then open Roamly from the new Home Screen icon."
               )}
             </p>
-            <button
+            <BuiButton
               type="button"
               onClick={() => void evaluate()}
-              disabled={busy}
-              className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white disabled:opacity-60"
+              busy={busy}
+              className="mt-4 w-full"
             >
               {t("ui.companionInstall.iveAddedIt", "I’ve added it — continue")}
-            </button>
+            </BuiButton>
           </div>
         )}
         {laterButton}
-      </div>
+      </BuiCard>
     );
   }
 
@@ -268,55 +267,58 @@ export function CompanionInstallStep() {
   const isDenied = permissionState === "denied";
 
   return (
-    <div className="mt-6 rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
+    <BuiCard className="bui-enter mt-6 p-4">
       {eyebrow}
-      <h3 className="mt-2 text-xl font-black text-ink">
+      <h3 className="mt-2 text-xl font-black text-chead">
         {t("ui.companionInstall.notifyTitle", "Turn on trip alerts")}
       </h3>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+      <p className="mt-2 text-sm font-bold leading-6 text-cink">
         {t(
           "ui.companionInstall.notifyBody",
           "Roamly sends flight changes, check-in reminders, and what’s-up-next nudges to this device."
         )}
       </p>
       {requiresHomeScreen ? (
-        <div className="mt-4 rounded-2xl bg-mist p-4">
-          <p className="text-sm font-black leading-6 text-slate-600">
+        <div className="mt-4 rounded-bui-card border border-chair bg-cbg p-4">
+          <p className="text-sm font-black leading-6 text-cink">
             {t(
               "ui.companionInstall.homeScreenFirst",
               "On iPhone, add Roamly to the Home Screen and open it from that icon before enabling reminders."
             )}
           </p>
-          <button
+          <BuiButton
             type="button"
+            variant="secondary"
             onClick={() => setPhase("install")}
-            disabled={busy}
-            className="mt-4 inline-flex min-h-11 items-center rounded-2xl bg-white px-4 text-sm font-black text-ink ring-1 ring-cloud disabled:opacity-60"
+            busy={busy}
+            className="mt-4"
           >
             {t("ui.companionInstall.backToInstall", "Back to install")}
-          </button>
+          </BuiButton>
         </div>
       ) : isDenied ? (
-        <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {t(
+        <BuiNotice
+          tone="error"
+          title={t(
             "ui.companionInstall.blockedNote",
             "Trip alerts are blocked in this browser. You can allow them in your browser settings, or rely on in-app notifications."
           )}
-        </p>
+          className="mt-3"
+        />
       ) : (
-        <button
+        <BuiButton
           type="button"
           onClick={() => void enableAlerts()}
-          disabled={busy}
-          className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white disabled:opacity-60 sm:w-auto"
+          busy={busy}
+          className="mt-4 w-full sm:w-auto"
         >
           {busy
             ? t("ui.companionInstall.enabling", "Enabling…")
             : t("ui.companionInstall.turnOnAlerts", "Turn on trip alerts")}
-        </button>
+        </BuiButton>
       )}
-      {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-3" /> : null}
       {laterButton}
-    </div>
+    </BuiCard>
   );
 }

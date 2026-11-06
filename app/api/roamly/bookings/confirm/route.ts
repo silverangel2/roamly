@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   if (!ownership.data) return NextResponse.json({ ok: false, error: "Trip access denied." }, { status: 403 });
 
   const extracted = verifyBookingEvidenceToken(typeof body.evidenceToken === "string" ? body.evidenceToken : "", { userId: auth.user.id, tripId });
-  if (!extracted) return NextResponse.json({ ok: false, error: "Fresh server-verified booking evidence is required." }, { status: 400 });
+  if (!extracted) return NextResponse.json({ ok: false, error: "Fresh booking evidence is required." }, { status: 400 });
   const booking = normalizeExtractedBooking(extracted);
   const dateTime = (date: string, time: string) => date ? `${date}T${time || "00:00:00"}Z` : null;
   // B10: the traveler's review edits are NOT silently discarded and NOT

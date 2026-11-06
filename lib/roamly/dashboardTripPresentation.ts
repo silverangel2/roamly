@@ -1,4 +1,5 @@
-import { customerTripLifecycleState, isCustomerTripTerminalState, isTodayWithinTripDates, timezoneFromTripMetadata } from "./liveCompanion";
+import { customerTripLifecycleState, isCustomerTripTerminalState, isTodayWithinTripDates } from "./liveCompanion";
+import { resolveTripTimezone, zoneForMath } from "./tripTimezone";
 
 type DashboardTripLike = {
   id: string;
@@ -12,22 +13,37 @@ type DashboardTripLike = {
   tracking_unlocked?: boolean | null;
   live_companion_unlocked?: boolean | null;
   metadata?: Record<string, unknown> | null;
+  destination?: unknown;
+  destination_name?: unknown;
+  destination_city?: unknown;
 };
 
 export function dashboardTripPresentation(trip: DashboardTripLike, now: string | Date = new Date()) {
+  // L12 (2026-10-31): the "Live" presentation resolves the trip zone
+  // through the ONE resolver (metadata, then the verified destination
+  // registry; UTC only as the documented fallback) instead of
+  // metadata alone — the dashboard query already selects
+  // destination_name, it simply never reached this helper's type.
+  const timezone = zoneForMath(resolveTripTimezone({
+    metadata: trip.metadata,
+    destination: trip.destination,
+    destination_name: trip.destination_name,
+    destination_city: trip.destination_city
+  }));
   const lifecycle = customerTripLifecycleState({
     status: trip.status,
     itineraryStatus: trip.itinerary_status,
     startDate: trip.start_date,
     endDate: trip.end_date,
-    metadata: trip.metadata
+    metadata: trip.metadata,
+    timezone
   }, now);
   const terminal = isCustomerTripTerminalState(lifecycle);
   const companionUnlocked = !terminal && Boolean(trip.tracking_unlocked || trip.live_companion_unlocked);
   const liveNow = lifecycle === "active" && companionUnlocked && isTodayWithinTripDates({
     startDate: trip.start_date,
     endDate: trip.end_date,
-    timezone: timezoneFromTripMetadata(trip.metadata),
+    timezone,
     now
   });
 

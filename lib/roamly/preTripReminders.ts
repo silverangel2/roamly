@@ -64,12 +64,12 @@ function clean(value: unknown) {
 }
 
 const PRETRIP_COPY = {
-  en: { week: "{destination} is one week away", tomorrow: "{destination} starts tomorrow", departure: "Departure", start: "Trip start", confirmed: "Confirmed", none: "No confirmed bookings are attached yet.", gap: "Still unresolved: {gaps}.", gaps: "confirmed transport, confirmed lodging", review: "Review trip" },
-  fr: { week: "Votre voyage à {destination} commence dans une semaine", tomorrow: "Votre voyage à {destination} commence demain", departure: "Départ", start: "Début du voyage", confirmed: "Confirmé", none: "Aucune réservation confirmée n’est encore associée.", gap: "À vérifier : {gaps}.", gaps: "transport confirmé, hébergement confirmé", review: "Vérifier le voyage" },
-  es: { week: "Tu viaje a {destination} comienza en una semana", tomorrow: "Tu viaje a {destination} comienza mañana", departure: "Salida", start: "Inicio del viaje", confirmed: "Confirmado", none: "Todavía no hay reservas confirmadas vinculadas.", gap: "Pendiente de resolver: {gaps}.", gaps: "transporte confirmado, alojamiento confirmado", review: "Revisar viaje" },
-  ja: { week: "{destination}への旅行まであと1週間です", tomorrow: "{destination}への旅行は明日始まります", departure: "出発", start: "旅行開始", confirmed: "確定済み", none: "確定済みの予約はまだ登録されていません。", gap: "未解決の項目：{gaps}。", gaps: "確定済みの交通、確定済みの宿泊", review: "旅行を確認" },
-  ko: { week: "{destination} 여행이 일주일 남았습니다", tomorrow: "{destination} 여행이 내일 시작됩니다", departure: "출발", start: "여행 시작", confirmed: "확정됨", none: "아직 확정된 예약이 연결되어 있지 않습니다.", gap: "아직 해결되지 않은 항목: {gaps}.", gaps: "확정된 교통편, 확정된 숙박", review: "여행 검토" },
-  zh: { week: "距离前往{destination}还有一周", tomorrow: "前往{destination}的行程明天开始", departure: "出发", start: "行程开始", confirmed: "已确认", none: "目前还没有关联已确认的预订。", gap: "尚待处理：{gaps}。", gaps: "已确认交通、已确认住宿", review: "查看行程" }
+  en: { week: "{destination} is one week away", tomorrow: "{destination} starts tomorrow", departure: "Departure", start: "Trip start", confirmed: "Confirmed", none: "No confirmed bookings are attached yet.", gap: "Still unresolved: {gaps}.", gaps: "confirmed transport, confirmed lodging", review: "View your itinerary" },
+  fr: { week: "Votre voyage à {destination} commence dans une semaine", tomorrow: "Votre voyage à {destination} commence demain", departure: "Départ", start: "Début du voyage", confirmed: "Confirmé", none: "Aucune réservation confirmée n’est encore associée.", gap: "À vérifier : {gaps}.", gaps: "transport confirmé, hébergement confirmé", review: "Voir mon voyage" },
+  es: { week: "Tu viaje a {destination} comienza en una semana", tomorrow: "Tu viaje a {destination} comienza mañana", departure: "Salida", start: "Inicio del viaje", confirmed: "Confirmado", none: "Todavía no hay reservas confirmadas vinculadas.", gap: "Pendiente de resolver: {gaps}.", gaps: "transporte confirmado, alojamiento confirmado", review: "Ver mi viaje" },
+  ja: { week: "{destination}への旅行まであと1週間です", tomorrow: "{destination}への旅行は明日始まります", departure: "出発", start: "旅行開始", confirmed: "確定済み", none: "確定済みの予約はまだ登録されていません。", gap: "未解決の項目：{gaps}。", gaps: "確定済みの交通、確定済みの宿泊", review: "旅行を見る" },
+  ko: { week: "{destination} 여행이 일주일 남았습니다", tomorrow: "{destination} 여행이 내일 시작됩니다", departure: "출발", start: "여행 시작", confirmed: "확정됨", none: "아직 확정된 예약이 연결되어 있지 않습니다.", gap: "아직 해결되지 않은 항목: {gaps}.", gaps: "확정된 교통편, 확정된 숙박", review: "내 여행 보기" },
+  zh: { week: "距离前往{destination}还有一周", tomorrow: "前往{destination}的行程明天开始", departure: "出发", start: "行程开始", confirmed: "已确认", none: "目前还没有关联已确认的预订。", gap: "尚待处理：{gaps}。", gaps: "已确认交通、已确认住宿", review: "查看我的行程" }
 } as const;
 
 function reminderCopy(locale: string, key: keyof typeof PRETRIP_COPY.en, values: Record<string, string> = {}) {

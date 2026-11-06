@@ -18,6 +18,13 @@ import {
   sendCompanionNotificationDelivery
 } from "@/lib/roamly/companionNotifications";
 import type { TrackingActivity, TrackingTrip } from "@/lib/roamly/tripActivation";
+// L12 (2026-10-31): the status sets in this file include "generated"
+// — the ONE live-ready set in lib/roamly/liveEligibility.ts
+// (locked/active/planned/generated). This cron previously processed
+// only locked/active/planned, so a generated+locked+unlocked trip
+// (the production Montreal shape) never entered the time lifecycle
+// even though its window already resolved destination-locally here
+// via resolveBackgroundTripTimezone (hold-on-unknown preserved).
 import { clearLastLocationIfNoOperationalTrip } from "@/lib/roamly/locationLifecycle";
 
 type LifecycleActivity = Pick<TrackingActivity, "id" | "title" | "scheduled_start" | "scheduled_end" | "sort_order" | "status" | "description" | "address" | "city" | "region" | "country" | "latitude" | "longitude" | "radius_meters">;
@@ -116,7 +123,7 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
     status: "active",
     activated_at: trip.activated_at || now.toISOString(),
     trip_companion_status: "active"
-  }).eq("id", trip.id).eq("user_id", trip.user_id).in("status", ["locked", "planned", "active"]);
+  }).eq("id", trip.id).eq("user_id", trip.user_id).in("status", ["locked", "planned", "active", "generated"]);
 
   if (start && start.getTime() > now.getTime()) {
     const countdownMinutes = Math.max(1, Math.round((start.getTime() - now.getTime()) / 60_000));
@@ -194,7 +201,7 @@ export async function processLiveCompanionTimeLifecycle(params: { now?: Date } =
       .or(cursor
         ? `and(or(tracking_unlocked.eq.true,live_companion_unlocked.eq.true),or(start_date.gt.${cursor.startDate},and(start_date.eq.${cursor.startDate},id.gt.${cursor.id})))`
         : "tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
-      .in("status", ["locked", "active", "planned"])
+      .in("status", ["locked", "active", "planned", "generated"])
       .order("start_date", { ascending: true, nullsFirst: false })
       .order("id", { ascending: true })
       .range(0, pageSize - 1);
@@ -231,7 +238,7 @@ export async function processLiveCompanionTimeLifecycleForTrip(tripId: string, u
     .eq("user_id", userId)
     .eq("itinerary_locked", true)
     .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
-    .in("status", ["locked", "active", "planned"])
+    .in("status", ["locked", "active", "planned", "generated"])
     .maybeSingle();
   if (tripResult.error) return { ok: false as const, error: tripResult.error.message };
   if (!tripResult.data) return { ok: true as const, processed: 0, result: { skipped: "trip_not_eligible" } };

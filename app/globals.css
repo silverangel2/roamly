@@ -55,6 +55,17 @@ select {
   font: inherit;
 }
 
+/* Layout checklist (owner, 2026-11-03): when the browser scrolls a
+   focused field into view (e.g. above the on-screen keyboard), the
+   field must clear the sticky header and the fixed bottom tab bar —
+   never hide under either. */
+input,
+textarea,
+select {
+  scroll-margin-top: 5.5rem;
+  scroll-margin-bottom: 6.5rem;
+}
+
 ::selection {
   background: rgba(84, 214, 198, 0.35);
 }
@@ -593,5 +604,487 @@ select {
   a {
     color: inherit !important;
     text-decoration: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* BoardUI foundation — Roamly port (2026-11-03, build-only branch)    */
+/*                                                                     */
+/* BoardUI's foundation model (BoardUI/boardui, MIT): a CSS-variable   */
+/* token layer (primitives -> semantic roles) + motion primitives,     */
+/* with components referencing roles, never raw values. BoardUI ships  */
+/* it as Tailwind v4 CSS-first; this tree is Tailwind v3, so the same  */
+/* model is expressed as --bui-* variables + utility classes here,     */
+/* mirrored as data in components/boardui/tokens.ts. Values are ALL    */
+/* Roamly's adopted tokens — BoardUI supplies structure and motion     */
+/* craft, not a new brand. No black anywhere: ink is navy-slate.       */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --bui-blue: #087bff;
+  --bui-navy: #071e55;
+  --bui-head: #223354;
+  --bui-ink: #3d4e6d;
+  --bui-gray: #657795;
+  --bui-gray-2: #9aa5b8;
+  --bui-hairline: #dce5f0;
+  --bui-bg: #f2f6fc;
+  --bui-soft: #e6effa;
+  --bui-card: #ffffff;
+  --bui-success: #17a86b;
+  --bui-orange: #ff793d;
+  --bui-purple: #8957e5;
+  --bui-warning: #e94f67;
+  --bui-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --bui-shadow-card: 0 1px 2px rgba(31, 45, 77, 0.05), 0 10px 28px rgba(16, 32, 51, 0.05);
+  --bui-shadow-lift: 0 2px 4px rgba(31, 45, 77, 0.06), 0 24px 48px -24px rgba(7, 30, 85, 0.25);
+}
+
+/* Entrance: fade + 8px rise on the house easing; stagger via
+   --bui-delay (BoardUI's staggered section entrances). */
+@keyframes bui-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bui-enter {
+  animation: bui-enter 420ms var(--bui-ease) both;
+  animation-delay: var(--bui-delay, 0ms);
+}
+
+/* Tactile press (BoardUI button craft, same recipe as .roamly-press). */
+.bui-press {
+  transition: transform 180ms var(--bui-ease);
+}
+
+.bui-press:active {
+  transform: scale(0.97);
+}
+
+/* Card lift on pointer devices (BoardUI card hover recipe). */
+@media (hover: hover) and (pointer: fine) {
+  .bui-lift {
+    transition: transform 350ms var(--bui-ease), box-shadow 350ms var(--bui-ease);
+  }
+
+  .bui-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--bui-shadow-lift);
+  }
+}
+
+/* Skeleton sheen: a soft navy-tinted light layer sweeping the
+   placeholder (BoardUI skeleton's layered sheen, Roamly-tinted). */
+@keyframes bui-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.bui-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    rgba(230, 239, 250, 0) 30%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(230, 239, 250, 0) 70%
+  );
+  background-size: 200% 100%;
+  animation: bui-shimmer 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bui-enter {
+    animation: none !important;
+  }
+
+  .bui-press,
+  .bui-lift {
+    transition: none !important;
+  }
+
+  .bui-press:active,
+  .bui-lift:hover {
+    transform: none !important;
+  }
+
+  .bui-shimmer {
+    animation: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Owner layout checklist (2026-11-03) — baked into the foundation.   */
+/* Five standing mobile rules; future screens inherit them here.      */
+/* Mirrored as data in components/boardui/tokens.ts (buiLayout).      */
+/* ------------------------------------------------------------------ */
+
+/* Rule 2 — big numbers never wrap: price/stat displays keep one line
+   and tabular figures (size caps live with the caller: card prices
+   stay <= text-3xl, hero stats <= text-5xl). */
+.bui-display-number {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rule 3 — input text >= 16px so iOS Safari never auto-zooms on tap.
+   Pair with the right inputmode (numeric/decimal/email/tel) per field;
+   see buiLayout.inputModes in tokens.ts. Scroll margins (vibe-tells
+   checklist #3): when a field takes focus, the browser scrolls it
+   clear of the mobile keyboard instead of hiding it behind one —
+   45vh of clearance below approximates the keyboard's height. */
+.bui-input {
+  font-size: 16px;
+  scroll-margin-top: 6rem;
+  scroll-margin-bottom: 45vh;
+}
+
+/* Rule 4 — touch targets >= 44px on touch (coarse-pointer) devices.
+   Fine pointers keep the denser desktop sizes. */
+@media (pointer: coarse) {
+  .bui-touch {
+    min-height: 44px;
+  }
+
+  .bui-touch-square {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Rule 5 — fixed bottom bars clear the home indicator, and page
+   content gets matching clearance (the frozen base already ships
+   .safe-bottom for content; this is the bar-side utility). */
+.bui-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Rule 1 — tables become cards under 640px: rows stack as cards and
+   each cell labels itself from its data-label attribute, so no column
+   ever hides behind a sideways swipe. */
+@media (max-width: 639px) {
+  .bui-table-cards table,
+  .bui-table-cards thead,
+  .bui-table-cards tbody,
+  .bui-table-cards tr,
+  .bui-table-cards td {
+    display: block;
+    width: 100%;
+  }
+
+  .bui-table-cards thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .bui-table-cards tr {
+    border: 1px solid var(--bui-hairline);
+    border-radius: var(--bui-radius-card, 1.25rem);
+    background: var(--bui-card);
+    box-shadow: var(--bui-shadow-card);
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .bui-table-cards td {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0;
+  }
+
+  .bui-table-cards td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    color: var(--bui-gray);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Owner form rules (2026-11-03) — baked into the foundation.         */
+/* Rule 4: style autofill on purpose. Chrome paints an autofilled    */
+/* field pale blue/yellow and ignores the field's own background;    */
+/* the only reliable override is an inset box-shadow in the surface  */
+/* colour plus -webkit-text-fill-color for the text. Scoped to       */
+/* .bui-input — the foundation input class — so every BoardUI-form   */
+/* field keeps the white surface and the navy-slate ink (#223354 =   */
+/* --bui-head, the colour .bui-input fields carry as text-chead)     */
+/* when the browser fills it. The long background-color transition   */
+/* suppresses Chrome's repaint flash on the same state.              */
+/* ------------------------------------------------------------------ */
+.bui-input:-webkit-autofill,
+.bui-input:-webkit-autofill:hover,
+.bui-input:-webkit-autofill:focus,
+.bui-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--bui-head);
+  caret-color: var(--bui-head);
+  -webkit-box-shadow: 0 0 0 1000px var(--bui-card) inset;
+  box-shadow: 0 0 0 1000px var(--bui-card) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* ------------------------------------------------------------------ */
+/* iPhone-feel physics layer (2026-11-04) — the six invisible        */
+/* details as foundation behaviour, under the micro-interaction      */
+/* sets. JS springs live in components/boardui/spring.ts (a real     */
+/* integrator: damping ratio 0.8 = ~1.5% overshoot); this block is   */
+/* its CSS half: the spring-approximating easing for pure-CSS        */
+/* transitions, touch-down response, momentum scrolling, and the     */
+/* continuous-corner approximation. Mirrored as data in              */
+/* components/boardui/tokens.ts (buiSpringPhysics).                  */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Spring-approximating easing for CSS transitions: fast first,
+     ~1.5% overshoot (peak output 1.015 measured on the curve),
+     then settle — the CSS shadow of the JS spring's ζ = 0.8. */
+  --bui-spring-ease: cubic-bezier(0.3, 1.22, 0.4, 1);
+}
+
+/* Rule 2 on CSS transitions: press/lift travel on the spring curve,
+   so a press dips a breath past its rest scale and settles, and a
+   release pops ~1.5% past 1 before resting — the same settle the
+   JS springs produce on gesture surfaces. */
+.bui-press {
+  transition-timing-function: var(--bui-spring-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .bui-lift {
+    transition-timing-function: var(--bui-spring-ease);
+  }
+}
+
+/* Rule 1 — touch-down response: `touch-action: manipulation`
+   removes the double-tap-zoom wait, so :active states land on the
+   frame the finger lands (0 ms), never on release. Pair with
+   .bui-press (buttons, cards) or .bui-tab-press (tab bar) for the
+   visible half. The grey tap flash is off: the press state IS the
+   feedback. */
+.bui-tap {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bui-tab-press {
+  transition: transform 180ms var(--bui-spring-ease);
+}
+
+.bui-tab-press:active {
+  transform: scale(0.93);
+}
+
+/* Rule 3 — momentum on scrollable surfaces: native touch momentum
+   stays on, and overscroll never chains through to the page
+   behind (a sheet's list ends at the sheet). */
+.bui-momentum {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Rule 6 — continuous corners: a squircle (superellipse) corner
+   ramps in gently like iOS continuous curvature instead of a
+   circle arc glued to a straight edge. Applied through the
+   BuiCard / BuiSheet / BuiCheckoutSuccess primitives so it lands
+   everywhere at once. Browsers without corner-shape keep the
+   plain radius — graceful fallback, same layout. */
+@supports (corner-shape: squircle) {
+  .bui-squircle {
+    corner-shape: squircle;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bui-tab-press {
+    transition: none !important;
+  }
+
+  .bui-tab-press:active {
+    transform: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Motion-set keyframes (2026-11-04) — the CSS half of the animated  */
+/* icons, smooth details and feels-right set. JS/spring halves live  */
+/* in components/boardui/spring.ts + AnimatedIcons.tsx.              */
+/* ------------------------------------------------------------------ */
+
+/* Send plane: flies off on an arc (up-right, rotating away), then a
+   new plane springs in from the lower left — one element, one
+   flight; the re-entry segment rides the spring curve. */
+@keyframes bui-send-flight {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  42% {
+    transform: translate(15px, -11px) rotate(14deg);
+    opacity: 0;
+    animation-timing-function: var(--bui-spring-ease);
+  }
+  43% {
+    transform: translate(-11px, 9px) rotate(-6deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.bui-send-flight {
+  animation: bui-send-flight 640ms var(--bui-ease) both;
+}
+
+/* Wrong input shakes (feels-right set): the "no" is felt before a
+   word is read. Fires alongside the human error message, never
+   instead of it (form rules); retriggered by remounting the field
+   block on the hook's shake key (Field.tsx). */
+@keyframes bui-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-7px);
+  }
+  32% {
+    transform: translateX(6px);
+  }
+  49% {
+    transform: translateX(-4px);
+  }
+  66% {
+    transform: translateX(3px);
+  }
+  83% {
+    transform: translateX(-1px);
+  }
+}
+
+.bui-shake {
+  animation: bui-shake 400ms var(--bui-ease) both;
+}
+
+/* Menus grow OUT of the button that was tapped (feels-right set):
+   the panel scales from its trigger edge on the spring curve —
+   pair with origin-top (or the edge the trigger sits on). */
+@keyframes bui-menu-grow {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.bui-menu-grow {
+  animation: bui-menu-grow 230ms var(--bui-spring-ease) both;
+}
+
+/* Notification bell (smooth details): swings ±24° and settles in
+   ~760ms, hung from its top centre like the real thing. */
+@keyframes bui-bell-swing {
+  0% {
+    transform: rotate(0deg);
+  }
+  18% {
+    transform: rotate(24deg);
+  }
+  42% {
+    transform: rotate(-17deg);
+  }
+  63% {
+    transform: rotate(9deg);
+  }
+  82% {
+    transform: rotate(-4deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.bui-bell-swing {
+  transform-origin: 50% 12%;
+  animation: bui-bell-swing 760ms var(--bui-ease) both;
+}
+
+/* Badge pop (smooth details): a count that changed makes itself
+   felt once — spring-curve scale, no loop. */
+@keyframes bui-badge-pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.38);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.bui-badge-pop {
+  animation: bui-badge-pop 380ms var(--bui-spring-ease) both;
+}
+
+/* Like/save pop (feels-right set): one spring-curve burst on the
+   control itself — feedback strong enough that nobody taps twice
+   to be sure. */
+.bui-pop {
+  transition: transform 260ms var(--bui-spring-ease);
+}
+
+.bui-pop:active {
+  transform: scale(1.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bui-send-flight,
+  .bui-shake,
+  .bui-menu-grow,
+  .bui-bell-swing,
+  .bui-badge-pop {
+    animation: none !important;
+  }
+
+  .bui-pop {
+    transition: none !important;
+  }
+
+  .bui-pop:active {
+    transform: none !important;
+  }
+}
+
+/* Morph-button tick (MorphButton.tsx): the done state's tick draws
+   itself inside the same compact shape the spinner held. */
+@keyframes bui-tick-draw {
+  from {
+    stroke-dashoffset: 22;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-bui-morph-phase] svg path {
+    animation: none !important;
   }
 }

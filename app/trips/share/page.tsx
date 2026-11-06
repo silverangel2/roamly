@@ -44,8 +44,8 @@ export default async function ShareItineraryPage({ searchParams }: PageProps) {
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
-      <div className="mb-5">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Itinerary Library</p>
+      <div className="bui-enter mb-5">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Itinerary Library</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-ink">Share your proven itinerary</h1>
         <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
           Completed a trip worth repeating? Share it so future travelers get suggestions proven by real
@@ -54,7 +54,7 @@ export default async function ShareItineraryPage({ searchParams }: PageProps) {
         </p>
       </div>
       {completed.error ? (
-        <p className="rounded-2xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
+        <p className="bui-enter rounded-bui-card border border-cred/40 bg-cred/10 px-4 py-3 text-sm font-bold text-[#B92C44] shadow-bui-card">
           Could not load your trips: {completed.error}
         </p>
       ) : (

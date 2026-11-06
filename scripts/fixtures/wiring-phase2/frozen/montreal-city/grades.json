@@ -3,7 +3,7 @@
     {
       "leg": "request:earliest-start",
       "status": "DONE",
-      "detail": "all 23 timed items start at or after 09:00"
+      "detail": "all 24 timed items start at or after 09:00"
     },
     {
       "leg": "request:rest-block",
@@ -12,8 +12,8 @@
     },
     {
       "leg": "request:keyword-market",
-      "status": "VIOLATED",
-      "detail": "nothing in the itinerary matches Jean Talon market morning"
+      "status": "DONE",
+      "detail": "itinerary mentions \"jean talon\" (Jean Talon market morning)"
     },
     {
       "leg": "request:keyword-science-centre",
@@ -48,7 +48,7 @@
     {
       "leg": "engine:must-sees",
       "status": "NOT DONE",
-      "detail": "science centre afternoon: unmet; Jean Talon market morning: unmet"
+      "detail": "science centre afternoon: unmet; Jean Talon market morning: scheduled (day 1)"
     },
     {
       "leg": "engine:extractor-agreement",
@@ -92,7 +92,7 @@
     {
       "id": "earliest-start",
       "verdict": "KEPT",
-      "evidence": "all 23 timed items start at or after 09:00"
+      "evidence": "all 24 timed items start at or after 09:00"
     },
     {
       "id": "rest-block",
@@ -101,8 +101,8 @@
     },
     {
       "id": "keyword-market",
-      "verdict": "VIOLATED",
-      "evidence": "nothing in the itinerary matches Jean Talon market morning"
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"jean talon\" (Jean Talon market morning)"
     },
     {
       "id": "keyword-science-centre",
@@ -145,8 +145,7 @@
   },
   "unresolved": [
     "must-see unmet: science centre afternoon — no matching candidate exists in the open data for this destination",
-    "must-see unmet: Jean Talon market morning — candidate \"Marché Jean Talon\" exists but no feasible slot remained (distance/geometry)",
-    "opening hours: 12 of 23 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "opening hours: 12 of 24 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
     "prices: the price layer judged the cap AT RISK on labeled evidence (coverage 19/19 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
   ]
 }

@@ -56,11 +56,11 @@ export default function CustomerActivityRemoval({ tripId, dayId, itemId, title }
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">It will leave that time free and update affected trip checks. It will not cancel an external booking, issue a refund, or move other activities.</p>
           {edit ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" onClick={apply} disabled={busy} className="min-h-10 rounded-full bg-ocean px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? "Removing…" : "Confirm removal"}</button>
-              <button type="button" onClick={() => { setEdit(null); setOpen(false); }} disabled={busy} className="min-h-10 rounded-full border border-slate-300 px-4 py-2 text-xs font-black text-slate-700">Keep activity</button>
+              <button type="button" onClick={apply} disabled={busy} className="min-h-11 rounded-full bg-ocean px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? "Removing…" : "Confirm removal"}</button>
+              <button type="button" onClick={() => { setEdit(null); setOpen(false); }} disabled={busy} className="min-h-11 rounded-full border border-slate-300 px-4 py-2 text-xs font-black text-slate-700">Keep activity</button>
             </div>
           ) : (
-            <button type="button" onClick={prepare} disabled={busy} className="mt-3 min-h-10 rounded-full bg-ocean px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? "Checking…" : "Review removal"}</button>
+            <button type="button" onClick={prepare} disabled={busy} className="mt-3 min-h-11 rounded-full bg-ocean px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? "Checking…" : "Review removal"}</button>
           )}
           {message ? <p className="mt-2 text-xs font-bold text-amber-800" aria-live="polite">{message}</p> : null}
         </div>

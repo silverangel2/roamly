@@ -1,6 +1,7 @@
 "use client";
 
 import Script from "next/script";
+import { ArrowUpRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   isTrustedTravelpayoutsWidgetUrl,
@@ -132,13 +133,33 @@ export function FindsTrackedLink({ href, eyebrow, headline, description, action 
     <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">{eyebrow}</p>
     <h3 className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">{headline}</h3>
     <p className="mt-2 max-w-xl text-sm leading-6 text-[#60766d]">{description}</p>
-    <a href={href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">{action}<span aria-hidden="true" className="ml-2">↗</span></a>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">{action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
   </article>;
+}
+
+/** A20 (Jakob's Law round, 2026-11-03): the promo CTA names the partner
+ *  it opens BEFORE the tap, following the FindsTravelDeals pattern, when
+ *  the promo destination identifies one. Promos are admin-configured and
+ *  can point at any tracked destination, so only known partner hosts are
+ *  named; an unrecognised destination keeps the generic label and the
+ *  promo's own headline/description carry the offer. */
+function promoPartnerName(href: string): string | null {
+  const value = href.toLowerCase();
+  if (value.includes("kkday.")) return "KKday";
+  if (value.includes("aviasales.")) return "Aviasales";
+  if (value.includes("stay22.") || value.includes("booking.com")) return "Booking.com via Stay22";
+  if (value.includes("intui.")) return "Intui";
+  if (value.includes("amazon.")) return "Amazon";
+  if (value.includes("klook.")) return "Klook";
+  if (value.includes("airalo.")) return "Airalo";
+  if (value.includes("getrentacar.")) return "GetRentacar";
+  return null;
 }
 
 export function FindsPromo({ promo }: { promo: FindsPromoConfig }) {
   if (!promo.enabled) return null;
-  return <FindsTrackedLink href={promo.href} eyebrow={promo.eyebrow} headline={promo.headline} description={promo.description} action="Explore the current selection" />;
+  const partner = promoPartnerName(promo.href);
+  return <FindsTrackedLink href={promo.href} eyebrow={promo.eyebrow} headline={promo.headline} description={promo.description} action={partner ? `Explore the current selection on ${partner}` : "Explore the current selection"} />;
 }
 
 export function Stay22LetMeAllezScript() {

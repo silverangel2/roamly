@@ -61,7 +61,7 @@ function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
               href={card.url}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
             >
               {card.ctaLabel}
             </a>
@@ -224,23 +224,34 @@ export function GuestFreeItinerary() {
               {translateText("If that email has a free itinerary, a link is on its way to it.")}
             </p>
           ) : (
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input
-                type="email"
-                value={recoveryEmail}
-                onChange={(event) => setRecoveryEmail(event.target.value)}
-                placeholder="Email"
-                autoComplete="email"
-                className="min-h-12 flex-1 rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-semibold text-ink"
-              />
-              <button
-                type="button"
-                disabled={recoveryBusy || !recoveryEmail.trim()}
-                onClick={() => void requestRecovery()}
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {translateText(recoveryBusy ? "Sending…" : "Send me the link")}
-              </button>
+            <div className="mt-3">
+              {/* Form Rules pass (2026-11-03), rule 1: this field's only
+                  label was its placeholder ("Email") — the moment the
+                  traveller started typing, nothing named the field. It
+                  now carries a persistent label; the placeholder is
+                  demoted to an example address. */}
+              <label htmlFor="guest-recovery-email" className="text-sm font-black text-ink">
+                {translateText("Email")}
+              </label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="guest-recovery-email"
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(event) => setRecoveryEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="min-h-12 flex-1 rounded-xl border border-cloud bg-white px-4 py-3 text-base font-semibold text-ink"
+                />
+                <button
+                  type="button"
+                  disabled={recoveryBusy || !recoveryEmail.trim()}
+                  onClick={() => void requestRecovery()}
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
+                >
+                  {translateText(recoveryBusy ? "Sending…" : "Send me the link")}
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -357,23 +368,33 @@ export function GuestFreeItinerary() {
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
               {translateText("Day 1 is ready. Leave your email and we'll send the rest of this itinerary to you — and you can get this trip back if you switch browsers.")}
             </p>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <input
-                type="email"
-                value={emailDraft}
-                onChange={(event) => setEmailDraft(event.target.value)}
-                placeholder="Email"
-                autoComplete="email"
-                className="min-h-12 flex-1 rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-semibold text-ink"
-              />
-              <button
-                type="button"
-                disabled={emailSaving || !emailDraft.trim()}
-                onClick={() => void saveDeliveryEmail()}
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
-              >
-                {translateText(emailSaving ? "Saving…" : "Send the rest to me")}
-              </button>
+            <div className="mt-3">
+              {/* Form Rules pass (2026-11-03), rule 1: same defect as
+                  the recovery field above — placeholder was the only
+                  label. Persistent label added; placeholder demoted
+                  to an example address. */}
+              <label htmlFor="guest-delivery-email-address" className="text-sm font-black text-ink">
+                {translateText("Email")}
+              </label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="guest-delivery-email-address"
+                  type="email"
+                  value={emailDraft}
+                  onChange={(event) => setEmailDraft(event.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className="min-h-12 flex-1 rounded-xl border border-cloud bg-white px-4 py-3 text-base font-semibold text-ink"
+                />
+                <button
+                  type="button"
+                  disabled={emailSaving || !emailDraft.trim()}
+                  onClick={() => void saveDeliveryEmail()}
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
+                >
+                  {translateText(emailSaving ? "Saving…" : "Send the rest to me")}
+                </button>
+              </div>
             </div>
             {emailError ? <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{translateText(emailError)}</p> : null}
           </div>
@@ -406,7 +427,7 @@ export function GuestFreeItinerary() {
                 href={itinerary.flightSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer sponsored"
-                className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
+                className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
               >
                 {translateText(GUEST_FLIGHT_SEARCH_CTA)}
               </a>

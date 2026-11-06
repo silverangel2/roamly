@@ -60,6 +60,26 @@ import type {
   LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
 
+/**
+ * A27 (Jakob's Law round, 2026-11-03): where the standalone directions
+ * screen's back chevron returns. Every entry point passes its TRUE
+ * origin in `?from=`: place detail passes "place", the Live companion
+ * passes "live", itinerary/trip entries pass "trip". The back logic
+ * honours the passed origin; ANY other value — "trip", "itinerary",
+ * missing, or unknown — falls back to the trip home (the itinerary),
+ * NEVER to Live. Before this fix the fallback was Live, so a traveller
+ * who arrived from the itinerary was returned to the wrong surface.
+ */
+export function resolveDirectionsBackHref(input: {
+  tripId: string;
+  placeId: string;
+  from?: string | null;
+}): string {
+  if (input.from === "place") return `/trip/${input.tripId}/place/${input.placeId}`;
+  if (input.from === "live") return `/trip/${input.tripId}/live`;
+  return `/trip/${input.tripId}`;
+}
+
 export type DirectionsDestination = {
   id: string;
   title: string;

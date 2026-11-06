@@ -330,7 +330,7 @@
         }
       ],
       "narrative": [
-        "Thursday, October 22 begins at a humane hour — the first stop is Bill Thorpe Walking Bridge at 09:38, and nothing on this day starts before 09:00.",
+        "Thursday, October 22 starts with Bill Thorpe Walking Bridge at 09:38.",
         "The base for the night is Fort Nashwaak Motel, picked for what surrounds it: 2 sights within a short walk.",
         "Expect a mild 12° — good walking weather, with layers for the shade.",
         "Bill Thorpe Walking Bridge fills 09:38–10:38 — long enough to enjoy properly, short enough to keep the day light.",
@@ -453,6 +453,44 @@
             "text": "Book tours & activities",
             "url": "https://kkday.tpo.lu/DrPvqlSH"
           }
+        },
+        {
+          "type": "stop",
+          "key": "node/13783627757",
+          "name": "Quartermain Earth Science Centre",
+          "kind": "museum",
+          "role": "mustsee",
+          "start": 857,
+          "end": 947,
+          "pos": {
+            "lat": 45.9481625,
+            "lon": -66.6423
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/13783627757",
+          "price": "UNKNOWN",
+          "startTime": "14:17",
+          "endTime": "15:47",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
         }
       ],
       "legs": [
@@ -497,29 +535,45 @@
         },
         {
           "fromKey": "way/34938999",
-          "toKey": "base",
+          "toKey": "node/13783627757",
           "fromName": "Carleton Park",
-          "toName": "Fort Nashwaak Motel",
-          "mode": "walk",
-          "km": 0.84,
-          "minutes": 12,
+          "toName": "Quartermain Earth Science Centre",
+          "mode": "drive",
+          "km": 1.88,
+          "minutes": 3,
           "depart": 854,
-          "arrive": 866,
+          "arrive": 857,
           "departTime": "14:14",
-          "arriveTime": "14:26"
+          "arriveTime": "14:17"
+        },
+        {
+          "fromKey": "node/13783627757",
+          "toKey": "base",
+          "fromName": "Quartermain Earth Science Centre",
+          "toName": "Fort Nashwaak Motel",
+          "mode": "drive",
+          "km": 1.65,
+          "minutes": 3,
+          "depart": 947,
+          "arrive": 950,
+          "departTime": "15:47",
+          "arriveTime": "15:50"
         }
       ],
       "narrative": [
-        "Friday, October 23 is built around Charles Avenue Park, with the day's stops gathered close so the walking stays easy.",
+        "Friday, October 23 is built around Charles Avenue Park.",
         "Charles Avenue Park is the day's green pause, 09:38–10:23 — no tickets, no timetable to chase.",
         "Opening hours weren't listed for Charles Avenue Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "From Charles Avenue Park, it is a 11-minute walk to Grain and Grind Co. — close enough to stroll without watching the clock.",
         "Lunch is at Grain and Grind Co., 12:26–13:26.",
         "Carleton Park is next, just 3 minutes on foot from Grain and Grind Co..",
         "A slower stretch follows at Carleton Park, 13:29–14:14.",
-        "The day winds down back at base by 14:26 — 2 stops, no long walks, and the evening left free."
+        "Then the day's one longer leg: about 3 minutes by road to Quartermain Earth Science Centre.",
+        "Quartermain Earth Science Centre gets the morning's main slot, 14:17 to 15:47 — unhurried, with time to double back to favourites.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 15:50 — 3 stops, no long walks, and the evening left free."
       ],
-      "endMin": 866
+      "endMin": 950
     },
     {
       "dayNumber": 3,
@@ -649,7 +703,7 @@
         }
       ],
       "narrative": [
-        "Saturday, October 24 is built around Morell Park, with the day's stops gathered close so the walking stays easy.",
+        "Saturday, October 24 is built around Morell Park.",
         "Morell Park is the day's green pause, 09:43–10:28 — no tickets, no timetable to chase.",
         "Opening hours weren't listed for Morell Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "From Morell Park, it is a 19-minute walk to Nomad Coffee — close enough to stroll without watching the clock.",
@@ -774,54 +828,6 @@
             "text": "Book tours & activities",
             "url": "https://kkday.tpo.lu/DrPvqlSH"
           }
-        },
-        {
-          "type": "rest",
-          "part": "break",
-          "title": "A short pause — sit down, water, breathe",
-          "start": 958,
-          "end": 973,
-          "key": "break-2026-10-25-958",
-          "startTime": "15:58",
-          "endTime": "16:13"
-        },
-        {
-          "type": "stop",
-          "key": "node/13783627757",
-          "name": "Quartermain Earth Science Centre",
-          "kind": "museum",
-          "role": "mustsee",
-          "start": 990,
-          "end": 1080,
-          "pos": {
-            "lat": 45.9481625,
-            "lon": -66.6423
-          },
-          "hours": {
-            "status": "unknown",
-            "provenance": "none"
-          },
-          "hoursRaw": null,
-          "url": "https://www.openstreetmap.org/node/13783627757",
-          "price": "UNKNOWN",
-          "startTime": "16:30",
-          "endTime": "18:00",
-          "priceEvidence": {
-            "tier": "COSTED",
-            "category": "admission",
-            "range": {
-              "low": 12,
-              "high": 26,
-              "currency": "CAD"
-            },
-            "per": "person",
-            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
-          },
-          "affiliate": {
-            "label": "tours",
-            "text": "Book tours & activities",
-            "url": "https://kkday.tpo.lu/DrPvqlSH"
-          }
         }
       ],
       "legs": [
@@ -866,46 +872,30 @@
         },
         {
           "fromKey": "way/103741298",
-          "toKey": "node/13783627757",
-          "fromName": "The Green",
-          "toName": "Quartermain Earth Science Centre",
-          "mode": "walk",
-          "km": 1.21,
-          "minutes": 17,
-          "depart": 973,
-          "arrive": 990,
-          "departTime": "16:13",
-          "arriveTime": "16:30"
-        },
-        {
-          "fromKey": "node/13783627757",
           "toKey": "base",
-          "fromName": "Quartermain Earth Science Centre",
+          "fromName": "The Green",
           "toName": "Fort Nashwaak Motel",
           "mode": "drive",
-          "km": 1.65,
+          "km": 1.62,
           "minutes": 3,
-          "depart": 1080,
-          "arrive": 1083,
-          "departTime": "18:00",
-          "arriveTime": "18:03"
+          "depart": 958,
+          "arrive": 961,
+          "departTime": "15:58",
+          "arriveTime": "16:01"
         }
       ],
       "narrative": [
-        "Sunday, October 25 is built around Science East, with the day's stops gathered close so the walking stays easy.",
+        "Sunday, October 25 is built around Science East.",
         "Lunch is at Momo Ramen & Izakaya, 12:36–13:36.",
         "From Momo Ramen & Izakaya, it is a 4-minute walk to Science East — close enough to stroll without watching the clock.",
         "Science East gets the morning's main slot, 13:40 to 15:10 — unhurried, with time to double back to favourites.",
         "Opening hours weren't listed for Science East — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "The Green is next, just 3 minutes on foot from Science East.",
         "Green is the day's green pause, 15:13–15:58 — no tickets, no timetable to chase.",
-        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
-        "The walk from Green to Quartermain Earth Science Centre takes about 17 minutes — a breather between stops, not a hike.",
-        "Give Quartermain Earth Science Centre a full 90 minutes (16:30–18:00); rushing it would miss the point.",
         "The drive back to base runs about 3 minutes.",
-        "The day winds down back at base by 18:03 — 3 stops, no long walks, and the evening left free."
+        "The day winds down back at base by 16:01 — 2 stops, no long walks, and the evening left free."
       ],
-      "endMin": 1083
+      "endMin": 961
     },
     {
       "dayNumber": 5,
@@ -1076,7 +1066,7 @@
         }
       ],
       "narrative": [
-        "Monday, October 26 is built around School Days Museum, with the day's stops gathered close so the walking stays easy.",
+        "Monday, October 26 is built around School Days Museum.",
         "Lunch is at MOCO Downtown, 12:36–13:36.",
         "From MOCO Downtown, it is a 6-minute walk to School Days Museum — close enough to stroll without watching the clock.",
         "School Days Museum gets the morning's main slot, 13:42 to 15:12 — unhurried, with time to double back to favourites.",
@@ -1126,7 +1116,7 @@
       "id": "keyword-childrens-museum",
       "label": "one children's museum morning",
       "status": "scheduled",
-      "day": 4,
+      "day": 2,
       "item": "Quartermain Earth Science Centre"
     }
   ],
@@ -1180,11 +1170,11 @@
       "day 1: \"The Cultural Market\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Charles Avenue Park\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Carleton Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Quartermain Earth Science Centre\" — opening hours not in the data (labeled, not invented)",
       "day 3: \"Morell Park\" — opening hours not in the data (labeled, not invented)",
       "day 3: \"Nomad Coffee\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"Science East\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"The Green\" — opening hours not in the data (labeled, not invented)",
-      "day 4: \"Quartermain Earth Science Centre\" — opening hours not in the data (labeled, not invented)",
       "day 5: \"School Days Museum\" — opening hours not in the data (labeled, not invented)",
       "day 5: \"St. Mary's Old Reserve\" — opening hours not in the data (labeled, not invented)"
     ]

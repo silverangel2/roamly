@@ -204,7 +204,7 @@ ok("STATIC panel: bottom tab bar NOT re-implemented (AppShell owns it)", () => {
   assert.ok(panel.includes("The bottom tab bar (Itinerary / Live /"));
 });
 ok("STATIC panel: embedded-map gap named honestly, Open-in-Maps links used", () => {
-  assert.ok(panel.includes("does not have an embedded map yet"));
+  assert.ok(panel.includes("No mappable locations for this day"));
   assert.ok(panel.includes("buildNavigationLinks"));
   assert.ok(!/leaflet|mapbox|google\.maps\.Map/i.test(panel));
 });

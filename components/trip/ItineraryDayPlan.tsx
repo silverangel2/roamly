@@ -1,10 +1,14 @@
+import type { CSSProperties } from "react";
 import { bookingExactTiming } from "@/lib/roamly/bookingDisplayTiming";
+import { ChevronRight } from "lucide-react";
+import { isConfirmed as bookingTruthIsConfirmed } from "@/lib/roamly/bookingTruth";
 import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
 import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
 import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { resolveConfiguredHotelPartners, type HotelPartnerChoice } from "@/lib/roamly/affiliateResolver";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
+import { itemCoordinates } from "@/lib/roamly/placeDetail";
 import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { formatMoney, type RoamlyItinerary } from "@/lib/itinerary";
@@ -188,7 +192,7 @@ export function NavigationChipList({ query }: { query: string }) {
           href={link.href}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex min-h-9 items-center text-[0.8125rem] font-medium text-cgray underline decoration-chair underline-offset-4 transition hover:text-chead"
+          className="inline-flex min-h-11 items-center text-[0.8125rem] font-medium text-cgray underline decoration-chair underline-offset-4 transition hover:text-chead"
         >
           {labels[link.provider] || link.label}
         </a>
@@ -257,6 +261,14 @@ export type DisplayTimelineItem = {
   /** True when the displayed time was shifted by a provider-validated flight-delay repair. */
   timeRetimed: boolean;
   retimedMinutes: number | null;
+  /** The stop's own stored coordinates, resolved from the plan/booking
+   *  record itself (placeDetail's itemCoordinates: direct
+   *  latitude/longitude, else the nested `coordinates` the engine
+   *  seeds write from the item's position). Null when the record
+   *  carries no position data — display-only, feeds the home view's
+   *  Map tab pins; nothing is fetched or geocoded. */
+  latitude: number | null;
+  longitude: number | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -275,9 +287,30 @@ function normalizedBookingTitle(value: unknown) {
 }
 
 function bookingIsConfirmed(booking: Record<string, unknown>) {
-  if (booking.superseded_by_booking_id != null) return false;
-  const status = getString(booking.booking_status || booking.status).toLowerCase();
-  return booking.traveler_confirmed === true || ["confirmed", "booked", "ticketed", "issued"].includes(status);
+  // Workstream A + Round 2 Lane E2: day-card consolidation derives
+  // from the ONE booking-truth rule at the providerConfirmationEvidence tier
+  // ONLY, not the old OR rule — a cancelled, unverified, or merely
+  // traveler-confirmed booking never pins a "confirmed" anchor
+  // ("Booked" pill / "Confirmed · booking time") onto the day.
+  return bookingTruthIsConfirmed({
+    booking_status: getString(booking.booking_status || booking.status),
+    traveler_confirmed: booking.traveler_confirmed === true,
+    confirmation_number: getString(booking.confirmation_number),
+    provider_booking_id: getString(booking.provider_booking_id),
+    provider_name: getString(booking.provider_name) || getString(booking.provider),
+    title: getString(booking.title),
+    source_type: getString(booking.source_type),
+    source_reference: getString(booking.source_reference),
+    superseded_by_booking_id: (booking.superseded_by_booking_id as string | null) ?? null,
+    metadata:
+      booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+        ? (booking.metadata as Record<string, unknown>)
+        : null,
+    reservation_requirements:
+      booking.reservation_requirements && typeof booking.reservation_requirements === "object" && !Array.isArray(booking.reservation_requirements)
+        ? (booking.reservation_requirements as Record<string, unknown>)
+        : null
+  });
 }
 
 type BookingTiming = { date: string; start: string; end: string };
@@ -316,6 +349,7 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
   const title = getString(booking.title) || category;
   const city = getString(booking.city);
   const address = getString(booking.address);
+  const coords = itemCoordinates(booking);
   return {
     itemId: "",
     itemType: bookingType,
@@ -339,7 +373,9 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
     authority: "confirmed",
     timeFromBooking: Boolean(timing.start),
     timeRetimed: false,
-    retimedMinutes: null
+    retimedMinutes: null,
+    latitude: coords?.latitude ?? null,
+    longitude: coords?.longitude ?? null
   };
 }
 
@@ -489,6 +525,7 @@ export function buildDisplayTimelineItems(
     const why = timelineText(record, "why_recommended", "whyRecommended", "selection_reason", "selectionReason", "reason");
     const retimedBy = timelineText(record, "retimed_by_event");
     const retimedMinutes = timelineNumber(record, "retimed_minutes");
+    const coords = itemCoordinates(record);
 
     if (!title && !description) continue;
     if (!transferLike && title && isGenericStopText(title) && (!location || isGenericStopText(location))) continue;
@@ -538,7 +575,9 @@ export function buildDisplayTimelineItems(
       authority,
       timeFromBooking: false,
       timeRetimed: Boolean(retimedBy),
-      retimedMinutes
+      retimedMinutes,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null
     });
 
     if (maxRows != null && output.length >= maxRows) break;
@@ -566,7 +605,7 @@ function mockRowTime(time: string) {
   const start = time.replace(/^Planned \u00b7 /, "").split("\u2013")[0].trim();
   return start.replace(/a\.m\./gi, "AM").replace(/p\.m\./gi, "PM");
 }
-export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: DisplayTimelineItem; tripId: string; dayId?: string; staySearch?: StaySearchContext | null }) {
+export function TimelineItemCard({ item, tripId, dayId, staySearch, index = 0 }: { item: DisplayTimelineItem; tripId: string; dayId?: string; staySearch?: StaySearchContext | null; index?: number }) {
   const stayPartners = stayPartnersForItem(item, staySearch);
   const subLine = [item.location, item.statusText].filter(Boolean);
   const secondary = [
@@ -579,7 +618,7 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
 
   const itemIsTravel = isTravelLeg({ title: item.title, category: item.category || item.itemType });
   return (
-    <article className="px-4 py-3">
+    <article className="bui-enter px-4 py-3" style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties}>
       {itemIsTravel ? <p className="mb-0.5 text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Travel</p> : null}
       <div className="flex items-baseline gap-2.5">
         <h4 className={`min-w-0 flex-1 break-words text-[17px] leading-[1.35] ${item.authority === "must_do" ? "font-semibold text-chead" : "font-normal text-cink"}`}>{item.unverified ? "Unverified stop" : item.title}</h4>
@@ -608,7 +647,7 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch }: { item: Di
       {item.itemId ? (
         <p className="mt-1.5">
           <a href={`/trip/${tripId}/place/${item.itemId}`} className="text-sm font-medium text-cblue">
-            Place details <span aria-hidden="true">›</span>
+            Place details <ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
           </a>
         </p>
       ) : null}
@@ -786,7 +825,7 @@ export function DayTimelineCard({
         <div className="divide-y divide-chair">
           {timelineItems.length ? (
             timelineItems.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} staySearch={staySearch} />
+              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} staySearch={staySearch} index={index} />
             ))
           ) : (
             <div className="px-4 py-4 text-sm font-normal leading-6 text-cink">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>

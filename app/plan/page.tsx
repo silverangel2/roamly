@@ -52,10 +52,13 @@ export default async function PlanPage() {
   ]);
 
   return (
-    <div className="safe-bottom min-w-0 bg-[#fbf8ef]">
-      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
-        <header className="mb-4">
-          <h1 className="text-sm font-semibold text-[#526b6c]">Plan a trip</h1>
+    <div className="safe-bottom min-w-0 bg-cbg">
+      {/* Plan-flow redesign (2026-11-03): plan creation is a full-screen
+          sheet — one focused column taking the whole screen, isolated
+          from the rest of the page. */}
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-3xl flex-col px-3 py-4 sm:px-6 sm:py-8">
+        <header className="bui-enter mb-4">
+          <h1 className="text-sm font-semibold text-cgray">Plan a trip</h1>
         </header>
         <TripPlanForm freeItineraryUsed={freeItineraryUsed} testerAccess={access.hasQaAccess} apiAuthToken={apiAuthToken} build2GatesEnabled={build2GatesEnabled()} secondTimeGateNotice={secondTimeGateNotice} />
       </div>

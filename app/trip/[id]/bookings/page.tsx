@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { BookingWalletTimeline } from "@/components/companion/BookingWalletTimeline";
+import { BookingAddedToast } from "@/components/companion/BookingAddedToast";
 import { GmailImportPanel } from "@/components/roamly/GmailImportPanel";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { tripHasTrackingUnlock } from "@/lib/roamly/billing";
@@ -9,6 +10,7 @@ import { getTripBundle, isMissingTableError } from "@/lib/trips";
 import { getServerLocale } from "@/lib/i18n-server";
 import { legacyRoamlyBookingToWallet, listTripBookings, stableBookingKey, type TripBookingRecord } from "@/lib/roamly/bookingWallet";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { formatRoamlyDate } from "@/lib/i18n";
 import { parseTripActionFocus } from "@/lib/roamly/tripReadiness";
 import type { BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
@@ -131,11 +133,18 @@ export default async function TripBookingsPage({ params, searchParams }: { param
   const companionOperational = !isCustomerTripTerminalState(tripLifecycle) && tripHasTrackingUnlock(trip);
 
   return (
-    <div className="min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] pb-8 text-ink">
+    <div className="min-h-[calc(100dvh-5rem)] bg-cbg pb-8 text-ink">
       <div className="mx-auto w-full max-w-6xl px-4 pt-5 sm:px-6 sm:pt-8">
+        <div className="mb-3">
+          <BackHeader href={`/trip/${id}`} label="Trip" />
+        </div>
         <TripContextNav tripId={id} title={tripTitle} destination={destinationLabel} dates={dates} status="Bookings" />
       </div>
       <GmailImportPanel tripId={id} locale={locale} />
+      {/* Success Rules pass (2026-11-03): names a just-added manual
+          booking on arrival (see BookingAddedToast). Renders
+          nothing unless the add flow left its flag. */}
+      <BookingAddedToast />
       <BookingWalletTimeline
         tripId={id}
         bookings={mergeBookings(walletBookings, legacyBookings)}

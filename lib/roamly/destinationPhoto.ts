@@ -27,13 +27,32 @@ import {
   PRODUCTION_DESTINATION_SEEDS
 } from "@/lib/roamly/engine/packs/destinations";
 
+/**
+ * Photo provenance — which tier of the fallback chain produced the
+ * photo. Tiers widen WHERE a verified photo of the place comes from;
+ * they never substitute a generic picture, and doubt at every tier
+ * resolves to null.
+ * - "wikimedia-commons" (Tier 0): Wikidata P18 lead image.
+ * - "wikimedia-commons-geosearch" (Tier 1): Commons file found by
+ *   coordinate geosearch around the place and distance/name gated.
+ * - "openstreetmap-image" (Tier 2): the place's own OSM element's
+ *   image / wikimedia_commons tag.
+ * - "openverse" (Tier 3): Openverse item passing the licence,
+ *   name, and destination-context gates.
+ */
+export type DestinationPhotoSource =
+  | "wikimedia-commons"
+  | "wikimedia-commons-geosearch"
+  | "openstreetmap-image"
+  | "openverse";
+
 export type DestinationPhoto = {
   imageUrl: string;
   /** Commons file page — where the credit links. */
   pageUrl: string | null;
   /** e.g. "OlorinakaGandalf · CC BY-SA 4.0" — shown discreetly. */
   credit: string | null;
-  source: "wikimedia-commons";
+  source: DestinationPhotoSource;
 };
 
 type CachedPhoto = DestinationPhoto & { fetchedAt: string };
@@ -51,6 +70,18 @@ const MAX_COORD_DISTANCE_KM = 150;
 
 function normalizedPlaceName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** NFD accent fold: "Marché" -> "Marche", so a French place name and
+ *  an ASCII-folded file title / catalogue entry compare equal. */
+function accentFold(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** normalizedPlaceName over the accent-folded value — the comparison
+ *  form the fallback tiers' gates use. */
+function normalizedFoldedName(value: string) {
+  return normalizedPlaceName(accentFold(value));
 }
 
 function stripHtml(value: string) {
@@ -303,30 +334,25 @@ async function findCommonsFileByGeosearch(
   return best;
 }
 
-/** Commons: turn a file name into a sized image URL + license credit. */
-async function commonsImageInfo(file: string): Promise<DestinationPhoto | null> {
-  const data = (await wikiFetch(
-    `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=1600&titles=${encodeURIComponent(`File:${file}`)}`
-  )) as {
-    query?: {
-      pages?: Record<
-        string,
-        {
-          imageinfo?: Array<{
-            thumburl?: string;
-            url?: string;
-            descriptionurl?: string;
-            extmetadata?: {
-              Artist?: { value?: string };
-              LicenseShortName?: { value?: string };
-            };
-          }>;
-        }
-      >;
-    };
-  } | null;
-  const page = data?.query?.pages ? Object.values(data.query.pages)[0] : null;
-  const info = page?.imageinfo?.[0];
+type CommonsImageInfo = {
+  thumburl?: string;
+  url?: string;
+  descriptionurl?: string;
+  extmetadata?: {
+    Artist?: { value?: string };
+    LicenseShortName?: { value?: string };
+  };
+};
+
+/** Build the photo from one Commons imageinfo record: the stepped
+ *  thumburl the API returns for iiurlwidth (never a hand-built thumb
+ *  URL) plus the licence credit from extmetadata. Shared by Tier 0
+ *  (commonsImageInfo) and Tier 1 (geosearch pages carry imageinfo
+ *  inline), so the credit/thumb behaviour is identical at both. */
+function photoFromImageInfo(
+  info: CommonsImageInfo | null | undefined,
+  source: DestinationPhotoSource
+): DestinationPhoto | null {
   if (!info?.url) return null;
   const artist = info.extmetadata?.Artist?.value ? stripHtml(info.extmetadata.Artist.value) : "";
   const license = info.extmetadata?.LicenseShortName?.value
@@ -337,20 +363,493 @@ async function commonsImageInfo(file: string): Promise<DestinationPhoto | null> 
     imageUrl: info.thumburl || info.url,
     pageUrl: info.descriptionurl || null,
     credit,
-    source: "wikimedia-commons"
+    source
   };
+}
+
+/** Commons: turn a file name into a sized image URL + license credit. */
+async function commonsImageInfo(
+  file: string,
+  source: DestinationPhotoSource = "wikimedia-commons"
+): Promise<DestinationPhoto | null> {
+  const data = (await wikiFetch(
+    `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=1600&titles=${encodeURIComponent(`File:${file}`)}`
+  )) as {
+    query?: {
+      pages?: Record<
+        string,
+        {
+          imageinfo?: CommonsImageInfo[];
+        }
+      >;
+    };
+  } | null;
+  const page = data?.query?.pages ? Object.values(data.query.pages)[0] : null;
+  const info = page?.imageinfo?.[0];
+  return photoFromImageInfo(info, source);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tier 1 — Commons geosearch around the place's own coordinates.     */
+/* Runs only when Tier 0 found nothing AND the place carries          */
+/* coordinates. A file is eligible only when it is verifiably of      */
+/* THIS place: its own coordinates within the pass radius, or — for   */
+/* a file with no coordinates — an exact folded title match PLUS a    */
+/* destination-context token in its title or categories. Anything     */
+/* else is a picture of somewhere else and resolves to null.          */
+/*                                                                    */
+/* Pass 1 (250 m) is unchanged: proximity alone gates it. Pass 2      */
+/* (1000 m) additionally demands a DISTINCTIVE name match: the file   */
+/* title must share at least one token from the place name's          */
+/* distinctive set — its accent-folded, length>2 tokens minus the     */
+/* generic type/filler set GENERIC_PLACE_TOKENS below (historic,      */
+/* house, museum, park, …). Generic-only overlap does NOT pass. If    */
+/* the distinctive set is empty (the name is all generic words, e.g.  */
+/* "National Park"), pass 2 instead requires full containment: the    */
+/* file title must contain ALL of the place name's tokens.            */
+/* Why: live coverage evidence 2026-11-03 (coverage-log §3, place     */
+/* X04 Beaconsfield Historic House, Charlottetown) — a Commons        */
+/* geosearch at 1000 m contains "Charlottetown historic house 01.jpg" */
+/* ~500 m away, a DIFFERENT house, sharing only the generic tokens    */
+/* "historic"/"house". The old pass-2 rule (share >=1 token where     */
+/* "distinctive" meant only length>2) could have admitted that        */
+/* wrong-house photo. The honesty law — a photo must BE the place —   */
+/* forbids that, so generic tokens no longer verify a pass-2 file.    */
+/* ------------------------------------------------------------------ */
+
+type CommonsGeoPage = {
+  title?: string;
+  coordinates?: Array<{ lat?: number; lon?: number }>;
+  categories?: Array<{ title?: string }>;
+  imageinfo?: CommonsImageInfo[];
+};
+
+/** "File:Marché Sainte-Anne (Montreal).jpg" -> "Marché Sainte-Anne":
+ *  strip the namespace, the extension, and one trailing parenthetical. */
+function commonsTitleBase(title: string): string {
+  return title
+    .replace(/^File:/i, "")
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim();
+}
+
+function tokenOverlap(a: Set<string>, b: Set<string>): number {
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared += 1;
+  return shared;
+}
+
+/** Generic place-name tokens for the Tier 1 pass-2 gate: words that
+ *  describe a TYPE of place or are pure filler, so sharing one proves
+ *  nothing about identity — two different historic houses share
+ *  "historic" and "house" without being the same place (X04 evidence,
+ *  2026-11-03, see the Tier 1 header above). Matched against the
+ *  accent-folded normalized tokens the Tier 1 code already produces
+ *  (normalizedFoldedName + distinctiveTokens), so entries are the
+ *  folded lowercase forms. */
+const GENERIC_PLACE_TOKENS = new Set([
+  "historic",
+  "historical",
+  "house",
+  "museum",
+  "park",
+  "garden",
+  "gardens",
+  "church",
+  "cathedral",
+  "chapel",
+  "market",
+  "centre",
+  "center",
+  "gallery",
+  "library",
+  "theatre",
+  "theater",
+  "hotel",
+  "station",
+  "street",
+  "road",
+  "avenue",
+  "bridge",
+  "tower",
+  "castle",
+  "palace",
+  "beach",
+  "lake",
+  "mount",
+  "mountain",
+  "memorial",
+  "national",
+  "public",
+  "royal",
+  "old",
+  "new",
+  "grand",
+  "saint",
+  "sainte",
+  "st",
+  "ste",
+  "the",
+  "of",
+  "and",
+  "et",
+  "de",
+  "du",
+  "des",
+  "la",
+  "le",
+  "les"
+]);
+
+/** True when any distinctive token of the folded context appears as
+ *  a token (or folded substring) in one of the folded haystacks. */
+function contextAppearsIn(contextFolded: string, haystacksFolded: string[]): boolean {
+  const contextTokens = distinctiveTokens(contextFolded);
+  const probes = contextTokens.size ? [...contextTokens] : contextFolded ? [contextFolded] : [];
+  if (!probes.length) return false;
+  for (const haystack of haystacksFolded) {
+    if (!haystack) continue;
+    const haystackTokens = new Set(haystack.split(" ").filter(Boolean));
+    for (const probe of probes) {
+      if (haystackTokens.has(probe) || haystack.includes(probe)) return true;
+    }
+  }
+  return false;
+}
+
+async function findCommonsPhotoByGeosearch(
+  label: string,
+  country: string | null,
+  coords: { lat: number; lon: number },
+  contextLabel: string | null
+): Promise<DestinationPhoto | null> {
+  const wantedFolded = normalizedFoldedName(label);
+  const placeTokens = distinctiveTokens(wantedFolded);
+  // Tier 1 pass-2 distinctive set: the place's tokens minus the
+  // generic type/filler set. Pass 1 does not use this set.
+  const distinctivePlaceTokens = new Set(
+    [...placeTokens].filter((token) => !GENERIC_PLACE_TOKENS.has(token))
+  );
+  // Tokens the full-containment fallback (empty distinctive set)
+  // demands in full. Normally placeTokens; if every token was
+  // filtered out by the length>2 rule, fall back to the raw folded
+  // tokens so the fallback still has something exact to require.
+  const rawPlaceTokens = new Set(wantedFolded.split(" ").filter(Boolean));
+  const fullContainmentTokens = placeTokens.size ? placeTokens : rawPlaceTokens;
+  const context = (contextLabel || "").trim() || country;
+  const contextFolded = context ? normalizedFoldedName(context) : "";
+
+  type Ranked = { page: CommonsGeoPage; distanceM: number; overlap: number };
+  // Pass 1 at 250 m, then — only if it produced no gated candidate —
+  // pass 2 at 1000 m. Pass rank dominates; within a pass, nearer
+  // wins and token overlap breaks ties.
+  for (const radius of [250, 1000]) {
+    const data = (await wikiFetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&format=json&generator=geosearch&ggsprimary=all&ggsnamespace=6&ggsradius=${radius}&ggscoord=${coords.lat}%7C${coords.lon}&ggslimit=50&prop=imageinfo%7Ccoordinates%7Ccategories&iiprop=url%7Cextmetadata&iiurlwidth=1600`
+    )) as { query?: { pages?: Record<string, CommonsGeoPage> } } | null;
+    const pages = data?.query?.pages ? Object.values(data.query.pages) : [];
+    const eligible: Ranked[] = [];
+    for (const page of pages) {
+      const title = typeof page.title === "string" ? page.title : "";
+      if (!title) continue;
+      const titleFolded = normalizedFoldedName(commonsTitleBase(title));
+      const titleTokens = distinctiveTokens(titleFolded);
+      const titleRawTokens = new Set(titleFolded.split(" ").filter(Boolean));
+      const overlap = tokenOverlap(placeTokens, titleTokens);
+      const fileCoord = page.coordinates?.[0];
+      const fileCoords =
+        typeof fileCoord?.lat === "number" && typeof fileCoord?.lon === "number"
+          ? { lat: fileCoord.lat, lon: fileCoord.lon }
+          : null;
+      if (fileCoords) {
+        const distanceM = distanceKm(coords, fileCoords) * 1000;
+        if (distanceM > radius) continue;
+        // Pass 2 widens the radius, so it tightens the name gate
+        // (see the Tier 1 header): a file up to 1 km away must share
+        // at least one DISTINCTIVE token — a generic-only match such
+        // as "historic"/"house" (X04 wrong house, 2026-11-03) does
+        // not pass. When the place name has no distinctive token at
+        // all, the title must instead contain ALL of its tokens.
+        if (radius > 250) {
+          if (distinctivePlaceTokens.size > 0) {
+            if (tokenOverlap(distinctivePlaceTokens, titleTokens) < 1) continue;
+          } else {
+            if (!fullContainmentTokens.size) continue;
+            let containsAll = true;
+            for (const token of fullContainmentTokens) {
+              if (!titleRawTokens.has(token)) {
+                containsAll = false;
+                break;
+              }
+            }
+            if (!containsAll) continue;
+          }
+        }
+        eligible.push({ page, distanceM, overlap });
+      } else {
+        // No coordinates of its own: only an exact folded title match
+        // plus destination context in the title or categories can
+        // verify this file is the place. No context => reject.
+        if (normalizedFoldedName(commonsTitleBase(title)) !== wantedFolded) continue;
+        if (!contextFolded) continue;
+        const categoryTitles = (page.categories || [])
+          .map((category) => (typeof category.title === "string" ? category.title.replace(/^Category:/i, "") : ""))
+          .filter(Boolean);
+        const haystacks = [normalizedFoldedName(title), ...categoryTitles.map((t) => normalizedFoldedName(t))];
+        if (!contextAppearsIn(contextFolded, haystacks)) continue;
+        eligible.push({ page, distanceM: Number.POSITIVE_INFINITY, overlap });
+      }
+    }
+    eligible.sort((a, b) => a.distanceM - b.distanceM || b.overlap - a.overlap);
+    for (const candidate of eligible) {
+      const photo = photoFromImageInfo(candidate.page.imageinfo?.[0], "wikimedia-commons-geosearch");
+      if (photo) return photo;
+    }
+    if (eligible.length) return null;
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tier 2 — the place's own OpenStreetMap element tags.               */
+/* The gate is that the tag lives on the place's own element,         */
+/* fetched by exact id: an image pointer the mapper attached to       */
+/* THIS node/way/relation is a claim about this place, not a search   */
+/* result. A Commons pointer still resolves through Commons           */
+/* imageinfo, so the photo keeps its stepped thumb + licence credit;  */
+/* any other URL must answer live as an image before it is used.      */
+/* ------------------------------------------------------------------ */
+
+const OSM_ID_PATTERN = /^(node|way|relation)\/\d+$/;
+
+/** Extract a Commons file name from a Commons-ish URL, or null. */
+function commonsFileFromUrl(rawUrl: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  const host = parsed.hostname.toLowerCase();
+  const path = parsed.pathname;
+  const decode = (value: string) => {
+    try {
+      return decodeURIComponent(value).trim() || null;
+    } catch {
+      return null;
+    }
+  };
+  if (host === "commons.wikimedia.org") {
+    const fileMatch = path.match(/\/wiki\/File:(.+)$/);
+    if (fileMatch) return decode(fileMatch[1]);
+    const specialMatch = path.match(/\/wiki\/Special:FilePath\/(.+)$/);
+    if (specialMatch) return decode(specialMatch[1]);
+    return null;
+  }
+  if (host === "upload.wikimedia.org" || host === "thumb.wikimedia.org") {
+    if (!path.startsWith("/wikipedia/commons/")) return null;
+    const segments = path.split("/").filter(Boolean);
+    if (!segments.length) return null;
+    // Thumb layout: .../thumb/<a>/<ab>/<file>/<width>-<file> — the
+    // real file name is the segment before the sized derivative.
+    if (segments.includes("thumb")) {
+      return segments.length >= 2 ? decode(segments[segments.length - 2]) : null;
+    }
+    return decode(segments[segments.length - 1]);
+  }
+  return null;
+}
+
+/** Live validation for a non-Commons image URL: HEAD first, GET with
+ *  a small Range when HEAD is refused; only a 2xx image/* passes. */
+async function osmImageUrlIsLiveImage(url: string): Promise<boolean> {
+  const headers = { "user-agent": "Roamly/1.0 (https://roamlyhq.com; design photo lookup)" };
+  const isImage = (response: Response) =>
+    response.ok &&
+    (response.headers.get("content-type") || "").toLowerCase().startsWith("image/");
+  try {
+    const head = await fetch(url, { method: "HEAD", headers, signal: AbortSignal.timeout(4000) });
+    if (isImage(head)) return true;
+    if (head.ok) return false; // answered, but not an image
+  } catch {
+    // HEAD refused at the transport level — fall through to GET.
+  }
+  try {
+    const get = await fetch(url, {
+      method: "GET",
+      headers: { ...headers, Range: "bytes=0-2047" },
+      signal: AbortSignal.timeout(4000)
+    });
+    return isImage(get);
+  } catch {
+    return false;
+  }
+}
+
+async function findOsmElementPhoto(osmId: string): Promise<DestinationPhoto | null> {
+  if (!OSM_ID_PATTERN.test(osmId)) return null;
+  const data = (await wikiFetch(`https://www.openstreetmap.org/api/0.6/${osmId}.json`)) as {
+    elements?: Array<{ tags?: Record<string, unknown> }>;
+  } | null;
+  const tags = data?.elements?.[0]?.tags;
+  if (!tags || typeof tags !== "object") return null;
+  const commonsTag = typeof tags.wikimedia_commons === "string" ? tags.wikimedia_commons.trim() : "";
+  if (commonsTag.startsWith("File:")) {
+    const photo = await commonsImageInfo(commonsTag.slice("File:".length).trim(), "openstreetmap-image");
+    if (photo) return photo;
+  }
+  // "Category:" wikimedia_commons values name a gallery, not this
+  // place's photo — skipped; the image tag below is the only other
+  // pointer the element carries.
+  const imageUrl = typeof tags.image === "string" ? tags.image.trim() : "";
+  if (!imageUrl) return null;
+  const commonsFile = commonsFileFromUrl(imageUrl);
+  if (commonsFile) return commonsImageInfo(commonsFile, "openstreetmap-image");
+  if (!/^https?:\/\//i.test(imageUrl)) return null;
+  if (!(await osmImageUrlIsLiveImage(imageUrl))) return null;
+  return {
+    imageUrl,
+    pageUrl: `https://www.openstreetmap.org/${osmId}`,
+    credit: null,
+    source: "openstreetmap-image"
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Tier 3 — Openverse, last resort. The query filter is never         */
+/* trusted on its own: each item's licence is re-verified from the    */
+/* payload, the place name must match the item (title substring, or   */
+/* every distinctive token across title + tags), and when a           */
+/* destination context is known one of its tokens must also appear.   */
+/* Without a context, only the title-substring form passes — a tag-   */
+/* only match cannot prove the photo is this place in this city.      */
+/* ------------------------------------------------------------------ */
+
+const OPENVERSE_LICENSES = new Set(["cc0", "pdm", "by", "by-sa"]);
+
+function openverseLicenseLabel(license: string, version: unknown): string {
+  const versionText = typeof version === "string" && version.trim() ? ` ${version.trim()}` : "";
+  switch (license) {
+    case "cc0":
+      return "CC0";
+    case "pdm":
+      return "Public Domain Mark";
+    case "by-sa":
+      return `CC BY-SA${versionText}`;
+    default:
+      return `CC BY${versionText}`;
+  }
+}
+
+async function findOpenversePhoto(
+  label: string,
+  contextLabel: string | null
+): Promise<DestinationPhoto | null> {
+  const data = (await wikiFetch(
+    `https://api.openverse.org/v1/images/?q=${encodeURIComponent(label)}&license=cc0,pdm,by,by-sa&license_type=commercial&page_size=20`
+  )) as {
+    results?: Array<{
+      title?: unknown;
+      url?: unknown;
+      thumbnail?: unknown;
+      foreign_landing_url?: unknown;
+      license?: unknown;
+      license_version?: unknown;
+      creator?: unknown;
+      tags?: unknown;
+    }>;
+  } | null;
+  const results = Array.isArray(data?.results) ? data.results : [];
+  if (!results.length) return null;
+  const wantedFolded = normalizedFoldedName(label);
+  const placeTokens = distinctiveTokens(wantedFolded);
+  const contextFolded = contextLabel ? normalizedFoldedName(contextLabel) : "";
+  const contextTokens = contextFolded ? distinctiveTokens(contextFolded) : new Set<string>();
+
+  for (const item of results) {
+    const license = typeof item.license === "string" ? item.license.trim().toLowerCase() : "";
+    if (!OPENVERSE_LICENSES.has(license)) continue;
+    const titleFolded = normalizedFoldedName(typeof item.title === "string" ? item.title : "");
+    const tagNames: string[] = [];
+    if (Array.isArray(item.tags)) {
+      for (const tag of item.tags) {
+        if (typeof tag === "string") tagNames.push(tag);
+        else if (tag && typeof tag === "object" && typeof (tag as { name?: unknown }).name === "string") {
+          tagNames.push((tag as { name: string }).name);
+        }
+      }
+    }
+    const titleTokens = new Set(titleFolded.split(" ").filter(Boolean));
+    const tagTokenSet = new Set<string>();
+    for (const name of tagNames) {
+      for (const token of normalizedFoldedName(name).split(" ").filter(Boolean)) tagTokenSet.add(token);
+    }
+    const substringPass = Boolean(wantedFolded) && titleFolded.includes(wantedFolded);
+    const tokenUnion = new Set([...titleTokens, ...tagTokenSet]);
+    const tokenPass =
+      placeTokens.size > 0 && [...placeTokens].every((token) => tokenUnion.has(token));
+    if (contextFolded) {
+      if (!substringPass && !tokenPass) continue;
+      // Context gate: a distinctive context token must appear in the
+      // title, the tags, or the source page URL.
+      const landingFolded = normalizedFoldedName(
+        typeof item.foreign_landing_url === "string" ? item.foreign_landing_url : ""
+      );
+      const landingTokens = new Set(landingFolded.split(" ").filter(Boolean));
+      const contextHit = [...contextTokens].some(
+        (token) => titleTokens.has(token) || tagTokenSet.has(token) || landingTokens.has(token)
+      );
+      if (!contextHit) continue;
+    } else if (!substringPass) {
+      continue;
+    }
+    const imageUrl =
+      (typeof item.thumbnail === "string" && item.thumbnail) ||
+      (typeof item.url === "string" && item.url) ||
+      "";
+    if (!imageUrl) continue;
+    const pageUrl =
+      (typeof item.foreign_landing_url === "string" && item.foreign_landing_url) ||
+      (typeof item.url === "string" && item.url) ||
+      null;
+    const licenseLabel = openverseLicenseLabel(license, item.license_version);
+    const creator = typeof item.creator === "string" ? item.creator.trim() : "";
+    return {
+      imageUrl,
+      pageUrl,
+      credit: creator ? `${creator} · ${licenseLabel}` : licenseLabel,
+      source: "openverse"
+    };
+  }
+  return null;
 }
 
 async function fetchDestinationPhoto(
   label: string,
   country: string | null,
-  coords: { lat: number; lon: number } | null
+  coords: { lat: number; lon: number } | null,
+  options?: { osmId?: string | null; contextLabel?: string | null }
 ): Promise<DestinationPhoto | null> {
+  const contextLabel = options?.contextLabel?.trim() || null;
+  const osmId = options?.osmId?.trim() || null;
+  // Tier 0 — Wikidata lead image (unchanged behaviour).
   const candidate =
     (await findCommonsFile(label, country, coords)) ||
     (coords ? await findCommonsFileByGeosearch(label, coords) : null);
-  if (!candidate) return null;
-  return commonsImageInfo(candidate.file);
+  if (candidate) return commonsImageInfo(candidate.file);
+  // Tier 1 — Commons geosearch around the place (coords only).
+  if (coords) {
+    const tier1 = await findCommonsPhotoByGeosearch(label, country, coords, contextLabel);
+    if (tier1) return tier1;
+  }
+  // Tier 2 — the place's own OSM element tags (osmId only).
+  if (osmId) {
+    const tier2 = await findOsmElementPhoto(osmId);
+    if (tier2) return tier2;
+  }
+  // Tier 3 — Openverse, licence + name + context gated.
+  return findOpenversePhoto(label, contextLabel);
 }
 
 /** Mirror of the engine's registry match (generate.ts
@@ -396,10 +895,21 @@ export async function getDestinationPhoto(input: {
   country?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  /** The place's own OSM element ("node/123" | "way/123" |
+   *  "relation/123" — the pack osmKey format), when the caller has
+   *  it. Enables Tier 2; anything else is ignored by the tier's own
+   *  format gate. */
+  osmId?: string | null;
+  /** Destination / city display name, when the caller knows it.
+   *  Feeds the Tier 1 coord-less context gate and the Tier 3
+   *  context gate; never used as a photo label itself. */
+  contextLabel?: string | null;
 }): Promise<DestinationPhoto | null> {
   const label = (input.label || "").trim();
   if (!label) return null;
   const country = input.country?.trim() || null;
+  const osmId = input.osmId?.trim() || null;
+  const contextLabel = input.contextLabel?.trim() || null;
   const coords =
     typeof input.latitude === "number" && Number.isFinite(input.latitude) &&
     typeof input.longitude === "number" && Number.isFinite(input.longitude)
@@ -428,14 +938,18 @@ export async function getDestinationPhoto(input: {
               imageUrl: cached.imageUrl,
               pageUrl: cached.pageUrl ?? null,
               credit: cached.credit ?? null,
-              source: "wikimedia-commons"
+              // Provenance is part of the cached fact: a fallback
+              // tier's photo must never be re-labelled as Tier 0 on
+              // a cache hit. Only a legacy record with no stored
+              // source at all falls back to the Tier 0 label.
+              source: cached.source || "wikimedia-commons"
             };
           }
         }
       }
     }
 
-    const photo = await fetchDestinationPhoto(label, country, coords);
+    const photo = await fetchDestinationPhoto(label, country, coords, { osmId, contextLabel });
 
     if (admin) {
       const value: CachedPhoto | CachedMiss = photo

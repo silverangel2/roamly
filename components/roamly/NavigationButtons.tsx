@@ -1,6 +1,7 @@
 "use client";
 
 import { buildNavigationLinks, type NavigationDestination } from "@/lib/roamly/navigationLinks";
+import { BuiButtonLink } from "@/components/boardui/Button";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
 type NavigationButtonsProps = NavigationDestination & {
@@ -33,16 +34,17 @@ export function NavigationButtons({ tripId, className = "", showHeading = false,
       {showHeading ? <p className="mb-2 text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.actions.directions")}</p> : null}
       <div className="flex flex-wrap gap-2">
         {links.map((link) => (
-          <a
+          <BuiButtonLink
             key={link.provider}
             href={link.href}
             target="_blank"
             rel="noreferrer"
             onClick={() => void record(link.provider)}
-            className="rounded-full bg-cbg px-3 py-2 text-xs font-semibold text-chead transition hover:text-cblue"
+            variant="secondary"
+            size="small"
           >
             {link.label}
-          </a>
+          </BuiButtonLink>
         ))}
       </div>
     </div>

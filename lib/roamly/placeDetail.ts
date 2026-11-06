@@ -33,7 +33,12 @@
  *   they are always null here — the panel says so per field.
  * - Nearby: ONLY same-day sibling stops from this trip's own plan
  *   (travel/transfer legs and generic stops excluded), CAPPED AT 2
- *   (Picture 6 shows two cards). Sibling photos come only from the
+ *   (Picture 6 shows two cards). A booking-linked sibling's card
+ *   title is re-derived from its booking's CURRENT truth
+ *   (placeTitleForTruth) — never the stored title verbatim, whose
+ *   baked stamp can be stale (a since-cancelled booking must never
+ *   appear as Confirmed here); a sibling with no resolvable booking
+ *   keeps its stored title unchanged. Sibling photos come only from the
  *   real pipeline via the caller's siblingPhotos map (coords-gated);
  *   a sibling without one gets no photo element, never a broken
  *   image, and NO heart icon renders — no saved-places store exists.
@@ -66,11 +71,21 @@
  *   item's own coordinates / map_query / title (+ destination city),
  *   never from a guessed address; an Address row needs the confirmed
  *   booking source above.
- * - Confirmed: the badge reads "Confirmed" ONLY when a confirmed
- *   booking row exactly title-matches the item (same rule the trip
- *   page uses for booking snapshots: not superseded, and either
- *   traveler-confirmed or a confirmed/booked/ticketed/issued
- *   status). Plan data alone never earns "Confirmed".
+ * - Confirmed: the badge reads the provenance label ("Confirmed · from your …") ONLY when a booking row
+ *   exactly title-matches the item AND satisfies the ONE booking-
+ *   truth rule at the providerConfirmationEvidence tier (lib/roamly/bookingTruth:
+ *   credible provider evidence — patterned code + real provider +
+ *   a RECORDED provider-issued origin — + traveler_confirmed +
+ *   active status + non-test, non-superseded; mirrored locally in
+ *   truthIsConfirmed below so this module stays import-free). Plan
+ *   data alone never earns "Confirmed". A linked booking that is
+ *   traveler-confirmed but NOT provider-verified (the legacy
+ *   no-recorded-source case) earns the honest badge "Confirmed by
+ *   you" instead, and its address is withheld — the address is
+ *   provider-grade evidence and a traveler assertion alone does not
+ *   release it. A linked booking whose current truth is
+ *   cancelled/refunded earns a "Cancelled"/"Refunded" badge
+ *   instead — never "Planned" as if the booking were still active.
  *
  * All clock math here is wall-clock string math (never Date), so
  * rendering is identical under every TZ. Day headings are computed
@@ -84,7 +99,10 @@ export type PlaceDetailPhoto = {
   pageUrl: string | null;
   /** Always "1/1": the pipeline returns at most one photo per place. */
   countLabel: "1/1";
-  source: "wikimedia-commons";
+  /** Mirror of DestinationPhoto["source"] (lib/roamly/destinationPhoto)
+   *  — declared locally so this module stays import-free for the
+   *  deterministic Node checks that load it directly. */
+  source: "wikimedia-commons" | "wikimedia-commons-geosearch" | "openstreetmap-image" | "openverse";
 };
 
 export type PlaceDetailNearby = {
@@ -120,8 +138,11 @@ export type PlaceDetailEvidence = {
   timeKnown: boolean;
   /** True when the item carries coordinates or a map query. */
   locationKnown: boolean;
-  /** True only when a confirmed booking exactly title-matches. */
+  /** True only when a confirmation-evidence booking exactly title-matches. */
   confirmed: boolean;
+  /** True when the linked booking is traveler-confirmed only
+   *  ("Confirmed by you") — never provider-verified. */
+  travelerConfirmed: boolean;
 };
 
 /**
@@ -166,7 +187,7 @@ export type PlaceDetail = {
   /** The stored plan title when unverified; null otherwise. */
   planTitle: string | null;
   description: string | null;
-  badge: "Planned" | "Confirmed";
+  badge: string; // "Planned" | provenance label ("Confirmed · from your … email") | "Confirmed by you" | "Cancelled" | "Refunded"
   evidence: PlaceDetailEvidence;
   /** e.g. "1:00 PM – 3:00 PM" — null when no real window exists. */
   timeRangeLabel: string | null;
@@ -206,6 +227,9 @@ export type PlaceDetailPhotoInput = {
   imageUrl: string;
   credit?: string | null;
   pageUrl?: string | null;
+  /** The pipeline's provenance for this photo (DestinationPhoto["source"]);
+   *  absent = a pre-fallback caller, read as Tier 0. */
+  source?: PlaceDetailPhoto["source"] | null;
 };
 
 type RawRecord = Record<string, unknown>;
@@ -250,27 +274,230 @@ export function normalizePlaceTitle(value: string): string {
     .trim();
 }
 
-const CONFIRMED_BOOKING_STATUSES = new Set(["confirmed", "booked", "ticketed", "issued"]);
+/**
+ * Workstream A + Round 2 Lane E2: the confirmed rule is the ONE
+ * booking-truth rule (lib/roamly/bookingTruth) at the
+ * providerConfirmationEvidence tier, applied with an EXACT title match:
+ * credible provider evidence + traveler_confirmed + active status +
+ * non-test, non-superseded. The local mirror below keeps this
+ * module import-free for the deterministic Node checks that load it
+ * directly (the same reason bookingExtraction keeps its test-pattern
+ * mirror local): it implements bookingTruth.hasProviderConfirmationEvidence /
+ * isConfirmed exactly for the field shapes a booking row carries
+ * here — patterned identifier (≥4 code chars with a digit, never
+ * TEST-RMLY/placeholder), a real provider identity (not a
+ * test/QA/self pseudo-provider), and a RECORDED provider-issued
+ * origin (email/gmail or traveler-entered/screenshot source,
+ * email_import/email_lookback provenance, or an email: source
+ * reference). LOCKSTEP NOTE (Round 2): the round-1 mirror's legacy
+ * exception — a no-recorded-source row accepted on the
+ * traveler_confirmed flag alone — is REMOVED here in lockstep with
+ * bookingTruth.ts under the owner's 2026-10-30 ruling; such a row
+ * is travelerConfirmedOnly (truthIsTravelerConfirmedOnly below),
+ * never in the confirmation-evidence tier. Keep both mirrors in lockstep with
+ * bookingTruth.ts.
+ */
+const TRUTH_ACTIVE_STATUSES = new Set([
+  "booked", "paid", "reserved", "confirmed", "modified", "completed", "ticketed", "issued"
+]);
+const TRUTH_PSEUDO_PROVIDERS = new Set([
+  "", "unknown", "unknown provider", "test", "test provider", "qa", "qa test", "qa test provider",
+  "roamly", "roamly qa", "roamly qa test provider", "self", "traveler", "manual", "gmail", "email",
+  "provider", "n/a", "none", "tbd"
+]);
+const TRUTH_PLACEHOLDER_CODES = new Set(["unknown", "pending", "none", "null", "n/a", "tbd", "1234", "0000", "12345"]);
+const TRUTH_EMAIL_SOURCES = new Set(["email", "gmail", "outlook"]);
+const TRUTH_TRAVELER_SOURCES = new Set([
+  "manual", "screenshot", "upload", "provider", "provider_sync", "live_provider", "affiliate", "affiliate_conversion"
+]);
+
+function truthIsTestBooking(booking: RawRecord): boolean {
+  if (booking.is_test_booking === true) return true;
+  const metadata = booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    ? (booking.metadata as RawRecord)
+    : null;
+  if (metadata?.qa_test === true) return true;
+  const pattern = /\bQA\b|test stay|test provider/i;
+  const title = cleanFrom(booking, "title") || "";
+  const provider = cleanFrom(booking, "provider_name", "provider") || "";
+  if (pattern.test(title) || pattern.test(provider)) return true;
+  const code = cleanFrom(booking, "confirmation_number", "confirmation_code", "confirmationCode", "provider_booking_id") || "";
+  return /TEST-RMLY/i.test(code);
+}
+
+/** Lockstep mirror of bookingTruth.isTravelerDiscardedBooking
+ *  (Tombstone workstream, 2026-10-31): the discard mark stamped in
+ *  the booking's metadata (or the serializer's is_discarded flag)
+ *  means the traveler removed this import — it earns no tier here. */
+function truthIsDiscardedBooking(booking: RawRecord): boolean {
+  if (booking.is_discarded === true || booking.isDiscarded === true) return true;
+  const metadata = booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    ? (booking.metadata as RawRecord)
+    : null;
+  if (!metadata) return false;
+  const mark = metadata.emailImportDiscarded;
+  return Boolean(mark && typeof mark === "object") || metadata.email_import_discarded === true;
+}
+
+function truthIsConfirmed(booking: RawRecord): boolean {
+  if (booking.superseded_by_booking_id != null) return false;
+  if (truthIsDiscardedBooking(booking)) return false;
+  if (truthIsTestBooking(booking)) return false;
+  const status = (cleanFrom(booking, "booking_status", "status") || "").toLowerCase();
+  if (!TRUTH_ACTIVE_STATUSES.has(status)) return false;
+  if (booking.traveler_confirmed !== true && booking.travelerConfirmed !== true) return false;
+  const code = cleanFrom(booking, "confirmation_number", "confirmation_code", "confirmationCode", "provider_booking_id") || "";
+  if (code.length < 4 || code.length > 64) return false;
+  if (TRUTH_PLACEHOLDER_CODES.has(code.toLowerCase())) return false;
+  if (/TEST-RMLY/i.test(code)) return false;
+  if (!/^[A-Za-z0-9][A-Za-z0-9\-_/]*$/.test(code)) return false;
+  if (!/\d/.test(code) && code.length < 6) return false;
+  const provider = cleanFrom(booking, "provider_name", "provider") || "";
+  if (provider.length < 2) return false;
+  if (TRUTH_PSEUDO_PROVIDERS.has(provider.toLowerCase())) return false;
+  if (/\bqa\b|test stay|test provider/i.test(provider)) return false;
+  const source = (cleanFrom(booking, "source_type", "sourceType") || "").toLowerCase();
+  if (TRUTH_EMAIL_SOURCES.has(source) || TRUTH_TRAVELER_SOURCES.has(source)) return true;
+  const metadata = booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    ? (booking.metadata as RawRecord)
+    : null;
+  const requirements = booking.reservation_requirements && typeof booking.reservation_requirements === "object" && !Array.isArray(booking.reservation_requirements)
+    ? (booking.reservation_requirements as RawRecord)
+    : null;
+  if (metadata?.email_import || metadata?.email_lookback || requirements?.email_import || requirements?.email_lookback) return true;
+  if ((cleanFrom(booking, "source_reference", "sourceReference") || "").startsWith("email:")) return true;
+  // Round 2 lockstep: NO legacy exception — a row with no recorded
+  // origin never earns the confirmation-evidence tier, even with the flag set.
+  return false;
+}
+
+/** Mirror of bookingTruth.isTravelerConfirmedOnly: flag set, active
+ *  status, non-test, non-superseded — but NOT confirmation-evidenced. */
+function truthIsTravelerConfirmedOnly(booking: RawRecord): boolean {
+  if (booking.superseded_by_booking_id != null) return false;
+  if (truthIsDiscardedBooking(booking)) return false;
+  if (truthIsTestBooking(booking)) return false;
+  const status = (cleanFrom(booking, "booking_status", "status") || "").toLowerCase();
+  if (!TRUTH_ACTIVE_STATUSES.has(status)) return false;
+  if (booking.traveler_confirmed !== true && booking.travelerConfirmed !== true) return false;
+  return !truthIsConfirmed(booking);
+}
 
 /**
- * The trip page's booking-snapshot rule, applied with an EXACT title
- * match: not superseded, and either traveler-confirmed or a confirmed
- * status. Returns the matching row (for its address) or null.
+ * Round 3 (Lane T) mirror of bookingTruth.bookingProvenanceLabel:
+ * the confirmation-evidence tier's badge states its provenance
+ * ("Confirmed · from your {Provider} email" / "· from your
+ * screenshot" / "· from details you provided" / "· reported by
+ * {Provider}") and never reads plain "Confirmed" or "Verified" —
+ * the evidence arrived inside traveler-supplied material; Roamly
+ * did not independently check it with the provider. Keep in
+ * lockstep with bookingTruth.bookingProvenanceSuffix.
  */
+function placeBookingProvenanceLabel(booking: RawRecord | null): string {
+  if (!booking) return "Confirmed · from your booking details";
+  const provider = cleanFrom(booking, "provider_name", "provider") || "";
+  const realProvider =
+    provider.length >= 2 && !TRUTH_PSEUDO_PROVIDERS.has(provider.toLowerCase()) && !/\bqa\b|test stay|test provider/i.test(provider)
+      ? provider
+      : "";
+  const source = (cleanFrom(booking, "source_type", "sourceType") || "").toLowerCase();
+  const metadata = booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+    ? (booking.metadata as RawRecord)
+    : null;
+  const requirements = booking.reservation_requirements && typeof booking.reservation_requirements === "object" && !Array.isArray(booking.reservation_requirements)
+    ? (booking.reservation_requirements as RawRecord)
+    : null;
+  if (
+    TRUTH_EMAIL_SOURCES.has(source) ||
+    metadata?.email_import || metadata?.email_lookback ||
+    requirements?.email_import || requirements?.email_lookback ||
+    (cleanFrom(booking, "source_reference", "sourceReference") || "").startsWith("email:")
+  ) {
+    return realProvider ? `Confirmed · from your ${realProvider} email` : "Confirmed · from your email";
+  }
+  if (source === "screenshot") return "Confirmed · from your screenshot";
+  if (source === "upload") return "Confirmed · from your upload";
+  if (source === "manual") return "Confirmed · from details you provided";
+  if (["provider", "provider_sync", "live_provider", "affiliate", "affiliate_conversion"].includes(source)) {
+    return realProvider ? `Confirmed · reported by ${realProvider}` : "Confirmed · provider-reported";
+  }
+  return "Confirmed · from your booking details";
+}
+
+/**
+ * Round 3 (Lane F) mirrors of bookingTruth.stripBookingStampPrefix
+ * and bookingTruth.titleForTruth, kept in lockstep so this module
+ * stays import-free: the honest display title for a booking-linked
+ * item, derived from the booking's CURRENT truth — never from the
+ * stamp baked into the stored title. The confirmation-evidence tier
+ * stamps its provenance label, traveler_confirmed stamps
+ * "Confirmed by you:", cancelled/refunded re-stamp honestly, and
+ * every other truth state renders the bare title with no confirmed
+ * framing.
+ */
+function placeStripBookingStampPrefix(title: string): string {
+  return title.replace(/^(?:confirmed by you|confirmed(?:\s·\s[^:\n]+)?|cancelled|canceled|refunded):\s*/i, "");
+}
+
+function placeTitleForTruth(storedTitle: string, booking: RawRecord): string {
+  const bare = placeStripBookingStampPrefix(storedTitle);
+  switch (placeBookingTruthState(booking)) {
+    case "confirmed":
+      return `${placeBookingProvenanceLabel(booking)}: ${bare}`;
+    case "traveler_confirmed":
+      return `Confirmed by you: ${bare}`;
+    case "cancelled":
+      return `Cancelled: ${bare}`;
+    case "refunded":
+      return `Refunded: ${bare}`;
+    default:
+      return bare;
+  }
+}
+
+/** The linked booking's CURRENT truth state, for badge derivation. */
+export function placeBookingTruthState(booking: RawRecord): string {
+  if (booking.superseded_by_booking_id != null) return "superseded";
+  if (truthIsDiscardedBooking(booking)) return "discarded";
+  if (truthIsTestBooking(booking)) return "test";
+  const status = (cleanFrom(booking, "booking_status", "status") || "").toLowerCase();
+  if (status === "cancelled" || status === "canceled") return "cancelled";
+  if (status === "refunded") return "refunded";
+  if (truthIsConfirmed(booking)) return "confirmed";
+  if (truthIsTravelerConfirmedOnly(booking)) return "traveler_confirmed";
+  return "unverified";
+}
+
+/**
+ * Exact-title match for the booking linked to this place, whatever
+ * its current truth state (the badge derives from that state, so a
+ * cancelled booking's place can never show Confirmed, or Planned as
+ * if still active). Returns the matching row or null.
+ */
+export function findLinkedBookingForPlace(
+  bookings: readonly RawRecord[],
+  title: string
+): RawRecord | null {
+  // Audit fix: the confirmed-booking override bakes a "Confirmed: "
+  // (or "Cancelled: ") prefix into the itinerary item's stored title,
+  // which defeated this exact-title match. Strip the stamp first.
+  const wanted = normalizePlaceTitle(title.replace(/^(?:confirmed by you|confirmed(?:\s·\s[^:\n]+)?|cancelled|canceled|refunded):\s*/i, ""));
+  if (!wanted) return null;
+  for (const booking of bookings) {
+    const bookingTitle = cleanFrom(booking, "title");
+    if (!bookingTitle || normalizePlaceTitle(bookingTitle) !== wanted) continue;
+    return booking;
+  }
+  return null;
+}
+
 export function findConfirmedBookingForPlace(
   bookings: readonly RawRecord[],
   title: string
 ): RawRecord | null {
-  const wanted = normalizePlaceTitle(title);
-  if (!wanted) return null;
-  for (const booking of bookings) {
-    if (booking.superseded_by_booking_id != null) continue;
-    const bookingTitle = cleanFrom(booking, "title");
-    if (!bookingTitle || normalizePlaceTitle(bookingTitle) !== wanted) continue;
-    const status = (cleanFrom(booking, "booking_status", "status") || "").toLowerCase();
-    if (booking.traveler_confirmed === true || CONFIRMED_BOOKING_STATUSES.has(status)) return booking;
-  }
-  return null;
+  const linked = findLinkedBookingForPlace(bookings, title);
+  if (!linked) return null;
+  return truthIsConfirmed(linked) ? linked : null;
 }
 
 /** "13:00" or "1:00 PM" -> minutes since midnight; null when unparseable. */
@@ -510,13 +737,31 @@ function timeWindow(item: RawRecord): { rangeLabel: string; durationFromWindow: 
       }
     }
   }
+  // Audit fix: a FACTUAL start with no end (the confirmed-booking
+  // override deliberately stores start-only) is a known time. It used
+  // to fall through to null, so the detail page paired a "Confirmed:"
+  // title with a "Flexible" chip.
+  if (start != null && (cleanFrom(item, "timing_status") || "").toUpperCase() === "FACTUAL") {
+    return { rangeLabel: formatClockMinutes(start), durationFromWindow: null };
+  }
   return null;
 }
 
 export function buildPlaceDetail(input: PlaceDetailInput): PlaceDetail | null {
   const { item, day, siblings, trip, tripTips, confirmedBookings, photo } = input;
-  const title = cleanFrom(item, "title", "name");
-  if (!title || !isUsablePlaceTitle(title)) return null;
+  const storedTitle = cleanFrom(item, "title", "name");
+  if (!storedTitle || !isUsablePlaceTitle(storedTitle)) return null;
+  // X1 read path (Workstream A): the badge and the displayed title
+  // derive from the linked booking's CURRENT truth, not the stored
+  // stamp. A booking cancelled after its item was stamped "Confirmed:"
+  // renders here with the stamp stripped and a Cancelled badge — never
+  // Confirmed, and never Planned as if still active.
+  const linkedBooking = findLinkedBookingForPlace(confirmedBookings, storedTitle);
+  const linkedTruth = linkedBooking ? placeBookingTruthState(linkedBooking) : null;
+  const title =
+    linkedTruth && linkedTruth !== "confirmed"
+      ? storedTitle.replace(/^(?:confirmed by you|confirmed|cancelled|canceled|refunded):\s*/i, "")
+      : storedTitle;
 
   const rawDescription = cleanFrom(item, "description", "summary", "details", "notes");
   const description = stripPlaceTitleEcho(title, rawDescription);
@@ -552,16 +797,26 @@ export function buildPlaceDetail(input: PlaceDetailInput): PlaceDetail | null {
     if (sibling.id === selfId) continue;
     if (isTransferLikeItem(sibling.item)) continue;
     const walk = estimateWalk(selfCoords, itemCoordinates(sibling.item));
+    // Round 3 (Lane F): a booking-linked sibling's card title derives
+    // from its booking's CURRENT truth (placeTitleForTruth), exactly
+    // like the main place's title/badge — the stored title may carry
+    // a stale baked stamp (e.g. "Confirmed: …" for a since-cancelled
+    // booking). The bookings needed are already in scope here
+    // (confirmedBookings carries every booking row for this trip; the
+    // main place resolves its booking the same way). Siblings with no
+    // resolvable booking keep their stored title byte-unchanged.
+    const siblingBooking = findLinkedBookingForPlace(confirmedBookings, siblingTitle);
+    const siblingDisplayTitle = siblingBooking ? placeTitleForTruth(siblingTitle, siblingBooking) : siblingTitle;
     const siblingDescription = stripPlaceTitleEcho(
-      siblingTitle,
+      siblingDisplayTitle,
       cleanFrom(sibling.item, "description", "summary", "details", "notes")
     );
-    const siblingUnverified = /^[A-Z0-9]{2,4}$/.test(siblingTitle) && siblingDescription == null;
+    const siblingUnverified = /^[A-Z0-9]{2,4}$/.test(siblingDisplayTitle) && siblingDescription == null;
     nearby.push({
       id: sibling.id,
-      title: siblingTitle,
+      title: siblingDisplayTitle,
       unverified: siblingUnverified,
-      planTitle: siblingUnverified ? siblingTitle : null,
+      planTitle: siblingUnverified ? siblingDisplayTitle : null,
       photo: input.siblingPhotos?.[sibling.id] ?? null,
       walkLabel: walk?.walkLabel ?? null,
       distanceKm: walk?.distanceKm ?? null
@@ -581,8 +836,23 @@ export function buildPlaceDetail(input: PlaceDetailInput): PlaceDetail | null {
     unverified,
     planTitle: unverified ? title : null,
     description,
-    badge: confirmed ? "Confirmed" : "Planned",
-    evidence: { planned: true, timeKnown: window != null, locationKnown, confirmed },
+    badge:
+      linkedTruth === "cancelled"
+        ? "Cancelled"
+        : linkedTruth === "refunded"
+          ? "Refunded"
+          : confirmed
+            ? placeBookingProvenanceLabel(confirmedBooking)
+            : linkedTruth === "traveler_confirmed"
+              ? "Confirmed by you"
+              : "Planned",
+    evidence: {
+      planned: true,
+      timeKnown: window != null,
+      locationKnown,
+      confirmed,
+      travelerConfirmed: linkedTruth === "traveler_confirmed"
+    },
     timeRangeLabel: window?.rangeLabel ?? null,
     timeProvenance:
       (cleanFrom(item, "timing_status") || "").toUpperCase() === "FACTUAL"
@@ -594,7 +864,7 @@ export function buildPlaceDetail(input: PlaceDetailInput): PlaceDetail | null {
     locationLabel,
     directionsUrl: buildDirectionsUrl(item, trip.destination),
     photo: photo && photo.imageUrl
-      ? { imageUrl: photo.imageUrl, credit: photo.credit ?? null, pageUrl: photo.pageUrl ?? null, countLabel: "1/1", source: "wikimedia-commons" }
+      ? { imageUrl: photo.imageUrl, credit: photo.credit ?? null, pageUrl: photo.pageUrl ?? null, countLabel: "1/1", source: photo.source ?? "wikimedia-commons" }
       : null,
     about: {
       address,

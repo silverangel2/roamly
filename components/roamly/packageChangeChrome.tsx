@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 
 export function PackageChangeRow({
   label,
@@ -21,9 +22,7 @@ export function PackageChangeRow({
       <span className="text-[0.9375rem] font-medium tracking-[-0.01em] text-ink">{label}</span>
       <span className="flex min-w-0 items-center gap-1 text-sm text-slate-500">
         <span className="truncate">{value}</span>
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M7.5 4.5 13 10l-5.5 5.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-300" strokeWidth={1.8} />
       </span>
     </button>
   );

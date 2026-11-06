@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ExploreDiscovery } from "@/components/roamly/ExploreDiscovery";
 import { TripContextNav } from "@/components/roamly/TripContextNav";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
 import { buildExploreCandidates } from "@/lib/roamly/exploreViewModel";
 import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
@@ -33,7 +34,10 @@ export default async function TripExplorePage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <div className="mx-auto w-full max-w-5xl px-4 pt-5 sm:px-6 sm:pt-8">
+      <div className="bui-enter mx-auto w-full max-w-5xl px-4 pt-5 sm:px-6 sm:pt-8">
+        <div className="mb-3">
+          <BackHeader href={`/trip/${id}`} label="Trip" />
+        </div>
         <TripContextNav tripId={id} title={tripTitle} destination={destination} dates={dates} status="Explore" />
       </div>
       <ExploreDiscovery

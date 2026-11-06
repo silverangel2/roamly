@@ -63,7 +63,7 @@ const places = readFileSync("components/roamly/PlaceSelector.tsx", "utf8");
 assert.match(planForm, /Resume previous trip/);
 assert.match(planForm, /setRestoreNotice\(true\)/);
 assert.match(planForm, /role="switch"/);
-assert.match(planForm, /Number of days/);
+assert.doesNotMatch(planForm, /Number of days/); // RE-PIN (Jakob A10, 2026-11-03): was match — the editable days field is deleted; days/nights are a read-only readout of the date range.
 assert.doesNotMatch(planForm, /Or number of days/);
 assert.doesNotMatch(planForm, /used on this account/);
 assert.doesNotMatch(planForm, /Starting with \$\{placeLabel\}/);
@@ -75,11 +75,12 @@ assert.match(hero, /PLAN_START_NOTE/);
 assert.match(hero, /role="tablist"/);
 assert.match(hero, /roamly-hero-dots/);
 assert.match(planForm, /plan-budget-error/);
-assert.match(planForm, /plan-interest-error/);
+assert.doesNotMatch(planForm, /plan-interest-error/); // RE-PIN (Jakob A12, 2026-11-03): was match — interests are optional, the mandatory-interest error element is removed.
 assert.match(planForm, /invalidTypedDayCount/);
 assert.match(planForm, /entitlement\.stepNote/);
 assert.doesNotMatch(planForm, /step === 0 \? \([\s\S]{0,180}entitlement\.stepNote/);
-assert.match(shell, /pathname === "\/"/);
+assert.doesNotMatch(shell, /pathname === "\/" && window\.scrollY/); // RE-PIN (Jakob A4, 2026-11-03): was match /pathname === "\/"/ — the marketing-home scroll-hide rule is removed; primary navigation never hides.
+assert.match(shell, /data-bottom-nav="visible"/);
 assert.match(shell, /routeHidesBottomNav/);
 assert.doesNotMatch(places, /absolute left-0 right-0 z-30/);
 

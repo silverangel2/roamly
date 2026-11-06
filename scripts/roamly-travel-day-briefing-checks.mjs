@@ -54,7 +54,7 @@ const content = buildTravelDayBriefingContent({
   tripPath: "/trip/trip-1/live"
 });
 assert.equal(content.subject, "Tokyo starts today");
-assert.match(content.body, /Confirmed transport: Air Canada/);
+assert.match(content.body, /Booked transport: Air Canada/);
 assert.match(content.body, /Stay: Shinjuku stay/);
 assert.match(content.body, /First up: Museum/);
 assert.match(content.body, /Traveler note: Pick up the rail pass/);

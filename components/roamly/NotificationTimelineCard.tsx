@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { animateSpringValue, rubberBand, type BuiSpringHandle } from "@/components/boardui/spring";
 
 type NotificationItem = {
   id: string;
@@ -129,6 +130,139 @@ function isInfoNotification(item: NotificationItem) {
   return INFO_NOTIFICATION_TYPES.has(item.type);
 }
 
+/* Swipe-away (smooth details, 2026-11-04): an UNREAD row follows
+ * the finger with a tilt up to ~12°, and a leftward flick (or a
+ * drag past ~88px) flies it off on the foundation spring and files
+ * it with the row's EXISTING mark-read action — the same outcome
+ * as the row's own "Mark read" button, no new destructive power:
+ * read rows don't swipe, and a short or slow drag springs back.
+ * Rightward drags meet rubber-band resistance (they commit
+ * nothing). The click a drag ends with is swallowed so a swipe
+ * never also opens the row. Vertical scrolling is untouched
+ * (touch-pan-y: the browser keeps the scroll, we keep the swipe). */
+function SwipeToReadRow({
+  enabled,
+  onCommit,
+  children
+}: {
+  enabled: boolean;
+  onCommit: () => void;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const springRef = useRef<BuiSpringHandle | null>(null);
+  const gestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    engaged: boolean;
+    visualDx: number;
+    samples: Array<{ t: number; x: number }>;
+  } | null>(null);
+  const suppressClickUntilRef = useRef(0);
+
+  const writeTransform = (dx: number) => {
+    const el = ref.current;
+    if (!el) return;
+    const tilt = Math.max(-12, Math.min(12, (dx / 140) * 12));
+    el.style.transform = `translateX(${dx}px) rotate(${tilt}deg)`;
+  };
+
+  const springTo = (target: number, velocityPxPerSec: number, fromDx: number, onDone?: () => void) => {
+    const el = ref.current;
+    if (!el) return;
+    springRef.current?.cancel();
+    springRef.current = animateSpringValue({
+      from: fromDx,
+      to: target,
+      velocity: velocityPxPerSec,
+      stiffness: 340,
+      dampingRatio: 0.85,
+      restDelta: 0.4,
+      restVelocity: 10,
+      onFrame: (value) => {
+        if (gestureRef.current) gestureRef.current.visualDx = value;
+        writeTransform(value);
+      },
+      onRest: () => onDone?.()
+    });
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="touch-pan-y will-change-transform"
+      onClickCapture={(event) => {
+        if (Date.now() < suppressClickUntilRef.current) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onPointerDown={(event) => {
+        if (!enabled || event.button !== 0) return;
+        springRef.current?.cancel();
+        gestureRef.current = {
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          engaged: false,
+          visualDx: 0,
+          samples: [{ t: performance.now(), x: event.clientX }]
+        };
+      }}
+      onPointerMove={(event) => {
+        const gesture = gestureRef.current;
+        if (!gesture || gesture.pointerId !== event.pointerId) return;
+        const dx = event.clientX - gesture.startX;
+        const dy = event.clientY - gesture.startY;
+        if (!gesture.engaged) {
+          if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+            gesture.engaged = true;
+            ref.current?.setPointerCapture(event.pointerId);
+          } else {
+            return;
+          }
+        }
+        const now = performance.now();
+        gesture.samples.push({ t: now, x: event.clientX });
+        while (gesture.samples.length > 2 && now - gesture.samples[0].t > 120) gesture.samples.shift();
+        gesture.visualDx = dx < 0 ? dx : rubberBand(dx, 151);
+        writeTransform(gesture.visualDx);
+      }}
+      onPointerUp={(event) => {
+        const gesture = gestureRef.current;
+        if (!gesture || gesture.pointerId !== event.pointerId) return;
+        gestureRef.current = null;
+        if (!gesture.engaged) return;
+        suppressClickUntilRef.current = Date.now() + 300;
+        const dx = event.clientX - gesture.startX;
+        const first = gesture.samples[0];
+        const last = gesture.samples[gesture.samples.length - 1];
+        const vx = first && last && last.t > first.t ? (last.x - first.x) / (last.t - first.t) : 0;
+        const width = ref.current?.offsetWidth ?? 320;
+        if (dx < -88 || vx < -0.45) {
+          springTo(-(width + 48), vx * 1000, gesture.visualDx, () => {
+            window.setTimeout(() => {
+              onCommit();
+              springRef.current?.cancel();
+              writeTransform(0);
+            }, 60);
+          });
+        } else {
+          springTo(0, vx * 1000, gesture.visualDx);
+        }
+      }}
+      onPointerCancel={() => {
+        const gesture = gestureRef.current;
+        if (gesture?.engaged) springTo(0, 0, gesture.visualDx);
+        gestureRef.current = null;
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function NotificationTimelineCard({
   initialItems,
   heading,
@@ -194,9 +328,9 @@ export function NotificationTimelineCard({
     groups.push({ key: "earlier", label: todayRows.length ? t("ui.notifications.earlier", "Earlier") : null, rows: earlierRows });
   }
 
-  const actionLinkClass = "text-sm font-semibold text-cblue";
+  const actionLinkClass = "bui-press bui-touch inline-flex items-center px-1 text-sm font-semibold text-cblue";
 
-  function renderRow(item: NotificationItem) {
+  function renderRow(item: NotificationItem, rowIndex = 0) {
     const delivery = deliveryLabel(item.delivery_status, item.delivery_channel, t);
     const unread = item.status !== "read";
     // Outdated pre-trip cards no longer demand attention: no unread dot,
@@ -204,11 +338,12 @@ export function NotificationTimelineCard({
     const showUnreadDot = unread && !item.is_outdated;
     const due = dueLabel(item.scheduled_for);
     return (
-      <article key={item.id} className="py-3 pl-3 pr-4">
+      <article key={item.id} className="bui-enter py-3 pl-3 pr-4" style={{ "--bui-delay": `${Math.min(rowIndex * 70, 350)}ms` } as CSSProperties}>
+        <SwipeToReadRow enabled={unread} onCommit={() => void markRead(item.id)}>
         <div className="flex items-start gap-2.5">
           <span
             aria-hidden
-            className={`mt-[7px] h-[9px] w-[9px] shrink-0 rounded-full ${showUnreadDot ? "bg-chead" : "bg-transparent"}`}
+            className={`mt-[7px] h-[9px] w-[9px] shrink-0 rounded-full ${showUnreadDot ? "bg-cblue" : "bg-transparent"}`}
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-3">
@@ -242,12 +377,12 @@ export function NotificationTimelineCard({
             ) : null}
 
             {item.delivery_channel === "email" && ["failed", "suppressed"].includes(item.delivery_status || "") ? (
-              <p className="mt-2 rounded-xl bg-cred/10 px-3 py-2 text-xs font-normal leading-5 text-cink">
+              <p className="mt-2 rounded-bui-card border border-cred/40 bg-cred/10 px-3 py-2 text-xs font-normal leading-5 text-cink">
                 {t("ui.status.alertEmailUnavailable")}
               </p>
             ) : null}
             {item.delivery_channel === "push" && ["failed", "suppressed"].includes(item.delivery_status || "") ? (
-              <p className="mt-2 rounded-xl bg-cred/10 px-3 py-2 text-xs font-normal leading-5 text-cink">
+              <p className="mt-2 rounded-bui-card border border-cred/40 bg-cred/10 px-3 py-2 text-xs font-normal leading-5 text-cink">
                 {t("ui.status.alertPushUnavailable", "This push notification could not be delivered. You can still read it here.")}
               </p>
             ) : null}
@@ -285,6 +420,7 @@ export function NotificationTimelineCard({
             </div>
           </div>
         </div>
+        </SwipeToReadRow>
       </article>
     );
   }
@@ -296,17 +432,17 @@ export function NotificationTimelineCard({
       ) : null}
       {items.length ? (
         groups.map((group) => (
-          <div key={group.key} className="mb-5 last:mb-0">
+          <div key={group.key} className="bui-enter mb-5 last:mb-0">
             {group.label ? (
               <p className="mb-2 ml-4 text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{group.label}</p>
             ) : null}
-            <div className="divide-y divide-chair overflow-hidden rounded-[14px] bg-white shadow-calm">
-              {group.rows.map(renderRow)}
+            <div className="divide-y divide-chair overflow-hidden rounded-bui-card border border-chair bg-white shadow-bui-card">
+              {group.rows.map((item, rowIndex) => renderRow(item, rowIndex))}
             </div>
           </div>
         ))
       ) : (
-        <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
+        <div className="overflow-hidden rounded-bui-card border border-chair bg-white shadow-bui-card">
           <p className="px-4 py-3 text-[15px] font-normal text-cgray">{t("ui.status.noNotifications")}</p>
         </div>
       )}

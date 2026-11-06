@@ -19,7 +19,7 @@ type TripContextNavProps = {
 };
 
 const destinations = [
-  { key: "home", label: "Home", suffix: "" },
+  { key: "home", label: "Trip home", suffix: "" },
   { key: "customize", label: "Customize", suffix: "#customize" },
   { key: "itinerary", label: "Itinerary", suffix: "#day-by-day" },
   { key: "briefing", label: "Briefing", suffix: "#overview" },
@@ -145,11 +145,11 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
             <p className="truncate text-sm font-semibold text-chead">{title}</p>
             <p className="truncate text-xs font-normal text-cgray">{destination} · {dates}</p>
           </div>
-          {status ? <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-cgray sm:inline-flex"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-chead" />{status}</span> : null}
+          {status ? <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-cgray sm:inline-flex"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-cblue" />{status}</span> : null}
         </div>
       ) : null}
       <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}roamly-trip-tabs min-w-0`}>
-        <div ref={rowRef} className="flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain pb-1">
+        <div ref={rowRef} className="flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain rounded-full border border-chair bg-csoft/60 p-1 shadow-bui-card">
         {visibleDestinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
           const href = `/trip/${tripId}${destinationItem.suffix}`;
@@ -174,10 +174,10 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
                 }
               }}
               aria-current={selected ? "page" : undefined}
-              className={`roamly-press inline-flex min-h-11 shrink-0 snap-start items-center justify-center rounded-full px-3.5 py-2 text-center text-sm font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
+              className={`roamly-press bui-press bui-touch inline-flex min-h-11 shrink-0 snap-start items-center justify-center rounded-full px-3.5 py-2 text-center text-sm font-medium tracking-[-0.01em] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
                 selected
-                  ? "bg-chead text-white"
-                  : "text-cgray hover:bg-white/80 hover:text-chead"
+                  ? "bg-cnavy text-white shadow-bui-card"
+                  : "text-cgray hover:bg-white hover:text-chead"
               }`}
             >
               {destinationItem.label}

@@ -29,12 +29,17 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { Check, ChevronRight, Mail, MapPin, Smartphone } from "lucide-react";
 import type { RoamlySetupState } from "@/lib/roamly/setupState";
 import {
   getNotificationPermissionState,
   getPushCapabilityState,
   subscribeToPushNotifications
 } from "@/lib/roamly/pushClient";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiChip } from "@/components/boardui/Badge";
+import { BuiNotice } from "@/components/boardui/Notice";
 
 type InstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -71,6 +76,17 @@ export function SetupCascade({
   // hidden until "Show instructions" is tapped (the mock's button).
   const [showAppInstructions, setShowAppInstructions] = useState(false);
   const [alertsPermission, setAlertsPermission] = useState<string>("default");
+  const [alertsError, setAlertsError] = useState("");
+  // Live Companion activation for the selected trip, from the ONE
+  // server read-back (lib/roamly/liveStatus.ts via /api/roamly/live-status).
+  // The location step shows this instead of assuming Live is on after
+  // the grant lands (2026-10-31).
+  const [liveActivation, setLiveActivation] = useState<{
+    tripId: string | null;
+    armed: boolean;
+    status: string;
+    reason: string;
+  } | null>(null);
   const deferredPromptRef = useRef<InstallPromptEvent | null>(null);
   const changeRef = useRef(onStateChange);
   changeRef.current = onStateChange;
@@ -86,8 +102,27 @@ export function SetupCascade({
     if (data?.state) applyState(data.state as RoamlySetupState);
   }, [applyState]);
 
+  const refreshLiveStatus = useCallback(async () => {
+    const response = await fetch("/api/roamly/live-status", { cache: "no-store" }).catch(() => null);
+    const data = response?.ok ? await response.json().catch(() => null) : null;
+    if (data?.status?.live) {
+      setLiveActivation({
+        tripId: data.status.tripId ?? null,
+        armed: data.status.live.armed === true,
+        status: String(data.status.live.status || ""),
+        reason: String(data.status.live.reason || "")
+      });
+    }
+  }, []);
+
+  // The server's own reason for the most recent refused completion
+  // (e.g. setup/complete's "No fresh location fix confirms the grant
+  // yet."). Kept so callers can surface the truthful reason instead of
+  // collapsing every refusal into one generic line (2026-10-31).
+  const completeErrorRef = useRef<string | null>(null);
+
   const completeStep = useCallback(
-    async (step: "gmail" | "app" | "location", evidence?: string) => {
+    async (step: "gmail" | "app" | "location" | "alerts", evidence?: string) => {
       const response = await fetch("/api/roamly/setup/complete", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -95,9 +130,11 @@ export function SetupCascade({
       }).catch(() => null);
       const data = response ? await response.json().catch(() => null) : null;
       if (response?.ok && data?.state) {
+        completeErrorRef.current = null;
         applyState(data.state as RoamlySetupState);
         return true;
       }
+      completeErrorRef.current = typeof data?.error === "string" && data.error ? data.error : null;
       return false;
     },
     [applyState]
@@ -123,6 +160,7 @@ export function SetupCascade({
     }
     void getNotificationPermissionState().then(setAlertsPermission).catch(() => undefined);
     void refresh();
+    void refreshLiveStatus();
     if (capability.isStandalone) {
       void completeStep("app", "standalone");
     }
@@ -137,6 +175,7 @@ export function SetupCascade({
       const next = getPushCapabilityState();
       setStandalone(next.isStandalone);
       void refresh();
+      void refreshLiveStatus();
       if (next.isStandalone) void completeStep("app", "standalone");
     };
     document.addEventListener("visibilitychange", onVisible);
@@ -144,13 +183,16 @@ export function SetupCascade({
       window.removeEventListener("beforeinstallprompt", onPrompt);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [completeStep, refresh]);
+  }, [completeStep, refresh, refreshLiveStatus]);
 
   const gmailDone = setup.gmailOnce;
   const appDone = setup.appInstalledOnce || standalone;
   const locationDone = setup.locationOnce;
   const dones = [gmailDone, appDone, locationDone];
   const currentIndex = dones.findIndex((done) => !done);
+  // BoardUI progress presentation only: derived from the same `dones`
+  // evidence above — it changes no gating or completion condition.
+  const doneCount = dones.filter(Boolean).length;
 
   async function installWithPrompt() {
     const deferred = deferredPromptRef.current;
@@ -180,7 +222,12 @@ export function SetupCascade({
         await completeStep("app", "standalone");
       } else {
         setAppRecheckMessage(
-          "Roamly isn't on your home screen yet — add it from your browser menu, then tap this again."
+          // Audit fix: a browser tab cannot detect a home-screen
+          // install (navigator.standalone / the standalone media query
+          // describe THIS tab, not the device). The old copy asserted
+          // "Roamly isn't on your home screen yet" to owners who had
+          // already installed it. State only what is true.
+          "A browser tab can't check your home screen. If Roamly is already there, open it from your home screen once and this step completes itself. If it isn't, add it from your browser menu first, then open it from your home screen."
         );
       }
       await refresh();
@@ -207,12 +254,28 @@ export function SetupCascade({
     }
   }
 
+  // Alerts completion is READ-BACK verified (L9, 2026-10-31): the
+  // subscribe attempt's own result is never trusted — the step
+  // completes only when the server finds the subscription row
+  // (completeStep "alerts"), and a refusal surfaces the server's own
+  // reason here instead of the step silently looking done.
   async function turnOnAlerts() {
     setBusy("alerts");
+    setAlertsError("");
     try {
-      await subscribeToPushNotifications().catch(() => null);
+      const result = await subscribeToPushNotifications().catch(() => null);
       const permission = await getNotificationPermissionState().catch(() => "default");
       setAlertsPermission(permission);
+      const recorded = await completeStep("alerts");
+      if (!recorded) {
+        setAlertsError(
+          completeErrorRef.current ||
+            (result && !result.ok ? result.error : null) ||
+            setup.notificationsReason ||
+            "No push subscription found."
+        );
+      }
+      await refresh();
     } finally {
       setBusy("");
     }
@@ -262,7 +325,13 @@ export function SetupCascade({
           maximumAge: 60_000
         });
       });
-      await fetch("/api/roamly/location/update", {
+      // Reason wiring (2026-10-31): the update route answers with
+      // distinct truthful reasons (stale fix, account switch off, save
+      // failure). They used to be discarded unread, and the completion
+      // refusal below collapsed into one generic line. Surface the
+      // server's own words — no new customer copy — with the existing
+      // generic line only as the no-reason fallback.
+      const updateResponse = await fetch("/api/roamly/location/update", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -274,10 +343,17 @@ export function SetupCascade({
             : undefined,
           permissionState: "granted"
         })
-      });
+      }).catch(() => null);
+      const updateData = updateResponse ? await updateResponse.json().catch(() => null) : null;
+      const updateReason =
+        typeof updateData?.message === "string" && updateData.message
+          ? updateData.message
+          : typeof updateData?.error === "string" && updateData.error
+            ? updateData.error
+            : null;
       const recorded = await completeStep("location");
       if (!recorded) {
-        setLocationError("Roamly couldn't confirm the grant yet — try once more.");
+        setLocationError(updateReason || completeErrorRef.current || "Roamly couldn't confirm the grant yet — try once more.");
       }
     } catch (error) {
       const denied =
@@ -313,32 +389,35 @@ export function SetupCascade({
   }
 
   const compact = variant === "compact";
-  const compactActionClass = "shrink-0 text-base font-normal text-cblue disabled:opacity-50";
+  const compactActionClass = "bui-touch shrink-0 text-base font-normal text-cblue disabled:opacity-50";
 
   // ---- "optional" presentation (owner-approved gate design) ----
   // Same state and handlers as the cascade below; only the cards
   // differ. Icons are simple inline glyphs (no brand assets copied);
   // layout, copy, and actions follow the approved mock exactly.
   if (variant === "optional") {
-    const cardClass = "rounded-2xl bg-white p-4 shadow-calm";
+    const cardClass = "bui-enter p-4";
     const iconBox = (tone: string, glyph: React.ReactNode) => (
       <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tone}`} aria-hidden="true">
         {glyph}
       </span>
     );
     const chevron = (
-      <span aria-hidden="true" className="ml-3 shrink-0 text-xl leading-none text-cchev">›</span>
+      <span aria-hidden="true" className="ml-3 flex shrink-0 items-center text-cchev"><ChevronRight size={20} strokeWidth={2} /></span>
     );
     const outlineButtonClass =
       "inline-flex min-h-12 items-center justify-center rounded-xl border-2 border-cblue bg-white px-5 text-[15px] font-semibold text-cblue disabled:opacity-50";
     // Picture 3 literal: the Gmail button is SOLID blue; the other
     // two optional buttons stay blue-outline (see the enlarged crop).
+    // Kept seam (deliberate): this settled Picture 3 design outranks
+    // the generic BoardUI skin for these elements — do not route
+    // them through BuiButton / BuiButtonLink.
     const solidButtonClass =
       "inline-flex min-h-12 items-center justify-center rounded-xl bg-cblue px-5 text-[15px] font-semibold text-white disabled:opacity-50";
     // Picture 3 literal: buttons sit under the TEXT column, indented
     // past the icon (w-11) + its px-3 gutter = 56px = ml-14.
     const doneCheck = (
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-cgreen/15 text-lg font-bold text-cgreen" aria-hidden="true">✓</span>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-cgreen/15 text-cgreen" aria-hidden="true"><Check size={22} strokeWidth={2.5} /></span>
     );
     const cardHead = (icon: React.ReactNode, title: string, description: string) => (
       <div className="flex items-start">
@@ -352,7 +431,7 @@ export function SetupCascade({
     );
     return (
       <div className="grid gap-3">
-        <section className={cardClass}>
+        <BuiCard className={cardClass}>
           {gmailDone ? (
             <>
               <div className="flex items-start">
@@ -379,7 +458,7 @@ export function SetupCascade({
             <>
               {cardHead(
                 iconBox("bg-red-50 text-red-500", (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m2 7 10 6 10-6" /></svg>
+                  <Mail size={22} strokeWidth={2} aria-hidden="true" />
                 )),
                 "Connect Gmail for Booking Recon",
                 "Automatically find your flight, hotel and activity confirmations."
@@ -391,16 +470,18 @@ export function SetupCascade({
               </div>
             </>
           )}
-        </section>
+        </BuiCard>
 
-        <section className={cardClass}>
+        <BuiCard className={cardClass}>
           {appDone ? (
             <div className="flex items-start">
               {doneCheck}
               <div className="min-w-0 flex-1 px-3">
                 <h3 className="text-[17px] font-semibold leading-tight text-chead">Add Roamly to your home screen</h3>
                 <p className="mt-0.5 text-[14.5px] font-normal leading-snug text-cgray">
-                  Installed. When something matters on your trip, Roamly can reach you right away.
+                  {setup.notificationsSubscribed
+                    ? "Installed. When something matters on your trip, Roamly can reach you right away."
+                    : "Installed. Alerts are a separate step — turn them on so Roamly can reach you."}
                 </p>
               </div>
               {chevron}
@@ -409,7 +490,7 @@ export function SetupCascade({
             <>
               {cardHead(
                 iconBox("bg-sky-50 text-sky-600", (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" /><path d="M11 18h2" /></svg>
+                  <Smartphone size={22} strokeWidth={2} aria-hidden="true" />
                 )),
                 "Add Roamly to your home screen",
                 "Get instant alerts and a smoother experience."
@@ -439,18 +520,16 @@ export function SetupCascade({
                       {busy === "app-recheck" ? "Checking…" : "I've added it — continue"}
                     </button>
                     {appRecheckMessage ? (
-                      <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
-                        {appRecheckMessage}
-                      </p>
+                      <BuiNotice tone="error" title={appRecheckMessage} className="mt-3" />
                     ) : null}
                   </div>
                 ) : null}
               </div>
             </>
           )}
-        </section>
+        </BuiCard>
 
-        <section className={cardClass}>
+        <BuiCard className={cardClass}>
           {locationDone && setup.locationGranted && setup.locationEnabled ? (
             <div className="flex items-start">
               {doneCheck}
@@ -466,7 +545,7 @@ export function SetupCascade({
             <>
               {cardHead(
                 iconBox("bg-teal-50 text-teal-600", (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
+                  <MapPin size={22} strokeWidth={2} aria-hidden="true" />
                 )),
                 "Enable location (for Live Companion)",
                 "Get real-time nearby suggestions and turn-by-turn guidance."
@@ -488,14 +567,12 @@ export function SetupCascade({
                   </p>
                 ) : null}
                 {locationError ? (
-                  <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
-                    {locationError}
-                  </p>
+                  <BuiNotice tone="error" title={locationError} className="mt-3" />
                 ) : null}
               </div>
             </>
           )}
-        </section>
+        </BuiCard>
       </div>
     );
   }
@@ -510,43 +587,60 @@ export function SetupCascade({
     const done = dones[index];
     const locked = currentIndex !== -1 && index > currentIndex;
     return (
-      <section key={title} id={`setup-step-${index + 1}`} className="scroll-mt-24 px-4 pb-[15px] pt-[13px]">
+      <section key={title} id={`setup-step-${index + 1}`} className="bui-enter scroll-mt-24 px-4 pb-[15px] pt-[13px]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className={`text-[17px] font-semibold leading-tight ${locked ? "text-cgray" : "text-chead"}`}>{title}</h3>
             <p className={`mt-0.5 text-[14.5px] font-normal leading-snug ${locked ? "text-cgray2" : "text-cgray"}`}>{feature}</p>
           </div>
           {locked ? (
-            <span className="shrink-0 text-[15px] font-normal text-cgray2">Locked</span>
+            <BuiChip tone="neutral" className="shrink-0">Locked</BuiChip>
           ) : compact && compactAction ? (
             compactAction
           ) : done ? (
-            <span className="flex shrink-0 items-center gap-1.5 text-[15px] font-normal text-cgray">
+            <BuiChip tone="success" className="shrink-0">
               <span aria-hidden className="text-cgreen">✓</span> Done
-            </span>
+            </BuiChip>
           ) : null}
         </div>
         {!locked && !(compact && compactAction) ? children : null}
+        {compact && index === 1 && alertsError ? (
+          <BuiNotice tone="error" title={alertsError} className="mt-3" />
+        ) : null}
         {compact && index === 2 && locationError ? (
-          <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
-            {locationError}
-          </p>
+          <BuiNotice tone="error" title={locationError} className="mt-3" />
         ) : null}
       </section>
     );
   };
 
   const actionClass =
-    "mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-50";
-  const quietLinkClass = "font-semibold text-cblue";
+    "bui-press bui-touch mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-50";
+  const quietLinkClass = "bui-touch font-semibold text-cblue";
   const firstLockedIndex = currentIndex !== -1 ? dones.findIndex((done, i) => i > currentIndex) : -1;
 
   return (
     <>
-    <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
-      {setup.complete ? (
+    <BuiCard className="overflow-hidden rounded-bui-panel">
+      <div className="bui-enter border-b border-chair px-4 py-3" aria-hidden="true">
+        <div className="flex gap-1.5">
+          {dones.map((done, index) => (
+            <span key={index} className={`h-1.5 flex-1 rounded-full ${done ? "bg-cgreen" : "bg-chair"}`} />
+          ))}
+        </div>
+        <p className="bui-display-number mt-2 text-xs font-semibold text-cgray">
+          {doneCount} / {dones.length}
+        </p>
+      </div>
+      {setup.complete && setup.notificationsSubscribed ? (
         <p className="border-b border-chair px-4 py-3 text-sm font-normal leading-6 text-cink">
-          All set — everything works. These steps stay here if you ever need them again.
+          {/* Success Rules pass (2026-11-03), census row 20: the
+              summary used to say only "everything works". It now
+              names what is actually on — this line renders only
+              when every step is complete and alerts are subscribed,
+              so each named piece is true when it appears. */}
+          All set — Booking Recon is on{setup.gmailEmail ? ` for ${setup.gmailEmail}` : ""}, trip alerts are
+          on, and location is on. These steps stay here if you ever need them again.
         </p>
       ) : null}
       <div className="divide-y divide-chair">
@@ -613,12 +707,23 @@ export function SetupCascade({
           "Roamly can reach you in the moment",
           appDone ? (
             <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
-              <p>Installed. When something matters on your trip, Roamly can reach you right away.</p>
-              {standalone && alertsPermission === "default" ? (
-                <button type="button" className={actionClass} disabled={busy === "alerts"} onClick={() => void turnOnAlerts()}>
-                  {busy === "alerts" ? "Turning on…" : "Turn on alerts"}
-                </button>
-              ) : null}
+              <p>
+                {setup.notificationsSubscribed
+                  ? "Installed. When something matters on your trip, Roamly can reach you right away."
+                  : "Installed. Alerts are separate — turn them on below so Roamly can reach you."}
+              </p>
+              {setup.notificationsSubscribed ? (
+                <p className="mt-2">Alerts are on.</p>
+              ) : (
+                <>
+                  <BuiButton type="button" busy={busy === "alerts"} onClick={() => void turnOnAlerts()} className="mt-3 w-full">
+                    {busy === "alerts" ? "Turning on…" : "Turn on alerts"}
+                  </BuiButton>
+                  {alertsError ? (
+                    <BuiNotice tone="error" title={alertsError} className="mt-3" />
+                  ) : null}
+                </>
+              )}
             </div>
           ) : (
             <div>
@@ -628,22 +733,37 @@ export function SetupCascade({
                   : "On Android / Chrome: tap ⋮ → Add to Home screen / Install app. Then open Roamly from your home screen — no app store needed, and this step finishes itself when you do."}
               </p>
               {promptReady ? (
-                <button type="button" className={actionClass} disabled={busy === "app"} onClick={() => void installWithPrompt()}>
+                <BuiButton type="button" busy={busy === "app"} onClick={() => void installWithPrompt()} className="mt-3 w-full">
                   {busy === "app" ? "Opening…" : "Install Roamly"}
-                </button>
+                </BuiButton>
               ) : null}
-              <button
+              <BuiButton
                 type="button"
-                className="mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl border border-chair bg-white px-5 text-[17px] font-semibold text-cblue disabled:opacity-50"
-                disabled={busy === "app-recheck"}
+                variant="secondary"
+                busy={busy === "app-recheck"}
                 onClick={() => void recheckAppInstall()}
+                className="mt-3 w-full"
               >
                 {busy === "app-recheck" ? "Checking…" : "I've added it — continue"}
-              </button>
+              </BuiButton>
               {appRecheckMessage ? (
-                <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
-                  {appRecheckMessage}
-                </p>
+                <BuiNotice tone="error" title={appRecheckMessage} className="mt-3" />
+              ) : null}
+              {!setup.notificationsSubscribed ? (
+                <>
+                  <BuiButton
+                    type="button"
+                    variant="secondary"
+                    busy={busy === "alerts"}
+                    onClick={() => void turnOnAlerts()}
+                    className="mt-3 w-full"
+                  >
+                    {busy === "alerts" ? "Turning on…" : "Turn on alerts"}
+                  </BuiButton>
+                  {alertsError ? (
+                    <BuiNotice tone="error" title={alertsError} className="mt-3" />
+                  ) : null}
+                </>
               ) : null}
               {appLink ? (
                 <div className="mt-4 border-t border-chair pt-3">
@@ -659,7 +779,7 @@ export function SetupCascade({
               ) : null}
             </div>
           ),
-          appDone && standalone && alertsPermission === "default" ? (
+          appDone && !setup.notificationsSubscribed ? (
             <button type="button" className={compactActionClass} disabled={busy === "alerts"} onClick={() => void turnOnAlerts()}>
               {busy === "alerts" ? "Turning on…" : "Turn on alerts"}
             </button>
@@ -678,25 +798,28 @@ export function SetupCascade({
             <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
               {setup.locationGranted ? (
                 setup.locationEnabled ? (
-                  <p>On. During your trip days, Live Companion follows along and speaks up only when it matters.</p>
+                  <>
+                    <p>On. During your trip days, Live Companion follows along and speaks up only when it matters.</p>
+                    {liveActivation && liveActivation.tripId && !liveActivation.armed ? (
+                      <p className="mt-2">{liveActivation.reason}</p>
+                    ) : null}
+                  </>
                 ) : (
                   <>
                     <p>Granted — and currently switched off. Nothing is followed while it is off.</p>
-                    <button type="button" className={actionClass} disabled={busy === "location-on"} onClick={() => void turnLocationBackOn()}>
+                    <BuiButton type="button" busy={busy === "location-on"} onClick={() => void turnLocationBackOn()} className="mt-3 w-full">
                       {busy === "location-on" ? "Turning on…" : "Turn location on"}
-                    </button>
+                    </BuiButton>
                   </>
                 )
               ) : (
                 <>
                   <p>The permission is off in your browser right now. Turn it on so the companion can go live again.</p>
-                  <button type="button" className={actionClass} disabled={busy === "location"} onClick={() => void turnOnLocation()}>
+                  <BuiButton type="button" busy={busy === "location"} onClick={() => void turnOnLocation()} className="mt-3 w-full">
                     {busy === "location" ? "Turning on…" : "Turn on location"}
-                  </button>
+                  </BuiButton>
                   {locationError ? (
-                    <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
-                      {locationError}
-                    </p>
+                    <BuiNotice tone="error" title={locationError} className="mt-3" />
                   ) : null}
                 </>
               )}
@@ -713,13 +836,11 @@ export function SetupCascade({
                 One grant, remembered. Roamly follows along only during your trip days, and you can switch
                 it off any time — the grant stays yours.
               </p>
-              <button type="button" className={actionClass} disabled={busy === "location"} onClick={() => void turnOnLocation()}>
+              <BuiButton type="button" busy={busy === "location"} onClick={() => void turnOnLocation()} className="mt-3 w-full">
                 {busy === "location" ? "Turning on…" : "Turn on location"}
-              </button>
+              </BuiButton>
               {locationError ? (
-                <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3 py-2 text-xs font-medium leading-5 text-cink">
-                  {locationError}
-                </p>
+                <BuiNotice tone="error" title={locationError} className="mt-3" />
               ) : null}
             </div>
           ),
@@ -738,7 +859,7 @@ export function SetupCascade({
           ) : undefined
         )}
       </div>
-    </div>
+    </BuiCard>
     {compact && firstLockedIndex !== -1 ? (
       <p className="mx-4 mt-2 text-[13.5px] font-normal leading-5 text-cgray">
         Finish step {currentIndex + 1} first — this one unlocks next.

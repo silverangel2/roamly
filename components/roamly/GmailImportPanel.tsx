@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { closeTravelerSentence } from "@/lib/roamly/itineraryPresentation";
 
@@ -20,6 +22,24 @@ type QuarantinedImport = {
   reasons: string[];
   createdAt: string | null;
 };
+
+type KeptAsideImport = PendingImport & {
+  credibilityReasons: string[];
+};
+
+const CREDIBILITY_REASON_LABELS: Record<string, string> = {
+  missing_confirmation_code: "No confirmation code was found in the email.",
+  invalid_confirmation_code: "The code found in the email does not look like a real booking confirmation code.",
+  non_booking_sender: "This came from a sender that does not send booking confirmations.",
+  promotional_subject: "This looks like a promotional offer, not a booking confirmation.",
+  non_booking_notification: "This looks like subscription or notification mail, not a booking confirmation.",
+  test_or_qa_record: "This looks like a test record, not a real reservation.",
+  missing_provider: "No booking provider could be identified for this email."
+};
+
+function credibilityReasonLabel(reason: string) {
+  return CREDIBILITY_REASON_LABELS[reason] || "It does not meet the checks for a booking confirmation.";
+}
 
 type PendingImport = {
   id: string;
@@ -82,7 +102,7 @@ function importMetaLine(item: PendingImport) {
   if (item.confirmationCode) parts.push(`Confirmation ${item.confirmationCode}`);
   if (item.flightNumber) parts.push(`Flight ${item.flightNumber}`);
   if (typeof item.overallConfidence === "number" && Number.isFinite(item.overallConfidence)) {
-    parts.push(`${Math.round(item.overallConfidence * 100)}% confidence`);
+    parts.push(`${Math.round(item.overallConfidence * 100)}% parse confidence`);
   }
   return parts.join(" · ");
 }
@@ -95,6 +115,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
   const router = useRouter();
   const [connection, setConnection] = useState<EmailConnectionState | null>(null);
   const [imports, setImports] = useState<PendingImport[]>([]);
+  const [keptAside, setKeptAside] = useState<KeptAsideImport[]>([]);
   const [quarantined, setQuarantined] = useState<QuarantinedImport[]>([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -115,6 +136,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
     const data = await response.json().catch(() => null);
     if (response.ok) {
       setImports(Array.isArray(data?.imports) ? data.imports : []);
+      setKeptAside(Array.isArray(data?.keptAside) ? data.keptAside : []);
       setQuarantined(Array.isArray(data?.quarantined) ? data.quarantined : []);
     }
   }, [tripId]);
@@ -236,7 +258,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
 
   return (
     <section aria-labelledby="gmail-import-title" className="mx-auto w-full max-w-5xl px-4 sm:px-6">
-      <div className="mt-6 rounded-2xl border border-ocean/15 bg-white p-4 shadow-[0_10px_36px_rgba(15,118,110,0.08)] sm:p-6">
+      <div className="bui-enter mt-6 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Email import</p>
         <h2 id="gmail-import-title" className="mt-1 text-xl font-black tracking-tight text-ink">
           Bookings from your inbox
@@ -247,7 +269,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
           Only travel emails are read; personal mail is never stored.
         </p>
 
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-4 rounded-bui-card border border-chair bg-cbg p-4">
           {connected ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -257,32 +279,28 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => void syncNow()}
-                  disabled={Boolean(busy)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white disabled:opacity-50"
-                >
+                <BuiButton type="button" onClick={() => void syncNow()} disabled={Boolean(busy)} busy={busy === "sync"}>
                   {busy === "sync" ? "Syncing..." : "Sync now"}
-                </button>
-                <button
+                </BuiButton>
+                <BuiButton
                   type="button"
+                  variant="secondary"
                   onClick={() => void disconnect()}
                   disabled={Boolean(busy)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 disabled:opacity-50"
+                  busy={busy === "disconnect"}
                 >
                   {busy === "disconnect" ? "Disconnecting..." : "Disconnect"}
-                </button>
+                </BuiButton>
               </div>
             </div>
           ) : expired ? (
             <div className="flex flex-col gap-3">
-              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold leading-6 text-amber-900">
+              <p className="rounded-bui-card border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold leading-6 text-amber-900">
                 Your Gmail connection stopped working. Reconnect to keep importing bookings automatically.
               </p>
               <a
                 href={CONNECT_HREF}
-                className="inline-flex min-h-11 w-fit items-center justify-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white"
+                className="bui-press bui-touch inline-flex min-h-11 w-fit items-center justify-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)]"
               >
                 Reconnect Gmail
               </a>
@@ -292,7 +310,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
               <p className="text-sm font-semibold text-slate-600">No email connected yet.</p>
               <a
                 href={CONNECT_HREF}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white"
+                className="bui-press bui-touch inline-flex min-h-11 items-center justify-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)]"
               >
                 Connect Gmail
               </a>
@@ -309,7 +327,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
             </p>
             <div className="mt-3 grid gap-2">
               {imports.map((item: PendingImport) => (
-                <article key={item.id} className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                <article key={item.id} className="bui-enter bui-lift rounded-bui-card border border-amber-200 bg-amber-50/50 p-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-sm font-black text-ink">{item.title || "Travel booking"}</p>
@@ -321,24 +339,55 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
                       ) : null}
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <button
+                      <BuiButton
                         type="button"
+                        size="small"
                         onClick={() => void attachImport(item.id)}
                         disabled={Boolean(busy)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white disabled:opacity-50"
+                        busy={busy === `attach:${item.id}`}
                       >
                         {busy === `attach:${item.id}` ? "Attaching..." : "Attach to this trip"}
-                      </button>
-                      <button
+                      </BuiButton>
+                      <BuiButton
                         type="button"
+                        size="small"
+                        variant="secondary"
                         onClick={() => void discardImport(item.id)}
                         disabled={Boolean(busy)}
-                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 disabled:opacity-50"
+                        busy={busy === `discard:${item.id}`}
                       >
                         {busy === `discard:${item.id}` ? "Discarding..." : "Discard"}
-                      </button>
+                      </BuiButton>
                     </div>
                   </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {keptAside.length ? (
+          <div className="mt-5">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+              Kept aside — these don&apos;t look like booking confirmations
+            </p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              Roamly read these emails again with stricter checks and they do not pass as booking
+              confirmations, so they can&apos;t be attached to a trip. They are kept here for your
+              records — nothing was deleted, and the original emails are untouched.
+            </p>
+            <div className="mt-3 grid gap-2">
+              {keptAside.map((item: KeptAsideImport) => (
+                <article key={item.id} className="rounded-bui-card border border-chair bg-cbg p-3">
+                  <p className="text-sm font-black text-ink">{item.title || "Email kept aside"}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    {importRouteLine(item)} · {importDateLine(item, locale)}
+                  </p>
+                  {(item.credibilityReasons || []).map((reason: string) => (
+                    <p key={reason} className="mt-1 text-xs font-bold text-slate-500">
+                      {credibilityReasonLabel(reason)}
+                    </p>
+                  ))}
                 </article>
               ))}
             </div>
@@ -354,7 +403,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
             </p>
             <div className="mt-3 grid gap-2">
               {quarantined.map((item: QuarantinedImport) => (
-                <article key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <article key={item.id} className="rounded-bui-card border border-chair bg-cbg p-3">
                   <p className="text-sm font-black text-ink">{item.subject || "Email kept aside"}</p>
                   <p className="mt-1 text-xs font-bold text-slate-500">
                     Could not be read during sync — kept aside for a later retry.
@@ -365,14 +414,8 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
           </div>
         ) : null}
 
-        {error ? (
-          <p className="mt-3 rounded-xl bg-rose-50 px-4 py-3 text-sm font-black text-rose-700">{error}</p>
-        ) : null}
-        {notice ? (
-          <p role="status" className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
-            {notice}
-          </p>
-        ) : null}
+        {error ? <BuiNotice tone="error" title={error} className="mt-3" /> : null}
+        {notice ? <BuiNotice tone="success" title={notice} className="mt-3" /> : null}
       </div>
     </section>
   );

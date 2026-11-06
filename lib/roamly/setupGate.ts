@@ -106,7 +106,14 @@ export async function hasAnyTrip(supabase: SupabaseClient, userId: string): Prom
 export function setupGateLimitedFeatures(state: RoamlySetupState): string[] {
   const limited: string[] = [];
   if (!state.gmailConnected) limited.push("Booking Recon — needs Gmail");
-  if (!state.appInstalledOnce) limited.push("Live Companion alerts — needs the app");
+  // Alerts truth (L9, 2026-10-31): when the state carries the
+  // subscription read-back, an installed app with NO subscription row
+  // still limits alerts — install alone never meant Roamly could
+  // reach the traveler. States built without the read-back field
+  // (older callers) keep the previous install-only rule.
+  const alertsReady =
+    state.notificationsSubscribed !== undefined ? state.notificationsSubscribed : state.appInstalledOnce;
+  if (!state.appInstalledOnce || !alertsReady) limited.push("Live Companion alerts — needs the app");
   if (!(state.locationGranted && state.locationEnabled)) limited.push("Companion goes live — needs location");
   return limited;
 }

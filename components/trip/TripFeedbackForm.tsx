@@ -30,7 +30,7 @@ function ScoreSelect({
       <select
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value ? Number(event.target.value) : null)}
-        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-ink shadow-sm"
+        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
       >
         <option value="">Not rated</option>
         {[1, 2, 3, 4, 5].map((score) => (
@@ -168,7 +168,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
               min={1}
               value={tripDay}
               onChange={(event) => setTripDay(event.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-ink shadow-sm"
+              className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm"
             />
           </label>
         ) : null}
@@ -177,7 +177,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
           <select
             value={pace}
             onChange={(event) => setPace(event.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-ink shadow-sm"
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
           >
             <option value="too_busy">Too busy</option>
             <option value="right">Right</option>
@@ -196,15 +196,15 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           <span>Favourite activities</span>
-          <input value={favourites} onChange={(event) => setFavourites(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-ink shadow-sm" />
+          <input value={favourites} onChange={(event) => setFavourites(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm" />
         </label>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           <span>Disappointing activities</span>
-          <input value={disappointments} onChange={(event) => setDisappointments(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-ink shadow-sm" />
+          <input value={disappointments} onChange={(event) => setDisappointments(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm" />
         </label>
         <label className="grid gap-2 text-sm font-bold text-slate-700">
           <span>Skipped activities</span>
-          <input value={skipped} onChange={(event) => setSkipped(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-ink shadow-sm" />
+          <input value={skipped} onChange={(event) => setSkipped(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm" />
         </label>
       </div>
 
@@ -215,7 +215,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
             value={freeText}
             onChange={(event) => setFreeText(event.target.value)}
             rows={4}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-ink shadow-sm"
+            className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm"
           />
         </label>
         <label className="flex items-center gap-2 text-sm font-bold text-slate-700">

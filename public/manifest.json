@@ -2,11 +2,11 @@
   "name": "Roamly",
   "short_name": "Roamly",
   "description": "Budget-aware AI travel companion",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0f766e",
+  "theme_color": "#087BFF",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -17,6 +17,12 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/apple-touch-icon.png",

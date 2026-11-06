@@ -56,27 +56,51 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (permissionState !== "granted") {
-    const { error: disableError } = await auth.supabase.from("roamly_location_settings").upsert(
-      {
-        user_id: auth.userId,
-        location_tracking_enabled: false,
-        last_permission_state: permissionState,
-        last_seen_latitude: null,
-        last_seen_longitude: null,
-        last_seen_at: null
-      },
-      { onConflict: "user_id" }
-    );
-    if (disableError) {
-      return NextResponse.json({ ok: false, error: "Could not update location settings." }, { status: 500 });
+    // Grant-persistence fix (2026-10-31, owner's "the location turned
+    // off on its own"): this branch used to upsert
+    // location_tracking_enabled=false + last_permission_state=<value> +
+    // cleared coordinates for ANY non-granted report. Two client watch
+    // paths report transient geolocation failures here (Live's
+    // watchPosition maps TIMEOUT/POSITION_UNAVAILABLE to "prompt"; the
+    // shell tracker mapped ANY error to "denied"), so one bad GPS
+    // moment silently turned the traveler's tracking OFF and erased a
+    // recorded "granted". The settings model keeps the two facts
+    // separate by design (setupState.ts): the GRANT is a device fact,
+    // the SWITCH is the traveler's persisted choice. So:
+    //  - "denied" (a true PERMISSION_DENIED) records the device fact
+    //    and clears coordinates a denied browser can no longer refresh
+    //    — but never flips the switch; only the settings PATCH (the
+    //    traveler's own toggle) changes location_tracking_enabled.
+    //  - "prompt" carries no permission fact at all (it is how the
+    //    clients report transient errors): write NOTHING.
+    if (permissionState === "denied") {
+      const { error: deniedError } = await auth.supabase.from("roamly_location_settings").upsert(
+        {
+          user_id: auth.userId,
+          last_permission_state: "denied",
+          last_seen_latitude: null,
+          last_seen_longitude: null,
+          last_seen_at: null
+        },
+        { onConflict: "user_id" }
+      );
+      if (deniedError) {
+        return NextResponse.json({ ok: false, error: "Could not update location settings." }, { status: 500 });
+      }
+      await recordTripEvent(auth.supabase, {
+        userId: auth.userId,
+        eventType: "location_permission_denied",
+        eventTitle: "Location permission updated",
+        eventBody: "Permission state: denied"
+      });
+      return NextResponse.json({ ok: true, permissionRecorded: "denied" as const, tripActivated: false });
     }
-    await recordTripEvent(auth.supabase, {
-      userId: auth.userId,
-      eventType: permissionState === "denied" ? "location_permission_denied" : "location_permission_prompt",
-      eventTitle: "Location permission updated",
-      eventBody: `Permission state: ${permissionState}`
+    return NextResponse.json({
+      ok: true,
+      permissionRecorded: null,
+      tripActivated: false,
+      message: "A temporary location error does not change your saved location settings."
     });
-    return NextResponse.json({ ok: true, trackingDisabled: true, tripActivated: false });
   }
 
   if (!location) {
@@ -102,6 +126,36 @@ export async function POST(request: NextRequest) {
   }
 
   const observedAt = new Date(typeof capturedAt === "number" ? capturedAt : String(capturedAt)).toISOString();
+
+  // Grant-confirmation decoupling (release-blocker fix, 2026-10-31):
+  // reaching this line means the server has just received, from the
+  // authenticated account, a REAL fresh location fix together with
+  // permissionState "granted" and the account's tracking switch on —
+  // that request IS the server-verifiable evidence that the browser
+  // grant exists. Record the permission FACT (last_permission_state)
+  // on the account's settings row here, independently of the
+  // foreground-location RPC below. Previously the RPC was the only
+  // writer of this fact on the granted path, and it refuses the write
+  // unless an already-operational trip exists (status locked/active/
+  // planned + itinerary_locked + tracking/live-companion unlocked +
+  // in-window, migration 20260928000200) — so a traveler whose Live
+  // Companion was not yet unlocked could never get the grant
+  // confirmed, /api/roamly/setup/complete 409'd forever, and the
+  // setup location step could never complete (owner's Montreal trip,
+  // 2026-10-30/31). COORDINATES stay exactly as operationally scoped
+  // as the migration intends: this upsert writes no coordinate and
+  // the RPC still accepts or refuses/erases last_seen_* on its own
+  // terms below.
+  const { error: permissionRecordError } = await auth.supabase
+    .from("roamly_location_settings")
+    .upsert(
+      { user_id: auth.userId, last_permission_state: "granted" },
+      { onConflict: "user_id" }
+    );
+  if (permissionRecordError) {
+    return NextResponse.json({ ok: false, error: "Could not record the location grant." }, { status: 500 });
+  }
+
   const locationWrite = await writeForegroundLocation({
     supabase: auth.supabase,
     userId: auth.userId,

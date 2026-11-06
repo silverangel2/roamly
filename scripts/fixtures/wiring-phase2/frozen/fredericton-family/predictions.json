@@ -12,7 +12,7 @@
     },
     {
       "name": "Quartermain Earth Science Centre",
-      "day": 4,
+      "day": 2,
       "score": 75,
       "reasons": [
         "named in the traveler's request"
@@ -99,6 +99,12 @@
       "severity": "medium"
     },
     {
+      "day": 2,
+      "item": "Quartermain Earth Science Centre",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
       "day": 3,
       "item": "Morell Park",
       "risk": "opening hours not in any data source — door time could differ from the plan",
@@ -125,12 +131,6 @@
     {
       "day": 4,
       "item": "The Green",
-      "risk": "opening hours not in any data source — door time could differ from the plan",
-      "severity": "medium"
-    },
-    {
-      "day": 4,
-      "item": "Quartermain Earth Science Centre",
       "risk": "opening hours not in any data source — door time could differ from the plan",
       "severity": "medium"
     },
@@ -168,6 +168,12 @@
       "day": 2,
       "item": "Carleton Park",
       "risk": "tight turnaround — only 3 min after \"Grain and Grind Co.\"",
+      "severity": "low"
+    },
+    {
+      "day": 2,
+      "item": "Quartermain Earth Science Centre",
+      "risk": "tight turnaround — only 3 min after \"Carleton Park\"",
       "severity": "low"
     },
     {
@@ -254,9 +260,9 @@
     },
     {
       "day": 2,
-      "stops": 3,
-      "walkingKmEstimated": 2.35,
-      "lastEnd": "14:26"
+      "stops": 4,
+      "walkingKmEstimated": 1.51,
+      "lastEnd": "15:50"
     },
     {
       "day": 3,
@@ -266,9 +272,9 @@
     },
     {
       "day": 4,
-      "stops": 4,
-      "walkingKmEstimated": 3.22,
-      "lastEnd": "18:03"
+      "stops": 3,
+      "walkingKmEstimated": 2.01,
+      "lastEnd": "16:01"
     },
     {
       "day": 5,

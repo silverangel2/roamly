@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { DirectionsScreen } from "@/components/trip/DirectionsScreen";
 import {
   fallbackPlaceId,
@@ -6,7 +7,7 @@ import {
   resolvePlaceInItinerary,
   stripPlaceTitleEcho
 } from "@/lib/roamly/placeDetail";
-import type { DirectionsRouteEvidence } from "@/lib/roamly/directionsPanel";
+import { resolveDirectionsBackHref, type DirectionsRouteEvidence } from "@/lib/roamly/directionsPanel";
 import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
 import { getTripDestinationLabel, getTripOriginLabel } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
@@ -24,8 +25,13 @@ import { getTripBundle } from "@/lib/trips";
  *  - Place detail: that screen's Directions action links here for
  *    its place (?from=place); the external-maps link it used to
  *    carry is one tap away on this screen (Open in Maps).
- * The back chevron returns to the entry page (?from=place → the
- * place page, anything else → the live page).
+ *  - Itinerary/trip surfaces pass ?from=trip.
+ * The back chevron returns to the entry page that linked here
+ * (?from=place → the place page, ?from=live → the live page,
+ * ?from=trip → the trip home). A27 (2026-11-03): any missing or
+ * unknown origin falls back to the trip home (the itinerary),
+ * never to Live — see resolveDirectionsBackHref in
+ * lib/roamly/directionsPanel.ts.
  *
  * The stop shown is ALWAYS one live_timeline item of THIS trip's
  * own itinerary, resolved by item_id (or the deterministic fallback
@@ -77,9 +83,9 @@ function numberFrom(record: Record<string, unknown>, ...keys: string[]): number 
 
 function notFoundPanel(tripId: string, heading: string, body: string) {
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-5 sm:px-6">
+    <div className="bui-enter mx-auto w-full max-w-2xl px-4 pb-10 pt-5 sm:px-6">
       <a href={`/trip/${tripId}`} className="text-[15px] font-medium text-cblue">
-        <span aria-hidden="true">‹ </span>Itinerary
+        <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="inline-block align-[-2px]" /> Itinerary
       </a>
       <h1 className="mt-4 text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">{heading}</h1>
       <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">{body}</p>
@@ -92,7 +98,7 @@ export default async function TripDirectionsPage({ params, searchParams }: Direc
   const search = searchParams ? await searchParams : {};
   const from = typeof search.from === "string" ? search.from : null;
   const directionsPath = `/trip/${id}/directions/${placeId}`;
-  const backHref = from === "place" ? `/trip/${id}/place/${placeId}` : `/trip/${id}/live`;
+  const backHref = resolveDirectionsBackHref({ tripId: id, placeId, from });
 
   const current = await getCurrentUser();
   if (current.configured && !current.user) redirect(`/login?next=${encodeURIComponent(directionsPath)}`);
@@ -182,13 +188,24 @@ export default async function TripDirectionsPage({ params, searchParams }: Direc
     }
   }
   // Photo strip photo: pipeline only, coords-gated. A miss degrades
-  // to no strip element, never a broken image.
+  // to no strip element, never a broken image. The fallback chain
+  // also gets the inputs already in scope here: the trip's
+  // destination label (context gates) and the seed's pack OSM key
+  // (candidateId, stamped by generate.ts engineItemToSeed) for the
+  // Tier 2 element-tag lookup, when present and well-formed.
+  const rawCandidateId = (item as unknown as Record<string, unknown>).candidateId;
+  const stopOsmId =
+    typeof rawCandidateId === "string" && /^(node|way|relation)\/\d+$/.test(rawCandidateId.trim())
+      ? rawCandidateId.trim()
+      : null;
   const stopPhoto = coords
     ? await getDestinationPhoto({
         label: title,
         country: trip.destination_country ?? null,
         latitude: coords.latitude,
-        longitude: coords.longitude
+        longitude: coords.longitude,
+        osmId: stopOsmId,
+        contextLabel: destinationLabel !== "Your trip" ? destinationLabel : null
       }).catch(() => null)
     : null;
   // Originals pass: when the stop itself has no pipeline photo (the

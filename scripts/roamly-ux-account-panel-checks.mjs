@@ -66,14 +66,26 @@ check("Booking Wallet row links to its ?view= detail destination", "STATIC",
   page.includes("Booking Wallet") && page.includes('href="/account?view=booking-wallet"') && page.includes("wallet.label"));
 check("Travelers row links to its ?view= detail destination", "STATIC",
   page.includes("Travelers") && page.includes('href="/account?view=travelers"') && page.includes("travelerSubtitle(partySize"));
-check("Payment & Billing row links to existing /pricing with the picture subtitle", "STATIC",
-  page.includes("Payment &amp; Billing") && page.includes('href="/pricing"') && page.includes("Manage your plan and payment method"));
-check("Preferences row links to its ?view= detail destination with the picture subtitle", "STATIC",
-  page.includes("Preferences") && page.includes('href="/account?view=preferences"') && page.includes("Language, units, notifications"));
+// RE-PINNED 2026-11-03 (Jakob A22, W4): the two subtitles below encoded
+// the OLD dishonest promises — Payment & Billing claimed payment-method
+// management /pricing does not offer, Preferences promised a units
+// setting that does not exist. Assertions are replaced with the new
+// honest subtitles at the SAME strength (href + exact subtitle), plus
+// absence of the old promises. No assertion was loosened.
+check("Payment & Billing row links to existing /pricing with the honest A22 subtitle", "STATIC",
+  page.includes("Payment &amp; Billing") && page.includes('href="/pricing"') && page.includes("View plan and one-time prices") && !page.includes("Manage your plan and payment method"));
+check("Preferences row links to its ?view= detail destination with the honest A22 subtitle (no units promise)", "STATIC",
+  page.includes("Preferences") && page.includes('href="/account?view=preferences"') && page.includes("Language and notifications") && !page.includes("Language, units, notifications"));
 check("Manage account row links to its ?view= detail destination with the picture subtitle", "STATIC",
   page.includes("Manage account") && page.includes('href="/account?view=manage-account"') && page.includes("Update your email, password, or delete account"));
-check("profile card + gear icon link to the manage-account detail view", "STATIC",
-  page.includes('aria-label="Manage account"') && (page.match(/href="\/account\?view=manage-account"/g) || []).length >= 3);
+// RE-PINNED 2026-11-03 (Jakob A23, W4): the header Manage-account
+// shortcut used the Lucide Settings gear, which is now reserved for
+// Preferences only; the shortcut carries the CircleUserRound account
+// glyph instead. Same href-count strength, plus the new glyph.
+check("profile card + account icon link to the manage-account detail view", "STATIC",
+  page.includes('aria-label="Manage account"') && page.includes("CircleUserRound") && (page.match(/href="\/account\?view=manage-account"/g) || []).length >= 3);
+check("Install Roamly row links to the existing setup install step (A24)", "STATIC",
+  page.includes("Install Roamly") && page.includes('href="/account?view=setup#setup-step-2"') && page.includes("Add Roamly to your Home Screen"));
 check("Help Center row links to real /help", "STATIC",
   page.includes("Help Center") && page.includes('href="/help"') && helpPage.length > 0);
 check("Contact Support row links to real /contact", "STATIC",
@@ -124,8 +136,10 @@ check("page changes no entitlement: no Stripe/checkout call on the account page"
   !page.includes("stripe") && !page.includes("checkout") && !page.includes("createCheckout"));
 check("page still reads the free-itinerary gate (display only)", "STATIC",
   page.includes("hasUsedFreeItinerary(supabase, current.user.id)"));
+// RE-PINNED 2026-11-03 (Jakob A22, W4): positive string swapped to the
+// new honest subtitle; the negative billing-portal claims are unchanged.
 check("no billing portal or payment-method surface is claimed", "STATIC",
-  page.includes("Manage your plan and payment method") && !page.includes('href="/billing"') && !page.includes("billing-portal"));
+  page.includes("View plan and one-time prices") && !page.includes("Manage your plan and payment method") && !page.includes('href="/billing"') && !page.includes("billing-portal"));
 
 // ---- F. Honest gaps are stated on the page, not hidden ----
 check("password/delete gap stated in Manage account section", "STATIC",

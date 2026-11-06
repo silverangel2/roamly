@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { TripFeedbackForm } from "@/components/trip/TripFeedbackForm";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { getTripFeedback } from "@/lib/roamly/tripFeedback";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 
@@ -31,6 +32,12 @@ export default async function TripFeedbackPage({ params }: PageProps) {
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
+      {/* Jakob's Law A1 (2026-11-03): this page previously had no
+          back link and no cancel — in standalone mode the tab bar
+          was the only escape of any kind. */}
+      <div className="mb-4">
+        <BackHeader href={`/trip/${id}`} label="Trip" />
+      </div>
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Feedback</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-ink">{title}</h1>

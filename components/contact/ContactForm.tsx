@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
+import { BuiMorphButton, type BuiMorphPhase } from "@/components/boardui/MorphButton";
 
 const categories = [
   ["support", "support"], ["billing", "billing"], ["itinerary", "itinerary"], ["partner", "partner"], ["bug", "bug"], ["other", "other"]
@@ -26,6 +27,17 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  /* Submit morph (smooth details, 2026-11-04): the send button is
+   * ONE shape through pill → spinner → tick (BuiMorphButton). The
+   * tick holds ~1.4s after a successful send, then the pill comes
+   * back; the success notice below the button is untouched — the
+   * morph accompanies the message, never replaces it. */
+  const [sentPulse, setSentPulse] = useState(false);
+  const sentTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (sentTimer.current) window.clearTimeout(sentTimer.current);
+  }, []);
+  const morphPhase: BuiMorphPhase = busy ? "busy" : sentPulse ? "done" : "idle";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,6 +58,9 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
       }
 
       setNotice(data?.message || t("ui.email.contact.contactReceived"));
+      setSentPulse(true);
+      if (sentTimer.current) window.clearTimeout(sentTimer.current);
+      sentTimer.current = window.setTimeout(() => setSentPulse(false), 1400);
       setName("");
       setEmail("");
       setCategory("support");
@@ -74,7 +89,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
             onChange={(event) => setName(event.target.value)}
             autoComplete="name"
             required
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
           />
         </label>
         <label className="block">
@@ -85,7 +100,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
             type="email"
             autoComplete="email"
             required
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
           />
         </label>
       </div>
@@ -96,7 +111,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
           >
             {categories.map(([value]) => (
               <option key={value} value={value}>
@@ -111,7 +126,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
             value={tripId}
             onChange={(event) => setTripId(event.target.value)}
             placeholder={t("ui.booking.optional")}
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
           />
         </label>
       </div>
@@ -123,7 +138,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
           onChange={(event) => setSubject(event.target.value)}
           required
           maxLength={180}
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
         />
       </label>
 
@@ -134,7 +149,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
           onChange={(event) => setMessage(event.target.value)}
           required
           rows={8}
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-ocean"
+          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-6 outline-none focus:border-ocean"
         />
       </label>
 
@@ -142,13 +157,12 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
         <p className="text-xs font-bold leading-5 text-slate-500">
           {t("ui.email.contact.contactSupport", "Need help by email? Contact {email}.").replace("{email}", supportEmail)}
         </p>
-        <button
-          type="submit"
-          disabled={busy}
-          className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft transition hover:-translate-y-0.5 disabled:pointer-events-none disabled:opacity-60"
+        <BuiMorphButton
+          phase={morphPhase}
+          className="min-h-12 bg-ink px-5 text-sm font-black text-white shadow-soft"
         >
-          {busy ? t("ui.status.sending") : t("ui.email.contact.contactSend")}
-        </button>
+          {t("ui.email.contact.contactSend")}
+        </BuiMorphButton>
       </div>
 
       {notice ? <p className="rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}

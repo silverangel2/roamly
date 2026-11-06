@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getRoamlySupportEmail, isEmailConfigured } from "@/lib/roamly/email";
+import { listHeldCompanionEmailClaims } from "@/lib/roamly/heldEmailClaims";
 
 export default async function AdminEmailPage() {
   const state = await getRoamlyAdminPageState();
@@ -60,6 +61,7 @@ export default async function AdminEmailPage() {
   ]);
 
   const missingConfig = emailConfig.missingVariables.length ? emailConfig.missingVariables.join(", ") : emailConfig.configured ? "None" : emailConfig.reason;
+  const heldClaims = await listHeldCompanionEmailClaims(state.admin);
 
   return (
     <main className="safe-bottom mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
@@ -93,6 +95,24 @@ export default async function AdminEmailPage() {
             <p className="mt-2 break-words text-sm font-black leading-6 text-ink">{value}</p>
           </Card>
         ))}
+      </section>
+
+      {/* Held companion-email claims — read-only visibility (no resolve/resend actions by design). */}
+      <section className="mt-6">
+        <Card className="p-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Held email claims (ambiguous SMTP)</p>
+          <p className="mt-2 text-sm font-bold text-slate-600">
+            {heldClaims.count} claim(s) held — outcome unknown; no resend, no stamp (see operator procedure).
+          </p>
+          <ul className="mt-3 space-y-2">
+            {heldClaims.claims.map((claim) => (
+              <li key={claim.eventId} className="rounded-2xl bg-mist px-4 py-3 text-sm font-bold text-slate-700">
+                claim {claim.claimId || "unknown"} · trip {claim.tripId || "unknown"} · event {claim.eventId} · state {claim.state} · age{" "}
+                {claim.ageMs === null ? "unknown" : `${Math.round(claim.ageMs / 60000)} min`}
+              </li>
+            ))}
+          </ul>
+        </Card>
       </section>
 
       <section className="mt-6">

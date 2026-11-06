@@ -68,7 +68,17 @@ assert.equal(tripDayNumberInZone("2026-09-07", 5, "Asia/Tokyo", "2026-09-07T15:3
 assert.equal(tripDayNumberInZone("2026-09-07", 5, "Asia/Tokyo", "2026-09-07T00:30:00Z"), 1, "destination-local Monday remains day one");
 const dayFunction = itinerary.slice(itinerary.indexOf("export function getTripDayFromDate"));
 assert.doesNotMatch(dayFunction, /new Date\(`\$\{startDate\}T00:00:00`\)/);
-assert.match(tripActivation, /getTripDayFromDate\([^\n]*timezoneFromTripMetadata/);
+// Release-gate item 2 (2026-10-31) supersedes the old assertion
+// here, which pinned getCurrentTripDay's metadata-only zone lookup
+// (getTripDayFromDate(... timezoneFromTripMetadata ...)): the
+// displayed day now resolves through the ONE eligibility resolver,
+// resolveLiveEligibilityTimezone in lib/roamly/liveEligibility.ts,
+// fed with the same server override eligibility receives. The
+// runtime agreement proof lives in
+// scripts/roamly-tripday-unified-resolver-checks.mjs
+// (test:tripday-unified-resolver).
+assert.match(tripActivation, /resolveLiveEligibilityTimezone/);
+assert.doesNotMatch(tripActivation, /getTripDayFromDate\([^\n]*timezoneFromTripMetadata/);
 assert.match(push, /roamly-activity-\$\{securedPayload\.tripId\}/);
 
 // (Inline dayInZone reimplementation removed with the stale regex:

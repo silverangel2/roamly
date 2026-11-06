@@ -47,6 +47,19 @@ export type HomeTimelineRowInput = {
   timeFromBooking: boolean;
   /** True when the plan record carries retimed_by_event (recalculated time). */
   timeRetimed?: boolean;
+  /** The stop's own stored coordinates, when the plan record carries
+   *  them (engine seeds write `coordinates` from the item's position;
+   *  the display builder resolves them via placeDetail's
+   *  itemCoordinates). Absent/null = the record has no position data
+   *  and the row simply gets no map pin. Never fetched or geocoded. */
+  latitude?: number | null;
+  longitude?: number | null;
+  /** The item's stable id from the display builder (`item_id` on the
+   *  plan record), when it carries one. Carried through to HomeRow so
+   *  the panel can link the row to its place detail — the same id
+   *  the day cards link with. Absent/empty = no stable id, and the
+   *  row must NOT be given a guessed place link (Jakob A15). */
+  itemId?: string | null;
 };
 
 export type HomeRowKind = "travel" | "arrival" | "venue" | "return-to-stay";
@@ -127,6 +140,16 @@ export type HomeRow = {
   retimed: boolean;
   /** Map query for the "View day on map" / Map tab links. */
   mapQuery: string;
+  /** The stop's own stored coordinates, carried through from the
+   *  plan record when it has them; null when it does not. The Map
+   *  tab pins rows that carry both; the rest keep the links only. */
+  latitude?: number | null;
+  longitude?: number | null;
+  /** The item's stable id, carried through from the row input;
+   *  null when the plan record has none. The home panel links the
+   *  row to /trip/[id]/place/<itemId> only when this is set
+   *  (Jakob A15 — a stop row opens the stop, never a guessed id). */
+  itemId: string | null;
   /** Lowercased stored category, for the row icon only. */
   category: string;
 };
@@ -363,6 +386,12 @@ export function toHomeRow(
     timeFromBooking: item.timeFromBooking === true,
     retimed: item.timeRetimed === true,
     mapQuery: getString(item.mapQuery) || getString(item.location) || getString(item.title),
+    latitude:
+      typeof item.latitude === "number" && Number.isFinite(item.latitude) ? item.latitude : null,
+    longitude:
+      typeof item.longitude === "number" && Number.isFinite(item.longitude) ? item.longitude : null,
+    itemId:
+      typeof item.itemId === "string" && item.itemId.trim() ? item.itemId : null,
     category: getString(item.category).toLowerCase()
   };
 }

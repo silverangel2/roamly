@@ -32,7 +32,7 @@ const content = buildPreTrip7DayBriefingContent({
   tripPath: "/trip/trip-1"
 });
 assert.match(content.subject, /Tokyo/);
-assert.match(content.body, /Confirmed:/);
+assert.match(content.body, /Booked:/);
 assert.match(content.body, /Air Canada/);
 assert.match(content.body, /Shinjuku hotel/);
 assert.match(content.body, /Needs attention:/);

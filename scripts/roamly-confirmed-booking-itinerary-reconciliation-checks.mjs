@@ -16,6 +16,30 @@ const routingCompiled = ts.transpileModule(routingSource, {
 const routingSandbox = { exports: {}, module: { exports: {} }, require: nodeRequire };
 routingSandbox.exports = routingSandbox.module.exports;
 vm.runInNewContext(routingCompiled, routingSandbox, { filename: "itineraryRouting.ts" });
+
+// INTEGRATION NOTE: itineraryBookingOverrides also imports the pure
+// bookingTruth module (Workstream A), which itself imports testBooking
+// at runtime. Load the REAL files (never a re-implementation) so the
+// suite keeps testing real code, following the bookingDateTime (#88) /
+// bookingCorrections (#90) precedent in the wallet harnesses.
+function loadRealTs(relativePath) {
+  const compiledReal = ts.transpileModule(fs.readFileSync(path.join(root, relativePath), "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    fileName: relativePath
+  }).outputText;
+  const sb = {
+    exports: {},
+    module: { exports: {} },
+    require(id) {
+      if (id === "@/lib/roamly/testBooking") return loadRealTs("lib/roamly/testBooking.ts");
+      throw new Error(`unexpected require(${id}) while loading ${relativePath}`);
+    }
+  };
+  sb.exports = sb.module.exports;
+  vm.runInNewContext(compiledReal, sb, { filename: relativePath });
+  return sb.module.exports;
+}
+const realBookingTruth = loadRealTs("lib/roamly/bookingTruth.ts");
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   fileName: "itineraryBookingOverrides.ts"
@@ -29,6 +53,7 @@ const sandbox = {
     if (id === "@/lib/roamly/itineraryValidation") return { validateItineraryDeterministically: () => ({ findings: [] }) };
     if (id === "@/lib/roamly/bookingSupersession") return { isOperationalCurrentBooking: (booking) => !booking.superseded_by_booking_id };
     if (id === "@/lib/roamly/itineraryRouting") return routingSandbox.module.exports;
+    if (id === "@/lib/roamly/bookingTruth") return realBookingTruth;
     return nodeRequire(id);
   }
 };
@@ -76,7 +101,10 @@ const hotel = {
   title: "Actual Hotel",
   start_at: "2026-10-10T15:00:00Z",
   location_name: "Actual Hotel Address",
-  traveler_confirmed: true
+  traveler_confirmed: true,
+  confirmation_number: "HTL4821",
+  provider_name: "Actual Hotels",
+  source_type: "manual"
 };
 const selectedHotel = {
   candidateId: "hotel-candidate-1",
@@ -148,7 +176,10 @@ const flight = {
   origin: "YQM",
   destination: "YYZ",
   flight_number: "AC123",
-  traveler_confirmed: true
+  traveler_confirmed: true,
+  confirmation_number: "FLT9172",
+  provider_name: "Air Canada",
+  source_type: "manual"
 };
 const selectedFlight = {
   candidateId: "flight-candidate-1",

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
 import { clearActivityNotification } from "@/lib/roamly/pushClient";
@@ -128,7 +130,7 @@ export function NearbyActivityCard({
   const showNearby = tripStarted && locationVerified;
   if (!showNearby) {
     return (
-      <section className="rounded-[14px] bg-white p-4 shadow-calm">
+      <section className="bui-enter rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Nearby</p>
         <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Not nearby yet</h2>
         {/* Builder-L trim: the "Not nearby yet" heading above is the
@@ -141,7 +143,7 @@ export function NearbyActivityCard({
 
   if (!activity) {
     return (
-      <section className="rounded-[14px] bg-white p-4 shadow-calm">
+      <section className="bui-enter rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.nearbyNow")}</p>
         <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{t("ui.status.noNearbyActivity")}</h2>
         <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">{t("ui.status.nearbyUpdate")}</p>
@@ -150,41 +152,26 @@ export function NearbyActivityCard({
   }
 
   return (
-    <section className="rounded-[14px] bg-white p-4 shadow-calm">
+    <section className="bui-enter rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
       <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.status.nearbyNow")}</p>
       <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{title}</h2>
       <p className="mt-1.5 text-sm font-normal leading-6 text-cink">{detail}</p>
       {activity.distance_meters != null ? (
-        <p className="mt-2 text-sm font-semibold text-cblue">{activity.distance_meters}m away</p>
+        <p className="bui-display-number mt-2 text-sm font-semibold text-cblue">{activity.distance_meters}m away</p>
       ) : null}
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={checkIn}
-          disabled={Boolean(busy)}
-          className="rounded-xl bg-cblue px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-        >
+        <BuiButton type="button" onClick={checkIn} busy={busy === "check"} disabled={Boolean(busy)}>
           {busy === "check" ? "Checking..." : "Check in"}
-        </button>
-        <button
-          type="button"
-          onClick={complete}
-          disabled={Boolean(busy)}
-          className="rounded-xl bg-cbg px-4 py-3 text-sm font-semibold text-chead disabled:opacity-60"
-        >
+        </BuiButton>
+        <BuiButton type="button" variant="secondary" onClick={complete} busy={busy === "complete"} disabled={Boolean(busy)}>
           {busy === "complete" ? "Saving..." : "Mark done"}
-        </button>
-        <button
-          type="button"
-          onClick={skip}
-          disabled={Boolean(busy)}
-          className="rounded-xl px-4 py-3 text-sm font-semibold text-cgray disabled:opacity-60"
-        >
+        </BuiButton>
+        <BuiButton type="button" variant="ghost" onClick={skip} busy={busy === "skip"} disabled={Boolean(busy)}>
           {busy === "skip" ? "Saving..." : "Skip"}
-        </button>
+        </BuiButton>
       </div>
-      {notice ? <p className="mt-3 rounded-xl bg-cblue/10 px-4 py-3 text-sm font-medium text-chead">{notice}</p> : null}
-      {error ? <p className="mt-3 rounded-xl bg-cred/10 px-4 py-3 text-sm font-medium text-cred">{error}</p> : null}
+      {notice ? <BuiNotice tone="success" title={notice} className="mt-3" /> : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-3" /> : null}
     </section>
   );
 }

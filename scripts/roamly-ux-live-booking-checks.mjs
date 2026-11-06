@@ -57,26 +57,29 @@ check(
   wallet === null ? "bookingWallet.ts missing" : "bare pattern must be gone"
 );
 check(
-  "1b feed title: provider evidence gate present (provider_booking_id + confirmation_number)",
+  "1b feed title: full booking-truth gate present (Round 3: bookingTruthIsConfirmed + provenance label)",
   wallet !== null &&
-    wallet.includes("writeBooking.provider_booking_id") &&
-    wallet.includes("writeBooking.confirmation_number") &&
+    wallet.includes("bookingTruthIsConfirmed(writeBooking)") &&
+    wallet.includes("feedTitleForNewBooking") &&
+    wallet.includes("bookingTruthDisplayLabel(writeBooking)") &&
     wallet.includes('"Booking added"'),
-  "gate must name both evidence fields and keep the 'Booking added' fallback"
+  "gate must run the ONE booking-truth rule and keep the 'Booking added' fallback"
 );
 check(
-  "1c feed title: wallet stricter rule referenced (confirmed-family status set)",
+  "1c feed title: bare evidence fields alone no longer mint 'Booking confirmed' (Round 3)",
   wallet !== null &&
-    wallet.includes('"confirmed", "modified", "completed"') &&
-    wallet.includes("isConfirmedBooking"),
-  "confirmed-family set + isConfirmedBooking reference"
+    !wallet.includes("feedHasProviderEvidence") &&
+    !wallet.includes("feedMeetsConfirmedRule"),
+  "the old bare-code / status-only gate expressions must be gone"
 );
-// Fixture logic mirroring the gated expression in bookingWallet.ts:
-// confirmed only with provider evidence OR a confirmed-family status;
-// traveler_confirmed alone is never enough.
-function feedTitle({ travelerConfirmed, hasEvidence, status }) {
-  if (hasEvidence) return "Booking confirmed";
-  if (travelerConfirmed && ["confirmed", "modified", "completed"].includes(status)) return "Booking confirmed";
+// Fixture logic mirroring the Round-3 gated expression in
+// bookingWallet.ts: the confirmed title is minted ONLY when the full
+// booking-truth rule holds (patterned code + real provider +
+// RECORDED origin + traveler_confirmed + active + non-test), and it
+// carries the evidence provenance. A bare confirmation number, or
+// traveler_confirmed with a confirmed-family status, is NOT enough.
+function feedTitle({ hasFullEvidence }) {
+  if (hasFullEvidence) return "Booking confirmed · from your Agoda email";
   return "Booking added";
 }
 // Fixture verdicts are only meaningful under the gated source: the
@@ -86,19 +89,19 @@ function feedTitle({ travelerConfirmed, hasEvidence, status }) {
 const feedGatePresent =
   wallet !== null &&
   !/traveler_confirmed\s*\?\s*"Booking confirmed"/.test(wallet) &&
-  wallet.includes("writeBooking.provider_booking_id") &&
-  wallet.includes("writeBooking.confirmation_number");
+  wallet.includes("bookingTruthIsConfirmed(writeBooking)") &&
+  wallet.includes("feedTitleForNewBooking");
 check(
-  "1d fixture (gated source): traveler_confirmed alone, no evidence, status 'booked' -> 'Booking added'",
-  feedGatePresent && feedTitle({ travelerConfirmed: true, hasEvidence: false, status: "booked" }) === "Booking added"
+  "1d fixture (gated source): traveler_confirmed alone, no full evidence -> 'Booking added'",
+  feedGatePresent && feedTitle({ hasFullEvidence: false }) === "Booking added"
 );
 check(
-  "1e fixture (gated source): traveler_confirmed + confirmation number -> 'Booking confirmed'",
-  feedGatePresent && feedTitle({ travelerConfirmed: true, hasEvidence: true, status: "booked" }) === "Booking confirmed"
+  "1e fixture (gated source): full booking-truth evidence -> provenance title (Round 3)",
+  feedGatePresent && feedTitle({ hasFullEvidence: true }) === "Booking confirmed · from your Agoda email"
 );
 check(
   "1f fixture: unconfirmed, no evidence -> 'Booking added'",
-  feedTitle({ travelerConfirmed: false, hasEvidence: false, status: "unknown" }) === "Booking added"
+  feedTitle({ hasFullEvidence: false }) === "Booking added"
 );
 
 // --- 2. QA-test stamp, NEW rows only ------------------------------------

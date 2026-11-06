@@ -88,7 +88,13 @@ function detailFor(siblings, overrides = {}) {
   check("panel header is back chevron + centered day + destination only", panel.includes("Back to itinerary") && panel.includes("detail.dayLabel") && panel.includes("detail.tripHeader.destination") && !panel.includes("headerIdentity") && !panel.includes("dateRangeLabel") && !panel.includes("From ${"));
   check("panel renders no location line under the title", !panel.includes("detail.locationLabel"));
   check("panel renders no See the full itinerary button", !panel.includes("See the full itinerary"));
-  check("About is one card: subtitle + chevron button, rows only when expanded", panel.includes("About this place") && panel.includes("Address, photos, opening hours, ticket info, and helpful tips.") && panel.includes("aria-expanded") && panel.includes("aboutOpen ?"));
+  // RE-PINNED 2026-11-03 (Jakob's Law A14, W1): the old pin expected
+  // the About subtitle to list address/hours/tickets because those
+  // facts lived inside the collapsed card. A14 moved them into the
+  // open (see the A14 check below); the About subtitle now names
+  // only what stays collapsed — photos and helpful tips.
+  check("About is one card: subtitle + chevron button, rows only when expanded", panel.includes("About this place") && panel.includes("Photos and helpful tips.") && panel.includes("aria-expanded") && panel.includes("aboutOpen ?"));
+  check("A14: place facts render in the open, under the actions row, before About", panel.includes('aria-label="Place facts"') && panel.includes('label="Address"') && panel.includes('label="Opening hours"') && panel.includes('label="Ticket info"') && panel.indexOf('aria-label="Place facts"') > panel.indexOf('className="mt-5 flex gap-2"') && panel.indexOf('aria-label="Place facts"') < panel.indexOf("About this place"));
   check("About rows still carry per-field unavailable states", panel.includes("AboutRow") && panel.includes("Not available"));
   check("Nearby cards carry no heart (no saved-places store)", !panel.includes("♡") && !panel.includes("♥") && !panel.toLowerCase().includes("heart"));
   check("Nearby cards render a sibling photo only when one exists", panel.includes("place.photo") && panel.includes("place.photo.imageUrl"));
@@ -96,7 +102,15 @@ function detailFor(siblings, overrides = {}) {
   const tipsSectionTag = panel.slice(0, tipsHeading).lastIndexOf("<section");
   const tipsSectionOpen = panel.slice(tipsSectionTag, tipsHeading);
   check("Tips section is plain (no card background) and keeps green checks", tipsSectionOpen.includes('className="mt-6"') && !tipsSectionOpen.includes("bg-white") && panel.includes("text-cgreen"));
-  check("actions row is plain (no white card) and calendar/save stay disabled", panel.includes('className="mt-5 grid grid-cols-3 gap-2"') && panel.includes("Add to calendar") && panel.includes("Save") && panel.includes("disabled") && panel.includes("not available yet"));
+  // RE-PINNED 2026-11-03 (Jakob's Law A6, W1): the old pin required
+  // the disabled "Add to calendar"/"Save" buttons to stay. A6
+  // removes them outright — no calendar export or saved-places
+  // store exists, and dead buttons in the Google Maps habit
+  // positions are a familiarity defect. The pin now asserts the
+  // removal at full strength on the comment-stripped panel: the
+  // actions row exists, Directions is on it, and neither button,
+  // its disabled state, nor its explanatory copy remains.
+  check("actions row carries Directions only — calendar/save removed (A6)", panel.includes('className="mt-5 flex gap-2"') && panel.includes("Directions") && !panel.includes("Add to calendar") && !panel.includes("Save") && !panel.includes("disabled") && !panel.includes("not available yet"));
   check("content ends at Tips: no element renders after the Tips section", tipsHeading > panel.indexOf("Nearby") && !panel.slice(tipsHeading).includes("See the full itinerary"));
 }
 

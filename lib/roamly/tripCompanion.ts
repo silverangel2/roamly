@@ -10,6 +10,7 @@ import { recordTripEvent } from "@/lib/roamly/events";
 import { getTripBudgetCurrency, getTripDestinationLabel, getTripOriginLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { shouldSuppressScheduledBookingEvent } from "@/lib/roamly/operationalScheduledEvents";
+import { bookingTruthState, isInactiveTruthState } from "@/lib/roamly/bookingTruth";
 
 type CompanionTrip = {
   id: string;
@@ -49,6 +50,10 @@ type CompanionBooking = {
   trip_id?: string | null;
   booking_status?: string | null;
   superseded_by_booking_id?: string | null;
+  traveler_confirmed?: boolean | null;
+  confirmation_number?: string | null;
+  source_type?: string | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 function addDays(date: string, days: number) {
@@ -339,13 +344,57 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
     ...crossBorderEvents
   ].filter(Boolean) as Array<{ event_type: string; title: string; body: string; scheduled_for: string | null }>;
 
-  const bookingEvents = bookings.map((booking) => ({
-    event_type: booking.booking_type === "hotel" ? "check_in_reminder" : "booking_reminder",
-    booking_id: booking.id,
-    title: booking.title || `${booking.booking_type} reminder`,
-    body: `${booking.provider_name || "Booking"}${booking.start_at || booking.start_time ? ` at ${booking.start_at || booking.start_time}` : ""}.`,
-    scheduled_for: bookingReminderTime(booking)
-  }));
+  // Workstream A: booking labels derive from bookingTruth. A booking
+  // whose CURRENT truth is cancelled/refunded/superseded/test produces
+  // no companion reminder at all — getTripAndBookings already filters
+  // cancelled/refunded for the scheduled path, and this guard covers
+  // every direct caller of buildPreTripTimeline too.
+  // Round 2 Lane E2 judgment: these reminder rows present NO
+  // confirmation claim (title = the booking's own title, body =
+  // provider + formatted start), so travelerConfirmedOnly bookings
+  // keep their reminders unchanged — reminders are the traveler's
+  // own schedule, not a verification presentation. The verification
+  // framing lives on the Live page's "verified" status, which is
+  // providerConfirmationEvidence-only.
+  const activeBookings = bookings.filter(
+    (booking) => !isInactiveTruthState(bookingTruthState({
+      booking_status: booking.booking_status,
+      traveler_confirmed: booking.traveler_confirmed,
+      confirmation_number: booking.confirmation_number,
+      provider_name: booking.provider_name,
+      title: booking.title,
+      source_type: booking.source_type,
+      superseded_by_booking_id: booking.superseded_by_booking_id,
+      metadata: booking.metadata
+    }))
+  );
+  const bookingEvents = activeBookings.map((booking) => {
+    // Audit fix: the raw ISO start_at was concatenated into the
+    // notification body and rendered verbatim on the owner's phone
+    // ("Roamly QA Test Provider at 2026-10-29T19:00:00+00:00."). Format
+    // the instant for display; an unparseable value is omitted rather
+    // than leaked raw.
+    const rawStart = booking.start_at || booking.start_time;
+    const parsedStart = rawStart ? new Date(rawStart) : null;
+    const startLabel =
+      parsedStart && !Number.isNaN(parsedStart.getTime())
+        ? new Intl.DateTimeFormat("en", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            timeZone: "UTC"
+          }).format(parsedStart)
+        : null;
+    return {
+      event_type: booking.booking_type === "hotel" ? "check_in_reminder" : "booking_reminder",
+      booking_id: booking.id,
+      title: booking.title || `${booking.booking_type} reminder`,
+      body: `${booking.provider_name || "Booking"}${startLabel ? ` at ${startLabel}` : ""}.`,
+      scheduled_for: bookingReminderTime(booking)
+    };
+  });
 
   return [...events, ...bookingEvents];
 }
@@ -364,12 +413,55 @@ async function getTripAndBookings(supabase: SupabaseClient, tripId: string) {
   return { trip: trip as CompanionTrip | null, bookings: currentBookings, error: null };
 }
 
+/**
+ * Scheduling-refusal record (visibility round 2026-10-31, finding L5).
+ * Every refusal/failure of scheduleCompanionEvents is written to the
+ * existing roamly_trip_events store via recordTripEvent — queryable by
+ * event_type. A locked trip refusing is routine (severity "routine");
+ * an UNLOCKED trip failing, or a trip that cannot be loaded, is
+ * severity "attention" (unmissable). Recording never changes the
+ * scheduling outcome and never throws.
+ */
+export const COMPANION_SCHEDULING_REFUSED_EVENT = "companion_scheduling_refused";
+export const COMPANION_SCHEDULING_FAILED_EVENT = "companion_scheduling_failed";
+
+async function recordCompanionSchedulingOutcome(
+  supabase: SupabaseClient,
+  input: { tripId: string; userId?: string | null; unlocked: boolean | null; reason: string }
+) {
+  try {
+    const attention = input.unlocked !== false;
+    await recordTripEvent(supabase, {
+      userId: input.userId || null,
+      tripId: input.tripId,
+      eventType: attention ? COMPANION_SCHEDULING_FAILED_EVENT : COMPANION_SCHEDULING_REFUSED_EVENT,
+      eventTitle: attention ? "Companion scheduling failed" : "Companion scheduling refused (trip locked)",
+      eventBody: input.reason,
+      metadata: {
+        tripId: input.tripId,
+        reason: input.reason,
+        unlocked: input.unlocked,
+        severity: attention ? "attention" : "routine",
+        recordedAt: new Date().toISOString()
+      }
+    });
+  } catch {
+    // Visibility must never break scheduling.
+  }
+}
+
 export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: string) {
   const reader = createSupabaseAdminClient() || supabase;
   const { trip, bookings, error } = await getTripAndBookings(reader, tripId);
-  if (error || !trip) return { ok: false, error: error || "Trip not found." };
+  if (error || !trip) {
+    const reason = error || "Trip not found.";
+    await recordCompanionSchedulingOutcome(reader, { tripId, userId: trip?.user_id || null, unlocked: trip ? tripHasLiveCompanionUnlock(trip) : null, reason });
+    return { ok: false, error: reason };
+  }
   if (!tripHasLiveCompanionUnlock(trip)) {
-    return { ok: false, error: "Live Trip Companion is not unlocked for this trip." };
+    const reason = "Live Trip Companion is not unlocked for this trip.";
+    await recordCompanionSchedulingOutcome(reader, { tripId, userId: trip.user_id, unlocked: false, reason });
+    return { ok: false, error: reason };
   }
 
   const timeline = buildPreTripTimeline(trip, bookings);
@@ -389,7 +481,10 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
       .in("id", staleEventIds)
       .eq("trip_id", tripId)
       .eq("status", "scheduled");
-    if (cancelled.error) return { ok: false, error: cancelled.error.message };
+    if (cancelled.error) {
+      await recordCompanionSchedulingOutcome(reader, { tripId, userId: trip.user_id, unlocked: true, reason: cancelled.error.message });
+      return { ok: false, error: cancelled.error.message };
+    }
   }
   const existingKeys = new Set((existing || []).map((event) => `${event.event_type}:${event.booking_id || ""}`));
   const rows = timeline
@@ -408,7 +503,10 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
 
   if (rows.length) {
     const inserted = await reader.from("roamly_trip_companion_events").insert(rows);
-    if (inserted.error) return { ok: false, error: inserted.error.message };
+    if (inserted.error) {
+      await recordCompanionSchedulingOutcome(reader, { tripId, userId: trip.user_id, unlocked: true, reason: inserted.error.message });
+      return { ok: false, error: inserted.error.message };
+    }
   }
 
   // Round 2, HIGH 4: the country-info set is derived from this trip's

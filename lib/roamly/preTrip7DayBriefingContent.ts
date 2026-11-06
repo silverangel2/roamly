@@ -1,5 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
+import { briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
 import type { PreTripRequirementSummary } from "./preTripRequirements";
 
 export type PreTrip7DayBooking = {
@@ -11,6 +12,16 @@ export type PreTrip7DayBooking = {
   start_at?: string | null;
   check_in_at?: string | null;
   traveler_confirmed?: boolean | null;
+  // Round 3 (Lane T): evidence fields so the briefing grades each
+  // booking with the ONE booking-truth rule instead of flag+status.
+  confirmation_number?: string | null;
+  provider_booking_id?: string | null;
+  source_type?: string | null;
+  source_reference?: string | null;
+  superseded_by_booking_id?: string | null;
+  is_test_booking?: boolean | null;
+  metadata?: Record<string, unknown> | null;
+  reservation_requirements?: Record<string, unknown> | null;
 };
 
 export type PreTrip7DayContentInput = {
@@ -51,8 +62,21 @@ export function preTrip7DayWindow(tripStart: Date, now: Date) {
   };
 }
 
+// Round 3 (Lane T): a booking belongs in a briefing's booked lists
+// only when the ONE booking-truth rule grades it confirmed
+// (provider confirmation evidence) or traveler_confirmed
+// ("Confirmed by you") — flag+status alone no longer suffices, and
+// each rendered label carries its provenance note.
+function briefingBookingIncluded(booking: { booking_status?: string | null; traveler_confirmed?: boolean | null }): boolean {
+  const state = briefingBookingState(booking as Record<string, unknown>);
+  return state === "confirmed" || state === "traveler_confirmed";
+}
+function briefingProvenanceNote(booking: { booking_status?: string | null; traveler_confirmed?: boolean | null }): string {
+  return briefingBookingState(booking as Record<string, unknown>) === "confirmed" ? briefingProvenanceSuffix(booking as Record<string, unknown>) : "confirmed by you";
+}
+
 function activeBooking(booking: PreTrip7DayBooking) {
-  return booking.traveler_confirmed === true && ["booked", "paid", "reserved", "confirmed", "modified"].includes(clean(booking.booking_status));
+  return briefingBookingIncluded(booking);
 }
 
 function bookingDate(booking: PreTrip7DayBooking, timezone: string, locale: RoamlyLocale) {
@@ -63,7 +87,7 @@ function bookingDate(booking: PreTrip7DayBooking, timezone: string, locale: Roam
 }
 
 function bookingLabel(booking: PreTrip7DayBooking, timezone: string, locale: RoamlyLocale) {
-  return [clean(booking.booking_type), clean(booking.title) || clean(booking.provider_name) || msg(locale, "confirmed"), bookingDate(booking, timezone, locale)].filter(Boolean).join(" · ");
+  return [clean(booking.booking_type), clean(booking.title) || clean(booking.provider_name) || "Booking", bookingDate(booking, timezone, locale), briefingProvenanceNote(booking)].filter(Boolean).join(" · ");
 }
 
 export function buildPreTrip7DayBriefingContent(input: PreTrip7DayContentInput) {
@@ -73,7 +97,7 @@ export function buildPreTrip7DayBriefingContent(input: PreTrip7DayContentInput) 
   const attention = input.confirmedBookings
     .filter((booking) => ["cancelled", "needs_confirmation", "detected"].includes(clean(booking.booking_status)))
     .slice(0, 3)
-    .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
+    .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
   const preparationRequirements = (input.preparationRequirements || []).slice(0, 4);

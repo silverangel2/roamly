@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { NotificationPermissionCard } from "@/components/roamly/NotificationPermissionCard";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle } from "@/lib/trips";
@@ -24,19 +24,19 @@ export default async function CompanionPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
-      <section className="rounded-[2rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_56%,#fff7ed_100%)] p-5 text-ink shadow-soft sm:p-7">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Live Trip Companion</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-ink sm:text-5xl">
+      <section className="bui-enter overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#E6EFFA_52%,#FFF0E6)] p-5 text-chead shadow-bui-hero sm:p-7">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Live Trip Companion</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-chead sm:text-5xl">
           {unlocked ? "Set up phone reminders." : "Unlock the companion for this trip."}
         </h1>
-        <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
+        <p className="mt-3 text-sm font-bold leading-6 text-cink">
           Roamly keeps the trip timeline, booking reminders, nearby activities, check-ins, and up-next guidance in one
           mobile-friendly place.
         </p>
         <div className="mt-5">
-          <Button href={`/trip/${id}/live`}>
+          <BuiButtonLink href={`/trip/${id}/live`}>
             Open live trip
-          </Button>
+          </BuiButtonLink>
         </div>
       </section>
 
@@ -44,27 +44,27 @@ export default async function CompanionPage({ params }: { params: Promise<{ id: 
         {unlocked ? (
           <NotificationPermissionCard />
         ) : (
-          <Card>
-            <h2 className="text-2xl font-black text-ink">Live Trip Companion is not unlocked yet.</h2>
-            <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+          <BuiCard className="bui-enter p-5">
+            <h2 className="text-2xl font-black text-chead">Live Trip Companion is not unlocked yet.</h2>
+            <p className="mt-2 text-sm font-bold leading-6 text-cink">
               Add the companion to use phone reminders, check-ins, skips, nearby sensing, and travel-day guidance.
             </p>
             <div className="mt-5">
-              <Button href={`/trip/${id}`}>Return to trip</Button>
+              <BuiButtonLink href={`/trip/${id}`}>Return to trip</BuiButtonLink>
             </div>
-          </Card>
+          </BuiCard>
         )}
 
-        <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">What reminders cover</p>
+        <BuiCard className="bui-enter p-5">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">What reminders cover</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             {["Packing and documents", "Booking and check-in times", "Nearby activities and up next"].map((item) => (
-              <p key={item} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
+              <p key={item} className="rounded-xl border border-chair bg-cbg px-4 py-3 text-sm font-black text-cink">
                 {item}
               </p>
             ))}
           </div>
-        </Card>
+        </BuiCard>
       </section>
     </div>
   );

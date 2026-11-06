@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ManualBookingForm } from "@/components/companion/ManualBookingForm";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle } from "@/lib/trips";
 import { resolveAffiliateReferral } from "@/lib/roamly/affiliateTracking";
@@ -34,7 +35,17 @@ export default async function AddTripBookingPage({ params, searchParams }: { par
     : { referral: null, error: null };
 
   return (
-    <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-[#fbf8ef] text-ink">
+    <div className="safe-bottom min-h-[calc(100dvh-5rem)] bg-cbg text-ink">
+      {/* Jakob's Law A1 (2026-11-03): page-level BackHeader in the
+          conventional top-left spot, returning to Bookings — the
+          surface this form is opened from. ManualBookingForm keeps
+          its own in-form "Back" link as well: it sits in the form's
+          upload / manual / back action row and serves the form's
+          step flow, so removing it would change the form, not just
+          this page's chrome. */}
+      <div className="mx-auto w-full max-w-3xl px-4 pt-5 sm:px-6">
+        <BackHeader href={`/trip/${id}/bookings`} label="Bookings" />
+      </div>
       <ManualBookingForm
         tripId={id}
         tripCurrency={bundle.data.trip.budget_currency ?? null}

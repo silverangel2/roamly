@@ -43,13 +43,27 @@ const config: Config = {
         soft: "0 18px 50px rgba(16, 32, 51, 0.12)",
         glow: "0 22px 70px rgba(84, 214, 198, 0.28)",
         calm: "0 1px 2px rgba(31, 45, 77, 0.05)",
-        sheet: "0 -2px 18px rgba(31, 45, 77, 0.10)"
+        sheet: "0 -2px 18px rgba(31, 45, 77, 0.10)",
+        /* BoardUI foundation (additive, 2026-11-03): elevation scale
+           ported from BoardUI's theme foundation, values = Roamly
+           tokens (see components/boardui/tokens.ts). */
+        "bui-card": "0 1px 2px rgba(31, 45, 77, 0.05), 0 10px 28px rgba(16, 32, 51, 0.05)",
+        "bui-lift": "0 2px 4px rgba(31, 45, 77, 0.06), 0 24px 48px -24px rgba(7, 30, 85, 0.25)",
+        "bui-hero": "0 24px 70px -28px rgba(7, 30, 85, 0.35)"
       },
       fontFamily: {
         sans: ["var(--font-geist-sans)", "Inter", "ui-sans-serif", "system-ui", "sans-serif"]
       },
       borderRadius: {
-        app: "1.75rem"
+        app: "1.75rem",
+        /* BoardUI foundation (additive, 2026-11-03). */
+        "bui-card": "1.25rem",
+        "bui-panel": "1.5rem"
+      },
+      transitionTimingFunction: {
+        /* BoardUI foundation (additive, 2026-11-03): the house easing,
+           named so BoardUI-ported components can reference it. */
+        bui: "cubic-bezier(0.32, 0.72, 0, 1)"
       }
     }
   },

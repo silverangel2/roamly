@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { BuiToast, useBuiToast } from "@/components/boardui/Toast";
 
 type MemoryProfile = {
   passport_issuing_country?: string | null;
@@ -90,8 +91,8 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
   const [events, setEvents] = useState<PreferenceEvent[]>([]);
   const [form, setForm] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const { toast, showToast, clearToast } = useBuiToast();
 
   async function load() {
     const response = await fetch("/api/account/traveler-memory", { cache: "no-store" });
@@ -128,12 +129,16 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
 
   async function run(action: () => Promise<void>, success: string) {
     setBusy(true);
-    setNotice("");
     setError("");
     try {
       await action();
       await load();
-      setNotice(success);
+      // Success Rules pass (2026-11-03), rule 3: every success that
+      // flows through run() is a low-stakes save (memory saved, event
+      // accepted, memory deleted) — a toast that leaves in ~4s, not
+      // a permanent banner. Errors keep the inline line below: they
+      // stay until they are addressed.
+      showToast(success);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Memory update failed.");
     } finally {
@@ -236,7 +241,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
           <select
             value={form.passport_issuing_country || ""}
             onChange={(event) => setForm((current) => ({ ...current, passport_issuing_country: event.target.value }))}
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
           >
             <option value="">Not provided</option>
             {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
@@ -251,7 +256,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
             <input
               value={form[field] || ""}
               onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
             />
           </label>
         ))}
@@ -276,7 +281,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
             <input
               value={form[field] || ""}
               onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
             />
           </label>
         ))}
@@ -304,8 +309,10 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
         </div>
       ) : null}
 
-      {notice ? <p className="rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
       {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+      {toast ? (
+        <BuiToast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={clearToast} />
+      ) : null}
 
       <div className="flex flex-wrap gap-3">
         <button

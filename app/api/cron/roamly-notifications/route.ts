@@ -6,6 +6,8 @@ import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
 import { runPaidActivationMissingDetector } from "@/lib/roamly/silentFailureDetectors";
 import { recordNotificationSchedulerSuccess } from "@/lib/roamly/communicationHealth";
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
 
 export async function GET(request: NextRequest) {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -113,10 +115,19 @@ export async function GET(request: NextRequest) {
     ? await recordNotificationSchedulerSuccess()
     : false;
 
+  // Heartbeat (finding L11): recorded on EVERY queue-mode invocation,
+  // success or failure — silence (no row) is the stale signal. The daily
+  // full run shares this handler but is not the */15 queue heartbeat.
+  const heartbeatAdmin = queueOnly ? createSupabaseAdminClient() : null;
+  const heartbeatRecorded = heartbeatAdmin
+    ? await recordCronHeartbeat(heartbeatAdmin, "roamly-notifications-queue", ok)
+    : false;
+
   return NextResponse.json(
     {
       ok,
       notificationHealthRecorded,
+      heartbeatRecorded,
       briefings: briefingResult,
       preTrip,
       paidActivation,

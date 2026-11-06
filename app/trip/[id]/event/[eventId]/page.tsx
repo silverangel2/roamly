@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { ChevronRight, X } from "lucide-react";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { getTripOriginLabel } from "@/lib/roamly/tripMetadata";
@@ -156,17 +158,40 @@ export default async function TripEventPage({ params }: EventPageProps) {
   const itineraryLink = (
     <a
       href={`/trip/${id}`}
-      className="mt-[22px] flex min-h-12 items-center gap-2.5 rounded-xl bg-cbg px-4 text-[16.5px] font-medium text-chead"
+      className="bui-press bui-touch mt-[22px] flex min-h-12 items-center gap-2.5 rounded-bui-card border border-chair bg-cbg px-4 text-[16.5px] font-medium text-chead shadow-bui-card hover:bg-csoft"
     >
       See the full itinerary
-      <span aria-hidden className="ml-auto text-xl leading-none text-cchev">
-        ›
+      <span aria-hidden className="ml-auto flex items-center text-cchev">
+        <ChevronRight size={20} strokeWidth={2} />
       </span>
     </a>
   );
 
+  // Jakob's Law A1 (2026-11-03): this sheet previously had no
+  // dismiss control at all — the only escape was the bottom tab
+  // bar, a dead end in standalone mode. It now opens with the
+  // shared BackHeader (top-left, back to the trip) plus a top-right
+  // × close, the sheet convention; both return to the trip.
+  const backHeader = (
+    <div className="mb-3">
+      <BackHeader
+        href={`/trip/${id}`}
+        label="Trip"
+        right={
+          <a
+            href={`/trip/${id}`}
+            aria-label="Close"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center text-chead"
+          >
+            <X aria-hidden="true" size={22} strokeWidth={2} />
+          </a>
+        }
+      />
+    </div>
+  );
+
   const sheetClass =
-    "calm-sheet w-full max-sm:flex-1 rounded-t-[20px] bg-white px-5 pb-10 pt-2.5 shadow-sheet sm:mt-16 sm:rounded-[20px]";
+    "calm-sheet w-full max-sm:flex-1 rounded-t-bui-panel border border-chair bg-white px-5 pb-10 pt-2.5 shadow-sheet sm:mt-16 sm:rounded-bui-panel";
   const grabHandle = (
     <span aria-hidden className="mx-auto mb-[18px] block h-[5px] w-9 rounded-full bg-chair" />
   );
@@ -176,6 +201,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
       <div className="calm-bleed mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-2xl flex-col px-0 sm:px-6">
         <section className={sheetClass}>
           {grabHandle}
+          {backHeader}
           {tripIdentity ? (
             <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">{tripIdentity}</p>
           ) : null}
@@ -244,6 +270,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
     <div className="calm-bleed mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-2xl flex-col px-0 sm:px-6">
       <section className={sheetClass}>
         {grabHandle}
+        {backHeader}
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">
           {typeLabel(event.event_type)}
         </p>
@@ -278,7 +305,7 @@ export default async function TripEventPage({ params }: EventPageProps) {
                 <ul className="mt-3 space-y-2">
                   {destinationPanel.items.map((item) => (
                     <li key={item} className="flex gap-2.5 text-[16.5px] font-normal leading-[1.5] text-cink">
-                      <span aria-hidden className="mt-[9px] h-[6px] w-[6px] shrink-0 rounded-full bg-cgray2" />
+                      <span aria-hidden className="mt-[9px] h-[6px] w-[6px] shrink-0 rounded-full bg-cblue" />
                       <span>{item}</span>
                     </li>
                   ))}
@@ -290,11 +317,11 @@ export default async function TripEventPage({ params }: EventPageProps) {
         {event.event_type === "country_info" ? (
           <a
             href={`/trip/${id}/country-info`}
-            className="mt-5 flex min-h-12 items-center gap-2.5 rounded-xl bg-cbg px-4 text-[16.5px] font-medium text-chead"
+            className="bui-press bui-touch mt-5 flex min-h-12 items-center gap-2.5 rounded-bui-card border border-chair bg-cbg px-4 text-[16.5px] font-medium text-chead shadow-bui-card hover:bg-csoft"
           >
             Open the full country info page
-            <span aria-hidden className="ml-auto text-xl leading-none text-cchev">
-              ›
+            <span aria-hidden className="ml-auto flex items-center text-cchev">
+              <ChevronRight size={20} strokeWidth={2} />
             </span>
           </a>
         ) : null}

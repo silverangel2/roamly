@@ -67,6 +67,6 @@ assert.doesNotMatch(reconciliation, /select\([^\n]*recommendation_id/);
 assert.match(timeline, /Boolean\(referral\.recommendation_id\)/);
 assert.match(timeline, /findIndex\(\(candidate\) => candidate\.referral\.recommendation_id === referral\.recommendation_id\)/);
 assert.match(timeline, /I booked this/);
-assert.match(form, /Add the actual booking details so Roamly can verify it/);
+assert.match(form, /Add the actual booking details from your confirmation so Roamly can record them/);
 
 console.log("Roamly booking closure checks passed (browser confirmation hardening, exact referral binding, pending capture, canonical metadata, and referral UX).");
