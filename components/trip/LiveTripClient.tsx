@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, Hotel, Image as ImageIcon, Landmark, MapPin, Send, Settings, Star, Utensils, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { ActivityRecord, ChecklistRecord } from "@/lib/trips";
 import { useI18n } from "@/components/i18n/I18nProvider";
@@ -10,6 +11,7 @@ import { isFreshLocationObservation } from "@/lib/roamly/location";
 import { clearActivityNotification, ensurePushSubscription, getNotificationPermissionState, getPushCapabilityState, hasPushSubscription, isSupportedMobileEnvironment, requestNotificationPermission } from "@/lib/roamly/pushClient";
 import {
   DEFAULT_LIVE_COMPANION_SETTINGS,
+  activityEndDate,
   activityStartDate,
   applyVerifiedBookingOverride,
   buildLiveCompanionState,
@@ -34,11 +36,13 @@ import {
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
 import { cleanTravelerTimeLabel, confirmableStopTitle, isHollowTravelerPlace, looksLikeProviderSearchTitle, presentTravelerTitle, repairGarbledGettingTo, shouldSuppressFlightFraming } from "@/lib/roamly/itineraryPresentation";
+import type { LiveStatusReadback } from "@/lib/roamly/liveStatus";
 import { evaluateLocationEvidence } from "@/lib/roamly/locationEvidence";
 import { LocationPermissionRecovery } from "@/components/roamly/LocationPermissionRecovery";
 import { TimeProvenanceLabel } from "@/components/roamly/TimeProvenanceLabel";
 import { hasVerifiedLiveEvidence, isFreshEvidenceTimestamp, provenanceForLiveDayRow, provenanceForPreTripRow } from "@/lib/roamly/timeProvenance";
 import { DirectionsPanel } from "@/components/trip/DirectionsPanel";
+import { TripDayMap } from "@/components/roamly/TripDayMap";
 import { VenueThumb } from "@/components/roamly/VenueThumb";
 import { venuePhotoForTitle, type VenuePhotoMap } from "@/lib/roamly/venuePhotos";
 
@@ -181,6 +185,11 @@ type LiveTripClientProps = {
   }>;
   /** Stored day title for the pre-trip Day heading (e.g. "Plan for arrival and first exploration"). */
   dayPlanTitle?: string | null;
+  /** Server read-back (lib/roamly/liveStatus.ts): this trip's Live
+   *  Companion activation + the account's subscription fact, computed
+   *  server-side. The client's setup state derives from it instead of
+   *  assuming success after a button tap (2026-10-31). */
+  initialLiveStatus?: LiveStatusReadback | null;
   /** Pipeline thumbnails for venue rows, keyed by normalized title. */
   venuePhotos?: VenuePhotoMap;
 };
@@ -562,7 +571,8 @@ export function LiveTripClient({
   dayTimelineRows = [],
   itineraryDays = [],
   dayPlanTitle = null,
-  venuePhotos
+  venuePhotos,
+  initialLiveStatus = null
 }: LiveTripClientProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -574,7 +584,8 @@ export function LiveTripClient({
   // state for this browser — it must never re-decide the traveler's choice.
   const [trackingEnabled, setTrackingEnabled] = useState<boolean>(Boolean(initialTrackingEnabled));
   const [notificationPermission, setNotificationPermission] = useState<string>("unknown");
-  const [pushReady, setPushReady] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<LiveStatusReadback | null>(initialLiveStatus);
+  const [pushReady, setPushReady] = useState(() => initialLiveStatus?.notifications.subscribed ?? false);
   const [location, setLocation] = useState<LiveCoordinates | null>(initialLocation);
   const [watching, setWatching] = useState(false);
   const [route, setRoute] = useState<LiveRouteStatus>(() => fallbackRouteStatus(null));
@@ -614,11 +625,40 @@ export function LiveTripClient({
   const [setupComplete, setSetupComplete] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [installGuideOpen, setInstallGuideOpen] = useState(false);
+  // A24: the Live install banner's dismissal persists the same way
+  // CompanionInstallStep persists its own (localStorage flag, key in
+  // the same "roamly:" namespace; a separate key so dismissing one
+  // surface never hides the other).
+  const [installBannerDismissed, setInstallBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("roamly:live-install-banner-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissInstallBanner = useCallback(() => {
+    setInstallBannerDismissed(true);
+    setInstallGuideOpen(false);
+    try {
+      window.localStorage.setItem("roamly:live-install-banner-dismissed", "1");
+    } catch {
+      // localStorage unavailable — the banner simply shows again next visit.
+    }
+  }, []);
   const [tripLinkCopied, setTripLinkCopied] = useState(false);
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<InstallPromptEvent | null>(null);
   const [deepLinkedActivityId, setDeepLinkedActivityId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState(simulatorPlaces[0]?.id || "");
   const watchIdRef = useRef<number | null>(null);
+  // Thread B guard (2026-10-31; EFFICIENCY-PLAN §3.4 shape): the two
+  // persistence writes in handlePosition carry constant values
+  // (tracking on, companion enabled) — re-writing them on every GPS
+  // fix is a write storm. They are re-asserted at most once per
+  // 10 minutes per mount; explicit enable actions (persistLocationOn)
+  // still write immediately, and a failed window simply retries on a
+  // later fix.
+  const lastPersistedOnRef = useRef(0);
   const lastSentRef = useRef<{ at: number; location: LiveCoordinates } | null>(null);
   const lastRouteKeyRef = useRef("");
   const routeTimerRef = useRef<number | null>(null);
@@ -788,16 +828,36 @@ export function LiveTripClient({
     return verified ? "nearby" : "Planned";
   };
 
+  // The ONE server read-back for this trip (lib/roamly/liveStatus.ts):
+  // subscription truth comes from roamly_push_subscriptions and the
+  // activation truth from the trip's own server facts — never from
+  // install state or a button tap.
+  const refreshLiveStatus = useCallback(async (): Promise<LiveStatusReadback | null> => {
+    const response = await fetch(`/api/roamly/live-status?tripId=${encodeURIComponent(tripId)}`, {
+      cache: "no-store"
+    }).catch(() => null);
+    const data = response?.ok ? await response.json().catch(() => null) : null;
+    if (!data?.status) return null;
+    const status = data.status as LiveStatusReadback;
+    setLiveStatus(status);
+    setPushReady(status.notifications.subscribed);
+    return status;
+  }, [tripId]);
+
   useEffect(() => {
     let alive = true;
     const refreshInstallState = async () => {
       const capability = getPushCapabilityState();
       const currentNotificationPermission = await getNotificationPermissionState();
-      const currentPushReady = capability.isStandalone
-        ? currentNotificationPermission === "granted"
-          ? (await ensurePushSubscription(fieldTestMode ? tripId : undefined)).ok
-          : await hasPushSubscription(fieldTestMode ? tripId : undefined)
-        : false;
+      const readback = await refreshLiveStatus().catch(() => null);
+      const currentPushReady =
+        readback != null
+          ? readback.notifications.subscribed
+          : capability.isStandalone
+            ? currentNotificationPermission === "granted"
+              ? (await ensurePushSubscription(fieldTestMode ? tripId : undefined)).ok
+              : await hasPushSubscription(fieldTestMode ? tripId : undefined)
+            : false;
       const currentLocationPermission = await getBrowserLocationPermission();
       if (!alive) return;
       const resolvedLocationPermission = currentLocationPermission || permission;
@@ -828,7 +888,7 @@ export function LiveTripClient({
       window.removeEventListener("pageshow", onPageShow);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [fieldTestMode, permission, tripId]);
+  }, [fieldTestMode, permission, refreshLiveStatus, tripId]);
 
   useEffect(() => {
     setItems(mergeLiveActivityStatuses(activities, locallySkippedActivityIdsRef.current));
@@ -971,17 +1031,23 @@ export function LiveTripClient({
       setPermission("granted");
       setLocation(nextLocation);
       setWatching(true);
-      setSetupComplete(!fieldTestMode);
-      void fetch("/api/roamly/location/settings", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locationTrackingEnabled: true, notificationEnabled: true })
-      }).catch(() => undefined);
-      void fetch(`/api/trips/${tripId}/companion/preferences`, {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ liveCompanionEnabled: true })
-      }).catch(() => undefined);
+      // A GPS fix alone never completes setup (2026-10-31): setup
+      // state is re-derived from the server read-back, which requires
+      // the subscription row and the activation facts to agree.
+      void refreshLiveStatus();
+      if (Date.now() - lastPersistedOnRef.current >= 10 * 60_000) {
+        lastPersistedOnRef.current = Date.now();
+        void fetch("/api/roamly/location/settings", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ locationTrackingEnabled: true, notificationEnabled: true })
+        }).catch(() => undefined);
+        void fetch(`/api/trips/${tripId}/companion/preferences`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ liveCompanionEnabled: true })
+        }).catch(() => undefined);
+      }
       void sendLocationUpdate(nextLocation).catch((err) => {
         setNotice(err instanceof Error ? err.message : "Location update failed.");
       });
@@ -990,11 +1056,18 @@ export function LiveTripClient({
       const denied = geoError.code === geoError.PERMISSION_DENIED;
       setPermission(denied ? "denied" : "unavailable");
       setWatching(false);
-      void fetch("/api/roamly/location/update", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tripId, permissionState: denied ? "denied" : "prompt" })
-      }).catch(() => undefined);
+      // Grant persistence (2026-10-31): only a true PERMISSION_DENIED is
+      // a permission fact worth recording on the server. A transient
+      // TIMEOUT / POSITION_UNAVAILABLE is local state only — posting it
+      // used to turn the traveler's tracking off and erase the recorded
+      // grant ("the location turned off on its own").
+      if (denied) {
+        void fetch("/api/roamly/location/update", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tripId, permissionState: "denied" })
+        }).catch(() => undefined);
+      }
       setError(denied ? "Location permission was denied. Schedule-only mode is still available." : "Location is unavailable right now.");
     };
 
@@ -1004,7 +1077,7 @@ export function LiveTripClient({
       maximumAge: 120_000,
       timeout: 20_000
     });
-  }, [fieldTestMode, sendLocationUpdate, tripId]);
+  }, [fieldTestMode, refreshLiveStatus, sendLocationUpdate, tripId]);
 
   // Turning location on persists the traveler's choice FIRST (server-side
   // setting + companion preference), so it stays on across pages and visits.
@@ -1111,6 +1184,12 @@ export function LiveTripClient({
       }
       const push = await ensurePushSubscription(tripId);
       if (!push.ok) throw new Error(push.error || "Push subscription could not be registered. Try again.");
+      // Read-back verification (2026-10-31): "ready" is claimed only
+      // when the server finds the subscription row for this trip.
+      const readback = await refreshLiveStatus().catch(() => null);
+      if (readback && !readback.notifications.subscribed) {
+        throw new Error(readback.notifications.reason || "No push subscription found.");
+      }
       setPushReady(true);
       setNotice("Notifications ready");
     } catch (err) {
@@ -1118,7 +1197,7 @@ export function LiveTripClient({
     } finally {
       setBusy("");
     }
-  }, [locale, tripId]);
+  }, [locale, refreshLiveStatus, tripId]);
 
   const setupLiveCompanion = useCallback(async () => {
     setBusy("setup");
@@ -1143,7 +1222,19 @@ export function LiveTripClient({
       // grant is requested only inside the travel window, where sensing can
       // actually begin; pre-trip setup never triggers the browser ask.
       persistLocationOn();
-      if (tripWindowActive) {
+      // Activation truth from the read-back (2026-10-31): a structural
+      // "not armed" fact (not unlocked, disabled, paused) is stated in
+      // the server's own words instead of a success line.
+      const readback = await refreshLiveStatus().catch(() => null);
+      if (
+        readback &&
+        !readback.live.armed &&
+        (readback.live.status === "not_unlocked" ||
+          readback.live.status === "disabled" ||
+          readback.live.status === "paused")
+      ) {
+        setNotice(readback.live.reason);
+      } else if (tripWindowActive) {
         await startForegroundLocation();
         setNotice("Live Companion setup is continuing: allow location when your phone asks.");
       } else {
@@ -1154,7 +1245,7 @@ export function LiveTripClient({
     } finally {
       setBusy("");
     }
-  }, [fieldTestMode, locale, mobileRuntime, persistLocationOn, startForegroundLocation, tripId, tripWindowActive]);
+  }, [fieldTestMode, locale, mobileRuntime, persistLocationOn, refreshLiveStatus, startForegroundLocation, tripId, tripWindowActive]);
 
   const stopForegroundLocation = useCallback(() => {
     if (watchIdRef.current != null && navigator.geolocation) {
@@ -1658,13 +1749,24 @@ export function LiveTripClient({
   // themselves live in the Settings cascade; the line only names the
   // first unfinished one and points there. Location's on/off fact is
   // owned by the rows under the header, never restated here.
+  // The notifications arm keys on the server read-back when it is
+  // available (2026-10-31): permission granted on this phone with no
+  // subscription row server-side is still "aren't on". The activation
+  // arm states the read-back's own reason for an unarmed trip.
+  const notificationsOff = liveStatus
+    ? !liveStatus.notifications.subscribed
+    : notificationPermission !== "granted" || !pushReady;
   const setupGap =
     !fieldTestMode && !setupComplete && !watching && !tripCompleted
-      ? notificationPermission !== "granted" || !pushReady
+      ? notificationsOff
         ? { copy: "Notifications aren't on for Roamly on this phone yet.", href: "/account#setup-step-2" }
-        : permission !== "granted"
-          ? { copy: "Location isn't allowed for Roamly on this phone yet.", href: "/account#setup-step-3" }
-          : { copy: "Live Companion setup isn't finished on this phone.", href: "/account#setup" }
+        : liveStatus && !liveStatus.live.armed && liveStatus.live.status === "not_unlocked"
+          ? { copy: liveStatus.live.reason, href: `/trip/${tripId}` }
+          : permission !== "granted"
+            ? { copy: "Location isn't allowed for Roamly on this phone yet.", href: "/account#setup-step-3" }
+            : liveStatus && !liveStatus.live.armed
+              ? { copy: liveStatus.live.reason, href: "/account#setup" }
+              : { copy: "Live Companion setup isn't finished on this phone.", href: "/account#setup" }
       : null;
   const showSetupCard = Boolean(!mobileRuntime || !isStandalone || fieldTestMode || tripCompleted || setupGap);
 
@@ -1750,6 +1852,46 @@ export function LiveTripClient({
       : featuredActivity.id === remainingToday[0]?.id
         ? "Up next"
         : null;
+  // C7 — standalone NOW card values. DISPLAY/EXTRACTION ONLY: every
+  // value below is derived from state this component already computes
+  // — currentActivity is model.now (buildLiveCompanionState's
+  // selectNowAndNextActivity, the same activity the timeline marks
+  // NOW), nextActivity is model.next, the time window comes from the
+  // existing activityStartDate/activityEndDate helpers, titles go
+  // through the same timelineRowTitle/activityDisplayTitle path as
+  // the timeline rows, and the card's buttons call the same runAction
+  // handler as the Stop actions block. No new tracking, state source,
+  // or companion/location evaluation is introduced.
+  const nowCardTitle = currentActivity
+    ? timelineRowTitle(currentActivity, nextRowTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")
+    : "";
+  const nowCardUnverified = currentActivity
+    ? isUnverifiedLiveStop(nowCardTitle, stripLiveTitleEcho(nowCardTitle, currentActivity.shortDescription || ""))
+    : false;
+  const nowCardStart = currentActivity
+    ? activityStartDate({ activity: currentActivity, tripStartDate: activeTripStartDate, timezone })
+    : null;
+  const nowCardEnd = currentActivity
+    ? activityEndDate({ activity: currentActivity, tripStartDate: activeTripStartDate, timezone })
+    : null;
+  const nowCardWindow = currentActivity
+    ? nowCardStart && nowCardEnd
+      ? `${formatClock(nowCardStart.toISOString(), timezone, locale)} – ${formatClock(nowCardEnd.toISOString(), timezone, locale)}`
+      : nowCardStart
+        ? formatClock(nowCardStart.toISOString(), timezone, locale)
+        : currentActivity.timeLabel || ""
+    : "";
+  const upNextCardTitle = nextActivity
+    ? timelineRowTitle(nextActivity, nextRowTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")
+    : "";
+  const upNextCardStart = nextActivity
+    ? activityStartDate({ activity: nextActivity, tripStartDate: activeTripStartDate, timezone })
+    : null;
+  const upNextCardTime = nextActivity
+    ? upNextCardStart
+      ? formatClock(upNextCardStart.toISOString(), timezone, locale)
+      : nextActivity.timeLabel || ""
+    : "";
   const directionsHref = (() => {
     const isIOS = typeof navigator !== "undefined" && /iphone|ipad|ipod/i.test(navigator.userAgent || "");
     if (isIOS && directionLinks.apple) return directionLinks.apple;
@@ -1777,11 +1919,44 @@ export function LiveTripClient({
     : "";
   const mapDirectionsHref = directionsHref || fallbackGoogleHref || null;
   const mapMapsHref = mapsHref || fallbackAppleHref || fallbackGoogleHref || null;
+  // Map tab pins (embedded TripDayMap): today's stops that already
+  // carry coordinates, in today's chronological order. When none of
+  // today's live stops carry coordinates, fall back to the
+  // current/next stop the card already selects, then to the itinerary
+  // day's stops — all data already in scope; no fetching, and a stop
+  // without coordinates is never given an invented pin.
+  const coordStop = (activity: {
+    title?: string | null;
+    placeName?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+  }) =>
+    typeof activity.latitude === "number" &&
+    Number.isFinite(activity.latitude) &&
+    typeof activity.longitude === "number" &&
+    Number.isFinite(activity.longitude)
+      ? [
+          {
+            latitude: activity.latitude,
+            longitude: activity.longitude,
+            label: activity.title || activity.placeName || "Stop"
+          }
+        ]
+      : [];
+  const mapStopsForDay = (() => {
+    const fromToday = todayActivities.flatMap(coordStop);
+    if (fromToday.length) return fromToday;
+    const fromCurrentOrNext = [currentActivity, nextActivity]
+      .filter((activity) => activity != null)
+      .flatMap(coordStop);
+    if (fromCurrentOrNext.length) return fromCurrentOrNext;
+    const day =
+      itineraryDays.find((entry) => entry.dayNumber === eyebrowDay?.idx) || itineraryDays[0];
+    return (day?.activities ?? []).flatMap(coordStop);
+  })();
   const essentialsDone = checklist.filter((item) => item.is_done).length;
   const rowChevron = (
-    <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="#B7C1D2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
-      <path d="M1.5 1.5 6.5 6.5 1.5 11.5" />
-    </svg>
+    <ChevronRight size={13} strokeWidth={2} aria-hidden="true" className="shrink-0 text-[#B7C1D2]" />
   );
 
   // Picture 4 timeline icon: a colored circle + line glyph from the
@@ -1806,18 +1981,14 @@ export function LiveTripClient({
         return {
           bg: DESIGN_TOKENS.color.primary,
           glyph: (
-            <svg {...strokeProps}>
-              <path d="M21 3 10 14M21 3l-6.5 18-4-9.5L2 8l19-5z" />
-            </svg>
+            <Send size={20} strokeWidth={2} color="#fff" />
           )
         };
       }
       return {
         bg: DESIGN_TOKENS.color.primary,
         glyph: (
-          <svg {...strokeProps}>
-            <path d="M3.5 20.5 20.5 3.5M8 3.5h12.5V16" />
-          </svg>
+          <ArrowUpRight size={20} strokeWidth={2} color="#fff" />
         )
       };
     }
@@ -1825,9 +1996,7 @@ export function LiveTripClient({
       return {
         bg: DESIGN_TOKENS.color.success,
         glyph: (
-          <svg {...strokeProps}>
-            <path d="M3 20V10M8 20V10M13 20V10M18 20V10M2 10l9-6 9 6M3 20h18" />
-          </svg>
+          <Hotel size={20} strokeWidth={2} color="#fff" />
         )
       };
     }
@@ -1835,9 +2004,7 @@ export function LiveTripClient({
       return {
         bg: DESIGN_TOKENS.color.activityOrange,
         glyph: (
-          <svg {...strokeProps}>
-            <path d="M3 20V10M8 20V10M13 20V10M18 20V10M2 10l9-6 9 6M3 20h18" />
-          </svg>
+          <Landmark size={20} strokeWidth={2} color="#fff" />
         )
       };
     }
@@ -1845,10 +2012,7 @@ export function LiveTripClient({
       return {
         bg: DESIGN_TOKENS.color.activityPurple,
         glyph: (
-          <svg {...strokeProps}>
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M3 17l5-5 4 4 3-3 6 6" />
-          </svg>
+          <ImageIcon size={20} strokeWidth={2} color="#fff" />
         )
       };
     }
@@ -1858,9 +2022,7 @@ export function LiveTripClient({
       return {
         bg: DESIGN_TOKENS.color.primary,
         glyph: (
-          <svg {...strokeProps}>
-            <path d="M12 3l2.2 5.2 5.6.5-4.2 3.7 1.3 5.6L12 15.2 7.1 18l1.3-5.6L4.2 8.7l5.6-.5L12 3z" />
-          </svg>
+          <Star size={20} strokeWidth={2} color="#fff" />
         )
       };
     }
@@ -1868,19 +2030,14 @@ export function LiveTripClient({
       return {
         bg: DESIGN_TOKENS.color.activityOrange,
         glyph: (
-          <svg {...strokeProps}>
-            <path d="M6 3v7M10 3v7M6 5.5h4M6 10v11M17 3v6c0 3-3.5 3-3.5 0V3" />
-          </svg>
+          <Utensils size={20} strokeWidth={2} color="#fff" />
         )
       };
     }
     return {
       bg: DESIGN_TOKENS.color.primary,
       glyph: (
-        <svg {...strokeProps}>
-          <path d="M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10z" />
-          <circle cx="12" cy="11" r="2" />
-        </svg>
+        <MapPin size={20} strokeWidth={2} color="#fff" />
       )
     };
   };
@@ -1891,15 +2048,12 @@ export function LiveTripClient({
           title row, photo hero with the trip-state badge computed from
           the same clock as the Today tab, then the four tabs. */}
       <div className="mb-3 flex items-center justify-between gap-3">
-        <a href={`/trip/${tripId}`} className="inline-flex min-h-11 items-center px-1 text-[22px] font-bold text-chead" aria-label="Back to trip">
-          ‹
+        <a href={`/trip/${tripId}`} className="inline-flex min-h-11 items-center px-1 text-chead" aria-label="Back to trip">
+          <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
         </a>
         <h1 className="text-[20px] font-bold tracking-[-0.018em] text-chead">Live Companion</h1>
         <a href="/account" className="inline-flex min-h-11 items-center px-1 text-[15px] font-semibold text-cblue" aria-label="Settings">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
+          <Settings size={20} strokeWidth={2} aria-hidden="true" />
         </a>
       </div>
       <TripHeroCard
@@ -1934,6 +2088,78 @@ export function LiveTripClient({
         ))}
       </div>
       <div hidden={liveTab !== "today"}>
+      {/* A24 — dismissible install banner for non-standalone
+          travellers on Live. Reuses this screen's existing install
+          machinery: the standalone fact (isStandalone, from
+          getPushCapabilityState), the deferred Android prompt /
+          startInstall entry, and the per-platform guidance variant —
+          the same guidance content CompanionInstallStep renders in
+          setup. Dismissal persists via localStorage (see
+          dismissInstallBanner above). Conditional only: it never
+          renders in standalone and never after dismissal. */}
+      {!isStandalone && !installBannerDismissed ? (
+        <section aria-label="Install Roamly" className="relative mt-3 rounded-2xl bg-white p-4 shadow-calm">
+          <button
+            type="button"
+            onClick={dismissInstallBanner}
+            aria-label="Dismiss install banner"
+            className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-cgray transition hover:bg-cbg hover:text-chead focus:outline-none focus:ring-4 focus:ring-cblue/15"
+          >
+            <X size={18} strokeWidth={2.5} aria-hidden="true" />
+          </button>
+          <p className="text-[17px] font-semibold leading-[1.3] text-chead">
+            {t("ui.companionInstall.installTitle", "Add Roamly to your Home Screen")}
+          </p>
+          <p className="mt-1 pr-10 text-[15px] font-normal leading-[1.45] text-cink">
+            {t(
+              "ui.companionInstall.installBody",
+              "Get live flight changes, check-in nudges, and what's-up-next alerts on your phone while you travel."
+            )}
+          </p>
+          {installGuideOpen ? (
+            <div className="mt-3 rounded-xl bg-cbg p-4">
+              {guideVariant === "ios" ? (
+                <ol className="grid gap-2 text-sm font-bold leading-6 text-slate-600">
+                  <li>
+                    <span className="mr-2 font-black text-cblue">1.</span>
+                    {t("ui.companionInstall.iosStep1", "Tap the Share button at the bottom of Safari.")}
+                  </li>
+                  <li>
+                    <span className="mr-2 font-black text-cblue">2.</span>
+                    {t("ui.companionInstall.iosStep2", "Scroll down and tap Add to Home Screen.")}
+                  </li>
+                  <li>
+                    <span className="mr-2 font-black text-cblue">3.</span>
+                    {t("ui.companionInstall.iosStep3", "Tap Add, then open Roamly from the new Home Screen icon.")}
+                  </li>
+                </ol>
+              ) : (
+                <p className="text-sm font-bold leading-6 text-slate-600">
+                  {t(
+                    "ui.companionInstall.genericInstallNote",
+                    "Use your browser's menu (⋮ → “Add to Home screen” / “Install app”), then open Roamly from the new Home Screen icon."
+                  )}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setInstallGuideOpen(false)}
+                className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cblue px-4 py-3 text-sm font-black text-white"
+              >
+                {t("ui.companionInstall.iveAddedIt", "I've added it — continue")}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void startInstall()}
+              className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cblue px-4 py-3 text-sm font-black text-white sm:w-auto"
+            >
+              {t("ui.companionInstall.addToHomeScreen", "Add Roamly to your Home Screen")}
+            </button>
+          )}
+        </section>
+      ) : null}
       {/* Picture 4 — Live Companion, Today tab. Closed state, top to
           bottom, exactly the picture: banner · Day heading + subtitle ·
           timeline (time · icon · title · detail · chevron) · Directions
@@ -1944,17 +2170,17 @@ export function LiveTripClient({
           activities in the same timeline shape, with NOW / UP NEXT
           pills and the current stop's check-in / complete / skip
           actions. Anything the picture does not show lives nowhere on
-          this tab for the customer: no NOW card, no UP NEXT list, no
-          Pause row, no QR / phone-transfer card, no alerts feed, no
-          footer line (field-test and deep-link lanes below are
-          conditional only and never standing content). */}
+          this tab for the customer: no Pause row, no QR / phone-transfer
+          card, no alerts feed, no footer line (field-test and deep-link
+          lanes below are conditional only and never standing content).
+          Jakob C7 exception (2026-11-03): the in-progress branch below
+          additionally renders ONE standalone NOW card (with UP NEXT)
+          extracted from this same timeline state — see the C7 block. */}
       {preTrip ? (
         <>
           <div className="mt-3 flex items-start gap-3 rounded-2xl bg-cblue/10 px-4 py-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cblue/15 text-cblue" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 3 10 14M21 3l-6.5 18-4-9.5L2 8l19-5z" strokeLinejoin="round" />
-              </svg>
+              <Send size={20} strokeWidth={2} />
             </span>
             <span className="min-w-0">
               <span className="block text-[17px] font-semibold leading-[1.3] text-chead">Trip hasn&apos;t started yet</span>
@@ -2033,18 +2259,13 @@ export function LiveTripClient({
                   className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3.5 11.5 11.5 3.5M5 3.5h6.5V10" />
-                    </svg>
+                    <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" />
                   </span>Directions</button>
               ) : null}
               {mapsHref ? (
                 <a href={mapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10z" />
-                      <circle cx="12" cy="11" r="2" />
-                    </svg>
+                    <MapPin size={15} strokeWidth={2.2} color="#2E7D32" />
                   </span>
                   Open in Maps
                 </a>
@@ -2072,10 +2293,78 @@ export function LiveTripClient({
               <span className="block text-[15px] font-normal leading-[1.45] text-cink">
                 Live updates for Day {eyebrowDay?.idx || 1}
                 {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
-                Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a verified booking. Check in as you go.
+                Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a booking with confirmation evidence on file. Check in as you go.
               </span>
             </span>
           </div>
+          {/* C7 — standalone NOW card at the top of Live Today.
+              Display/extraction only (see nowCard* values above):
+              the current activity is model.now, its window is the
+              existing start/end helpers, the actions call the same
+              runAction handler with the same guards as the Stop
+              actions block below, and the next item is model.next. */}
+          {currentActivity || nextActivity ? (
+            <section aria-label="Now and next" className="mt-3 rounded-2xl border-2 border-cblue/30 bg-white p-4 shadow-calm">
+              {currentActivity ? (
+                <>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-cblue px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Now</span>
+                    {nowCardWindow ? <span className="text-[15px] font-semibold text-chead">{nowCardWindow}</span> : null}
+                    {nowCardWindow ? <TimeProvenanceLabel kind={liveDayProvenanceFor(currentActivity)} /> : null}
+                  </span>
+                  <span className="mt-1 block break-words text-[19px] font-bold leading-[1.3] text-chead">
+                    {nowCardUnverified ? "Unverified stop" : nowCardTitle}
+                  </span>
+                  {nowCardUnverified && nowCardTitle ? (
+                    <span className="mt-0.5 block break-words text-[14px] font-normal text-cgray">Plan title: {nowCardTitle}</span>
+                  ) : (
+                    <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">
+                      {activityDisplayDescription(currentActivity, currentActivity.category || "")}
+                    </span>
+                  )}
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void runAction(currentActivity.id, "check-in", location)}
+                      disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
+                      className="min-h-[50px] w-full rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-45"
+                    >
+                      {t("ui.actions.checkIn")}
+                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void runAction(currentActivity.id, "complete")}
+                        disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                        className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-4 py-2.5 text-[15px] font-semibold text-cink disabled:opacity-45"
+                      >
+                        Complete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runAction(currentActivity.id, "skip")}
+                        disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                        className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-4 py-2.5 text-[15px] font-semibold text-cink disabled:opacity-45"
+                      >
+                        Skip this activity
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[15px] font-normal leading-[1.45] text-cink">Nothing is on right now.</p>
+              )}
+              {nextActivity ? (
+                <div className={currentActivity ? "mt-4 border-t border-chair pt-3" : "mt-3"}>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-chead">Up next</span>
+                    {upNextCardTime ? <span className="text-[15px] font-semibold text-chead">{upNextCardTime}</span> : null}
+                  </span>
+                  <span className="mt-1 block break-words text-[17px] font-semibold leading-[1.3] text-chead">{upNextCardTitle}</span>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           {error ? (
             <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3.5 py-[11px] text-sm font-semibold leading-[1.35] text-cred">{error}</p>
           ) : null}
@@ -2277,18 +2566,13 @@ export function LiveTripClient({
                   className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="#fff" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3.5 11.5 11.5 3.5M5 3.5h6.5V10" />
-                    </svg>
+                    <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" />
                   </span>Directions</button>
               ) : null}
               {mapsHref ? (
                 <a href={mapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 21s-6-5.5-6-10a6 6 0 1 1 12 0c0 4.5-6 10-6 10z" />
-                      <circle cx="12" cy="11" r="2" />
-                    </svg>
+                    <MapPin size={15} strokeWidth={2.2} color="#2E7D32" />
                   </span>
                   Open in Maps
                 </a>
@@ -2595,18 +2879,23 @@ export function LiveTripClient({
           </a>
         </section>
       ) : null}
-      {/* Picture 4, Map tab — honest unavailable state (named gap):
-          no map component or map dependency exists in this codebase,
-          so no map image, tile, or static-map frame is ever rendered
-          here. The real external-maps links for the current/next stop
-          remain as the way to see the stops on a map — links, not a
-          map. */}
+      {/* Picture 4, Map tab — the embedded TripDayMap renders above
+          the buttons when today's stops carry coordinates; when none
+          do, the card says so plainly and the real external-maps
+          links for the current/next stop remain as the way to see
+          the stops on a map. */}
       {liveTab === "map" ? (
         <section className="mt-4 rounded-2xl bg-white p-4 shadow-calm">
           <p className="text-[17px] font-semibold text-chead">Map</p>
-          <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
-            An in-app map is not available for this trip yet — no map component exists in the app, so no map is shown here.
-          </p>
+          {mapStopsForDay.length ? (
+            <div className="mt-3">
+              <TripDayMap stops={mapStopsForDay} />
+            </div>
+          ) : (
+            <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
+              No stops with locations to show on a map for this trip yet.
+            </p>
+          )}
           {mapDirectionsHref || mapMapsHref ? (
             <>
               <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
@@ -2660,7 +2949,7 @@ export function LiveTripClient({
             <select
               value={selectedPlaceId}
               onChange={(event) => setSelectedPlaceId(event.target.value)}
-              className="min-h-11 w-full rounded-xl border border-chair bg-white px-3 py-2 text-sm font-semibold text-chead"
+              className="min-h-11 w-full rounded-xl border border-chair bg-white px-3 py-2 text-base font-semibold text-chead"
             >
               {placeOptions.map((place) => (
                 <option key={place.id} value={place.id}>{place.title}</option>

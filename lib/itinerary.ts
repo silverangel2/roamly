@@ -127,6 +127,14 @@ export type RoamlyActivitySeed = {
   routing_status?: "FEASIBLE" | "INFEASIBLE" | "UNCERTAIN";
   uncertainty?: string[];
   timing_status?: "FACTUAL" | "PLANNED" | "UNKNOWN";
+  /** Return-provenance bundle (V1 relaxed return, 2026-11-01,
+   *  owner-authorized): present only when the solver stamped this
+   *  seed as a legitimate relaxed return to a place first visited
+   *  on `firstDay` (1-based). `kind` is the solver candidate kind,
+   *  carried only as part of this bundle. */
+  repeat?: boolean;
+  firstDay?: number;
+  kind?: string;
 };
 
 export type RoamlyBookingCategory = "flight" | "hotel" | "attraction" | "tour" | "transport" | "restaurant" | "car_rental";
@@ -1125,6 +1133,13 @@ export function travelerReadinessErrors(itinerary: RoamlyItinerary, payload: Tri
   const days = itinerary.daily_itinerary || [];
   const hardMode = effectiveTransportMode(payload);
   const seenByType = new Map<string, number>();
+  // V1 relaxed-return exception (2026-11-01, owner-authorized;
+  // chained returns 2026-11-02, owner-authorized): keys whose FIRST
+  // occurrence itself carried a return stamp, and — per key — the day
+  // of the last ACCEPTED visit (the original visit, or the most recent
+  // accepted return). A rejected occurrence never moves the anchor.
+  const stampedFirstSight = new Set<string>();
+  const lastAcceptedVisitDay = new Map<string, number>();
   const multiDay = days.length > 1 || clampTripDays(payload.daysCount) > 1;
   let namedGroundedHotel = false;
 
@@ -1164,8 +1179,43 @@ export function travelerReadinessErrors(itinerary: RoamlyItinerary, payload: Tri
         if (key.endsWith(":")) continue;
         const previousDay = seenByType.get(key);
         if (previousDay != null && previousDay !== day.day_number) {
-          errors.push(`${type} ${title} must not repeat across days.`);
+          // V1 relaxed-return exception (2026-11-01, owner-authorized;
+          // chained returns 2026-11-02, owner-authorized): accept a
+          // cross-day repeat WITHOUT error only when every condition
+          // holds — activity only (meals never relax); the original
+          // visit was not itself stamped as a return; the return
+          // carries the solver's stamp; the stamp's firstDay is
+          // exactly the day of the immediately previous ACCEPTED visit
+          // (the original for the first return, the previous return
+          // for later ones — the solver stamps each return with the
+          // previous visit's day, solver.ts addStop / relaxation
+          // gate); the gap from that accepted visit is at least 4
+          // days; and the kind is a relax-eligible kind (hardcoded
+          // "market"/"park", mirroring solver.ts RELAX_KINDS /
+          // RELAX_GAP_DAYS — engine code is not imported into this
+          // module). On acceptance the anchor advances to this visit.
+          // On rejection the anchor does NOT move, so an invalid
+          // return can never anchor a later one; seenByType is left
+          // unchanged either way. Every other cross-day repeat keeps
+          // the existing error, verbatim.
+          const anchorDay = lastAcceptedVisitDay.get(key);
+          const isLegitimateRelaxedReturn =
+            type === "activity" &&
+            !stampedFirstSight.has(key) &&
+            item.repeat === true &&
+            Number.isInteger(item.firstDay) &&
+            anchorDay != null &&
+            item.firstDay === anchorDay &&
+            day.day_number - anchorDay >= 4 &&
+            (item.kind === "market" || item.kind === "park");
+          if (isLegitimateRelaxedReturn) {
+            lastAcceptedVisitDay.set(key, day.day_number);
+          } else {
+            errors.push(`${type} ${title} must not repeat across days.`);
+          }
         } else {
+          if (previousDay == null && item.repeat === true) stampedFirstSight.add(key);
+          if (previousDay == null) lastAcceptedVisitDay.set(key, day.day_number);
           seenByType.set(key, day.day_number);
         }
       }

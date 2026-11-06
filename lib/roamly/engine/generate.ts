@@ -79,7 +79,8 @@ import { buildPredictions, type PredictionRecord } from "@/lib/roamly/engine/pre
 import { stampBudgetVerdictDisplay } from "@/lib/roamly/engine/budgetVerdictDisplay";
 import { priceEvidence } from "@/lib/roamly/engine/prices";
 import { solveTrip, type MustSeeSpec, type SolveResult } from "@/lib/roamly/engine/solver";
-import { extractConstraints, namedMustSeeMiss, type ExtractedConstraints } from "@/lib/roamly/engine/understand";
+import { extractConstraints, mustSeeRequirement, namedMustSeeMiss, type ExtractedConstraints } from "@/lib/roamly/engine/understand";
+import { applyMustDoVerdicts, evaluateMustDoVerdicts } from "@/lib/roamly/mustDoReconciliation";
 import { fmt, isoPlus, parseHhmm, type EngineDay, type EngineItem, type EnginePack } from "@/lib/roamly/engine/util";
 import { predictionId } from "@/lib/roamly/engine/ids";
 import { assemblePinnedEnginePack, readServingPack, type PackCollector } from "@/lib/roamly/engine/packs/builder";
@@ -663,7 +664,24 @@ export function deriveMustSees(payload: TripPlannerPayload, extracted: Extracted
     }
     seenLabels.add(key);
     seenTokenSets.push(tokens);
-    out.push({ id: `ms-${out.length + 1}`, label: clean, patterns: mustSeePatterns(clean, pack) });
+    // Head-noun requirement (2026-10-30, Banff gondola defect): the
+    // pattern ladder matches on the label's place CONTEXT as readily
+    // as on the ask itself, so "the gondola ride up Sulphur Mountain"
+    // derived patterns the summit's Cosmic Ray Station satisfies —
+    // and the solver reported the gondola "scheduled" while no
+    // gondola existed anywhere in the plan. The requirement carries
+    // the label's head kind noun(s) through to the solver: only a
+    // candidate naming that experience/kind (or typed as its kind)
+    // satisfies the must-see; anything else leaves it honestly
+    // unmet, and the unmet must-see is named in the day words
+    // (namedMustSeeMiss below) instead of vanishing.
+    const requirement = mustSeeRequirement(clean);
+    out.push({
+      id: `ms-${out.length + 1}`,
+      label: clean,
+      patterns: mustSeePatterns(clean, pack),
+      ...(requirement.patterns.length ? { requiredPatterns: requirement.patterns, requiredKinds: requirement.kinds } : {})
+    });
   };
   for (const req of payload.explicitRequirements || []) {
     if (req.type === "activity") push(req.request);
@@ -1107,6 +1125,13 @@ function engineItemToSeed(item: EngineItem, day: EngineDay, mustDo: boolean): Ro
     factualStatus: item.key ? "search_ready" : "estimated",
     plan_role: mustDo ? "must_do" : isMeal ? "meal" : isRest ? "rest" : "primary",
     ...(mustDo ? { must_do: true } : {}),
+    // V1 relaxed-return provenance (2026-11-01, owner-authorized): when
+    // the solver stamps an item as a legitimate relaxed return
+    // (solver.ts addStop: repeat: true, firstDay: <1-based day>),
+    // carry that stamp — plus the candidate kind it was stamped for —
+    // onto the seed so the production validator can honour exactly
+    // that return. Unstamped items emit none of these fields.
+    ...(item.repeat ? { repeat: true, firstDay: item.firstDay, kind: item.kind } : {}),
     cost_status: evidenceCostStatus(ev),
     timing_status: "PLANNED"
   };
@@ -1165,10 +1190,54 @@ export function assembleEngineItinerary(params: {
   // itself is NOT skipped or softened: it gates this output in the
   // finalization stage exactly as it gates the incumbent's.
   const enriched = enrichItineraryBookingSuggestions(raw, payload);
-  return localizeGeneratedExactText(
+  const localized = localizeGeneratedExactText(
     enforceSelectedHotelIdentity(stripFallbackRouteBookings(enriched), state),
     payload.language
   ) as RoamlyItinerary;
+  return reconcileEngineMustDoAnnotations(localized, payload);
+}
+
+/**
+ * Workstream 2 reconciliation at the zero-engine's assembly
+ * checkpoint (2026-10-31): the conversion above builds
+ * must_do_items from the solver's satisfied keys, but the
+ * assembled document is the last structured checkpoint before
+ * persistence (partial and final saves both flow through here,
+ * including reassemblies of previously converted days), so the
+ * document is judged once more with the staged path's identical
+ * semantics: must-see specs are re-derived from the traveler's
+ * request (extractConstraints + deriveMustSees over an empty pack
+ * — labels, dedupe and head-noun requirements are the engine's
+ * exact output; the pack only feeds the pattern ladder, which the
+ * satisfaction test does not use), verdicts are evaluated against
+ * the assembled activities, and applyMustDoVerdicts strips any
+ * must-do annotation that presents a merely RELATED place as
+ * satisfying an UNMET must-do while naming the gap in day 1's
+ * words (deduplicated against the sentence runEnginePlan already
+ * appended to the narrative). Satisfied and exempt must-dos, and
+ * itineraries with no unmet must-do, pass through unchanged.
+ */
+function reconcileEngineMustDoAnnotations(itinerary: RoamlyItinerary, payload: TripPlannerPayload): RoamlyItinerary {
+  const requestText = [payload.specialNotes || "", ...(payload.interests || [])].join("\n").trim();
+  if (!requestText || !itinerary.daily_itinerary?.length) return itinerary;
+  const destination = payload.destination || payload.destinationCity || "";
+  const emptyPack: EnginePack = {
+    destination,
+    country: "",
+    center: { lat: 0, lon: 0 },
+    counts: { total: 0, sights: 0, foods: 0, stays: 0, transport: 0 },
+    stays: [],
+    sights: [],
+    excursions: [],
+    foods: [],
+    transport: [],
+    weather: []
+  };
+  const specs = deriveMustSees(payload, extractConstraints(requestText), emptyPack);
+  if (!specs.some((s) => (s.requiredPatterns || []).length || (s.requiredKinds || []).length)) return itinerary;
+  const verdicts = evaluateMustDoVerdicts(itinerary, specs);
+  if (!verdicts.some((v) => v.status === "unmet")) return itinerary;
+  return applyMustDoVerdicts(itinerary, verdicts, destination || itinerary.daily_itinerary[0]?.city || "");
 }
 
 /**

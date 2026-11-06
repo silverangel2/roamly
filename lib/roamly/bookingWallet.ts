@@ -5,6 +5,14 @@ import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBooki
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { bookingTimestamp, bookingDate } from "@/lib/roamly/bookingDateTime";
+import {
+  bookingDisplayLabel as bookingTruthDisplayLabel,
+  evidenceGrade as bookingTruthEvidenceGrade,
+  isConfirmed as bookingTruthIsConfirmed,
+  isTravelerConfirmedOnly as bookingTruthIsTravelerConfirmedOnly,
+  type EvidenceGrade
+} from "@/lib/roamly/bookingTruth";
+import { markBookingNotificationsWithdrawn } from "@/lib/roamly/bookingNotificationWithdrawal";
 export { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 
 export const TRIP_BOOKING_TYPES = [
@@ -178,6 +186,15 @@ export type TripBookingRecord = {
    * serializer only — never a status change, never rewritten on old rows.
    */
   is_test_booking?: boolean;
+  /**
+   * Tombstone workstream (2026-10-31): true when the stored row
+   * metadata carries the email-import discard mark
+   * (metadata.emailImportDiscarded, stamped by the discard route on
+   * a booking created from a discarded import). Serializer-only,
+   * like is_test_booking: the row is preserved as history/audit, but
+   * bookingTruth grades it "discarded" and it is never active.
+   */
+  is_discarded?: boolean;
   booking_segments?: BookingSegmentRecord[];
 };
 
@@ -381,14 +398,90 @@ export function withBookingReferralMetadata(
   };
 }
 
-export function isConfirmedBooking(booking: Pick<TripBookingRecord, "booking_status" | "traveler_confirmed"> & { superseded_by_booking_id?: string | null }) {
-  return isOperationalCurrentBooking(booking) && booking.traveler_confirmed && confirmedStatuses.has(booking.booking_status);
+type WalletTruthShape = Pick<TripBookingRecord, "booking_status" | "traveler_confirmed"> & {
+  superseded_by_booking_id?: string | null;
+  confirmation_code?: string | null;
+  provider?: string | null;
+  source_type?: string | null;
+  source_reference?: string | null;
+  title?: string | null;
+  is_test_booking?: boolean;
+  is_discarded?: boolean;
+  metadata?: Record<string, unknown> | null;
+  reservation_requirements?: Record<string, unknown> | null;
+};
+
+function walletTruthInput(booking: WalletTruthShape) {
+  return {
+    booking_status: booking.booking_status,
+    traveler_confirmed: booking.traveler_confirmed,
+    superseded_by_booking_id: booking.superseded_by_booking_id ?? null,
+    confirmation_number: booking.confirmation_code ?? null,
+    provider_name: booking.provider ?? null,
+    source_type: booking.source_type ?? null,
+    source_reference: booking.source_reference ?? null,
+    title: booking.title ?? null,
+    is_test_booking: booking.is_test_booking === true,
+    is_discarded: booking.is_discarded === true,
+    metadata: booking.metadata ?? null,
+    reservation_requirements: booking.reservation_requirements ?? null
+  };
 }
 
-export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status"> & { superseded_by_booking_id?: string | null }) {
+/**
+ * Delegates to the ONE booking-truth rule (lib/roamly/bookingTruth):
+ * confirmed is the providerConfirmationEvidence tier ONLY (owner ruling
+ * 2026-10-30) — credible provider-confirmation evidence (patterned
+ * code + real provider + a RECORDED provider-issued origin; no
+ * legacy no-source exception) AND traveler_confirmed AND an active
+ * canonical status AND a non-test, non-superseded record. The
+ * serialized record's fields are mapped onto the truth module's
+ * aliases (confirmation_code → identifier, provider → provider
+ * identity). A travelerConfirmedOnly record is NOT confirmed here;
+ * see isTravelerConfirmedOnlyBooking.
+ */
+export function isConfirmedBooking(booking: WalletTruthShape) {
+  return bookingTruthIsConfirmed(walletTruthInput(booking));
+}
+
+/** Round 3 (Lane T): the provenance-aware display label for a
+ *  serialized wallet record — the confirmation-evidence tier reads
+ *  "Confirmed · from your {Provider} email" / "· from your
+ *  screenshot" / "· reported by {Provider}", traveler-only reads
+ *  "Confirmed by you". Surfaces render THIS, never a bare
+ *  "Confirmed"/"Verified" for these tiers. */
+export function walletBookingDisplayLabel(booking: WalletTruthShape) {
+  return bookingTruthDisplayLabel(walletTruthInput(booking));
+}
+
+/** The wallet-level evidence grade for a serialized record. */
+export function bookingEvidenceGrade(booking: WalletTruthShape): EvidenceGrade {
+  return bookingTruthEvidenceGrade(walletTruthInput(booking));
+}
+
+/**
+ * Traveler-confirmed ONLY: the traveler confirmed the record
+ * (flag + active + non-test + non-superseded) but it does not have
+ * provider confirmation evidence. Presentation for this tier is the
+ * honest "Confirmed by you".
+ */
+export function isTravelerConfirmedOnlyBooking(booking: WalletTruthShape) {
+  return bookingTruthIsTravelerConfirmedOnly(walletTruthInput(booking));
+}
+
+export function isActiveTripBooking(booking: Pick<TripBookingRecord, "booking_status"> & { superseded_by_booking_id?: string | null; is_discarded?: boolean | null; metadata?: Record<string, unknown> | null }) {
   // ONE operational-current rule: a superseded row is history, never active,
   // even when its status still reads as a live one. isConfirmedBooking already
   // required this via isOperationalCurrentBooking; the active set now does too.
+  // Tombstone (2026-10-31): a discarded email-import booking is history too —
+  // the traveler's one removal takes it out of the live wallet (summary,
+  // action-needed, itinerary anchoring) while the row itself is preserved.
+  if (booking.is_discarded === true) return false;
+  const metadata = booking.metadata;
+  if (metadata && typeof metadata === "object") {
+    const mark = (metadata as Record<string, unknown>).emailImportDiscarded;
+    if ((mark && typeof mark === "object") || (metadata as Record<string, unknown>).email_import_discarded === true) return false;
+  }
   return isOperationalCurrentBooking(booking) && !inactiveStatuses.has(booking.booking_status);
 }
 
@@ -508,6 +601,9 @@ export function serializeTripBookingRecord(
     cancellation_terms: nullableText(row.cancellation_terms),
     traveler_confirmed: row.traveler_confirmed === true,
   is_test_booking: metadata.qa_test === true,
+    is_discarded:
+      Boolean(metadata.emailImportDiscarded && typeof metadata.emailImportDiscarded === "object") ||
+      metadata.email_import_discarded === true,
     last_synced_at: typeof row.last_synced_at === "string" ? row.last_synced_at : null,
     created_at: typeof row.created_at === "string" ? row.created_at : "",
     updated_at: typeof row.updated_at === "string" ? row.updated_at : "",
@@ -535,9 +631,17 @@ export function normalizeTripBookingInput(input: TripBookingInput, fallbackCurre
     nullableText(input.provider) ||
     (bookingType === "flight" ? "Flight booking" : bookingType === "hotel" ? "Hotel booking" : "Trip booking");
 
-  const confirmed =
+  // Workstream A: the canonical STATUS may still derive from the
+  // caller's status vocabulary (a "confirmed" status maps to canonical
+  // "booked"), but the stored traveler_confirmed FLAG no longer
+  // derives from status. The flag is written only from the caller's
+  // explicit travelerConfirmed input, which after the writer cleanup
+  // only genuine traveler-action / verified-record paths set. Status
+  // alone must never mint traveler confirmation.
+  const statusConfirmed =
     travelerConfirmed ||
     confirmedStatuses.has(bookingStatus);
+  const confirmed = statusConfirmed;
 
   // B04: booking times convert with the caller's explicit zone only.
   // Date-only facts persist as dates (start_date/end_date) even when no
@@ -605,7 +709,9 @@ export function normalizeTripBookingInput(input: TripBookingInput, fallbackCurre
       input.cancellationTerms
     ),
 
-    traveler_confirmed: confirmed,
+    // Workstream A: the flag is the caller's explicit input ONLY —
+    // never status-derived (see statusConfirmed above).
+    traveler_confirmed: travelerConfirmed,
     referral_id: nullableText(input.referralId),
     last_synced_at:
       nullableTimestamp(input.lastSyncedAt) ||
@@ -881,13 +987,55 @@ export async function cancelTripBooking(params: {
     reminderWithdrawalFailed = true;
     console.error("cancelTripBooking reminder withdrawal failed", error);
   }
+  // X1 write path (Workstream A): a cancel that only updates the
+  // booking row leaves the STORED itinerary item stamped "Confirmed:"
+  // and leaves persisted notifications rendering as live travel
+  // updates. Re-stamp the trip's itinerary booking overrides from the
+  // cancelled row (the override now derives its stamp from current
+  // booking truth, so the item becomes "Cancelled:"/neutral), and mark
+  // this booking's notifications withdrawn (never deleted). Both are
+  // secondary to the cancel: failures are logged and flagged, never
+  // un-cancel the booking. Read paths (trip page, place detail,
+  // Alerts) also re-derive from current status, so pre-existing stale
+  // rows are covered even where this write path never ran.
+  let itineraryRestampFailed = false;
+  try {
+    const restamp = await applyStoredItineraryBookingOverride({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      booking: updated.data as Record<string, unknown>
+    });
+    if (!restamp.ok) itineraryRestampFailed = true;
+  } catch (error) {
+    itineraryRestampFailed = true;
+    console.error("cancelTripBooking itinerary re-stamp failed", error);
+  }
+  let notificationsMarked = 0;
+  let notificationMarkingFailed = false;
+  try {
+    const marking = await markBookingNotificationsWithdrawn(params.supabase, {
+      userId: params.userId,
+      tripId: params.tripId,
+      bookingId: params.bookingId,
+      reason: "booking_cancelled"
+    });
+    notificationsMarked = marking.marked;
+    if (!marking.ok) notificationMarkingFailed = true;
+  } catch (error) {
+    notificationMarkingFailed = true;
+    console.error("cancelTripBooking notification marking failed", error);
+  }
   return {
     ok: true as const,
     idempotent: false as const,
     alreadyCancelled: false as const,
     booking: serializeTripBookingRecord(updated.data as Record<string, unknown>),
     remindersWithdrawn,
-    reminderWithdrawalFailed
+    reminderWithdrawalFailed,
+    itineraryRestampFailed,
+    notificationsMarked,
+    notificationMarkingFailed
   };
 }
 
@@ -1676,7 +1824,7 @@ export async function createTripBooking(params: {
   // S3 FAIL-LOUD GUARD: whenever the RPC ran, the response must carry the
   // segments actually stored and readable by this caller — never the echoed
   // input. The re-read uses the same caller client as the list endpoint,
-  // so it verifies what a reload will show, not just what the SECURITY
+  // so it checks what a reload will show, not just what the SECURITY
   // DEFINER function wrote. On any mismatch (or an unreadable re-read) the
   // save fails loudly; the route maps this to HTTP 400 BOOKING_SAVE_FAILED
   // and the parent row's stale/empty segment state is never reported as
@@ -1798,35 +1946,30 @@ export async function createTripBooking(params: {
       }));
   }
 
-  // Builder-L feed-title gate: traveler_confirmed alone never mints
-  // "Booking confirmed" — a customer assertion is not provider
-  // confirmation. "Booking confirmed" requires provider-grade evidence
-  // (a non-empty confirmation number / provider booking id) OR the
-  // wallet's own stricter rule (isConfirmedBooking: traveler-confirmed
-  // AND a confirmed-family status AND not superseded, expressed here
-  // over the write-layer row — a new row is never superseded). Note
-  // for the next reader: at this site the stored status vocabulary is
-  // canonical ("booked" / "cancelled" / "unknown"), which never
-  // intersects the wallet's confirmed-family set, so the rule disjunct
-  // cannot fire for a new row here and provider evidence is the
-  // operative gate; the wallet badge (serialized form, where "booked"
-  // maps to "confirmed") remains the stricter display-side rule.
-  // Everything else new is honestly "Booking added". All
-  // confirmed-path callers funnel through createTripBooking, so this
-  // single hunk fixes every caller.
-  const feedHasProviderEvidence = Boolean(writeBooking.provider_booking_id || writeBooking.confirmation_number);
-  const feedMeetsConfirmedRule =
-    writeBooking.traveler_confirmed &&
-    ["confirmed", "modified", "completed"].includes(writeBooking.booking_status);
+  // Feed-title gate (Builder-L, tightened Round 3 Lane T): the
+  // event title "Booking confirmed …" is minted ONLY when the full
+  // booking-truth rule holds for the written row —
+  // hasProviderConfirmationEvidence (patterned code + real provider
+  // + RECORDED origin + traveler_confirmed + active + non-test).
+  // A bare confirmation number / provider booking id is NOT enough
+  // (the old gate fired on either field alone), and neither is
+  // traveler_confirmed with a confirmed-family status. When the
+  // tier holds, the title carries the evidence provenance
+  // ("Booking confirmed · from your Agoda email" / "· from your
+  // screenshot" / "· reported by {Provider}"); it never says
+  // "verified". Everything else new is honestly "Booking added".
+  // All confirmed-path callers funnel through createTripBooking, so
+  // this single hunk fixes every caller.
+  const feedTitleForNewBooking = bookingTruthIsConfirmed(writeBooking)
+    ? `Booking ${bookingTruthDisplayLabel(writeBooking).replace(/^C/, "c")}`
+    : "Booking added";
   await recordTripEvent(params.supabase, {
     userId: params.userId,
     tripId: params.tripId,
     eventType: "booking_wallet_updated",
     eventTitle: previousBooking
       ? "Booking updated"
-      : feedHasProviderEvidence || feedMeetsConfirmedRule
-        ? "Booking confirmed"
-        : "Booking added",
+      : feedTitleForNewBooking,
     eventBody: previousBooking
       ? `${booking.title} was updated in the Booking Wallet.`
       : `${booking.title} was added to the Booking Wallet.`,
@@ -1854,6 +1997,8 @@ export async function createTripBooking(params: {
   };
 }
 
+/** Confirmation-evidence bookings only: travelerConfirmedOnly rows
+ *  are excluded — they do not anchor itinerary items as verified. */
 export function confirmedBookingsForItinerary(bookings: TripBookingRecord[]) {
   return bookings.filter((booking) => isActiveTripBooking(booking) && isConfirmedBooking(booking));
 }
@@ -1864,7 +2009,12 @@ export function bookingWalletSummary(bookings: TripBookingRecord[]) {
   return {
     total: bookings.length,
     active: active.length,
+    // Confirmation-evidence ONLY (owner ruling 2026-10-30): legacy
+    // no-source traveler-confirmed rows no longer count here; they
+    // are counted separately below and presented as "Confirmed by
+    // you".
     confirmed: confirmed.length,
+    travelerConfirmedOnly: active.filter((booking) => isTravelerConfirmedOnlyBooking(booking)).length,
     needsConfirmation: active.filter((booking) => booking.booking_status === "needs_confirmation" || booking.booking_status === "detected").length,
     clickOnly: bookings.filter(isBookingClickOnly).length
   };
