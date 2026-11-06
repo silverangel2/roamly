@@ -20,7 +20,6 @@ import {
   selectActiveTrip,
   selectNowAndNextActivity,
   tripWindowState,
-  timezoneFromTripMetadata,
   type LiveCompanionActivity,
   type LiveCoordinates,
   type LiveRouteStatus,
@@ -29,6 +28,53 @@ import {
   type LiveNotificationType
 } from "@/lib/roamly/liveCompanion";
 import { getLiveRouteStatus } from "@/lib/roamly/liveRouting";
+import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
+import { zoneForMath } from "@/lib/roamly/tripTimezone";
+import {
+  LIVE_COMPANION_ELIGIBLE_STATUSES,
+  resolveLiveEligibilityTimezone
+} from "@/lib/roamly/liveEligibility";
+
+/**
+ * L12 (2026-10-31): the destination zone for activation decisions —
+ * the ONE server resolution (stored metadata, then the verified
+ * destination registry incl. the destination seeds), with UTC only
+ * as the documented fallback for a genuinely unknown zone. This
+ * replaces the metadata-only `timezoneFromTripMetadata` lookups on
+ * the activation paths below, which judged a Montreal trip
+ * (planning.timezone NULL, registry zone America/Toronto) in UTC and
+ * treated it as over from 19:00 EST on its last day.
+ */
+function activationTimezoneForTrip(trip: {
+  metadata?: unknown;
+  destination?: string | null;
+  destination_name?: string | null;
+  destination_city?: string | null;
+}) {
+  return zoneForMath(
+    resolveTripTimezoneServer({
+      metadata: trip.metadata,
+      destination: trip.destination,
+      destination_name: trip.destination_name,
+      destination_city: trip.destination_city
+    })
+  );
+}
+
+function eligibilityOptionsForTrip(trip: {
+  metadata?: unknown;
+  destination?: string | null;
+  destination_name?: string | null;
+  destination_city?: string | null;
+}) {
+  const resolution = resolveTripTimezoneServer({
+    metadata: trip.metadata,
+    destination: trip.destination,
+    destination_name: trip.destination_name,
+    destination_city: trip.destination_city
+  });
+  return { zoneOverride: resolution.zone };
+}
 
 export type TrackingTrip = {
   id: string;
@@ -99,8 +145,46 @@ type ActivationOptions = {
   decisionNow?: Date;
 };
 
-export function getCurrentTripDay(trip: Pick<TrackingTrip, "start_date"> & { days_count?: number | null }) {
-  return getTripDayFromDate(trip.start_date, trip.days_count || null, timezoneFromTripMetadata((trip as TrackingTrip).metadata));
+/**
+ * Release-gate item 2 (2026-10-31): the displayed current trip day
+ * resolves its zone through THE SAME resolver the Live eligibility
+ * window uses — `resolveLiveEligibilityTimezone` in
+ * lib/roamly/liveEligibility.ts (metadata zone, then the verified
+ * destination registry, then the documented UTC fallback for a
+ * genuinely unknown zone) — fed with the SAME server zone override
+ * (`eligibilityOptionsForTrip`, the destination-seed resolution)
+ * that `getActiveOrUpcomingTrip` passes to `selectActiveTrip` for
+ * this trip. So the day number below and the eligibility window's
+ * destination-local "today" are computed in one zone from one
+ * source, and can never disagree. This replaces the last
+ * metadata-only lookup in this file: a Montreal trip with
+ * planning.timezone NULL used to be day-numbered in UTC, so from
+ * 20:00 destination-local time the displayed day was already the
+ * next calendar day. `now` is injectable for tests; the process
+ * timezone is never consulted (the zone is passed explicitly into
+ * the day math).
+ */
+export function getCurrentTripDay(
+  trip: Pick<TrackingTrip, "start_date"> & {
+    days_count?: number | null;
+    metadata?: unknown;
+    destination?: string | null;
+    destination_name?: string | null;
+    destination_city?: string | null;
+  },
+  now: string | Date = new Date()
+) {
+  const instant = now instanceof Date ? now : new Date(now);
+  const resolution = resolveLiveEligibilityTimezone(
+    {
+      metadata: trip.metadata,
+      destination: trip.destination,
+      destination_name: trip.destination_name,
+      destination_city: trip.destination_city
+    },
+    eligibilityOptionsForTrip(trip)
+  );
+  return getTripDayFromDate(trip.start_date, trip.days_count || null, resolution.zoneForMath, instant);
 }
 
 function recordValue(value: unknown): Record<string, unknown> | null {
@@ -302,7 +386,7 @@ async function shutdownCompletedTripIfNeeded(
 ) {
   const { data } = await supabase
     .from("roamly_trips")
-    .select("id,user_id,status,start_date,end_date,metadata,trip_companion_status")
+    .select("id,user_id,status,start_date,end_date,metadata,trip_companion_status,destination,destination_name,destination_city")
     .eq("id", tripId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -312,7 +396,7 @@ async function shutdownCompletedTripIfNeeded(
   const state = tripWindowState({
     startDate: trip.start_date,
     endDate: trip.end_date,
-    timezone: timezoneFromTripMetadata(trip.metadata),
+    timezone: activationTimezoneForTrip(trip),
     now
   });
   if (state !== "completed_trip") return false;
@@ -357,23 +441,32 @@ export async function getActiveOrUpcomingTrip(
   tripId?: string,
   options?: { now?: string | Date }
 ) {
+  // Prefilter only on the unlock pair + the ONE live-ready status
+  // set (liveEligibility.ts). The locked condition is NOT prefiltered
+  // on itinerary_locked alone: the app's own locked sense
+  // (billing.isTripLocked, mirrored by the eligibility rule) also
+  // accepts itinerary_status="locked" or a set
+  // itinerary_generated_at, and selectActiveTrip applies the full
+  // rule — including the destination-local window — to every row
+  // returned here.
   let query = supabase
     .from("roamly_trips")
     .select("*")
     .eq("user_id", userId)
-    .eq("itinerary_locked", true)
     .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
-    .in("status", ["locked", "active", "planned", "generated"]);
+    .in("status", [...LIVE_COMPANION_ELIGIBLE_STATUSES]);
   if (tripId) query = query.eq("id", tripId);
   const { data, error } = await query;
 
   if (error) return { trip: null, error: error.message };
-  const trip = selectActiveTrip((data || []) as TrackingTrip[], options?.now ?? new Date());
+  const trip = selectActiveTrip((data || []) as TrackingTrip[], options?.now ?? new Date(), (candidate) =>
+    eligibilityOptionsForTrip(candidate as TrackingTrip)
+  );
   return { trip };
 }
 
-export async function getCurrentDayRecord(supabase: SupabaseClient, trip: TrackingTrip) {
-  const currentDayNumber = getCurrentTripDay(trip);
+export async function getCurrentDayRecord(supabase: SupabaseClient, trip: TrackingTrip, now?: string | Date) {
+  const currentDayNumber = getCurrentTripDay(trip, now);
   const { data } = await supabase
     .from("roamly_trip_days")
     .select("*")
@@ -556,7 +649,7 @@ export async function activateTripIfNearby(
   // Retire unresolved activities whose real itinerary window has ended.
   // This runs before nearby sensing so an expired activity cannot be
   // rediscovered by GPS and generate another Live Companion alert.
-  const tripTimezone = timezoneFromTripMetadata(trip.metadata);
+  const tripTimezone = activationTimezoneForTrip(trip);
   await expirePastActivities(supabase, {
     trip,
     userId,
@@ -568,7 +661,7 @@ export async function activateTripIfNearby(
     now: processingNow,
     timezone: tripTimezone
   });
-  const currentDay = await getCurrentDayRecord(supabase, trip);
+  const currentDay = await getCurrentDayRecord(supabase, trip, processingNow);
   const checked = await getCheckedActivities(supabase, trip.id);
   const upNext = await getUpNextActivity(supabase, trip.id, location);
   const wasTripActivatedNow = trip.status !== "active" && nearby.activities.length > 0;
@@ -743,9 +836,7 @@ export async function activateTripIfNearby(
       title: activeTrip.title,
       startDate: activeTrip.start_date,
       endDate: activeTrip.end_date,
-      timezone: timezoneFromTripMetadata(
-        activeTrip.metadata
-      ),
+      timezone: activationTimezoneForTrip(activeTrip),
       enabled: true
     };
 

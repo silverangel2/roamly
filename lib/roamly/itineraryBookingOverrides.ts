@@ -6,6 +6,14 @@ import {
 } from "@/lib/itinerary";
 import { validateItineraryDeterministically } from "@/lib/roamly/itineraryValidation";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
+import {
+  bookingDisplayLabel,
+  bookingTruthState,
+  isConfirmed as bookingTruthIsConfirmed,
+  stripBookingStampPrefix,
+  titleForTruth,
+  type BookingTruthState
+} from "@/lib/roamly/bookingTruth";
 import { evaluateRouteTransition, type RouteEndpoint, type RouteEvidence } from "@/lib/roamly/itineraryRouting";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 
@@ -36,10 +44,15 @@ type BookingOverrideRecord = {
   gate?: string | null;
   reservation_requirements?: Record<string, unknown> | null;
   traveler_confirmed?: boolean | null;
+  source_type?: string | null;
+  sourceType?: string | null;
+  source_reference?: string | null;
+  sourceReference?: string | null;
+  provider_booking_id?: string | null;
+  is_test_booking?: boolean | null;
+  is_discarded?: boolean | null;
   booking_segments?: Array<Record<string, unknown>> | null;
 };
-
-const activeBookingStatuses = ["booked", "paid", "reserved", "confirmed", "modified", "completed"];
 
 function clean(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -155,17 +168,67 @@ function bookingEnd(booking: BookingOverrideRecord) {
 
 function bookingIsUsableFlight(booking: BookingOverrideRecord) {
   const type = clean(booking.booking_type).toLowerCase();
-  const status = clean(booking.booking_status).toLowerCase();
-  return (
-    type === "flight" &&
-    Boolean(bookingStart(booking)) &&
-    (booking.traveler_confirmed === true || ["confirmed", "modified", "completed", "booked", "paid", "reserved"].includes(status))
-  );
+  return type === "flight" && Boolean(bookingStart(booking)) && bookingIsConfirmed(booking);
+}
+
+/**
+ * Workstream A + Round 2 Lane E2: stamping derives from the ONE
+ * booking-truth rule (lib/roamly/bookingTruth). "Confirmed:" requires
+ * the providerConfirmationEvidence tier (credible provider evidence incl. a
+ * RECORDED provider-issued origin + traveler_confirmed + active
+ * status + non-test). A travelerConfirmedOnly booking stamps
+ * "Confirmed by you:" and never earns verified factual status.
+ * Cancelled is handled as its own truth state below — it stamps
+ * "Cancelled:", never "Confirmed:", and never verified.
+ */
+function bookingTruthInput(booking: BookingOverrideRecord) {
+  return {
+    booking_status: booking.booking_status,
+    traveler_confirmed: booking.traveler_confirmed,
+    confirmation_number: booking.confirmation_number,
+    provider_booking_id: booking.provider_booking_id,
+    provider_name: booking.provider_name || booking.provider,
+    title: booking.title,
+    source_type: booking.source_type || booking.sourceType,
+    source_reference: booking.source_reference || booking.sourceReference,
+    superseded_by_booking_id: booking.superseded_by_booking_id,
+    metadata: booking.metadata,
+    is_test_booking: booking.is_test_booking === true,
+    is_discarded: booking.is_discarded === true,
+    reservation_requirements: booking.reservation_requirements
+  };
+}
+
+function bookingTruth(booking: BookingOverrideRecord): BookingTruthState {
+  return bookingTruthState(bookingTruthInput(booking));
 }
 
 function bookingIsConfirmed(booking: BookingOverrideRecord) {
-  const status = clean(booking.booking_status).toLowerCase();
-  return Boolean(booking.id) && (booking.traveler_confirmed === true || activeBookingStatuses.includes(status) || status === "cancelled");
+  return Boolean(booking.id) && bookingTruthIsConfirmed(bookingTruthInput(booking));
+}
+
+/** Round 3 (Lane T): the provenance-aware display label for the
+ *  confirmation-evidence tier ("Confirmed · from your {Provider}
+ *  email" etc.) — the only confirmed framing a stamp may carry. */
+function bookingProvenanceDisplayLabel(booking: BookingOverrideRecord) {
+  return bookingDisplayLabel(bookingTruthInput(booking));
+}
+
+/** States that re-stamp a stored item: confirmed (the verified
+ *  "Confirmed:" stamp — providerVerified ONLY, owner ruling
+ *  2026-10-30), traveler_confirmed (the honest "Confirmed by you:"
+ *  stamp), and cancelled/refunded (honest neutral stamp). Test
+ *  bookings never stamp; every other state leaves stored items
+ *  untouched here — the read path
+ *  (reconcileItineraryItemsWithCurrentBookings) strips any stale
+ *  confirmed framing for them at render. */
+function bookingStampsItinerary(booking: BookingOverrideRecord) {
+  const state = bookingTruth(booking);
+  // Tombstone (2026-10-31): "discarded" also re-stamps — the discard
+  // path calls the same stored-override writer as cancel does, so a
+  // stored "Confirmed:" item for a removed import is neutralised at
+  // write time too (the read path covers rows this never reaches).
+  return Boolean(booking.id) && (state === "confirmed" || state === "traveler_confirmed" || state === "cancelled" || state === "refunded" || state === "discarded");
 }
 
 function bookingIsCurrent(booking: BookingOverrideRecord) {
@@ -384,11 +447,18 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
     const record = item as unknown as Record<string, unknown>;
     return String(record.booking_id || "") === marker || (recommendationId && String(record.candidateId || "") === recommendationId);
   });
-  const status = clean(booking.booking_status).toLowerCase();
-  const cancelled = status === "cancelled";
+  const truth = bookingTruth(booking);
+  const cancelled = truth === "cancelled";
+  const refunded = truth === "refunded";
+  const discarded = truth === "discarded";
+  const inactive = cancelled || refunded || discarded;
+  // Round 2 Lane E2: travelerConfirmedOnly is active for the traveler
+  // but NOT provider-verified — it stamps honestly and earns neither
+  // the verified factual status nor the protected-anchor role.
+  const travelerOnly = truth === "traveler_confirmed";
   const existing = markedIndex >= 0 ? timelineRecord(timeline[markedIndex]) : null;
   const provider = clean(booking.provider || booking.provider_name);
-  const title = clean(booking.title) || provider || "Confirmed reservation";
+  const title = clean(booking.title) || provider || "Your reservation";
   const reference = clean(booking.confirmation_number) || clean((booking.reservation_requirements || {}).confirmation_number);
   const start = bookingStart(booking);
   const startMinutes = minutesFromDate(start, clean(booking.timezone || booking.metadata?.timezone)) ?? clockMinutes(existing?.startTime) ?? 9 * 60;
@@ -397,28 +467,40 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
     time_label: start ? formatTimeLabel(startMinutes) : clean(existing?.time_label) || formatTimeLabel(startMinutes),
     startTime: start ? formatTime24(startMinutes) : clean(existing?.startTime) || undefined,
     endTime: start ? undefined : clean(existing?.endTime) || undefined,
-    title: `${cancelled ? "Cancelled" : "Confirmed"}: ${title}`,
+    title: titleForTruth(title, truth, bookingTruthInput(booking)),
     description: [
-      cancelled ? "This booking was cancelled; do not navigate to it." : "Confirmed booking; this replaces the itinerary recommendation as the actual reservation.",
+      discarded
+        ? "This booking was removed; do not navigate to it."
+        : cancelled
+        ? "This booking was cancelled; do not navigate to it."
+        : refunded
+          ? "This booking was refunded; do not navigate to it."
+          : travelerOnly
+            ? "Confirmed by you; this replaces the itinerary recommendation as the actual reservation."
+            : `${bookingProvenanceDisplayLabel(booking)}; this replaces the itinerary recommendation as the actual reservation.`,
       provider,
       reference ? `Reference ${reference}` : "",
       clean(booking.destination || booking.origin)
     ].filter(Boolean).join(" "),
     location_name: clean(booking.location_name || booking.address || booking.destination || booking.origin) || clean(existing?.location_name),
     estimated_cost: 0,
-    category: cancelled ? "Cancelled booking" : "Confirmed booking",
+    category: discarded ? "Removed booking" : cancelled ? "Cancelled booking" : refunded ? "Refunded booking" : travelerOnly ? "Confirmed by you" : bookingProvenanceDisplayLabel(booking),
     map_query: clean(booking.destination || booking.origin) || clean(existing?.map_query) || title,
-    item_type: cancelled ? nonFlightCategory(booking) : "booking",
-    plan_role: cancelled ? "supporting" : "protected_anchor",
-    factualStatus: "verified",
-    timing_status: start ? "FACTUAL" : existing?.timing_status || "UNKNOWN",
+    item_type: inactive ? nonFlightCategory(booking) : "booking",
+    plan_role: inactive || travelerOnly ? "supporting" : "protected_anchor",
+    // Workstream A + Round 2 Lane E2: only a confirmation-evidence booking
+    // earns the verified factual status and FACTUAL timing. A
+    // cancelled/refunded stamp is neutral, and a travelerConfirmedOnly
+    // stamp is honest but unverified — neither is ever "verified".
+    factualStatus: inactive || travelerOnly ? "unknown" : "verified",
+    timing_status: inactive || travelerOnly ? "UNKNOWN" : start ? "FACTUAL" : existing?.timing_status || "UNKNOWN",
     coordinates: booking.coordinates || existing?.coordinates || undefined,
     route_evidence: existing?.route_evidence || null,
     routing_status: existing?.routing_status || undefined,
     uncertainty: existing?.uncertainty || [],
     booking_id: marker,
-    booking_status: cancelled ? "cancelled" : "confirmed",
-    booking_label: cancelled ? "Cancelled booking" : "Confirmed booking"
+    booking_status: discarded ? "discarded" : cancelled ? "cancelled" : refunded ? "refunded" : travelerOnly ? "traveler_confirmed" : "confirmed",
+    booking_label: discarded ? "Removed booking" : cancelled ? "Cancelled booking" : refunded ? "Refunded booking" : travelerOnly ? "Confirmed by you" : bookingProvenanceDisplayLabel(booking)
   } as unknown as RoamlyActivitySeed;
   if (markedIndex >= 0) timeline[markedIndex] = item;
   else timeline.push(item);
@@ -427,9 +509,13 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
     itinerary: {
       ...itinerary,
       daily_itinerary,
-      booking_status_summary: cancelled
+      booking_status_summary: discarded
+        ? "Removed bookings are marked and excluded from active trip guidance."
+        : inactive
         ? "Cancelled bookings are marked and excluded from active trip guidance."
-        : "Confirmed reservations are authoritative; itinerary recommendations remain visible as history only."
+        : travelerOnly
+          ? "Bookings confirmed by you are marked as yours; they are not provider-verified."
+          : "Reservations with confirmation evidence on file are authoritative; itinerary recommendations remain visible as history only."
     },
     changed: true
   };
@@ -467,7 +553,7 @@ function flightTitle(booking: BookingOverrideRecord, arrivalBlock = false) {
   if (flight && destination) return `${flight} to ${destination}`;
   if (flight) return `Flight ${flight}`;
   if (provider && destination) return `${provider} flight to ${destination}`;
-  return clean(booking.title) || "Confirmed flight";
+  return clean(booking.title) || "Your flight";
 }
 
 function applyFlightOverrideToDay(items: RoamlyActivitySeed[], booking: BookingOverrideRecord, dayDate?: string | null) {
@@ -515,7 +601,7 @@ function applyFlightOverrideToDay(items: RoamlyActivitySeed[], booking: BookingO
       category: "Flight",
       title: flightTitle(booking, arrivalDayBlock),
       description: [
-        "Confirmed booking replaces the itinerary estimate.",
+        `${bookingProvenanceDisplayLabel(booking)} — this booking replaces the itinerary estimate.`,
         details.join(" · "),
         clean(existing?.description)
       ].filter(Boolean).join(" "),
@@ -542,7 +628,19 @@ export function applyConfirmedBookingOverrideToItinerary(
   itinerary: RoamlyItinerary,
   booking: BookingOverrideRecord
 ) {
-  if (!bookingIsConfirmed(booking) || !bookingIsCurrent(booking)) return { itinerary, changed: false };
+  // Workstream A + Round 2 Lane E2: the confirmation-evidence tier stamps verified;
+  // travelerConfirmedOnly stamps the honest "Confirmed by you:" via
+  // the non-flight path (a traveler-only FLIGHT earns no verified
+  // flight override — bookingIsUsableFlight stays provider-only —
+  // and stamps nothing here; the read path re-titles any stale stamp
+  // honestly). Cancelled/refunded re-stamp neutral (the X1 write
+  // path calls this after a cancel). Test bookings and every other
+  // unverified state stamp nothing.
+  if (!bookingStampsItinerary(booking) || !bookingIsCurrent(booking)) return { itinerary, changed: false };
+  const truth = bookingTruth(booking);
+  if (truth === "cancelled" || truth === "refunded" || truth === "discarded") {
+    return applyNonFlightBookingOverrideToItinerary(itinerary, booking);
+  }
   const routeFactsChanged = bookingFactsChanged(itinerary, booking);
   if (clean(booking.booking_type).toLowerCase() !== "flight") {
     const result = applyNonFlightBookingOverrideToItinerary(itinerary, booking);
@@ -567,8 +665,8 @@ export function applyConfirmedBookingOverrideToItinerary(
     itemIndex === index
       ? {
           ...item,
-          title: itemIndex === 0 ? "Confirmed flight and arrival" : item.title,
-          morning: itemIndex === 0 ? "Confirmed flight details replace the estimate; the affected day was revalidated without inventing transfer time." : item.morning,
+          title: itemIndex === 0 ? "Flight and arrival from your booking" : item.title,
+          morning: itemIndex === 0 ? "Flight details from your booking replace the estimate; the affected day was revalidated without inventing transfer time." : item.morning,
           live_timeline: adjusted.items
         }
       : item
@@ -578,7 +676,7 @@ export function applyConfirmedBookingOverrideToItinerary(
       ...itinerary,
       daily_itinerary,
       booking_status_summary:
-        "Confirmed booking details override estimated travel times. Downstream same-day itinerary items were rebalanced from the real arrival time."
+        "Booking details from your confirmation evidence override estimated travel times. Downstream same-day itinerary items were rebalanced from the real arrival time."
     },
     changed: true
   };
@@ -636,7 +734,7 @@ export async function applyStoredItineraryBookingOverride(params: {
   tripId: string;
   booking: BookingOverrideRecord;
 }) {
-  if (!bookingIsConfirmed(params.booking) || !bookingIsCurrent(params.booking)) return { ok: true as const, changed: false };
+  if (!bookingStampsItinerary(params.booking) || !bookingIsCurrent(params.booking)) return { ok: true as const, changed: false };
   const { data, error } = await params.supabase
     .from("roamly_itineraries")
     .select("id,full_json,repair_revision")
@@ -696,4 +794,115 @@ export async function applyStoredItineraryBookingOverride(params: {
   if (update.error) return { ok: false as const, error: update.error.message };
   if (!update.data) return { ok: false as const, error: "STALE_ITINERARY_STATE" };
   return { ok: true as const, changed: true };
+}
+
+/**
+ * X1 READ path (Workstream A): re-derive every stored booking-linked
+ * itinerary item's displayed confirmation state from its booking's
+ * CURRENT truth, at render time, with no data rewrite. This covers
+ * existing stale rows — e.g. an item stamped "Confirmed:" before its
+ * booking was cancelled — wherever the trip page renders the stored
+ * itinerary.
+ *
+ * An item is booking-linked when it carries the booking's id
+ * (override-stamped items always do), or, failing that, when its
+ * stamp-stripped title exactly matches a booking's title. Truth
+ * "confirmed" (providerConfirmationEvidence ONLY) re-stamps its plain "Confirmed:" title to the provenance stamp
+ * (the stored stamp agrees). Any other state rewrites the display
+ * fields honestly: cancelled/refunded re-title as such,
+ * traveler_confirmed re-titles "Confirmed by you:" with the verified
+ * factual status and protected-anchor role removed, and everything
+ * else (test, superseded, needs_confirmation, email_unverified,
+ * planned) loses the Confirmed stamp, the verified factual status,
+ * and the protected-anchor role.
+ * Items with no linked booking are returned unchanged.
+ */
+export function reconcileItineraryItemsWithCurrentBookings(
+  itinerary: RoamlyItinerary,
+  bookings: BookingOverrideRecord[]
+): RoamlyItinerary {
+  if (!itinerary || !Array.isArray(itinerary.daily_itinerary) || !bookings.length) return itinerary;
+  const byId = new Map<string, BookingOverrideRecord>();
+  const byTitle = new Map<string, BookingOverrideRecord>();
+  for (const booking of bookings) {
+    if (booking.id) byId.set(String(booking.id), booking);
+    const title = clean(booking.title).toLowerCase();
+    if (title && !byTitle.has(title)) byTitle.set(title, booking);
+  }
+  let changed = false;
+  const truthLabel: Record<string, string> = {
+    cancelled: "Cancelled booking",
+    refunded: "Refunded booking",
+    discarded: "Removed booking",
+    traveler_confirmed: "Confirmed by you",
+    test: "Test booking",
+    superseded: "Superseded booking",
+    needs_confirmation: "Needs your confirmation",
+    email_unverified: "From your email — not verified",
+    planned: "Planned"
+  };
+  const daily_itinerary = itinerary.daily_itinerary.map((day) => {
+    if (!Array.isArray(day.live_timeline)) return day;
+    let dayChanged = false;
+    const live_timeline = day.live_timeline.map((item) => {
+      const value = timelineRecord(item);
+      const bookingId = clean(value.booking_id);
+      const title = clean(value.title);
+      const linked =
+        (bookingId ? byId.get(bookingId) : undefined) ||
+        (title ? byTitle.get(stripBookingStampPrefix(title).toLowerCase()) : undefined);
+      if (!linked) return item;
+      const state = bookingTruth(linked);
+      if (state === "confirmed") {
+        // Round 3 (Lane T): a stored plain "Confirmed:" stamp is an
+        // overclaim for this tier — re-title with the provenance
+        // stamp from the linked booking. Factual status and anchor
+        // role stay as stored (the tier still earns them).
+        const restamped = titleForTruth(title, state, bookingTruthInput(linked));
+        const label = bookingProvenanceDisplayLabel(linked);
+        const nextConfirmed: TimelineRecord = { ...value };
+        let touched = false;
+        if (title && restamped !== title) { nextConfirmed.title = restamped; touched = true; }
+        if (clean(value.category) === "Confirmed booking") { nextConfirmed.category = label; touched = true; }
+        if (clean(value.booking_label) === "Confirmed booking") { nextConfirmed.booking_label = label; touched = true; }
+        const desc = clean(value.description);
+        if (desc.startsWith("Confirmed booking;")) {
+          nextConfirmed.description = desc.replace(/^Confirmed booking;/, `${label};`);
+          touched = true;
+        }
+        if (!touched) return item;
+        changed = true; dayChanged = true;
+        return nextConfirmed as unknown as RoamlyActivitySeed;
+      }
+      const next: TimelineRecord = { ...value };
+      if (title) next.title = titleForTruth(title, state);
+      if (clean(value.booking_status) === "confirmed" || value.booking_status != null) {
+        next.booking_status = state;
+      }
+      if (value.factualStatus === "verified") next.factualStatus = "unknown";
+      if (clean(value.timing_status).toUpperCase() === "FACTUAL" && (state === "cancelled" || state === "refunded" || state === "discarded" || state === "test" || state === "traveler_confirmed")) {
+        next.timing_status = "UNKNOWN";
+      }
+      if (value.plan_role === "protected_anchor") next.plan_role = "supporting";
+      if (clean(value.category) === "Confirmed booking") next.category = truthLabel[state] || "Booking";
+      if (clean(value.booking_label) === "Confirmed booking") next.booking_label = truthLabel[state] || "Booking";
+      const description = clean(value.description);
+      if (description.startsWith("Confirmed booking;")) {
+        next.description =
+          state === "cancelled"
+            ? description.replace(/^Confirmed booking;[^.]*\./, "This booking was cancelled; do not navigate to it.")
+            : state === "traveler_confirmed"
+              ? description.replace(/^Confirmed booking;/, "Confirmed by you;")
+              : description.replace(/^Confirmed booking;\s*/, "");
+      }
+      if (JSON.stringify(next) !== JSON.stringify(value)) {
+        dayChanged = true;
+        return next as unknown as RoamlyActivitySeed;
+      }
+      return item;
+    });
+    if (dayChanged) changed = true;
+    return dayChanged ? { ...day, live_timeline } : day;
+  });
+  return changed ? { ...itinerary, daily_itinerary } : itinerary;
 }

@@ -8,6 +8,17 @@ import { build2ReconciliationLaneActive } from "@/lib/roamly/reconciliationLane"
 import type { EmailConnectionRecord } from "@/lib/roamly/emailConnections";
 import type { TravelEmailFilterResult, TravelEmailMetadata } from "@/lib/roamly/travelEmailFiltering";
 
+// Audit fix: local mirror of the test/QA booking pattern from
+// lib/roamly/testBooking.ts (kept local so this module gains no new
+// import — several check harnesses load it in a restricted sandbox).
+const TEST_BOOKING_TEXT_PATTERN = /\bQA\b|test stay|test provider/i;
+function extractionLooksLikeTestBooking(extraction: StructuredBookingExtraction) {
+  return Boolean(
+    (extraction.booking.title && TEST_BOOKING_TEXT_PATTERN.test(extraction.booking.title)) ||
+      (extraction.booking.provider && TEST_BOOKING_TEXT_PATTERN.test(extraction.booking.provider))
+  );
+}
+
 export type ExtractedBookingField<T = string> = {
   value: T | null;
   confidence: number;
@@ -105,16 +116,49 @@ function senderDomain(sender?: string | null) {
   return clean(sender).toLowerCase().match(/[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})/i)?.[1] || "";
 }
 
+const CANONICAL_PROVIDER_BRANDS: Record<string, string> = {
+  "booking.com": "Booking.com",
+  "expedia.com": "Expedia",
+  "expedia.ca": "Expedia",
+  "airbnb.com": "Airbnb",
+  "agoda.com": "Agoda",
+  "hotels.com": "Hotels.com",
+  "aircanada.com": "Air Canada",
+  "westjet.com": "WestJet",
+  "delta.com": "Delta",
+  "united.com": "United",
+  "aa.com": "American Airlines",
+  "viator.com": "Viator",
+  "klook.com": "Klook",
+  "getyourguide.com": "GetYourGuide",
+  "opentable.com": "OpenTable",
+  "resy.com": "Resy",
+  "trainline.com": "Trainline",
+  "amtrak.com": "Amtrak",
+  "viarail.ca": "VIA Rail"
+};
+
 function providerName(metadata: TravelEmailMetadata, filter: TravelEmailFilterResult) {
   const facts = filter.extractedFacts;
   const domain = clean(facts.senderDomain) || senderDomain(metadata.sender);
   if (!domain) return clean(metadata.sender) || null;
-  return domain
-    .replace(/^mail\./, "")
-    .split(".")
-    .slice(0, -1)
-    .join(" ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  // Audit fix: the provider is the registrable domain's brand, never a
+  // subdomain label. "sg.booking.com" used to render as "Sg Booking"
+  // and "eg.expedia.*" as "Eg Expedia" on the owner's booking cards.
+  const labels = domain.replace(/^mail\./, "").split(".").filter(Boolean);
+  let registrable = labels.join(".");
+  if (labels.length > 2) {
+    const secondLevel = labels[labels.length - 2];
+    const topLevel = labels[labels.length - 1];
+    registrable =
+      ["co", "com", "net", "org", "ac"].includes(secondLevel) && topLevel.length === 2
+        ? labels.slice(-3).join(".")
+        : labels.slice(-2).join(".");
+  }
+  const brand = CANONICAL_PROVIDER_BRANDS[registrable];
+  if (brand) return brand;
+  const name = registrable.split(".")[0] || registrable;
+  return name.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function dateHintToIso(value?: string | null) {
@@ -205,7 +249,12 @@ function bookingStatusFromText(text: string) {
   if (/\bcancel(?:led|ed|lation)\b/i.test(text)) return "cancelled";
   if (/\brefund(?:ed)?\b/i.test(text)) return "refunded";
   if (/\b(modified|changed|updated|schedule change|time change|date change|hotel changed|booking changed)\b/i.test(text)) return "modified";
-  return "confirmed";
+  // Audit fix: "confirmed" is an earned state. It used to be the
+  // default for any text that was not cancelled/refunded/modified, so
+  // arbitrary mail manufactured confirmed bookings. Without positive
+  // confirmation language the honest status is needs_confirmation.
+  if (/\bconfirm(?:ed|ation)\b/i.test(text)) return "confirmed";
+  return "needs_confirmation";
 }
 
 function inferredEventTypes(text: string, facts: Record<string, unknown>) {
@@ -346,8 +395,12 @@ export function deterministicBookingExtraction(params: {
   const status = bookingStatusFromText(searchable || subject);
   const eventTypes = [...new Set(inferredEventTypes(searchable || subject, facts))];
   const highSignal = Boolean(provider && confirmationCode && (flightNumber || startTime || bookingType === "hotel" || bookingType === "activity"));
+  // Audit fix: credible-evidence gate. Parse confidence is a keyword
+  // count, not verification; without a confirmation/reference code
+  // extracted from the mail it is capped at 0.60 so keyword matches
+  // alone can never reach the auto-apply bar (0.82).
   const overallConfidence = Math.min(
-    1,
+    confirmationCode ? 1 : 0.6,
     params.filter.confidence +
       (highSignal ? 0.25 : 0) +
       (startTime ? 0.1 : 0) +
@@ -448,7 +501,10 @@ export function deterministicBookingExtraction(params: {
         gate,
         status
       }),
-      travelerConfirmed: overallConfidence >= EMAIL_LOOKBACK_AUTO_APPLY_CONFIDENCE && missingFields.length === 0 && !requiresUserApproval,
+      // Audit fix: an extraction never confirms a booking. Confirmation
+      // is a verified-record state (evidence tier 4); parse confidence
+      // must not manufacture it.
+      travelerConfirmed: false,
       lastSyncedAt: new Date().toISOString()
     }
   };
@@ -567,7 +623,10 @@ export async function extractBookingWithAiStructuredOutput(metadata: TravelEmail
         gate,
         status: bookingStatus
       }),
-      travelerConfirmed: confidence >= 0.82 && clean(parsed.confirmation_code) !== "",
+      // Audit fix: the model's self-reported confidence and a code
+      // string it emitted are not verification. Extraction never sets
+      // travelerConfirmed (see the deterministic path).
+      travelerConfirmed: false,
       lastSyncedAt: new Date().toISOString()
     }
   } satisfies StructuredBookingExtraction;
@@ -743,6 +802,66 @@ async function bestTripMatch(supabase: SupabaseClient, userId: string, extractio
   return best;
 }
 
+// Tombstone mirrors (Tombstone workstream, 2026-10-31): local copies
+// of the suppression lookups from lib/roamly/bookingEmailTombstone.ts,
+// kept local so this module gains no new import — several check
+// harnesses load it in a restricted sandbox with a fixed import map
+// (same precedent as the test-pattern mirror at the top of this
+// file). Both FAIL OPEN on any error: until the owner applies the
+// booking_email_suppressions migration the table does not exist, and
+// a lookup failure must degrade to pre-tombstone behaviour for that
+// one call rather than stall the traveler's whole sync. The
+// "rejected" extraction row (written by the discard route) is the
+// second, table-independent layer, and it is consulted in TWO places:
+// the funnel head in extractAndMatchTravelEmailBooking (so a
+// discarded message is suppressed BEFORE any wallet booking can be
+// created or revised — persistExtraction alone runs too late for the
+// auto-apply path, which creates the booking first), and
+// persistExtraction itself (which refuses to upsert over it, so the
+// sync's dedupe target can never be silently resurrected back into
+// a live suggestion). "rejected" is a safe suppression signal: the
+// discard route is the only writer of that status for this table
+// (persistExtraction writes only unmatched / attached /
+// needs_confirmation; attach writes attached).
+async function sourceReferenceIsTombstoned(
+  supabase: SupabaseClient,
+  userId: string,
+  sourceReference: string | null | undefined
+): Promise<boolean> {
+  if (!sourceReference) return false;
+  try {
+    const { data, error } = await supabase
+      .from("booking_email_suppressions")
+      .select("source_reference")
+      .eq("user_id", userId)
+      .eq("source_reference", sourceReference)
+      .maybeSingle();
+    return !error && Boolean(data);
+  } catch {
+    return false;
+  }
+}
+
+async function existingExtractionIsDiscarded(
+  supabase: SupabaseClient,
+  userId: string,
+  sourceReference: string | null | undefined
+): Promise<boolean> {
+  if (!sourceReference) return false;
+  try {
+    const { data, error } = await supabase
+      .from("booking_extraction_results")
+      .select("match_status")
+      .eq("user_id", userId)
+      .eq("source_type", "email")
+      .eq("source_reference", sourceReference)
+      .maybeSingle();
+    return !error && Boolean(data) && (data as { match_status?: unknown }).match_status === "rejected";
+  } catch {
+    return false;
+  }
+}
+
 async function persistExtraction(params: {
   supabase: SupabaseClient;
   connection: EmailConnectionRecord;
@@ -756,6 +875,19 @@ async function persistExtraction(params: {
   requiresUserApproval?: boolean;
   appliedAt?: string | null;
 }) {
+  // Tombstone guard: never upsert over a discarded row. The discard
+  // route moved the row to match_status "rejected" (preserving it as
+  // audit evidence and as the dedupe target); resurrecting it here
+  // would re-surface the very import the traveler removed.
+  if (
+    await existingExtractionIsDiscarded(
+      params.supabase,
+      params.connection.user_id,
+      params.extraction.booking.sourceReference || null
+    )
+  ) {
+    return;
+  }
   const payload = {
     user_id: params.connection.user_id,
     trip_id: params.tripId,
@@ -799,6 +931,37 @@ export async function extractAndMatchTravelEmailBooking(params: {
   // when this sync actually holds the service-role client.
   const adminClient = createSupabaseAdminClient();
   const writer = adminClient || params.supabase;
+  // Tombstone gate (2026-10-31): BEFORE any extraction is created or
+  // applied, a message the traveler discarded is stopped here — for
+  // ordinary sync, reconnect backfill, and auto-apply alike, since
+  // every one of those paths funnels through this function. The key
+  // is the email's stable identity (email:<provider>:<message id>),
+  // exactly the source reference the extractors mint below; a
+  // different message about the same stay has a different identity
+  // and passes. Nothing is persisted and no booking is created for a
+  // suppressed message; the tombstone + the rejected extraction row
+  // remain as the audit record of the removal.
+  const tombstoneReference = `email:${params.metadata.provider}:${params.metadata.messageId}`;
+  if (await sourceReferenceIsTombstoned(writer, params.connection.user_id, tombstoneReference)) {
+    return { attached: false, status: "suppressed" as const };
+  }
+  // Missing-schema defense (release gate item 3, 2026-10-31): the
+  // tombstone lookup above FAILS OPEN while migration 20261031000100
+  // is unapplied (or transiently erroring), so on its own it leaves
+  // the auto-apply path exposed — createTripBooking runs BEFORE
+  // persistExtraction's rejected-row guard, and a re-fed discarded
+  // email would create/revise a wallet booking before that guard
+  // could fire. The discard route's OTHER effect needs no new
+  // schema: it moved the extraction row to match_status "rejected"
+  // in the already-shipped booking_extraction_results table. Consult
+  // that row here, at the funnel head, so suppression holds with or
+  // without the tombstone table. This check fails open on its own
+  // read error exactly like the tombstone lookup (a stalled sync is
+  // worse than one unguarded pass, and persistExtraction still
+  // refuses the upsert).
+  if (await existingExtractionIsDiscarded(writer, params.connection.user_id, tombstoneReference)) {
+    return { attached: false, status: "suppressed" as const };
+  }
   const deterministic = deterministicBookingExtraction({ metadata: params.metadata, filter: params.filter });
   // Build 2 lane (Phase 8): the deterministic extractor is the
   // parser of record. In-lane the AI path is never consulted, so a
@@ -829,7 +992,12 @@ export async function extractAndMatchTravelEmailBooking(params: {
 
   const matchReasons = Array.isArray(match.reasons) ? match.reasons : [];
   const existingBookingId = "existingBookingId" in match ? match.existingBookingId || null : null;
-  const canAttach = shouldAutoApplyEmailLookbackExtraction({
+  // Audit fix: test/QA mail never auto-applies. The synthetic QA
+  // fixture family ("Roamly QA Test Stay", ref TEST-RMLY-*) extracted
+  // at 1.00 with requiresUserApproval=false and became a real booking
+  // on the owner's personal trip; no intake exclusion existed.
+  const testMail = extractionLooksLikeTestBooking(extraction);
+  const canAttach = !testMail && shouldAutoApplyEmailLookbackExtraction({
     extraction,
     matchScore: match.score,
     matchReasons
@@ -882,10 +1050,23 @@ export async function extractAndMatchTravelEmailBooking(params: {
         sourceEventAt: params.metadata.receivedAt || new Date().toISOString(),
         decision: "applied"
       },
+      // Audit fix + Workstream A (owner semantics): auto-apply used to
+      // hardcode travelerConfirmed: true (and default the status to
+      // "confirmed"), so any extraction passing the confidence bar
+      // became a verified "Confirmed" booking with no human action and
+      // no independent check. This path is now INCAPABLE of setting
+      // traveler confirmation: the flag is hardcoded false here (not
+      // passed through — an extraction can never carry it), and a
+      // "confirmed" extraction status is downgraded to
+      // needs_confirmation, the unverified state bookingTruth renders
+      // as "From your email — not verified". Terminal extraction
+      // states (cancelled/refunded/modified) pass through unchanged so
+      // reconciliation of an existing booking still works.
       bookingStatus:
-        extraction.booking.bookingStatus ||
-        "confirmed",
-      travelerConfirmed: true,
+        !extraction.booking.bookingStatus || extraction.booking.bookingStatus === "confirmed"
+          ? "needs_confirmation"
+          : extraction.booking.bookingStatus,
+      travelerConfirmed: false,
       reservationRequirements: {
         ...existingReservationRequirements,
         email_lookback: {

@@ -196,6 +196,10 @@ function recordValue(value: unknown): Record<string, unknown> | null {
 }
 
 import { metadataZoneFromMetadata } from "@/lib/roamly/tripTimezone";
+import {
+  isLiveCompanionEligible,
+  type LiveEligibilityOptions
+} from "@/lib/roamly/liveEligibility";
 
 export function timezoneFromTripMetadata(metadata: unknown, fallback = "UTC") {
   // Timezone round (2026-10-26): the metadata step of the ONE resolver
@@ -280,6 +284,12 @@ export type ActiveTripSelectionCandidate = {
   start_date?: string | null;
   end_date?: string | null;
   metadata?: unknown;
+  /** Destination fields, when the row carries them — they let the
+   *  ONE eligibility rule resolve the destination-local window from
+   *  the verified registry instead of metadata alone (L12). */
+  destination?: unknown;
+  destination_name?: unknown;
+  destination_city?: unknown;
 };
 
 function activeTripStatusRank(status: string | null | undefined) {
@@ -291,19 +301,28 @@ function activeTripStatusRank(status: string | null | undefined) {
 
 export function selectActiveTrip<T extends ActiveTripSelectionCandidate>(
   candidates: T[],
-  now: string | Date = new Date()
+  now: string | Date = new Date(),
+  eligibilityOptions?: LiveEligibilityOptions | ((candidate: T) => LiveEligibilityOptions)
 ) {
+  // L12 (2026-10-31): eligibility is the ONE rule in
+  // lib/roamly/liveEligibility.ts — live-ready status (locked /
+  // active / planned / generated) + locked in the app's own sense +
+  // companion-unlocked + the trip window read in the DESTINATION
+  // timezone (metadata zone, then the verified destination registry,
+  // then the documented UTC fallback). This selector used to judge
+  // the window from metadata alone with a silent UTC fallback, so a
+  // registry-known trip (e.g. Montreal, planning.timezone NULL) was
+  // treated as over from 19:00 EST on its last day while the Live
+  // page — registry-resolved — still showed it live. Server callers
+  // may pass per-candidate options (e.g. a zoneOverride resolved via
+  // tripTimezoneServer, which adds the destination seeds).
   return candidates
     .filter((candidate) =>
-      ["locked", "active", "planned", "generated"].includes(String(candidate.status || "")) &&
-      Boolean(candidate.itinerary_locked || candidate.itinerary_status === "locked" || candidate.itinerary_generated_at) &&
-      Boolean(candidate.tracking_unlocked || candidate.live_companion_unlocked) &&
-      isTodayWithinTripDates({
-        startDate: candidate.start_date,
-        endDate: candidate.end_date,
-        timezone: timezoneFromTripMetadata(candidate.metadata),
-        now
-      })
+      isLiveCompanionEligible(
+        candidate,
+        now,
+        typeof eligibilityOptions === "function" ? eligibilityOptions(candidate) : eligibilityOptions
+      )
     )
     .sort((a, b) =>
       activeTripStatusRank(a.status) - activeTripStatusRank(b.status) ||

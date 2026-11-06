@@ -85,6 +85,11 @@ export type SendRoamlyEmailResult =
       logId?: string | null;
       permanent?: boolean;
       retryable?: boolean;
+      // True when the provider outcome is UNKNOWN (connection dropped or
+      // timed out mid-transaction): the server may have accepted the
+      // message. Callers must treat this as ambiguous — never as proven
+      // non-delivery — and must not blindly resend.
+      ambiguous?: boolean;
     };
 
 type TemplateData = {
@@ -282,6 +287,27 @@ function sanitizeProviderError(error: unknown) {
   if (responseCode >= 500) return "Email provider rejected the message.";
   if (responseCode >= 400) return "Temporary email provider failure.";
   return "Email provider failed.";
+}
+
+/**
+ * SMTP outcomes where delivery is UNKNOWN: the connection dropped or
+ * timed out mid-transaction (e.g. after DATA), so the server may have
+ * accepted the message even though the client saw an error. Pre-connect
+ * failures (ECONNREFUSED, ENOTFOUND, EAI_AGAIN), authentication failures
+ * and explicit SMTP rejections (any responseCode) are NOT ambiguous —
+ * they are positive evidence of non-delivery.
+ */
+function smtpErrorIsAmbiguous(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  const providerError = error as Error & { code?: unknown; responseCode?: unknown; syscall?: unknown };
+  if (typeof providerError.responseCode === "number" && providerError.responseCode > 0) return false;
+  const code = typeof providerError.code === "string" ? providerError.code : "";
+  if (code === "ECONNREFUSED" || code === "ENOTFOUND" || code === "EAI_AGAIN" || code === "EAUTH") return false;
+  // A connect-stage socket failure (nodemailer reports ESOCKET with
+  // syscall "connect", e.g. "connect ECONNREFUSED") means no connection
+  // was ever established: the message was certainly not delivered.
+  if (providerError.syscall === "connect" || /^connect\s/i.test(error.message)) return false;
+  return code === "ETIMEDOUT" || code === "ESOCKET" || code === "ECONNECTION";
 }
 
 function smtpPermanent(error: unknown) {
@@ -654,13 +680,21 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
 }
 
 async function sendSmtpEmail(params: SendRoamlyEmailParams, config: ReturnType<typeof isEmailConfigured>) {
+  // SMTP has no provider idempotency-key support (the default Roamly
+  // provider is Google Workspace SMTP via nodemailer). The per-claim
+  // identifier is therefore carried IN the message as a header, so a
+  // delivered copy — and the email-log row below — can be reconciled
+  // against the durable claim that authorised the send.
+  const claimKey =
+    (params.idempotencyKey || (typeof params.metadata?.idempotencyKey === "string" ? params.metadata.idempotencyKey : "")).trim();
   const info = await createSmtpTransporter().sendMail({
     from: config.fromEmail,
     to: params.to,
     subject: params.subject,
     html: params.html || undefined,
     text: params.text || undefined,
-    replyTo: params.replyTo || config.replyToEmail
+    replyTo: params.replyTo || config.replyToEmail,
+    ...(claimKey ? { headers: { "X-Roamly-Idempotency-Key": claimKey } } : {})
   });
 
   return typeof info.messageId === "string" && info.messageId ? info.messageId : null;
@@ -769,9 +803,26 @@ export async function sendRoamlyEmail(params: SendRoamlyEmailParams): Promise<Se
         : typeof error === "object" && error !== null && "permanent" in error && typeof error.permanent === "boolean"
           ? error.permanent
           : isLikelyPermanentProviderError(status, message);
-    const logId = await logEmail({ ...params, to, status: "failed", providerName: config.provider, error: message });
+    // Ambiguous outcome (SMTP drop/timeout mid-transaction, or a Resend
+    // network failure with no HTTP verdict): delivery is UNKNOWN. The
+    // failed log row records delivery_ambiguous so reconciliation never
+    // mistakes it for positive evidence of non-delivery.
+    const ambiguous =
+      config.provider === "smtp"
+        ? smtpErrorIsAmbiguous(error)
+        : config.provider === "resend"
+          ? status === 0
+          : false;
+    const logId = await logEmail({
+      ...params,
+      to,
+      status: "failed",
+      providerName: config.provider,
+      error: message,
+      metadata: { ...(params.metadata || {}), ...(ambiguous ? { delivery_ambiguous: true } : {}) }
+    });
     await markNotificationEmail(params.notificationId, "failed", message);
-    return { ok: false, status: "failed", provider: config.provider, error: message, logId, permanent, retryable: !permanent };
+    return { ok: false, status: "failed", provider: config.provider, error: message, logId, permanent, retryable: !permanent, ambiguous };
   }
 }
 
@@ -795,11 +846,19 @@ export async function sendTestEmail({ to }: { to?: string | null }) {
 export async function sendTripReminderEmail({
   userId,
   tripId,
-  notificationId
+  notificationId,
+  emailClaimId,
+  emailAttemptCount
 }: {
   userId: string;
   tripId?: string | null;
   notificationId?: string | null;
+  // Durable per-claim identifier minted by the caller's claim (companion
+  // email safeguards): carried into the email-log row's idempotency_key,
+  // the message header (SMTP) / Idempotency-Key header (Resend), and the
+  // log metadata, so an interrupted send can be reconciled by claim id.
+  emailClaimId?: string | null;
+  emailAttemptCount?: number | null;
 }) {
   if (process.env.ROAMLY_EMAIL_REMINDERS_ENABLED === "false") {
     return { ok: false, status: "skipped" as const, provider: resolveProvider(), error: "Email reminders are disabled." };
@@ -838,6 +897,12 @@ export async function sendTripReminderEmail({
     userId,
     tripId,
     notificationId,
-    metadata: { type: "trip_reminder", template: "trip_reminder" }
+    ...(emailClaimId ? { idempotencyKey: emailClaimId } : {}),
+    metadata: {
+      type: "trip_reminder",
+      template: "trip_reminder",
+      ...(emailClaimId ? { companionEmailClaimId: emailClaimId, idempotencyKey: emailClaimId } : {}),
+      ...(typeof emailAttemptCount === "number" && emailAttemptCount > 0 ? { attemptCount: emailAttemptCount } : {})
+    }
   });
 }

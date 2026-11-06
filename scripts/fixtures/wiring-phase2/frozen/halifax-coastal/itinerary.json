@@ -212,25 +212,26 @@
         },
         {
           "type": "stop",
-          "key": "node/2405084369",
-          "name": "Army Museum",
+          "key": "way/62049157",
+          "name": "Maritime Museum of the Atlantic",
           "kind": "museum",
           "role": "mustsee",
-          "start": 974,
-          "end": 1064,
+          "start": 983,
+          "end": 1073,
           "pos": {
-            "lat": 44.6473097,
-            "lon": -63.5803408
+            "lat": 44.6475947,
+            "lon": -63.5709632
           },
           "hours": {
             "status": "unknown",
+            "raw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
             "provenance": "none"
           },
-          "hoursRaw": null,
-          "url": "https://www.openstreetmap.org/node/2405084369",
+          "hoursRaw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
+          "url": "https://www.openstreetmap.org/way/62049157",
           "price": "UNKNOWN",
-          "startTime": "16:14",
-          "endTime": "17:44",
+          "startTime": "16:23",
+          "endTime": "17:53",
           "priceEvidence": {
             "tier": "COSTED",
             "category": "admission",
@@ -317,33 +318,33 @@
         },
         {
           "fromKey": "way/4138857",
-          "toKey": "node/2405084369",
+          "toKey": "way/62049157",
           "fromName": "Citadel Hill",
-          "toName": "Army Museum",
+          "toName": "Maritime Museum of the Atlantic",
           "mode": "walk",
-          "km": 0.04,
-          "minutes": 2,
+          "km": 0.76,
+          "minutes": 11,
           "depart": 972,
-          "arrive": 974,
+          "arrive": 983,
           "departTime": "16:12",
-          "arriveTime": "16:14"
+          "arriveTime": "16:23"
         },
         {
-          "fromKey": "node/2405084369",
+          "fromKey": "way/62049157",
           "toKey": "base",
-          "fromName": "Army Museum",
+          "fromName": "Maritime Museum of the Atlantic",
           "toName": "Residence Inn Halifax Downtown",
           "mode": "walk",
-          "km": 0.42,
+          "km": 0.4,
           "minutes": 6,
-          "depart": 1064,
-          "arrive": 1070,
-          "departTime": "17:44",
-          "arriveTime": "17:50"
+          "depart": 1073,
+          "arrive": 1079,
+          "departTime": "17:53",
+          "arriveTime": "17:59"
         }
       ],
       "narrative": [
-        "Friday, October 23 begins at a humane hour — the first stop is Nova Scotia Sport Hall of Fame at 09:34, and nothing on this day starts before 09:00.",
+        "Friday, October 23 starts with Nova Scotia Sport Hall of Fame at 09:34.",
         "The base for the night is Residence Inn Halifax Downtown, picked for what surrounds it: 43 sights within a short walk.",
         "Rain is likelier today (60% chance), so the plan leans indoors and keeps the outdoor time short.",
         "Nova Scotia Sport Hall of Fame gets the morning's main slot, 09:34 to 11:04 — unhurried, with time to double back to favourites.",
@@ -358,10 +359,10 @@
         "A short wander of 3 minutes brings you to Citadel Hill.",
         "Citadel Hill is the day's green pause, 15:12–15:57 — no tickets, no timetable to chase.",
         "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
-        "Citadel Hill to Army Museum is an easy 2-minute amble.",
-        "The day winds down back at base by 17:50 — 5 stops, no long walks, and the evening left free."
+        "Citadel Hill to Maritime Museum of the Atlantic is an easy 11-minute amble.",
+        "The day winds down back at base by 17:59 — 5 stops, no long walks, and the evening left free."
       ],
-      "endMin": 1070
+      "endMin": 1079
     },
     {
       "dayNumber": 2,
@@ -409,26 +410,27 @@
         },
         {
           "type": "stop",
-          "key": "way/62049157",
-          "name": "Maritime Museum of the Atlantic",
+          "key": "way/82668545",
+          "name": "Nova Scotia Museum of Natural History",
           "kind": "museum",
           "role": "stop",
-          "start": 667,
-          "end": 757,
+          "start": 672,
+          "end": 762,
           "pos": {
-            "lat": 44.6475947,
-            "lon": -63.5709632
+            "lat": 44.6456181,
+            "lon": -63.5848539
           },
           "hours": {
-            "status": "unknown",
-            "raw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
-            "provenance": "none"
+            "status": "known",
+            "open": 570,
+            "close": 990,
+            "provenance": "osm"
           },
-          "hoursRaw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
-          "url": "https://www.openstreetmap.org/way/62049157",
+          "hoursRaw": "Mo-Su 09:30-16:30",
+          "url": "https://www.openstreetmap.org/way/82668545",
           "price": "UNKNOWN",
-          "startTime": "11:07",
-          "endTime": "12:37",
+          "startTime": "11:12",
+          "endTime": "12:42",
           "priceEvidence": {
             "tier": "COSTED",
             "category": "admission",
@@ -453,8 +455,8 @@
           "kind": "food",
           "role": "lunch",
           "mealName": "Lunch",
-          "start": 776,
-          "end": 836,
+          "start": 773,
+          "end": 833,
           "pos": {
             "lat": 44.6525176,
             "lon": -63.5868271
@@ -479,8 +481,8 @@
             "veganOnly": false,
             "evidenceText": "diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes"
           },
-          "startTime": "12:56",
-          "endTime": "13:56",
+          "startTime": "12:53",
+          "endTime": "13:53",
           "priceEvidence": {
             "tier": "COSTED",
             "category": "meal",
@@ -499,8 +501,8 @@
           "name": "The Blue Building Gallery",
           "kind": "gallery",
           "role": "stop",
-          "start": 842,
-          "end": 902,
+          "start": 839,
+          "end": 899,
           "pos": {
             "lat": 44.6547525,
             "lon": -63.5910584
@@ -512,8 +514,8 @@
           "hoursRaw": null,
           "url": "https://www.openstreetmap.org/node/11767822182",
           "price": "UNKNOWN",
-          "startTime": "14:02",
-          "endTime": "15:02",
+          "startTime": "13:59",
+          "endTime": "14:59",
           "priceEvidence": {
             "tier": "COSTED",
             "category": "admission",
@@ -561,29 +563,29 @@
         },
         {
           "fromKey": "base",
-          "toKey": "way/62049157",
+          "toKey": "way/82668545",
           "fromName": "Residence Inn Halifax Downtown",
-          "toName": "Maritime Museum of the Atlantic",
+          "toName": "Nova Scotia Museum of Natural History",
           "mode": "walk",
-          "km": 0.4,
-          "minutes": 6,
+          "km": 0.75,
+          "minutes": 11,
           "depart": 661,
-          "arrive": 667,
+          "arrive": 672,
           "departTime": "11:01",
-          "arriveTime": "11:07"
+          "arriveTime": "11:12"
         },
         {
-          "fromKey": "way/62049157",
+          "fromKey": "way/82668545",
           "toKey": "node/12136077507",
-          "fromName": "Maritime Museum of the Atlantic",
+          "fromName": "Nova Scotia Museum of Natural History",
           "toName": "Lou Pécou",
           "mode": "walk",
-          "km": 1.37,
-          "minutes": 19,
-          "depart": 757,
-          "arrive": 776,
-          "departTime": "12:37",
-          "arriveTime": "12:56"
+          "km": 0.78,
+          "minutes": 11,
+          "depart": 762,
+          "arrive": 773,
+          "departTime": "12:42",
+          "arriveTime": "12:53"
         },
         {
           "fromKey": "node/12136077507",
@@ -593,10 +595,10 @@
           "mode": "walk",
           "km": 0.42,
           "minutes": 6,
-          "depart": 836,
-          "arrive": 842,
-          "departTime": "13:56",
-          "arriveTime": "14:02"
+          "depart": 833,
+          "arrive": 839,
+          "departTime": "13:53",
+          "arriveTime": "13:59"
         },
         {
           "fromKey": "node/11767822182",
@@ -606,230 +608,32 @@
           "mode": "drive",
           "km": 1.58,
           "minutes": 3,
-          "depart": 902,
-          "arrive": 905,
-          "departTime": "15:02",
-          "arriveTime": "15:05"
+          "depart": 899,
+          "arrive": 902,
+          "departTime": "14:59",
+          "arriveTime": "15:02"
         }
       ],
       "narrative": [
-        "Saturday, October 24 is built around Metro Transit Ferry Terminal, with the day's stops gathered close so the walking stays easy.",
+        "Saturday, October 24 is built around Metro Transit Ferry Terminal.",
         "The ferry crossing is the morning's small adventure: board at Metro Transit Ferry Terminal around 09:38 and give the round trip until 10:53. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
         "Opening hours weren't listed for Metro Transit Ferry Terminal — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
-        "Maritime Museum of the Atlantic gets the morning's main slot, 11:07 to 12:37 — unhurried, with time to double back to favourites.",
-        "From Maritime Museum of the Atlantic, it is a 19-minute walk to Lou Pécou — close enough to stroll without watching the clock.",
-        "Lunch is at Lou Pécou, 12:56–13:56.",
+        "Nova Scotia Museum of Natural History gets the morning's main slot, 11:12 to 12:42 — unhurried, with time to double back to favourites.",
+        "Natural History lists its hours as 09:30–16:30 today, and the visit sits comfortably inside them.",
+        "From Natural History, it is a 11-minute walk to Lou Pécou — close enough to stroll without watching the clock.",
+        "Lunch is at Lou Pécou, 12:53–13:53.",
         "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
         "The Blue Building Gallery is next, just 6 minutes on foot from Lou Pécou.",
-        "Blue Building Gallery offers a quieter hour indoors, 14:02–15:02.",
-        "The day winds down back at base by 15:05 — 3 stops, no long walks, and the evening left free."
+        "Blue Building Gallery offers a quieter hour indoors, 13:59–14:59.",
+        "The day winds down back at base by 15:02 — 3 stops, no long walks, and the evening left free."
       ],
-      "endMin": 905
+      "endMin": 902
     },
     {
       "dayNumber": 3,
       "date": "2026-10-25",
       "role": "rest-afternoon",
-      "items": [
-        {
-          "type": "stop",
-          "key": "way/82668545",
-          "name": "Nova Scotia Museum of Natural History",
-          "kind": "museum",
-          "role": "stop",
-          "start": 581,
-          "end": 671,
-          "pos": {
-            "lat": 44.6456181,
-            "lon": -63.5848539
-          },
-          "hours": {
-            "status": "known",
-            "open": 570,
-            "close": 990,
-            "provenance": "osm"
-          },
-          "hoursRaw": "Mo-Su 09:30-16:30",
-          "url": "https://www.openstreetmap.org/way/82668545",
-          "price": "UNKNOWN",
-          "startTime": "09:41",
-          "endTime": "11:11",
-          "priceEvidence": {
-            "tier": "COSTED",
-            "category": "admission",
-            "range": {
-              "low": 12,
-              "high": 26,
-              "currency": "CAD"
-            },
-            "per": "person",
-            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
-          },
-          "affiliate": {
-            "label": "tours",
-            "text": "Book tours & activities",
-            "url": "https://kkday.tpo.lu/DrPvqlSH"
-          }
-        },
-        {
-          "type": "stop",
-          "key": "node/26286237",
-          "name": "Garrison Grounds",
-          "kind": "park",
-          "role": "stop",
-          "start": 675,
-          "end": 720,
-          "pos": {
-            "lat": 44.6461946,
-            "lon": -63.5820561
-          },
-          "hours": {
-            "status": "unknown",
-            "provenance": "none"
-          },
-          "hoursRaw": null,
-          "url": "https://www.openstreetmap.org/node/26286237",
-          "price": "UNKNOWN",
-          "startTime": "11:15",
-          "endTime": "12:00",
-          "affiliate": {
-            "label": "tours",
-            "text": "Book tours & activities",
-            "url": "https://kkday.tpo.lu/DrPvqlSH"
-          }
-        },
-        {
-          "type": "food",
-          "key": "node/7082566320",
-          "name": "Springhouse Market",
-          "kind": "food",
-          "role": "lunch",
-          "mealName": "Lunch",
-          "start": 748,
-          "end": 808,
-          "pos": {
-            "lat": 44.6538212,
-            "lon": -63.5862609
-          },
-          "hours": {
-            "status": "known",
-            "open": 660,
-            "close": 1080,
-            "provenance": "osm"
-          },
-          "hoursRaw": "Tu-Sa 11:00-20:00; Su 11:00-18:00",
-          "url": "https://www.openstreetmap.org/node/7082566320",
-          "price": "UNKNOWN",
-          "diet": {
-            "tier": 1,
-            "labels": [
-              "diet:vegan = yes",
-              "diet:vegetarian = yes"
-            ],
-            "strong": true,
-            "veganOnly": false,
-            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
-          },
-          "startTime": "12:28",
-          "endTime": "13:28",
-          "priceEvidence": {
-            "tier": "COSTED",
-            "category": "meal",
-            "range": {
-              "low": 12,
-              "high": 30,
-              "currency": "CAD"
-            },
-            "per": "person",
-            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
-          }
-        },
-        {
-          "type": "rest",
-          "part": "afternoon",
-          "title": "Rest afternoon — nothing booked",
-          "start": 808,
-          "end": 1020,
-          "key": "rest-2026-10-25",
-          "startTime": "13:28",
-          "endTime": "17:00"
-        }
-      ],
-      "legs": [
-        {
-          "fromKey": "base",
-          "toKey": "way/82668545",
-          "fromName": "Residence Inn Halifax Downtown",
-          "toName": "Nova Scotia Museum of Natural History",
-          "mode": "walk",
-          "km": 0.75,
-          "minutes": 11,
-          "depart": 570,
-          "arrive": 581,
-          "departTime": "09:30",
-          "arriveTime": "09:41"
-        },
-        {
-          "fromKey": "way/82668545",
-          "toKey": "node/26286237",
-          "fromName": "Nova Scotia Museum of Natural History",
-          "toName": "Garrison Grounds",
-          "mode": "walk",
-          "km": 0.23,
-          "minutes": 4,
-          "depart": 671,
-          "arrive": 675,
-          "departTime": "11:11",
-          "arriveTime": "11:15"
-        },
-        {
-          "fromKey": "node/26286237",
-          "toKey": "node/7082566320",
-          "fromName": "Garrison Grounds",
-          "toName": "Springhouse Market",
-          "mode": "walk",
-          "km": 0.91,
-          "minutes": 13,
-          "depart": 735,
-          "arrive": 748,
-          "departTime": "12:15",
-          "arriveTime": "12:28"
-        },
-        {
-          "fromKey": "node/7082566320",
-          "toKey": "base",
-          "fromName": "Springhouse Market",
-          "toName": "Residence Inn Halifax Downtown",
-          "mode": "drive",
-          "km": 1.23,
-          "minutes": 3,
-          "depart": 1020,
-          "arrive": 1023,
-          "departTime": "17:00",
-          "arriveTime": "17:03"
-        }
-      ],
-      "narrative": [
-        "Sunday, October 25 is built around Nova Scotia Museum of Natural History, with the day's stops gathered close so the walking stays easy.",
-        "Natural History gets the morning's main slot, 09:41 to 11:11 — unhurried, with time to double back to favourites.",
-        "Natural History lists its hours as 09:30–16:30 today, and the visit sits comfortably inside them.",
-        "From Natural History, it is a 4-minute walk to Garrison Grounds — close enough to stroll without watching the clock.",
-        "Garrison Grounds is the day's green pause, 11:15–12:00 — no tickets, no timetable to chase.",
-        "Opening hours weren't listed for Garrison Grounds — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
-        "Springhouse Market is next, just 13 minutes on foot from Garrison Grounds.",
-        "Lunch is at Springhouse Market, 12:28–13:28.",
-        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
-        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
-        "The drive back to base runs about 3 minutes.",
-        "The day winds down back at base by 17:03 — 2 stops, no long walks, and the evening left free."
-      ],
-      "endMin": 1023
-    },
-    {
-      "dayNumber": 4,
-      "date": "2026-10-26",
-      "role": "standard",
       "items": [
         {
           "type": "stop",
@@ -889,25 +693,25 @@
         },
         {
           "type": "food",
-          "key": "node/7082566318",
-          "name": "G-Street Pizza",
+          "key": "node/7082566320",
+          "name": "Springhouse Market",
           "kind": "food",
           "role": "lunch",
           "mealName": "Lunch",
-          "start": 755,
-          "end": 815,
+          "start": 754,
+          "end": 814,
           "pos": {
-            "lat": 44.6540205,
-            "lon": -63.5865456
+            "lat": 44.6538212,
+            "lon": -63.5862609
           },
           "hours": {
             "status": "known",
             "open": 660,
-            "close": 1260,
+            "close": 1080,
             "provenance": "osm"
           },
-          "hoursRaw": "Su-Th 11:00-21:00, Fr-Sa 11:00-23:00",
-          "url": "https://www.openstreetmap.org/node/7082566318",
+          "hoursRaw": "Tu-Sa 11:00-20:00; Su 11:00-18:00",
+          "url": "https://www.openstreetmap.org/node/7082566320",
           "price": "UNKNOWN",
           "diet": {
             "tier": 1,
@@ -919,8 +723,8 @@
             "veganOnly": false,
             "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
           },
-          "startTime": "12:35",
-          "endTime": "13:35",
+          "startTime": "12:34",
+          "endTime": "13:34",
           "priceEvidence": {
             "tier": "COSTED",
             "category": "meal",
@@ -934,69 +738,14 @@
           }
         },
         {
-          "type": "stop",
-          "key": "node/5845059318",
-          "name": "Naval Museum of Halifax",
-          "kind": "museum",
-          "role": "stop",
-          "start": 826,
-          "end": 916,
-          "pos": {
-            "lat": 44.6595611,
-            "lon": -63.5927716
-          },
-          "hours": {
-            "status": "unknown",
-            "provenance": "none"
-          },
-          "hoursRaw": null,
-          "url": "https://www.openstreetmap.org/node/5845059318",
-          "price": "UNKNOWN",
-          "startTime": "13:46",
-          "endTime": "15:16",
-          "priceEvidence": {
-            "tier": "COSTED",
-            "category": "admission",
-            "range": {
-              "low": 12,
-              "high": 26,
-              "currency": "CAD"
-            },
-            "per": "person",
-            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
-          },
-          "affiliate": {
-            "label": "tours",
-            "text": "Book tours & activities",
-            "url": "https://kkday.tpo.lu/DrPvqlSH"
-          }
-        },
-        {
-          "type": "stop",
-          "key": "way/522220159",
-          "name": "Fuller Terrace Park",
-          "kind": "park",
-          "role": "stop",
-          "start": 920,
-          "end": 965,
-          "pos": {
-            "lat": 44.6576485,
-            "lon": -63.5949631
-          },
-          "hours": {
-            "status": "unknown",
-            "provenance": "none"
-          },
-          "hoursRaw": null,
-          "url": "https://www.openstreetmap.org/way/522220159",
-          "price": "UNKNOWN",
-          "startTime": "15:20",
-          "endTime": "16:05",
-          "affiliate": {
-            "label": "tours",
-            "text": "Book tours & activities",
-            "url": "https://kkday.tpo.lu/DrPvqlSH"
-          }
+          "type": "rest",
+          "part": "afternoon",
+          "title": "Rest afternoon — nothing booked",
+          "start": 814,
+          "end": 1020,
+          "key": "rest-2026-10-25",
+          "startTime": "13:34",
+          "endTime": "17:00"
         }
       ],
       "legs": [
@@ -1028,16 +777,268 @@
         },
         {
           "fromKey": "way/701191192",
-          "toKey": "node/7082566318",
+          "toKey": "node/7082566320",
           "fromName": "Grafton Street Park",
+          "toName": "Springhouse Market",
+          "mode": "walk",
+          "km": 1.42,
+          "minutes": 19,
+          "depart": 735,
+          "arrive": 754,
+          "departTime": "12:15",
+          "arriveTime": "12:34"
+        },
+        {
+          "fromKey": "node/7082566320",
+          "toKey": "base",
+          "fromName": "Springhouse Market",
+          "toName": "Residence Inn Halifax Downtown",
+          "mode": "drive",
+          "km": 1.23,
+          "minutes": 3,
+          "depart": 1020,
+          "arrive": 1023,
+          "departTime": "17:00",
+          "arriveTime": "17:03"
+        }
+      ],
+      "narrative": [
+        "Sunday, October 25 is built around Salt Yard.",
+        "Salt Yard is the place to browse like a local, 09:37–10:37 — go hungry.",
+        "Opening hours weren't listed for Salt Yard — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Salt Yard, it is a 7-minute walk to Grafton Street Park — close enough to stroll without watching the clock.",
+        "Grafton Street Park is the day's green pause, 10:44–11:29 — no tickets, no timetable to chase.",
+        "Grafton Street Park lists its hours as 06:00–22:00 today, and the visit sits comfortably inside them.",
+        "Springhouse Market is next, just 19 minutes on foot from Grafton Street Park.",
+        "Lunch is at Springhouse Market, 12:34–13:34.",
+        "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
+        "After lunch the plan stops on purpose: the afternoon is rest — back at base, with nothing booked and nowhere to be.",
+        "The drive back to base runs about 3 minutes.",
+        "The day winds down back at base by 17:03 — 2 stops, no long walks, and the evening left free."
+      ],
+      "endMin": 1023
+    },
+    {
+      "dayNumber": 4,
+      "date": "2026-10-26",
+      "role": "standard",
+      "items": [
+        {
+          "type": "stop",
+          "key": "node/962125376",
+          "name": "Halifax Town Clock",
+          "kind": "attraction",
+          "role": "stop",
+          "start": 574,
+          "end": 634,
+          "pos": {
+            "lat": 44.6473381,
+            "lon": -63.5776771
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/962125376",
+          "price": "UNKNOWN",
+          "startTime": "09:34",
+          "endTime": "10:34",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/553592156",
+          "name": "Royal Artillery Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 639,
+          "end": 684,
+          "pos": {
+            "lat": 44.6446426,
+            "lon": -63.5764311
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/553592156",
+          "price": "UNKNOWN",
+          "startTime": "10:39",
+          "endTime": "11:24",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "food",
+          "key": "node/7082566318",
+          "name": "G-Street Pizza",
+          "kind": "food",
+          "role": "lunch",
+          "mealName": "Lunch",
+          "start": 753,
+          "end": 813,
+          "pos": {
+            "lat": 44.6540205,
+            "lon": -63.5865456
+          },
+          "hours": {
+            "status": "known",
+            "open": 660,
+            "close": 1260,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Su-Th 11:00-21:00, Fr-Sa 11:00-23:00",
+          "url": "https://www.openstreetmap.org/node/7082566318",
+          "price": "UNKNOWN",
+          "diet": {
+            "tier": 1,
+            "labels": [
+              "diet:vegan = yes",
+              "diet:vegetarian = yes"
+            ],
+            "strong": true,
+            "veganOnly": false,
+            "evidenceText": "diet:vegan = yes, diet:vegetarian = yes"
+          },
+          "startTime": "12:33",
+          "endTime": "13:33",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "meal",
+            "range": {
+              "low": 12,
+              "high": 30,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — casual restaurant meal, per person, CAD (cost model assumption; no venue data)"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "node/5845059318",
+          "name": "Naval Museum of Halifax",
+          "kind": "museum",
+          "role": "stop",
+          "start": 824,
+          "end": 914,
+          "pos": {
+            "lat": 44.6595611,
+            "lon": -63.5927716
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/5845059318",
+          "price": "UNKNOWN",
+          "startTime": "13:44",
+          "endTime": "15:14",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 12,
+              "high": 26,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — museum admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        },
+        {
+          "type": "stop",
+          "key": "way/522220159",
+          "name": "Fuller Terrace Park",
+          "kind": "park",
+          "role": "stop",
+          "start": 918,
+          "end": 963,
+          "pos": {
+            "lat": 44.6576485,
+            "lon": -63.5949631
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/522220159",
+          "price": "UNKNOWN",
+          "startTime": "15:18",
+          "endTime": "16:03",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
+        }
+      ],
+      "legs": [
+        {
+          "fromKey": "base",
+          "toKey": "node/962125376",
+          "fromName": "Residence Inn Halifax Downtown",
+          "toName": "Halifax Town Clock",
+          "mode": "walk",
+          "km": 0.24,
+          "minutes": 4,
+          "depart": 570,
+          "arrive": 574,
+          "departTime": "09:30",
+          "arriveTime": "09:34"
+        },
+        {
+          "fromKey": "node/962125376",
+          "toKey": "way/553592156",
+          "fromName": "Halifax Town Clock",
+          "toName": "Royal Artillery Park",
+          "mode": "walk",
+          "km": 0.32,
+          "minutes": 5,
+          "depart": 634,
+          "arrive": 639,
+          "departTime": "10:34",
+          "arriveTime": "10:39"
+        },
+        {
+          "fromKey": "way/553592156",
+          "toKey": "node/7082566318",
+          "fromName": "Royal Artillery Park",
           "toName": "G-Street Pizza",
           "mode": "walk",
-          "km": 1.45,
-          "minutes": 20,
+          "km": 1.31,
+          "minutes": 18,
           "depart": 735,
-          "arrive": 755,
+          "arrive": 753,
           "departTime": "12:15",
-          "arriveTime": "12:35"
+          "arriveTime": "12:33"
         },
         {
           "fromKey": "node/7082566318",
@@ -1047,10 +1048,10 @@
           "mode": "walk",
           "km": 0.79,
           "minutes": 11,
-          "depart": 815,
-          "arrive": 826,
-          "departTime": "13:35",
-          "arriveTime": "13:46"
+          "depart": 813,
+          "arrive": 824,
+          "departTime": "13:33",
+          "arriveTime": "13:44"
         },
         {
           "fromKey": "node/5845059318",
@@ -1060,10 +1061,10 @@
           "mode": "walk",
           "km": 0.27,
           "minutes": 4,
-          "depart": 916,
-          "arrive": 920,
-          "departTime": "15:16",
-          "arriveTime": "15:20"
+          "depart": 914,
+          "arrive": 918,
+          "departTime": "15:14",
+          "arriveTime": "15:18"
         },
         {
           "fromKey": "way/522220159",
@@ -1073,30 +1074,29 @@
           "mode": "drive",
           "km": 2.03,
           "minutes": 4,
-          "depart": 965,
-          "arrive": 969,
-          "departTime": "16:05",
-          "arriveTime": "16:09"
+          "depart": 963,
+          "arrive": 967,
+          "departTime": "16:03",
+          "arriveTime": "16:07"
         }
       ],
       "narrative": [
-        "Monday, October 26 is built around Salt Yard, with the day's stops gathered close so the walking stays easy.",
-        "Salt Yard is the place to browse like a local, 09:37–10:37 — go hungry.",
-        "Opening hours weren't listed for Salt Yard — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
-        "From Salt Yard, it is a 7-minute walk to Grafton Street Park — close enough to stroll without watching the clock.",
-        "Grafton Street Park is the day's green pause, 10:44–11:29 — no tickets, no timetable to chase.",
-        "Grafton Street Park lists its hours as 06:00–22:00 today, and the visit sits comfortably inside them.",
-        "G-Street Pizza is next, just 20 minutes on foot from Grafton Street Park.",
-        "Lunch is at G-Street Pizza, 12:35–13:35.",
+        "Monday, October 26 is built around Halifax Town Clock.",
+        "Halifax Town Clock fills 09:34–10:34 — long enough to enjoy properly, short enough to keep the day light.",
+        "Opening hours weren't listed for Halifax Town Clock — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Halifax Town Clock, it is a 5-minute walk to Royal Artillery Park — close enough to stroll without watching the clock.",
+        "Royal Artillery Park is the day's green pause, 10:39–11:24 — no tickets, no timetable to chase.",
+        "G-Street Pizza is next, just 18 minutes on foot from Royal Artillery Park.",
+        "Lunch is at G-Street Pizza, 12:33–13:33.",
         "The choice is backed by the restaurant's own listing, which marks it diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
         "The walk from G-Street Pizza to Naval Museum of Halifax takes about 11 minutes — a breather between stops, not a hike.",
-        "Naval Museum of Halifax gets the morning's main slot, 13:46 to 15:16 — unhurried, with time to double back to favourites.",
+        "Naval Museum of Halifax gets the morning's main slot, 13:44 to 15:14 — unhurried, with time to double back to favourites.",
         "A short wander of 4 minutes brings you to Fuller Terrace Park.",
-        "A slower stretch follows at Fuller Terrace Park, 15:20–16:05.",
+        "A slower stretch follows at Fuller Terrace Park, 15:18–16:03.",
         "The drive back to base runs about 4 minutes.",
-        "The day winds down back at base by 16:09 — 4 stops, no long walks, and the evening left free."
+        "The day winds down back at base by 16:07 — 4 stops, no long walks, and the evening left free."
       ],
-      "endMin": 969
+      "endMin": 967
     }
   ],
   "travelers": {
@@ -1107,7 +1107,7 @@
   "budgetCap": {
     "amount": 1200,
     "currency": "CAD",
-    "verdict": "WITHIN — even the top of the estimated range (CAD 672) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    "verdict": "WITHIN — even the top of the estimated range (CAD 690) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
   },
   "request": {
     "text": "We are a couple in our fifties for a gentle four day break by the water. Please keep every day gentle, with no starts before nine and one full rest afternoon in the middle. We need a ground floor room or a building with an elevator and step free routes wherever possible. My partner is gluten free and I cannot eat peanuts, so please favor restaurants that label allergens clearly. Keep the total budget under one thousand two hundred dollars, avoid long walks between stops, and also include one harbour ferry ride and a visit to the maritime museum please.",
@@ -1130,7 +1130,7 @@
       "label": "maritime museum visit",
       "status": "scheduled",
       "day": 1,
-      "item": "Army Museum"
+      "item": "Maritime Museum of the Atlantic"
     },
     {
       "id": "keyword-ferry",
@@ -1165,7 +1165,7 @@
     {
       "id": "rest-block",
       "verdict": "KEPT",
-      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:28–17:00)"
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:34–17:00)"
     },
     {
       "id": "keyword-ferry",
@@ -1201,12 +1201,12 @@
       "day 1: \"Art Gallery of Nova Scotia\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Halifax Citadel National Historic Site\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Citadel Hill\" — opening hours not in the data (labeled, not invented)",
-      "day 1: \"Army Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Metro Transit Ferry Terminal\" — opening hours not in the data (labeled, not invented)",
-      "day 2: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"The Blue Building Gallery\" — opening hours not in the data (labeled, not invented)",
-      "day 3: \"Garrison Grounds\" — opening hours not in the data (labeled, not invented)",
-      "day 4: \"Salt Yard\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Salt Yard\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Halifax Town Clock\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Royal Artillery Park\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"Naval Museum of Halifax\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"Fuller Terrace Park\" — opening hours not in the data (labeled, not invented)"
     ]

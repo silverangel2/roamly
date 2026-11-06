@@ -199,6 +199,54 @@
             "text": "Book tours & activities",
             "url": "https://kkday.tpo.lu/DrPvqlSH"
           }
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 960,
+          "end": 975,
+          "key": "break-2026-10-23-960",
+          "startTime": "16:00",
+          "endTime": "16:15"
+        },
+        {
+          "type": "stop",
+          "key": "way/202233167",
+          "name": "Banff Upper Hot Springs",
+          "kind": "attraction",
+          "role": "mustsee",
+          "start": 980,
+          "end": 1040,
+          "pos": {
+            "lat": 51.1508634,
+            "lon": -115.5606199
+          },
+          "hours": {
+            "status": "unknown",
+            "provenance": "none"
+          },
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/way/202233167",
+          "price": "UNKNOWN",
+          "startTime": "16:20",
+          "endTime": "17:20",
+          "priceEvidence": {
+            "tier": "COSTED",
+            "category": "admission",
+            "range": {
+              "low": 15,
+              "high": 35,
+              "currency": "CAD"
+            },
+            "per": "person",
+            "basis": "ESTIMATED — ticketed attraction admission, per person, CAD (cost model assumption)"
+          },
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
         }
       ],
       "legs": [
@@ -269,20 +317,33 @@
         },
         {
           "fromKey": "way/202739088",
-          "toKey": "base",
+          "toKey": "way/202233167",
           "fromName": "Central Park",
+          "toName": "Banff Upper Hot Springs",
+          "mode": "drive",
+          "km": 2.67,
+          "minutes": 5,
+          "depart": 975,
+          "arrive": 980,
+          "departTime": "16:15",
+          "arriveTime": "16:20"
+        },
+        {
+          "fromKey": "way/202233167",
+          "toKey": "base",
+          "fromName": "Banff Upper Hot Springs",
           "toName": "Mountain Home B & B",
-          "mode": "walk",
-          "km": 0.4,
-          "minutes": 6,
-          "depart": 960,
-          "arrive": 966,
-          "departTime": "16:00",
-          "arriveTime": "16:06"
+          "mode": "drive",
+          "km": 2.84,
+          "minutes": 5,
+          "depart": 1040,
+          "arrive": 1045,
+          "departTime": "17:20",
+          "arriveTime": "17:25"
         }
       ],
       "narrative": [
-        "Friday, October 23 begins at a humane hour — the first stop is Luxton Home & Garden Museum at 10:02, and nothing on this day starts before 10:00.",
+        "Friday, October 23 starts with Luxton Home & Garden Museum at 10:02.",
         "The base for the night is Mountain Home B & B, picked for what surrounds it: 16 sights within a short walk.",
         "Rain is likelier today (72% chance), so the plan leans indoors and keeps the outdoor time short.",
         "Luxton Home & Garden Museum gets the morning's main slot, 10:02 to 11:32 — unhurried, with time to double back to favourites.",
@@ -296,9 +357,13 @@
         "Give the Canadian Rockies a full 90 minutes (13:42–15:12); rushing it would miss the point.",
         "A short wander of 3 minutes brings you to Central Park.",
         "Central Park is the day's green pause, 15:15–16:00 — no tickets, no timetable to chase.",
-        "The day winds down back at base by 16:06 — 4 stops, no long walks, and the evening left free."
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "Then the day's one longer leg: about 5 minutes by road to Banff Upper Hot Springs.",
+        "Banff Upper Hot Springs fills 16:20–17:20 — long enough to enjoy properly, short enough to keep the day light.",
+        "The drive back to base runs about 5 minutes.",
+        "The day winds down back at base by 17:25 — 5 stops, no long walks, and the evening left free."
       ],
-      "endMin": 966
+      "endMin": 1045
     },
     {
       "dayNumber": 2,
@@ -525,7 +590,7 @@
         }
       ],
       "narrative": [
-        "Saturday, October 24 is built around Buffalo Nations Luxton Museum, with the day's stops gathered close so the walking stays easy.",
+        "Saturday, October 24 is built around Buffalo Nations Luxton Museum.",
         "Rain is likelier today (62% chance), so the plan leans indoors and keeps the outdoor time short.",
         "Buffalo Nations Luxton Museum gets the morning's main slot, 10:08 to 11:38 — unhurried, with time to double back to favourites.",
         "Opening hours weren't listed for Buffalo Nations Luxton Museum — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
@@ -671,7 +736,7 @@
         }
       ],
       "narrative": [
-        "Sunday, October 25 is built around Muskrat Street Park, with the day's stops gathered close so the walking stays easy.",
+        "Sunday, October 25 is built around Muskrat Street Park.",
         "Rain is likelier today (62% chance), so the plan leans indoors and keeps the outdoor time short.",
         "Muskrat Street Park is the day's green pause, 10:09–10:54 — no tickets, no timetable to chase.",
         "Opening hours weren't listed for Muskrat Street Park — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
@@ -852,7 +917,7 @@
         }
       ],
       "narrative": [
-        "Monday, October 26 is built around Banff Pedestrian Bridge, with the day's stops gathered close so the walking stays easy.",
+        "Monday, October 26 is built around Banff Pedestrian Bridge.",
         "Banff Pedestrian Bridge fills 10:05–10:30 — long enough to enjoy properly, short enough to keep the day light.",
         "Opening hours weren't listed for Banff Pedestrian Bridge — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "From Banff Pedestrian Bridge, it is a 4-minute walk to JUGEMU Banff | Modern Japnaese — close enough to stroll without watching the clock.",
@@ -873,7 +938,7 @@
   "budgetCap": {
     "amount": 1500,
     "currency": "CAD",
-    "verdict": "WITHIN — even the top of the estimated range (CAD 586) sits under the cap (CAD 1500) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+    "verdict": "WITHIN — even the top of the estimated range (CAD 656) sits under the cap (CAD 1500) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
   },
   "request": {
     "text": "We are a couple who love the mountains but not early alarms for a slow four day break. Please keep every day gentle, with no starts before ten and one full rest afternoon in the middle. We need a room with an elevator in the building and gentle paths only, as my knee cannot handle steep hikes. I am dairy free and my partner is vegetarian, so please favor restaurants with clear plant based options. Keep the total budget under one thousand five hundred dollars, avoid long walks between stops, and also include the gondola ride up Sulphur Mountain and an afternoon at the hot springs please.",
@@ -900,8 +965,9 @@
     {
       "id": "keyword-hot-springs",
       "label": "hot springs afternoon",
-      "status": "unmet",
-      "reason": "candidate \"Banff Upper Hot Springs\" exists but no feasible slot remained (distance/geometry)"
+      "status": "scheduled",
+      "day": 1,
+      "item": "Banff Upper Hot Springs"
     }
   ],
   "solverNotes": [],
@@ -924,7 +990,7 @@
     {
       "id": "earliest-start",
       "verdict": "KEPT",
-      "evidence": "all 14 timed items start at or after 10:00"
+      "evidence": "all 15 timed items start at or after 10:00"
     },
     {
       "id": "rest-block",
@@ -938,8 +1004,8 @@
     },
     {
       "id": "keyword-hot-springs",
-      "verdict": "VIOLATED",
-      "evidence": "nothing in the itinerary matches hot springs afternoon"
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"hot springs\" (hot springs afternoon)"
     },
     {
       "id": "no-repeat",
@@ -965,6 +1031,7 @@
       "day 1: \"Brandon T. Brown Wilderness Gallery\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Whyte Museum of the Canadian Rockies\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Central Park\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Banff Upper Hot Springs\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Buffalo Nations Luxton Museum\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Banff Recreation Grounds\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Canada Place Banff\" — opening hours not in the data (labeled, not invented)",

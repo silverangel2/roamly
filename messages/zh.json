@@ -54,6 +54,7 @@
       "copyTripLinkFallback": "请从浏览器地址栏复制旅程链接。",
       "emailNotConfigured": "邮件发送尚未配置。你可以导出 PDF 或复制旅程链接。",
       "itineraryEmailSent": "行程邮件已发送。",
+      "itineraryEmailSentTo": "行程已发送至 {email}。",
       "emailSendFailed": "无法发送行程邮件。",
       "sending": "正在发送...", "saving": "正在保存…", "terminal": "航站楼", "noActiveTrip": "暂无活动中的行程", "nothingLive": "目前还没有实时内容。", "unlockCompanion": "请先解锁实时旅行助手，Roamly才能引导您的行程。", "checkedActivities": "已检查的活动", "currentDay": "当天", "nearbyNow": "附近现在", "noNearbyActivity": "未检测到附近活动。", "nearbyUpdate": "到达已保存的地点附近后，Roamly会更新这里。",
       "unexpectedError": "出了点问题。", "noCheckedActivities": "尚未检查任何活动。", "dayNumber": "第 {day} 天", "noTimelineActivities": "当天还没有保存的时间线活动。",

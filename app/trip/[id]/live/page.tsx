@@ -7,13 +7,16 @@ import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { OfflineTripBanner } from "@/components/roamly/OfflineTripBanner";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
 import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/roamly/setupGate";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { getTripDayFromDate, isCompanionEligibleActivity } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
 import { isTripLocked, tripHasTrackingUnlock } from "@/lib/roamly/billing";
 import { buildLiveCompanionSummary, scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
+import { getLiveStatusReadback } from "@/lib/roamly/liveStatus";
+import { isConfirmed as bookingTruthIsConfirmed } from "@/lib/roamly/bookingTruth";
 import { getCompanionPreferences } from "@/lib/roamly/companionPreferences";
 import { localizeActivityRecords, mergePersistedSkipStatuses } from "@/lib/roamly/liveActivityBinding";
 import { localDateInTimeZone, type LiveLocationPermission } from "@/lib/roamly/liveCompanion";
@@ -93,10 +96,10 @@ export default async function LiveTripPage({
   if (!current.configured || !current.user) {
     return (
       <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <Badge tone="sun">Setup</Badge>
+        <BuiCard className="bui-enter p-5">
+          <BuiBadge tone="warm">Setup</BuiBadge>
           <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Connect Supabase to use Live Trip Companion.</h1>
-        </Card>
+        </BuiCard>
       </div>
     );
   }
@@ -127,6 +130,10 @@ export default async function LiveTripPage({
   const tripTimezoneForMath = zoneForMath(tripTimezoneResolution);
   const locked = isTripLocked(bundle.data.trip);
   const companionUnlocked = tripHasTrackingUnlock(bundle.data.trip);
+  // Live status read-back (2026-10-31): the ONE server source for this
+  // trip's activation fact + the account's subscription fact. The
+  // client displays it instead of assuming either after a button tap.
+  const liveStatus = await getLiveStatusReadback(supabase, current.user.id, { tripId: id }).catch(() => null);
   const fieldTestMode = fieldTestRequested && access.hasQaAccess && bundle.data.trip.metadata?.field_test === true;
   const tripLifecycle = customerTripLifecycleState({
     status: bundle.data.trip.status,
@@ -164,8 +171,8 @@ export default async function LiveTripPage({
   if (!companionUnlocked && !tripCompleted) {
     return (
       <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <Badge tone="sun">Live Companion</Badge>
+        <BuiCard className="bui-enter p-5">
+          <BuiBadge tone="warm">Live Companion</BuiBadge>
           <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Live Companion isn&apos;t unlocked for this trip yet</h1>
           <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Live Companion follows you during the trip with day-by-day help. It needs to be unlocked for this trip before it can open.
@@ -174,8 +181,8 @@ export default async function LiveTripPage({
             Go back to the trip page to unlock it. Nothing was changed, and your itinerary is still there.
           </p>
           {gatePreviewStops.length ? (
-            <div className="mt-5 rounded-2xl bg-mist/50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Preview · Day 1 of your itinerary</p>
+            <div className="mt-5 rounded-bui-card border border-chair bg-cbg p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-cgray">Preview · Day 1 of your itinerary</p>
               <div className="mt-2 grid gap-1.5">
                 {gatePreviewStops.map((stop) => (
                   <p key={`${stop.time}-${stop.title}`} className="text-sm font-semibold leading-6 text-chead">
@@ -183,7 +190,7 @@ export default async function LiveTripPage({
                   </p>
                 ))}
               </div>
-              <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">Live Companion stays locked until you unlock it on the trip page.</p>
+              <p className="mt-2 text-xs font-semibold leading-5 text-cgray">Live Companion stays locked until you unlock it on the trip page.</p>
             </div>
           ) : (
             <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
@@ -191,21 +198,15 @@ export default async function LiveTripPage({
             </p>
           )}
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <a
-              href={`/trip/${id}`}
-              className="inline-flex min-h-11 items-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white"
-            >
+            <BuiButtonLink href={`/trip/${id}`} className="rounded-full">
               Back to trip
-            </a>
-            <a
-              href={`/trip/${id}`}
-              className="inline-flex min-h-11 items-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-bold text-chead"
-            >
+            </BuiButtonLink>
+            <BuiButtonLink href={`/trip/${id}`} variant="secondary" className="rounded-full">
               Skip for now
-            </a>
+            </BuiButtonLink>
           </div>
           <p className="mt-3 text-[13px] font-medium leading-5 text-cgray">You can still view your full itinerary. Live Companion stays locked until you unlock it.</p>
-        </Card>
+        </BuiCard>
       </div>
     );
   }
@@ -408,7 +409,29 @@ export default async function LiveTripPage({
     terminal: getRowString(booking, "terminal"),
     startTime: canonicalBookingTime(booking, "start_at", "start_date", "start_time"),
     endTime: canonicalBookingTime(booking, "end_at", "end_date", "end_time"),
-    status: ["confirmed", "modified", "completed", "booked", "paid", "reserved"].includes(getRowString(booking, "booking_status") || "")
+    // Workstream A + Round 2 Lane E2: Live's "verified" booking
+    // status (an INTERNAL enum, never rendered as a word to the
+    // traveler — Round 3, Lane T) derives from the ONE booking-truth rule at the
+    // providerConfirmationEvidence tier ONLY (owner ruling 2026-10-30) — an
+    // active-family status alone (which email extraction used to
+    // manufacture) no longer verifies a booking here, a
+    // travelerConfirmedOnly booking (incl. the legacy no-recorded-
+    // source case) does not earn the "verified" framing either, and
+    // a cancelled booking can never carry it. All confirmed framing
+    // in the Live client gates on status === "verified".
+    status: bookingTruthIsConfirmed({
+      booking_status: getRowString(booking, "booking_status"),
+      traveler_confirmed: booking.traveler_confirmed === true,
+      confirmation_number: getRowString(booking, "confirmation_number"),
+      provider_booking_id: getRowString(booking, "provider_booking_id"),
+      provider_name: getRowString(booking, "provider_name") || getRowString(booking, "provider"),
+      title: getRowString(booking, "title"),
+      source_type: getRowString(booking, "source_type"),
+      source_reference: getRowString(booking, "source_reference"),
+      superseded_by_booking_id: (booking.superseded_by_booking_id as string | null) ?? null,
+      metadata: (booking.metadata as Record<string, unknown> | null) ?? null,
+      reservation_requirements: (booking.reservation_requirements as Record<string, unknown> | null) ?? null
+    })
       ? "verified"
       : "unknown",
     updatedAt: getRowString(booking, "updated_at") || getRowString(booking, "created_at")
@@ -517,24 +540,24 @@ export default async function LiveTripPage({
   if (fieldTestMode) {
     return (
       <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6">
-        <section className="sticky top-2 z-10 mb-5 rounded-2xl border-2 border-coral/40 bg-white px-4 py-3 text-ink shadow-soft">
+        <section className="bui-enter sticky top-2 z-10 mb-5 rounded-bui-card border-2 border-coral/40 bg-white px-4 py-3 text-ink shadow-bui-card">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Admin field test • Saint John</p>
               <p className="mt-1 text-sm font-black text-slate-600">Real Roamly Live Companion runtime</p>
             </div>
-            <a href={`/trip/${id}`} className="rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white">Exit field test</a>
+            <a href={`/trip/${id}`} className="bui-press bui-touch inline-flex items-center rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white">Exit field test</a>
           </div>
         </section>
-        <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-6 shadow-soft">
+        <section className="bui-enter mb-5 rounded-bui-panel border-2 border-ocean/30 bg-white p-6 shadow-bui-card">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Admin-controlled mobile setup</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-ink">LIVE COMPANION FIELD TEST</h1>
           <p className="mt-2 text-2xl font-black text-ocean">Saint John</p>
           <p className="mt-3 text-sm font-bold leading-6 text-slate-600">This is the Admin field test using the real Roamly Live Companion.</p>
           <div className="mt-5 grid gap-3 text-sm font-black text-slate-700 sm:grid-cols-3">
-            <div className="rounded-2xl bg-mist p-4"><span className="text-ocean">STEP 1</span><br />Install Roamly</div>
-            <div className="rounded-2xl bg-mist p-4"><span className="text-ocean">STEP 2</span><br />Notifications</div>
-            <div className="rounded-2xl bg-mist p-4"><span className="text-ocean">STEP 3</span><br />Location</div>
+            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-ocean">STEP 1</span><br />Install Roamly</div>
+            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-ocean">STEP 2</span><br />Notifications</div>
+            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-ocean">STEP 3</span><br />Location</div>
           </div>
         </section>
         <LiveTripClient
@@ -565,6 +588,7 @@ export default async function LiveTripPage({
           itineraryDays={itineraryDays}
           dayPlanTitle={dayPlanTitle}
           venuePhotos={venuePhotos}
+          initialLiveStatus={liveStatus}
         />
       </div>
     );
@@ -628,16 +652,16 @@ export default async function LiveTripPage({
             with the card — origin still reaches the client as a prop
             for directions links, and stays on the trip home. */}
         {companionPanelInput ? (
-          <div className="mb-5">
+          <div className="bui-enter mb-5">
             <CompanionPanel tripId={id} initialInput={companionPanelInput} passView={companionPassView} />
           </div>
         ) : null}
         {tripCompleted ? (
-          <Card>
+          <BuiCard className="bui-enter p-5">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Trip complete</p>
             <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Live Companion is closed for this trip</h2>
             <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
-          </Card>
+          </BuiCard>
         ) : (
           <LiveTripClient
             tripId={id}
@@ -666,6 +690,7 @@ export default async function LiveTripPage({
             itineraryDays={itineraryDays}
             dayPlanTitle={dayPlanTitle}
           venuePhotos={venuePhotos}
+          initialLiveStatus={liveStatus}
           />
         )}
       </div>
