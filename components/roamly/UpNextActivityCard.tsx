@@ -1,6 +1,7 @@
 "use client";
 
 import type { TrackingActivity } from "@/lib/roamly/tripActivation";
+import { BuiChip } from "@/components/boardui/Badge";
 import { NavigationButtons } from "@/components/roamly/NavigationButtons";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { formatRoamlyTime } from "@/lib/i18n";
@@ -38,7 +39,7 @@ export function UpNextActivityCard({
     : "";
   const detail = presentTrackingActivityDetail(activity?.description, presentation?.suppressFlightFraming, presentation?.destination);
   return (
-    <section className="rounded-[14px] bg-white p-4 shadow-calm">
+    <section className="bui-enter rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
       <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{tripStarted && locationVerified ? t("ui.status.upNextNearby") : "Planned next"}</p>
       {activity ? (
         <>
@@ -49,14 +50,14 @@ export function UpNextActivityCard({
           <p className="mt-1.5 text-sm font-normal leading-6 text-cink">{detail}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {activity.scheduled_start ? (
-              <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">
+              <BuiChip tone="neutral">
                 {formatRoamlyTime(activity.scheduled_start, locale)}
-              </span>
+              </BuiChip>
             ) : null}
             {tripStarted && locationVerified && activity.distance_meters != null ? (
-              <span className="rounded-md bg-cblue/10 px-2 py-0.5 text-xs font-semibold text-cblue">
+              <BuiChip tone="primary">
                 {t("ui.status.metersAway", "{distance} m away").replace("{distance}", String(activity.distance_meters))}
-              </span>
+              </BuiChip>
             ) : null}
           </div>
           <NavigationButtons

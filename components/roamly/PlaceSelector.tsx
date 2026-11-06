@@ -125,15 +125,19 @@ export function PlaceSelector({
           autoComplete="off"
           aria-label={translateText(label)}
           placeholder={translateText(placeholder)}
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+          className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
         />
       </label>
 
       {open ? (
-        <div className="mt-2 overflow-hidden rounded-[1.25rem] border border-cloud bg-white shadow-soft">
-          <div className="max-h-80 overflow-auto p-2">
+        /* Feels-right set (2026-11-04): the results panel GROWS OUT
+           of the field that summoned it — origin pinned to the
+           trigger's top edge, spring curve — instead of appearing
+           from nowhere. */
+        <div className="bui-menu-grow origin-top mt-2 overflow-hidden rounded-bui-card border border-chair bg-white shadow-bui-lift">
+          <div className="bui-momentum max-h-80 overflow-auto p-2">
             {loading ? (
-              <div className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
+              <div className="bui-shimmer rounded-2xl bg-csoft px-4 py-3 text-sm font-black text-cgray">
                 {translateText("Searching places...")}
               </div>
             ) : null}
@@ -147,10 +151,10 @@ export function PlaceSelector({
                   selectPlace(place);
                 }}
                 className={classNames(
-                  "w-full rounded-2xl px-4 py-3 text-left transition",
+                  "bui-press bui-tap w-full rounded-2xl px-4 py-3 text-left transition",
                   samePlace(value, place)
-                    ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
-                    : "hover:bg-cyan-50 hover:text-cyan-700"
+                    ? "bg-cblue text-white shadow-bui-lift"
+                    : "hover:bg-csoft hover:text-cblue"
                 )}
               >
                 <span className="block text-sm font-black">{place.label}</span>
@@ -167,7 +171,7 @@ export function PlaceSelector({
                   event.preventDefault();
                   selectPlace(normalizeCustomPlace(cleanedQuery));
                 }}
-                className="w-full rounded-2xl px-4 py-3 text-left transition hover:bg-mist"
+                className="bui-press w-full rounded-2xl px-4 py-3 text-left transition hover:bg-csoft"
               >
                 <span className="block text-sm font-black">{cleanedQuery}</span>
                 <span className="mt-1 block text-xs font-bold text-slate-500">{translateText("Use custom place")}</span>

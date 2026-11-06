@@ -1,6 +1,29 @@
 import Link from "next/link";
 import type { ExploreCandidate } from "@/lib/roamly/exploreViewModel";
 
+/*
+ * A20 (Jakob): an external exit names its destination before the tap.
+ * ExploreCandidate carries NO partner/provider identity (see
+ * lib/roamly/exploreViewModel.ts — no provider field exists on the
+ * type), so the button names the destination place the card carries
+ * (location, falling back to the candidate's title) plus the external
+ * host the href actually leads to.
+ */
+function externalDetailsLabel(candidate: ExploreCandidate): string {
+  let host = "";
+  if (candidate.href) {
+    try {
+      host = new URL(candidate.href).hostname.replace(/^www\./, "");
+    } catch {
+      host = "";
+    }
+  }
+  const place = candidate.location || candidate.title;
+  if (host && place) return `View details for ${place} on ${host}`;
+  if (host) return `View details on ${host}`;
+  return `View details for ${place}`;
+}
+
 export function ExploreDiscovery({
   tripId,
   destination = "this destination",
@@ -53,7 +76,7 @@ export function ExploreDiscovery({
                   <div className="mt-3 flex flex-wrap items-center gap-4">
                     {candidate.href ? (
                       <a href={candidate.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
-                        View details
+                        {externalDetailsLabel(candidate)}
                       </a>
                     ) : null}
                     {candidate.publicEvent ? <span className="text-xs font-bold text-slate-500">Public event details may change; verify the organizer&apos;s page.</span> : null}

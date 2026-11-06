@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
 import {
@@ -76,61 +79,36 @@ export function NotificationPermissionCard({
   const isUnsupported = permission === "unsupported";
 
   return (
-    <div className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{t("ui.status.phoneReminders", "Phone reminders")}</p>
-      <h3 className="mt-2 text-xl font-black text-ink">{t("ui.status.enablePhoneReminders", "Enable phone reminders")}</h3>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+    <BuiCard className="bui-enter p-4">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{t("ui.status.phoneReminders", "Phone reminders")}</p>
+      <h3 className="mt-2 text-xl font-black text-chead">{t("ui.status.enablePhoneReminders", "Enable phone reminders")}</h3>
+      <p className="mt-2 text-sm font-bold leading-6 text-cink">
         {t("ui.status.phoneRemindersDescription", "Roamly can remind you about packing, documents, check-in times, and what&apos;s up next during your trip.")}
       </p>
       {isDenied ? (
-        <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {t("ui.status.phoneRemindersBlocked", "Phone reminders are blocked. You can still use in-app notifications in Roamly.")}
-        </p>
+        <BuiNotice tone="error" title={t("ui.status.phoneRemindersBlocked", "Phone reminders are blocked. You can still use in-app notifications in Roamly.")} className="mt-3" />
       ) : isUnsupported ? (
-        <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {t("ui.status.notificationsUnavailable", "OS notifications are unavailable in this browser or on this device. Use a supported browser, or install Roamly on your iPhone Home Screen.")}
-        </p>
+        <BuiNotice tone="error" title={t("ui.status.notificationsUnavailable", "OS notifications are unavailable in this browser or on this device. Use a supported browser, or install Roamly on your iPhone Home Screen.")} className="mt-3" />
       ) : requiresHomeScreen ? (
-        <p className="mt-3 rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
-          {t("ui.status.homeScreenReminder", "On iPhone, tap Share, Add to Home Screen, then open Roamly from the new icon to enable phone reminders.")}
-        </p>
+        <BuiNotice tone="info" title={t("ui.status.homeScreenReminder", "On iPhone, tap Share, Add to Home Screen, then open Roamly from the new icon to enable phone reminders.")} className="mt-3" />
       ) : isGranted ? (
-        <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
-          {t("ui.status.phoneRemindersEnabledShort", "Phone reminders are enabled.")}
-        </p>
+        <BuiNotice tone="success" title={t("ui.status.phoneRemindersEnabledShort", "Phone reminders are enabled.")} className="mt-3" />
       ) : (
-        <p className="mt-3 rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
-          {t("ui.status.phoneRemindersPermission", "In-app notifications work automatically. Phone reminders need browser permission on this device.")}
-        </p>
+        <BuiNotice tone="info" title={t("ui.status.phoneRemindersPermission", "In-app notifications work automatically. Phone reminders need browser permission on this device.")} className="mt-3" />
       )}
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <button
-          type="button"
-          onClick={enable}
-          disabled={busy || (isGranted && !qaTripId)}
-          className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 disabled:opacity-60"
-        >
+        <BuiButton type="button" onClick={enable} busy={busy} disabled={isGranted && !qaTripId}>
           {qaTripId && isGranted ? t("ui.status.registerQaPush", "Register QA push") : t("ui.actions.enableReminders")}
-        </button>
-        <button
-          type="button"
-          onClick={disable}
-          disabled={busy}
-          className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink ring-1 ring-cloud disabled:opacity-60"
-        >
+        </BuiButton>
+        <BuiButton type="button" variant="secondary" onClick={disable} busy={busy}>
           {t("ui.status.turnOff", "Turn off")}
-        </button>
-        <button
-          type="button"
-          onClick={check}
-          disabled={busy}
-          className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-ink disabled:opacity-60"
-        >
+        </BuiButton>
+        <BuiButton type="button" variant="ghost" onClick={check} busy={busy}>
           {t("ui.status.checkState", "Check state")}
-        </button>
+        </BuiButton>
       </div>
-      {notice ? <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
-      {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
-    </div>
+      {notice ? <BuiNotice tone="success" title={notice} className="mt-3" /> : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-3" /> : null}
+    </BuiCard>
   );
 }

@@ -1,5 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
+import { briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
 
 export type TravelDayBooking = {
   id: string;
@@ -12,6 +13,16 @@ export type TravelDayBooking = {
   origin?: string | null;
   destination?: string | null;
   traveler_confirmed?: boolean | null;
+  // Round 3 (Lane T): evidence fields so the briefing grades each
+  // booking with the ONE booking-truth rule instead of flag+status.
+  confirmation_number?: string | null;
+  provider_booking_id?: string | null;
+  source_type?: string | null;
+  source_reference?: string | null;
+  superseded_by_booking_id?: string | null;
+  is_test_booking?: boolean | null;
+  metadata?: Record<string, unknown> | null;
+  reservation_requirements?: Record<string, unknown> | null;
 };
 
 export type TravelDayActivity = {
@@ -54,8 +65,21 @@ function dateLabel(value: string | null | undefined, timezone: string, locale = 
   }).format(date);
 }
 
+// Round 3 (Lane T): a booking belongs in a briefing's booked lists
+// only when the ONE booking-truth rule grades it confirmed
+// (provider confirmation evidence) or traveler_confirmed
+// ("Confirmed by you") — flag+status alone no longer suffices, and
+// each rendered label carries its provenance note.
+function briefingBookingIncluded(booking: { booking_status?: string | null; traveler_confirmed?: boolean | null }): boolean {
+  const state = briefingBookingState(booking as Record<string, unknown>);
+  return state === "confirmed" || state === "traveler_confirmed";
+}
+function briefingProvenanceNote(booking: { booking_status?: string | null; traveler_confirmed?: boolean | null }): string {
+  return briefingBookingState(booking as Record<string, unknown>) === "confirmed" ? briefingProvenanceSuffix(booking as Record<string, unknown>) : "confirmed by you";
+}
+
 function isConfirmed(booking: TravelDayBooking) {
-  return booking.traveler_confirmed === true && ["booked", "paid", "reserved", "confirmed", "modified"].includes(clean(booking.booking_status));
+  return briefingBookingIncluded(booking);
 }
 
 function bookingTime(booking: TravelDayBooking) {
@@ -69,10 +93,10 @@ function localDateKey(date: Date, timezone: string) {
 }
 
 function bookingLabel(booking: TravelDayBooking, timezone: string, locale: RoamlyLocale) {
-  const name = clean(booking.title) || clean(booking.provider_name) || clean(booking.booking_type) || msg(locale, "confirmed");
+  const name = clean(booking.title) || clean(booking.provider_name) || clean(booking.booking_type) || "Booking";
   const when = dateLabel(booking.start_at || booking.check_in_at, timezone, locale);
   const route = [clean(booking.origin), clean(booking.destination)].filter(Boolean).join(" to ");
-  return [name, route, when].filter(Boolean).join(" · ");
+  return [name, route, when, briefingProvenanceNote(booking)].filter(Boolean).join(" · ");
 }
 
 export function tripLocalDayStart(tripStart: Date, timezone: string) {
@@ -134,7 +158,7 @@ export function buildTravelDayBriefingContent(input: TravelDayContentInput) {
   const firstPlan = input.firstActivity && !["completed", "skipped", "expired", "cancelled"].includes(clean(input.firstActivity.status))
     ? [clean(input.firstActivity.title) || msg(locale, "firstUp"), dateLabel(input.firstActivity.scheduled_start, input.timezone, locale), clean(input.firstActivity.address)].filter(Boolean).join(" · ")
     : "";
-  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
+  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
   const startLabel = new Intl.DateTimeFormat(locale, { timeZone: input.timezone, hour: "numeric", minute: "2-digit" }).format(input.tripStart);

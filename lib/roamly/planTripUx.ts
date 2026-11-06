@@ -92,7 +92,9 @@ export function planDateFieldErrors(startDate: string, endDate: string, daysRaw:
     };
   }
   if (hasStart && !hasEnd && !days) {
-    return { ...empty, days: "Add the number of days, or an end date." };
+    // Jakob A10: there is no number-of-days input anymore — the
+    // length is computed from the range. The only cure is an end date.
+    return { ...empty, days: "Add an end date." };
   }
   if (!hasStart && hasEnd) {
     return { ...empty, start: "Add a start date." };
@@ -101,9 +103,9 @@ export function planDateFieldErrors(startDate: string, endDate: string, daysRaw:
     return { ...empty, start: "Enter a real start date." };
   }
   return {
-    start: "Add a start and end date, or a start date and number of days.",
+    start: "Add a start and end date.",
     end: "",
-    days: "Add the number of days, or both dates."
+    days: "Add both dates."
   };
 }
 

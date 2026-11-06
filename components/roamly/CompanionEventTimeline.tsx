@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { BuiChip } from "@/components/boardui/Badge";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard, BuiSkeleton } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
+import type { BuiTone } from "@/components/boardui/tokens";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { formatRoamlyDate } from "@/lib/i18n";
 
@@ -87,9 +92,9 @@ function statusLabel(
   return words(event.status);
 }
 
-function statusClass(
+function statusTone(
   event: CompanionEventItem
-) {
+): BuiTone {
   const label = statusLabel(event);
 
   if (
@@ -99,7 +104,7 @@ function statusClass(
       "Resolved"
     ].includes(label)
   ) {
-    return "bg-emerald-100 text-emerald-800";
+    return "success";
   }
 
   if (
@@ -113,35 +118,35 @@ function statusClass(
       "Verification incomplete"
     ].includes(label)
   ) {
-    return "bg-amber-100 text-amber-800";
+    return "warm";
   }
 
   if (
     label === "Original plan kept" ||
     label === "No action needed"
   ) {
-    return "bg-slate-100 text-slate-700";
+    return "neutral";
   }
 
-  return "bg-coral/10 text-coral";
+  return "danger";
 }
 
-function severityClass(
+function severityTone(
   severity: string
-) {
+): BuiTone {
   if (severity === "critical") {
-    return "bg-coral/10 text-coral";
+    return "danger";
   }
 
   if (severity === "important") {
-    return "bg-amber-100 text-amber-800";
+    return "warm";
   }
 
   if (severity === "routine") {
-    return "bg-sky-100 text-sky-800";
+    return "primary";
   }
 
-  return "bg-slate-100 text-slate-600";
+  return "neutral";
 }
 
 function formatDate(value: string | null, locale: Parameters<typeof formatRoamlyDate>[1]) {
@@ -210,85 +215,73 @@ export default function CompanionEventTimeline({
   }, [loadEvents]);
 
   return (
-    <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+    <section className="bui-enter rounded-bui-panel border border-chair bg-white p-5 shadow-bui-card">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
             Companion history
           </p>
 
-          <h2 className="mt-2 text-2xl font-black text-ink">
+          <h2 className="mt-2 text-2xl font-black text-chead">
             Trip changes and outcomes
           </h2>
 
-          <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+          <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-cink">
             Follow detected disruptions, impact analysis,
             repair proposals, approvals, and resolved changes.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadEvents()}
-          className="rounded-full bg-white px-4 py-2 text-xs font-black text-ink ring-1 ring-cloud"
-        >
+        <BuiButton type="button" variant="secondary" size="small" onClick={() => void loadEvents()}>
           Refresh
-        </button>
+        </BuiButton>
       </div>
 
-      {error ? (
-        <p className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {error}
-        </p>
-      ) : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-4" /> : null}
 
-      <div className="mt-5 grid gap-4">
+      <div className="relative mt-5 grid gap-4">
+        <span aria-hidden="true" className="absolute bottom-2 left-[5px] top-2 w-px bg-chair" />
         {loading ? (
-          <p className="rounded-2xl bg-mist px-4 py-4 text-sm font-black text-slate-500">
-            Loading Companion history…
-          </p>
+          <div className="grid gap-3" aria-label="Loading Companion history…">
+            <BuiSkeleton className="h-24 w-full" />
+            <BuiSkeleton className="h-24 w-full" />
+          </div>
         ) : null}
 
         {!loading &&
-          events.map((event) => (
+          events.map((event, eventIndex) => (
             <article
               key={event.id}
-              className="relative rounded-2xl bg-mist p-4"
+              className="bui-enter relative rounded-bui-card border border-chair bg-cbg p-4 pl-6"
+              style={{ "--bui-delay": `${Math.min(eventIndex * 60, 240)}ms` } as CSSProperties}
             >
+              <span aria-hidden="true" className="absolute left-0 top-5 h-[11px] w-[11px] rounded-full border-2 border-white bg-cblue shadow-bui-card" />
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${statusClass(
-                        event
-                      )}`}
-                    >
+                    <BuiChip tone={statusTone(event)}>
                       {statusLabel(event)}
-                    </span>
+                    </BuiChip>
 
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-black ${severityClass(
-                        event.severity
-                      )}`}
-                    >
+                    <BuiChip tone={severityTone(event.severity)}>
                       {words(event.severity)}
-                    </span>
+                    </BuiChip>
 
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-600 ring-1 ring-cloud">
+                    <BuiChip tone="neutral" className="bg-white">
                       {words(event.eventType)}
-                    </span>
+                    </BuiChip>
                   </div>
 
-                  <h3 className="mt-3 text-lg font-black text-ink">
+                  <h3 className="mt-3 text-lg font-black text-chead">
                     {event.title}
                   </h3>
 
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+                  <p className="mt-2 text-sm font-bold leading-6 text-cink">
                     {event.summary}
                   </p>
                 </div>
 
-                <p className="shrink-0 text-xs font-bold text-slate-400">
+                <p className="shrink-0 text-xs font-bold text-cgray2">
                       {formatDate(event.detectedAt, locale)}
                 </p>
               </div>
@@ -297,12 +290,9 @@ export default function CompanionEventTimeline({
                 <div className="mt-4 flex flex-wrap gap-2">
                   {event.affectedLayers.map(
                     (layer) => (
-                      <span
-                        key={layer}
-                        className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600 ring-1 ring-cloud"
-                      >
+                      <BuiChip key={layer} tone="neutral" className="bg-white">
                         {words(layer)}
-                      </span>
+                      </BuiChip>
                     )
                   )}
                 </div>
@@ -314,16 +304,13 @@ export default function CompanionEventTimeline({
                 "processing",
                 "new"
               ].includes(event.status) ? (
-                <a
-                  href="#companion-repairs"
-                  className="mt-4 inline-flex rounded-xl bg-ocean px-4 py-2 text-xs font-black text-white"
-                >
+                <BuiButtonLink href="#companion-repairs" size="small" className="mt-4">
                   Review repair
-                </a>
+                </BuiButtonLink>
               ) : null}
 
               {event.resolvedAt ? (
-                <p className="mt-4 text-xs font-bold text-slate-400">
+                <p className="mt-4 text-xs font-bold text-cgray2">
                   Resolved {formatDate(event.resolvedAt, locale)}
                 </p>
               ) : null}
@@ -331,9 +318,11 @@ export default function CompanionEventTimeline({
           ))}
 
         {!loading && !events.length ? (
-          <p className="rounded-2xl bg-mist px-4 py-4 text-sm font-black text-slate-500">
-            No Companion disruptions or repairs have been recorded for this trip.
-          </p>
+          <BuiCard className="p-4">
+            <p className="text-sm font-black text-cgray">
+              No Companion disruptions or repairs have been recorded for this trip.
+            </p>
+          </BuiCard>
         ) : null}
       </div>
     </section>

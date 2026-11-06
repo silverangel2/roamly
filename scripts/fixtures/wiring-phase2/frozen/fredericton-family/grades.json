@@ -33,7 +33,7 @@
     {
       "leg": "engine:must-sees",
       "status": "DONE",
-      "detail": "one local market visit: scheduled (day 1); one children's museum morning: scheduled (day 4)"
+      "detail": "one local market visit: scheduled (day 1); one children's museum morning: scheduled (day 2)"
     },
     {
       "leg": "engine:extractor-agreement",
@@ -107,11 +107,11 @@
       "day 1: \"The Cultural Market\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Charles Avenue Park\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Carleton Park\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Quartermain Earth Science Centre\" — opening hours not in the data (labeled, not invented)",
       "day 3: \"Morell Park\" — opening hours not in the data (labeled, not invented)",
       "day 3: \"Nomad Coffee\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"Science East\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"The Green\" — opening hours not in the data (labeled, not invented)",
-      "day 4: \"Quartermain Earth Science Centre\" — opening hours not in the data (labeled, not invented)",
       "day 5: \"School Days Museum\" — opening hours not in the data (labeled, not invented)",
       "day 5: \"St. Mary's Old Reserve\" — opening hours not in the data (labeled, not invented)"
     ]

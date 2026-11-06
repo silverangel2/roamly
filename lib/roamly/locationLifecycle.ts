@@ -1,4 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  isLiveCompanionEligible,
+  type LiveEligibilityOptions
+} from "@/lib/roamly/liveEligibility";
 
 export type OperationalLocationTrip = {
   id: string;
@@ -6,42 +10,45 @@ export type OperationalLocationTrip = {
   start_date?: string | null;
   end_date?: string | null;
   itinerary_locked?: boolean | null;
+  itinerary_status?: string | null;
+  itinerary_generated_at?: string | null;
   tracking_unlocked?: boolean | null;
   live_companion_unlocked?: boolean | null;
   metadata?: unknown;
+  destination?: unknown;
+  destination_name?: unknown;
+  destination_city?: unknown;
 };
 
-function localDate(now: Date, timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(now);
+/**
+ * JS mirror of the SQL gate roamly_has_operational_location_trip.
+ * L12 (2026-10-31): this file used to carry its OWN copy of the rule
+ * — status locked/active/planned only (no "generated") and a
+ * metadata-only timezone with a silent UTC fallback, duplicating
+ * migration 20260928000200. Both copies now delegate to / mirror the
+ * ONE rule in lib/roamly/liveEligibility.ts: live-ready status
+ * (locked/active/planned/generated) + locked + companion-unlocked +
+ * the window read in the destination timezone (metadata, then the
+ * verified destination registry, then the documented UTC fallback).
+ * The matching SQL definition is the OWNER-APPLIED migration
+ * 20261031000200_roamly_live_eligibility_timezone.sql — until the
+ * owner applies it, the database gate still uses the 20260928000200
+ * definition (see that migration's header).
+ */
+export function isOperationalLocationTrip(
+  trip: OperationalLocationTrip,
+  now: Date,
+  options?: LiveEligibilityOptions
+) {
+  return isLiveCompanionEligible(trip, now, options);
 }
 
-function timezoneFromMetadata(metadata: unknown) {
-  const root = metadata && typeof metadata === "object" && !Array.isArray(metadata)
-    ? metadata as Record<string, unknown>
-    : {};
-  const planning = root.planning && typeof root.planning === "object" && !Array.isArray(root.planning)
-    ? root.planning as Record<string, unknown>
-    : root;
-  return [planning.timezone, planning.destinationTimezone, planning.destination_timezone, root.timezone, root.destinationTimezone, root.destination_timezone]
-    .find((value): value is string => typeof value === "string" && value.trim().length > 0) || "UTC";
-}
-
-export function isOperationalLocationTrip(trip: OperationalLocationTrip, now: Date) {
-  const status = String(trip.status || "").trim().toLowerCase();
-  if (!(["locked", "active", "planned"].includes(status))) return false;
-  if (!trip.itinerary_locked || (!trip.tracking_unlocked && !trip.live_companion_unlocked)) return false;
-  if (!trip.start_date || !trip.end_date) return false;
-  const today = localDate(now, timezoneFromMetadata(trip.metadata));
-  return trip.start_date <= today && trip.end_date >= today;
-}
-
-export function hasOperationalLocationTrip(trips: OperationalLocationTrip[], now: Date) {
-  return trips.some((trip) => isOperationalLocationTrip(trip, now));
+export function hasOperationalLocationTrip(
+  trips: OperationalLocationTrip[],
+  now: Date,
+  options?: LiveEligibilityOptions
+) {
+  return trips.some((trip) => isOperationalLocationTrip(trip, now, options));
 }
 
 export async function writeForegroundLocation(params: {

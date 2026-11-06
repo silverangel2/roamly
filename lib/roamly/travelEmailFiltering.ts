@@ -82,6 +82,23 @@ const TRAVEL_SUBJECT_PATTERNS = [
 ];
 
 const BOOKING_REFERENCE_PATTERN = /\b(?:confirmation|booking|reservation|record locator|pnr|voucher|order|reference)\s*(?:code|number|#)?\s*[:#-]?\s*([A-Z0-9-]{5,64})\b/gi;
+
+// Audit fix (2026-10-29 production-recovery): senders whose mail is
+// never a travel booking, however many travel-shaped tokens the body
+// carries (GitHub notification bodies contain PR numbers, dates and
+// the word "confirmation" in review text).
+const NON_BOOKING_SENDER_DOMAINS = ["github.com"];
+
+// Audit fix: marketing subjects are not bookings even when the sender
+// is a real travel brand (airline/hotel promo mail scored as high as
+// 71% in the owner's review list).
+const PROMO_SUBJECT_PATTERNS = [
+  /\d{1,3}%\s*off/i,
+  /\bbonus points\b/i,
+  /\bearn\b[^.]{0,40}\bpoints\b/i,
+  /\bpoints offer\b/i,
+  /\bfor less\b/i
+];
 const FLIGHT_NUMBER_PATTERN = /\b([A-Z]{2}\s?\d{1,4})\b/g;
 const DATE_PATTERN = /\b(\d{4}-\d{2}-\d{2}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4})\b/gi;
 const TIME_PATTERN = /\b(\d{1,2}:\d{2}\s?(?:AM|PM|am|pm)?|\d{1,2}\s?(?:AM|PM|am|pm))\b/g;
@@ -108,6 +125,27 @@ export function filterTravelEmail(metadata: TravelEmailMetadata): TravelEmailFil
   const reasons: string[] = [];
   const facts: Record<string, unknown> = {};
   const domain = senderDomain(metadata.sender);
+
+  // Audit fix: known non-booking senders and marketing subjects never
+  // reach extraction, whatever the body contains.
+  if (domain && NON_BOOKING_SENDER_DOMAINS.some((blocked) => domain === blocked || domain.endsWith(`.${blocked}`))) {
+    return {
+      shouldProcess: false,
+      processingResult: "ignored",
+      confidence: 0,
+      reasons: ["non_booking_sender"],
+      extractedFacts: { senderDomain: domain, subjectMatched: false, bodyStored: false }
+    };
+  }
+  if (PROMO_SUBJECT_PATTERNS.some((pattern) => pattern.test(subject))) {
+    return {
+      shouldProcess: false,
+      processingResult: "ignored",
+      confidence: 0,
+      reasons: ["promotional_subject"],
+      extractedFacts: { senderDomain: domain, subjectMatched: false, bodyStored: false }
+    };
+  }
 
   if (domain && KNOWN_TRAVEL_DOMAINS.some((travelDomain) => domain === travelDomain || domain.endsWith(`.${travelDomain}`))) {
     reasons.push("known_travel_sender");
@@ -175,7 +213,21 @@ export function filterTravelEmail(metadata: TravelEmailMetadata): TravelEmailFil
       (bookingTypes.length ? 0.12 : 0) +
       (eventTypes.length ? 0.1 : 0)
   );
-  const shouldProcess = score >= 0.35 || (bookingReferences.length > 0 && travelLanguage);
+  // Audit fix: one evidence kind is never enough. A known travel
+  // sender alone previously scored 0.43 and passed (an Airbnb promo
+  // mail landed in the owner's booking review at 43%); processing now
+  // requires at least two independent kinds of travel evidence, or an
+  // explicit booking reference together with travel language.
+  const evidenceKinds = [
+    reasons.includes("known_travel_sender"),
+    reasons.includes("travel_subject"),
+    reasons.includes("booking_reference"),
+    reasons.includes("flight_number"),
+    reasons.includes("travel_date"),
+    reasons.includes("travel_event")
+  ].filter(Boolean).length;
+  const shouldProcess =
+    (score >= 0.35 && evidenceKinds >= 2) || (bookingReferences.length > 0 && travelLanguage);
 
   return {
     shouldProcess,

@@ -45,7 +45,7 @@ check("directions strip renders credit line", dirScreen.includes("Photo:") && di
 
 const country = read("components/roamly/CountryInfoPanel.tsx");
 check("country cell maps Canada to the real flag glyph", country.includes("🇨🇦") && country.includes('"canada"'));
-check("country cell keeps generic outline for other countries", country.includes('cellKey === "country"') && country.includes("M5 21V4"));
+check("country cell keeps generic outline for other countries", country.includes('cellKey === "country"') && country.includes("<Flag")); // RE-PIN (Lucide migration, 2026-11-03): was the hand-drawn path "M5 21V4" — the generic outline is now the Lucide Flag glyph; the rule (generic outline, never a guessed flag) is unchanged.
 
 const place = read("components/roamly/PlaceDetailPanel.tsx");
 check("place title is never hand-shortened (no hardcoded short title)", !place.includes("Musée du marché Sainte-Anne"));

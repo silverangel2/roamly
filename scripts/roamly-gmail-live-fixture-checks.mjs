@@ -52,7 +52,7 @@ function database(trips,fail=false){return {from(table){let rows=table==='roamly
 const metadata={provider:'gmail',messageId:'synthetic-match',sender:'qa@gmail.com',subject:'Hotel booking confirmation',bodyText:body};
 const params={connection:{id:'connection',user_id:'owner',provider:'gmail'},metadata,filter:filterTravelEmail(metadata),emailMessageId:'message'};
 const attached=await compiled.exports.extractAndMatchTravelEmailBooking({...params,supabase:database([...old,target,{...target,id:'other-owner',user_id:'other'}])});
-assert.equal(attached.status,'attached');assert.equal(attached.tripId,'target');assert.equal(saved.length,1);assert.equal(saved[0].input.checkInTime,'2026-11-10T07:00:00.000Z');assert.equal(persisted.at(-1).matched_booking_id,'test-booking');
+assert.equal(attached.status,'needs_confirmation');assert.equal(attached.tripId,'target');assert.equal(saved.length,0);assert.equal(attached.extraction.booking.checkInTime,'2026-11-10T07:00:00.000Z');assert.equal(persisted.at(-1).matched_booking_id,null);
 saved=[];
 const ambiguous=await compiled.exports.extractAndMatchTravelEmailBooking({...params,supabase:database([...old,target,{...target,id:'second-match'}])});assert.equal(ambiguous.status,'unmatched');assert.equal(saved.length,0);
 await assert.rejects(()=>compiled.exports.extractAndMatchTravelEmailBooking({...params,supabase:database([target],true)}),/temporarily unavailable/);

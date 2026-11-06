@@ -89,7 +89,7 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
     router.refresh();
   }
 
-  const inputClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-ink outline-none focus:border-ocean";
+  const inputClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink outline-none focus:border-ocean";
 
   if (mode === "done") {
     return <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">{doneMessage}</p>;
@@ -115,7 +115,7 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Title<input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Provider<input value={provider} onChange={(e) => setProvider(e.target.value)} className={inputClass} /></label>
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Confirmation<input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} /></label>
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Amount<input value={amount} type="number" onChange={(e) => setAmount(e.target.value)} className={inputClass} /></label>
+          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Amount<input value={amount} type="number" inputMode="decimal" onChange={(e) => setAmount(e.target.value)} className={inputClass} /></label>
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Currency<input value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputClass} /></label>
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Start date<input value={startDate} type="date" onChange={(e) => setStartDate(e.target.value)} className={inputClass} /></label>
           <div className="flex gap-2 sm:col-span-2">

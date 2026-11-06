@@ -1,0 +1,129 @@
+{
+  "date": "2026-10-30",
+  "runStartedAt": "2026-10-30T11:44:02.349Z",
+  "mock": {
+    "index": 4,
+    "poolSize": 8,
+    "id": "banff-mountain",
+    "destination": "Banff",
+    "kind": "mountain town",
+    "days": 4,
+    "startDate": "2026-11-01",
+    "endDate": "2026-11-04"
+  },
+  "request": {
+    "wordCount": 107,
+    "source": "generated-for-location",
+    "text": "We are a couple who love the mountains but not early alarms for a slow four day break. Please keep every day gentle, with no starts before ten and one full rest afternoon in the middle. We need a room with an elevator in the building and gentle paths only, as my knee cannot handle steep hikes. I am dairy free and my partner is vegetarian, so please favor restaurants with clear plant based options. Keep the total budget under one thousand five hundred dollars, avoid long walks between stops, and also include the gondola ride up Sulphur Mountain and an afternoon at the hot springs please."
+  },
+  "tripId": "3843e435-999b-4917-9b0a-4bc316ddebca",
+  "legs": [
+    {
+      "leg": "sign-in",
+      "status": "DONE",
+      "detail": "stored credential signed in as daily.checks@roamlyhq.com (user 2d199836-53a4-4210-b9f4-334d01efdfb2)"
+    },
+    {
+      "leg": "trip-create",
+      "status": "DONE",
+      "detail": "mock trip 3843e435-999b-4917-9b0a-4bc316ddebca created (Banff, 2026-11-01 -> 2026-11-04)"
+    },
+    {
+      "leg": "generation",
+      "status": "DONE",
+      "detail": "itinerary generation completed for trip 3843e435-999b-4917-9b0a-4bc316ddebca"
+    },
+    {
+      "leg": "qa-checkout",
+      "status": "DONE",
+      "detail": "tracking checkout returned tester=true, alreadyActivated=true (no Stripe session)"
+    },
+    {
+      "leg": "companion-unlock",
+      "status": "DONE",
+      "detail": "companion unlocked with source=admin; free_itinerary_used_at still null"
+    },
+    {
+      "leg": "request:stored-with-plan",
+      "status": "DONE",
+      "detail": "the exact request text is stored at trip.metadata.planning.specialNotes"
+    },
+    {
+      "leg": "request:reached-generation",
+      "status": "DONE",
+      "detail": "generation consumed the trip's planning record (payloadFromTrip -> staged generator prompts carry specialNotes) and produced a stored itinerary"
+    },
+    {
+      "leg": "request:earliest-start",
+      "status": "DONE",
+      "detail": "all 35 timed activities start at or after 10:00"
+    },
+    {
+      "leg": "request:rest-block",
+      "status": "DONE",
+      "detail": "middle day (day 3) exposes a rest block: \"Rest afternoon — nothing booked\""
+    },
+    {
+      "leg": "request:keyword-gondola",
+      "status": "NOT DONE",
+      "detail": "nothing in the itinerary matches gondola ride up Sulphur Mountain (patterns: gondola)"
+    },
+    {
+      "leg": "request:keyword-hot-springs",
+      "status": "DONE",
+      "detail": "itinerary mentions \"hot springs\" (hot springs afternoon)"
+    },
+    {
+      "leg": "request:budget-cap",
+      "status": "OBSERVATIONAL",
+      "detail": "the itinerary exposes no budget total to compare with the cap"
+    },
+    {
+      "leg": "location-simulate",
+      "status": "DONE",
+      "detail": "simulated location fired at Banff (51.1784, -115.5708); tripActivated=false, nearbyActivities=0"
+    },
+    {
+      "leg": "email:due-stage-events",
+      "status": "DONE",
+      "detail": "7 due scheduled companion events before dispatch 1 (need >= 4 for the burst setup)"
+    },
+    {
+      "leg": "email:run-1-collapse",
+      "status": "DONE",
+      "detail": "dispatcher run 1 produced 1 email row(s) for the trip (expected exactly 1 — the burst collapsed)"
+    },
+    {
+      "leg": "email:one-email-per-event",
+      "status": "DONE",
+      "detail": "cumulative dispatcher email rows after runs 1-5: 1 -> 2 -> 3 -> 3 -> 3; 3 distinct event(s) carry emailSentAt (expected: non-decreasing totals, final total == emailed-event count, exactly one row per emailed event)"
+    },
+    {
+      "leg": "email:single-emailed-event",
+      "status": "NOT DONE",
+      "detail": "3 events carry emailSentAt (expected exactly 1)"
+    },
+    {
+      "leg": "email:siblings-collapsed",
+      "status": "DONE",
+      "detail": "every non-emailed scheduled sibling is marked emailCollapsed"
+    },
+    {
+      "leg": "email:push-keeps-retrying",
+      "status": "NOT DONE",
+      "detail": "no emailed event identified"
+    },
+    {
+      "leg": "email:capture-purity",
+      "status": "DONE",
+      "detail": "3 dispatcher email row(s) for the trip (4 total incl. generation email), 0 not pure capture-to-test-address (expected 3 dispatcher row(s) — one per emailed event — all rows provider=capture, status=captured, local_capture=true, to=daily.checks@roamlyhq.com)"
+    },
+    {
+      "leg": "email:no-other-recipient",
+      "status": "DONE",
+      "detail": "zero email rows to any other recipient for the test user during the run"
+    }
+  ],
+  "emailTotals": 4,
+  "result": "FAIL"
+}

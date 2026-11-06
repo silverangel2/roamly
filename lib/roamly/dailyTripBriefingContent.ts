@@ -1,5 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
+import { briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
 
 export type DailyTripBooking = {
   id: string;
@@ -12,6 +13,16 @@ export type DailyTripBooking = {
   origin?: string | null;
   destination?: string | null;
   traveler_confirmed?: boolean | null;
+  // Round 3 (Lane T): evidence fields so the briefing grades each
+  // booking with the ONE booking-truth rule instead of flag+status.
+  confirmation_number?: string | null;
+  provider_booking_id?: string | null;
+  source_type?: string | null;
+  source_reference?: string | null;
+  superseded_by_booking_id?: string | null;
+  is_test_booking?: boolean | null;
+  metadata?: Record<string, unknown> | null;
+  reservation_requirements?: Record<string, unknown> | null;
 };
 
 export type DailyTripActivity = {
@@ -80,8 +91,21 @@ export function dailyTripWindow(params: {
   };
 }
 
+// Round 3 (Lane T): a booking belongs in a briefing's booked lists
+// only when the ONE booking-truth rule grades it confirmed
+// (provider confirmation evidence) or traveler_confirmed
+// ("Confirmed by you") — flag+status alone no longer suffices, and
+// each rendered label carries its provenance note.
+function briefingBookingIncluded(booking: { booking_status?: string | null; traveler_confirmed?: boolean | null }): boolean {
+  const state = briefingBookingState(booking as Record<string, unknown>);
+  return state === "confirmed" || state === "traveler_confirmed";
+}
+function briefingProvenanceNote(booking: { booking_status?: string | null; traveler_confirmed?: boolean | null }): string {
+  return briefingBookingState(booking as Record<string, unknown>) === "confirmed" ? briefingProvenanceSuffix(booking as Record<string, unknown>) : "confirmed by you";
+}
+
 function confirmed(booking: DailyTripBooking) {
-  return booking.traveler_confirmed === true && ["booked", "paid", "reserved", "confirmed", "modified"].includes(clean(booking.booking_status));
+  return briefingBookingIncluded(booking);
 }
 
 function bookingTime(booking: DailyTripBooking) {
@@ -94,9 +118,9 @@ function labelTime(value: string | null | undefined, timezone: string, locale: R
 }
 
 function bookingLabel(booking: DailyTripBooking, timezone: string, locale: RoamlyLocale) {
-  const name = clean(booking.title) || clean(booking.provider_name) || clean(booking.booking_type) || msg(locale, "confirmed");
+  const name = clean(booking.title) || clean(booking.provider_name) || clean(booking.booking_type) || "Booking";
   const route = [clean(booking.origin), clean(booking.destination)].filter(Boolean).join(" to ");
-  return [name, route, labelTime(booking.start_at || booking.check_in_at, timezone, locale)].filter(Boolean).join(" · ");
+  return [name, route, labelTime(booking.start_at || booking.check_in_at, timezone, locale), briefingProvenanceNote(booking)].filter(Boolean).join(" · ");
 }
 
 export function findFirstDailyEvent(params: { date: Date; timezone: string; bookings: DailyTripBooking[]; activities: DailyTripActivity[] }) {
@@ -144,7 +168,7 @@ export function buildDailyTripBriefingContent(input: {
   const stay = confirmedBookings.filter((booking) => ["hotel", "accommodation", "lodging", "stay"].includes(clean(booking.booking_type))).slice(0, 1).map((booking) => bookingLabel(booking, input.timezone, locale));
   const firstLabel = first ? [clean(first.title) || msg(locale, "todayPlan"), labelTime(first.scheduled_start, input.timezone, locale), clean(first.address)].filter(Boolean).join(" · ") : "";
   const mustDo = clean(input.mustDo);
-  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || msg(locale, "confirmed")} ${msg(locale, "bookingAttention")}`);
+  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
   const body = [
     msg(locale, upcomingActivities.length || confirmedBookings.length ? "todayBusy" : "todayOpen", { destination }),

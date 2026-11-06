@@ -21,10 +21,28 @@ try {
     const response = await page.goto(`${baseUrl}/finds`, { waitUntil: "networkidle" });
     if (!response || response.status() !== 200) throw new Error(`${viewport.name}: Finds did not load: ${response?.status()}`);
     const bodyText = await page.locator("body").innerText();
-    for (const phrase of ["Build your next trip", "Search stays, flights and experiences", "finds-live-options"]) {
+    for (const phrase of ["Build your next trip", "Search stays, flights and experiences"]) {
       if (bodyText.includes(phrase)) throw new Error(`${viewport.name}: retired Finds control rendered: ${phrase}`);
     }
-    if (await page.locator("form, input").count()) throw new Error(`${viewport.name}: retired native search form rendered`);
+    // RE-PIN (A19, Jakob's Law round, 2026-11-03): the old pin ("no
+    // native search form may render") encoded the pre-A19 editorial-only
+    // surface. A19 orders a persistent search entry at the top of Deals
+    // routing into the existing live tools, so the pin now asserts that
+    // entry exists exactly once, carries one search field and the three
+    // category controls, and sits above the editorial shelves — equal
+    // strictness, new ordered behaviour.
+    if (await page.locator("#finds-search").count() !== 1) throw new Error(`${viewport.name}: persistent Deals search entry is missing`);
+    if (await page.locator('#finds-search input[name="findsQuery"]').count() !== 1) throw new Error(`${viewport.name}: Deals search field is missing`);
+    for (const label of ["Stays", "Flights", "Things to do"]) {
+      if (await page.locator("#finds-search").getByRole("button", { name: label, exact: true }).count() !== 1) throw new Error(`${viewport.name}: Deals search category is missing: ${label}`);
+    }
+    const searchBeforeShelves = await page.evaluate(() => {
+      const search = document.querySelector("#finds-search");
+      const shelves = document.querySelector("#worth-packing");
+      if (!search || !shelves) return false;
+      return Boolean(search.compareDocumentPosition(shelves) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    if (!searchBeforeShelves) throw new Error(`${viewport.name}: Deals search entry must sit above the editorial shelves`);
 
     const quickBook = page.getByRole("navigation", { name: "Quick Book" });
     for (const label of ["Stay", "Flights", "Activities", "Gear", "eSIM"]) {

@@ -1,6 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { readGmailGateView } from "@/lib/roamly/gateService";
 import { gmailSyncFailureNeedsReconnect, isGmailSyncPersistentlyFailing } from "@/lib/roamly/emailSyncHealth";
+import { readPushSubscriptionStatus } from "@/lib/roamly/liveStatus";
 
 /*
  * Roamly setup state — the cascade behind "everything works"
@@ -19,12 +20,23 @@ import { gmailSyncFailureNeedsReconnect, isGmailSyncPersistentlyFailing } from "
  * design: the GRANT (recorded in roamly_location_settings
  * .last_permission_state) and the current ON/OFF switch
  * (location_tracking_enabled).
+ *
+ * Alerts (2026-10-31, L9): step 2's promise — "Roamly can reach you" —
+ * is a push SUBSCRIPTION fact, not an install fact. This state carries
+ * it as a read-back from roamly_push_subscriptions (via
+ * lib/roamly/liveStatus.ts): notificationsSubscribed is the current
+ * truth, alertsOnce the remembered completion. Install state never
+ * feeds either field.
  */
 
 export interface RoamlySetupMemory {
   gmail?: boolean;
   app?: boolean;
   location?: boolean;
+  /** Alerts verified once by server read-back (a subscription row
+   *  existed for this account — see the "alerts" completion step).
+   *  Install alone never sets this: L9 (2026-10-31). */
+  alerts?: boolean;
 }
 
 export interface RoamlySetupState {
@@ -52,6 +64,13 @@ export interface RoamlySetupState {
   locationOnce: boolean;
   /** The persisted location on/off switch. */
   locationEnabled: boolean;
+  /** Alerts completed at least once, on read-back evidence only. */
+  alertsOnce: boolean;
+  /** READ BACK from roamly_push_subscriptions right now (enabled row
+   *  for this account) — never inferred from install state. */
+  notificationsSubscribed: boolean;
+  /** The server's reason when not subscribed; null when subscribed. */
+  notificationsReason: string | null;
   /** All three steps completed at least once — no gate ever renders. */
   complete: boolean;
 }
@@ -63,7 +82,8 @@ export function setupMemoryFromUser(user: User | null | undefined): RoamlySetupM
   return {
     gmail: mem.gmail === true,
     app: mem.app === true,
-    location: mem.location === true
+    location: mem.location === true,
+    alerts: mem.alerts === true
   };
 }
 
@@ -72,13 +92,14 @@ export async function getRoamlySetupState(
   user: User
 ): Promise<RoamlySetupState> {
   const memory = setupMemoryFromUser(user);
-  const [gmailView, locationResult] = await Promise.all([
+  const [gmailView, locationResult, pushStatus] = await Promise.all([
     readGmailGateView(supabase, user.id).catch(() => null),
     supabase
       .from("roamly_location_settings")
       .select("location_tracking_enabled,last_permission_state")
       .eq("user_id", user.id)
-      .maybeSingle()
+      .maybeSingle(),
+    readPushSubscriptionStatus(supabase, user.id).catch(() => null)
   ]);
 
   const gmailConnected =
@@ -97,6 +118,11 @@ export async function getRoamlySetupState(
   const locationOnce = Boolean(memory.location) || locationGranted;
   const locationEnabled = locationRow?.location_tracking_enabled === true;
   const appInstalledOnce = Boolean(memory.app);
+  // Alerts read-back (L9): a failed read proves nothing, so it reports
+  // not subscribed with the server's reason — never "subscribed".
+  const notificationsSubscribed = pushStatus?.subscribed === true;
+  const notificationsReason = notificationsSubscribed ? null : pushStatus?.reason || "No push subscription found.";
+  const alertsOnce = Boolean(memory.alerts) || notificationsSubscribed;
 
   // Autosync: persistent-failure flags are display only. They are computed
   // from the gate view's raw row fields and never feed gmailConnected,
@@ -116,6 +142,9 @@ export async function getRoamlySetupState(
     locationGranted,
     locationOnce,
     locationEnabled,
+    alertsOnce,
+    notificationsSubscribed,
+    notificationsReason,
     complete: gmailOnce && appInstalledOnce && locationOnce
   };
 }

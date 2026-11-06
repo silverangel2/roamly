@@ -25,7 +25,8 @@ check("timeline renders leg lines under the route", timeline.includes("segmentLi
 check("timeline renders leg lines for the next booking", timeline.includes("segmentLines(next, locale)"));
 
 const form = read("components/plan/TripPlanForm.tsx");
-check("interest hint matches the at-least-one rule", form.includes("Pick at least one interest to shape your days."));
+check("interest hint states interests are optional (Jakob A12)", form.includes("Interests are optional — pick any that fit, or leave them empty and Roamly balances your days."));
+check("mandatory-interest hint is gone (Jakob A12)", !form.includes("Pick at least one interest to shape your days.")); // RE-PIN (Jakob A12, 2026-11-03): was "interest hint matches the at-least-one rule" — interests no longer gate the plan; the hint now states the optional rule.
 check("old contradictory hint is gone", !form.includes("Interests stay empty until you choose them."));
 check("price notice suppressed while the price panel shows the same text", form.includes('!(priceChecking && notice === "Checking trip costs...")'));
 check("other notices still render", form.includes("translateText(notice)"));

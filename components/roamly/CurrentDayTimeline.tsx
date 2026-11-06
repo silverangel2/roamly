@@ -1,13 +1,22 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { BuiChip } from "@/components/boardui/Badge";
+import type { BuiTone } from "@/components/boardui/tokens";
 import type { TrackingActivity, TrackingDay } from "@/lib/roamly/tripActivation";
 import { isTravelLeg, presentDayHeading, presentTrackingActivityDetail, presentTrackingActivityTitle, type TrackingPresentation } from "@/lib/roamly/itineraryPresentation";
 
-function statusClass(status: string) {
-  if (status === "completed" || status === "checked_in") return "bg-cblue/10 text-cblue";
-  if (status === "nearby") return "bg-sun/20 text-amber-700";
-  return "bg-[rgba(31,45,77,0.08)] text-cgray";
+function statusTone(status: string): BuiTone {
+  if (status === "completed" || status === "checked_in") return "primary";
+  if (status === "nearby") return "warm";
+  return "neutral";
+}
+
+function statusDotClass(status: string) {
+  if (status === "completed" || status === "checked_in") return "bg-cblue";
+  if (status === "nearby") return "bg-corange";
+  return "bg-cgray2";
 }
 
 export function CurrentDayTimeline({
@@ -40,7 +49,7 @@ export function CurrentDayTimeline({
   const dayHeading = day?.title ? presentDayHeading({ title: day.title, ...presentation }) : null;
   const dayHeadings = dayHeading && dayHeading.headings.length ? dayHeading.headings : [dayFallback];
   return (
-    <section className="rounded-[14px] bg-white p-4 shadow-calm">
+    <section className="bui-enter rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
       <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{tripStarted ? t("ui.status.currentDay") : "Planned"}</p>
       {dayHeadings.map((heading, index) => (
         index === 0
@@ -56,11 +65,17 @@ export function CurrentDayTimeline({
       {day?.summary ? <p className="mt-1.5 text-sm font-normal leading-6 text-cgray">{presentTrackingActivityDetail(day.summary, presentation?.suppressFlightFraming, presentation?.destination)}</p> : null}
       <div className="mt-3 divide-y divide-chair">
         {activities.length ? (
-          activities.map((activity) => {
+          activities.map((activity, index) => {
             // Round 2: badge text AND badge color follow the same downgrade.
             const displayStatus = activity.status === "nearby" && !locationVerified ? "planned" : activity.status;
             return (
-            <div key={activity.id} className="py-4 first:pt-3 last:pb-3">
+            <div
+              key={activity.id}
+              className="bui-enter relative py-4 pl-6 first:pt-3 last:pb-3"
+              style={{ "--bui-delay": `${index * 70}ms` } as CSSProperties}
+            >
+              <span aria-hidden className="absolute bottom-0 left-[5px] top-0 w-px bg-chair" />
+              <span aria-hidden className={`absolute left-0 top-6 h-[11px] w-[11px] rounded-full border-2 border-white ${statusDotClass(displayStatus)}`} />
               <div className="flex items-start justify-between gap-3">
                 <div>
                   {isTravelLeg({ title: activity.title, category: activity.category }) ? (
@@ -69,9 +84,9 @@ export function CurrentDayTimeline({
                   <h3 className="text-[17px] font-semibold leading-snug text-chead">{presentTrackingActivityTitle({ title: activity.title, city: activity.city, address: activity.address, category: activity.category, ...presentation })}</h3>
                   <p className="mt-0.5 text-sm font-normal leading-5 text-cgray">{presentTrackingActivityDetail(activity.description, presentation?.suppressFlightFraming, presentation?.destination)}</p>
                 </div>
-                <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${statusClass(displayStatus)}`}>
+                <BuiChip tone={statusTone(displayStatus)} className="shrink-0">
                   {displayStatus.replace("_", " ")}
-                </span>
+                </BuiChip>
               </div>
             </div>
             );

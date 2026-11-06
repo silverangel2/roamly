@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import { PlaceDetailPanel } from "@/components/roamly/PlaceDetailPanel";
 import {
   buildPlaceDetail,
@@ -7,7 +8,8 @@ import {
   isUsablePlaceTitle,
   itemCoordinates,
   resolvePlaceInItinerary,
-  type PlaceDayInput
+  type PlaceDayInput,
+  type PlaceDetailPhotoInput
 } from "@/lib/roamly/placeDetail";
 import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
 import { getTripDestinationLabel, getTripOriginLabel } from "@/lib/roamly/tripMetadata";
@@ -55,14 +57,28 @@ type PlacePageProps = {
 
 function notFoundPanel(tripId: string, heading: string, body: string) {
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-10 pt-5 sm:px-6">
+    <div className="bui-enter mx-auto w-full max-w-2xl px-4 pb-10 pt-5 sm:px-6">
       <a href={`/trip/${tripId}`} className="text-[15px] font-medium text-cblue">
-        <span aria-hidden="true">‹ </span>Itinerary
+        <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="inline-block align-[-2px]" /> Itinerary
       </a>
       <h1 className="mt-4 text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">{heading}</h1>
       <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">{body}</p>
     </div>
   );
+}
+
+/** The itinerary seed's pack OSM key ("node/123" | "way/123" |
+ *  "relation/123"), when the engine stamped one: generate.ts
+ *  engineItemToSeed stores the solver key as `candidateId` (the pack
+ *  osmKey), so an engine-planned stop reaches the photo pipeline
+ *  with its own OSM element id for the Tier 2 tag lookup. Items
+ *  without one (AI-authored, bookings) yield null and Tier 2 stays
+ *  off for them. */
+function osmIdForItem(record: Record<string, unknown>): string | null {
+  const raw = record.candidateId;
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  return /^(node|way|relation)\/\d+$/.test(value) ? value : null;
 }
 
 export default async function TripPlaceDetailPage({ params }: PlacePageProps) {
@@ -136,11 +152,17 @@ export default async function TripPlaceDetailPage({ params }: PlacePageProps) {
   // stays bare, honestly, and any returned photo is verified
   // against the place before it is called done.
   const coords = itemCoordinates(item as unknown as Record<string, unknown>);
+  // Fallback-chain inputs already in scope on this page: the trip's
+  // destination label (context gates) and the stop's own OSM key
+  // (Tier 2), when the seed carries one.
+  const photoContextLabel = destination !== "Your trip" ? destination : null;
   const photo = await getDestinationPhoto({
     label: String((item as { title?: unknown }).title || ""),
     country: trip.destination_country ?? null,
     latitude: coords?.latitude ?? null,
-    longitude: coords?.longitude ?? null
+    longitude: coords?.longitude ?? null,
+    osmId: osmIdForItem(item as unknown as Record<string, unknown>),
+    contextLabel: photoContextLabel
   }).catch(() => null);
 
   // Nearby sibling photos (Picture 6 shows two cards): the SAME
@@ -168,18 +190,21 @@ export default async function TripPlaceDetailPage({ params }: PlacePageProps) {
         label: String(sibling.item.title || ""),
         country: trip.destination_country ?? null,
         latitude: siblingCoords.latitude,
-        longitude: siblingCoords.longitude
+        longitude: siblingCoords.longitude,
+        osmId: osmIdForItem(sibling.item),
+        contextLabel: photoContextLabel
       }).catch(() => null);
       return [sibling.id, siblingPhoto] as const;
     })
   );
-  const siblingPhotos: Record<string, { imageUrl: string; credit: string | null; pageUrl: string | null }> = {};
+  const siblingPhotos: Record<string, PlaceDetailPhotoInput> = {};
   for (const [siblingId, siblingPhoto] of nearbyPhotoEntries) {
     if (siblingPhoto) {
       siblingPhotos[siblingId] = {
         imageUrl: siblingPhoto.imageUrl,
         credit: siblingPhoto.credit,
-        pageUrl: siblingPhoto.pageUrl
+        pageUrl: siblingPhoto.pageUrl,
+        source: siblingPhoto.source
       };
     }
   }
@@ -196,7 +221,7 @@ export default async function TripPlaceDetailPage({ params }: PlacePageProps) {
     },
     tripTips: Array.isArray(itinerary.local_tips) ? itinerary.local_tips : [],
     confirmedBookings: bookings,
-    photo: photo ? { imageUrl: photo.imageUrl, credit: photo.credit, pageUrl: photo.pageUrl } : null,
+    photo: photo ? { imageUrl: photo.imageUrl, credit: photo.credit, pageUrl: photo.pageUrl, source: photo.source } : null,
     siblingPhotos
   });
 

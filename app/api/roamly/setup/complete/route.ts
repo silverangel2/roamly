@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
 import { readGmailGateView } from "@/lib/roamly/gateService";
 import { getRoamlySetupState, setupMemoryFromUser } from "@/lib/roamly/setupState";
+import { readPushSubscriptionStatus } from "@/lib/roamly/liveStatus";
 
 /*
  * Records a setup step as completed — once, remembered forever
@@ -17,12 +18,17 @@ import { getRoamlySetupState, setupMemoryFromUser } from "@/lib/roamly/setupStat
  *              pipeline moments ago (last_seen_at), proving the
  *              browser grant exists; the grant is then recorded in
  *              roamly_location_settings.last_permission_state.
+ *  - alerts:   an enabled roamly_push_subscriptions row exists for
+ *              this account, READ BACK server-side (L9, 2026-10-31).
+ *              Install state and the client's own claim are never
+ *              accepted — "Installed ✓" with zero rows is exactly
+ *              the failure this step exists to refuse.
  *
  * The memory lives on the account (user_metadata.roamly_setup), never
  * on a trip.
  */
 
-const STEPS = new Set(["gmail", "app", "location"]);
+const STEPS = new Set(["gmail", "app", "location", "alerts"]);
 
 export async function POST(request: NextRequest) {
   const auth = await requireUser();
@@ -48,6 +54,16 @@ export async function POST(request: NextRequest) {
     if (body.evidence !== "standalone") {
       return NextResponse.json(
         { ok: false, error: "Install is recorded only when Roamly is opened from the home screen or its app window." },
+        { status: 409 }
+      );
+    }
+  }
+
+  if (step === "alerts") {
+    const pushStatus = await readPushSubscriptionStatus(auth.supabase, auth.user.id).catch(() => null);
+    if (!pushStatus?.subscribed) {
+      return NextResponse.json(
+        { ok: false, error: pushStatus?.reason || "No push subscription found." },
         { status: 409 }
       );
     }

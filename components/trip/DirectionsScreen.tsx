@@ -57,7 +57,10 @@ export type DirectionsScreenProps = {
    *  no strip element at all, never a broken or mock image. */
   photo?: DirectionsScreenPhoto | null;
   /** Where the back chevron returns: the entry page that linked
-   *  here (live companion or place detail). */
+   *  here (place detail, live companion, or the trip home). The
+   *  server page resolves it with resolveDirectionsBackHref (A27):
+   *  the passed origin is honoured and the default fallback is the
+   *  trip home (itinerary), never Live. */
   backHref: string;
   /** Display-only unverified flag, threaded to the panel (see its
    *  prop comment): the panel shows "Unverified stop", never the

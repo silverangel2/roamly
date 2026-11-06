@@ -67,16 +67,16 @@
           "COSTED": 13
         },
         "totals": {
-          "low": 288,
-          "high": 672,
+          "low": 294,
+          "high": 690,
           "currency": "CAD"
         },
         "cap": {
           "amount": 1200,
           "currency": "CAD",
-          "verdict": "WITHIN — even the top of the estimated range (CAD 672) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+          "verdict": "WITHIN — even the top of the estimated range (CAD 690) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
         },
-        "reason": "even the top of the estimated range (CAD 672) sits under the cap (CAD 1200)"
+        "reason": "even the top of the estimated range (CAD 690) sits under the cap (CAD 1200)"
       },
       {
         "trip": "pacing-quebec-14d (judged under quebec-city-family parameters)",

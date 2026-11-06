@@ -73,7 +73,7 @@ assert.ok(
 // 5. The bookings panel content is present (not just the tab).
 assert.ok(src.includes('className="roamly-tab-panel roamly-panel-bookings'), "bookings panel section must exist");
 assert.ok(src.includes('id="bookings"'), "bookings panel must carry id=bookings");
-assert.ok(src.includes("Confirmed bookings and imports"), "bookings panel must still contain the wallet details block");
+assert.ok(src.includes("Bookings and imports"), "bookings panel must still contain the wallet details block");
 
 // 6. Exactly one Bookings label value in the nav list (no duplicate tab).
 //    Note: panelTabs legitimately holds its own Bookings entry (the radio

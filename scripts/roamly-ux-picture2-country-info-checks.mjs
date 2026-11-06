@@ -107,8 +107,10 @@ check("header: back chevron link to this trip + COUNTRY INFO eyebrow", "STATIC",
   component.includes('aria-label="Back to itinerary"') &&
   component.includes("href={model.itineraryHref}") &&
   component.includes(">COUNTRY INFO<"));
-check("header: bookmark + ellipsis icons present", "STATIC",
-  component.includes("BookmarkIcon") && component.includes("•••"));
+check("header: dead bookmark + ellipsis icons removed; back target is 44px with a visible label (Jakob A7 + A2, 2026-11-03)", "STATIC",
+  !component.includes("Bookmark") && !component.includes("Ellipsis") &&
+  component.includes("min-h-11") && component.includes("min-w-11") &&
+  component.includes(">Itinerary<"));
 check("header: no From-origin line on this screen", "STATIC",
   !component.includes("From {model.originLabel}") &&
   !component.includes("model.originLabel"));

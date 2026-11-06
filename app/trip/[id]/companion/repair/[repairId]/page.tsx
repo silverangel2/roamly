@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { ArrowRight } from "lucide-react";
+import type { CSSProperties } from "react";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BackHeader } from "@/components/roamly/BackHeader";
 import { RepairReviewActions } from "@/components/trip/RepairReviewActions";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getTripBundle } from "@/lib/trips";
@@ -107,9 +110,12 @@ export default async function RepairReviewPage({ params }: PageParams) {
 
   return (
     <div className="safe-bottom mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <section className="rounded-[2rem] border border-cyan-100 bg-[linear-gradient(135deg,#ecfeff_0%,#ffffff_56%,#fff7ed_100%)] p-5 text-ink shadow-soft sm:p-7">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-700">Trip repair review</p>
-        <h1 className="mt-3 text-3xl font-black tracking-tight text-ink sm:text-4xl">
+      <div className="mb-4">
+        <BackHeader href={`/trip/${id}`} label="Trip" />
+      </div>
+      <section className="bui-enter overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#E6EFFA_52%,#FFF0E6)] p-5 text-chead shadow-bui-hero sm:p-7">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Trip repair review</p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-chead sm:text-4xl">
           {decided
             ? status === "applied"
               ? "Your plan was updated."
@@ -118,7 +124,7 @@ export default async function RepairReviewPage({ params }: PageParams) {
                 : "This repair could not be applied."
             : "Your flight time changed."}
         </h1>
-        <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
+        <p className="mt-3 text-sm font-bold leading-6 text-cink">
           {eventTitle || "Roamly detected a flight schedule change."}{" "}
           {eventSummary ||
             "Times below come from the airline's updated schedule — Roamly never invents new times."}
@@ -126,23 +132,23 @@ export default async function RepairReviewPage({ params }: PageParams) {
       </section>
 
       {!proposal ? (
-        <Card>
-          <h2 className="text-2xl font-black text-ink">Repair not found.</h2>
-          <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+        <BuiCard className="bui-enter mt-5 p-5">
+          <h2 className="text-2xl font-black text-chead">Repair not found.</h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-cink">
             This repair proposal does not exist or belongs to another trip.
           </p>
           <div className="mt-5">
-            <Button href={`/trip/${id}/live`}>Open live trip</Button>
+            <BuiButtonLink href={`/trip/${id}/live`}>Open live trip</BuiButtonLink>
           </div>
-        </Card>
+        </BuiCard>
       ) : (
         <section className="mt-5">
-          <Card>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+          <BuiCard className="bui-enter p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
               Proposed timing changes
             </p>
             {shifts.length === 0 ? (
-              <p className="mt-3 text-sm font-bold text-slate-600">
+              <p className="mt-3 text-sm font-bold text-cink">
                 No timing shifts are attached to this proposal.
               </p>
             ) : (
@@ -150,20 +156,21 @@ export default async function RepairReviewPage({ params }: PageParams) {
                 {shifts.map((shift, index) => (
                   <li
                     key={`${shift.title}-${index}`}
-                    className="rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm"
+                    className="bui-enter rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card"
+                    style={{ "--bui-delay": `${Math.min(index * 60, 240)}ms` } as CSSProperties}
                   >
-                    <p className="text-sm font-black text-ink">{shift.title}</p>
+                    <p className="text-sm font-black text-chead">{shift.title}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                      <span className="rounded-lg bg-slate-100 px-2.5 py-1 font-bold text-slate-500 line-through">
+                      <span className="bui-display-number rounded-lg bg-cbg px-2.5 py-1 font-bold text-cgray line-through">
                         {clockOf(shift.beforeStart)}
                         {shift.beforeEnd ? `–${clockOf(shift.beforeEnd)}` : ""}
                       </span>
-                      <span aria-hidden className="font-black text-ocean">→</span>
-                      <span className="rounded-lg bg-ocean/10 px-2.5 py-1 font-black text-ocean">
+                      <ArrowRight aria-hidden="true" size={16} strokeWidth={2.5} className="text-ocean" />
+                      <span className="bui-display-number rounded-lg bg-csoft px-2.5 py-1 font-black text-cnavy">
                         {clockOf(shift.afterStart)}
                         {shift.afterEnd ? `–${clockOf(shift.afterEnd)}` : ""}
                       </span>
-                      <span className="text-xs font-black uppercase tracking-wide text-slate-400">
+                      <span className="bui-display-number text-xs font-black uppercase tracking-wide text-cgray2">
                         {shift.shiftMinutes !== 0
                           ? `${Math.abs(shift.shiftMinutes)} min ${shiftDirection(shift.shiftMinutes)}`
                           : ""}
@@ -174,7 +181,7 @@ export default async function RepairReviewPage({ params }: PageParams) {
                 ))}
               </ul>
             )}
-            <p className="mt-4 text-xs font-bold leading-5 text-slate-500">
+            <p className="mt-4 text-xs font-bold leading-5 text-cgray">
               Only the airline&apos;s validated schedule change is applied —{" "}
               {shiftMinutes !== 0
                 ? `a ${Math.abs(shiftMinutes)}-minute shift ${shiftDirection(shiftMinutes)}`
@@ -184,12 +191,12 @@ export default async function RepairReviewPage({ params }: PageParams) {
 
             {decided ? (
               <div className="mt-5">
-                <Button href={`/trip/${id}/live`}>Open live trip</Button>
+                <BuiButtonLink href={`/trip/${id}/live`}>Open live trip</BuiButtonLink>
               </div>
             ) : (
               <RepairReviewActions tripId={id} repairId={repairId} />
             )}
-          </Card>
+          </BuiCard>
         </section>
       )}
     </div>

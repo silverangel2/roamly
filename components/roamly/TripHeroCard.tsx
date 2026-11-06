@@ -22,6 +22,8 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { Calendar } from "lucide-react";
+import { BuiChip } from "@/components/boardui/Badge";
 
 export type TripHeroPhoto = {
   imageUrl: string;
@@ -61,7 +63,7 @@ export function TripHeroCard({
   return (
     <section>
       {showPhoto ? (
-        <figure className="relative overflow-hidden rounded-[18px] shadow-calm">
+        <figure className="bui-enter relative overflow-hidden rounded-bui-panel border border-chair shadow-bui-card">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imgRef}
@@ -78,27 +80,21 @@ export function TripHeroCard({
           <div className="absolute inset-x-0 bottom-0 p-4">
             <p className="text-[22px] font-bold leading-[1.2] text-white">{destination}</p>
             {line ? <p className="mt-0.5 text-[15px] font-normal leading-[1.4] text-white/90">{line}</p> : null}
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#E8F5E9] px-3 py-1 text-[13px] font-semibold text-[#2E7D32]">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <path d="M16 2v4M8 2v4M3 10h18" />
-              </svg>
+            <BuiChip tone="success" className="mt-2">
+              <Calendar size={13} strokeWidth={2.4} aria-hidden="true" />
               {badge}
-            </p>
+            </BuiChip>
           </div>
         </figure>
       ) : (
-        <div data-testid="roamly-photo-fallback" className="rounded-[18px] bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 p-4 shadow-calm">
+        <div data-testid="roamly-photo-fallback" className="bui-enter rounded-bui-panel border border-chair bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 p-4 shadow-bui-card">
           <p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/80">Roamly</p>
           <p className="mt-1 text-[22px] font-bold leading-[1.2] text-white">{destination}</p>
           {line ? <p className="mt-0.5 text-[15px] font-normal leading-[1.4] text-white/90">{line}</p> : null}
-          <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-[#E8F5E9] px-3 py-1 text-[13px] font-semibold text-[#2E7D32]">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M16 2v4M8 2v4M3 10h18" />
-            </svg>
+          <BuiChip tone="success" className="mt-2">
+            <Calendar size={13} strokeWidth={2.4} aria-hidden="true" />
             {badge}
-          </p>
+          </BuiChip>
         </div>
       )}
       {showPhoto && state === "loaded" && photo.credit ? (

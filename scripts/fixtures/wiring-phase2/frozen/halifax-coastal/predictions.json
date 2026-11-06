@@ -12,7 +12,7 @@
       ]
     },
     {
-      "name": "Army Museum",
+      "name": "Maritime Museum of the Atlantic",
       "day": 1,
       "score": 75,
       "reasons": [
@@ -73,7 +73,7 @@
     },
     {
       "day": 1,
-      "item": "Army Museum",
+      "item": "Maritime Museum of the Atlantic",
       "risk": "opening hours not in any data source — door time could differ from the plan",
       "severity": "medium"
     },
@@ -85,25 +85,25 @@
     },
     {
       "day": 2,
-      "item": "Maritime Museum of the Atlantic",
-      "risk": "opening hours not in any data source — door time could differ from the plan",
-      "severity": "medium"
-    },
-    {
-      "day": 2,
       "item": "The Blue Building Gallery",
       "risk": "opening hours not in any data source — door time could differ from the plan",
       "severity": "medium"
     },
     {
       "day": 3,
-      "item": "Garrison Grounds",
+      "item": "Salt Yard",
       "risk": "opening hours not in any data source — door time could differ from the plan",
       "severity": "medium"
     },
     {
       "day": 4,
-      "item": "Salt Yard",
+      "item": "Halifax Town Clock",
+      "risk": "opening hours not in any data source — door time could differ from the plan",
+      "severity": "medium"
+    },
+    {
+      "day": 4,
+      "item": "Royal Artillery Park",
       "risk": "opening hours not in any data source — door time could differ from the plan",
       "severity": "medium"
     },
@@ -139,14 +139,14 @@
     },
     {
       "day": 3,
-      "item": "Garrison Grounds",
-      "risk": "tight turnaround — only 4 min after \"Nova Scotia Museum of Natural History\"",
+      "item": "Grafton Street Park",
+      "risk": "tight turnaround — only 7 min after \"Salt Yard\"",
       "severity": "low"
     },
     {
       "day": 4,
-      "item": "Grafton Street Park",
-      "risk": "tight turnaround — only 7 min after \"Salt Yard\"",
+      "item": "Royal Artillery Park",
+      "risk": "tight turnaround — only 5 min after \"Halifax Town Clock\"",
       "severity": "low"
     },
     {
@@ -158,11 +158,11 @@
   ],
   "budgetPosture": {
     "verdict": "WITHIN",
-    "note": "even the top of the estimated range (CAD 672) sits under the cap (CAD 1200)",
+    "note": "even the top of the estimated range (CAD 690) sits under the cap (CAD 1200)",
     "cap": {
       "amount": 1200,
       "currency": "CAD",
-      "verdict": "WITHIN — even the top of the estimated range (CAD 672) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
+      "verdict": "WITHIN — even the top of the estimated range (CAD 690) sits under the cap (CAD 1200) (scope: all-in — plan-priced items + lodging + getting-there; evidence ESTIMATED unless VERIFIED)"
     },
     "coverage": 0.87,
     "coverageThreshold": 0.5,
@@ -172,8 +172,8 @@
       "COSTED": 13
     },
     "estimatedTotals": {
-      "low": 288,
-      "high": 672,
+      "low": 294,
+      "high": 690,
       "currency": "CAD"
     },
     "payingParty": 2,
@@ -216,26 +216,26 @@
     {
       "day": 1,
       "stops": 6,
-      "walkingKmEstimated": 2.85,
-      "lastEnd": "17:50"
+      "walkingKmEstimated": 3.55,
+      "lastEnd": "17:59"
     },
     {
       "day": 2,
       "stops": 4,
-      "walkingKmEstimated": 3.25,
-      "lastEnd": "15:05"
+      "walkingKmEstimated": 3.01,
+      "lastEnd": "15:02"
     },
     {
       "day": 3,
       "stops": 3,
-      "walkingKmEstimated": 1.89,
+      "walkingKmEstimated": 2.33,
       "lastEnd": "17:03"
     },
     {
       "day": 4,
       "stops": 5,
-      "walkingKmEstimated": 3.42,
-      "lastEnd": "16:09"
+      "walkingKmEstimated": 2.93,
+      "lastEnd": "16:07"
     }
   ],
   "learnContract": "Post-trip verdicts (kept / changed / skipped per item, plus traveler rating) are graded against this record and fed to the production patterns library per CONTRACTS.md — the shadow build defines the intake, it does not rebuild the library."

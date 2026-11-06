@@ -20,8 +20,10 @@ await runMoneyChecks(
       "high",
       "A traveler count that can go to zero produces nonsense itineraries and lost trials.",
       () => {
-        assert.match(form, /ariaLabel="Adults"/, "the Adults input must exist and be labeled for assistive tech");
-        assert.match(form, /type="number" min=\{1\}[^>]*ariaLabel="Adults"/, "the Adults input must not allow values below 1");
+        assert.match(form, /<StepperField label="Adults" value=\{adults\} min=\{1\}/, "the Adults control must exist as a stepper with a floor of 1"); // RE-PIN (Jakob A11, 2026-11-03): was ariaLabel="Adults" on a type="number" input — travellers/rooms are steppers now. The AT guarantees are asserted on the stepper itself, next lines.
+        assert.match(form, /aria-label=\{label\}/, "the stepper count must be labeled for assistive tech");
+        assert.match(form, /aria-label=\{`Decrease \$\{label\.toLowerCase\(\)\}`\}/, "the stepper decrease button must be labeled for assistive tech");
+        assert.match(form, /disabled=\{count <= min\}/, "the stepper must not allow values below its floor (minus disabled at min)");
       }
     ),
     defineMoneyFinding(

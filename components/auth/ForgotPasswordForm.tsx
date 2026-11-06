@@ -4,6 +4,9 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { BuiFieldError, useBuiField } from "@/components/boardui/Field";
 
 const SENT_MESSAGE = "If an account exists for that email, a reset link is on its way.";
 const EMAIL_ERROR_MESSAGE = "Enter a valid email address.";
@@ -20,6 +23,13 @@ export function ForgotPasswordForm() {
   const [busy, setBusy] = useState(false);
   const configured = hasSupabaseConfig();
 
+  /* Form Rules pass (2026-11-03), rules 2 + 3: the email problem is
+     a FIELD problem — validated on blur, re-checked per keystroke
+     once errored, shown in the field's reserved slot. It used to be
+     a form-level string that appeared between the field and the
+     submit button, pushing the button down. */
+  const emailField = useBuiField((value) => (isValidEmail(value.trim()) ? "" : EMAIL_ERROR_MESSAGE));
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -29,12 +39,9 @@ export function ForgotPasswordForm() {
       return;
     }
 
-    const trimmedEmail = email.trim();
+    if (emailField.runValidation(email)) return;
 
-    if (!isValidEmail(trimmedEmail)) {
-      setError(EMAIL_ERROR_MESSAGE);
-      return;
-    }
+    const trimmedEmail = email.trim();
 
     setBusy(true);
 
@@ -55,55 +62,58 @@ export function ForgotPasswordForm() {
 
   if (sent) {
     return (
-      <div className="space-y-4">
-        <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
-          {SENT_MESSAGE}
-        </p>
-        <p className="text-sm font-bold leading-6 text-slate-500">
+      <div className="bui-enter space-y-4">
+        <BuiNotice tone="success" title={SENT_MESSAGE} />
+        <p className="text-sm font-bold leading-6 text-cgray">
           Check your inbox, spam, promotions, or updates. The link expires in 60 minutes.
         </p>
-        <Link
-          href="/login"
-          className="flex w-full items-center justify-center rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:border-ocean hover:text-ocean"
-        >
+        <BuiButtonLink href="/login" variant="secondary" className="w-full">
           Back to login
-        </Link>
+        </BuiButtonLink>
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
-      <label className="block">
-        <span className="text-sm font-black text-ink">Email</span>
+    <form onSubmit={submit} noValidate className="bui-enter space-y-4">
+      {/* noValidate: the form's own blur-first field validation
+          owns error timing (form rules 2 + 3); native bubbles
+          would pre-empt it. */}
+      {/* Rule 3: the one form-level state (not configured) surfaces at
+          the top of the form, never between the field and the button. */}
+      {error ? <BuiNotice tone="error" title={error} /> : null}
+
+      <label key={`forgot-${emailField.shakeKey}`} className={emailField.shakeKey > 0 ? "bui-shake block" : "block"}>
+        <span className="text-sm font-black text-chead">Email</span>
         <input
+          id="forgot-email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            emailField.onChange(event.target.value);
+          }}
+          onBlur={() => emailField.onBlur(email)}
           type="email"
+          inputMode="email"
           autoComplete="email"
           aria-label="Email address"
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+          aria-invalid={emailField.error ? true : undefined}
+          aria-describedby={emailField.error ? "forgot-email-error" : undefined}
+          className={`bui-input mt-2 w-full rounded-2xl border bg-white px-4 py-3 font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${
+            emailField.error ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"
+          }`}
         />
+        <BuiFieldError id="forgot-email-error" message={emailField.error} />
       </label>
 
-      {error ? (
-        <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {error}
-        </p>
-      ) : null}
-
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
-      >
+      <BuiButton type="submit" busy={busy} className="w-full">
         {busy ? "Sending..." : "Send reset link"}
-      </button>
+      </BuiButton>
 
-      <p className="text-center text-sm font-bold text-slate-500">
+      <p className="text-center text-sm font-bold text-cgray">
         <Link
           href="/login"
-          className="inline-flex min-h-11 items-center rounded-full px-2 text-ocean hover:text-ink focus:outline-none focus:ring-4 focus:ring-ocean/15"
+          className="bui-touch inline-flex items-center rounded-full px-2 text-cblue hover:text-chead focus:outline-none focus:ring-4 focus:ring-cblue/15"
         >
           Back to login
         </Link>

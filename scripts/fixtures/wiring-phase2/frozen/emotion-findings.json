@@ -103,7 +103,7 @@
           "day": 4,
           "check": "rushing",
           "severity": "soft",
-          "evidence": "3 legs run at exactly travel pace (worst: 0 min of slack into \"Grafton Street Park\") — the day is a timetable, not a holiday",
+          "evidence": "3 legs run at exactly travel pace (worst: 0 min of slack into \"Royal Artillery Park\") — the day is a timetable, not a holiday",
           "repair": "build 10-minute buffers into the day, or trade the lightest stop for air"
         },
         {

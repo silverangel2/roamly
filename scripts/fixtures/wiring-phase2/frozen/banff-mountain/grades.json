@@ -3,7 +3,7 @@
     {
       "leg": "request:earliest-start",
       "status": "DONE",
-      "detail": "all 14 timed items start at or after 10:00"
+      "detail": "all 15 timed items start at or after 10:00"
     },
     {
       "leg": "request:rest-block",
@@ -17,8 +17,8 @@
     },
     {
       "leg": "request:keyword-hot-springs",
-      "status": "VIOLATED",
-      "detail": "nothing in the itinerary matches hot springs afternoon"
+      "status": "DONE",
+      "detail": "itinerary mentions \"hot springs\" (hot springs afternoon)"
     },
     {
       "leg": "request:no-repeat",
@@ -43,12 +43,12 @@
     {
       "leg": "prices:budget",
       "status": "DONE",
-      "detail": "WITHIN — evidence covers 10/12 all-in scope lines (83%): 10 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 244–586 vs cap CAD 1500; tiers {\"COSTED\":10}"
+      "detail": "WITHIN — evidence covers 11/13 all-in scope lines (85%): 11 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 274–656 vs cap CAD 1500; tiers {\"COSTED\":11}"
     },
     {
       "leg": "engine:must-sees",
       "status": "NOT DONE",
-      "detail": "gondola ride up Sulphur Mountain: unmet; hot springs afternoon: unmet"
+      "detail": "gondola ride up Sulphur Mountain: unmet; hot springs afternoon: scheduled (day 1)"
     },
     {
       "leg": "engine:extractor-agreement",
@@ -92,7 +92,7 @@
     {
       "id": "earliest-start",
       "verdict": "KEPT",
-      "evidence": "all 14 timed items start at or after 10:00"
+      "evidence": "all 15 timed items start at or after 10:00"
     },
     {
       "id": "rest-block",
@@ -106,8 +106,8 @@
     },
     {
       "id": "keyword-hot-springs",
-      "verdict": "VIOLATED",
-      "evidence": "nothing in the itinerary matches hot springs afternoon"
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"hot springs\" (hot springs afternoon)"
     },
     {
       "id": "no-repeat",
@@ -133,6 +133,7 @@
       "day 1: \"Brandon T. Brown Wilderness Gallery\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Whyte Museum of the Canadian Rockies\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Central Park\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Banff Upper Hot Springs\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Buffalo Nations Luxton Museum\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Banff Recreation Grounds\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Canada Place Banff\" — opening hours not in the data (labeled, not invented)",
@@ -144,8 +145,7 @@
   },
   "unresolved": [
     "must-see unmet: gondola ride up Sulphur Mountain — no matching candidate exists in the open data for this destination",
-    "must-see unmet: hot springs afternoon — candidate \"Banff Upper Hot Springs\" exists but no feasible slot remained (distance/geometry)",
-    "opening hours: 11 of 14 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
-    "prices: the price layer judged the cap WITHIN on labeled evidence (coverage 10/10 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
+    "opening hours: 12 of 15 scheduled items have no hours in the open data (labeled in the evidence, soft-noted to the traveler)",
+    "prices: the price layer judged the cap WITHIN on labeled evidence (coverage 11/11 priced items; bands and cost models are ESTIMATED ranges, reports only) — VERIFIED prices exist only when the owner library feeds them (interface ready, library empty in shadow)"
   ]
 }

@@ -14,6 +14,7 @@ export default function CustomerDestinationChange({ tripId, currentLabel, status
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [applied, setApplied] = useState("");
   if (!["generated", "locked", "planned"].includes(status)) return null;
 
   async function preview() {
@@ -29,14 +30,21 @@ export default function CustomerDestinationChange({ tripId, currentLabel, status
 
   async function apply() {
     if (!proposal) return;
-    setBusy(true); setMessage("");
+    setBusy(true); setMessage(""); setApplied("");
+    let navigating = false;
     try {
       const response = await fetch(`/api/trips/${tripId}/destination-change/${proposal.id}/apply`, { method: "POST" });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Destination change could not be started.");
-      window.location.href = `/trip/${body.successorTripId}?generating=1`;
+      // Success Rules pass (2026-11-03), census row 28: name the
+      // applied change before the regeneration handoff.
+      navigating = true;
+      const snap = proposal.requested_destination_snapshot;
+      const label = [snap?.city || snap?.value, snap?.country].filter(Boolean).join(", ");
+      setApplied(label ? `Destination changed to ${label}. Creating your new itinerary…` : "Destination changed. Creating your new itinerary…");
+      window.setTimeout(() => { window.location.href = `/trip/${body.successorTripId}?generating=1`; }, 1200);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Destination change could not be started."); }
-    finally { setBusy(false); }
+    finally { if (!navigating) setBusy(false); }
   }
 
   const requested = proposal?.requested_destination_snapshot;
@@ -67,6 +75,7 @@ export default function CustomerDestinationChange({ tripId, currentLabel, status
             </>
           )}
           {message ? <p className="mt-3 text-sm text-amber-800" aria-live="polite">{message}</p> : null}
+          {applied ? <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800" aria-live="polite">{applied}</p> : null}
         </PackageChangeForm>
       )}
     </div>

@@ -63,7 +63,7 @@ export function OfflineTripBanner({ tripId }: { tripId: string }) {
     <div
       data-testid="offline-trip-banner"
       role="status"
-      className="mb-4 rounded-xl bg-amber-100 px-4 py-3 text-[14px] font-semibold leading-6 text-amber-900"
+      className="bui-enter mb-4 flex items-start gap-3 rounded-bui-card border border-corange/40 bg-[#FFF0E6] px-4 py-3 text-[14px] font-semibold leading-6 text-chead shadow-bui-card"
     >
       Offline — last updated {label} · Showing your saved trip. Reconnect for the latest version.
     </div>

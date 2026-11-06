@@ -91,7 +91,7 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
                   onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
                   placeholder="e.g. CA"
                   maxLength={60}
-                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-ink"
+                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink"
                 />
                 <button type="button" disabled={saving === item.id} onClick={() => save(item)} className="min-h-11 rounded-xl bg-ocean px-3 py-2 text-sm font-black text-white disabled:opacity-60">
                   {saving === item.id ? "Saving" : "Save"}

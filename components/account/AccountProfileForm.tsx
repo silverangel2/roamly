@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BuiToast, useBuiToast } from "@/components/boardui/Toast";
 import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
 
 type AccountProfileFormProps = {
@@ -10,13 +11,12 @@ type AccountProfileFormProps = {
 
 export function AccountProfileForm({ initialName, email }: AccountProfileFormProps) {
   const [fullName, setFullName] = useState(initialName);
-  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const { toast, showToast, clearToast } = useBuiToast();
 
   async function saveProfile(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setNotice("");
     setError("");
     setBusy(true);
 
@@ -32,7 +32,11 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
         throw new Error(data?.error || "Profile update failed.");
       }
 
-      setNotice("Profile saved.");
+      // Success Rules pass (2026-11-03), rule 3: a saved profile is
+      // the lowest-stakes success there is — a toast that leaves in
+      // ~4s, not a banner that sits above the buttons forever. The
+      // error below keeps its reserved slot: errors stay until fixed.
+      showToast("Profile saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Profile update failed.");
     } finally {
@@ -55,7 +59,7 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             aria-label="Full name"
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
           />
         </label>
 
@@ -64,8 +68,14 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
           <p className="mt-1 break-words text-sm font-black text-ink">{email}</p>
         </div>
 
-        {notice ? <p className="rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
-        {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+        {/* Form Rules pass (2026-11-03), rule 3: the error slot is
+            always rendered at a reserved height, so an error
+            appearing can no longer push the Save / Log out row down.
+            It carries errors only now — the success toast (below)
+            needs no reserved space because it overlays, not inserts. */}
+        <div aria-live="polite" className="min-h-[3.25rem]">
+          {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+        </div>
 
         <div className="grid gap-3 sm:flex">
           <button
@@ -84,6 +94,9 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
           </button>
         </div>
       </form>
+      {toast ? (
+        <BuiToast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={clearToast} />
+      ) : null}
     </>
   );
 }

@@ -8,7 +8,7 @@
     {
       "leg": "request:rest-block",
       "status": "DONE",
-      "detail": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:28–17:00)"
+      "detail": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:34–17:00)"
     },
     {
       "leg": "request:keyword-ferry",
@@ -43,7 +43,7 @@
     {
       "leg": "prices:budget",
       "status": "DONE",
-      "detail": "WITHIN — evidence covers 13/15 all-in scope lines (87%): 13 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 288–672 vs cap CAD 1200; tiers {\"COSTED\":13}"
+      "detail": "WITHIN — evidence covers 13/15 all-in scope lines (87%): 13 priced plan items + lodging + getting-there; lodging not evidenced; getting-there not evidenced; estimated all-in total CAD 294–690 vs cap CAD 1200; tiers {\"COSTED\":13}"
     },
     {
       "leg": "engine:must-sees",
@@ -97,7 +97,7 @@
     {
       "id": "rest-block",
       "verdict": "KEPT",
-      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:28–17:00)"
+      "evidence": "day 3 carries an explicit rest block (Rest afternoon — nothing booked, 13:34–17:00)"
     },
     {
       "id": "keyword-ferry",
@@ -133,12 +133,12 @@
       "day 1: \"Art Gallery of Nova Scotia\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Halifax Citadel National Historic Site\" — opening hours not in the data (labeled, not invented)",
       "day 1: \"Citadel Hill\" — opening hours not in the data (labeled, not invented)",
-      "day 1: \"Army Museum\" — opening hours not in the data (labeled, not invented)",
+      "day 1: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Metro Transit Ferry Terminal\" — opening hours not in the data (labeled, not invented)",
-      "day 2: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"The Blue Building Gallery\" — opening hours not in the data (labeled, not invented)",
-      "day 3: \"Garrison Grounds\" — opening hours not in the data (labeled, not invented)",
-      "day 4: \"Salt Yard\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Salt Yard\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Halifax Town Clock\" — opening hours not in the data (labeled, not invented)",
+      "day 4: \"Royal Artillery Park\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"Naval Museum of Halifax\" — opening hours not in the data (labeled, not invented)",
       "day 4: \"Fuller Terrace Park\" — opening hours not in the data (labeled, not invented)"
     ]
