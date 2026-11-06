@@ -37,6 +37,7 @@ import {
 } from "@/lib/roamly/generationDiagnostics";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT, localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
+import { applyStagedMustDoVerification } from "@/lib/roamly/stagedMustDoVerification";
 import { buildTravelerPersonalizationContext, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -1575,7 +1576,18 @@ function assembleItinerary(state: StagedGenerationState): RoamlyItinerary {
   };
   const repaired = repairItineraryForTravelRequirements(raw, payload);
   const enriched = enrichItineraryBookingSuggestions(repaired, payload);
-  return localizeGeneratedExactText(enforceSelectedHotelIdentity(enriched, state), payload.language) as RoamlyItinerary;
+  const localized = localizeGeneratedExactText(enforceSelectedHotelIdentity(enriched, state), payload.language) as RoamlyItinerary;
+  // Safeguard 3 (2026-10-31): deterministic must-do verification at
+  // the last structured checkpoint before persistence. Every save
+  // (partial or final) flows through assembleItinerary ->
+  // persistItinerary -> syncGeneratedItinerary, and the repair pass
+  // above rewrites the day words (primary_plan), so the check must
+  // run here, after it: a stated must-do the staged days do not
+  // actually name is surfaced as an honest named gap in day 1's
+  // primary_plan (the staged shape's equivalent of the zero-engine
+  // narrative surface), never silently substituted by a related
+  // place. See lib/roamly/stagedMustDoVerification.ts.
+  return applyStagedMustDoVerification(localized, payload);
 }
 
 async function persistState(params: {
